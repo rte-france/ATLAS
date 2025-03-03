@@ -11,14 +11,16 @@ git clone https://github.com/rte-france/ATLAS.git
 ### Create virtual environment and library dependency
 
 1. Install [uv](https://docs.astral.sh/uv/#installation):
-```bash
-for windows, using powershell:
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
+for windows, using powershell:
+```bash
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
 for mac/linux:
+```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-    Restart your shell after uv installation. You should be able to get the uv version with ```uv --version```
+Restart your shell after uv installation. You should be able to get the uv version with ```uv --version```
 2. Install python 3.10
 ```bash
 uv python install 3.10
