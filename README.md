@@ -21,6 +21,7 @@ for mac/linux:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 Restart your shell after uv installation. You should be able to get the uv version with ```uv --version```
+
 2. Install python 3.10
 ```bash
 uv python install 3.10
@@ -28,4 +29,8 @@ uv python install 3.10
 3. Create virtual environment, and activate it as described in your terminal:
 ```bash
 uv venv
+```
+4. Installer les données de timezone
+```
+uv pip install tzdata
 ```
