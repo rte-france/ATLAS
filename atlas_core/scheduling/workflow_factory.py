@@ -1,6 +1,7 @@
 import importlib
 import logging
 from pathlib import Path
+import yaml
 
 from src.market_clearing.parameters import *
 
@@ -10,7 +11,7 @@ from atlas_core.scheduling.workflow_step import WorkflowStep
 
 class WorkflowFactory:
 
-    def create_workflow(self, parameter_file: str):
+    def create_workflow(self, parameter_file: Path):
         '''
         Create a workflow object from a yml parameter file
         '''
