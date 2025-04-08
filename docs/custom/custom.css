@@ -1,0 +1,27 @@
+/* Primary color - RTE blue */
+:root {
+    --md-primary-fg-color:        #0072c6;
+    --md-primary-fg-color--light: #3399ff;
+    --md-primary-fg-color--dark:  #003f6a;
+  
+    /* Accent color - RTE green */
+    --md-accent-fg-color:         #78be20;
+  
+    /* Optional: Additional brand accents */
+    --rte-dark-blue: #003f6a;
+    --rte-gray:      #f2f2f2;
+  }
+  
+  /* Optional tweaks */
+  .md-header, .md-footer {
+    background-color: var(--md-primary-fg-color);
+  }
+  
+  a {
+    color: var(--md-primary-fg-color);
+  }
+  
+  a:hover {
+    color: var(--md-primary-fg-color--dark);
+  }
+  
