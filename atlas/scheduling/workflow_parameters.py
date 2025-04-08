@@ -37,8 +37,11 @@ class WorkflowParameters:
         self.files_path = ParameterUtils.parse_string(data["workflow_parameters"], "files_path")
         self.data_model_path = ParameterUtils.parse_string(data["workflow_parameters"], "data_model_path")
         self.parameters_market_clearing = Parameters(
-            Path(ParameterUtils.parse_string(data["modules_parameters"], "parameters_market_clearing")))
+            Path(ParameterUtils.parse_string(data["modules_parameters"], "parameters_market_clearing"))
+        )
         self.parameters_post_clearing = PostBalancingMarketParameters(
-            Path(ParameterUtils.parse_string(data["modules_parameters"], "parameters_post_clearing")))
+            Path(ParameterUtils.parse_string(data["modules_parameters"], "parameters_post_clearing"))
+        )
         self.parameters_export = MCExportParameters(
-            Path(ParameterUtils.parse_string(data["modules_parameters"], "parameters_export")))
+            Path(ParameterUtils.parse_string(data["modules_parameters"], "parameters_export"))
+        )

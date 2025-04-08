@@ -132,7 +132,7 @@ class ForecastingMatrix:
         # FIXME : Quick fix
         if self.forecasting_dates:
             index = self.forecasting_dates.index(ref_date)
-            indexes_to_check = self.forecasting_dates[:index+1]
+            indexes_to_check = self.forecasting_dates[: index + 1]
             for i in range(1, len(indexes_to_check) + 1):
                 date = indexes_to_check[-i]
                 res_timeserie = res_timeserie.merge(self.forecasts[date].slice(from_date, to_date))
@@ -152,7 +152,7 @@ class ForecastingMatrix:
         """
 
         res_timeserie = TimeSeries("unknown", CONSTANT, "", [], [])
-        #self.forecasting_dates is sorted, so we iterate dates by order
+        # self.forecasting_dates is sorted, so we iterate dates by order
         for date in self.forecasting_dates:
             if ref_date > date:
                 continue

@@ -11,7 +11,6 @@ from atlas_core.scheduling.workflow_step import WorkflowStep
 
 
 class Workflow:
-
     def __init__(self, name: str, data_model_path: str, input_marker_path: str, steps: list[WorkflowStep] = None):
         self.name = name
         self.data_model_path = data_model_path

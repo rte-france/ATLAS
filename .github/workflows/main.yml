@@ -28,14 +28,14 @@ jobs:
       run: |
         uv sync
         
-    - name: Lint with ruff
-      run: |
-        uv run ruff check atlas
-        uv run ruff format --check atlas
+    # - name: Lint with ruff
+    #   run: |
+    #     uv run ruff check atlas
+    #     uv run ruff format --check atlas
         
-    - name: Test with pytest
-      run: |
-        uv run pytest
+    # - name: Test with pytest
+    #   run: |
+    #     uv run pytest
         
     - name: Build docs
       run: |

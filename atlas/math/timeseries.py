@@ -136,7 +136,6 @@ class TimeSeries:
 
         return result
 
-
     def __eq__(self, other_timeserie):
         """
         Test whether two TimeSeries objects are equals.
