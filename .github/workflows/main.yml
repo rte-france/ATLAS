@@ -39,7 +39,7 @@ jobs:
         
     - name: Build docs
       run: |
-        mkdocs build
+        uv run mkdocs build
         
     - name: Deploy docs
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
