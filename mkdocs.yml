@@ -1,0 +1,91 @@
+site_name: Atlas
+site_description: Altas documentation website 
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - content.code.copy  
+    - toc.integrate
+    - navigation.tracking
+    - navigation.top
+    - navigation.footer
+
+  palette:
+    - scheme: default
+      primary: blue
+      accent: green
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: green
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+repo_url: https://github.com/rte-france/ATLAS
+repo_name: rte-france/atlas
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            heading_level: 2
+            show_signature_annotations: true
+            docstring_style: sphinx
+            show_source: true
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+      use_pygments: true
+      linenums: true
+      pygments_style: monokai
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_javascript:
+  - custom/katex.js
+  - https://unpkg.com/katex@0/dist/katex.min.js
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
+
+extra_css:
+  - https://unpkg.com/katex@0/dist/katex.min.css
+  - https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown.min.css
+  - custom/custom.css
+
+nav:
+  - Home: index.md
+  - Start with Atlas: 
+    - Getting Started: getting_started.md
+  - Concepts:
+    - Overview: concepts/overview.md
+  - Python Package Documentation:
+    - Atlas: api/example.md
+
+extra:  
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/rte-france/ATLAS
+      name: "Github"
+  generator: true
+
+
+copyright: Copyright &copy; 2024 - Rte
