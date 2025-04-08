@@ -7,8 +7,9 @@ on:
     branches: [ '**' ]
 
 jobs:
-  setup:
+  build:
     runs-on: ubuntu-latest
+    
     steps:
     - uses: actions/checkout@v3
       with:
@@ -27,80 +28,21 @@ jobs:
       run: |
         uv sync
         
-    - name: Upload virtual environment
-      uses: actions/upload-artifact@v3
-      with:
-        name: venv
-        path: |
-          .venv/
-          ~/.cache/uv/
-
-  lint:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        
-    - name: Download virtual environment
-      uses: actions/download-artifact@v3
-      with:
-        name: .venv
-        path: .
-        
     - name: Lint with ruff
       run: |
         uv run ruff check atlas
         uv run ruff format --check atlas
-
-  test:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        
-    - name: Download virtual environment
-      uses: actions/download-artifact@v3
-      with:
-        name: .venv
-        path: .
         
     - name: Test with pytest
       run: |
         uv run pytest
-
-  docs:
-    needs: [lint, test]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        
-    - name: Download virtual environment
-      uses: actions/download-artifact@v3
-      with:
-        name: .venv
-        path: .
         
     - name: Build docs
       run: |
         uv run mkdocs build
         
     - name: Deploy docs
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       uses: JamesIves/github-pages-deploy-action@v4
       with:
         branch: gh-pages
