@@ -1,5 +1,4 @@
-"""
-Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
@@ -22,8 +21,7 @@ class UnloadedTimeSeries:
         self.attribute = attribute
 
     def __eq__(self, other_timeserie):
-        """
-        Test whether two UnloadedTimeSeries objects are equals.
+        """Test whether two UnloadedTimeSeries objects are equals.
         Objects are considered equal if they store the same values in their 'attribute' attribute.
 
         :param other_timeserie: TimesSeries. The other timeserie to compare to.
@@ -32,8 +30,7 @@ class UnloadedTimeSeries:
         return self.attribute == other_timeserie.attribute
 
     def create_timeseries(self, data_manager):
-        """
-        Create a Timeseries by converting value given in this object
+        """Create a Timeseries by converting value given in this object
 
         :param data_manager: DataManager.
         :return: Timeseries. Newly created Timeseries
@@ -49,19 +46,19 @@ class UnloadedTimeSeries:
             # Maybe don't create it yet
             ts_date = ts[:, 0].astype("datetime64[ns]")
         return TimeSeries(
-            self.attribute["Name"], self.attribute["Interpolation"], self.attribute["Unit"], ts_date, ts_value
+            self.attribute["Name"],
+            self.attribute["Interpolation"],
+            self.attribute["Unit"],
+            ts_date,
+            ts_value,
         )
 
 
 class TimeSeries:
-    """
-    A TimeSeries stores a list of numerical numbers associated with a date.
-    """
+    """A TimeSeries stores a list of numerical numbers associated with a date."""
 
     def __init__(self, name, interpolation, unit, datetimes, values):
-        """
-
-        :param name: str. Name of the timeseries
+        """:param name: str. Name of the timeseries
         :param interpolation: TimeSeriesInterpolation. Interpolation method to use when
         trying to get the value of a missing datetime in the timeseries
         :param unit: str. Unit of the values
@@ -72,7 +69,9 @@ class TimeSeries:
         if isinstance(values, (int, float)):
             values = np.full(len(datetimes), values)
         if len(datetimes) != len(values):
-            raise ValueError("datetimes and values parameters must contain the same number of elements")
+            raise ValueError(
+                "datetimes and values parameters must contain the same number of elements"
+            )
 
         self.name = name
         self.interpolation = interpolation
@@ -85,8 +84,7 @@ class TimeSeries:
 
     @classmethod
     def from_pd_series(cls, name, interpolation, unit, pd_series):
-        """
-        Creates a TimeSeries object from a pd.Series object
+        """Creates a TimeSeries object from a pd.Series object
         :param name: str. Name of the timeseries.
         :param interpolation: TimeSeriesInterpolation. Interpolation method to use when trying to get the value of a
         missing datetime in the timeseries.
@@ -97,9 +95,18 @@ class TimeSeries:
         return cls(name, interpolation, unit, pd_series.index, pd_series.values.squeeze())
 
     @classmethod
-    def series_range(cls, name, interpolation, unit, start_date=None, end_date=None, freq=None, length=None, value=0):
-        """
-        Method that creates a new TimeSeries given a start date, a frequency, a length and a value to fill.
+    def series_range(
+        cls,
+        name,
+        interpolation,
+        unit,
+        start_date=None,
+        end_date=None,
+        freq=None,
+        length=None,
+        value=0,
+    ):
+        """Method that creates a new TimeSeries given a start date, a frequency, a length and a value to fill.
         :param name: str. Name of the timeseries.
         :param interpolation: TimeSeriesInterpolation. Interpolation method to use when trying to get the value of a
         missing datetime in the timeseries.
@@ -116,9 +123,10 @@ class TimeSeries:
         return cls(name, interpolation, unit, datetimes, values)
 
     @classmethod
-    def new_index(cls, start_date: datetime, end_date: datetime, interval: datetime.timedelta) -> list[datetime]:
-        """
-        Generate a list of datetime between `start` and `end` depending on the given interval.
+    def new_index(
+        cls, start_date: datetime, end_date: datetime, interval: datetime.timedelta
+    ) -> list[datetime]:
+        """Generate a list of datetime between `start` and `end` depending on the given interval.
 
         :param start_date: first datetime
         :param end_date: last datetime
@@ -137,8 +145,7 @@ class TimeSeries:
         return result
 
     def __eq__(self, other_timeserie):
-        """
-        Test whether two TimeSeries objects are equals.
+        """Test whether two TimeSeries objects are equals.
         Objects are considered equal if they store the same name, interpolation, unit and date/values.
 
         :param other_timeserie: TimesSeries. The other timeserie to compare to.
@@ -158,8 +165,7 @@ class TimeSeries:
         return True
 
     def get_value(self, index, interpol=None):
-        """
-        Returns a value or list of values for the given index(es) using the interpolation method. If interpol is not
+        """Returns a value or list of values for the given index(es) using the interpolation method. If interpol is not
         given, the TimeSeries interpolation attribute is used
 
         :param index: Datetime or list of datetime. Datetime(s) to get value(s) from the timeseries
@@ -183,7 +189,9 @@ class TimeSeries:
         new_series = self.series.add(pd.Series(np.nan, index), fill_value=0)
 
         if interpol is LINEAR:
-            res_values = new_series.interpolate(method="polynomial", order=1, limit_area="inside")[index].values
+            res_values = new_series.interpolate(method="polynomial", order=1, limit_area="inside")[
+                index
+            ].values
         elif interpol is LINEAR_AVERAGE:
             res_values = (
                 new_series.ffill(limit_area="inside")[index].values
@@ -192,7 +200,9 @@ class TimeSeries:
         elif interpol is CONSTANT:
             res_values = new_series.ffill(limit_area="inside")[index].values
         else:
-            raise ValueError(f"interpol parameters must be {LINEAR}, {LINEAR_AVERAGE} or {CONSTANT}")
+            raise ValueError(
+                f"interpol parameters must be {LINEAR}, {LINEAR_AVERAGE} or {CONSTANT}"
+            )
 
         # Replace nan by 0
         res_values[np.isnan(res_values)] = 0
@@ -205,8 +215,7 @@ class TimeSeries:
         self.series.at[index] = value
 
     def __getitem__(self, index):
-        """
-        Returns a value or list of values for the given index(es) using the TimeSeries interpolation method
+        """Returns a value or list of values for the given index(es) using the TimeSeries interpolation method
 
         :param index: Datetime or list of datetime. Datetime(s) to get value(s) from the timeseries
         value is the object interpolation attribute
@@ -215,8 +224,7 @@ class TimeSeries:
         return self.get_value(index)
 
     def slice(self, start_date, end_date):
-        """
-        Returns a TimeSeries extracted between the two date given as parameter
+        """Returns a TimeSeries extracted between the two date given as parameter
 
         :param start_date: datetime. Beginning of slice interval
         :param end_date: datetime. End of slice
@@ -231,8 +239,7 @@ class TimeSeries:
         return len(self.series)
 
     def merge(self, timeserie, name=None):
-        """
-        Merge two timeseries together to create a new one. If they have indexes in
+        """Merge two timeseries together to create a new one. If they have indexes in
         common, values of the second timeserie will be kept. The interpolation type of the
         second timeserie will be also kept.
 
@@ -248,8 +255,7 @@ class TimeSeries:
         return res_timeserie
 
     def extract(self, name, times, interpolation=None):
-        """
-        Returns a TimeSeries extracted using the given list of dates and the interpolation method of the TimeSeries
+        """Returns a TimeSeries extracted using the given list of dates and the interpolation method of the TimeSeries
 
         :param name: str. Name of the extracted TimeSeries
         :param times: list of datetime. Datetime(s) to get value(s) from the input TimesSeries
@@ -264,8 +270,7 @@ class TimeSeries:
         return TimeSeries(name, interpolation, self.unit, times, values)
 
     def __add__(self, other):
-        """
-        Returns the sum between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
+        """Returns the sum between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
         values are added and their values are interpolated to have a 1-1 match on indexes, if a number, each value of
         the TimeSeries is increase by this value.
 
@@ -276,18 +281,16 @@ class TimeSeries:
         if isinstance(other, (int, float)):
             timeserie.series += other
             return timeserie
-        else:
-            indexes = self.series.index.union(other.series.index)
-            # Use interpolation to get value for each indexes
-            values = timeserie[indexes] + other[indexes]
-            name = f"{self.name} + {other.name}"
-            unit = self.unit
-            interpolation = self.interpolation
-            return TimeSeries(name, interpolation, unit, indexes, values)
+        indexes = self.series.index.union(other.series.index)
+        # Use interpolation to get value for each indexes
+        values = timeserie[indexes] + other[indexes]
+        name = f"{self.name} + {other.name}"
+        unit = self.unit
+        interpolation = self.interpolation
+        return TimeSeries(name, interpolation, unit, indexes, values)
 
     def __mul__(self, other):
-        """
-        Returns the multiplication between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
+        """Returns the multiplication between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
         values are multiplied and their values are interpolated to have a 1-1 match on indexes, if a number, each value
         of the TimeSeries is multiplied by this value.
 
@@ -298,18 +301,16 @@ class TimeSeries:
         if isinstance(other, (int, float)):
             timeserie.series *= other
             return timeserie
-        else:
-            indexes = self.series.index.union(other.series.index)
-            # Use interpolation to get value for each indexes
-            values = timeserie[indexes] * other[indexes]
-            name = f"{self.name} * {other.name}"
-            unit = self.unit
-            interpolation = self.interpolation
-            return TimeSeries(name, interpolation, unit, indexes, values)
+        indexes = self.series.index.union(other.series.index)
+        # Use interpolation to get value for each indexes
+        values = timeserie[indexes] * other[indexes]
+        name = f"{self.name} * {other.name}"
+        unit = self.unit
+        interpolation = self.interpolation
+        return TimeSeries(name, interpolation, unit, indexes, values)
 
     def __sub__(self, other):
-        """
-        Returns the subtraction between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
+        """Returns the subtraction between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
         values are substracted and their values are interpolated to have a 1-1 match on indexes, if a number, each value
         of the TimeSeries is reduced by this value.
 
@@ -320,14 +321,13 @@ class TimeSeries:
         if isinstance(other, (int, float)):
             timeserie.series += other
             return timeserie
-        else:
-            indexes = self.series.index.union(other.series.index)
-            # Use interpolation to get value for each indexes
-            values = timeserie[indexes] - other[indexes]
-            name = f"{self.name} - {other.name}"
-            unit = self.unit
-            interpolation = self.interpolation
-            return TimeSeries(name, interpolation, unit, indexes, values)
+        indexes = self.series.index.union(other.series.index)
+        # Use interpolation to get value for each indexes
+        values = timeserie[indexes] - other[indexes]
+        name = f"{self.name} - {other.name}"
+        unit = self.unit
+        interpolation = self.interpolation
+        return TimeSeries(name, interpolation, unit, indexes, values)
 
     # Define right operations to make work operations float + TimeSeries, float - TimeSeries, float * TimeSeries.
     __rmul__ = __mul__
@@ -336,8 +336,7 @@ class TimeSeries:
 
     @staticmethod
     def safe_extract(time_series, name, times):
-        """
-        This function makes sure the time_series parameter is not None before extracting it. If so, a None value is
+        """This function makes sure the time_series parameter is not None before extracting it. If so, a None value is
         returned, else the TimeSeries is extracted normally.
 
         :param time_series: TimeSeries. The TimeSeries to safely extract
@@ -345,17 +344,14 @@ class TimeSeries:
         :param times: list of datetime. Datetime(s) to get value(s) from the input TimesSeries
         :return: TimeSeries
         """
-
         if time_series is not None and len(time_series) != 0:
             return time_series.extract(name, times)
-        else:
-            return None
+        return None
 
     # Helper for extracting TimeSeries with default values in case of failure:
     @staticmethod
     def safe_extract_with_default(time_series, name, times, default_value):
-        """
-        This function makes sure the time_series parameter is not None before extracting it. If so, a constant
+        """This function makes sure the time_series parameter is not None before extracting it. If so, a constant
         TimeSeries is generated and returned instead, based on the set of simulation times as index and filled with the
         provided default_value.
 
@@ -365,9 +361,7 @@ class TimeSeries:
         :param default_value: float. Value to fill the returned TimeSeries with if input time_series parameter is None
         :return: TimeSeries
         """
-
         if time_series is not None and len(time_series) != 0:
             return time_series.extract(name, times)
-        else:
-            logging.warning(f"Taking default value {default_value} for {name}")
-            return TimeSeries(name, CONSTANT, "MW", times, np.full(len(times), default_value))
+        logging.warning(f"Taking default value {default_value} for {name}")
+        return TimeSeries(name, CONSTANT, "MW", times, np.full(len(times), default_value))

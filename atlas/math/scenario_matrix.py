@@ -1,5 +1,4 @@
-"""
-Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
@@ -7,22 +6,20 @@ This file is part of the ATLAS project.
 
 import numpy as np
 
+from .timeseries import TimeSeries
+
 """
 Module that implements ScenarioMatrix
 """
 
-from .timeseries import TimeSeries
-
 
 class ScenarioMatrix:
-    """
-    A class that stores TimeSeries by scenario names and allows to access and delete
-    them by their name
+    """A class that stores TimeSeries by scenario names and allows to access and delete
+    them by their name.
     """
 
     def __init__(self, name, indexes=None, timeseries=None):
-        """
-        Create a ScenarioMatrix from a list of timeseries
+        """Create a ScenarioMatrix from a list of timeseries
 
         :param name: str. Name of the matrix
         :param indexes: list of str. Name of each scenario of the matrix
@@ -34,18 +31,19 @@ class ScenarioMatrix:
             timeseries = []
 
         if len(indexes) != len(timeseries):
-            raise ValueError("names and timeseries parameters must contain the same number of elements")
+            raise ValueError(
+                "names and timeseries parameters must contain the same number of elements",
+            )
 
         self.name = name
         self.indexes = indexes
-        self.scenarios = dict(zip(indexes, timeseries))
+        self.scenarios = dict(zip(indexes, timeseries, strict=False))
 
     def __len__(self):
         return len(self.scenarios)
 
     def __eq__(self, other_matrix):
-        """
-        Test whether two ScenarioMatrix objects are equal.
+        """Test whether two ScenarioMatrix objects are equal.
         Objects are considered equal if they store the same name, scenarios names/timeseries.
 
         :param other_matrix: ScenarioMatrix. The other forecasting matrix to compare to.
@@ -63,8 +61,7 @@ class ScenarioMatrix:
         return True
 
     def add_timeseries(self, index, timeserie):
-        """
-        Add a timeserie at the given index in the matrix
+        """Add a timeserie at the given index in the matrix
 
         :param index: str or int. The index to set the timeseries in the matrix
         :param timeserie: TimeSeries. The timeserie to add in the matrix
@@ -80,8 +77,7 @@ class ScenarioMatrix:
         self.scenarios[index] = timeserie
 
     def delete_timeseries(self, index):
-        """
-        Delete timeserie at the given index in the matrix
+        """Delete timeserie at the given index in the matrix
 
         :param index: str. The index of the timeserie to delete in the matrix
         :return:
@@ -97,8 +93,7 @@ class ScenarioMatrix:
             del self.indexes[ind]
 
     def get_timeseries(self, index):
-        """
-        Returns the Timeseries for the given index
+        """Returns the Timeseries for the given index
 
         :param index: str or int. The index of the timeseries to get in the matrix
         :return: Timeseries
