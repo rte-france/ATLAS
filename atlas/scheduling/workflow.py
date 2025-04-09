@@ -1,13 +1,11 @@
-"""
-Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from src.api_marker import DynamicMarker
-
 from atlas_core.scheduling.workflow_step import WorkflowStep
+from src.api_marker import DynamicMarker
 
 
 class Workflow:

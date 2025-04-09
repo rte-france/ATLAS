@@ -70,7 +70,7 @@ class TimeSeries:
             values = np.full(len(datetimes), values)
         if len(datetimes) != len(values):
             raise ValueError(
-                "datetimes and values parameters must contain the same number of elements"
+                "datetimes and values parameters must contain the same number of elements",
             )
 
         self.name = name
@@ -124,7 +124,10 @@ class TimeSeries:
 
     @classmethod
     def new_index(
-        cls, start_date: datetime, end_date: datetime, interval: datetime.timedelta
+        cls,
+        start_date: datetime,
+        end_date: datetime,
+        interval: datetime.timedelta,
     ) -> list[datetime]:
         """Generate a list of datetime between `start` and `end` depending on the given interval.
 
@@ -189,9 +192,7 @@ class TimeSeries:
         new_series = self.series.add(pd.Series(np.nan, index), fill_value=0)
 
         if interpol is LINEAR:
-            res_values = new_series.interpolate(method="polynomial", order=1, limit_area="inside")[
-                index
-            ].values
+            res_values = new_series.interpolate(method="polynomial", order=1, limit_area="inside")[index].values
         elif interpol is LINEAR_AVERAGE:
             res_values = (
                 new_series.ffill(limit_area="inside")[index].values
@@ -201,7 +202,7 @@ class TimeSeries:
             res_values = new_series.ffill(limit_area="inside")[index].values
         else:
             raise ValueError(
-                f"interpol parameters must be {LINEAR}, {LINEAR_AVERAGE} or {CONSTANT}"
+                f"interpol parameters must be {LINEAR}, {LINEAR_AVERAGE} or {CONSTANT}",
             )
 
         # Replace nan by 0
