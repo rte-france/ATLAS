@@ -10,6 +10,7 @@ dependencies = [
     "mkdocstrings>=0.29.1",
     "mkdocstrings-python>=1.16.10",
     "numpy>=2.0.1",
+    "ortools>=9.12.4544",
     "pandas>=2.2.2",
     "pytest>=8.3.5",
     "pyyaml>=6.0.1",
