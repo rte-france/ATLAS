@@ -128,7 +128,6 @@ dependencies = [
     { name = "pandas" },
     { name = "pydantic" },
     { name = "pyyaml" },
-    { name = "ruff" },
     { name = "typer" },
 ]
 
@@ -139,6 +138,7 @@ dev = [
     { name = "jupyter" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "ruff" },
 ]
 docs = [
     { name = "mkdocs-material" },
@@ -155,7 +155,6 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2.2" },
     { name = "pydantic", specifier = ">=2.11.3" },
     { name = "pyyaml", specifier = ">=6.0.1" },
-    { name = "ruff", specifier = ">=0.9.7" },
     { name = "typer", specifier = ">=0.15.2" },
 ]
 
@@ -165,6 +164,7 @@ dev = [
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-cov", specifier = ">=6.1.1" },
+    { name = "ruff", specifier = ">=0.9.7" },
 ]
 docs = [
     { name = "mkdocs-material", specifier = ">=9.6.11" },
