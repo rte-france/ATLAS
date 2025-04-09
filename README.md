@@ -16,6 +16,14 @@ Then, install [**uv**](https://docs.astral.sh/uv/#installation) and set up your 
 uv sync
 ```
 
+## Changelog
+
+What's new in Atlas ? [See](/docs/changelog.md) changelog !
+
+## Contributing
+
+[See](/docs/contributing.md) how to contribute to the project !
+
 ## Contacts
 
-[See](/AUTHORS.md) authors !
+[See](/docs/authors.md) authors !
