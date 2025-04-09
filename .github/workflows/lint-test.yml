@@ -1,0 +1,42 @@
+name: Lint and Test
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint with ruff
+        run: |
+          uv run ruff check atlas
+          uv run ruff format --check atlas
+
+      - name: Test with pytest and coverage
+        run: uv run pytest --cov=atlas --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}  # not required for public repos
+          files: coverage.xml
+          fail_ci_if_error: true

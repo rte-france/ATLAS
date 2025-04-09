@@ -1,3 +1,3 @@
 # API Reference
 
-<!-- :::atlas.serialisation.InputFetcher -->
+::: atlas.scheduling.executable_module.ExecutableModule

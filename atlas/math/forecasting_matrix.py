@@ -129,10 +129,7 @@ class ForecastingMatrix:
             for i in range(1, len(indexes_to_check) + 1):
                 date = indexes_to_check[-i]
                 res_timeserie = res_timeserie.merge(self.forecasts[date].slice(from_date, to_date))
-                if (
-                    from_date in res_timeserie.series.index
-                    and to_date in res_timeserie.series.index
-                ):
+                if from_date in res_timeserie.series.index and to_date in res_timeserie.series.index:
                     return res_timeserie
         return res_timeserie
 

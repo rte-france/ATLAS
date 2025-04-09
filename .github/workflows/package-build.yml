@@ -1,4 +1,4 @@
-name: Lint and Test
+name: Package Build Check
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: ['**']
 
 jobs:
-  lint-and-test:
+  build-package:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,13 +23,5 @@ jobs:
       - name: Install uv
         run: pip install uv
 
-      - name: Install dependencies
-        run: uv sync
-
-      - name: Lint with ruff
-        run: |
-          uv run ruff check atlas
-          uv run ruff format --check atlas
-
-      - name: Test with pytest
-        run: uv run pytest
+      - name: Check that the package builds
+        run: uv build
