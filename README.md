@@ -1,4 +1,7 @@
-# Atlas
+# Atlas :zap:
+
+[![CI](https://github.com/rte-france/ATLAS/actions/workflows/your-workflow-file.yml/badge.svg)](https://github.com/rte-france/ATLAS/actions)
+[![codecov](https://codecov.io/gh/rte-france/ATLAS/branch/main/graph/badge.svg)](https://codecov.io/gh/rte-france/ATLAS)
 
 **Atlas** is a tool provided by **Rte** and developped by **Artelys** to simulate power market such as day-ahead, intraday, reserves market.
 
@@ -16,14 +19,14 @@ Then, install [**uv**](https://docs.astral.sh/uv/#installation) and set up your 
 uv sync
 ```
 
-## Changelog
+## Changelog :clipboard:
 
 What's new in Atlas ? [See](/docs/changelog.md) changelog !
 
-## Contributing
+## Contributing :hammer:
 
 [See](/docs/contributing.md) how to contribute to the project !
 
-## Contacts
+## Contacts :telephone_receiver:
 
 [See](/docs/authors.md) authors !
