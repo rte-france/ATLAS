@@ -1,6 +1,6 @@
 # Atlas
 
-**Atlas** is a tool provided by **Rte** and developped by **Artelys** to simulate power market such as spot market, intraday, reserves.
+**Atlas** is a tool provided by **Rte** and developped by **Artelys** to simulate power market such as day-ahead, intraday, reserves.
 
 ## Quick start :rocket:
 

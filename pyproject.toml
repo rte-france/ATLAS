@@ -1,7 +1,7 @@
 [project]
 name = "atlas"
 version = "0.1.0"
-description = ""
+description = "A tool for simulating power market such as day-ahead, intraday, and reserves markets."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
