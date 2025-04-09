@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/rte-france/ATLAS/actions/workflows/lint-test.yml/badge.svg)](https://github.com/rte-france/ATLAS/actions)
 [![codecov](https://codecov.io/gh/rte-france/ATLAS/branch/main/graph/badge.svg)](https://codecov.io/gh/rte-france/ATLAS)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+[![License](https://img.shields.io/github/license/rte-france/ATLAS)](LICENSE)
 
 **Atlas** is a tool provided by **Rte** and developped by **Artelys** to simulate power market such as day-ahead, intraday, reserves market.
 
