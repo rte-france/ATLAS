@@ -4,5 +4,5 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class OtherNonDispatchable(Equipment):
-    maximum_power_forecast: Any # ForecastMatrix
-    da_sell_submitted_volume: Any # Timeseries
+    maximum_power_forecast: Any = None  # ForecastMatrix
+    da_sell_submitted_volume: Any = None  # Timeseries

@@ -1,16 +1,18 @@
 from typing import Any
 
+from pydantic import BaseModel
 
-class CriticalBranch:
-    downhill_node: str # Class Business model Node
-    uphill_node: str # Class Business model Node
-    market_area_ptdf: str # Class Business model MarketAreaPtdf
-    node_ptdf: str # Class Business model NodePtdf
-    id_flow: Any # ForecastMatrix
-    id_shadow_price: Any # ForecastMatrix
-    da_flow: Any # Timeseries
-    da_shadow_price: Any # Timeseries
-    flow_reliability_margin: Any # Timeseries
-    maximum_flow: Any # Timeseries
-    reference_flow: Any # Timeseries
-    total_id_flow: Any # Timeseries
+
+class CriticalBranch(BaseModel):
+    downhill_node: str = None  # Class Business model Node
+    uphill_node: str = None  # Class Business model Node
+    market_area_ptdf: str = None  # Class Business model MarketAreaPtdf
+    node_ptdf: str = None  # Class Business model NodePtdf
+    id_flow: Any = None  # ForecastMatrix
+    id_shadow_price: Any = None  # ForecastMatrix
+    da_flow: Any = None  # Timeseries
+    da_shadow_price: Any = None  # Timeseries
+    flow_reliability_margin: Any = None  # Timeseries
+    maximum_flow: Any = None  # Timeseries
+    reference_flow: Any = None  # Timeseries
+    total_id_flow: Any = None  # Timeseries

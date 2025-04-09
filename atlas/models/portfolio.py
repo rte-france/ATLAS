@@ -1,24 +1,24 @@
 from typing import Any
 
-from atlas.models.equipment.equipment import Equipment
+from pydantic import BaseModel
 
 
-class Portfolio(Equipment):
-    control_block: str # Class Business model ControlBlock
-    market_area: str # Class Business model MarketArea
-    id_cleared_quantity: Any # ForecastMatrix
-    imbalance: Any # ForecastMatrix
-    power: Any # ForecastMatrix
-    afrr_activated: Any # Timeseries
-    afrr_down_procured: Any # Timeseries
-    afrr_up_procured: Any # Timeseries
-    da_cleared_quantity: Any # Timeseries
-    fcr_activated: Any # Timeseries
-    imbalance_settlement_costs: Any # Timeseries
-    mfrr_activated: Any # Timeseries
-    mfrr_down_procured: Any # Timeseries
-    mfrr_up_procured: Any # Timeseries
-    rr_activated: Any # Timeseries
-    rr_down_procured: Any # Timeseries
-    rr_up_procured: Any # Timeseries
-    total_id_cleared_quantity: Any # Timeseries
+class Portfolio(BaseModel):
+    control_block: str = None  # Class Business model ControlBlock
+    market_area: str = None  # Class Business model MarketArea
+    id_cleared_quantity: Any = None  # ForecastMatrix
+    imbalance: Any = None  # ForecastMatrix
+    power: Any = None  # ForecastMatrix
+    afrr_activated: Any = None  # Timeseries
+    afrr_down_procured: Any = None  # Timeseries
+    afrr_up_procured: Any = None  # Timeseries
+    da_cleared_quantity: Any = None  # Timeseries
+    fcr_activated: Any = None  # Timeseries
+    imbalance_settlement_costs: Any = None  # Timeseries
+    mfrr_activated: Any = None  # Timeseries
+    mfrr_down_procured: Any = None  # Timeseries
+    mfrr_up_procured: Any = None  # Timeseries
+    rr_activated: Any = None  # Timeseries
+    rr_down_procured: Any = None  # Timeseries
+    rr_up_procured: Any = None  # Timeseries
+    total_id_cleared_quantity: Any = None  # Timeseries
