@@ -72,9 +72,11 @@ extra_css:
   - custom/custom.css
 
 nav:
-  - Home: index.md
-  - Start with Atlas: 
+  - Home: 
+    - Welcome to Atlas: index.md
     - Getting Started: getting_started.md
+    - Contributing: contributing.md
+    - Changelog: changelog.md
   - Concepts:
     - Overview: concepts/overview.md
   - Python Package Documentation:
