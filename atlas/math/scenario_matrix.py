@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 import numpy as np
 
-from .timeseries import TimeSeries
+from .timeseries import Timeseries
 
 """
 Module that implements ScenarioMatrix
@@ -14,7 +14,7 @@ Module that implements ScenarioMatrix
 
 
 class ScenarioMatrix:
-    """A class that stores TimeSeries by scenario names and allows to access and delete
+    """A class that stores Timeseries by scenario names and allows to access and delete
     them by their name.
     """
 
@@ -23,7 +23,7 @@ class ScenarioMatrix:
 
         :param name: str. Name of the matrix
         :param indexes: list of str. Name of each scenario of the matrix
-        :param timeseries: list of TimeSeries. TimeSeries of each scenario of the matrix
+        :param timeseries: list of Timeseries. Timeseries of each scenario of the matrix
         """
         if indexes is None:
             indexes = []
@@ -64,14 +64,14 @@ class ScenarioMatrix:
         """Add a timeserie at the given index in the matrix
 
         :param index: str or int. The index to set the timeseries in the matrix
-        :param timeserie: TimeSeries. The timeserie to add in the matrix
-        :return: TimeSeries
+        :param timeserie: Timeseries. The timeserie to add in the matrix
+        :return: Timeseries
         """
         if not isinstance(index, (str, np.integer)):
             raise TypeError(f"Expected index type str or int, got {type(index)}")
 
-        if not isinstance(timeserie, TimeSeries):
-            raise TypeError(f"Expected timeserie type TimeSeries, got {type(index)}")
+        if not isinstance(timeserie, Timeseries):
+            raise TypeError(f"Expected timeserie type Timeseries, got {type(index)}")
 
         self.indexes.append(index)
         self.scenarios[index] = timeserie

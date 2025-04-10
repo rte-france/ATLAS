@@ -1,12 +1,18 @@
-from typing import Any
+from pydantic import Field
 
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
 
 class Wind(Equipment):
-    installed_capacity: float = None
-    curtailment_power: Any = None  # ForecastMatrix
-    maximum_power_forecast: Any = None  # ForecastMatrix
-    curtailment_cost: Any = None  # Timeseries
-    da_sell_submitted_volume: Any = None  # Timeseries
-    maximum_curtailment_ratio: Any = None  # Timeseries
+    installed_capacity: float | None = Field(
+        None,
+        gt=0,
+        description="Installed capacity (must be positive)",
+    )
+    curtailment_power: ForecastingMatrix | None = None
+    maximum_power_forecast: ForecastingMatrix | None = None
+    curtailment_cost: Timeseries | None = None
+    da_sell_submitted_volume: Timeseries | None = None
+    maximum_curtailment_ratio: Timeseries | None = None

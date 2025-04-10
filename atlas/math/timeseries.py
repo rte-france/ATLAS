@@ -3,7 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements TimeSeries class
+Module that implements Timeseries class
 """
 
 import datetime
@@ -13,7 +13,7 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 
-from .timeseries_interpolation import CONSTANT, LINEAR, LINEAR_AVERAGE
+import atlas.config as cfg
 
 
 class UnloadedTimeSeries:
@@ -45,7 +45,7 @@ class UnloadedTimeSeries:
             #  Idea: test using ts[:, 0].astype('datetime64[ns]') ?
             # Maybe don't create it yet
             ts_date = ts[:, 0].astype("datetime64[ns]")
-        return TimeSeries(
+        return Timeseries(
             self.attribute["Name"],
             self.attribute["Interpolation"],
             self.attribute["Unit"],
@@ -54,8 +54,8 @@ class UnloadedTimeSeries:
         )
 
 
-class TimeSeries:
-    """A TimeSeries stores a list of numerical numbers associated with a date."""
+class Timeseries:
+    """A Timeseries stores a list of numerical numbers associated with a date."""
 
     def __init__(self, name, interpolation, unit, datetimes, values):
         """:param name: str. Name of the timeseries
@@ -84,13 +84,13 @@ class TimeSeries:
 
     @classmethod
     def from_pd_series(cls, name, interpolation, unit, pd_series):
-        """Creates a TimeSeries object from a pd.Series object
+        """Creates a Timeseries object from a pd.Series object
         :param name: str. Name of the timeseries.
         :param interpolation: TimeSeriesInterpolation. Interpolation method to use when trying to get the value of a
         missing datetime in the timeseries.
         :param unit: str. Unit of the values.
         :param pd_series: pd.Series. The series containing values and datetimes.
-        :return: TimeSeries
+        :return: Timeseries
         """
         return cls(name, interpolation, unit, pd_series.index, pd_series.values.squeeze())
 
@@ -106,7 +106,7 @@ class TimeSeries:
         length=None,
         value=0,
     ):
-        """Method that creates a new TimeSeries given a start date, a frequency, a length and a value to fill.
+        """Method that creates a new Timeseries given a start date, a frequency, a length and a value to fill.
         :param name: str. Name of the timeseries.
         :param interpolation: TimeSeriesInterpolation. Interpolation method to use when trying to get the value of a
         missing datetime in the timeseries.
@@ -116,7 +116,7 @@ class TimeSeries:
         :param freq: str. String representing the frequency of the timeseries.
         :param length: int. The length of the timeseries.
         :param value: float. The value to fill the timeseries with.
-        :return: TimeSeries.
+        :return: Timeseries.
         """
         datetimes = pd.date_range(start=start_date, end=end_date, periods=length, freq=freq)
         values = [value] * len(datetimes)
@@ -148,7 +148,7 @@ class TimeSeries:
         return result
 
     def __eq__(self, other_timeserie):
-        """Test whether two TimeSeries objects are equals.
+        """Test whether two Timeseries objects are equals.
         Objects are considered equal if they store the same name, interpolation, unit and date/values.
 
         :param other_timeserie: TimesSeries. The other timeserie to compare to.
@@ -163,13 +163,11 @@ class TimeSeries:
         if not self.series.index.equals(other_timeserie.series.index):
             return False
         # Use np.allclose to avoid False negative due to round error on float
-        if not np.allclose(self.series.values, other_timeserie.series.values):
-            return False
-        return True
+        return np.allclose(self.series.values, other_timeserie.series.values)
 
     def get_value(self, index, interpol=None):
         """Returns a value or list of values for the given index(es) using the interpolation method. If interpol is not
-        given, the TimeSeries interpolation attribute is used
+        given, the Timeseries interpolation attribute is used
 
         :param index: Datetime or list of datetime. Datetime(s) to get value(s) from the timeseries
         :param interpol: TimeSeriesInterpolation. Method to interpolate missing value(s) in the timeseries. Default
@@ -191,18 +189,20 @@ class TimeSeries:
 
         new_series = self.series.add(pd.Series(np.nan, index), fill_value=0)
 
-        if interpol is LINEAR:
-            res_values = new_series.interpolate(method="polynomial", order=1, limit_area="inside")[index].values
-        elif interpol is LINEAR_AVERAGE:
+        if interpol is cfg.TimeSeriesInterpolation.LINEAR:
+            res_values = new_series.interpolate(method="polynomial", order=1, limit_area="inside")[
+                index
+            ].values
+        elif interpol is cfg.TimeSeriesInterpolation.LINEAR_AVERAGE:
             res_values = (
                 new_series.ffill(limit_area="inside")[index].values
                 + new_series.bfill(limit_area="inside")[index].values
             ) / 2
-        elif interpol is CONSTANT:
+        elif interpol is cfg.TimeSeriesInterpolation.CONSTANT:
             res_values = new_series.ffill(limit_area="inside")[index].values
         else:
-            raise ValueError(
-                f"interpol parameters must be {LINEAR}, {LINEAR_AVERAGE} or {CONSTANT}",
+            raise NotImplementedError(
+                f"Interpolation method {interpol} not implemented for Timeseries",
             )
 
         # Replace nan by 0
@@ -216,7 +216,7 @@ class TimeSeries:
         self.series.at[index] = value
 
     def __getitem__(self, index):
-        """Returns a value or list of values for the given index(es) using the TimeSeries interpolation method
+        """Returns a value or list of values for the given index(es) using the Timeseries interpolation method
 
         :param index: Datetime or list of datetime. Datetime(s) to get value(s) from the timeseries
         value is the object interpolation attribute
@@ -225,11 +225,11 @@ class TimeSeries:
         return self.get_value(index)
 
     def slice(self, start_date, end_date):
-        """Returns a TimeSeries extracted between the two date given as parameter
+        """Returns a Timeseries extracted between the two date given as parameter
 
         :param start_date: datetime. Beginning of slice interval
         :param end_date: datetime. End of slice
-        :return: TimeSeries
+        :return: Timeseries
         """
         timeserie = deepcopy(self)
         timeserie.series = timeserie.series[start_date:end_date]
@@ -244,9 +244,9 @@ class TimeSeries:
         common, values of the second timeserie will be kept. The interpolation type of the
         second timeserie will be also kept.
 
-        :param timeserie: TimeSeries. Timeserie to merge with the current one
+        :param timeserie: Timeseries. Timeserie to merge with the current one
         :param name: str. Name of the new timeseries
-        :return: TimeSeries
+        :return: Timeseries
         """
         res_timeserie = deepcopy(timeserie)
         res_timeserie.series = res_timeserie.series.combine_first(self.series)
@@ -256,27 +256,27 @@ class TimeSeries:
         return res_timeserie
 
     def extract(self, name, times, interpolation=None):
-        """Returns a TimeSeries extracted using the given list of dates and the interpolation method of the TimeSeries
+        """Returns a Timeseries extracted using the given list of dates and the interpolation method of the Timeseries
 
-        :param name: str. Name of the extracted TimeSeries
+        :param name: str. Name of the extracted Timeseries
         :param times: list of datetime. Datetime(s) to get value(s) from the input TimesSeries
-        :param interpolation: TimeSeriesInterpolation. Method to interpolate missing data. Default value is TimeSeries
+        :param interpolation: TimeSeriesInterpolation. Method to interpolate missing data. Default value is Timeseries
         object interpolation attribute
-        :return: TimeSeries
+        :return: Timeseries
         """
         if interpolation is None:
             interpolation = self.interpolation
 
         values = self.get_value(times, interpolation)
-        return TimeSeries(name, interpolation, self.unit, times, values)
+        return Timeseries(name, interpolation, self.unit, times, values)
 
     def __add__(self, other):
-        """Returns the sum between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
+        """Returns the sum between a Timeseries and another Timeseries or a number, if a Timeseries, their
         values are added and their values are interpolated to have a 1-1 match on indexes, if a number, each value of
-        the TimeSeries is increase by this value.
+        the Timeseries is increase by this value.
 
-        :param other: TimeSeries or number. The other TimeSeries or value to add.
-        :return: TimeSeries
+        :param other: Timeseries or number. The other Timeseries or value to add.
+        :return: Timeseries
         """
         timeserie = deepcopy(self)
         if isinstance(other, (int, float)):
@@ -288,15 +288,15 @@ class TimeSeries:
         name = f"{self.name} + {other.name}"
         unit = self.unit
         interpolation = self.interpolation
-        return TimeSeries(name, interpolation, unit, indexes, values)
+        return Timeseries(name, interpolation, unit, indexes, values)
 
     def __mul__(self, other):
-        """Returns the multiplication between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
+        """Returns the multiplication between a Timeseries and another Timeseries or a number, if a Timeseries, their
         values are multiplied and their values are interpolated to have a 1-1 match on indexes, if a number, each value
-        of the TimeSeries is multiplied by this value.
+        of the Timeseries is multiplied by this value.
 
-        :param other: TimeSeries or number. The other TimeSeries or value to multiply.
-        :return: TimeSeries
+        :param other: Timeseries or number. The other Timeseries or value to multiply.
+        :return: Timeseries
         """
         timeserie = deepcopy(self)
         if isinstance(other, (int, float)):
@@ -308,15 +308,15 @@ class TimeSeries:
         name = f"{self.name} * {other.name}"
         unit = self.unit
         interpolation = self.interpolation
-        return TimeSeries(name, interpolation, unit, indexes, values)
+        return Timeseries(name, interpolation, unit, indexes, values)
 
     def __sub__(self, other):
-        """Returns the subtraction between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
+        """Returns the subtraction between a Timeseries and another Timeseries or a number, if a Timeseries, their
         values are substracted and their values are interpolated to have a 1-1 match on indexes, if a number, each value
-        of the TimeSeries is reduced by this value.
+        of the Timeseries is reduced by this value.
 
-        :param other: TimeSeries or number. The other TimeSeries or value to substract.
-        :return: TimeSeries
+        :param other: Timeseries or number. The other Timeseries or value to substract.
+        :return: Timeseries
         """
         timeserie = deepcopy(self)
         if isinstance(other, (int, float)):
@@ -328,9 +328,9 @@ class TimeSeries:
         name = f"{self.name} - {other.name}"
         unit = self.unit
         interpolation = self.interpolation
-        return TimeSeries(name, interpolation, unit, indexes, values)
+        return Timeseries(name, interpolation, unit, indexes, values)
 
-    # Define right operations to make work operations float + TimeSeries, float - TimeSeries, float * TimeSeries.
+    # Define right operations to make work operations float + Timeseries, float - Timeseries, float * Timeseries.
     __rmul__ = __mul__
     __radd__ = __add__
     __rsub__ = __sub__
@@ -338,31 +338,37 @@ class TimeSeries:
     @staticmethod
     def safe_extract(time_series, name, times):
         """This function makes sure the time_series parameter is not None before extracting it. If so, a None value is
-        returned, else the TimeSeries is extracted normally.
+        returned, else the Timeseries is extracted normally.
 
-        :param time_series: TimeSeries. The TimeSeries to safely extract
-        :param name: str. The name to give to the extracted TimeSeries
+        :param time_series: Timeseries. The Timeseries to safely extract
+        :param name: str. The name to give to the extracted Timeseries
         :param times: list of datetime. Datetime(s) to get value(s) from the input TimesSeries
-        :return: TimeSeries
+        :return: Timeseries
         """
         if time_series is not None and len(time_series) != 0:
             return time_series.extract(name, times)
         return None
 
-    # Helper for extracting TimeSeries with default values in case of failure:
+    # Helper for extracting Timeseries with default values in case of failure:
     @staticmethod
     def safe_extract_with_default(time_series, name, times, default_value):
         """This function makes sure the time_series parameter is not None before extracting it. If so, a constant
-        TimeSeries is generated and returned instead, based on the set of simulation times as index and filled with the
+        Timeseries is generated and returned instead, based on the set of simulation times as index and filled with the
         provided default_value.
 
-        :param time_series: TimeSeries. The TimeSeries to safely extract
-        :param name: str. The name to give to the extracted TimeSeries
+        :param time_series: Timeseries. The Timeseries to safely extract
+        :param name: str. The name to give to the extracted Timeseries
         :param times: list of datetime. Datetime(s) to get value(s) from the input TimesSeries
-        :param default_value: float. Value to fill the returned TimeSeries with if input time_series parameter is None
-        :return: TimeSeries
+        :param default_value: float. Value to fill the returned Timeseries with if input time_series parameter is None
+        :return: Timeseries
         """
         if time_series is not None and len(time_series) != 0:
             return time_series.extract(name, times)
         logging.warning(f"Taking default value {default_value} for {name}")
-        return TimeSeries(name, CONSTANT, "MW", times, np.full(len(times), default_value))
+        return Timeseries(
+            name,
+            cfg.TimeSeriesInterpolation.CONSTANT,
+            "MW",
+            times,
+            np.full(len(times), default_value),
+        )

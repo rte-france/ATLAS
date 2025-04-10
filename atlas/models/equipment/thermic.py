@@ -1,22 +1,31 @@
-from typing import Any, Literal
+from pydantic import Field
 
+from atlas.config import ThermicStrategy
+from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
 
 class Thermic(Equipment):
-    installed_capacity: float = None  # positive ?
-    minimum_stable_power_duration: float = None  # positive ?
-    minimum_time_off: float = None  # positive ?
-    minimum_time_on: float = None  # positive ?
-    outage_mean_duration: float = None  # positive ?
-    outage_probability: float = None  # Between 0 and 1 ?
-    scheduled_shutdown_mean_duration: float = None  # positive ?
-    scheduled_shutdown_probability: float = None  # Between 0 and 1 ?
-    shutdown_duration: float = None  # positive ?
-    startup_delay_probability: float = None  # Between 0 and 1 ?
-    startup_duration: float = None  # positive ?
-    strategy: Literal['Base', 'Intermediate', 'Peak'] = None
-    state_sequence: Any = None  # ScenarioMatrix
-    da_sell_submitted_volume: Any = None  # Timeseries
-    maximum_power: Any = None  # Timeseries
-    minimum_power: Any = None  # Timeseries
+    installed_capacity: float | None = Field(
+        None,
+        gt=0,
+        description="Installed capacity (must be positive)",
+    )
+    minimum_stable_power_duration: float | None = Field(None, gt=0)
+    minimum_time_off: float | None = Field(None, gt=0)
+    minimum_time_on: float | None = Field(None, gt=0)
+    outage_mean_duration: float | None = Field(None, gt=0)
+    outage_probability: float | None = Field(None, ge=0, le=1)
+    scheduled_shutdown_mean_duration: float | None = Field(None, gt=0)
+    scheduled_shutdown_probability: float | None = Field(None, ge=0, le=1)
+    shutdown_duration: float | None = Field(None, gt=0)
+    startup_delay_probability: float | None = Field(None, ge=0, le=1)
+    startup_duration: float | None = Field(None, gt=0)
+
+    strategy: ThermicStrategy | None = None
+
+    state_sequence: ScenarioMatrix | None = None
+    da_sell_submitted_volume: Timeseries | None = None
+    maximum_power: Timeseries | None = None
+    minimum_power: Timeseries | None = None

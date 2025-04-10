@@ -1,24 +1,25 @@
-from typing import Any
-
 from pydantic import BaseModel
+
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
 
 
 class Portfolio(BaseModel):
-    control_block: str = None  # Class Business model ControlBlock
-    market_area: str = None  # Class Business model MarketArea
-    id_cleared_quantity: Any = None  # ForecastMatrix
-    imbalance: Any = None  # ForecastMatrix
-    power: Any = None  # ForecastMatrix
-    afrr_activated: Any = None  # Timeseries
-    afrr_down_procured: Any = None  # Timeseries
-    afrr_up_procured: Any = None  # Timeseries
-    da_cleared_quantity: Any = None  # Timeseries
-    fcr_activated: Any = None  # Timeseries
-    imbalance_settlement_costs: Any = None  # Timeseries
-    mfrr_activated: Any = None  # Timeseries
-    mfrr_down_procured: Any = None  # Timeseries
-    mfrr_up_procured: Any = None  # Timeseries
-    rr_activated: Any = None  # Timeseries
-    rr_down_procured: Any = None  # Timeseries
-    rr_up_procured: Any = None  # Timeseries
-    total_id_cleared_quantity: Any = None  # Timeseries
+    control_block: str | None = None
+    market_area: str | None = None
+    id_cleared_quantity: ForecastingMatrix | None = None
+    imbalance: ForecastingMatrix | None = None
+    power: ForecastingMatrix | None = None
+    afrr_activated: Timeseries | None = None
+    afrr_down_procured: Timeseries | None = None
+    afrr_up_procured: Timeseries | None = None
+    da_cleared_quantity: Timeseries | None = None
+    fcr_activated: Timeseries | None = None
+    imbalance_settlement_costs: Timeseries | None = None
+    mfrr_activated: Timeseries | None = None
+    mfrr_down_procured: Timeseries | None = None
+    mfrr_up_procured: Timeseries | None = None
+    rr_activated: Timeseries | None = None
+    rr_down_procured: Timeseries | None = None
+    rr_up_procured: Timeseries | None = None
+    total_id_cleared_quantity: Timeseries | None = None
