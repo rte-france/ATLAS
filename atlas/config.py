@@ -37,3 +37,39 @@ class ReservesTypes(str, Enum):
     FrBM = "FrBM"
     mFRR = "mFRR"  # noqa: N815
     aFRR = "aFRR"  # noqa: N815
+
+
+class ComplementDirection(str, Enum):
+    EqualTo = "EqualTo"
+    GreaterThan = "GreaterThan"
+    LesserThan = "LesserThan"
+
+
+class CouplingType(str, Enum):
+    EXCLUSION = "EXCLUSION"
+    COMPLEMENT = "COMPLEMENT"
+    IDENTICAL_VOLUME = "IDENTICAL_VOLUME"
+    PARENT_CHILDREN = "PARENT_CHILDREN"
+    IDENTICAL_RATIO = "IDENTICAL_RATIO"
+
+
+class OrderType(str, Enum):
+    Buy = "Buy"
+    Sell = "Sell"
+
+
+class Product(str, Enum):
+    Intraday = "Intraday"
+    DayAhead = "DayAhead"
+    AFRRUpProcurement = "AFRRUpProcurement"
+    FRRDownProcurement = "FRRDownProcurement"
+    MFRRUpProcurement = "MFRRUpProcurement"
+    MFRRDownProcurement = "MFRRDownProcurement"
+    RRUpProcurement = "RRUpProcurement"
+    RRDownProcurement = "RRDownProcurement"
+    AFRRActivation = "AFRRActivation"
+    MFRRActivation = "MFRRActivation"
+    RRActivation = "RRActivation"
+    FCRActivation = "FCRActivation"
+    FCRUpProcurement = "FCRUpProcurement"
+    FCRDownProcurement = "FCRDownProcurement"

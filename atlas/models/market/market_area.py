@@ -2,24 +2,27 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
+
 
 class MarketArea(BaseModel):
-    control_block: str = None  # Class Business model ControlBlock
-    co2_emission: Any = None  # ForecastMatrix
-    id_balance: Any = None  # ForecastMatrix
-    id_price: Any = None  # ForecastMatrix
-    id_price_forecast: Any = None  # ForecastMatrix
-    price_forecast_high: Any = None  # ForecastMatrix
-    price_forecast_low: Any = None  # ForecastMatrix
-    price_forecast_medium: Any = None  # ForecastMatrix
-    afrr_activation_price: Any = None  # Timeseries
-    da_balance: Any = None  # Timeseries
-    fcr_activation_price: Any = None  # Timeseries
-    maximum_price: Any = None  # Timeseries
-    mfrr_activation_balance: Any = None  # Timeseries
-    mfrr_activation_price: Any = None  # Timeseries
-    minimum_price: Any = None  # Timeseries
-    reference_balance: Any = None  # Timeseries
-    rr_activation_balance: Any = None  # Timeseries
-    rr_activation_price: Any = None  # Timeseries
-    total_id_balance: Any = None  # Timeseries
+    control_block: Any | None = None  # Replace with actual ControlBlock type if needed
+    co2_emission: ForecastingMatrix | None = None
+    id_balance: ForecastingMatrix | None = None
+    id_price: ForecastingMatrix | None = None
+    id_price_forecast: ForecastingMatrix | None = None
+    price_forecast_high: ForecastingMatrix | None = None
+    price_forecast_low: ForecastingMatrix | None = None
+    price_forecast_medium: ForecastingMatrix | None = None
+    afrr_activation_price: Timeseries | None = None
+    da_balance: Timeseries | None = None
+    fcr_activation_price: Timeseries | None = None
+    maximum_price: Timeseries | None = None
+    mfrr_activation_balance: Timeseries | None = None
+    mfrr_activation_price: Timeseries | None = None
+    minimum_price: Timeseries | None = None
+    reference_balance: Timeseries | None = None
+    rr_activation_balance: Timeseries | None = None
+    rr_activation_price: Timeseries | None = None
+    total_id_balance: Timeseries | None = None

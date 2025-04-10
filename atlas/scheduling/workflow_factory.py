@@ -5,10 +5,10 @@ This file is part of the ATLAS project.
 """
 
 import importlib
-import logging
 from pathlib import Path
 
 import yaml
+from loguru import logger
 from src.market_clearing.parameters import *
 
 from atlas.scheduling.workflow import Workflow
@@ -18,7 +18,7 @@ from atlas.scheduling.workflow_step import WorkflowStep
 class WorkflowFactory:
     def create_workflow(self, parameter_file: Path):
         """Create a workflow object from a yml parameter file"""
-        logging.info(f"workflow parameters : {parameter_file}")
+        logger.info(f"workflow parameters : {parameter_file}")
         # Open yaml configs file
         with open(parameter_file) as f:
             data = yaml.safe_load(f)

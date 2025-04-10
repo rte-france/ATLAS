@@ -7,11 +7,11 @@ Module that implements Timeseries class
 """
 
 import datetime
-import logging
 from copy import deepcopy
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 import atlas.config as cfg
 
@@ -364,7 +364,7 @@ class Timeseries:
         """
         if time_series is not None and len(time_series) != 0:
             return time_series.extract(name, times)
-        logging.warning(f"Taking default value {default_value} for {name}")
+        logger.warning(f"Taking default value {default_value} for {name}")
         return Timeseries(
             name,
             cfg.TimeSeriesInterpolation.CONSTANT,

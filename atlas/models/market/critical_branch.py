@@ -1,18 +1,19 @@
-from typing import Any
-
 from pydantic import BaseModel
+
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
 
 
 class CriticalBranch(BaseModel):
-    downhill_node: str = None  # Class Business model Node
-    uphill_node: str = None  # Class Business model Node
-    market_area_ptdf: str = None  # Class Business model MarketAreaPtdf
-    node_ptdf: str = None  # Class Business model NodePtdf
-    id_flow: Any = None  # ForecastMatrix
-    id_shadow_price: Any = None  # ForecastMatrix
-    da_flow: Any = None  # Timeseries
-    da_shadow_price: Any = None  # Timeseries
-    flow_reliability_margin: Any = None  # Timeseries
-    maximum_flow: Any = None  # Timeseries
-    reference_flow: Any = None  # Timeseries
-    total_id_flow: Any = None  # Timeseries
+    downhill_node: str | None = None
+    uphill_node: str | None = None
+    market_area_ptdf: str | None = None
+    node_ptdf: str | None = None
+    id_flow: ForecastingMatrix | None = None
+    id_shadow_price: ForecastingMatrix | None = None
+    da_flow: Timeseries | None = None
+    da_shadow_price: Timeseries | None = None
+    flow_reliability_margin: Timeseries | None = None
+    maximum_flow: Timeseries | None = None
+    reference_flow: Timeseries | None = None
+    total_id_flow: Timeseries | None = None

@@ -4,10 +4,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import logging
 from pathlib import Path
 
 import yaml
+from loguru import logger
 from src.market_clearing.exports.parameters import MCExportParameters
 from src.market_clearing.parameters import Parameters
 from src.parameter_utils import ParameterUtils
@@ -27,18 +27,28 @@ class WorkflowParameters:
     )
 
     def __init__(self, parameter_file):
-        logging.info(f"parameters : {parameter_file}")
+        logger.info(f"parameters : {parameter_file}")
         # Open yaml configs file
         with open(parameter_file) as f:
             data = yaml.safe_load(f)
 
         self.files_path = ParameterUtils.parse_string(data["workflow_parameters"], "files_path")
-        self.data_model_path = ParameterUtils.parse_string(data["workflow_parameters"], "data_model_path")
+        self.data_model_path = ParameterUtils.parse_string(
+            data["workflow_parameters"],
+            "data_model_path",
+        )
         self.parameters_market_clearing = Parameters(
-            Path(ParameterUtils.parse_string(data["modules_parameters"], "parameters_market_clearing")),
+            Path(
+                ParameterUtils.parse_string(
+                    data["modules_parameters"],
+                    "parameters_market_clearing",
+                ),
+            ),
         )
         self.parameters_post_clearing = PostBalancingMarketParameters(
-            Path(ParameterUtils.parse_string(data["modules_parameters"], "parameters_post_clearing")),
+            Path(
+                ParameterUtils.parse_string(data["modules_parameters"], "parameters_post_clearing"),
+            ),
         )
         self.parameters_export = MCExportParameters(
             Path(ParameterUtils.parse_string(data["modules_parameters"], "parameters_export")),

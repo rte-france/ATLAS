@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 import numpy as np
 
-from .timeseries import Timeseries
+from atlas.math.timeseries import Timeseries
 
 """
 Module that implements ScenarioMatrix

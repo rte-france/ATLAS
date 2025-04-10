@@ -1,23 +1,26 @@
-from typing import Literal
+from datetime import date
 
 from pydantic import BaseModel
 
+from atlas.config import OrderType, Product
+from atlas.models.equipment.equipment import Equipment
+from atlas.models.market.market_area import MarketArea
+from atlas.models.portfolio import Portfolio
+
 
 class Order(BaseModel):
-    equipment: str = None  # Class Business model Equipment
-    market_area: str = None  # Class Business model MarketArea
-    portfolio: str = None  # Class Business model Portfolio
-    accepted_power: float = None
-    execution_date: str = None  # Validation for date ?
-    start_date: str = None  # Validation for date ?
-    end_date: str = None  # Validation for date ?
-    individual_spread: float = None
-    is_agent_tso: bool = None
-    order_type: Literal['Buy', 'Sell'] = None
-    price: float = None
-    price_group: int = None
-    product: Literal['Intraday', 'DayAhead', 'AFRRUpProcurement', 'FRRDownProcurement', 'MFRRUpProcurement',
-    'MFRRDownProcurement', 'RRUpProcurement', 'RRDownProcurement', 'AFRRActivation', 'MFRRActivation', 'RRActivation',
-    'FCRActivation', 'FCRUpProcurement', 'FCRDownProcurement'] = None
-    q_max: float = None
-    q_min: float = None
+    equipment: Equipment | None = None
+    market_area: MarketArea | None = None
+    portfolio: Portfolio | None = None  # Class Business model Portfolio
+    accepted_power: float | None = None
+    execution_date: date | None = None  # Validating date using Pydantic's date type
+    start_date: date | None = None  # Validating date using Pydantic's date type
+    end_date: date | None = None  # Validating date using Pydantic's date type
+    individual_spread: float | None = None
+    is_agent_tso: bool | None = None
+    order_type: OrderType | None = None
+    price: float | None = None
+    price_group: int | None = None
+    product: Product | None = None
+    q_max: float | None = None
+    q_min: float | None = None
