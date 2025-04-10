@@ -1,10 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 
 
 class CriticalBranch(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     downhill_node: str | None = None
     uphill_node: str | None = None
     market_area_ptdf: str | None = None

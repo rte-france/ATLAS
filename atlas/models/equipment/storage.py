@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from atlas.config import StorageType
 from atlas.math.forecasting_matrix import ForecastingMatrix
@@ -7,6 +7,7 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class Storage(Equipment):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     charge_efficiency: float | None = Field(
         None,
         gt=0,

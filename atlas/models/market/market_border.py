@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
@@ -7,6 +7,7 @@ from atlas.models.market.market_area import MarketArea
 
 
 class MarketBorder(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     downhill_control_block: ControlBlock | None = None
     uphill_control_block: ControlBlock | None = None
     downhill_market_area: MarketArea | None = None

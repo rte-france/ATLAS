@@ -1,13 +1,13 @@
-from typing import Any
-
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.control_block import ControlBlock
 
 
 class MarketArea(BaseModel):
-    control_block: Any | None = None  # Replace with actual ControlBlock type if needed
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    control_block: ControlBlock | None = None  # Replace with actual ControlBlock type if needed
     co2_emission: ForecastingMatrix | None = None
     id_balance: ForecastingMatrix | None = None
     id_price: ForecastingMatrix | None = None

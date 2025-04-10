@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from atlas.config import ThermicStrategy
 from atlas.math.scenario_matrix import ScenarioMatrix
@@ -7,6 +7,8 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class Thermic(Equipment):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     installed_capacity: float | None = Field(
         None,
         gt=0,

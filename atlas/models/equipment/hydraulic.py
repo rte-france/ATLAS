@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
@@ -6,6 +6,7 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class Hydraulic(Equipment):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     in_flow_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
     inflow_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
 

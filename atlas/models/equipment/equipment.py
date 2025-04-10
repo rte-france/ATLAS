@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
@@ -6,6 +6,7 @@ from atlas.math.timeseries import Timeseries
 
 
 class Equipment(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     node: str | None = Field(None, description="Class Business model Node")
     portfolio: str | None = Field(None, description="Class Business model Portfolio")
     coe2_emission_factor: float | None = Field(None, description="COE2 emission factor")

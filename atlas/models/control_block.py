@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from atlas.config import ReservesTypes
 from atlas.math.forecasting_matrix import ForecastingMatrix
@@ -6,6 +6,7 @@ from atlas.math.timeseries import Timeseries
 
 
 class ControlBlock(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     alternative_type: ReservesTypes | None = None
     volume_uncertainty: bool | None = None
     affr_down_required: ForecastingMatrix | None = None
