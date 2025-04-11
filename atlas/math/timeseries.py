@@ -1,3 +1,11 @@
+"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+See AUTHORS.txt
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+
+This module provides a Timeseries class for handling time series data using Polars.
+"""
+
 from __future__ import annotations
 
 import pickle
@@ -55,6 +63,16 @@ class Timeseries:
             other = other.get_timeseries()
         return self.timeseries.equals(other)
 
+    def __len__(self) -> int:
+        """Return the number of rows in the time series."""
+        return self.timeseries.height
+
+    def __mul__(self, factor: float) -> Timeseries:
+        """Multiply all numeric columns by a scalar."""
+        df = self.timeseries.with_columns(pl.selectors.numeric().mul(factor))
+
+        return Timeseries(df)
+
     def remove_na(self, inplace: bool = True) -> Timeseries:
         """Remove rows containing null values.
 
@@ -77,7 +95,7 @@ class Timeseries:
         """
         return self.timeseries
 
-    def set_timezone(self, timezone: str) -> None:
+    def set_tz(self, timezone: str) -> None:
         """Convert the datetime column to a new timezone.
 
         :param timezone: Timezone string
@@ -285,7 +303,7 @@ class Timeseries:
         :rtype: float
         """
         times = self.timeseries["time"].to_list()
-        if len(times) < 2:
+        if len(times) < 2:  # noqa: PLR2004
             raise ValueError("Not enough time points to calculate granularity")
         delta = (times[1] - times[0]).total_seconds()
 
