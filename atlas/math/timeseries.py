@@ -38,7 +38,7 @@ class Timeseries:
             if len(time_column) != 1:
                 raise ValueError("Timeseries must have exactly one datetime column")
             df = df.rename({time_column[0]: "time"}).with_columns(
-                pl.col("time").dt.convert_time_zone(self.timezone),
+                pl.col("time").dt.replace_time_zone(self.timezone),
             )
 
             self.timeseries = df
@@ -85,7 +85,7 @@ class Timeseries:
         """
         self.timezone = timezone
         self.timeseries = self.timeseries.with_columns(
-            pl.col("time").dt.convert_time_zone(self.timezone),
+            pl.col("time").dt.convert_time_zone(timezone),
         )
 
     def sort(
