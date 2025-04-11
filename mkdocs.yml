@@ -82,7 +82,7 @@ nav:
   - Concepts:
     - Overview: concepts/overview.md
   - Python Package Documentation:
-    - Atlas: api/example.md
+    - Timeseries: api/timeseries.md
 
 extra:  
   social:
