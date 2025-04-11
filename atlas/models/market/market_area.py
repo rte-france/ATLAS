@@ -7,7 +7,7 @@ from atlas.models.control_block import ControlBlock
 
 class MarketArea(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    control_block: ControlBlock | None = None  # Replace with actual ControlBlock type if needed
+    control_block: ControlBlock | None = None
     co2_emission: ForecastingMatrix | None = None
     id_balance: ForecastingMatrix | None = None
     id_price: ForecastingMatrix | None = None
