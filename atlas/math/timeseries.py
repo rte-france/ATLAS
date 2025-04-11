@@ -111,7 +111,12 @@ class Timeseries:
             return self
         return Timeseries(df)
 
-    def upsample(self, every: str, inplace: bool = True, strategy="linear") -> Timeseries:
+    def upsample(
+        self,
+        every: str,
+        inplace: bool = True,
+        strategy: Literal["linear", "constant"] = "linear",
+    ) -> Timeseries:
         """Upsample the time series to a higher frequency.
 
         Fills in missing timestamps by interpolating or forward-filling values.
@@ -128,7 +133,7 @@ class Timeseries:
         """
         if strategy == "linear":
             df = (
-                self.timeseries.upsample(time_column="time", every="15m")
+                self.timeseries.upsample(time_column="time", every=every)
                 .interpolate()
                 .fill_null(strategy="forward")
             )
