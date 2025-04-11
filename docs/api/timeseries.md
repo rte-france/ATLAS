@@ -1,3 +1,3 @@
-# API Reference
+# Timeseries
 
 ::: atlas.math.timeseries.Timeseries

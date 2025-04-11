@@ -43,6 +43,16 @@ class Timeseries:
 
             self.timeseries = df
 
+    def __eq__(self, other: pl.DataFrame) -> bool:
+        """Check equality between the internal time series and another Polars DataFrame.
+
+        :param other: The Polars DataFrame to compare with
+        :type other: pl.DataFrame
+        :return: True if the DataFrames are equal, False otherwise
+        :rtype: bool
+        """
+        return self.timeseries.equals(other)
+
     def remove_na(self, inplace: bool = True) -> Timeseries:
         """Remove rows containing null values.
 
