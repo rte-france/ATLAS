@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pickle
 from datetime import timedelta
-from typing import Literal, Self
+from typing import Literal
 
 import polars as pl
 
@@ -37,7 +37,7 @@ class Timeseries:
             time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
             if len(time_column) != 1:
                 raise ValueError("Timeseries must have exactly one datetime column")
-            df = df.rename({time_column: "time"}).with_columns(
+            df = df.rename({time_column[0]: "time"}).with_columns(
                 pl.col("time").dt.convert_time_zone(self.timezone),
             )
 
@@ -63,11 +63,11 @@ class Timeseries:
         :return: The cleaned time series
         :rtype: Timeseries
         """
-        dt = self.timeseries.drop_nulls()
+        df = self.timeseries.drop_nulls()
         if inplace:
-            self.timeseries = dt
+            self.timeseries = df
             return self
-        return Timeseries(dt)
+        return Timeseries(df)
 
     def get_timeseries(self) -> pl.DataFrame:
         """Return the internal Polars DataFrame.
@@ -105,7 +105,40 @@ class Timeseries:
         :return: Sorted time series
         :rtype: Timeseries
         """
-        df = self.timeseries.sort(variables)
+        df = self.timeseries.sort(variables, descending=descending)
+        if inplace:
+            self.timeseries = df
+            return self
+        return Timeseries(df)
+
+    def upsample(self, every: str, inplace: bool = True, strategy="linear") -> Timeseries:
+        """Upsample the time series to a higher frequency.
+
+        Fills in missing timestamps by interpolating or forward-filling values.
+
+        :param every: Frequency string (e.g., "15m", "1h") defining the new time resolution
+        :type every: str
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :param strategy: Method to fill missing values: "linear" for interpolation, "constant" for forward fill
+        :type strategy: str, optional
+        :raises NotImplementedError: If the provided strategy is not supported
+        :return: Upsampled time series
+        :rtype: Timeseries
+        """
+        if strategy == "linear":
+            df = (
+                self.timeseries.upsample(time_column="time", every="15m")
+                .interpolate()
+                .fill_null(strategy="forward")
+            )
+        elif strategy == "constant":
+            df = self.timeseries.upsample(time_column="time", every="15m").fill_null(
+                strategy="forward",
+            )
+        else:
+            raise NotImplementedError("Unsupported interpolation strategy")
+
         if inplace:
             self.timeseries = df
             return self
@@ -192,7 +225,7 @@ class Timeseries:
 
     def merge(
         self,
-        other: Self | pl.DataFrame,
+        other: Timeseries | pl.DataFrame,
         by: str = "time",
         how: Literal["inner", "left", "right", "full", "semi", "anti", "cross", "outer"] = "inner",
         suffixes: str | None = None,

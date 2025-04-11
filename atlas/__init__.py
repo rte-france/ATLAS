@@ -1,2 +1,2 @@
 from atlas.math.scenario_matrix import ScenarioMatrix
-from atlas.math.timeseries import TimeSeries
+from atlas.math.timeseries import Timeseries
