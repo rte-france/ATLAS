@@ -123,7 +123,6 @@ source = { editable = "." }
 dependencies = [
     { name = "coverage" },
     { name = "loguru" },
-    { name = "mypy" },
     { name = "numpy" },
     { name = "ortools" },
     { name = "pandas" },
@@ -138,9 +137,11 @@ dev = [
     { name = "ipython", version = "8.35.0", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version < '3.11'" },
     { name = "ipython", version = "9.1.0", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version >= '3.11'" },
     { name = "jupyter" },
+    { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "types-pyyaml" },
 ]
 docs = [
     { name = "mkdocs-material" },
@@ -152,7 +153,6 @@ docs = [
 requires-dist = [
     { name = "coverage", specifier = ">=7.8.0" },
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "mypy", specifier = ">=1.15.0" },
     { name = "numpy", specifier = ">=2.0.1" },
     { name = "ortools", specifier = ">=9.12.4544" },
     { name = "pandas", specifier = ">=2.2.2" },
@@ -166,9 +166,11 @@ requires-dist = [
 dev = [
     { name = "ipython", specifier = ">=8.35.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "mypy", specifier = ">=1.15.0" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-cov", specifier = ">=6.1.1" },
     { name = "ruff", specifier = ">=0.9.7" },
+    { name = "types-pyyaml", specifier = ">=6.0.12.20250402" },
 ]
 docs = [
     { name = "mkdocs-material", specifier = ">=9.6.11" },
@@ -2454,6 +2456,15 @@ source = { registry = "https://pypi.org/simple/" }
 sdist = { url = "https://files.pythonhosted.org/packages/a9/60/47d92293d9bc521cd2301e423a358abfac0ad409b3a1606d8fbae1321961/types_python_dateutil-2.9.0.20241206.tar.gz", hash = "sha256:18f493414c26ffba692a72369fea7a154c502646301ebfe3d56a04b3767284cb", size = 13802 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0f/b3/ca41df24db5eb99b00d97f89d7674a90cb6b3134c52fb8121b6d8d30f15c/types_python_dateutil-2.9.0.20241206-py3-none-any.whl", hash = "sha256:e248a4bc70a486d3e3ec84d0dc30eec3a5f979d6e7ee4123ae043eedbb987f53", size = 14384 },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20250402"
+source = { registry = "https://pypi.org/simple/" }
+sdist = { url = "https://files.pythonhosted.org/packages/2d/68/609eed7402f87c9874af39d35942744e39646d1ea9011765ec87b01b2a3c/types_pyyaml-6.0.12.20250402.tar.gz", hash = "sha256:d7c13c3e6d335b6af4b0122a01ff1d270aba84ab96d1a1a1063ecba3e13ec075", size = 17282 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ed/56/1fe61db05685fbb512c07ea9323f06ea727125951f1eb4dff110b3311da3/types_pyyaml-6.0.12.20250402-py3-none-any.whl", hash = "sha256:652348fa9e7a203d4b0d21066dfb00760d3cbd5a15ebb7cf8d33c88a49546681", size = 20329 },
 ]
 
 [[package]]
