@@ -8,12 +8,12 @@ Module that implements ForecastingMatrix
 
 from datetime import datetime
 
-from .timeseries import TimeSeries
+from .timeseries import Timeseries
 from .timeseries_interpolation import CONSTANT
 
 
 class ForecastingMatrix:
-    """A class that stores TimeSeries by datetimes and allows to access
+    """A class that stores Timeseries by datetimes and allows to access
     and delete them by their datetimes.
     """
 
@@ -63,14 +63,14 @@ class ForecastingMatrix:
         """Add a timeserie at the given index in the matrix.
 
         :param index: datetime. The index to set the timeseries in the matrix
-        :param timeserie: TimeSeries. The timeserie to add in the matrix
-        :return: TimeSeries
+        :param timeserie: Timeseries. The timeserie to add in the matrix
+        :return: Timeseries
         """
         if not isinstance(index, datetime):
             raise TypeError(f"Expected index type datetime, got {type(index)}")
 
-        if not isinstance(timeserie, TimeSeries):
-            raise TypeError(f"Expected timeserie type TimeSeries, got {type(index)}")
+        if not isinstance(timeserie, Timeseries):
+            raise TypeError(f"Expected timeserie type Timeseries, got {type(index)}")
 
         self.forecasting_dates.append(index)
         self.forecasting_dates.sort()
@@ -101,7 +101,7 @@ class ForecastingMatrix:
         :param index: datetime. The index of the timeseries to get in the matrix
         :param start_date: datetime. Begining of the extraction interval
         :param end_date: datetime. End of the extraction interval
-        :return: TimeSeries
+        :return: Timeseries
         """
         if not isinstance(index, datetime):
             raise TypeError(f"Expected index type datetime, got {type(datetime)}")
@@ -119,9 +119,9 @@ class ForecastingMatrix:
         :param ref_date: datetime. The reference date to use
         :param from_date: from_date. Begining of the reconstruction interval
         :param to_date: to_date. End of the reconstruction interval
-        :return: TimeSeries
+        :return: Timeseries
         """
-        res_timeserie = TimeSeries("unknown", CONSTANT, "", [], [])
+        res_timeserie = Timeseries("unknown", CONSTANT, "", [], [])
         # FIXME : Quick fix
         if self.forecasting_dates:
             index = self.forecasting_dates.index(ref_date)
@@ -129,7 +129,10 @@ class ForecastingMatrix:
             for i in range(1, len(indexes_to_check) + 1):
                 date = indexes_to_check[-i]
                 res_timeserie = res_timeserie.merge(self.forecasts[date].slice(from_date, to_date))
-                if from_date in res_timeserie.series.index and to_date in res_timeserie.series.index:
+                if (
+                    from_date in res_timeserie.series.index
+                    and to_date in res_timeserie.series.index
+                ):
                     return res_timeserie
         return res_timeserie
 
@@ -140,9 +143,9 @@ class ForecastingMatrix:
         :param ref_date: datetime. The reference date to use
         :param from_date: from_date. Begining of the reconstruction interval
         :param to_date: to_date. End of the reconstruction interval
-        :return: TimeSeries
+        :return: Timeseries
         """
-        res_timeserie = TimeSeries("unknown", CONSTANT, "", [], [])
+        res_timeserie = Timeseries("unknown", CONSTANT, "", [], [])
         # self.forecasting_dates is sorted, so we iterate dates by order
         for date in self.forecasting_dates:
             if ref_date > date:

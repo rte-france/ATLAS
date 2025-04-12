@@ -26,6 +26,15 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Lint with ruff
+        run: |
+          uv run ruff check atlas
+          uv run ruff format --check atlas
+
+      - name: Type Checking with mypy
+        run: |
+          uv run mypy atlas --strict
+
       - name: Test with pytest and coverage
         run: uv run pytest --cov=atlas --cov-report=xml
 

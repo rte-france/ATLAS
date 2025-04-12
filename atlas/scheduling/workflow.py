@@ -4,12 +4,19 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas_core.scheduling.workflow_step import WorkflowStep
 from src.api_marker import DynamicMarker
+
+from atlas.scheduling.workflow_step import WorkflowStep
 
 
 class Workflow:
-    def __init__(self, name: str, data_model_path: str, input_marker_path: str, steps: list[WorkflowStep] = None):
+    def __init__(
+        self,
+        name: str,
+        data_model_path: str,
+        input_marker_path: str,
+        steps: list[WorkflowStep] = None,
+    ):
         self.name = name
         self.data_model_path = data_model_path
         self.input_marker_path = input_marker_path

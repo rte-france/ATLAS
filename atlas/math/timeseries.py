@@ -31,7 +31,7 @@ class Timeseries:
         timezone: str = "UTC",
     ) -> None:
         self.timezone = timezone
-        self.timeseries: pl.DataFrame | None = None
+        self.timeseries: pl.DataFrame
 
         if isinstance(timeseries, Timeseries):
             self.timeseries = timeseries.get_timeseries()
@@ -51,7 +51,7 @@ class Timeseries:
 
             self.timeseries = df
 
-    def __eq__(self, other: pl.DataFrame | Timeseries) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Check equality between the internal time series and another Polars DataFrame.
 
         :param other: The Polars DataFrame to compare with
@@ -61,7 +61,8 @@ class Timeseries:
         """
         if isinstance(other, Timeseries):
             other = other.get_timeseries()
-        return self.timeseries.equals(other)
+            return self.timeseries.equals(other)
+        raise NotImplementedError("Comparison with non-Timeseries objects is not supported")
 
     def __len__(self) -> int:
         """Return the number of rows in the time series."""
@@ -170,7 +171,7 @@ class Timeseries:
     def groupby(
         self,
         granularity: str | timedelta,
-        agg: str = Literal["mean", "sum", "min", "max"],
+        agg: Literal["mean", "sum", "min", "max"] = "mean",
         inplace: bool = True,
     ) -> Timeseries:
         """Group the time series dynamically by time intervals.
@@ -185,25 +186,25 @@ class Timeseries:
         :return: Grouped time series
         :rtype: Timeseries
         """
-        df = self.timeseries.group_by_dynamic("time", every=granularity)
+        grouped_df = self.timeseries.group_by_dynamic("time", every=granularity)
         if agg == "mean":
-            df.agg(
+            df = grouped_df.agg(
                 pl.selectors.numeric().mean(),
             )
         elif agg == "sum":
-            df.agg(
+            df = grouped_df.agg(
                 pl.selectors.numeric().sum(),
             )
         elif agg == "min":
-            df.agg(
+            df = grouped_df.agg(
                 pl.selectors.numeric().min(),
             )
         elif agg == "max":
-            df.agg(
+            df = grouped_df.agg(
                 pl.selectors.numeric().max(),
             )
         else:
-            raise ValueError("Unsupported aggregation function")
+            raise NotImplementedError("Unsupported aggregation function")
 
         if inplace:
             self.timeseries = df
@@ -246,12 +247,12 @@ class Timeseries:
             return self
         return Timeseries(df)
 
-    def merge(
+    def join(
         self,
         other: Timeseries | pl.DataFrame,
         by: str = "time",
         how: Literal["inner", "left", "right", "full", "semi", "anti", "cross", "outer"] = "inner",
-        suffixes: str | None = None,
+        suffixes: str = "_right",
         inplace: bool = True,
     ) -> Timeseries:
         """Merge this time series with another.
@@ -305,7 +306,7 @@ class Timeseries:
         times = self.timeseries["time"].to_list()
         if len(times) < 2:  # noqa: PLR2004
             raise ValueError("Not enough time points to calculate granularity")
-        delta = (times[1] - times[0]).total_seconds()
+        delta: float = (times[1] - times[0]).total_seconds()
 
         if unit == "hour":
             return delta / 3600
