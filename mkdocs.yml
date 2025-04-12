@@ -8,11 +8,12 @@ theme:
     - navigation.expand
     - search.suggest
     - content.code.copy  
-    - toc.integrate
+    - content.tabs.link
+    - content.code.annotate
     - navigation.tracking
     - navigation.top
     - navigation.footer
-
+    - toc.follow
   palette:
     - scheme: default
       primary: custom
