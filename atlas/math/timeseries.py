@@ -12,6 +12,8 @@ import pickle
 from datetime import timedelta
 from typing import Literal
 
+import numpy as np
+import pandas as pd
 import polars as pl
 
 
@@ -27,7 +29,7 @@ class Timeseries:
 
     def __init__(
         self,
-        timeseries: pl.DataFrame | Timeseries,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | np.array,
         timezone: str = "UTC",
     ) -> None:
         self.timezone = timezone
@@ -38,7 +40,10 @@ class Timeseries:
             self.timezone = timeseries.timezone
         else:
             try:
-                df = pl.DataFrame(timeseries)
+                if isinstance(timeseries, pl.DataFrame):
+                    df = timeseries
+                else:
+                    df = pl.DataFrame(timeseries)
             except Exception as e:
                 raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
