@@ -88,7 +88,7 @@ class ScenarioMatrix:
             ind = self.indexes.index(index)
             del self.indexes[ind]
 
-    def get_timeseries(self, index):
+    def get_data(self, index):
         """Returns the Timeseries for the given index
 
         :param index: str or int. The index of the timeseries to get in the matrix
@@ -99,4 +99,4 @@ class ScenarioMatrix:
             return self.scenarios[index]
 
     def __getitem__(self, index):
-        return self.get_timeseries(index)
+        return self.get_data(index)

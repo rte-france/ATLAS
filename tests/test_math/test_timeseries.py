@@ -80,16 +80,16 @@ class TestTimeseriesInit:
     def test_init_with_polars_df(self, sample_df):
         """Test initialization with a Polars DataFrame."""
         ts = Timeseries(sample_df)
-        assert isinstance(ts.get_timeseries(), pl.DataFrame)
+        assert isinstance(ts.get_data(), pl.DataFrame)
         assert len(ts) == 4
-        assert "time" in ts.get_timeseries().columns
+        assert "time" in ts.get_data().columns
 
     def test_init_with_pandas_df(self, sample_pandas_df):
         """Test initialization with a pandas DataFrame."""
         ts = Timeseries(sample_pandas_df)
-        assert isinstance(ts.get_timeseries(), pl.DataFrame)
+        assert isinstance(ts.get_data(), pl.DataFrame)
         assert len(ts) == 4
-        assert "time" in ts.get_timeseries().columns
+        assert "time" in ts.get_data().columns
 
     def test_init_with_dict(self):
         """Test initialization with a dictionary."""
@@ -101,14 +101,14 @@ class TestTimeseriesInit:
             "value": [10.0, 20.0],
         }
         ts = Timeseries(data)
-        assert isinstance(ts.get_timeseries(), pl.DataFrame)
+        assert isinstance(ts.get_data(), pl.DataFrame)
         assert len(ts) == 2
-        assert "time" in ts.get_timeseries().columns
+        assert "time" in ts.get_data().columns
 
     def test_init_with_timeseries(self, sample_ts):
         """Test initialization with another Timeseries object."""
         ts = Timeseries(sample_ts)
-        assert isinstance(ts.get_timeseries(), pl.DataFrame)
+        assert isinstance(ts.get_data(), pl.DataFrame)
         assert len(ts) == 4
         assert ts == sample_ts
 
@@ -157,7 +157,7 @@ class TestTimeseriesBasicOperations:
     def test_eq(self, sample_ts):
         """Test equality comparison."""
         ts1 = sample_ts
-        ts2 = Timeseries(sample_ts.get_timeseries())
+        ts2 = Timeseries(sample_ts.get_data())
         assert ts1 == ts2
 
     def test_eq_different(self, sample_ts, sample_df_with_nulls):
@@ -181,8 +181,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.get_timeseries().select(pl.col("value1")).to_series()
-        new_values = ts.get_timeseries().select(pl.col("value1")).to_series()
+        original_values = sample_ts.get_data().select(pl.col("value1")).to_series()
+        new_values = ts.get_data().select(pl.col("value1")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * 2
@@ -215,8 +215,8 @@ class TestTimeseriesManipulation:
         time_diffs = [
             (t2 - t1).total_seconds() / 60
             for t1, t2 in zip(
-                upsampled.get_timeseries()["time"][:-1],
-                upsampled.get_timeseries()["time"][1:],
+                upsampled.get_data()["time"][:-1],
+                upsampled.get_data()["time"][1:],
                 strict=False,
             )
         ]
@@ -229,13 +229,13 @@ class TestTimeseriesManipulation:
         upsampled = sample_ts.upsample("30m", inplace=False, strategy="constant")
 
         # Check if values are forward-filled
-        times = upsampled.get_timeseries()["time"].to_list()
-        values = upsampled.get_timeseries()["value1"].to_list()
+        times = upsampled.get_data()["time"].to_list()
+        values = upsampled.get_data()["value1"].to_list()
 
         # For each original time point, check next 30-min point has same value
         for i in range(len(sample_ts) - 1):
-            orig_time = sample_ts.get_timeseries()["time"][i]
-            orig_value = sample_ts.get_timeseries()["value1"][i]
+            orig_time = sample_ts.get_data()["time"][i]
+            orig_value = sample_ts.get_data()["value1"][i]
 
             # Find the next 30-min point in upsampled data
             next_time_idx = times.index(orig_time) + 1
@@ -264,7 +264,7 @@ class TestTimeseriesManipulation:
 
         # Check values (0+1+2+3+4+5)/6, (6+7+8+9+10+11)/6, etc.
         expected_means = [2.5, 8.5, 14.5, 20.5]  # Mean of each 6h group
-        actual_means = grouped.get_timeseries()["value"].to_list()
+        actual_means = grouped.get_data()["value"].to_list()
 
         assert actual_means == pytest.approx(expected_means)
 
@@ -284,7 +284,7 @@ class TestTimeseriesManipulation:
 
         # Check values (0+1+2+3+4+5), (6+7+8+9+10+11), etc.
         expected_sums = [15, 51, 87, 123]  # Sum of each 6h group
-        actual_sums = grouped.get_timeseries()["value"].to_list()
+        actual_sums = grouped.get_data()["value"].to_list()
 
         assert actual_sums == expected_sums
 
@@ -300,15 +300,15 @@ class TestTimeseriesManipulation:
         selected = ts.select(["time", "value1"], inplace=False)
 
         # Should only have time and value1 columns
-        assert set(selected.get_timeseries().columns) == {"time", "value1"}
-        assert "value2" not in selected.get_timeseries().columns
+        assert set(selected.get_data().columns) == {"time", "value1"}
+        assert "value2" not in selected.get_data().columns
 
         # Original should be unchanged
-        assert "value2" in ts.get_timeseries().columns
+        assert "value2" in ts.get_data().columns
 
         # Test inplace
         ts.select(["time", "value1"], inplace=True)
-        assert set(ts.get_timeseries().columns) == {"time", "value1"}
+        assert set(ts.get_data().columns) == {"time", "value1"}
 
     def test_remove_duplicated(self, sample_df):
         """Test removal of duplicated rows."""
@@ -347,18 +347,18 @@ class TestTimeseriesManipulation:
         # Test inner join
         joined = sample_ts.join(other_ts, by="time", how="inner", inplace=False)
         assert len(joined) == 3  # Only matching times
-        assert set(joined.get_timeseries().columns) == {"time", "value1", "value2", "value3"}
+        assert set(joined.get_data().columns) == {"time", "value1", "value2", "value3"}
 
         # Test left join
         left_joined = sample_ts.join(other_ts, by="time", how="left", inplace=False)
         assert len(left_joined) == 4  # All rows from sample_ts
-        assert left_joined.get_timeseries()["value3"][3] is None  # Missing value for 3:00
+        assert left_joined.get_data()["value3"][3] is None  # Missing value for 3:00
 
         # Test inplace
-        original_cols = sample_ts.get_timeseries().columns
+        original_cols = sample_ts.get_data().columns
         sample_ts.join(other_ts, inplace=True)
-        assert set(sample_ts.get_timeseries().columns) != set(original_cols)
-        assert "value3" in sample_ts.get_timeseries().columns
+        assert set(sample_ts.get_data().columns) != set(original_cols)
+        assert "value3" in sample_ts.get_data().columns
 
     def test_drop(self, sample_ts):
         """Test dropping columns."""
@@ -367,15 +367,15 @@ class TestTimeseriesManipulation:
         dropped = ts.drop(["value2"], inplace=False)
 
         # Should only have time and value1 columns
-        assert set(dropped.get_timeseries().columns) == {"time", "value1"}
-        assert "value2" not in dropped.get_timeseries().columns
+        assert set(dropped.get_data().columns) == {"time", "value1"}
+        assert "value2" not in dropped.get_data().columns
 
         # Original should be unchanged
-        assert "value2" in ts.get_timeseries().columns
+        assert "value2" in ts.get_data().columns
 
         # Test inplace
         ts.drop(["value2"], inplace=True)
-        assert set(ts.get_timeseries().columns) == {"time", "value1"}
+        assert set(ts.get_data().columns) == {"time", "value1"}
 
     def test_get_granularity(self, sample_ts):
         """Test getting the time granularity."""
@@ -412,21 +412,21 @@ class TestTimeseriesManipulation:
         renamed = ts.rename(["value1", "value2"], ["temperature", "pressure"], inplace=False)
 
         # Check new column names
-        assert "temperature" in renamed.get_timeseries().columns
-        assert "pressure" in renamed.get_timeseries().columns
-        assert "value1" not in renamed.get_timeseries().columns
-        assert "value2" not in renamed.get_timeseries().columns
+        assert "temperature" in renamed.get_data().columns
+        assert "pressure" in renamed.get_data().columns
+        assert "value1" not in renamed.get_data().columns
+        assert "value2" not in renamed.get_data().columns
 
         # Original should be unchanged
-        assert "value1" in ts.get_timeseries().columns
-        assert "value2" in ts.get_timeseries().columns
+        assert "value1" in ts.get_data().columns
+        assert "value2" in ts.get_data().columns
 
         # Test inplace
         ts.rename(["value1", "value2"], ["temperature", "pressure"], inplace=True)
-        assert "temperature" in ts.get_timeseries().columns
-        assert "pressure" in ts.get_timeseries().columns
-        assert "value1" not in ts.get_timeseries().columns
-        assert "value2" not in ts.get_timeseries().columns
+        assert "temperature" in ts.get_data().columns
+        assert "pressure" in ts.get_data().columns
+        assert "value1" not in ts.get_data().columns
+        assert "value2" not in ts.get_data().columns
 
     def test_timezone_operations(self, sample_ts):
         """Test timezone conversion operations."""
@@ -438,7 +438,7 @@ class TestTimeseriesManipulation:
         assert ts.timezone == "America/New_York"
 
         # Verify times are converted
-        times = ts.get_timeseries()["time"].to_list()
+        times = ts.get_data()["time"].to_list()
         for t in times:
             assert t.tzinfo is not None
             assert "America/New_York" in str(t.tzinfo)

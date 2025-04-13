@@ -40,7 +40,7 @@ class Timeseries:
         self.timeseries: pl.DataFrame = pl.DataFrame()
 
         if isinstance(timeseries, Timeseries):
-            self.timeseries = timeseries.get_timeseries()
+            self.timeseries = timeseries.get_data()
             self.timezone = timeseries.timezone
         else:
             try:
@@ -68,7 +68,7 @@ class Timeseries:
         :rtype: bool
         """
         if isinstance(other, Timeseries):
-            other = other.get_timeseries()
+            other = other.get_data()
             return self.timeseries.equals(other)
         raise NotImplementedError("Comparison with non-Timeseries objects is not supported")
 
@@ -76,11 +76,13 @@ class Timeseries:
         """Return the number of rows in the time series."""
         return self.timeseries.height
 
-    def __mul__(self, factor: float) -> Timeseries:
+    def __mul__(self, factor: float, inplace=True) -> Timeseries:
         """Multiply all numeric columns by a scalar."""
         df = self.timeseries.with_columns(pl.selectors.numeric().mul(factor))
-
-        return Timeseries(df)
+        if inplace:
+            self.timeseries = df
+            return self
+        return Timeseries(df, self.timezone)
 
     def remove_na(self, inplace: bool = True) -> Timeseries:
         """Remove rows containing null values.
@@ -94,9 +96,9 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
-    def get_timeseries(self) -> pl.DataFrame:
+    def get_data(self) -> pl.DataFrame:
         """Return the internal Polars DataFrame.
 
         :return: The internal time series data
@@ -146,7 +148,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def upsample(
         self,
@@ -184,7 +186,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def groupby(
         self,
@@ -227,7 +229,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def select(self, variables: list[str], inplace: bool = True) -> Timeseries:
         """Select the specified variables from the time series.
@@ -243,7 +245,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def remove_duplicated(
         self,
@@ -263,7 +265,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def join(
         self,
@@ -294,7 +296,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def drop(self, variables: list[str], inplace: bool = True) -> Timeseries:
         """Remove specified variables from the time series.
@@ -310,7 +312,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def get_granularity(self, unit: Literal["hour", "minute", "second"] = "hour") -> float:
         """Compute the time interval (granularity) between data points.
@@ -346,11 +348,11 @@ class Timeseries:
         :return: Modified time series or None
         :rtype: Timeseries or None
         """
-        renamed = self.timeseries.rename(dict(zip(old_cols, new_cols, strict=False)))
+        df = self.timeseries.rename(dict(zip(old_cols, new_cols, strict=False)))
         if inplace:
-            self.timeseries = renamed
+            self.timeseries = df
             return self
-        return Timeseries(renamed)
+        return Timeseries(df, self.timezone)
 
     def export(
         self,
