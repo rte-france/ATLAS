@@ -7,10 +7,10 @@ requires-python = ">=3.10"
 dependencies = [
     "coverage>=7.8.0",
     "loguru>=0.7.3",
-    "mypy>=1.15.0",
     "numpy>=2.0.1",
     "ortools>=9.12.4544",
     "pandas>=2.2.2",
+    "pendulum>=3.0.0",
     "polars>=1.27.0",
     "pydantic>=2.11.3",
     "pytz>=2025.1",
@@ -46,6 +46,7 @@ dev = [
     "pytest>=8.3.5",
     "pytest-cov>=6.1.1",
     "ruff>=0.9.7",
+    "mypy>=1.15.0",
 ]
 docs = [
     "mkdocs-material>=9.6.11",

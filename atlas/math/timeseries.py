@@ -45,10 +45,9 @@ class Timeseries:
             self.timezone = timeseries.timezone
         else:
             try:
-                if isinstance(timeseries, pl.DataFrame):
-                    df = timeseries
-                else:
-                    df = pl.DataFrame(timeseries)
+                df = (
+                    timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+                )
             except Exception as e:
                 raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
