@@ -47,6 +47,7 @@ dev = [
     "ruff>=0.9.7",
     "mypy>=1.15.0",
     "coverage>=7.8.0",
+    "types-pyyaml>=6.0.12.20250402",
 ]
 docs = [
     "mkdocs-material>=9.6.11",
