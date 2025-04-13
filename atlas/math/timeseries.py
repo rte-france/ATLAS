@@ -16,7 +16,6 @@ import polars as pl
 import pytz
 
 if TYPE_CHECKING:
-    import numpy as np
     import pandas as pd
 
 
@@ -32,10 +31,10 @@ class Timeseries:
 
     def __init__(
         self,
-        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | np.ndarray,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list],
         timezone: str = "UTC",
     ) -> None:
-        self._check_timezone()
+        self._check_timezone(timezone)
 
         self.timezone: str = timezone
         self.timeseries: pl.DataFrame = pl.DataFrame()
@@ -105,13 +104,13 @@ class Timeseries:
         """
         return self.timeseries
 
-    def _check_timezone(self) -> None:
+    def _check_timezone(self, timezone: str) -> None:
         """Check if the timezone is valid.
 
         :raises ValueError: If the timezone is not valid
         """
-        if self.timezone not in pytz.all_timezones:
-            raise ValueError(f"Invalid timezone: {self.timezone}")
+        if timezone not in pytz.all_timezones:
+            raise ValueError(f"Invalid timezone: {timezone}")
 
     def set_tz(self, timezone: str) -> None:
         """Convert the datetime column to a new timezone.
@@ -119,7 +118,7 @@ class Timeseries:
         :param timezone: Timezone string
         :type timezone: str
         """
-        self._check_timezone()
+        self._check_timezone(timezone)
 
         self.timezone = timezone
         self.timeseries = self.timeseries.with_columns(
