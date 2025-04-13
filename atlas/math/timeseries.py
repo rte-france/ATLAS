@@ -76,12 +76,10 @@ class Timeseries:
         """Return the number of rows in the time series."""
         return self.timeseries.height
 
-    def __mul__(self, factor: float, inplace=True) -> Timeseries:
+    def __mul__(self, factor: float) -> Timeseries:
         """Multiply all numeric columns by a scalar."""
         df = self.timeseries.with_columns(pl.selectors.numeric().mul(factor))
-        if inplace:
-            self.timeseries = df
-            return self
+
         return Timeseries(df, self.timezone)
 
     def remove_na(self, inplace: bool = True) -> Timeseries:
