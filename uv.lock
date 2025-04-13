@@ -121,9 +121,7 @@ name = "atlas"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "coverage" },
     { name = "loguru" },
-    { name = "mypy" },
     { name = "numpy" },
     { name = "ortools" },
     { name = "pandas" },
@@ -137,9 +135,11 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "coverage" },
     { name = "ipython", version = "8.35.0", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version < '3.11'" },
     { name = "ipython", version = "9.1.0", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version >= '3.11'" },
     { name = "jupyter" },
+    { name = "mypy" },
     { name = "pandas-stubs" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -153,9 +153,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "coverage", specifier = ">=7.8.0" },
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "mypy", specifier = ">=1.15.0" },
     { name = "numpy", specifier = ">=2.0.1" },
     { name = "ortools", specifier = ">=9.12.4544" },
     { name = "pandas", specifier = ">=2.2.2" },
@@ -169,8 +167,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "coverage", specifier = ">=7.8.0" },
     { name = "ipython", specifier = ">=8.35.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "mypy", specifier = ">=1.15.0" },
     { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-cov", specifier = ">=6.1.1" },

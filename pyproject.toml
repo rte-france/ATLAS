@@ -5,7 +5,6 @@ description = "A tool for simulating power market such as day-ahead, intraday, a
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "coverage>=7.8.0",
     "loguru>=0.7.3",
     "numpy>=2.0.1",
     "ortools>=9.12.4544",
@@ -47,6 +46,7 @@ dev = [
     "pytest-cov>=6.1.1",
     "ruff>=0.9.7",
     "mypy>=1.15.0",
+    "coverage>=7.8.0",
 ]
 docs = [
     "mkdocs-material>=9.6.11",
