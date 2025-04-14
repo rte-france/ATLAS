@@ -13,12 +13,11 @@ import pandas as pd
 import polars as pl
 import pytest
 
-# Assuming the Timeseries class is in a module named timeseries
 from atlas import Timeseries
 
 
 @pytest.fixture
-def sample_df():
+def sample_df() -> pl.DataFrame:
     """Create a sample DataFrame for testing."""
     return pl.DataFrame(
         {
@@ -35,13 +34,13 @@ def sample_df():
 
 
 @pytest.fixture
-def sample_ts(sample_df):
+def sample_ts(sample_df) -> Timeseries:
     """Create a sample Timeseries instance for testing."""
     return Timeseries(sample_df)
 
 
 @pytest.fixture
-def sample_df_with_nulls():
+def sample_df_with_nulls() -> pl.DataFrame:
     """Create a sample DataFrame with null values for testing."""
     return pl.DataFrame(
         {
@@ -58,7 +57,7 @@ def sample_df_with_nulls():
 
 
 @pytest.fixture
-def sample_pandas_df():
+def sample_pandas_df() -> pd.DataFrame:
     """Create a sample pandas DataFrame for testing."""
     return pd.DataFrame(
         {
@@ -154,7 +153,7 @@ class TestTimeseriesInit:
 class TestTimeseriesBasicOperations:
     """Test basic operations of the Timeseries class."""
 
-    def test_eq(self, sample_ts):
+    def test_eq(self, sample_ts: Timeseries):
         """Test equality comparison."""
         ts1 = sample_ts
         ts2 = Timeseries(sample_ts.get_data())
@@ -447,6 +446,28 @@ class TestTimeseriesManipulation:
         """Test conversion to an invalid timezone."""
         with pytest.raises(ValueError):
             sample_ts.set_tz("Invalid/Timezone")
+
+    def test_filter_with_datetime(self, sample_ts):
+        dt = datetime(2023, 1, 1, 0, 0, 0)
+        result = sample_ts.filter(dt, inplace=False)
+        assert len(result) == 1
+        assert result.get_data()["value1"].item() == 10
+
+    def test_filter_with_list_of_datetime(self, sample_ts):
+        dts = [datetime(2023, 1, 1, 0, 0, 0), datetime(2023, 1, 1, 1, 0, 0)]
+        result = sample_ts.filter(dts, inplace=False)
+        assert len(result) == 2
+        assert result.get_data()["value1"].to_list() == [10, 20]
+
+    def test_filter_with_str(self, sample_ts):
+        result = sample_ts.filter("2023-01-01T03:00:00", inplace=False)
+        assert len(result) == 1
+        assert result.get_data()["value1"].item() == 40
+
+    # def test_getitem_with_str(self, sample_ts):
+    #     val = sample_ts["2024-01-01T03:00:00"]
+    #     assert isinstance(val, pl.Series)
+    #     assert val.to_list() == [40]
 
 
 class TestTimeseriesExport:

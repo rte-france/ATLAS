@@ -9,9 +9,10 @@ This module provides a Timeseries class for handling time series data using Pola
 from __future__ import annotations
 
 import pickle
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 
+import pendulum
 import polars as pl
 import pytz
 
@@ -380,3 +381,48 @@ class Timeseries:
                 pickle.dump(self, f)
         else:
             raise NotImplementedError("Format not supported")
+
+    def filter(
+        self,
+        item: list[datetime] | datetime | pendulum.DateTime | str,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """Filter the time series based on a condition.
+
+        :param condition: Condition to filter by
+        :type condition: str or pl.Expr
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Filtered time series
+        :rtype: Timeseries
+        """
+        if isinstance(item, list):
+            df = self.timeseries.filter(pl.col("time").is_in(item))
+        elif isinstance(item, str):
+            item = pendulum.parse(item, tz=self.timezone)
+            df = self.timeseries.filter(pl.col("time") == item)
+        elif isinstance(item, datetime):
+            item = pendulum.instance(item).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == item)
+        elif isinstance(item, pendulum.DateTime):
+            df = self.timeseries.filter(pl.col("time") == item)
+        else:
+            raise NotImplementedError("Invalid filter formatting")
+
+        if inplace:
+            self.timeseries = df
+            return self
+        return Timeseries(df, self.timezone)
+
+    # def __getitem__(
+    #     self,
+    #     item: list[datetime] | datetime | str | pendulum.DateTime,
+    # ) -> Timeseries:
+    #     """Get a subset of the time series.
+
+    #     :param item: Column name, index, or slice to select
+    #     :type item: int, slice, list[str], list[int], or list[slice]
+    #     :return: Subset of the time series
+    #     :rtype: Timeseries
+    #     """
+    #     return self.filter(item, inplace=False).get_data()
