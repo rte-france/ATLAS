@@ -1,3 +1,5 @@
+from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydraulic import Hydraulic
@@ -33,7 +35,9 @@ __all__ = [
     "OtherNonDispatchable",
     "Photovoltaic",
     "Portfolio",
+    "ScenarioMatrix",
     "Storage",
     "Thermic",
+    "Timeseries",
     "Wind",
 ]

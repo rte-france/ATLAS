@@ -2,15 +2,16 @@
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
-"""
 
 import numpy as np
 
 from atlas.math.timeseries import Timeseries
 
-"""
+
 Module that implements ScenarioMatrix
 """
+
+from atlas.math.timeseries import Timeseries
 
 
 class ScenarioMatrix:
@@ -67,7 +68,7 @@ class ScenarioMatrix:
         :param timeserie: Timeseries. The timeserie to add in the matrix
         :return: Timeseries
         """
-        if not isinstance(index, (str, np.integer)):
+        if not isinstance(index, (str, int)):
             raise TypeError(f"Expected index type str or int, got {type(index)}")
 
         if not isinstance(timeserie, Timeseries):

@@ -82,7 +82,9 @@ nav:
   - Concepts:
     - Overview: concepts/overview.md
   - Python Package Documentation:
-    - Atlas: api/example.md
+    - Math Objects:
+      - Timeseries: api/math/timeseries.md
+      - Scenario Matrix: api/math/scenario_matrix.md
 
 extra:  
   social:
