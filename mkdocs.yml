@@ -82,7 +82,9 @@ nav:
   - Concepts:
     - Overview: concepts/overview.md
   - Python Package Documentation:
-    - Atlas: api/example.md
+    - I/O: 
+      - Input Parser: api/io/input_parser.md
+    
 
 extra:  
   social:
