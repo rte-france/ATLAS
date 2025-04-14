@@ -11,10 +11,10 @@ class Hydraulic(Equipment):
     inflow_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
 
     fragment_prices: list[float] = Field(
-        ...,
+        None,
         description="List of positive prices",
-    )  # Ajout de validation possible
-    fragment_volumes: list[float] = Field(..., description="List of positive volumes")
+    )
+    fragment_volumes: list[float] = Field(None, description="List of positive volumes")
 
     stored_energy: ForecastingMatrix | None = None
 
