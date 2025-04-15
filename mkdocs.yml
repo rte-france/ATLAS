@@ -33,10 +33,15 @@ repo_name: rte-france/atlas
 
 plugins:
   - search
+  - mkdocs-jupyter:
+      execute: true
+      allow_errors: false
   - mkdocstrings:
       default_handler: python
       handlers:
         python:
+          inventories:
+            - https://docs.pydantic.dev/latest/objects.inv
           options:
             show_root_heading: true
             heading_level: 2
@@ -88,6 +93,8 @@ nav:
     - Math Objects:
       - Timeseries: api/math/timeseries.md
       - Scenario Matrix: api/math/scenario_matrix.md
+  - Examples:
+    - Timeseries: examples/timeseries.ipynb
 
 extra:  
   social:
