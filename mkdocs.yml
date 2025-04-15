@@ -94,6 +94,9 @@ nav:
     - Timeseries: examples/timeseries.ipynb
 
 extra:  
+  version:
+    provider: mike
+    default: 0.1.0
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/rte-france/ATLAS
