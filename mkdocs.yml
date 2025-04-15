@@ -33,6 +33,7 @@ repo_name: rte-france/atlas
 
 plugins:
   - search
+  - autorefs
   - mkdocs-jupyter:
       execute: true
       allow_errors: false
