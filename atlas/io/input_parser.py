@@ -7,7 +7,7 @@ class InputParser:
     """A class to handle input parsing from Atlas format."""
 
     @classmethod
-    def from_directory(cls, directory_path: str | Path) -> pl.DataFrame:
+    def from_directory(cls, directory_path: str | Path) -> None:
         """Parse input from a directory."""
         if not Path(directory_path).exists():
             raise FileNotFoundError(
@@ -18,7 +18,7 @@ class InputParser:
                 f"Path is not a directory: {directory_path}",
             )
         dataframes = {}
-        for file_path in directory_path.iterdir():
+        for file_path in Path(directory_path).iterdir():
             if file_path.is_file() and file_path.suffix in [".csv", ".parquet"]:
                 df = cls.from_file(file_path)
                 dataframes[file_path] = df
