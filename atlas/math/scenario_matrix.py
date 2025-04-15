@@ -1,102 +1,121 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
-See AUTHORS.txt
-SPDX-License-Identifier: MPL-2.0
-This file is part of the ATLAS project.
-
-Module that implements ScenarioMatrix
-"""
-
 from atlas.math.timeseries import Timeseries
 
 
 class ScenarioMatrix:
-    """A class that stores Timeseries by scenario names and allows to access and delete
-    them by their name.
-    """
+    """Stores Timeseries objects by scenario name, with access and deletion by name."""
 
-    def __init__(self, name, indexes=None, timeseries=None):
-        """Create a ScenarioMatrix from a list of timeseries
+    def __init__(self, name: str, indexes: list[str | int | float], timeseries: list[Timeseries]):
+        """Initialize a ScenarioMatrix.
 
-        :param name: str. Name of the matrix
-        :param indexes: list of str. Name of each scenario of the matrix
-        :param timeseries: list of Timeseries. Timeseries of each scenario of the matrix
+        :param name: The name of the matrix.
+        :type name: str
+        :param indexes: List of scenario names.
+        :type indexes: list[str], optional
+        :param timeseries: List of Timeseries corresponding to the scenario names.
+        :type timeseries: list[Timeseries], optional
+        :raises ValueError: If the number of indexes and timeseries do not match.
         """
-        if indexes is None:
-            indexes = []
-        if timeseries is None:
-            timeseries = []
+        self.name: str | int | float = name
 
-        if len(indexes) != len(timeseries):
-            raise ValueError(
-                "names and timeseries parameters must contain the same number of elements",
-            )
+        self.scenarios: dict[str, Timeseries] = dict(zip(indexes, timeseries, strict=False))
 
-        self.name = name
-        self.indexes = indexes
-        self.scenarios = dict(zip(indexes, timeseries, strict=False))
+    def __len__(self) -> int:
+        """Get the number of timeseries in the matrix.
 
-    def __len__(self):
+        :return: Number of scenarios.
+        :rtype: int
+        """
         return len(self.scenarios)
 
-    def __eq__(self, other_matrix):
-        """Test whether two ScenarioMatrix objects are equal.
-        Objects are considered equal if they store the same name, scenarios names/timeseries.
+    def __eq__(self, other: object) -> bool:
+        """Check equality with another ScenarioMatrix.
 
-        :param other_matrix: ScenarioMatrix. The other forecasting matrix to compare to.
-        :return: True if equal else False.
+        :param other: Another ScenarioMatrix instance.
+        :type other: object
+        :return: True if the matrices are equal, False otherwise.
+        :rtype: bool
         """
-        if self.name != other_matrix.name:
-            return False
-        if self.indexes != other_matrix.indexes:
-            return False
-        if self.scenarios.keys() != other_matrix.scenarios.keys():
-            return False
-        for name, timeserie in self.scenarios.items():
-            if timeserie != other_matrix.scenarios[name]:
-                return False
-        return True
+        if not isinstance(other, ScenarioMatrix):
+            return NotImplementedError(
+                "Cannot compare ScenarioMatrix with non-ScenarioMatrix object",
+            )
 
-    def add_timeseries(self, index, timeserie):
-        """Add a timeserie at the given index in the matrix
+        return (
+            self.name == other.name
+            and list(self.scenarios.keys()) == list(other.scenarios.keys())
+            and all(self.scenarios[k] == other.scenarios[k] for k in self.scenarios)
+        )
 
-        :param index: str or int. The index to set the timeseries in the matrix
-        :param timeserie: Timeseries. The timeserie to add in the matrix
-        :return: Timeseries
+    def __contains__(self, index: str | float) -> bool:
+        """Check if a scenario exists in the matrix.
+
+        :param index: Scenario name.
+        :type index: str
+        :return: True if the index exists, False otherwise.
+        :rtype: bool
         """
-        if not isinstance(index, (str, int)):
-            raise TypeError(f"Expected index type str or int, got {type(index)}")
+        return index in self.scenarios
 
-        if not isinstance(timeserie, Timeseries):
-            raise TypeError(f"Expected timeserie type Timeseries, got {type(index)}")
+    def __getitem__(self, index: str | float) -> Timeseries:
+        """Retrieve a timeseries by its scenario name.
 
-        self.indexes.append(index)
-        self.scenarios[index] = timeserie
-
-    def delete_timeseries(self, index):
-        """Delete timeserie at the given index in the matrix
-
-        :param index: str. The index of the timeserie to delete in the matrix
-        :return:
+        :param index: Scenario name.
+        :type index: str or int
+        :raises KeyError: If the index is not found.
+        :return: The corresponding Timeseries.
+        :rtype: Timeseries
         """
-        if not isinstance(index, str):
+        if index not in self.scenarios:
+            raise KeyError(f"No timeseries found for index: {index}")
+        return self.scenarios[index]
+
+    def add_timeseries(self, index: str | float, timeseries: Timeseries) -> None:
+        """Add a timeseries to the matrix.
+
+        :param index: Scenario name.
+        :type index: str or int
+        :param timeserie: Timeseries to add.
+        :type timeserie: Timeseries
+        :raises TypeError: If input types are invalid.
+        """
+        if not isinstance(index, str | int | float):
+            raise TypeError(f"Expected index type str or numerical, got {type(index)}")
+        if not isinstance(timeseries, Timeseries):
+            raise TypeError(f"Expected timeserie type Timeseries, got {type(timeseries)}")
+
+        self.scenarios[index] = timeseries
+
+    def delete_timeseries(self, index: str) -> None:
+        """Delete a timeseries from the matrix by scenario name.
+
+        :param index: Scenario name.
+        :type index: str
+        :raises TypeError: If index is not a string.
+        :raises KeyError: If the index does not exist.
+        """
+        if not isinstance(index, str | int | float):
             raise TypeError(f"Expected index type str, got {type(index)}")
-
-        if index in self.scenarios:
-            # Delete value in scenarios dict
+        try:
             del self.scenarios[index]
-            # Find its index in indexes list and delete it
-            ind = self.indexes.index(index)
-            del self.indexes[ind]
+        except KeyError:
+            raise KeyError(f"No timeseries to delete at index: {index}")
 
-    def get_data(self, index):
-        """Returns the Timeseries for the given index
+    def get_timeseries(self, index: str | float) -> Timeseries:
+        """Get a timeseries by scenario name.
 
-        :param index: str or int. The index of the timeseries to get in the matrix
-        :return: Timeseries
+        :param index: Scenario name.
+        :type index: str or int
+        :raises KeyError: If the index is not found.
+        :return: Corresponding Timeseries.
+        :rtype: Timeseries
         """
-        # TODO Maybe raise error if index not in self.scenarios
-        if index in self.scenarios:
-            return self.scenarios[index]
+        return self.__getitem__(index)
 
-    def __getitem__(self, index):
-        return self.get_data(index)
+    @property
+    def indexes(self) -> list[str]:
+        """List of scenario names.
+
+        :return: List of scenario indexes.
+        :rtype: list[str]
+        """
+        return list(self.scenarios.keys())
