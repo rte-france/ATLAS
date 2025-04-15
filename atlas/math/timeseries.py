@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pickle
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import pendulum
@@ -355,7 +356,7 @@ class Timeseries:
 
     def export(
         self,
-        path: str,
+        path: str | Path,
         file_format: Literal["csv", "parquet", "pickle"] = "csv",
     ) -> None:
         """Export the time series to a file.
@@ -367,16 +368,18 @@ class Timeseries:
         :raises ValueError: If file extension doesn't match format
         :raises NotImplementedError: If the file format is not supported
         """
-        file_format = file_format.lower()
+        file_format_lower = file_format.lower()
 
-        if not path.lower().endswith(file_format):
+        if isinstance(path, Path):
+            path = str(path)
+        if not path.lower().endswith(file_format_lower):
             raise ValueError("Format and file extension don't match.")
 
-        if file_format == "csv":
+        if file_format_lower == "csv":
             self.timeseries.write_csv(path)
-        elif file_format == "parquet":
+        elif file_format_lower == "parquet":
             self.timeseries.write_parquet(path)
-        elif file_format == "pickle":
+        elif file_format_lower == "pickle":
             with open(path, "wb") as f:
                 pickle.dump(self, f)
         else:
@@ -399,11 +402,11 @@ class Timeseries:
         if isinstance(item, list):
             df = self.timeseries.filter(pl.col("time").is_in(item))
         elif isinstance(item, str):
-            item = pendulum.parse(item, tz=self.timezone)
-            df = self.timeseries.filter(pl.col("time") == item)
+            date = pendulum.parse(item, tz=self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
         elif isinstance(item, datetime):
-            item = pendulum.instance(item).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == item)
+            date = pendulum.instance(item).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
         elif isinstance(item, pendulum.DateTime):
             df = self.timeseries.filter(pl.col("time") == item)
         else:

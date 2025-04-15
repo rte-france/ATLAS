@@ -17,7 +17,9 @@ class ScenarioMatrix:
         """
         self.name: str | int | float = name
 
-        self.scenarios: dict[str, Timeseries] = dict(zip(indexes, timeseries, strict=False))
+        self.scenarios: dict[str | int | float, Timeseries] = dict(
+            zip(indexes, timeseries, strict=False),
+        )
 
     def __len__(self) -> int:
         """Get the number of timeseries in the matrix.
@@ -36,7 +38,7 @@ class ScenarioMatrix:
         :rtype: bool
         """
         if not isinstance(other, ScenarioMatrix):
-            return NotImplementedError(
+            raise NotImplementedError(
                 "Cannot compare ScenarioMatrix with non-ScenarioMatrix object",
             )
 
@@ -112,7 +114,7 @@ class ScenarioMatrix:
         return self.__getitem__(index)
 
     @property
-    def indexes(self) -> list[str]:
+    def indexes(self) -> list[str | int | float]:
         """List of scenario names.
 
         :return: List of scenario indexes.
