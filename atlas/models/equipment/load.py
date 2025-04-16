@@ -27,6 +27,7 @@ class Load(Equipment):
     Day Ahead
     :type power_forecast_low: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     load_type: LoadType | None = None
     maximum_power_forecast: ForecastingMatrix | None = None

@@ -50,6 +50,7 @@ class Order(BaseModel):
     :param q_min: Minimum bid volume that can be accepted in the clearing phase
     :type q_min: float
     """
+
     equipment: Equipment | None = None
     market_area: MarketArea | None = None
     portfolio: Portfolio | None = None  # Class Business model Portfolio

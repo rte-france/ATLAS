@@ -18,6 +18,7 @@ class OtherNonDispatchable(Equipment):
     :param da_sell_submitted_volume: Sum of volume of sell offers on the Day Ahead market
     :type da_sell_submitted_volume: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     maximum_power_forecast: ForecastingMatrix | None = None
     da_sell_submitted_volume: Timeseries | None = None

@@ -39,6 +39,7 @@ class CriticalBranch(BaseModel):
     Intraday clearing operations
     :type total_id_flow: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     downhill_node: Node | None = None
     uphill_node: Node | None = None

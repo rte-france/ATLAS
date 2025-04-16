@@ -21,6 +21,7 @@ class OrderCoupling(BaseModel):
     :param coupling_type: Offer type (EXCLUSION, COMPLEMENT, IDENTICAL_VOLUME, PARENT_CHILDREN)
     :type coupling_type: CouplingType
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     orders: list[Order]  # List of Business model Order
     complement_direction: ComplementDirection | None = None

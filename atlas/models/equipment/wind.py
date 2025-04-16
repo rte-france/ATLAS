@@ -26,6 +26,7 @@ class Wind(Equipment):
     :param maximum_curtailment_ratio: Sum of volume of sell offers on the Day Ahead market
     :type maximum_curtailment_ratio: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     installed_capacity: float | None = Field(
         None,

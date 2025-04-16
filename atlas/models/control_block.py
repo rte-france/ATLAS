@@ -12,8 +12,7 @@ from atlas.math.timeseries import Timeseries
 
 
 class ControlBlock(BaseModel):
-    """
-    :param alternative_type: Type of alternative considered for formulating a TSO offer on a balancing market
+    """:param alternative_type: Type of alternative considered for formulating a TSO offer on a balancing market
     :type alternative_type: ReservesTypes
     :param volume_uncertainty: True if uncertainty about the volume of the TSO's balancing requirement must be taken
     into account when formulating bids on a balancing market
@@ -65,6 +64,7 @@ class ControlBlock(BaseModel):
     :param weighted_balance_price_up: Weighted average balancing energy activation price upward
     :type weighted_balance_price_up: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     alternative_type: ReservesTypes | None = None
     volume_uncertainty: bool | None = None

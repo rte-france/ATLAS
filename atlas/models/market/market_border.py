@@ -65,6 +65,7 @@ class MarketBorder(BaseModel):
     :param total_id_flow: Cumulative sum of accepted power from all Day Ahead Clearing
     :type total_id_flow: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     downhill_control_block: ControlBlock | None = None
     uphill_control_block: ControlBlock | None = None

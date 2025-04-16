@@ -20,6 +20,7 @@ class MarketAreaPtdf(BaseModel):
     :param da_ptdf: PTDF from Flow Based Day-Ahead pre-Clearing
     :type da_ptdf: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     market_area: MarketArea | None = None
     id_ptdf: ForecastingMatrix | None = None

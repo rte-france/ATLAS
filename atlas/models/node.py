@@ -29,6 +29,7 @@ class Node(BaseModel):
     :param reference_balance: Balance define by GRT
     :type reference_balance: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     control_block: ControlBlock | None = None
     market_area: MarketArea | None = None

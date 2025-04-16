@@ -55,6 +55,7 @@ class MarketArea(BaseModel):
     :param total_id_balance: Cumulative sum of net trading position from all Intraday Clearing
     :type total_id_balance: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     control_block: ControlBlock | None = None
     co2_emission: ForecastingMatrix | None = None

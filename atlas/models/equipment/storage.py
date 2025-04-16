@@ -43,6 +43,7 @@ class Storage(Equipment):
     :param minimum_state_of_charge: Sum of volume of sell offers on the Day Ahead market
     :type minimum_state_of_charge: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     charge_efficiency: float | None = Field(
         None,

@@ -151,11 +151,7 @@ class Timeseries:
         :rtype: Timeseries
         """
         if strategy == "linear":
-            df = (
-                self.timeseries.upsample(time_column="time", every=every)
-                .interpolate()
-                .fill_null(strategy="forward")
-            )
+            df = self.timeseries.upsample(time_column="time", every=every).interpolate().fill_null(strategy="forward")
         elif strategy == "constant":
             df = self.timeseries.upsample(time_column="time", every="15m").fill_null(
                 strategy="forward",

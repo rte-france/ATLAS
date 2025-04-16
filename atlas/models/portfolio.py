@@ -52,6 +52,7 @@ class Portfolio(BaseModel):
     :param total_id_cleared_quantity: Sum of volume of sell offers on the Day Ahead market
     :type total_id_cleared_quantity: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     control_block: ControlBlock | None = None
     market_area: MarketArea | None = None

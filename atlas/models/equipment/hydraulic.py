@@ -44,6 +44,7 @@ class Hydraulic(Equipment):
     :param minimum_power: Minimum power
     :type minimum_power: Timeseries
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     inflow_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
     energy_target_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
