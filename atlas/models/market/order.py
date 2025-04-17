@@ -15,8 +15,7 @@ from atlas.models.portfolio import Portfolio
 
 
 class Order(BaseModel):
-    """
-    :param equipment: Associated Equipment
+    """:param equipment: Associated Equipment
     :type equipment: Equipment
     :param market_area: Associated Market Area
     :type market_area: Market Area

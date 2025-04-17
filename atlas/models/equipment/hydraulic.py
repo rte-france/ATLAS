@@ -12,8 +12,7 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class Hydraulic(Equipment):
-    """
-    :param inflow_frequency: Frequency of inflow frequency information. "Monthly" for Antares 6 version and
+    """:param inflow_frequency: Frequency of inflow frequency information. "Monthly" for Antares 6 version and
     "daily" for Antares 7
     :type inflow_frequency: str
     :param energy_target_frequency: Frequency of energy target information. "Monthly" for Antares 6 version and
@@ -47,13 +46,16 @@ class Hydraulic(Equipment):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     inflow_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
-    energy_target_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
+    energy_target_frequency: str | None = Field(
+        None,
+        description="Possible values: 'Monthly', 'Daily'",
+    )
 
-    fragment_prices: list[float] = Field(
+    fragment_prices: list[float] | None = Field(
         None,
         description="List of positive prices",
     )
-    fragment_volumes: list[float] = Field(None, description="List of positive volumes")
+    fragment_volumes: list[float] | None = Field(None, description="List of positive volumes")
 
     stored_energy: ForecastingMatrix | None = None
 

@@ -12,8 +12,7 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class Photovoltaic(Equipment):
-    """
-    :param installed_capacity: Installed capacity
+    """:param installed_capacity: Installed capacity
     :type installed_capacity: float
     :param maximum_power_forecast: Sum of volume of sell offers on the Day Ahead market
     :type maximum_power_forecast:

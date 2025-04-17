@@ -12,8 +12,7 @@ from atlas.models.node import Node
 
 
 class NodePtdf(BaseModel):
-    """
-    :param node: Associated Node
+    """:param node: Associated Node
     :type node: Node
     :param id_ptdf: PTDF from Flow Based Intraday pre-Clearing
     :type id_ptdf: ForecastingMatrix

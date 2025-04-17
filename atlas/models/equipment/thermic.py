@@ -13,8 +13,7 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class Thermic(Equipment):
-    """
-    :param installed_capacity: Installed capacity
+    """:param installed_capacity: Installed capacity
     :type installed_capacity: float
     :param minimum_stable_power_duration: Sum of volume of sell offers on the Day Ahead market
     :type minimum_stable_power_duration: float

@@ -12,8 +12,7 @@ from atlas.models.control_block import ControlBlock
 
 
 class MarketArea(BaseModel):
-    """
-    :param control_block: Associated Control block
+    """:param control_block: Associated Control block
     :type control_block: ControlBlock
     :param co2_emission: Stores CO2 emissions at the end of each Portfolio Optimization
     :type co2_emission: ForecastingMatrix

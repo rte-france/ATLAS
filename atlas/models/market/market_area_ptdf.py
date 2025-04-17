@@ -6,14 +6,13 @@ This file is part of the ATLAS project.
 
 from pydantic import BaseModel, ConfigDict
 
-from atlas import MarketArea
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.market.market_area import MarketArea
 
 
 class MarketAreaPtdf(BaseModel):
-    """
-    :param market_area: Associated MarketArea
+    """:param market_area: Associated MarketArea
     :type market_area: MarketArea
     :param id_ptdf: PTDF from Flow Based Intraday pre-Clearing
     :type id_ptdf: ForecastingMatrix

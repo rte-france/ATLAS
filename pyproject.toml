@@ -30,7 +30,7 @@ line-length = 120
 extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
-ignore = ["B028", "B904", "W291", "EM102", "PTH119", "PTH118", "PTH103", "PTH100", "PD901", "D205", "D401", "TRY003", "D404", "EM101", "ANN204", "G004", "PTH123", "D415", "D400", "TRY301", "FBT002", "FBT001", "D107", "TC003"]
+ignore = ["B028", "B904", "W291", "EM102", "PTH119", "D104","PTH118", "PTH103", "PTH100", "PD901", "D205", "D401", "TRY003", "D404", "EM101", "ANN204", "G004", "PTH123", "D415", "D400", "TRY301", "FBT002", "FBT001", "D107", "TC003"]
 select = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]

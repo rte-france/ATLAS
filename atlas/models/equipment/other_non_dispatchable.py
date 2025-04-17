@@ -12,8 +12,7 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class OtherNonDispatchable(Equipment):
-    """
-    :param maximum_power_forecast: Maximum production capacity forecast
+    """:param maximum_power_forecast: Maximum production capacity forecast
     :type maximum_power_forecast: ForecastingMatrix
     :param da_sell_submitted_volume: Sum of volume of sell offers on the Day Ahead market
     :type da_sell_submitted_volume: Timeseries

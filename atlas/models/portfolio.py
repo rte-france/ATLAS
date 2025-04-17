@@ -13,8 +13,7 @@ from atlas.models.market.market_area import MarketArea
 
 
 class Portfolio(BaseModel):
-    """
-    :param control_block: Installed capacity
+    """:param control_block: Installed capacity
     :type control_block: ControlBlock
     :param market_area: Sum of volume of sell offers on the Day Ahead market
     :type market_area: MarketArea

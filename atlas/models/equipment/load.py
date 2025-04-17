@@ -13,8 +13,7 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class Load(Equipment):
-    """
-    :param load_type: Load type
+    """:param load_type: Load type
     :type load_type: LoadType
     :param maximum_power_forecast: Maximum production capacity forecast
     :type maximum_power_forecast: ForecastingMatrix

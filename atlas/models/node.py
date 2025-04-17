@@ -13,8 +13,7 @@ from atlas.models.market.market_area import MarketArea
 
 
 class Node(BaseModel):
-    """
-    :param control_block: Associated Control block
+    """:param control_block: Associated Control block
     :type control_block: ControlBlock
     :param market_area: Associated Market Area
     :type market_area: MarketArea

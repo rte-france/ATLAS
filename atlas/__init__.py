@@ -9,6 +9,7 @@ from atlas.models.equipment.photovoltaic import Photovoltaic
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermic import Thermic
 from atlas.models.equipment.wind import Wind
+from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.market_area_ptdf import MarketAreaPtdf
 from atlas.models.market.market_border import MarketBorder
@@ -17,7 +18,6 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
-from atlas.models.market.critical_branch import CriticalBranch
 
 __all__ = [
     "ControlBlock",

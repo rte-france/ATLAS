@@ -13,8 +13,7 @@ from atlas.models.equipment.equipment import Equipment
 
 
 class Storage(Equipment):
-    """
-    :param charge_efficiency: Installed capacity
+    """:param charge_efficiency: Installed capacity
     :type charge_efficiency: float
     :param discharge_efficiency: Sum of volume of sell offers on the Day Ahead market
     :type discharge_efficiency: float

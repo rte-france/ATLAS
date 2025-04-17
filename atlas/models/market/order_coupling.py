@@ -11,8 +11,7 @@ from atlas.models.market.order import Order
 
 
 class OrderCoupling(BaseModel):
-    """
-    :param orders: List of Order linked
+    """:param orders: List of Order linked
     :type orders: list[Order]
     :param complement_direction: Complement direction (EqualTo, LesserThan, GreaterThan)
     :type complement_direction: ComplementDirection

@@ -12,8 +12,7 @@ from atlas.math.timeseries import Timeseries
 
 
 class Equipment(BaseModel):
-    """
-    :param node: Associated Node
+    """:param node: Associated Node
     :type node: Node
     :param portfolio: Associated Portfolio
     :type portfolio: Portfolio

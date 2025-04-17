@@ -6,14 +6,15 @@ This file is part of the ATLAS project.
 
 from pydantic import BaseModel, ConfigDict
 
-from atlas import Node, MarketAreaPtdf, NodePtdf
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.market.market_area_ptdf import MarketAreaPtdf
+from atlas.models.market.node_ptdf import NodePtdf
+from atlas.models.node import Node
 
 
 class CriticalBranch(BaseModel):
-    """
-    :param downhill_node: Downhill node
+    """:param downhill_node: Downhill node
     :type downhill_node: Node
     :param uphill_node: Uphill node
     :type uphill_node: Node

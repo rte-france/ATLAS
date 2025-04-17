@@ -13,8 +13,7 @@ from atlas.models.market.market_area import MarketArea
 
 
 class MarketBorder(BaseModel):
-    """
-    :param downhill_control_block: Downhill Control Block
+    """:param downhill_control_block: Downhill Control Block
     :type downhill_control_block: ControlBlock
     :param uphill_control_block: Uphill Control Block
     :type uphill_control_block: ControlBlock
