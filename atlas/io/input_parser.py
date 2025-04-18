@@ -13,6 +13,9 @@ from typing import Any
 import polars as pl
 
 import atlas.config as cfg
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.timeseries import Timeseries
 
 
 class InputParser:
@@ -120,7 +123,7 @@ class InputParser:
         :rtype: pl.DataFrame
         """
         path = Path(timeseries_dir) / filename
-        return cls.from_file(path)
+        return Timeseries(cls.from_file(path))
 
     @classmethod
     def load_scenario_matrix(
@@ -141,11 +144,14 @@ class InputParser:
         instance_path = Path(base_dir) / instance_name
         if not instance_path.exists():
             raise FileNotFoundError(f"Scenario matrix path does not exist: {instance_path}")
-        return {
-            f.stem: cls.from_file(f)
-            for f in instance_path.glob("*.parquet")
-            if f.name != "metadata.json"
-        }
+        return ScenarioMatrix(
+            instance_name,
+            {
+                f.stem: cls.from_file(f)
+                for f in instance_path.glob("*.parquet")
+                if f.name != "metadata.json"
+            },
+        )
 
     @classmethod
     def load_forecasting_matrix(
@@ -166,11 +172,13 @@ class InputParser:
         instance_path = Path(base_dir) / instance_name
         if not instance_path.exists():
             raise FileNotFoundError(f"Forecasting matrix path does not exist: {instance_path}")
-        return {
-            f.stem: cls.from_file(f)
-            for f in instance_path.glob("*.parquet")
-            if f.name != "metadata.json"
-        }
+        return ForecastingMatrix(
+            {
+                f.stem: cls.from_file(f)
+                for f in instance_path.glob("*.parquet")
+                if f.name != "metadata.json"
+            }
+        )
 
     @staticmethod
     def load_metadata(folder_path: str | Path) -> dict:
