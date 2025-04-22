@@ -33,6 +33,7 @@ repo_name: rte-france/atlas
 
 plugins:
   - search
+  - autorefs
   - mkdocs-jupyter:
       execute: true
       allow_errors: false
@@ -99,10 +100,13 @@ nav:
     - Authors: authors.md
   - Concepts:
     - Overview: concepts/overview.md
-  - Reference:
+  - API Reference:
     - Math Objects:
       - Timeseries: api/math/timeseries.md
       - Scenario Matrix: api/math/scenario_matrix.md
+    - Models:
+      - Equipement: api/models/equipment.md
+      - Market: api/models/market.md
       - Forecasting Matrix: api/math/forecasting_matrix.md
   - Examples:
     - Timeseries: examples/timeseries.ipynb

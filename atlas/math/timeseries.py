@@ -1,4 +1,5 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""
+Copyright (c) 2016-2022, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
@@ -22,7 +23,8 @@ if TYPE_CHECKING:
 
 
 class Timeseries:
-    """A time series wrapper class using Polars backend.
+    """
+    A time series wrapper class using Polars backend.
 
     :param timeseries: The input time series data.
     :type timeseries: pl.DataFrame or Timeseries
@@ -46,9 +48,7 @@ class Timeseries:
             self.timezone = timeseries.timezone
         else:
             try:
-                df = (
-                    timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
-                )
+                df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
             except Exception as e:
                 raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
@@ -62,7 +62,8 @@ class Timeseries:
             self.timeseries = df
 
     def __eq__(self, other: object) -> bool:
-        """Check equality between the internal time series and another Polars DataFrame.
+        """
+        Check equality between the internal time series and another Polars DataFrame.
 
         :param other: The Polars DataFrame to compare with
         :type other: pl.DataFrame
@@ -85,7 +86,8 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def remove_na(self, inplace: bool = True) -> Timeseries:
-        """Remove rows containing null values.
+        """
+        Remove rows containing null values.
 
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -99,7 +101,8 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def get_data(self) -> pl.DataFrame:
-        """Return the internal Polars DataFrame.
+        """
+        Return the internal Polars DataFrame.
 
         :return: The internal time series data
         :rtype: pl.DataFrame
@@ -107,7 +110,8 @@ class Timeseries:
         return self.timeseries
 
     def _check_timezone(self, timezone: str) -> None:
-        """Check if the timezone is valid.
+        """
+        Check if the timezone is valid.
 
         :raises ValueError: If the timezone is not valid
         """
@@ -115,7 +119,8 @@ class Timeseries:
             raise ValueError(f"Invalid timezone: {timezone}")
 
     def set_tz(self, timezone: str) -> None:
-        """Convert the datetime column to a new timezone.
+        """
+        Convert the datetime column to a new timezone.
 
         :param timezone: Timezone string
         :type timezone: str
@@ -133,7 +138,8 @@ class Timeseries:
         inplace: bool = True,
         descending: bool | list[bool] = False,
     ) -> Timeseries:
-        """Sort the time series by the given variable(s).
+        """
+        Sort the time series by the given variable(s).
 
         :param variables: Variable(s) to sort by
         :type variables: str or list[str]
@@ -156,7 +162,8 @@ class Timeseries:
         inplace: bool = True,
         strategy: Literal["linear", "constant"] = "linear",
     ) -> Timeseries:
-        """Upsample the time series to a higher frequency.
+        """
+        Upsample the time series to a higher frequency.
 
         Fills in missing timestamps by interpolating or forward-filling values.
 
@@ -171,11 +178,7 @@ class Timeseries:
         :rtype: Timeseries
         """
         if strategy == "linear":
-            df = (
-                self.timeseries.upsample(time_column="time", every=every)
-                .interpolate()
-                .fill_null(strategy="forward")
-            )
+            df = self.timeseries.upsample(time_column="time", every=every).interpolate().fill_null(strategy="forward")
         elif strategy == "constant":
             df = self.timeseries.upsample(time_column="time", every="15m").fill_null(
                 strategy="forward",
@@ -194,7 +197,8 @@ class Timeseries:
         agg: Literal["mean", "sum", "min", "max"] = "mean",
         inplace: bool = True,
     ) -> Timeseries:
-        """Group the time series dynamically by time intervals.
+        """
+        Group the time series dynamically by time intervals.
 
         :param granularity: Grouping interval (e.g., "1h", "1d")
         :type granularity: str or timedelta
@@ -232,7 +236,8 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def select(self, variables: list[str], inplace: bool = True) -> Timeseries:
-        """Select the specified variables from the time series.
+        """
+        Select the specified variables from the time series.
 
         :param variables: List of variables to exclude
         :type variables: list[str]
@@ -252,7 +257,8 @@ class Timeseries:
         variables: str | list[str],
         inplace: bool = True,
     ) -> Timeseries:
-        """Remove duplicated rows based on given variable(s).
+        """
+        Remove duplicated rows based on given variable(s).
 
         :param variables: Column(s) to check for duplicates
         :type variables: str or list[str]
@@ -275,7 +281,8 @@ class Timeseries:
         suffixes: str = "_right",
         inplace: bool = True,
     ) -> Timeseries:
-        """Merge this time series with another.
+        """
+        Merge this time series with another.
 
         :param other: Another Timeseries object or Polars DataFrame to merge
         :type other: Timeseries or pl.DataFrame
@@ -299,7 +306,8 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def drop(self, variables: list[str], inplace: bool = True) -> Timeseries:
-        """Remove specified variables from the time series.
+        """
+        Remove specified variables from the time series.
 
         :param variables: Column names to remove
         :type variables: list[str]
@@ -315,7 +323,8 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def get_granularity(self, unit: Literal["hour", "minute", "second"] = "hour") -> float:
-        """Compute the time interval (granularity) between data points.
+        """
+        Compute the time interval (granularity) between data points.
 
         :param unit: Time unit to return the granularity in, defaults to "hour"
         :type unit: Literal["hour", "minute", "second"], optional
@@ -337,7 +346,8 @@ class Timeseries:
         raise ValueError("Unsupported unit")
 
     def rename(self, old_cols: list[str], new_cols: list[str], inplace: bool = True) -> Timeseries:
-        """Rename columns in the time series.
+        """
+        Rename columns in the time series.
 
         :param old_cols: List of current column names
         :type old_cols: list[str]
@@ -359,7 +369,8 @@ class Timeseries:
         path: str | Path,
         file_format: Literal["csv", "parquet", "pickle"] = "csv",
     ) -> None:
-        """Export the time series to a file.
+        """
+        Export the time series to a file.
 
         :param path: Destination file path
         :type path: str
@@ -390,7 +401,8 @@ class Timeseries:
         item: list[datetime] | datetime | pendulum.DateTime | str,
         inplace: bool = True,
     ) -> Timeseries:
-        """Filter the time series based on a condition.
+        """
+        Filter the time series based on a condition.
 
         :param condition: Condition to filter by
         :type condition: str or pl.Expr
