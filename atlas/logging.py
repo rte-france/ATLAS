@@ -2,6 +2,7 @@ import os
 import sys
 from pathlib import Path
 
+import pendulum
 from loguru import logger
 
 
@@ -33,15 +34,20 @@ class Logger:
     :type format_str: str
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         name: str = "default",
-        level: str = None,
-        log_to_file: bool = None,
-        log_dir: str = None,
-        rotation: str = None,
-        retention: str = None,
-        format_str: str = None,
+        level: str = "INFO",
+        log_to_file: bool = True,
+        log_dir: str = "logs",
+        rotation: str = "10 MB",  # e.g. "500 MB", "1 week"
+        retention: str = "7 days",  # e.g. "10 days", "1 month"
+        format_str: str = (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+            "<level>{message}</level>"
+        ),
     ):
         self.name = name
         self.level = level or os.getenv("LOG_LEVEL", "INFO").upper()
@@ -61,7 +67,7 @@ class Logger:
         )
         self._configure_logger()
 
-    def _configure_logger(self):
+    def _configure_logger(self) -> None:
         logger.remove()
 
         # Console sink
@@ -75,7 +81,10 @@ class Logger:
         # File sink
         if self.log_to_file:
             self.log_dir.mkdir(parents=True, exist_ok=True)
-            log_file = self.log_dir / f"{self.name}.log"
+            timestamp = pendulum.now().strftime("%Y%m%d_%H%M%S")
+
+            log_file = self.log_dir / f"{self.name}-{timestamp}.log"
+
             logger.add(
                 log_file,
                 level=self.level,

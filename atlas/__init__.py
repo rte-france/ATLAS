@@ -1,3 +1,4 @@
+from atlas.logging import Logger
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -19,6 +20,8 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
+
+logger = Logger(name="atlas").get_logger()
 
 __all__ = [
     "ControlBlock",
