@@ -1,3 +1,3 @@
 # Timeseries
 
-::: atlas.math.timeseries.Timeseries
+::: atlas.Timeseries

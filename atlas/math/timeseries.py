@@ -9,10 +9,16 @@ This module provides a Timeseries class for handling time series data using Pola
 from __future__ import annotations
 
 import pickle
-from datetime import timedelta
-from typing import Literal
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
+import pendulum
 import polars as pl
+import pytz
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 class Timeseries:
@@ -27,18 +33,22 @@ class Timeseries:
 
     def __init__(
         self,
-        timeseries: pl.DataFrame | Timeseries,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list],
         timezone: str = "UTC",
     ) -> None:
-        self.timezone = timezone
-        self.timeseries: pl.DataFrame
+        self._check_timezone(timezone)
+
+        self.timezone: str = timezone
+        self.timeseries: pl.DataFrame = pl.DataFrame()
 
         if isinstance(timeseries, Timeseries):
-            self.timeseries = timeseries.get_timeseries()
+            self.timeseries = timeseries.get_data()
             self.timezone = timeseries.timezone
         else:
             try:
-                df = pl.DataFrame(timeseries)
+                df = (
+                    timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+                )
             except Exception as e:
                 raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
@@ -60,7 +70,7 @@ class Timeseries:
         :rtype: bool
         """
         if isinstance(other, Timeseries):
-            other = other.get_timeseries()
+            other = other.get_data()
             return self.timeseries.equals(other)
         raise NotImplementedError("Comparison with non-Timeseries objects is not supported")
 
@@ -72,7 +82,7 @@ class Timeseries:
         """Multiply all numeric columns by a scalar."""
         df = self.timeseries.with_columns(pl.selectors.numeric().mul(factor))
 
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def remove_na(self, inplace: bool = True) -> Timeseries:
         """Remove rows containing null values.
@@ -86,9 +96,9 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
-    def get_timeseries(self) -> pl.DataFrame:
+    def get_data(self) -> pl.DataFrame:
         """Return the internal Polars DataFrame.
 
         :return: The internal time series data
@@ -96,12 +106,22 @@ class Timeseries:
         """
         return self.timeseries
 
+    def _check_timezone(self, timezone: str) -> None:
+        """Check if the timezone is valid.
+
+        :raises ValueError: If the timezone is not valid
+        """
+        if timezone not in pytz.all_timezones:
+            raise ValueError(f"Invalid timezone: {timezone}")
+
     def set_tz(self, timezone: str) -> None:
         """Convert the datetime column to a new timezone.
 
         :param timezone: Timezone string
         :type timezone: str
         """
+        self._check_timezone(timezone)
+
         self.timezone = timezone
         self.timeseries = self.timeseries.with_columns(
             pl.col("time").dt.convert_time_zone(timezone),
@@ -128,7 +148,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def upsample(
         self,
@@ -166,7 +186,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def groupby(
         self,
@@ -209,7 +229,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def select(self, variables: list[str], inplace: bool = True) -> Timeseries:
         """Select the specified variables from the time series.
@@ -225,7 +245,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def remove_duplicated(
         self,
@@ -245,7 +265,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def join(
         self,
@@ -276,7 +296,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def drop(self, variables: list[str], inplace: bool = True) -> Timeseries:
         """Remove specified variables from the time series.
@@ -292,7 +312,7 @@ class Timeseries:
         if inplace:
             self.timeseries = df
             return self
-        return Timeseries(df)
+        return Timeseries(df, self.timezone)
 
     def get_granularity(self, unit: Literal["hour", "minute", "second"] = "hour") -> float:
         """Compute the time interval (granularity) between data points.
@@ -328,15 +348,15 @@ class Timeseries:
         :return: Modified time series or None
         :rtype: Timeseries or None
         """
-        renamed = self.timeseries.rename(dict(zip(old_cols, new_cols, strict=False)))
+        df = self.timeseries.rename(dict(zip(old_cols, new_cols, strict=False)))
         if inplace:
-            self.timeseries = renamed
+            self.timeseries = df
             return self
-        return Timeseries(renamed)
+        return Timeseries(df, self.timezone)
 
     def export(
         self,
-        path: str,
+        path: str | Path,
         file_format: Literal["csv", "parquet", "pickle"] = "csv",
     ) -> None:
         """Export the time series to a file.
@@ -348,17 +368,64 @@ class Timeseries:
         :raises ValueError: If file extension doesn't match format
         :raises NotImplementedError: If the file format is not supported
         """
-        file_format = file_format.lower()
+        file_format_lower = file_format.lower()
 
-        if not path.lower().endswith(file_format):
+        if isinstance(path, Path):
+            path = str(path)
+        if not path.lower().endswith(file_format_lower):
             raise ValueError("Format and file extension don't match.")
 
-        if file_format == "csv":
+        if file_format_lower == "csv":
             self.timeseries.write_csv(path)
-        elif file_format == "parquet":
+        elif file_format_lower == "parquet":
             self.timeseries.write_parquet(path)
-        elif file_format == "pickle":
+        elif file_format_lower == "pickle":
             with open(path, "wb") as f:
                 pickle.dump(self, f)
         else:
             raise NotImplementedError("Format not supported")
+
+    def filter(
+        self,
+        item: list[datetime] | datetime | pendulum.DateTime | str,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """Filter the time series based on a condition.
+
+        :param condition: Condition to filter by
+        :type condition: str or pl.Expr
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Filtered time series
+        :rtype: Timeseries
+        """
+        if isinstance(item, list):
+            df = self.timeseries.filter(pl.col("time").is_in(item))
+        elif isinstance(item, str):
+            date = pendulum.parse(item, tz=self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
+        elif isinstance(item, datetime):
+            date = pendulum.instance(item).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
+        elif isinstance(item, pendulum.DateTime):
+            df = self.timeseries.filter(pl.col("time") == item)
+        else:
+            raise NotImplementedError("Invalid filter formatting")
+
+        if inplace:
+            self.timeseries = df
+            return self
+        return Timeseries(df, self.timezone)
+
+    # def __getitem__(
+    #     self,
+    #     item: list[datetime] | datetime | str | pendulum.DateTime,
+    # ) -> Timeseries:
+    #     """Get a subset of the time series.
+
+    #     :param item: Column name, index, or slice to select
+    #     :type item: int, slice, list[str], list[int], or list[slice]
+    #     :return: Subset of the time series
+    #     :rtype: Timeseries
+    #     """
+    #     return self.filter(item, inplace=False).get_data()
