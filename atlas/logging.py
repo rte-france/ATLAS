@@ -1,3 +1,9 @@
+"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+See AUTHORS.txt
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
 import os
 import sys
 from pathlib import Path
@@ -52,9 +58,7 @@ class Logger:
         self.name = name
         self.level = level or os.getenv("LOG_LEVEL", "INFO").upper()
         self.log_to_file = (
-            log_to_file
-            if log_to_file is not None
-            else os.getenv("LOG_TO_FILE", "false").lower() == "true"
+            log_to_file if log_to_file is not None else os.getenv("LOG_TO_FILE", "false").lower() == "true"
         )
         self.log_dir = Path(log_dir or os.getenv("LOG_DIR", "logs"))
         self.rotation = rotation or os.getenv("LOG_ROTATION", "10 MB")
