@@ -1,6 +1,8 @@
-import shutil
+import json
+import os
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import polars as pl
 import pytest
@@ -9,64 +11,234 @@ import atlas.config as cfg
 from atlas.io.input_parser import InputParser
 
 
-# Dummy model to use in tests
-class DummyModel:
+@pytest.fixture
+def mock_csv_data():
+    return """id,name,value
+1,test1,100
+2,test2,200
+3,test3,300"""
+
+
+@pytest.fixture
+def sample_df():
+    return pl.DataFrame(
+        {"id": [1, 2, 3], "name": ["test1", "test2", "test3"], "value": [100, 200, 300]}
+    )
+
+
+@pytest.fixture
+def temp_csv_file(mock_csv_data):
+    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f:
+        f.write(mock_csv_data.encode("utf-8"))
+        temp_file = f.name
+    yield temp_file
+    os.unlink(temp_file)
+
+
+@pytest.fixture
+def temp_parquet_file(sample_df):
+    with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f:
+        temp_file = f.name
+    sample_df.write_parquet(temp_file)
+    yield temp_file
+    os.unlink(temp_file)
+
+
+@pytest.fixture
+def temp_directory():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        yield temp_dir
+
+
+class MockModelClass:
     def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 
-# Patch the model mapping for testing
-cfg.MODEL_MAPPING_NAME = {
-    "dummy_model": DummyModel,
-}
+def test_from_csv(temp_csv_file, sample_df):
+    result = InputParser._from_csv(temp_csv_file)
+    assert result.shape == sample_df.shape
+    assert result.columns == sample_df.columns
+    assert result["id"].to_list() == sample_df["id"].to_list()
 
 
-@pytest.fixture(scope="class")
-def temp_dir_with_csv(request):
-    """Creates a temporary directory with a test CSV file."""
-    temp_dir = tempfile.mkdtemp()
-    csv_path = Path(temp_dir) / "dummy_model.csv"
-    csv_path.write_text("name,value\nfoo,1\nbar,2\n")
-
-    request.cls.temp_dir = Path(temp_dir)
-    request.cls.csv_path = csv_path
-    yield
-
-    shutil.rmtree(temp_dir)
+def test_from_parquet(temp_parquet_file, sample_df):
+    result = InputParser._from_parquet(temp_parquet_file)
+    assert result.shape == sample_df.shape
+    assert result.columns == sample_df.columns
+    assert result["id"].to_list() == sample_df["id"].to_list()
 
 
-@pytest.mark.usefixtures("temp_dir_with_csv")
-class TestInputParser:
-    def test_from_file_csv(self):
-        df = InputParser.from_file(self.csv_path)
-        assert isinstance(df, pl.DataFrame)
-        assert df.shape == (2, 2)
-        assert df.columns == ["name", "value"]
+def test_from_file_csv(temp_csv_file, sample_df):
+    result = InputParser.from_file(temp_csv_file)
+    assert result.shape == sample_df.shape
+    assert result.columns == sample_df.columns
 
-    def test_from_directory_instantiates_objects(self):
-        results = InputParser.from_directory(self.temp_dir)
-        assert "dummy_model" in results
-        objects = results["dummy_model"]
-        assert len(objects) == 2
-        assert isinstance(objects[0], DummyModel)
-        assert objects[0].name == "foo"
-        assert objects[1].value == 2
 
-    def test_parse_business_objects(self):
-        results = InputParser.parse_business_objects(self.temp_dir)
-        assert "dummy_model" in results
-        assert isinstance(results["dummy_model"], pl.DataFrame)
+def test_from_file_parquet(temp_parquet_file, sample_df):
+    result = InputParser.from_file(temp_parquet_file)
+    assert result.shape == sample_df.shape
+    assert result.columns == sample_df.columns
 
-    def test_load_metadata(self):
-        metadata_path = self.temp_dir / "metadata.json"
-        metadata_path.write_text('{"author": "test"}')
-        meta = InputParser.load_metadata(self.temp_dir)
-        assert meta["author"] == "test"
 
-    def test_load_timeseries_profile(self):
-        df = InputParser.load_timeseries_profile(self.temp_dir, self.csv_path.name)
-        assert isinstance(df, pl.DataFrame)
+def test_from_file_unsupported_extension():
+    with pytest.raises(ValueError, match=r"Unsupported file extension: .txt"):
+        InputParser.from_file("test.txt")
 
-    def test_missing_directory_raises(self):
-        with pytest.raises(FileNotFoundError):
-            InputParser.from_directory("non_existent_dir_xyz")
+
+def test_from_directory_not_found():
+    with pytest.raises(FileNotFoundError):
+        InputParser.from_directory("nonexistent_directory")
+
+
+def test_from_directory_not_a_directory(temp_csv_file):
+    with pytest.raises(NotADirectoryError):
+        InputParser.from_directory(temp_csv_file)
+
+
+@patch.dict(cfg.MODEL_MAPPING_NAME, {"test_model": MockModelClass})
+def test_from_directory(temp_directory, mock_csv_data):
+    # Create test CSV file in temp directory
+    file_path = Path(temp_directory) / "test_model.csv"
+    with open(file_path, "w") as f:
+        f.write(mock_csv_data)
+
+    result = InputParser.from_directory(temp_directory)
+
+    assert "test_model" in result
+    assert len(result["test_model"]) == 3
+    assert isinstance(result["test_model"][0], MockModelClass)
+    assert result["test_model"][0].id == 1
+    assert result["test_model"][0].name == "test1"
+    assert result["test_model"][0].value == 100
+
+
+@patch.dict(cfg.MODEL_MAPPING_NAME, {"test_model": MockModelClass})
+def test_instantiate_objects_from_file(temp_csv_file):
+    result = InputParser._instantiate_objects_from_file(Path(temp_csv_file), "test_model")
+
+    assert len(result) == 3
+    assert isinstance(result[0], MockModelClass)
+    assert result[0].id == 1
+    assert result[0].name == "test1"
+    assert result[0].value == 100
+
+
+def test_parse_business_objects(temp_directory, mock_csv_data):
+    # Create test CSV files in temp directory
+    for name in ["users", "products"]:
+        file_path = Path(temp_directory) / f"{name}.csv"
+        with open(file_path, "w") as f:
+            f.write(mock_csv_data)
+
+    result = InputParser.parse_business_objects(temp_directory)
+
+    assert "users" in result
+    assert "products" in result
+    assert len(result) == 2
+    assert result["users"].shape == (3, 3)
+    assert result["products"].shape == (3, 3)
+
+
+def test_parse_business_objects_directory_not_found():
+    with pytest.raises(FileNotFoundError):
+        InputParser.parse_business_objects("nonexistent_directory")
+
+
+@patch("atlas.math.timeseries.Timeseries")
+def test_load_timeseries_from_file(mock_timeseries, temp_csv_file, sample_df):
+    mock_instance = MagicMock()
+    mock_timeseries.return_value = mock_instance
+
+    result = InputParser.load_timeseries_from_file(temp_csv_file)
+
+    mock_timeseries.assert_called_once()
+    assert result == mock_instance
+
+
+@patch("atlas.math.scenario_matrix..ScenarioMatrix")
+def test_load_scenario_matrix_from_file(mock_scenario_matrix, temp_directory):
+    # Setup
+    instance_name = "wind_turbine1"
+    instance_dir = Path(temp_directory) / instance_name
+    instance_dir.mkdir()
+
+    # Create parquet files
+    for scenario in ["scenario1", "scenario2"]:
+        with open(instance_dir / f"{scenario}.parquet", "wb") as f:
+            pass  # Just create empty files for the test
+
+    # Mock the timeseries loading
+    mock_ts1 = MagicMock()
+    mock_ts2 = MagicMock()
+
+    with patch.object(InputParser, "load_timeseries_from_file") as mock_load:
+        mock_load.side_effect = [mock_ts1, mock_ts2]
+
+        mock_instance = MagicMock()
+        mock_scenario_matrix.return_value = mock_instance
+
+        result = InputParser.load_scenario_matrix_from_file(temp_directory, instance_name)
+
+        # Assertions
+        assert mock_load.call_count == 2
+        mock_scenario_matrix.assert_called_once()
+        assert result == mock_instance
+
+
+def test_load_scenario_matrix_not_found():
+    with pytest.raises(FileNotFoundError):
+        InputParser.load_scenario_matrix_from_file("base_dir", "nonexistent_instance")
+
+
+@patch("atlas.math.forecasting_matrix.ForecastingMatrix")
+def test_load_forecasting_matrix(mock_forecasting_matrix, temp_directory):
+    # Setup
+    instance_name = "wind_turbine1"
+    instance_dir = Path(temp_directory) / instance_name
+    instance_dir.mkdir()
+
+    # Create parquet files
+    for forecast in ["forecast1", "forecast2"]:
+        with open(instance_dir / f"{forecast}.parquet", "wb") as f:
+            pass  # Just create empty files for the test
+
+    # Mock the timeseries loading
+    mock_ts1 = MagicMock()
+    mock_ts2 = MagicMock()
+
+    with patch.object(InputParser, "load_timeseries_from_file") as mock_load:
+        mock_load.side_effect = [mock_ts1, mock_ts2]
+
+        mock_instance = MagicMock()
+        mock_forecasting_matrix.return_value = mock_instance
+
+        result = InputParser.load_forecasting_matrix(temp_directory, instance_name)
+
+        # Assertions
+        assert mock_load.call_count == 2
+        mock_forecasting_matrix.assert_called_once()
+        assert result == mock_instance
+
+
+def test_load_forecasting_matrix_not_found():
+    with pytest.raises(FileNotFoundError):
+        InputParser.load_forecasting_matrix("base_dir", "nonexistent_instance")
+
+
+def test_load_metadata_exists(temp_directory):
+    # Create metadata file
+    metadata = {"version": "1.0", "description": "Test metadata"}
+    metadata_path = Path(temp_directory) / "metadata.json"
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f)
+
+    result = InputParser.load_metadata(temp_directory)
+
+    assert result == metadata
+
+
+def test_load_metadata_not_exists(temp_directory):
+    result = InputParser.load_metadata(temp_directory)
+    assert result == {}
