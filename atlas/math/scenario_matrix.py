@@ -11,7 +11,7 @@ from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 
 
-class ScenarioMatrix(Matrix[str | int | float]):
+class ScenarioMatrix(Matrix):
     """Stores Timeseries objects by scenario name, with access and deletion by name."""
 
     def __init__(self, name: str, indexes: list[str | int | float], timeseries: list[Timeseries]):

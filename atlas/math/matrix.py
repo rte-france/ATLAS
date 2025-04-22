@@ -36,7 +36,7 @@ class Matrix(Generic[Index]):
             raise ValueError("Indexes and timeseries must have the same length.")
 
         self.name: str = name
-        self._timeseries: dict[Index, Timeseries] = dict(zip(indexes, timeseries, strict=False))
+        self.timeseries_map: dict[Index, Timeseries] = dict(zip(indexes, timeseries, strict=False))
 
     def __len__(self) -> int:
         """
@@ -45,7 +45,7 @@ class Matrix(Generic[Index]):
         :return: Number of elements in the matrix.
         :rtype: int
         """
-        return len(self._timeseries)
+        return len(self.timeseries_map)
 
     def __contains__(self, index: Index) -> bool:
         """
@@ -56,7 +56,7 @@ class Matrix(Generic[Index]):
         :return: True if index exists, False otherwise.
         :rtype: bool
         """
-        return index in self._timeseries
+        return index in self.timeseries_map
 
     def __getitem__(self, index: Index) -> Timeseries:
         """
@@ -68,9 +68,9 @@ class Matrix(Generic[Index]):
         :return: The Timeseries object.
         :rtype: Timeseries
         """
-        if index not in self._timeseries:
+        if index not in self.timeseries_map:
             raise KeyError(f"No timeseries found for index: {index}")
-        return self._timeseries[index]
+        return self.timeseries_map[index]
 
     def __eq__(self, other: object) -> bool:
         """
@@ -86,8 +86,8 @@ class Matrix(Generic[Index]):
 
         return (
             self.name == other.name
-            and list(self._timeseries.keys()) == list(other._timeseries.keys())
-            and all(self._timeseries[k] == other._timeseries[k] for k in self._timeseries)
+            and list(self.timeseries_map.keys()) == list(other.timeseries_map.keys())
+            and all(self.timeseries_map[k] == other.timeseries_map[k] for k in self.timeseries_map)
         )
 
     def add_timeseries(self, index: Index, timeseries: Timeseries) -> None:
@@ -103,7 +103,7 @@ class Matrix(Generic[Index]):
         if not isinstance(timeseries, Timeseries):
             raise TypeError(f"Expected Timeseries, got {type(timeseries)}")
 
-        self._timeseries[index] = timeseries
+        self.timeseries_map[index] = timeseries
 
     def delete_timeseries(self, index: Index) -> None:
         """
@@ -114,7 +114,7 @@ class Matrix(Generic[Index]):
         :raises KeyError: If index is not found.
         """
         try:
-            del self._timeseries[index]
+            del self.timeseries_map[index]
         except KeyError:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
@@ -138,4 +138,4 @@ class Matrix(Generic[Index]):
         :return: List of index keys.
         :rtype: list[Index]
         """
-        return list(self._timeseries.keys())
+        return list(self.timeseries_map.keys())
