@@ -1,0 +1,3 @@
+# Forecasting Matrix
+
+::: atlas.ForecastingMatrix

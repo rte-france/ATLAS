@@ -1,0 +1,93 @@
+"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+See AUTHORS.txt
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from pydantic import BaseModel, ConfigDict
+
+from atlas.config import ReservesTypes
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
+
+
+class ControlBlock(BaseModel):
+    """:param alternative_type: Type of alternative considered for formulating a TSO offer on a balancing market
+    :type alternative_type: ReservesTypes
+    :param volume_uncertainty: True if uncertainty about the volume of the TSO's balancing requirement must be taken
+    into account when formulating bids on a balancing market
+    :type volume_uncertainty: bool
+    :param affr_down_required: Need of downward AFRR contract to meet ControlBlock supply criteria
+    :type affr_down_required: ForecastingMatrix
+    :param affr_up_required: Need of upward AFRR contract to meet ControlBlock supply criteria
+    :type affr_up_required: ForecastingMatrix
+    :param balancing_mechanism_needs: Balancing needs for the Balancing Mechanism
+    :type balancing_mechanism_needs: ForecastingMatrix
+    :param mfrr_down_required: Need of downward MFRR contract to meet ControlBlock supply criteria
+    :type mfrr_down_required: ForecastingMatrix
+    :param mfrr_needs: Balancing needs for MFRR reserves
+    :type mfrr_needs: ForecastingMatrix
+    :param mfrr_up_required: Need of upward MFRR contract to meet ControlBlock supply criteria
+    :type mfrr_up_required: ForecastingMatrix
+    :param rr_down_required: Need of downward RR contract to meet ControlBlock supply criteria
+    :type rr_down_required: ForecastingMatrix
+    :param rr_needs: Balancing needs for RR reserves
+    :type rr_needs: ForecastingMatrix
+    :param rr_up_required: Need of upward RR contract to meet ControlBlock supply criteria
+    :type rr_up_required: ForecastingMatrix
+    :param spilled_energy: Energy lost (due to uncapped overproduction)
+    :type spilled_energy: ForecastingMatrix
+    :param unsupplied_energy: Energy not distributed in real time, after balancing processes
+    :type unsupplied_energy: ForecastingMatrix
+    :param afrr_activation_costs: Balancing costs for AFRR reserves
+    :type afrr_activation_costs: Timeseries
+    :param fcr_activation_costs: Balancing costs for FCR reserves
+    :type fcr_activation_costs: Timeseries
+    :param mfrr_activated: Volume of MFRR activated
+    :type mfrr_activated: Timeseries
+    :param mfrr_activation_costs: Balancing costs for MFRR reserves
+    :type mfrr_activation_costs: Timeseries
+    :param negative_imbalance_price: Settlement price for negative imbalance
+    :type negative_imbalance_price: Timeseries
+    :param positive_imbalance_price: Settlement price for positive imbalance
+    :type positive_imbalance_price: Timeseries
+    :param rr_activated: Volume of RR activated
+    :type rr_activated: Timeseries
+    :param rr_activation_costs: Balancing costs for RR reserves
+    :type rr_activation_costs: Timeseries
+    :param specific_activated: Volume of specific activated
+    :type specific_activated: Timeseries
+    :param specific_activation_costs: Balancing total cost after the Balancing Mechanism
+    :type specific_activation_costs: Timeseries
+    :param weighted_balance_price_down: Weighted average balancing energy activation price downward
+    :type weighted_balance_price_down: Timeseries
+    :param weighted_balance_price_up: Weighted average balancing energy activation price upward
+    :type weighted_balance_price_up: Timeseries
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    alternative_type: ReservesTypes | None = None
+    volume_uncertainty: bool | None = None
+    affr_down_required: ForecastingMatrix | None = None
+    affr_up_required: ForecastingMatrix | None = None
+    balancing_mechanism_needs: ForecastingMatrix | None = None
+    mfrr_down_required: ForecastingMatrix | None = None
+    mfrr_needs: ForecastingMatrix | None = None
+    mfrr_up_required: ForecastingMatrix | None = None
+    rr_down_required: ForecastingMatrix | None = None
+    rr_needs: ForecastingMatrix | None = None
+    rr_up_required: ForecastingMatrix | None = None
+    spilled_energy: ForecastingMatrix | None = None
+    unsupplied_energy: ForecastingMatrix | None = None
+    afrr_activation_costs: Timeseries | None = None
+    fcr_activation_costs: Timeseries | None = None
+    mfrr_activated: Timeseries | None = None
+    mfrr_activation_costs: Timeseries | None = None
+    negative_imbalance_price: Timeseries | None = None
+    positive_imbalance_price: Timeseries | None = None
+    rr_activated: Timeseries | None = None
+    rr_activation_costs: Timeseries | None = None
+    specific_activated: Timeseries | None = None
+    specific_activation_costs: Timeseries | None = None
+    weighted_balance_price_down: Timeseries | None = None
+    weighted_balance_price_up: Timeseries | None = None
