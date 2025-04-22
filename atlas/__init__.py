@@ -1,3 +1,4 @@
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
@@ -23,6 +24,7 @@ __all__ = [
     "ControlBlock",
     "CriticalBranch",
     "Equipment",
+    "ForecastingMatrix",
     "Hydraulic",
     "Load",
     "MarketArea",

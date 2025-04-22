@@ -1,4 +1,5 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""
+Copyright (c) 2016-2022, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
@@ -9,144 +10,124 @@ Module that implements ForecastingMatrix
 from datetime import datetime
 
 from atlas.config import TimeSeriesInterpolation
+from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 
 
-class ForecastingMatrix:
-    """A class that stores Timeseries by datetimes and allows to access
-    and delete them by their datetimes.
+class ForecastingMatrix(Matrix[datetime]):
+    """
+    Stores Timeseries objects indexed by datetime, with access and forecasting utilities.
+
+    Inherits from `Matrix[datetime]` and provides additional methods for forecasting
+    reconstruction from past or future available timeseries.
     """
 
-    def __init__(self, name, forecasting_dates=None, timeseries=None):
-        """Create a ForecastingMatrix from a list of datetimes and timeseries.
-
-        :param name: str. Name of the matrix
-        :param forecasting_dates: list of str. Name of each scenario of the matrix
-        :param timeseries: list of Timeseries. Timeserie of each scenario of the matrix
+    def __init__(
+        self,
+        name: str,
+        forecasting_dates: list[datetime],
+        timeseries: list[Timeseries],
+    ):
         """
-        if forecasting_dates is None:
-            forecasting_dates = []
-        if timeseries is None:
-            timeseries = []
+        Initialize a ForecastingMatrix.
 
-        if len(forecasting_dates) != len(timeseries):
-            raise ValueError(
-                "forecasting_dates and timeseries parameters must contain the same number of elements",
-            )
-
-        self.name = name
-        self.forecasting_dates = sorted(forecasting_dates)
-        self.forecasts = dict(zip(forecasting_dates, timeseries, strict=False))
-
-    def __len__(self):
-        return len(self.forecasts)
-
-    def __eq__(self, other_matrix):
-        """Test whether two ForecastingMatrix objects are equal.
-        Objects are considered equal if they store the same name and forecasting dates/timeseries.
-
-        :param other_matrix: ForecastingMatrix. The other forecasting matrix to compare to.
-        :return: True if equal else False.
+        :param name: Name of the matrix.
+        :type name: str
+        :param forecasting_dates: List of forecasting dates used as indexes.
+        :type forecasting_dates: list[datetime]
+        :param timeseries: List of corresponding Timeseries objects.
+        :type timeseries: list[Timeseries]
         """
-        if self.name != other_matrix.name:
-            return False
-        if self.forecasting_dates != other_matrix.forecasting_dates:
-            return False
-        if self.forecasts.keys() != other_matrix.forecasts.keys():
-            return False
-        for date, timeserie in self.forecasts.items():
-            if timeserie != other_matrix.forecasts[date]:
-                return False
-        return True
+        super().__init__(name, forecasting_dates, timeseries)
+        self._sort_indexes()
 
-    def add_timeseries(self, index, timeserie):
-        """Add a timeserie at the given index in the matrix.
+    def _sort_indexes(self) -> None:
+        """Sort the internal mapping of timeseries by datetime keys."""
+        sorted_items = sorted(self._timeseries.items())
+        self._timeseries = dict(sorted_items)
 
-        :param index: datetime. The index to set the timeseries in the matrix
-        :param timeserie: Timeseries. The timeserie to add in the matrix
-        :return: Timeseries
+    def add_timeseries(self, index: datetime, timeseries: Timeseries) -> None:
         """
-        if not isinstance(index, datetime):
-            raise TypeError(f"Expected index type datetime, got {type(index)}")
+        Add a Timeseries to the matrix and keep indexes sorted.
 
-        if not isinstance(timeserie, Timeseries):
-            raise TypeError(f"Expected timeserie type Timeseries, got {type(index)}")
-
-        self.forecasting_dates.append(index)
-        self.forecasting_dates.sort()
-        self.forecasts[index] = timeserie
-
-    def delete_timeseries(self, index):
-        """Delete timeserie at the given index in the matrix.
-
-        :param index: datetime. The index of the timeserie to delete in the matrix
-        :return:
+        :param index: Forecasting datetime key.
+        :type index: datetime
+        :param timeseries: Timeseries object to insert.
+        :type timeseries: Timeseries
         """
-        if not isinstance(index, datetime):
-            raise TypeError(f"Expected index type datetime, got {type(index)}")
+        super().add_timeseries(index, timeseries)
+        self._sort_indexes()
 
-        if index not in self.forecasting_dates:
-            raise ValueError(f"index argument {index} is not present in forecasting_dates")
-
-        if index in self.forecasts:
-            # Delete value in scenarios dict
-            del self.forecasts[index]
-            # Find its index in indexes list and delete it
-            ind = self.forecasting_dates.index(index)
-            del self.forecasting_dates[ind]
-
-    def extract(self, index, start_date, end_date):
-        """Extract a part of a timeseries contained in the matrix at the given index
-
-        :param index: datetime. The index of the timeseries to get in the matrix
-        :param start_date: datetime. Begining of the extraction interval
-        :param end_date: datetime. End of the extraction interval
-        :return: Timeseries
+    def extract(self, index: datetime, start_date: datetime, end_date: datetime) -> Timeseries:
         """
-        if not isinstance(index, datetime):
-            raise TypeError(f"Expected index type datetime, got {type(datetime)}")
+        Extract a portion of a Timeseries at a specific forecast date.
 
-        if index not in self.forecasting_dates:
-            raise ValueError(f"index argument {index} is not present in forecasting_dates")
-
-        timeserie = self.forecasts[index]
-        return timeserie.slice(start_date, end_date)
-
-    def get_forecast(self, ref_date, from_date, to_date):
-        """Construct a forecasting timeseries with provided parameters. The reconstruction interval is built with the outer
-        bounds of all the timeseries.
-
-        :param ref_date: datetime. The reference date to use
-        :param from_date: from_date. Begining of the reconstruction interval
-        :param to_date: to_date. End of the reconstruction interval
-        :return: Timeseries
+        :param index: Forecasting datetime from which to extract.
+        :type index: datetime
+        :param start_date: Start of the extraction window.
+        :type start_date: datetime
+        :param end_date: End of the extraction window.
+        :type end_date: datetime
+        :return: A sliced Timeseries from the specified index.
+        :rtype: Timeseries
         """
-        res_timeserie = Timeseries("unknown", TimeSeriesInterpolation.CONSTANT, "", [], [])
-        # FIXME : Quick fix
-        if self.forecasting_dates:
-            index = self.forecasting_dates.index(ref_date)
-            indexes_to_check = self.forecasting_dates[: index + 1]
-            for i in range(1, len(indexes_to_check) + 1):
-                date = indexes_to_check[-i]
-                res_timeserie = res_timeserie.merge(self.forecasts[date].slice(from_date, to_date))
-                if from_date in res_timeserie.series.index and to_date in res_timeserie.series.index:
-                    return res_timeserie
-        return res_timeserie
+        ts = self.get_timeseries(index)
+        return ts.filter([start_date, end_date])
 
-    def get_forecast_old(self, ref_date, from_date, to_date):
-        """Construct a forecasting timeseries with provided parameters. The reconstruction interval is built with the outer
-        bounds of all the timeseries.
-
-        :param ref_date: datetime. The reference date to use
-        :param from_date: from_date. Begining of the reconstruction interval
-        :param to_date: to_date. End of the reconstruction interval
-        :return: Timeseries
+    def get_forecast(
+        self,
+        ref_date: datetime,
+        from_date: datetime,
+        to_date: datetime,
+    ) -> Timeseries:
         """
-        res_timeserie = Timeseries("unknown", TimeSeriesInterpolation.CONSTANT, "", [], [])
-        # self.forecasting_dates is sorted, so we iterate dates by order
-        for date in self.forecasting_dates:
-            if ref_date > date:
-                continue
+        Construct a forecast by merging historical data up to a reference date.
 
-            res_timeserie = res_timeserie.merge(self.forecasts[date].slice(from_date, to_date))
-        return res_timeserie
+        Builds a Timeseries by merging slices from all available forecasts
+        that occurred **before or on** `ref_date`, in reverse order. Stops when the
+        full range `[from_date, to_date]` is covered.
+
+        :param ref_date: Reference datetime to stop looking backward.
+        :type ref_date: datetime
+        :param from_date: Start of the desired forecast window.
+        :type from_date: datetime
+        :param to_date: End of the desired forecast window.
+        :type to_date: datetime
+        :return: A reconstructed forecast as a Timeseries.
+        :rtype: Timeseries
+        """
+        result = Timeseries("unknown", TimeSeriesInterpolation.CONSTANT, "", [], [])
+
+        indexes_to_check = [d for d in self.indexes if d <= ref_date]
+        for date in reversed(indexes_to_check):
+            result = result.merge(self._timeseries[date].slice(from_date, to_date))
+            if from_date in result.series.index and to_date in result.series.index:
+                return result
+        return result
+
+    def get_forecast_old(
+        self,
+        ref_date: datetime,
+        from_date: datetime,
+        to_date: datetime,
+    ) -> Timeseries:
+        """
+        Legacy forecast method: merge future forecasts starting from ref_date.
+
+        Gathers all forecast slices where the forecast date is **on or after**
+        `ref_date`, merging them in chronological order.
+
+        :param ref_date: Date from which to begin merging forward.
+        :type ref_date: datetime
+        :param from_date: Start of the desired forecast window.
+        :type from_date: datetime
+        :param to_date: End of the desired forecast window.
+        :type to_date: datetime
+        :return: A forecasted Timeseries composed of future slices.
+        :rtype: Timeseries
+        """
+        result = Timeseries("unknown", TimeSeriesInterpolation.CONSTANT, "", [], [])
+        for date in self.indexes:
+            if date >= ref_date:
+                result = result.merge(self._timeseries[date].slice(from_date, to_date))
+        return result
