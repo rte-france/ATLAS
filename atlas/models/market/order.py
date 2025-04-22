@@ -8,7 +8,7 @@ from datetime import date
 
 from pydantic import BaseModel
 
-from atlas.config import OrderType, Product
+from atlas.enum import OrderType, Product
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.market.market_area import MarketArea
 from atlas.models.portfolio import Portfolio

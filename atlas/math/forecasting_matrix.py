@@ -13,7 +13,7 @@ from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 
 
-class ForecastingMatrix(Matrix[datetime]):
+class ForecastingMatrix(Matrix):
     """
     Stores Timeseries objects indexed by datetime, with access and forecasting utilities.
 

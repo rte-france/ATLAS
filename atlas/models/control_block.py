@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pydantic import BaseModel, ConfigDict
 
-from atlas.config import ReservesTypes
+from atlas.enum import ReservesTypes
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 

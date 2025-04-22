@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pydantic import ConfigDict, Field
 
-from atlas.config import StorageType
+from atlas.enum import StorageType
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment

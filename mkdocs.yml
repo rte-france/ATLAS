@@ -111,6 +111,7 @@ nav:
       - Equipement: api/models/equipment.md
       - Market: api/models/market.md
       - Forecasting Matrix: api/math/forecasting_matrix.md
+    - Enum: api/enum.md
   - Examples:
     - Timeseries: examples/timeseries.ipynb
 

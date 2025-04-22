@@ -22,7 +22,7 @@ class InputParser:
     """A class to handle input parsing from Atlas format."""
 
     @classmethod
-    def from_directory(cls, directory_path: str | Path) -> None:
+    def from_directory(cls, directory_path: str | Path) -> dict:
         """Parse input from a directory."""
         if not Path(directory_path).exists():
             raise FileNotFoundError(
@@ -35,7 +35,7 @@ class InputParser:
 
         objects_by_type: dict[str, list[Any]] = {}
 
-        for file_path in directory_path.iterdir():
+        for file_path in Path(directory_path).iterdir():
             if file_path.is_file() and file_path.suffix == ".csv":
                 model_key = file_path.stem
                 if model_key in cfg.MODEL_MAPPING_NAME:
@@ -46,13 +46,12 @@ class InputParser:
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> pl.DataFrame:
-        """Load parameters from a YAML or JSON file.
+        """Parse input from a CSV file or a parquet file.
 
-        :param file_path: Path to the parameters file.
-        :type file_path: str or Path
-        :return: A Parameters object containing the parsed and validated parameters.
-        :rtype: Parameters
-        :raises ValueError: If the file extension is not supported.
+        :param file_path: The path to the file.
+        :type file_path: str or pathlib.Path
+        :return: A DataFrame containing the parsed CSV data.
+        :rtype: pl.DataFrame
         """
         file_extension = Path(file_path).suffix
 
@@ -82,7 +81,7 @@ class InputParser:
         :return: List of instantiated objects.
         """
         model_cls = cfg.MODEL_MAPPING_NAME[model_key]
-        df = cls._from_csv(file_path)
+        df = cls.from_file(file_path)
         return [model_cls(**row) for row in df.to_dicts()]
 
     @staticmethod
@@ -112,25 +111,22 @@ class InputParser:
         return {file.stem: cls._from_csv(file) for file in data_dir.glob("*.csv")}
 
     @classmethod
-    def load_timeseries_profile(cls, timeseries_dir: str | Path, filename: str) -> pl.DataFrame:
+    def load_timeseries_from_file(cls, path: str | Path) -> pl.DataFrame:
         """Load a timeseries profile from the timeseries/ folder.
 
-        :param timeseries_dir: Path to the timeseries folder.
+        :param timeseries_dir: Path to the timeseries file.
         :type timeseries_dir: str or Path
-        :param filename: Name of the timeseries file.
-        :type filename: str
-        :return: A DataFrame containing the timeseries.
-        :rtype: pl.DataFrame
+        :return: A Timeseries object instantiated from the file.
+        :rtype: Timeseries
         """
-        path = Path(timeseries_dir) / filename
         return Timeseries(cls.from_file(path))
 
     @classmethod
-    def load_scenario_matrix(
+    def load_scenario_matrix_from_file(
         cls,
         base_dir: str | Path,
         instance_name: str,
-    ) -> dict[str, pl.DataFrame]:
+    ) -> ScenarioMatrix:
         """Load scenario matrix time series for a specific instance.
 
         :param base_dir: Path to the scenario_matrix/ folder.
@@ -144,14 +140,14 @@ class InputParser:
         instance_path = Path(base_dir) / instance_name
         if not instance_path.exists():
             raise FileNotFoundError(f"Scenario matrix path does not exist: {instance_path}")
-        return ScenarioMatrix(
-            instance_name,
+        matrix_dict = (
             {
-                f.stem: cls.from_file(f)
+                f.stem: cls.load_timeseries_from_file(f)
                 for f in instance_path.glob("*.parquet")
                 if f.name != "metadata.json"
             },
         )
+        return ScenarioMatrix(instance_name, matrix_dict.keys(), matrix_dict.values())
 
     @classmethod
     def load_forecasting_matrix(
@@ -172,13 +168,15 @@ class InputParser:
         instance_path = Path(base_dir) / instance_name
         if not instance_path.exists():
             raise FileNotFoundError(f"Forecasting matrix path does not exist: {instance_path}")
-        return ForecastingMatrix(
+
+        matrix_dict = (
             {
-                f.stem: cls.from_file(f)
+                f.stem: cls.load_timeseries_from_file(f)
                 for f in instance_path.glob("*.parquet")
                 if f.name != "metadata.json"
-            }
+            },
         )
+        return ForecastingMatrix(instance_name, matrix_dict.keys(), matrix_dict.values())
 
     @staticmethod
     def load_metadata(folder_path: str | Path) -> dict:

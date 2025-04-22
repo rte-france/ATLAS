@@ -1,3 +1,11 @@
+"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+See AUTHORS.txt
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+
+Module that implements Parameters
+"""
+
 import json
 from pathlib import Path
 
@@ -42,7 +50,7 @@ class ParametersParser:
         :return: Parsed parameters.
         :rtype: dict
         """
-        with open(file_path) as file:
+        with open(Path(file_path)) as file:
             return yaml.safe_load(file)
 
     @staticmethod
@@ -54,5 +62,5 @@ class ParametersParser:
         :return: Parsed parameters.
         :rtype: dict
         """
-        with open(file_path) as file:
+        with open(Path(file_path)) as file:
             return json.load(file)

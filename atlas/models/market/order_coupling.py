@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pydantic import BaseModel, ConfigDict
 
-from atlas.config import ComplementDirection, CouplingType
+from atlas.enum import ComplementDirection, CouplingType
 from atlas.models.market.order import Order
 
 

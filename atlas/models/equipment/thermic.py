@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pydantic import ConfigDict, Field
 
-from atlas.config import ThermicStrategy
+from atlas.enum import ThermicStrategy
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment

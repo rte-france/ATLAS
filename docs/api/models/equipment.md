@@ -27,3 +27,7 @@
 ::: atlas.Storage
     options:
         show_if_no_docstring: false
+
+::: atlas.Thermic
+    options:
+        show_if_no_docstring: false
