@@ -43,27 +43,15 @@ class Logger:
     :type format_str: str
     """
 
-    def __init__(  # noqa: PLR0913
-        self,
-        name: str | None = None,
-        level: str | None = None,
-        log_to_file: bool | None = None,
-        log_dir: str | None = None,
-        rotation: str | None = None,  # e.g. "500 MB", "1 week"
-        retention: str | None = None,  # e.g. "10 days", "1 month"
-        format_str: str | None = None,
-    ):
-        self.name = name or os.getenv("LOG_NAME", "atlas")
-        self.level = level or os.getenv("LOG_LEVEL", "INFO").upper()
-        self.log_to_file = (
-            log_to_file
-            if log_to_file is not None
-            else os.getenv("LOG_TO_FILE", "false").lower() == "true"
-        )
-        self.log_dir = Path(log_dir or os.getenv("LOG_DIR", "logs"))
-        self.rotation = rotation or os.getenv("LOG_ROTATION", "10 MB")
-        self.retention = retention or os.getenv("LOG_RETENTION", "2 days")
-        self.format_str = format_str or os.getenv("LOG_FORMAT", "{time} {level} {message}")
+    def __init__(self):
+        self.name = os.getenv("LOG_NAME", "atlas")
+        self.level = os.getenv("LOG_LEVEL", "INFO").upper()
+        self.log_to_file = os.getenv("LOG_TO_FILE", "false").lower() == "true"
+
+        self.log_dir = Path(os.getenv("LOG_DIR", Path("logs")))
+        self.rotation = os.getenv("LOG_ROTATION", "10 MB")
+        self.retention = os.getenv("LOG_RETENTION", "2 days")
+        self.format_str = os.getenv("LOG_FORMAT", "{time} {level} {message}")
         self._configure_logger()
 
     def _configure_logger(self) -> None:
