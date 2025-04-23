@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
@@ -26,7 +26,6 @@ class Wind(Equipment):
     :type maximum_curtailment_ratio: Timeseries
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     installed_capacity: float | None = Field(
         None,
         gt=0,
