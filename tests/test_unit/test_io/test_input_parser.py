@@ -21,9 +21,7 @@ def mock_csv_data():
 
 @pytest.fixture
 def sample_df():
-    return pl.DataFrame(
-        {"id": [1, 2, 3], "name": ["test1", "test2", "test3"], "value": [100, 200, 300]}
-    )
+    return pl.DataFrame({"id": [1, 2, 3], "name": ["test1", "test2", "test3"], "value": [100, 200, 300]})
 
 
 @pytest.fixture

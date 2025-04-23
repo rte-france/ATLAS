@@ -1,18 +1,17 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import BaseModel, ConfigDict
-
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.market.market_area import MarketArea
 
 
-class Portfolio(BaseModel):
+class Portfolio(BusinessModel):
     """:param control_block: Installed capacity
     :type control_block: ControlBlock
     :param market_area: Sum of volume of sell offers on the Day Ahead market
@@ -52,7 +51,6 @@ class Portfolio(BaseModel):
     :type total_id_cleared_quantity: Timeseries
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     control_block: ControlBlock | None = None
     market_area: MarketArea | None = None
     id_cleared_quantity: ForecastingMatrix | None = None

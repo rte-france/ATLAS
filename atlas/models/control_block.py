@@ -1,17 +1,16 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import BaseModel, ConfigDict
-
 from atlas.enum import ReservesTypes
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
 
 
-class ControlBlock(BaseModel):
+class ControlBlock(BusinessModel):
     """:param alternative_type: Type of alternative considered for formulating a TSO offer on a balancing market
     :type alternative_type: ReservesTypes
     :param volume_uncertainty: True if uncertainty about the volume of the TSO's balancing requirement must be taken
@@ -65,7 +64,6 @@ class ControlBlock(BaseModel):
     :type weighted_balance_price_up: Timeseries
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     alternative_type: ReservesTypes | None = None
     volume_uncertainty: bool | None = None
     affr_down_required: ForecastingMatrix | None = None

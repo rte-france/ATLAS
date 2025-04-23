@@ -1,16 +1,15 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import BaseModel, ConfigDict
-
 from atlas.enum import ComplementDirection, CouplingType
+from atlas.models.business_model import BusinessModel
 from atlas.models.market.order import Order
 
 
-class OrderCoupling(BaseModel):
+class OrderCoupling(BusinessModel):
     """:param orders: List of Order linked
     :type orders: list[Order]
     :param complement_direction: Complement direction (EqualTo, LesserThan, GreaterThan)
@@ -21,7 +20,6 @@ class OrderCoupling(BaseModel):
     :type coupling_type: CouplingType
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     orders: list[Order]  # List of Business model Order
     complement_direction: ComplementDirection | None = None
     complement_energy: float | None = None

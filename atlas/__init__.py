@@ -1,8 +1,10 @@
 from atlas.io.input_parser import InputParser
 from atlas.io.parameters import Parameters, ParametersParser
+from atlas.logging import Logger
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydraulic import Hydraulic
@@ -22,7 +24,10 @@ from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
 
+logger = Logger().get_logger()
+
 __all__ = [
+    "BusinessModel",
     "ControlBlock",
     "CriticalBranch",
     "Equipment",

@@ -1,4 +1,4 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
@@ -8,7 +8,6 @@ Module that implements Input Parser
 
 import json
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 
@@ -16,6 +15,7 @@ import atlas.config as cfg
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
 
 
 class InputParser:
@@ -33,7 +33,7 @@ class InputParser:
                 f"Path is not a directory: {directory_path}",
             )
 
-        objects_by_type: dict[str, list[Any]] = {}
+        objects_by_type: dict[str, list[BusinessModel]] = {}
 
         for file_path in Path(directory_path).iterdir():
             if file_path.is_file() and file_path.suffix == ".csv":
@@ -73,7 +73,7 @@ class InputParser:
         return pl.read_csv(file_path)
 
     @classmethod
-    def _instantiate_objects_from_file(cls, file_path: Path, model_key: str) -> list[Any]:
+    def _instantiate_objects_from_file(cls, file_path: Path, model_key: str) -> list[BusinessModel]:
         """Instantiate objects from a single file using the model class associated with the key.
 
         :param file_path: Path to the CSV file.

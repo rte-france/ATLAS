@@ -1,17 +1,16 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import BaseModel, ConfigDict
-
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 
 
-class MarketArea(BaseModel):
+class MarketArea(BusinessModel):
     """:param control_block: Associated Control block
     :type control_block: ControlBlock
     :param co2_emission: Stores CO2 emissions at the end of each Portfolio Optimization
@@ -55,7 +54,6 @@ class MarketArea(BaseModel):
     :type total_id_balance: Timeseries
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     control_block: ControlBlock | None = None
     co2_emission: ForecastingMatrix | None = None
     id_balance: ForecastingMatrix | None = None

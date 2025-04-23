@@ -1,19 +1,18 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import BaseModel, ConfigDict
-
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area_ptdf import MarketAreaPtdf
 from atlas.models.market.node_ptdf import NodePtdf
 from atlas.models.node import Node
 
 
-class CriticalBranch(BaseModel):
+class CriticalBranch(BusinessModel):
     """:param downhill_node: Downhill node
     :type downhill_node: Node
     :param uphill_node: Uphill node
@@ -41,7 +40,6 @@ class CriticalBranch(BaseModel):
     :type total_id_flow: Timeseries
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     downhill_node: Node | None = None
     uphill_node: Node | None = None
     market_area_ptdf: MarketAreaPtdf | None = None
