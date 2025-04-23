@@ -10,14 +10,14 @@ Module that implements Matrix
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from atlas.math.timeseries import Timeseries
 
 Index = TypeVar("Index", str, int, float, datetime)
 
 
-class Matrix(Generic[Index]):
+class Matrix:
     """Base class for storing Timeseries objects indexed by scenario keys or datetimes."""
 
     def __init__(self, name: str, indexes: list[Index], timeseries: list[Timeseries]) -> None:
