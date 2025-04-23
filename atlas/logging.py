@@ -45,22 +45,30 @@ class Logger:
 
     def __init__(self):
         self.name = os.getenv("LOG_NAME", "atlas")
-        self.level = os.getenv("LOG_LEVEL", "INFO").upper()
-        self.log_to_file = os.getenv("LOG_TO_FILE", "false").lower() == "true"
+        self.level = os.getenv("LOG_LEVEL", "INFO")
+        self.log_to_file = os.getenv("LOG_TO_FILE", "false")
 
         self.log_dir = Path(os.getenv("LOG_DIR", Path("logs")))
         self.rotation = os.getenv("LOG_ROTATION", "10 MB")
         self.retention = os.getenv("LOG_RETENTION", "2 days")
-        self.format_str = os.getenv("LOG_FORMAT", "{time} {level} {message}")
+        self.format_str = os.getenv(
+            "LOG_FORMAT",
+            (
+                "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+                "<level>{level: <8}</level> | "
+                "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+                "<level>{message}</level>"
+            ),
+        )
         self._configure_logger()
 
     def _configure_logger(self) -> None:
         logger.remove()
 
-        if not self.log_to_file:
+        if self.log_to_file.lower() == "false":
             logger.add(
                 sys.stdout,
-                level=self.level,
+                level=self.level.upper(),
                 format=self.format_str,
                 enqueue=True,
             )
