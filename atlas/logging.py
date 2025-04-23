@@ -26,21 +26,8 @@ class Logger:
     - LOG_DIR: directory to store logs
     - LOG_ROTATION: log rotation policy (e.g., "10 MB", "1 week")
     - LOG_RETENTION: log retention policy (e.g., "7 days", "1 month")
-
-    :param name: Identifier for the logger and log file prefix.
-    :type name: str
-    :param level: Minimum logging level (e.g., "INFO", "DEBUG").
-    :type level: str
-    :param log_to_file: Whether to write logs to a file.
-    :type log_to_file: bool
-    :param log_dir: Directory to save log files.
-    :type log_dir: str
-    :param rotation: File rotation size/time for logs.
-    :type rotation: str
-    :param retention: Retention policy for old log files.
-    :type retention: str
-    :param format_str: Format string for log entries.
-    :type format_str: str
+    - LOG_FORMAT: log message format string
+    - LOG_NAME: name of the logger (default: "atlas")
     """
 
     def __init__(self):

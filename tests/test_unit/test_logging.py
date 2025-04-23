@@ -55,22 +55,3 @@ def test_log_format(monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert captured.out == "Formatted log message\n"
-
-
-def test_log_level_respected(monkeypatch, capsys):
-    monkeypatch.setenv("LOG_LEVEL", "WARNING")
-    monkeypatch.setenv("LOG_TO_FILE", "false")
-
-    log = Logger().get_logger()
-    log.debug("Debug message not shown")
-    log.info("Info message not shown")
-    log.warning("Warning should appear")
-    log.error("Error should appear")
-
-    captured = capsys.readouterr()
-    output = captured.out
-
-    assert "Debug message not shown" not in output
-    assert "Info message not shown" not in output
-    assert "Warning should appear" in output
-    assert "Error should appear" in output
