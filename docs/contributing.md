@@ -1,6 +1,6 @@
-# Contributing 
+# Contributing
 
-Thanks for taking the time to contribute!  
+Thanks for taking the time to contribute!
 We welcome bug reports, feature suggestions, and pull requests.
 
 ## 🛠️ Project Setup
@@ -18,6 +18,13 @@ git clone https://github.com/rte-france/ATLAS.git
 ```bash
 uv sync --all-groups
 ```
+
+Install pre-commit hooks
+
+```bash
+uv run pre-commit install
+```
+
 If you're contributing new dependencies, install them with:
 
 ```bash
@@ -51,7 +58,6 @@ uv run mypy atlas
 
 ## 🧩 Making a Pull Request
 
-
 Before contributing code, make sure you've:
 
 - Synced with the latest version of the `develop` branch.
@@ -59,12 +65,12 @@ Before contributing code, make sure you've:
 
 ### 🔖 Branch Naming Conventions
 
-- `feat/your-feature-name` or `feature/your-feature-name` – for new features  
+- `feat/your-feature-name` or `feature/your-feature-name` – for new features
 
-- `fix/your-fix-description` – for bug fixes  
+- `fix/your-fix-description` – for bug fixes
 
-- `chore/your-task` – for non-functional tasks like config or dependency updates  
+- `chore/your-task` – for non-functional tasks like config or dependency updates
 
-- `docs/your-doc-change` – for documentation-only changes  
+- `docs/your-doc-change` – for documentation-only changes
 
-- `test/your-test-task` – for adding or improving tests  
+- `test/your-test-task` – for adding or improving tests
