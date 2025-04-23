@@ -184,3 +184,7 @@ data/
 # Notebooks
 
 test.ipynb
+
+# scripts
+
+test.py

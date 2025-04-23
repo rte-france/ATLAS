@@ -108,6 +108,7 @@ nav:
       - Equipement: api/models/equipment.md
       - Market: api/models/market.md
       - Forecasting Matrix: api/math/forecasting_matrix.md
+    - Logging: api/logging.md
   - Examples:
     - Timeseries: examples/timeseries.ipynb
 
