@@ -1,5 +1,5 @@
 """
-Copyright (c) 2016-2022, RTE (www.rte-france.com)
+Copyright (c) 2025, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
@@ -48,7 +48,9 @@ class Timeseries:
             self.timezone = timeseries.timezone
         else:
             try:
-                df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+                df = (
+                    timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+                )
             except Exception as e:
                 raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
@@ -178,7 +180,11 @@ class Timeseries:
         :rtype: Timeseries
         """
         if strategy == "linear":
-            df = self.timeseries.upsample(time_column="time", every=every).interpolate().fill_null(strategy="forward")
+            df = (
+                self.timeseries.upsample(time_column="time", every=every)
+                .interpolate()
+                .fill_null(strategy="forward")
+            )
         elif strategy == "constant":
             df = self.timeseries.upsample(time_column="time", every="15m").fill_null(
                 strategy="forward",
