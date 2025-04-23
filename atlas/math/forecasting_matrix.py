@@ -9,6 +9,8 @@ Module that implements ForecastingMatrix
 
 from datetime import datetime
 
+import pendulum
+
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 
@@ -24,7 +26,7 @@ class ForecastingMatrix(Matrix):
     def __init__(
         self,
         name: str,
-        forecasting_dates: list[datetime],
+        forecasting_dates: list[datetime | str],
         timeseries: list[Timeseries],
     ):
         """
@@ -38,12 +40,22 @@ class ForecastingMatrix(Matrix):
         :type timeseries: list[Timeseries]
         """
         super().__init__(name, forecasting_dates, timeseries)
-        self._sort_indexes()
 
-    def _sort_indexes(self) -> None:
-        """Sort the internal mapping of timeseries by datetime keys."""
-        sorted_items = sorted(self.timeseries_map.items())
-        self.timeseries_map = dict(sorted_items)
+        self._convert_timeseries_map()
+
+    def _convert_timeseries_map(self) -> None:
+        """Convert string keys of a dictionary to datetime keys.
+
+        :raises ValueError: If any key cannot be parsed as a datetime.
+        """
+        converted = {}
+        for key, value in self.timeseries_map.items():
+            try:
+                dt_key = pendulum.parse(key)
+            except ValueError:
+                raise ValueError(f"Invalid datetime format in key: {key}")
+            converted[dt_key] = value
+        self.timeseries_map = converted
 
     def add_timeseries(self, index: datetime, timeseries: Timeseries) -> None:
         """
@@ -55,23 +67,22 @@ class ForecastingMatrix(Matrix):
         :type timeseries: Timeseries
         """
         super().add_timeseries(index, timeseries)
-        self._sort_indexes()
 
-    def extract(self, index: datetime, start_date: datetime, end_date: datetime) -> Timeseries:
-        """
-        Extract a portion of a Timeseries at a specific forecast date.
+    # def extract(self, index: datetime, start_date: datetime, end_date: datetime) -> Timeseries:
+    #     """
+    #     Extract a portion of a Timeseries at a specific forecast date.
 
-        :param index: Forecasting datetime from which to extract.
-        :type index: datetime
-        :param start_date: Start of the extraction window.
-        :type start_date: datetime
-        :param end_date: End of the extraction window.
-        :type end_date: datetime
-        :return: A sliced Timeseries from the specified index.
-        :rtype: Timeseries
-        """
-        ts = self.get_timeseries(index)
-        return ts.filter([start_date, end_date])
+    #     :param index: Forecasting datetime from which to extract.
+    #     :type index: datetime
+    #     :param start_date: Start of the extraction window.
+    #     :type start_date: datetime
+    #     :param end_date: End of the extraction window.
+    #     :type end_date: datetime
+    #     :return: A sliced Timeseries from the specified index.
+    #     :rtype: Timeseries
+    #     """
+    #     ts = self.get_timeseries(index)
+    #     return ts.filter([start_date, end_date])
 
     # def get_forecast(
     #     self,

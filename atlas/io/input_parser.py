@@ -8,6 +8,7 @@ Module that implements Input Parser
 
 import json
 from pathlib import Path
+from typing import Literal
 
 import polars as pl
 
@@ -22,7 +23,7 @@ class InputParser:
     """A class to handle input parsing from Atlas format."""
 
     @classmethod
-    def from_directory(cls, directory_path: str | Path) -> dict:
+    def from_directory(cls, directory_path: str | Path) -> dict[str, list[BusinessModel]]:
         """Parse input from a directory."""
         if not Path(directory_path).exists():
             raise FileNotFoundError(
@@ -111,7 +112,7 @@ class InputParser:
         return {file.stem: cls._from_csv(file) for file in data_dir.glob("*.csv")}
 
     @classmethod
-    def load_timeseries_from_file(cls, path: str | Path) -> pl.DataFrame:
+    def load_timeseries_from_file(cls, path: str | Path) -> Timeseries:
         """Load a timeseries profile from the timeseries/ folder.
 
         :param timeseries_dir: Path to the timeseries file.
@@ -122,61 +123,40 @@ class InputParser:
         return Timeseries(cls.from_file(path))
 
     @classmethod
-    def load_scenario_matrix_from_file(
+    def load_matrix_from_file(
         cls,
         base_dir: str | Path,
         instance_name: str,
-    ) -> ScenarioMatrix:
-        """Load scenario matrix time series for a specific instance.
+        matrix_type: Literal["scenario", "forecasting"],
+    ) -> ScenarioMatrix | ForecastingMatrix:
+        """Generic loader for scenario or forecasting matrix time series for a specific instance.
 
-        :param base_dir: Path to the scenario_matrix/ folder.
+        :param base_dir: Path to the scenario_matrix/ or forecasting_matrix/ folder.
         :type base_dir: str or Path
         :param instance_name: Name of the instance (e.g., wind_turbine1_normandie).
         :type instance_name: str
-        :return: A dictionary mapping scenario names to their timeseries DataFrames.
-        :rtype: dict[str, pl.DataFrame]
+        :param matrix_type: Type of matrix to load ("scenario" or "forecasting").
+        :type matrix_type: str
+        :return: An instance of the corresponding matrix class with loaded data.
+        :rtype: ScenarioMatrix or ForecastingMatrix
         :raises FileNotFoundError: If the instance subfolder does not exist.
+        :raises ValueError: If the matrix_type is invalid.
         """
         instance_path = Path(base_dir) / instance_name
         if not instance_path.exists():
-            raise FileNotFoundError(f"Scenario matrix path does not exist: {instance_path}")
-        matrix_dict = (
-            {
-                f.stem: cls.load_timeseries_from_file(f)
-                for f in instance_path.glob("*.parquet")
-                if f.name != "metadata.json"
-            },
-        )
-        return ScenarioMatrix(instance_name, matrix_dict.keys(), matrix_dict.values())
+            raise FileNotFoundError(f"Path does not exist: {instance_path}")
 
-    @classmethod
-    def load_forecasting_matrix(
-        cls,
-        base_dir: str | Path,
-        instance_name: str,
-    ) -> dict[str, pl.DataFrame]:
-        """Load forecasting matrix time series for a specific instance.
+        matrix_dict = {
+            f.stem: cls.load_timeseries_from_file(f)
+            for f in instance_path.glob("*.parquet")
+            if f.name != "metadata.json"
+        }
 
-        :param base_dir: Path to the forecasting_matrix/ folder.
-        :type base_dir: str or Path
-        :param instance_name: Name of the instance (e.g., wind_turbine1_normandie).
-        :type instance_name: str
-        :return: A dictionary mapping forecast timestamps to their timeseries DataFrames.
-        :rtype: dict[str, pl.DataFrame]
-        :raises FileNotFoundError: If the instance subfolder does not exist.
-        """
-        instance_path = Path(base_dir) / instance_name
-        if not instance_path.exists():
-            raise FileNotFoundError(f"Forecasting matrix path does not exist: {instance_path}")
-
-        matrix_dict = (
-            {
-                f.stem: cls.load_timeseries_from_file(f)
-                for f in instance_path.glob("*.parquet")
-                if f.name != "metadata.json"
-            },
-        )
-        return ForecastingMatrix(instance_name, matrix_dict.keys(), matrix_dict.values())
+        if matrix_type == "scenario":
+            return ScenarioMatrix(instance_name, list(matrix_dict.keys()), list(matrix_dict.values()))
+        if matrix_type == "forecasting":
+            return ForecastingMatrix(instance_name, list(matrix_dict.keys()), list(matrix_dict.values()))
+        raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
 
     @staticmethod
     def load_metadata(folder_path: str | Path) -> dict:
