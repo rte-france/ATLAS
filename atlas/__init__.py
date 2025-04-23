@@ -21,7 +21,7 @@ from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
 
-logger = Logger(name="atlas").get_logger()
+logger = Logger().get_logger()
 
 __all__ = [
     "ControlBlock",
