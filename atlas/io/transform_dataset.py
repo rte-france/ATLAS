@@ -4,6 +4,8 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import h5py
+import numpy as np
 import polars as pl
 
 
@@ -17,7 +19,7 @@ class AtlasTransformerDataset:
         Args:
             source_root: Path to the source directory containing the original structure
             target_root: Path to the target directory where the new structure will be created
-
+            intermediate_path: Path to the intermediate directory for temporary files (optional)
         """
         self.source_root = Path(source_root)
         self.target_root = Path(target_root)
@@ -39,6 +41,93 @@ class AtlasTransformerDataset:
 
         # Store instance data for creating the final CSV files
         self.instances_data = {}
+
+
+    def explore_hdf5(self,hdf_file, output_dir):
+        """
+        Recursively explore HDF5 file and recreate structure while converting datasets to CSV
+
+        Args:
+            hdf_file: The HDF5 file object or group to explore
+            output_dir: The directory where to save the folder structure and CSV files
+
+        """
+        # Create the output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Explore all items in the current group
+        for key in hdf_file.keys():
+            item = hdf_file[key]
+            path = os.path.join(output_dir, key)
+
+            # If item is a group (folder), recursively explore it
+            if isinstance(item, h5py.Group):
+                self.explore_hdf5(item, path)
+
+            # If item is a dataset, convert to Polars dataframe and save as CSV
+            elif isinstance(item, h5py.Dataset):
+                try:
+                    # Read the dataset into a numpy array
+                    data = item[()]
+
+                    # Handle different dataset types
+                    if len(item.shape) == 1:
+                        # 1D array - single column
+                        df = pl.DataFrame({key: data})
+                    elif len(item.shape) == 2:
+                        # 2D array - potentially a table with rows and columns
+                        if item.dtype.kind in {"S", "O"}:
+                            # String/object type - needs special handling
+                            # Convert bytes to strings if necessary
+                            if item.dtype.kind == "S":
+                                data = np.array(
+                                    [
+                                        s.decode("utf-8") if isinstance(s, bytes) else s
+                                        for s in data.flatten()
+                                    ]
+                                )
+                                data = data.reshape(item.shape)
+
+                            # Try to create a dataframe based on shape
+                            if item.shape[1] == 1:
+                                df = pl.DataFrame({key: data.flatten()})
+                            else:
+                                # Multiple columns - create column names
+                                columns = {f"col_{i}": data[:, i] for i in range(item.shape[1])}
+                                df = pl.DataFrame(columns)
+                        # Numeric data
+                        elif item.shape[1] == 1:
+                            df = pl.DataFrame({key: data.flatten()})
+                        else:
+                            # Multiple columns - create column names
+                            columns = {f"col_{i}": data[:, i] for i in range(item.shape[1])}
+                            df = pl.DataFrame(columns)
+                    else:
+                        # Higher dimensional data - flatten and save structure info
+                        df = pl.DataFrame({"data": data.flatten(), "original_shape": str(item.shape)})
+
+                    # Save to CSV
+                    csv_path = f"{path}.csv"
+
+                    df.write_csv(csv_path)
+
+                except Exception as e:
+                    print(f"Error processing dataset {key}: {e}")
+
+
+    def convert_hdf5_to_csv(self,hdf_path, output_dir):
+        """
+        Main function to convert HDF5 file to CSV files
+
+        Args:
+            hdf_path: Path to the HDF5 file
+            output_dir: Output directory for the folder structure and CSV files
+
+        """
+        with h5py.File(hdf_path, "r") as hdf_file:
+            hdf_file.visit(lambda name: print(f"- {name}"))
+
+            self.explore_hdf5(hdf_file, output_dir)
 
     def is_datetime_file(self, filename):
         """Check if a filename is a datetime format."""
@@ -171,9 +260,9 @@ class AtlasTransformerDataset:
 
                 # Create an entry for this instance in our data dictionary
                 if instance_name not in self.instances_data:
-                    self.instances_data[to_snake_case(instance_name)] = {
-                        "business_type": to_snake_case(business_type),
-                        "instance_name": to_snake_case(instance_name),
+                    self.instances_data[self.to_snake_case(instance_name)] = {
+                        "business_type": self.to_snake_case(business_type),
+                        "instance_name": self.to_snake_case(instance_name),
                     }
 
                 # Process each attribute in this instance
@@ -207,7 +296,7 @@ class AtlasTransformerDataset:
         """Process a Timeseries attribute."""
         # Copy the CSV file to the timeseries directory with a meaningful name
         profile_name = f"{attribute_name}.csv"
-        target_path = self.timeseries_dir / to_snake_case(business_type) / to_snake_case(instance_name) / f"{to_snake_case(attribute_name)}.csv"
+        target_path = self.timeseries_dir / self.to_snake_case(business_type) / self.to_snake_case(instance_name) / f"{self.to_snake_case(attribute_name)}.csv"
         os.makedirs(target_path.parent, exist_ok=True)
 
         # Copy the file
@@ -217,12 +306,12 @@ class AtlasTransformerDataset:
         )
 
         # Update the instance data
-        self.instances_data[to_snake_case(instance_name)][to_snake_case(attribute_name)] = to_snake_case(profile_name)
+        self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = self.to_snake_case(profile_name)
 
     def _process_forecasting_matrix(self, business_type, instance_name, attribute_name, dir_path):
         """Process a ForecastingMatrix attribute."""
         # Create a directory for this matrix in the forecasting_matrix directory
-        matrix_dir = self.forecasting_matrix_dir / to_snake_case(business_type) / to_snake_case(instance_name)
+        matrix_dir = self.forecasting_matrix_dir / self.to_snake_case(business_type) / self.to_snake_case(instance_name)
         os.makedirs(matrix_dir, exist_ok=True)
 
         # Create metadata.json
@@ -262,11 +351,11 @@ class AtlasTransformerDataset:
             forecast_horizon = self.compute_forecast_horizon(df, date_name)
 
             # Convert to parquet and save
-            parquet_path = matrix_dir / to_snake_case(attribute_name) / f"{date_name}.parquet"
+            parquet_path = matrix_dir / self.to_snake_case(attribute_name) / f"{date_name}.parquet"
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-            self.instances_data[to_snake_case(instance_name)][to_snake_case(attribute_name)] = to_snake_case(attribute_name)
+            self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = self.to_snake_case(attribute_name)
 
         # Create metadata.json with dynamically computed values
         metadata = {
@@ -280,13 +369,13 @@ class AtlasTransformerDataset:
             "description": f"Forecasts for {instance_name} {attribute_name}",
         }
 
-        with open(matrix_dir / to_snake_case(attribute_name) / "metadata.json", "w") as f:
+        with open(matrix_dir / self.to_snake_case(attribute_name) / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)
 
     def _process_scenario_matrix(self, business_type, instance_name, attribute_name, dir_path):
         """Process a ScenarioMatrix attribute."""
         # Create a directory for this matrix in the scenario_matrix directory
-        matrix_dir = self.scenario_matrix_dir / to_snake_case(business_type) / to_snake_case(instance_name)
+        matrix_dir = self.scenario_matrix_dir / self.to_snake_case(business_type) / self.to_snake_case(instance_name)
         os.makedirs(matrix_dir, exist_ok=True)
 
         # Process each CSV file in the directory
@@ -317,11 +406,11 @@ class AtlasTransformerDataset:
             if unit is None:
                 unit = self.detect_unit(df, attribute_name)
 
-            parquet_path = matrix_dir / to_snake_case(attribute_name) / f"{scenario_name}.parquet"
+            parquet_path = matrix_dir / self.to_snake_case(attribute_name) / f"{scenario_name}.parquet"
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-        self.instances_data[to_snake_case(instance_name)][to_snake_case(attribute_name)] = to_snake_case(attribute_name)
+        self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = self.to_snake_case(attribute_name)
 
         # Create metadata.json with dynamically computed values
         metadata = {
@@ -333,7 +422,7 @@ class AtlasTransformerDataset:
             "description": f"Simulated production for {instance_name} {attribute_name} under different weather scenarios",
         }
 
-        with open(matrix_dir / to_snake_case(attribute_name) / "metadata.json", "w") as f:
+        with open(matrix_dir / self.to_snake_case(attribute_name) / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)
 
     def create_instance_csv(self):
@@ -372,7 +461,7 @@ class AtlasTransformerDataset:
 
             # Create DataFrame and save as CSV
             df = pl.DataFrame(csv_data)
-            csv_path = self.data_dir / f"{to_snake_case(business_type)}.csv"
+            csv_path = self.data_dir / f"{self.to_snake_case(business_type)}.csv"
             df.write_csv(csv_path, separator=";")
 
     def transform(self):
@@ -381,16 +470,20 @@ class AtlasTransformerDataset:
         self.create_instance_csv()
         return self.target_root
 
+    def run(self,hdf_path):
+        """Run the transformation process."""
+        self.convert_hdf5_to_csv(hdf_path=hdf_path, output_dir=self.source_root)
+        self.transform()
+        print(f"Transformation complete. Output directory: {self.target_root}")
 
-
-
-def to_snake_case(name: str) -> str:
-    """Convert a given string from camel case or kebab case to snake case."""
-    # Replace hyphens with underscores
-    name = name.replace("-", "_")
-    # Insert underscore before any capital letter that follows a lowercase letter or number
-    name = re.sub(r"(?<=[a-z0-9])([A-Z])", r"_\1", name)
-    # Insert underscore between sequences of capitals followed by lowercase letters
-    name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
-    # Convert everything to lowercase
-    return name.lower()
+    @staticmethod
+    def to_snake_case(name: str) -> str:
+        """Convert a given string from camel case or kebab case to snake case."""
+        # Replace hyphens with underscores
+        name = name.replace("-", "_")
+        # Insert underscore before any capital letter that follows a lowercase letter or number
+        name = re.sub(r"(?<=[a-z0-9])([A-Z])", r"_\1", name)
+        # Insert underscore between sequences of capitals followed by lowercase letters
+        name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
+        # Convert everything to lowercase
+        return name.lower()
