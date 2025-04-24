@@ -296,7 +296,7 @@ class AtlasTransformerDataset:
         """Process a Timeseries attribute."""
         # Copy the CSV file to the timeseries directory with a meaningful name
         profile_name = f"{attribute_name}.csv"
-        target_path = self.timeseries_dir / self.to_snake_case(business_type) / self.to_snake_case(instance_name) / f"{self.to_snake_case(attribute_name)}.csv"
+        target_path = self.timeseries_dir / self.to_snake_case(business_type) / self.to_snake_case(instance_name) / f"{self.to_snake_case(attribute_name)}.parquet"
         os.makedirs(target_path.parent, exist_ok=True)
 
         # Copy the file
@@ -306,7 +306,7 @@ class AtlasTransformerDataset:
         )
 
         # Update the instance data
-        self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = self.to_snake_case(profile_name)
+        self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = "timeseries"
 
     def _process_forecasting_matrix(self, business_type, instance_name, attribute_name, dir_path):
         """Process a ForecastingMatrix attribute."""
@@ -355,7 +355,7 @@ class AtlasTransformerDataset:
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-            self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = self.to_snake_case(attribute_name)
+            self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = "forecasting_matrix"
 
         # Create metadata.json with dynamically computed values
         metadata = {
@@ -410,7 +410,7 @@ class AtlasTransformerDataset:
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-        self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = self.to_snake_case(attribute_name)
+        self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = "scenario_matrix"
 
         # Create metadata.json with dynamically computed values
         metadata = {
