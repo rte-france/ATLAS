@@ -1,13 +1,13 @@
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import polars as pl
 
 
-class EnergyDatasetTransformer:
+class AtlasTransformerDataset:
     """Transforms the original energy data directory structure to the target format."""
 
     def __init__(self, source_root, target_root):
@@ -77,7 +77,7 @@ class EnergyDatasetTransformer:
 
         most_common_diff = diff.to_pandas().value_counts().idxmax()[0]
 
-        minutes = most_common_diff.total_seconds() / 60 if isinstance(most_common_diff, datetime) else most_common_diff / 1e9
+        minutes = most_common_diff.total_seconds() / 60 if isinstance(most_common_diff, timedelta) else most_common_diff / 1e9
 
         # Determine frequency string
         if minutes < 1:
@@ -98,7 +98,6 @@ class EnergyDatasetTransformer:
             str: The inferred unit (e.g., 'MW', 'MWh', '€')
 
         """
-        # Check attribute name for common energy terms
         attribute_lower = attribute_name.lower()
 
         if any(term in attribute_lower for term in ["power", "procured", "upward", "downward"]):
@@ -110,7 +109,6 @@ class EnergyDatasetTransformer:
         if any(term in attribute_lower for term in ["flow", "exchange"]):
             return "MW"
 
-        # Default based on column name
         value_col = df.select(pl.nth(1)).columns[0] if len(df.columns) > 1 else None
         if value_col is not None:
             col_name = df.columns[1].lower()
@@ -121,7 +119,6 @@ class EnergyDatasetTransformer:
             if any(term in col_name for term in ["energy"]):
                 return "MWh"
 
-        # Default to MW if nothing else applies
         return "MW"
 
     def detect_columns(self, df):
@@ -185,9 +182,8 @@ class EnergyDatasetTransformer:
 
                 # Create an entry for this instance in our data dictionary
                 if instance_name not in self.instances_data:
-                    self.instances_data[instance_name] = {
-                        "business_type": business_type,
-                        "instance_name": instance_name,
+                    self.instances_data[to_snake_case(instance_name)] = {
+                        "business_type": to_snake_case(business_type)
                     }
 
                 # Process each attribute in this instance
@@ -221,7 +217,7 @@ class EnergyDatasetTransformer:
         """Process a Timeseries attribute."""
         # Copy the CSV file to the timeseries directory with a meaningful name
         profile_name = f"{attribute_name}.csv"
-        target_path = self.timeseries_dir / business_type / instance_name / f"{attribute_name}.csv"
+        target_path = self.timeseries_dir / to_snake_case(business_type) / to_snake_case(instance_name) / f"{to_snake_case(attribute_name)}.csv"
         os.makedirs(target_path.parent, exist_ok=True)
 
         # Copy the file
@@ -231,12 +227,12 @@ class EnergyDatasetTransformer:
         )
 
         # Update the instance data
-        self.instances_data[instance_name][attribute_name] = profile_name
+        self.instances_data[to_snake_case(instance_name)][to_snake_case(attribute_name)] = to_snake_case(profile_name)
 
     def _process_forecasting_matrix(self, business_type, instance_name, attribute_name, dir_path):
         """Process a ForecastingMatrix attribute."""
         # Create a directory for this matrix in the forecasting_matrix directory
-        matrix_dir = self.forecasting_matrix_dir / business_type / instance_name
+        matrix_dir = self.forecasting_matrix_dir / to_snake_case(business_type) / to_snake_case(instance_name)
         os.makedirs(matrix_dir, exist_ok=True)
 
         # Create metadata.json
@@ -279,11 +275,11 @@ class EnergyDatasetTransformer:
             forecast_horizon = self.compute_forecast_horizon(df, new_date)
 
             # Convert to parquet and save
-            parquet_path = matrix_dir / attribute_name / f"{new_date}.parquet"
+            parquet_path = matrix_dir / to_snake_case(attribute_name) / f"{new_date}.parquet"
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-            self.instances_data[instance_name][attribute_name] = attribute_name
+            self.instances_data[to_snake_case(instance_name)][to_snake_case(attribute_name)] = to_snake_case(attribute_name)
 
         # Create metadata.json with dynamically computed values
         metadata = {
@@ -297,13 +293,13 @@ class EnergyDatasetTransformer:
             "description": f"Forecasts for {instance_name} {attribute_name}",
         }
 
-        with open(matrix_dir / attribute_name / "metadata.json", "w") as f:
+        with open(matrix_dir / to_snake_case(attribute_name) / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)
 
     def _process_scenario_matrix(self, business_type, instance_name, attribute_name, dir_path):
         """Process a ScenarioMatrix attribute."""
         # Create a directory for this matrix in the scenario_matrix directory
-        matrix_dir = self.scenario_matrix_dir / business_type / instance_name
+        matrix_dir = self.scenario_matrix_dir / to_snake_case(business_type) / to_snake_case(instance_name)
         os.makedirs(matrix_dir, exist_ok=True)
 
         # Process each CSV file in the directory
@@ -323,43 +319,36 @@ class EnergyDatasetTransformer:
             # Read the CSV file with polars
             df = pl.read_csv(csv_file)
 
-            # Try to convert the first column to datetime if it's numeric
             try:
-                if pl.is_numeric_dtype(df.get_column(df.columns[0]).dtype):
-                    df = df.with_column(
-                        pl.from_epoch(df.get_column(df.columns[0]), time_unit="s").alias(
-                            df.columns[0]
-                        )
-                    )
-            except:
-                pass
+                df = df.with_columns(pl.from_epoch(pl.nth(0), time_unit="ns"))
+            except Exception:
+                print(f"Error converting column {df.columns[0]} to datetime")
+
 
             # Get metadata from the actual data
             if frequency is None:
                 frequency = self.detect_frequency(df)
-            if timezone is None:
-                timezone = self.detect_timezone(df)
             if unit is None:
                 unit = self.detect_unit(df, attribute_name)
             if columns is None:
                 columns = self.detect_columns(df)
 
             # Convert to parquet and save
-            parquet_path = matrix_dir / attribute_name / f"{scenario_name}.parquet"
+            parquet_path = matrix_dir / to_snake_case(attribute_name) / f"{scenario_name}.parquet"
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-        self.instances_data[instance_name][attribute_name] = attribute_name
+        self.instances_data[to_snake_case(instance_name)][to_snake_case(attribute_name)] = to_snake_case(attribute_name)
 
         # Create metadata.json with dynamically computed values
         metadata = {
             "matrix_type": "scenario",
             "unit": unit or "MW",
             "frequency": frequency or "30min",
-            "timezone": timezone or "Europe/Paris",
+            "timezone": timezone or "UTC",
             "scenarios": scenarios,
             "description": f"Simulated production for {instance_name} {attribute_name} under different weather scenarios",
-            "columns": columns or ["datetime", "production"],
+            "columns": columns or ["datetime", "value"],
         }
 
         with open(matrix_dir / attribute_name / "metadata.json", "w") as f:
@@ -401,7 +390,7 @@ class EnergyDatasetTransformer:
 
             # Create DataFrame and save as CSV
             df = pl.DataFrame(csv_data)
-            csv_path = self.data_dir / f"{business_type}.csv"
+            csv_path = self.data_dir / f"{to_snake_case(business_type)}.csv"
             df.write_csv(csv_path, separator=";")
 
     def transform(self):
@@ -409,3 +398,17 @@ class EnergyDatasetTransformer:
         self.process_source_tree()
         self.create_instance_csv()
         return self.target_root
+
+
+
+
+def to_snake_case(name: str) -> str:
+    """Convert a given string from camel case or kebab case to snake case."""
+    # Replace hyphens with underscores
+    name = name.replace("-", "_")
+    # Insert underscore before any capital letter that follows a lowercase letter or number
+    name = re.sub(r"(?<=[a-z0-9])([A-Z])", r"_\1", name)
+    # Insert underscore between sequences of capitals followed by lowercase letters
+    name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
+    # Convert everything to lowercase
+    return name.lower()

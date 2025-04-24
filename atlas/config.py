@@ -4,8 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any
-
+from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydraulic import Hydraulic
@@ -25,7 +24,7 @@ from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
 
-MODEL_MAPPING_NAME: dict[str, Any] = {
+MODEL_MAPPING_NAME: dict[str, BusinessModel] = {
     "control_block": ControlBlock,
     "critical_branch": CriticalBranch,
     "equipment": Equipment,
