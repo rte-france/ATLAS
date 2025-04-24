@@ -121,18 +121,7 @@ class AtlasTransformerDataset:
 
         return "MW"
 
-    def detect_columns(self, df):
-        """
-        Get the column names from the DataFrame.
 
-        Args:
-            df: Polars DataFrame
-
-        Returns:
-            list: The column names
-
-        """
-        return df.columns
 
     def compute_forecast_horizon(self, df, date_str):
         """
@@ -183,7 +172,8 @@ class AtlasTransformerDataset:
                 # Create an entry for this instance in our data dictionary
                 if instance_name not in self.instances_data:
                     self.instances_data[to_snake_case(instance_name)] = {
-                        "business_type": to_snake_case(business_type)
+                        "business_type": to_snake_case(business_type),
+                        "instance_name": to_snake_case(instance_name),
                     }
 
                 # Process each attribute in this instance
@@ -222,7 +212,7 @@ class AtlasTransformerDataset:
 
         # Copy the file
 
-        pl.read_csv(file_path).with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).write_csv(
+        pl.read_csv(file_path).with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename({'col_0':'date', 'col_1':"value"}).write_parquet(
             target_path
         )
 
@@ -249,16 +239,15 @@ class AtlasTransformerDataset:
                 continue
 
             # Convert the old datetime format to the new one
-            old_date = csv_file.stem  # Get filename without extension
-            new_date = self.convert_datetime_format(old_date)
-            forecast_dates.append(new_date)
+            date_name = csv_file.stem  # Get filename without extension
+            forecast_dates.append(date_name)
 
             # Read the CSV file with polars
             df = pl.read_csv(csv_file)
 
             # Try to convert the first column to datetime if it's numeric
             try:
-                df = df.with_columns(pl.from_epoch(pl.nth(0), time_unit="ns"))
+                df = df.with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename({'col_0':'date', 'col_1':f"{date_name}"})
             except Exception:
                 print(f"Error converting column {df.columns[0]} to datetime")
 
@@ -268,14 +257,12 @@ class AtlasTransformerDataset:
 
             if unit is None:
                 unit = self.detect_unit(df, attribute_name)
-            if columns is None:
-                columns = self.detect_columns(df)
 
             # Get the forecast horizon for this file
-            forecast_horizon = self.compute_forecast_horizon(df, new_date)
+            forecast_horizon = self.compute_forecast_horizon(df, date_name)
 
             # Convert to parquet and save
-            parquet_path = matrix_dir / to_snake_case(attribute_name) / f"{new_date}.parquet"
+            parquet_path = matrix_dir / to_snake_case(attribute_name) / f"{date_name}.parquet"
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
@@ -320,20 +307,16 @@ class AtlasTransformerDataset:
             df = pl.read_csv(csv_file)
 
             try:
-                df = df.with_columns(pl.from_epoch(pl.nth(0), time_unit="ns"))
+                df = df.with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename({'col_0':'date', 'col_1':f"{scenario_name}"})
             except Exception:
                 print(f"Error converting column {df.columns[0]} to datetime")
-
 
             # Get metadata from the actual data
             if frequency is None:
                 frequency = self.detect_frequency(df)
             if unit is None:
                 unit = self.detect_unit(df, attribute_name)
-            if columns is None:
-                columns = self.detect_columns(df)
 
-            # Convert to parquet and save
             parquet_path = matrix_dir / to_snake_case(attribute_name) / f"{scenario_name}.parquet"
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
@@ -348,10 +331,9 @@ class AtlasTransformerDataset:
             "timezone": timezone or "UTC",
             "scenarios": scenarios,
             "description": f"Simulated production for {instance_name} {attribute_name} under different weather scenarios",
-            "columns": columns or ["datetime", "value"],
         }
 
-        with open(matrix_dir / attribute_name / "metadata.json", "w") as f:
+        with open(matrix_dir / to_snake_case(attribute_name) / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)
 
     def create_instance_csv(self):
