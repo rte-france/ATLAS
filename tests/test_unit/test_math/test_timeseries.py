@@ -468,6 +468,24 @@ class TestTimeseriesManipulation:
         assert len(result) == 1
         assert result.get_data()["value1"].item() == 40
 
+    def test_get_value(self, sample_ts):
+        """Test getting a value at a specific timestamp."""
+        ts = Timeseries()
+
+        # Insert new values
+        ts.set_value("2024-01-01T00:00:00", 10)
+        ts.set_value("2024-01-01T01:00:00", 20)
+        ts.set_value("2024-01-01T02:00:00", 100)
+        ts.set_value("2024-01-01T04:00:00", 200)
+        ts.set_value("2024-01-01T06:00:00", 400)
+
+        dt = datetime(2024, 1, 1, 1, 0, 0)
+        value = ts.get_value(dt)
+        assert value == 20.0
+
+        value = ts.get_value("2024-01-01T03:00:00")
+        assert value == 100
+
 
 class TestTimeseriesExport:
     """Test exporting time series data."""
