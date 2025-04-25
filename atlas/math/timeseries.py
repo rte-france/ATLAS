@@ -244,6 +244,10 @@ class Timeseries:
         :type time: datetime or str
         :param value: Value to set
         :type value: float or int
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
         """
         dt: pendulum.DateTime = self._check_date(time, date_format)
         dt.in_tz(self.timezone)
@@ -286,6 +290,8 @@ class Timeseries:
         :param end: End datetime
         :param freq: Frequency (e.g. "1h", "15m", "1d")
         :param timezone: Timezone string, defaults to "UTC"
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :type date_format: str, optional
         :return: List of datetime objects
         """
         start_date: pendulum.DateTime = cls._check_date(start, date_format)
@@ -551,8 +557,15 @@ class Timeseries:
 
         return Timeseries(df, self.timezone)
 
-    def get_value(self, datetime: str | datetime | pendulum.DateTime, date_format="YYYY-MM-DD HH:mm:ss") -> dict:
-        """Return values at the given datetime. If exact match is not found, interpolate."""
+    def get_value(self, datetime: str | datetime | pendulum.DateTime, date_format: str = "YYYY-MM-DD HH:mm:ss") -> dict:
+        """Return values at the given datetime. If exact match is not found, interpolate.
+        :param datetime: Datetime to get value for
+        :type datetime: str or datetime
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :return: Dictionary with time and value
+        :rtype: dict
+        """
         df = self.filter(datetime, date_format, inplace=False).get_data()
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
