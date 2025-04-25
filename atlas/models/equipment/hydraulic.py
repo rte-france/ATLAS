@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
@@ -44,7 +44,6 @@ class Hydraulic(Equipment):
     :type minimum_power: Timeseries
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     inflow_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
     energy_target_frequency: str | None = Field(
         None,

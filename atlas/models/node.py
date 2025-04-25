@@ -4,15 +4,14 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import BaseModel, ConfigDict
-
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.market.market_area import MarketArea
 
 
-class Node(BaseModel):
+class Node(BusinessModel):
     """:param control_block: Associated Control block
     :type control_block: ControlBlock
     :param market_area: Associated Market Area
@@ -29,7 +28,6 @@ class Node(BaseModel):
     :type reference_balance: Timeseries
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     control_block: ControlBlock | None = None
     market_area: MarketArea | None = None
     balance_forecast: ForecastingMatrix | None = None

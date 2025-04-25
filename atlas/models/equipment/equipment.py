@@ -4,14 +4,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
 
 
-class Equipment(BaseModel):
+class Equipment(BusinessModel):
     """:param node: Associated Node
     :type node: Node
     :param portfolio: Associated Portfolio
@@ -96,7 +97,6 @@ class Equipment(BaseModel):
     :type variable_cost: Timeseries
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     node: str | None = Field(None, description="Class Business model Node")
     portfolio: str | None = Field(None, description="Class Business model Portfolio")
     coe2_emission_factor: float | None = Field(None, description="COE2 emission factor")

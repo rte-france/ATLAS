@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from atlas.config import ThermicStrategy
 from atlas.math.scenario_matrix import ScenarioMatrix
@@ -46,8 +46,6 @@ class Thermic(Equipment):
     :param minimum_power: Sum of volume of sell offers on the Day Ahead market
     :type minimum_power: Timeseries
     """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     installed_capacity: float | None = Field(
         None,
