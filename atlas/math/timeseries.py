@@ -60,13 +60,17 @@ class Timeseries:
                 raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
             time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+            value_column = df.select(pl.selectors.numeric()).columns
+            if len(value_column) != 1:
+                raise ValueError("Timeseries must have exactly one numeric column")
             if len(time_column) != 1:
                 raise ValueError("Timeseries must have exactly one datetime column")
-            df = df.rename({time_column[0]: "time"}).with_columns(
+            df = df.rename({time_column[0]: "time", value_column[0]: "value"}).with_columns(
                 pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
             )
 
             self.timeseries = df
+            self.sort()
 
     def __eq__(self, other: object) -> bool:
         """
@@ -86,9 +90,73 @@ class Timeseries:
         """Return the number of rows in the time series."""
         return self.timeseries.height
 
-    def __mul__(self, factor: float) -> Timeseries:
-        """Multiply all numeric columns by a scalar."""
-        df = self.timeseries.with_columns(pl.selectors.numeric().mul(factor))
+    def __mul__(self, other: float | Timeseries) -> Timeseries:
+        """Multiply all numeric columns by a scalar or another Timeseries."""
+        if isinstance(other, (int, float)):
+            df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
+        elif isinstance(other, Timeseries):
+            df = (
+                self._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(1)
+                .with_columns(pl.col("value").mul(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+
+        return Timeseries(df, self.timezone)
+
+    def __add__(self, other: float | Timeseries) -> Timeseries:
+        """Add all numeric columns by a scalar or timeseries."""
+        if isinstance(other, (int, float)):
+            df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
+        elif isinstance(other, Timeseries):
+            df = (
+                self._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(0)
+                .with_columns(pl.col("value").add(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+
+        return Timeseries(df, self.timezone)
+
+    def __sub__(self, other: float | Timeseries) -> Timeseries:
+        """Subtract all numeric columns by a scalar or timeseries."""
+        if isinstance(other, (int, float)):
+            df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
+        elif isinstance(other, Timeseries):
+            df = (
+                self._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(0)
+                .with_columns(pl.col("value").sub(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+
+        return Timeseries(df, self.timezone)
+
+    def __truediv__(self, other: float | Timeseries) -> Timeseries:
+        """Divide all numeric columns by a scalar or timeseries."""
+        if isinstance(other, (int, float)):
+            if other == 0:
+                raise ZeroDivisionError("Division by zero is not allowed")
+            df = self.timeseries.with_columns(pl.selectors.numeric().truediv(other))
+        elif isinstance(other, Timeseries):
+            df = (
+                self._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(1)
+                .with_columns(pl.col("value").truediv(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
 
         return Timeseries(df, self.timezone)
 
@@ -325,23 +393,6 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def select(self, variables: list[str], inplace: bool = True) -> Timeseries:
-        """
-        Select the specified variables from the time series.
-
-        :param variables: List of variables to exclude
-        :type variables: list[str]
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Modified time series
-        :rtype: Timeseries
-        """
-        df = self.timeseries.select(variables)
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
-
     def remove_duplicated(
         self,
         variables: str | list[str],
@@ -363,14 +414,13 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def join(
+    def _join(
         self,
         other: Timeseries | pl.DataFrame,
         by: str = "time",
         how: Literal["inner", "left", "right", "full", "semi", "anti", "cross", "outer"] = "inner",
         suffixes: str = "_right",
-        inplace: bool = True,
-    ) -> Timeseries:
+    ) -> pl.DataFrame:
         """
         Merge this time series with another.
 
@@ -389,47 +439,7 @@ class Timeseries:
         """
         if isinstance(other, Timeseries):
             other = other.timeseries
-        df = self.timeseries.join(other, on=by, how=how, suffix=suffixes)
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
-
-    def drop(self, variables: list[str], inplace: bool = True) -> Timeseries:
-        """
-        Remove specified variables from the time series.
-
-        :param variables: Column names to remove
-        :type variables: list[str]
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Modified time series
-        :rtype: Timeseries
-        """
-        df = self.timeseries.drop(variables)
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
-
-    def rename(self, old_cols: list[str], new_cols: list[str], inplace: bool = True) -> Timeseries:
-        """
-        Rename columns in the time series.
-
-        :param old_cols: List of current column names
-        :type old_cols: list[str]
-        :param new_cols: List of new column names
-        :type new_cols: list[str]
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Modified time series or None
-        :rtype: Timeseries or None
-        """
-        df = self.timeseries.rename(dict(zip(old_cols, new_cols, strict=False)))
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
+        return self.timeseries.join(other, on=by, how=how, suffix=suffixes, coalesce=True)
 
     def export(
         self,

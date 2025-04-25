@@ -28,8 +28,7 @@ def sample_df() -> pl.DataFrame:
                 datetime(2023, 1, 1, 2, 0, 0),
                 datetime(2023, 1, 1, 3, 0, 0),
             ],
-            "value1": [10.0, 20.0, 30.0, 40.0],
-            "value2": [100, 200, 300, 400],
+            "value": [10.0, 20.0, 30.0, 40.0],
         },
     )
 
@@ -51,8 +50,7 @@ def sample_df_with_nulls() -> pl.DataFrame:
                 datetime(2023, 1, 1, 2, 0, 0),
                 datetime(2023, 1, 1, 3, 0, 0),
             ],
-            "value1": [10.0, None, 30.0, 40.0],
-            "value2": [100, 200, None, 400],
+            "value": [10.0, None, 30.0, 40.0],
         },
     )
 
@@ -68,8 +66,7 @@ def sample_pandas_df() -> pd.DataFrame:
                 datetime(2023, 1, 1, 2, 0, 0),
                 datetime(2023, 1, 1, 3, 0, 0),
             ],
-            "value1": [10.0, 20.0, 30.0, 40.0],
-            "value2": [100, 200, 300, 400],
+            "value": [10.0, 20.0, 30.0, 40.0],
         },
     )
 
@@ -181,8 +178,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.get_data().select(pl.col("value1")).to_series()
-        new_values = ts.get_data().select(pl.col("value1")).to_series()
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * 2
@@ -229,11 +226,11 @@ class TestTimeseriesManipulation:
         assert len(ts) == 4
 
         ts_cleaned = ts.remove_na(inplace=False)
-        assert len(ts_cleaned) == 2  # Only rows with no nulls remain
+        assert len(ts_cleaned) == 3  # Only rows with no nulls remain
         assert len(ts) == 4  # Original unchanged
 
         ts.remove_na(inplace=True)
-        assert len(ts) == 2  # Now original is changed
+        assert len(ts) == 3  # Now original is changed
 
     def test_upsample_linear(self, sample_ts):
         """Test upsampling with linear interpolation."""
@@ -262,12 +259,12 @@ class TestTimeseriesManipulation:
 
         # Check if values are forward-filled
         times = upsampled.get_data()["time"].to_list()
-        values = upsampled.get_data()["value1"].to_list()
+        values = upsampled.get_data()["value"].to_list()
 
         # For each original time point, check next 30-min point has same value
         for i in range(len(sample_ts) - 1):
             orig_time = sample_ts.get_data()["time"][i]
-            orig_value = sample_ts.get_data()["value1"][i]
+            orig_value = sample_ts.get_data()["value"][i]
 
             # Find the next 30-min point in upsampled data
             next_time_idx = times.index(orig_time) + 1
@@ -325,23 +322,6 @@ class TestTimeseriesManipulation:
         with pytest.raises(NotImplementedError):
             sample_ts.groupby("1h", agg="invalid")
 
-    def test_select(self, sample_ts):
-        """Test selecting specific variables."""
-        # Original has time, value1, value2
-        ts = sample_ts
-        selected = ts.select(["time", "value1"], inplace=False)
-
-        # Should only have time and value1 columns
-        assert set(selected.get_data().columns) == {"time", "value1"}
-        assert "value2" not in selected.get_data().columns
-
-        # Original should be unchanged
-        assert "value2" in ts.get_data().columns
-
-        # Test inplace
-        ts.select(["time", "value1"], inplace=True)
-        assert set(ts.get_data().columns) == {"time", "value1"}
-
     def test_remove_duplicated(self, sample_df):
         """Test removal of duplicated rows."""
         # Create data with duplicates
@@ -377,59 +357,14 @@ class TestTimeseriesManipulation:
         other_ts = Timeseries(other_df)
 
         # Test inner join
-        joined = sample_ts.join(other_ts, by="time", how="inner", inplace=False)
+        joined = sample_ts._join(other_ts, by="time", how="inner")
         assert len(joined) == 3  # Only matching times
-        assert set(joined.get_data().columns) == {"time", "value1", "value2", "value3"}
+        assert set(joined.columns) == {"time", "value", "value_right"}
 
         # Test left join
-        left_joined = sample_ts.join(other_ts, by="time", how="left", inplace=False)
+        left_joined = sample_ts._join(other_ts, by="time", how="left")
         assert len(left_joined) == 4  # All rows from sample_ts
-        assert left_joined.get_data()["value3"][3] is None  # Missing value for 3:00
-
-        # Test inplace
-        original_cols = sample_ts.get_data().columns
-        sample_ts.join(other_ts, inplace=True)
-        assert set(sample_ts.get_data().columns) != set(original_cols)
-        assert "value3" in sample_ts.get_data().columns
-
-    def test_drop(self, sample_ts):
-        """Test dropping columns."""
-        # Original has time, value1, value2
-        ts = sample_ts
-        dropped = ts.drop(["value2"], inplace=False)
-
-        # Should only have time and value1 columns
-        assert set(dropped.get_data().columns) == {"time", "value1"}
-        assert "value2" not in dropped.get_data().columns
-
-        # Original should be unchanged
-        assert "value2" in ts.get_data().columns
-
-        # Test inplace
-        ts.drop(["value2"], inplace=True)
-        assert set(ts.get_data().columns) == {"time", "value1"}
-
-    def test_rename(self, sample_ts):
-        """Test renaming columns."""
-        ts = sample_ts
-        renamed = ts.rename(["value1", "value2"], ["temperature", "pressure"], inplace=False)
-
-        # Check new column names
-        assert "temperature" in renamed.get_data().columns
-        assert "pressure" in renamed.get_data().columns
-        assert "value1" not in renamed.get_data().columns
-        assert "value2" not in renamed.get_data().columns
-
-        # Original should be unchanged
-        assert "value1" in ts.get_data().columns
-        assert "value2" in ts.get_data().columns
-
-        # Test inplace
-        ts.rename(["value1", "value2"], ["temperature", "pressure"], inplace=True)
-        assert "temperature" in ts.get_data().columns
-        assert "pressure" in ts.get_data().columns
-        assert "value1" not in ts.get_data().columns
-        assert "value2" not in ts.get_data().columns
+        assert left_joined["value_right"][3] is None  # Missing value for 3:00
 
     def test_timezone_operations(self, sample_ts):
         """Test timezone conversion operations."""
@@ -455,18 +390,18 @@ class TestTimeseriesManipulation:
         dt = datetime(2023, 1, 1, 0, 0, 0)
         result = sample_ts.filter(dt, inplace=False)
         assert len(result) == 1
-        assert result.get_data()["value1"].item() == 10
+        assert result.get_data()["value"].item() == 10
 
     def test_filter_with_list_of_datetime(self, sample_ts):
         dts = [datetime(2023, 1, 1, 0, 0, 0), datetime(2023, 1, 1, 1, 0, 0)]
         result = sample_ts.filter(dts, inplace=False)
         assert len(result) == 2
-        assert result.get_data()["value1"].to_list() == [10, 20]
+        assert result.get_data()["value"].to_list() == [10, 20]
 
     def test_filter_with_str(self, sample_ts):
         result = sample_ts.filter("2023-01-01T03:00:00", inplace=False)
         assert len(result) == 1
-        assert result.get_data()["value1"].item() == 40
+        assert result.get_data()["value"].item() == 40
 
     def test_get_value(self, sample_ts):
         """Test getting a value at a specific timestamp."""
