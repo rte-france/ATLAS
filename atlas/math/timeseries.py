@@ -20,6 +20,8 @@ import plotly.graph_objects
 import polars as pl
 import pytz
 
+import atlas.config as cfg
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -294,8 +296,8 @@ class Timeseries:
     def _check_date(time: str | datetime | pendulum.DateTime) -> pendulum.DateTime:
         """Check if the date is valid."""
         try:
-            dt: pendulum.DateTime | pendulum.Duration | pendulum.Time | pendulum.Date = (
-                pendulum.parse(time) if isinstance(time, str) else pendulum.instance(time)
+            dt: pendulum.DateTime = (
+                pendulum.from_format(time, fmt=cfg.DATE_FORMAT) if isinstance(time, str) else pendulum.instance(time)
             )
             if not isinstance(dt, pendulum.DateTime):
                 raise TypeError("Time input must be a valid datetime object or string")
@@ -492,7 +494,7 @@ class Timeseries:
             item = [pendulum.instance(i).in_tz(self.timezone) if isinstance(i, datetime) else i for i in item]
             df = self.timeseries.filter(pl.col("time").is_in(item))
         elif isinstance(item, str):
-            date = pendulum.parse(item, tz=self.timezone)
+            date = pendulum.from_format(item, fmt=cfg.DATE_FORMAT, tz=self.timezone)
             df = self.timeseries.filter(pl.col("time") == date)
         elif isinstance(item, datetime):
             date = pendulum.instance(item).in_tz(self.timezone)
