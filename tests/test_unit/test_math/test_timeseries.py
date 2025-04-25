@@ -419,7 +419,7 @@ class TestTimeseriesManipulation:
         value = ts.get_value(dt)
         assert value == 20.0
 
-        value = ts.get_value("2024-01-01 03:00:00")
+        value = ts.get_value("2024-01-01 03:00:00", date_format=date_format)
         assert value == 100
 
 
