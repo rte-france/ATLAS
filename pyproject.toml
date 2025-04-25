@@ -63,3 +63,13 @@ docs = [
 
 [[tool.uv.index]]
 url = "https://pypi.org/simple/"
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+check_untyped_defs = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+warn_unused_ignores = false
+warn_return_any = false
+no_implicit_optional = false

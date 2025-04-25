@@ -186,6 +186,38 @@ class TestTimeseriesBasicOperations:
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * 2
 
+    def test_set_value(self, sample_ts):
+        ts = Timeseries()
+
+        # Insert new values
+        ts.set_value("2024-01-01T00:00:00", 10)
+        ts.set_value("2024-01-01T01:00:00", 20)
+
+        # Overwrite value
+        ts.set_value("2024-01-01T01:00:00", 99)
+
+        assert ts.get_data()["time"].to_list() == [
+            datetime(2024, 1, 1, 0, 0, tzinfo=zoneinfo.ZoneInfo(key="UTC")),
+            datetime(2024, 1, 1, 1, 0, tzinfo=zoneinfo.ZoneInfo(key="UTC")),
+        ]
+        assert ts.get_data()["value"].to_list() == [10, 99]
+
+    def test_generate_datetimes(self):
+        """Test static method to generate datetime range."""
+        start = datetime(2023, 1, 1, 0, 0)
+        end = datetime(2023, 1, 1, 6, 0)
+        step = "2h"
+
+        result = Timeseries.generate_datetimes(start=start, end=end, freq=step)
+        expected = [
+            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone("UTC")),
+            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone("UTC")),
+            datetime(2023, 1, 1, 4, 0, tzinfo=Timezone("UTC")),
+            datetime(2023, 1, 1, 6, 0, tzinfo=Timezone("UTC")),
+        ]
+
+        assert result == expected
+
 
 class TestTimeseriesManipulation:
     """Test time series manipulation methods."""
@@ -375,35 +407,6 @@ class TestTimeseriesManipulation:
         # Test inplace
         ts.drop(["value2"], inplace=True)
         assert set(ts.get_data().columns) == {"time", "value1"}
-
-    def test_get_granularity(self, sample_ts):
-        """Test getting the time granularity."""
-        # Sample has hourly data
-        hourly = sample_ts.get_granularity(unit="hour")
-        assert hourly == 1.0
-
-        minute = sample_ts.get_granularity(unit="minute")
-        assert minute == 60.0
-
-        second = sample_ts.get_granularity(unit="second")
-        assert second == 3600.0
-
-    def test_get_granularity_invalid_unit(self, sample_ts):
-        """Test getting granularity with an invalid unit."""
-        with pytest.raises(ValueError):
-            sample_ts.get_granularity(unit="invalid")
-
-    def test_get_granularity_not_enough_points(self):
-        """Test getting granularity with insufficient time points."""
-        df = pl.DataFrame(
-            {
-                "time": [datetime(2023, 1, 1, 0, 0, 0)],
-                "value": [10.0],
-            },
-        )
-        ts = Timeseries(df)
-        with pytest.raises(ValueError):
-            ts.get_granularity()
 
     def test_rename(self, sample_ts):
         """Test renaming columns."""

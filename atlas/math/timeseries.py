@@ -12,7 +12,7 @@ from __future__ import annotations
 import pickle
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import pendulum
 import polars as pl
@@ -35,15 +35,16 @@ class Timeseries:
 
     def __init__(
         self,
-        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list],
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None = None,
         timezone: str = "UTC",
     ) -> None:
         self._check_timezone(timezone)
 
         self.timezone: str = timezone
         self.timeseries: pl.DataFrame = pl.DataFrame()
-
-        if isinstance(timeseries, Timeseries):
+        if timeseries is None:
+            self.timeseries = pl.DataFrame(schema={"time": pl.Datetime(), "value": pl.Float64()})
+        elif isinstance(timeseries, Timeseries):
             self.timeseries = timeseries.get_data()
             self.timezone = timeseries.timezone
         else:
@@ -134,7 +135,6 @@ class Timeseries:
 
     def sort(
         self,
-        variables: str | list[str],
         inplace: bool = True,
         descending: bool | list[bool] = False,
     ) -> Timeseries:
@@ -150,11 +150,93 @@ class Timeseries:
         :return: Sorted time series
         :rtype: Timeseries
         """
-        df = self.timeseries.sort(variables, descending=descending)
+        df = self.timeseries.sort("time", descending=descending)
         if inplace:
             self.timeseries = df
             return self
         return Timeseries(df, self.timezone)
+
+    def set_value(self, time: datetime | str, value: float, inplace: bool = True) -> Timeseries:
+        """
+        Set or update a value at a specific datetime. If the datetime exists, it is overwritten.
+
+        :param time: Datetime to set
+        :type time: datetime or str
+        :param value: Value to set
+        :type value: float or int
+        """
+        dt: pendulum.DateTime = self._check_date(time)
+        dt.in_tz(self.timezone)
+
+        if len(self.timeseries) == 0:
+            df = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
+                pl.col("time").dt.replace_time_zone(self.timezone)
+            )
+            if inplace:
+                self.timeseries = df
+                return self
+            return Timeseries(df, self.timezone)
+
+        df = self.timeseries.filter(pl.col("time") != dt)
+        new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
+            pl.col("time").dt.replace_time_zone(self.timezone)
+        )
+
+        df = pl.concat([df, new_row]).sort("time")
+        if inplace:
+            self.timeseries = df
+            return self
+        return Timeseries(df, self.timezone)
+
+    @classmethod
+    def generate_datetimes(
+        cls,
+        start: str | datetime,
+        end: str | datetime,
+        freq: str,
+        timezone: str = "UTC",
+    ) -> list[pendulum.DateTime]:
+        """
+        Generate a list of datetimes using pendulum.
+
+        :param start: Start datetime
+        :param end: End datetime
+        :param freq: Frequency (e.g. "1h", "15m", "1d")
+        :param timezone: Timezone string, defaults to "UTC"
+        :return: List of datetime objects
+        """
+        start_date: pendulum.DateTime = cls._check_date(start)
+        end_date: pendulum.DateTime = cls._check_date(end)
+
+        start_date = start_date.in_tz(timezone)
+        end_date = end_date.in_tz(timezone)
+
+        step = pendulum.duration(**Timeseries._parse_freq(freq))
+        return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
+
+    @staticmethod
+    def _check_date(time: str | datetime | pendulum.DateTime) -> pendulum.DateTime:
+        """Check if the date is valid."""
+        try:
+            dt: pendulum.DateTime | pendulum.Duration | pendulum.Time | pendulum.Date = (
+                pendulum.parse(time) if isinstance(time, str) else pendulum.instance(time)
+            )
+            if not isinstance(dt, pendulum.DateTime):
+                raise TypeError("Time input must be a valid datetime object or string")
+            return dt  # noqa: TRY300
+        except Exception as e:
+            raise ValueError(f"Invalid date format: {time}") from e
+
+    @staticmethod
+    def _parse_freq(freq: str) -> dict:
+        """Parse a freq string like '15m' or '1h' into pendulum duration kwargs."""
+        if freq.endswith("m"):
+            return {"minutes": int(freq[:-1])}
+        if freq.endswith("h"):
+            return {"hours": int(freq[:-1])}
+        if freq.endswith("d"):
+            return {"days": int(freq[:-1])}
+        raise ValueError(f"Unsupported frequency: {freq}")
 
     def upsample(
         self,
@@ -322,29 +404,6 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def get_granularity(self, unit: Literal["hour", "minute", "second"] = "hour") -> float:
-        """
-        Compute the time interval (granularity) between data points.
-
-        :param unit: Time unit to return the granularity in, defaults to "hour"
-        :type unit: Literal["hour", "minute", "second"], optional
-        :raises ValueError: If fewer than two time points exist or if unit is unsupported
-        :return: Time interval in the specified unit
-        :rtype: float
-        """
-        times = self.timeseries["time"].to_list()
-        if len(times) < 2:  # noqa: PLR2004
-            raise ValueError("Not enough time points to calculate granularity")
-        delta: float = (times[1] - times[0]).total_seconds()
-
-        if unit == "hour":
-            return delta / 3600
-        if unit == "minute":
-            return delta / 60
-        if unit == "second":
-            return delta
-        raise ValueError("Unsupported unit")
-
     def rename(self, old_cols: list[str], new_cols: list[str], inplace: bool = True) -> Timeseries:
         """
         Rename columns in the time series.
@@ -429,15 +488,14 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    # def __getitem__(
-    #     self,
-    #     item: list[datetime] | datetime | str | pendulum.DateTime,
-    # ) -> Timeseries:
-    #     """Get a subset of the time series.
+    def max(self) -> float | None:
+        """Return the max value in the 'value' column."""
+        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+            return cast("float", self.timeseries["value"].max())
+        return None
 
-    #     :param item: Column name, index, or slice to select
-    #     :type item: int, slice, list[str], list[int], or list[slice]
-    #     :return: Subset of the time series
-    #     :rtype: Timeseries
-    #     """
-    #     return self.filter(item, inplace=False).get_data()
+    def min(self) -> float | None:
+        """Return the min value in the 'value' column."""
+        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+            return cast("float", self.timeseries["value"].min())
+        return None
