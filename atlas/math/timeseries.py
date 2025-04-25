@@ -15,11 +15,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
 import pendulum
+import plotly
+import plotly.graph_objects
 import polars as pl
 import pytz
 
 if TYPE_CHECKING:
     import pandas as pd
+
+import plotly.express as px
 
 
 class Timeseries:
@@ -51,9 +55,7 @@ class Timeseries:
             self.timezone = timeseries.timezone
         else:
             try:
-                df = (
-                    timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
-                )
+                df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
             except Exception as e:
                 raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
@@ -160,9 +162,7 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def set_value(
-        self, time: datetime | str, value: float | None, inplace: bool = True
-    ) -> Timeseries:
+    def set_value(self, time: datetime | str, value: float | None, inplace: bool = True) -> Timeseries:
         """
         Set or update a value at a specific datetime. If the datetime exists, it is overwritten.
 
@@ -181,6 +181,7 @@ class Timeseries:
             if inplace:
                 self.timeseries = df
                 return self
+
             return Timeseries(df, self.timezone)
 
         df = self.timeseries.filter(pl.col("time") != dt)
@@ -188,9 +189,11 @@ class Timeseries:
             pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone))
         )
         df = pl.concat([df, new_row]).sort("time")
+
         if inplace:
             self.timeseries = df
             return self
+
         return Timeseries(df, self.timezone)
 
     @classmethod
@@ -265,11 +268,7 @@ class Timeseries:
         :rtype: Timeseries
         """
         if strategy == "linear":
-            df = (
-                self.timeseries.upsample(time_column="time", every=every)
-                .interpolate()
-                .fill_null(strategy="forward")
-            )
+            df = self.timeseries.upsample(time_column="time", every=every).interpolate().fill_null(strategy="forward")
         elif strategy == "constant":
             df = self.timeseries.upsample(time_column="time", every="15m").fill_null(
                 strategy="forward",
@@ -480,10 +479,7 @@ class Timeseries:
         :rtype: Timeseries
         """
         if isinstance(item, list):
-            item = [
-                pendulum.instance(i).in_tz(self.timezone) if isinstance(i, datetime) else i
-                for i in item
-            ]
+            item = [pendulum.instance(i).in_tz(self.timezone) if isinstance(i, datetime) else i for i in item]
             df = self.timeseries.filter(pl.col("time").is_in(item))
         elif isinstance(item, str):
             date = pendulum.parse(item, tz=self.timezone)
@@ -513,9 +509,7 @@ class Timeseries:
             return cast("float", self.timeseries["value"].min())
         return None
 
-    def interpolate(
-        self, method: Literal["linear", "constant"] = "constant", inplace: bool = False
-    ) -> Timeseries:
+    def interpolate(self, method: Literal["linear", "constant"] = "constant", inplace: bool = False) -> Timeseries:
         """Interpolate the time series to fill in missing values.
         :param method: Interpolation method, defaults to "constant"
         :type method: str, optional
@@ -530,9 +524,7 @@ class Timeseries:
         elif method == "constant":
             df = self.timeseries.fill_null(strategy="forward")
         else:
-            raise NotImplementedError(
-                "Unsupported interpolation method, use 'linear' or 'constant'"
-            )
+            raise NotImplementedError("Unsupported interpolation method, use 'linear' or 'constant'")
         if inplace:
             self.timeseries = df
             return self
@@ -554,3 +546,61 @@ class Timeseries:
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
         return {"time": datetime, "value": None}
+
+    def plot(  # noqa: PLR0913
+        self,
+        title: str = "Time Series Plot",
+        height: int = 500,
+        width: int = 800,
+        show_grid: bool = True,
+        line_color: str = "#1f77b4",
+        line_shape: Literal["hv", "linear", "spline"] = "hv",
+        template: str = "plotly_white",
+    ) -> plotly.graph_objects.Figure:
+        """
+        Generate a Plotly figure for the time series data.
+
+        :param title: Plot title, defaults to "Time Series Plot"
+        :type title: str, optional
+        :param height: Plot height in pixels, defaults to 500
+        :type height: int, optional
+        :param width: Plot width in pixels, defaults to 800
+        :type width: int, optional
+        :param show_grid: Whether to show grid lines, defaults to True
+        :type show_grid: bool, optional
+        :param line_color: Color of the line plot, defaults to "#1f77b4" (Plotly default blue)
+        :type line_color: str, optional
+        :param template: Plotly template to use, defaults to "plotly_white"
+        :type template: str, optional
+        :param variable: Column to plot (if None, uses 'value' column), defaults to None
+        :type variable: str, optional
+        :return: Plotly figure object
+        :rtype: plotly.graph_objects.Figure
+        """
+        # Create the figure using Plotly Express
+        fig = px.line(
+            self.timeseries,
+            x="time",
+            y=self.timeseries.select(pl.selectors.numeric()).columns,
+            title=title,
+            height=height,
+            width=width,
+            template=template,
+            line_shape=line_shape,
+            color_discrete_sequence=[line_color] if line_color else None,
+        )
+
+        # Update layout for grid settings
+        fig.update_layout(
+            hovermode="x unified",
+            xaxis={
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+            yaxis={
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+        )
+
+        return fig

@@ -11,6 +11,8 @@ dependencies = [
     "ortools>=9.12.4544",
     "pandas>=2.2.2",
     "pendulum>=3.0.0",
+    "plotly>=6.0.1",
+    "plotly-stubs>=0.0.5",
     "polars>=1.27.0",
     "pydantic>=2.11.3",
     "pytz>=2025.1",
@@ -52,6 +54,7 @@ dev = [
     "ruff>=0.9.7",
     "types-pyyaml>=6.0.12.20250402",
     "pre-commit>=4.2.0",
+    "plotly-stubs>=0.0.5",
 ]
 docs = [
     "mike>=2.1.3",
