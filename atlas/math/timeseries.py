@@ -249,8 +249,7 @@ class Timeseries:
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         """
-        dt: pendulum.DateTime = self._check_date(time, date_format)
-        dt.in_tz(self.timezone)
+        dt: pendulum.DateTime = self._check_date(time, date_format).in_tz(self.timezone)
 
         if len(self.timeseries) == 0:
             df = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
@@ -557,7 +556,11 @@ class Timeseries:
 
         return Timeseries(df, self.timezone)
 
-    def get_value(self, datetime: str | datetime | pendulum.DateTime, date_format: str = "YYYY-MM-DD HH:mm:ss") -> dict:
+    def get_value(
+        self,
+        datetime: str | datetime | pendulum.DateTime,
+        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+    ) -> dict:
         """Return values at the given datetime. If exact match is not found, interpolate.
         :param datetime: Datetime to get value for
         :type datetime: str or datetime
