@@ -11,8 +11,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from atlas.abstract_class.abstract_dataset import AbstractParameters
-from atlas.abstract_class.abstract_parameters import AbstractDataset
+from atlas import BusinessModel
+from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.abstract_class.abstract_dataset import AbstractDataset
 
 
 class AbstractModule(ABC):
@@ -31,7 +32,7 @@ class AbstractModule(ABC):
         """Hook after execution."""
 
     @abstractmethod
-    def read_parameters(self, path: Path) -> AbstractParameters:
+    def read_parameters(self, path: Path) -> dict[str, Any]:
         """Reads parameters from a file using a concrete Pydantic class."""
 
     @abstractmethod
@@ -43,23 +44,35 @@ class AbstractModule(ABC):
         """Creates a concrete parameters object from raw dictionary."""
 
     @abstractmethod
-    def import_data(self, objects: list[BusinessModel], parameters: AbstractParameters) -> None:
+    def import_data(self, objects: list[BusinessModel], parameters: AbstractParameters) -> AbstractDataset:
         """Imports data using business objects and parameters."""
 
     @abstractmethod
-    def execute(self, parameters: AbstractParameters, input_dataset: AbstractDataset) -> None:
+    def execute(self, parameters: AbstractParameters, input_dataset: AbstractDataset) -> AbstractDataset:
         """Executes the module's main logic."""
 
     @abstractmethod
-    def validate_data(self) -> None:
+    def validate_data(self, parameters: AbstractParameters, input_dataset: AbstractDataset) -> bool:
         """Validates imported or generated data."""
 
-    def run(self) -> None:
+    @abstractmethod
+    def sanity_check(self, parameters: AbstractParameters, input_dataset: AbstractDataset, output_dataset:
+                     AbstractDataset) -> bool:
+        """Validates results"""
+
+    def run(self, objects: list[BusinessModel], parameters_path: Path) -> None:
         """Orchestrates the preparation and execution of the module."""
-        raw_params = self.read_parameters()
+        raw_params = self.read_parameters(parameters_path)
         parameters = self.create_parameters(raw_params)
 
-        input_dataset = self.import_data(input_dataset)
-        ok = self.sanitize_data(parameters, input_dataset)
-        if ok:
-            self.execute(parameters, input_dataset)
+        input_dataset = self.import_data(objects, parameters)
+        sanitize_data_ok = self.validate_data(parameters, input_dataset)
+        if sanitize_data_ok:
+            output_dataset = self.execute(parameters, input_dataset)
+        else:
+            pass  # raise Error
+        sanity_check_ok = self.sanity_check(parameters, input_dataset, output_dataset)
+        if sanity_check_ok:
+            self.export_kpi()
+        else:
+            pass  # raise Error
