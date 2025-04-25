@@ -4,11 +4,11 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements AbstractModule
+Module that implements AbstractDataset
 """
 
-from pydantic import BaseModel
+from abc import ABC
 
 
-class AbstractParameters(BaseModel):
-    """Base class for parameters, to be extended by concrete implementations."""
+class AbstractDataset(ABC):
+    """Placeholder abstract class for input datasets."""
