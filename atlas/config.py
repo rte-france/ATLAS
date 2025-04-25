@@ -6,8 +6,6 @@ This file is part of the ATLAS project.
 
 from enum import Enum
 
-DATE_FORMAT = "YYYY-MM-DD HH:mm:ss z"
-
 
 class TimeSeriesInterpolation(Enum):
     """

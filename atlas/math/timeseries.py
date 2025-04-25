@@ -20,8 +20,6 @@ import plotly.graph_objects
 import polars as pl
 import pytz
 
-import atlas.config as cfg
-
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -232,7 +230,13 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def set_value(self, time: datetime | str, value: float | None, inplace: bool = True) -> Timeseries:
+    def set_value(
+        self,
+        time: datetime | str,
+        value: float | None,
+        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+        inplace: bool = True,
+    ) -> Timeseries:
         """
         Set or update a value at a specific datetime. If the datetime exists, it is overwritten.
 
@@ -241,7 +245,7 @@ class Timeseries:
         :param value: Value to set
         :type value: float or int
         """
-        dt: pendulum.DateTime = self._check_date(time)
+        dt: pendulum.DateTime = self._check_date(time, date_format)
         dt.in_tz(self.timezone)
 
         if len(self.timeseries) == 0:
@@ -273,6 +277,7 @@ class Timeseries:
         end: str | datetime,
         freq: str,
         timezone: str = "UTC",
+        date_format: str = "YYYY-MM-DD HH:mm:ss z",
     ) -> list[pendulum.DateTime]:
         """
         Generate a list of datetimes using pendulum.
@@ -283,8 +288,8 @@ class Timeseries:
         :param timezone: Timezone string, defaults to "UTC"
         :return: List of datetime objects
         """
-        start_date: pendulum.DateTime = cls._check_date(start)
-        end_date: pendulum.DateTime = cls._check_date(end)
+        start_date: pendulum.DateTime = cls._check_date(start, date_format)
+        end_date: pendulum.DateTime = cls._check_date(end, date_format)
 
         start_date = start_date.in_tz(timezone)
         end_date = end_date.in_tz(timezone)
@@ -293,11 +298,13 @@ class Timeseries:
         return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
 
     @staticmethod
-    def _check_date(time: str | datetime | pendulum.DateTime) -> pendulum.DateTime:
+    def _check_date(
+        time: str | datetime | pendulum.DateTime, date_format: str = "YYYY-MM-DD HH:mm:ss z"
+    ) -> pendulum.DateTime:
         """Check if the date is valid."""
         try:
             dt: pendulum.DateTime = (
-                pendulum.from_format(time, fmt=cfg.DATE_FORMAT) if isinstance(time, str) else pendulum.instance(time)
+                pendulum.from_format(time, fmt=date_format) if isinstance(time, str) else pendulum.instance(time)
             )
             if not isinstance(dt, pendulum.DateTime):
                 raise TypeError("Time input must be a valid datetime object or string")
@@ -478,6 +485,7 @@ class Timeseries:
     def filter(
         self,
         item: list[datetime] | datetime | pendulum.DateTime | str,
+        date_format: str = "YYYY-MM-DD HH:mm:ss z",
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -494,7 +502,7 @@ class Timeseries:
             item = [pendulum.instance(i).in_tz(self.timezone) if isinstance(i, datetime) else i for i in item]
             df = self.timeseries.filter(pl.col("time").is_in(item))
         elif isinstance(item, str):
-            date = pendulum.from_format(item, fmt=cfg.DATE_FORMAT, tz=self.timezone)
+            date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
             df = self.timeseries.filter(pl.col("time") == date)
         elif isinstance(item, datetime):
             date = pendulum.instance(item).in_tz(self.timezone)
@@ -543,16 +551,16 @@ class Timeseries:
 
         return Timeseries(df, self.timezone)
 
-    def get_value(self, datetime: str | datetime | pendulum.DateTime) -> dict:
+    def get_value(self, datetime: str | datetime | pendulum.DateTime, date_format="YYYY-MM-DD HH:mm:ss") -> dict:
         """Return values at the given datetime. If exact match is not found, interpolate."""
-        df = self.filter(datetime, inplace=False).get_data()
+        df = self.filter(datetime, date_format, inplace=False).get_data()
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
 
         df = (
-            self.set_value(datetime, None, inplace=False)
+            self.set_value(datetime, None, date_format, inplace=False)
             .interpolate(inplace=False)
-            .filter(datetime, inplace=False)
+            .filter(datetime, date_format, inplace=False)
             .get_data()
         )
         if len(df) > 0:

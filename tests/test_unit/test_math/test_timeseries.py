@@ -188,11 +188,11 @@ class TestTimeseriesBasicOperations:
         ts = Timeseries()
 
         # Insert new values
-        ts.set_value("2024-01-01T00:00:00", 10)
-        ts.set_value("2024-01-01T01:00:00", 20)
+        ts.set_value("2024-01-01 00:00:00", 10, "YYYY-MM-DD HH:mm:ss")
+        ts.set_value("2024-01-01 01:00:00", 20, "YYYY-MM-DD HH:mm:ss")
 
         # Overwrite value
-        ts.set_value("2024-01-01T01:00:00", 99)
+        ts.set_value("2024-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
 
         assert ts.get_data()["time"].to_list() == [
             datetime(2024, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
@@ -399,7 +399,7 @@ class TestTimeseriesManipulation:
         assert result.get_data()["value"].to_list() == [10, 20]
 
     def test_filter_with_str(self, sample_ts):
-        result = sample_ts.filter("2023-01-01T03:00:00", inplace=False)
+        result = sample_ts.filter("2023-01-01 03:00:00", "YYYY-MM-DD HH:mm:ss", inplace=False)
         assert len(result) == 1
         assert result.get_data()["value"].item() == 40
 
@@ -407,18 +407,19 @@ class TestTimeseriesManipulation:
         """Test getting a value at a specific timestamp."""
         ts = Timeseries()
 
+        date_format = "YYYY-MM-DD HH:mm:ss"
         # Insert new values
-        ts.set_value("2024-01-01T00:00:00", 10)
-        ts.set_value("2024-01-01T01:00:00", 20)
-        ts.set_value("2024-01-01T02:00:00", 100)
-        ts.set_value("2024-01-01T04:00:00", 200)
-        ts.set_value("2024-01-01T06:00:00", 400)
+        ts.set_value("2024-01-01 00:00:00", 10, date_format=date_format)
+        ts.set_value("2024-01-01 01:00:00", 20, date_format=date_format)
+        ts.set_value("2024-01-01 02:00:00", 100, date_format=date_format)
+        ts.set_value("2024-01-01 04:00:00", 200, date_format=date_format)
+        ts.set_value("2024-01-01 06:00:00", 400, date_format=date_format)
 
         dt = datetime(2024, 1, 1, 1, 0, 0)
         value = ts.get_value(dt)
         assert value == 20.0
 
-        value = ts.get_value("2024-01-01T03:00:00")
+        value = ts.get_value("2024-01-01 03:00:00")
         assert value == 100
 
 
