@@ -8,6 +8,8 @@ import h5py
 import numpy as np
 import polars as pl
 
+from atlas import logger
+
 
 class AtlasTransformerDataset:
     """Transforms the original energy data directory structure to the target format."""
@@ -42,8 +44,7 @@ class AtlasTransformerDataset:
         # Store instance data for creating the final CSV files
         self.instances_data = {}
 
-
-    def explore_hdf5(self,hdf_file, output_dir):
+    def explore_hdf5(self, hdf_file, output_dir):
         """
         Recursively explore HDF5 file and recreate structure while converting datasets to CSV
 
@@ -81,10 +82,7 @@ class AtlasTransformerDataset:
                             # Convert bytes to strings if necessary
                             if item.dtype.kind == "S":
                                 data = np.array(
-                                    [
-                                        s.decode("utf-8") if isinstance(s, bytes) else s
-                                        for s in data.flatten()
-                                    ]
+                                    [s.decode("utf-8") if isinstance(s, bytes) else s for s in data.flatten()]
                                 )
                                 data = data.reshape(item.shape)
 
@@ -114,8 +112,7 @@ class AtlasTransformerDataset:
                 except Exception as e:
                     print(f"Error processing dataset {key}: {e}")
 
-
-    def convert_hdf5_to_csv(self,hdf_path, output_dir):
+    def convert_hdf5_to_csv(self, hdf_path, output_dir):
         """
         Main function to convert HDF5 file to CSV files
 
@@ -166,7 +163,9 @@ class AtlasTransformerDataset:
 
         most_common_diff = diff.to_pandas().value_counts().idxmax()[0]
 
-        minutes = most_common_diff.total_seconds() / 60 if isinstance(most_common_diff, timedelta) else most_common_diff / 1e9
+        minutes = (
+            most_common_diff.total_seconds() / 60 if isinstance(most_common_diff, timedelta) else most_common_diff / 1e9
+        )
 
         # Determine frequency string
         if minutes < 1:
@@ -209,8 +208,6 @@ class AtlasTransformerDataset:
                 return "MWh"
 
         return "MW"
-
-
 
     def compute_forecast_horizon(self, df, date_str):
         """
@@ -272,9 +269,7 @@ class AtlasTransformerDataset:
                     # Determine the attribute type
                     if attribute_dir.is_file() and attribute_dir.suffix == ".csv":
                         # This is a Timeseries
-                        self._process_timeseries(
-                            business_type, instance_name, attribute_name, attribute_dir
-                        )
+                        self._process_timeseries(business_type, instance_name, attribute_name, attribute_dir)
                     elif attribute_dir.is_dir():
                         # Check the files inside to determine if it's a ForecastingMatrix or ScenarioMatrix
                         csv_files = list(attribute_dir.glob("*.csv"))
@@ -288,22 +283,25 @@ class AtlasTransformerDataset:
                             )
                         else:
                             # This is a ScenarioMatrix
-                            self._process_scenario_matrix(
-                                business_type, instance_name, attribute_name, attribute_dir
-                            )
+                            self._process_scenario_matrix(business_type, instance_name, attribute_name, attribute_dir)
 
     def _process_timeseries(self, business_type, instance_name, attribute_name, file_path):
         """Process a Timeseries attribute."""
         # Copy the CSV file to the timeseries directory with a meaningful name
         profile_name = f"{attribute_name}.csv"
-        target_path = self.timeseries_dir / self.to_snake_case(business_type) / self.to_snake_case(instance_name) / f"{self.to_snake_case(attribute_name)}.parquet"
+        target_path = (
+            self.timeseries_dir
+            / self.to_snake_case(business_type)
+            / self.to_snake_case(instance_name)
+            / f"{self.to_snake_case(attribute_name)}.parquet"
+        )
         os.makedirs(target_path.parent, exist_ok=True)
 
         # Copy the file
-
-        pl.read_csv(file_path).with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename({'col_0':'date', 'col_1':"value"}).write_parquet(
-            target_path
-        )
+        logger.info(f"Processing Timeseries for {instance_name} {attribute_name}")
+        pl.read_csv(file_path).with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename(
+            {"col_0": "date", "col_1": "value"}
+        ).write_parquet(target_path)
 
         # Update the instance data
         self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = "timeseries"
@@ -322,6 +320,7 @@ class AtlasTransformerDataset:
         unit = None
         columns = None
 
+        logger.info(f"Processing ForecastingMatrix for {instance_name} {attribute_name}")
         # Process each CSV file in the directory
         for csv_file in dir_path.glob("*.csv"):
             if not self.is_datetime_file(csv_file.name):
@@ -336,7 +335,9 @@ class AtlasTransformerDataset:
 
             # Try to convert the first column to datetime if it's numeric
             try:
-                df = df.with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename({'col_0':'date', 'col_1':f"{date_name}"})
+                df = df.with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename(
+                    {"col_0": "date", "col_1": f"{date_name}"}
+                )
             except Exception:
                 print(f"Error converting column {df.columns[0]} to datetime")
 
@@ -355,7 +356,10 @@ class AtlasTransformerDataset:
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-            self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = "forecasting_matrix"
+            self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = (
+                "forecasting_matrix"
+            )
+        self.merge_matrices(matrix_dir / self.to_snake_case(attribute_name), self.to_snake_case(attribute_name))
 
         # Create metadata.json with dynamically computed values
         metadata = {
@@ -385,8 +389,7 @@ class AtlasTransformerDataset:
         frequency = None
         timezone = None
         unit = None
-        columns = None
-
+        logger.info(f"Processing ScenarioMatrix for {instance_name} {attribute_name}")
         for i, csv_file in enumerate(dir_path.glob("*.csv"), 1):
             # Create a scenario name
             scenario_name = f"scenario_{i:03d}"
@@ -396,7 +399,9 @@ class AtlasTransformerDataset:
             df = pl.read_csv(csv_file)
 
             try:
-                df = df.with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename({'col_0':'date', 'col_1':f"{scenario_name}"})
+                df = df.with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename(
+                    {"col_0": "date", "col_1": f"{scenario_name}"}
+                )
             except Exception:
                 print(f"Error converting column {df.columns[0]} to datetime")
 
@@ -411,7 +416,7 @@ class AtlasTransformerDataset:
             df.write_parquet(parquet_path)
 
         self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = "scenario_matrix"
-
+        self.merge_matrices(matrix_dir / self.to_snake_case(attribute_name), self.to_snake_case(attribute_name))
         # Create metadata.json with dynamically computed values
         metadata = {
             "matrix_type": "scenario",
@@ -424,6 +429,34 @@ class AtlasTransformerDataset:
 
         with open(matrix_dir / self.to_snake_case(attribute_name) / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)
+
+    def merge_matrices(self, base_path, attribute_name):
+        # Get all Parquet files in that directory (recursively if needed)
+        parquet_files = sorted(base_path.glob("*.parquet"))
+        dfs = [pl.read_parquet(f) for f in parquet_files]
+        logger.info(f"Found {len(parquet_files)} files to merge in path: {base_path}")
+        df_merged = None
+
+        if len(parquet_files) > 1:
+            for i, file in enumerate(parquet_files):
+                df = pl.read_parquet(file)
+
+                if df_merged is None:
+                    df_merged = df
+                else:
+                    # Perform a full outer join with coalescing on 'date'
+                    df_merged = df_merged.join(df, on="date", how="full", coalesce=True)
+        else:
+            df_merged = pl.read_parquet(parquet_files[0])
+
+        # Save the final merged DataFrame
+        merged_file_path = base_path / f"{attribute_name}.parquet"
+        df_merged.write_parquet(merged_file_path)
+        logger.info(f"Merged file: {merged_file_path}")
+        # Remove original files (except the merged one)
+        for file in parquet_files:
+            if file != merged_file_path:
+                file.unlink()
 
     def create_instance_csv(self):
         """Create CSV files for each business type containing instance data."""
@@ -470,7 +503,7 @@ class AtlasTransformerDataset:
         self.create_instance_csv()
         return self.target_root
 
-    def run(self,hdf_path):
+    def run(self, hdf_path):
         """Run the transformation process."""
         self.convert_hdf5_to_csv(hdf_path=hdf_path, output_dir=self.source_root)
         self.transform()
