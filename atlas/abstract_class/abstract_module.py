@@ -20,10 +20,6 @@ class AbstractModule(ABC):
     """Abstract base class for modules with standard execution lifecycle."""
 
     @abstractmethod
-    def export_kpi(self) -> None:
-        """Exports KPIs."""
-
-    @abstractmethod
     def before_execution(self) -> None:
         """Hook before execution."""
 
@@ -48,17 +44,22 @@ class AbstractModule(ABC):
         """Imports data using business objects and parameters."""
 
     @abstractmethod
-    def execute(self, parameters: AbstractParameters, input_dataset: AbstractDataset) -> AbstractDataset:
-        """Executes the module's main logic."""
-
-    @abstractmethod
     def validate_data(self, parameters: AbstractParameters, input_dataset: AbstractDataset) -> bool:
         """Validates imported or generated data."""
+
+    @abstractmethod
+    def execute(self, parameters: AbstractParameters, input_dataset: AbstractDataset) -> AbstractDataset:
+        """Executes the module's main logic."""
 
     @abstractmethod
     def sanity_check(self, parameters: AbstractParameters, input_dataset: AbstractDataset, output_dataset:
                      AbstractDataset) -> bool:
         """Validates results"""
+
+    @abstractmethod
+    def export_results(self, parameters: AbstractParameters, input_dataset: AbstractDataset, output_dataset:
+                       AbstractDataset) -> None:
+        """Exports results."""
 
     def run(self, objects: list[BusinessModel], parameters_path: Path) -> None:
         """Orchestrates the preparation and execution of the module."""
@@ -73,6 +74,6 @@ class AbstractModule(ABC):
             pass  # raise Error
         sanity_check_ok = self.sanity_check(parameters, input_dataset, output_dataset)
         if sanity_check_ok:
-            self.export_kpi()
+            self.export_results(parameters, input_dataset, output_dataset)
         else:
             pass  # raise Error
