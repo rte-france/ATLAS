@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import polars as pl
 import pytest
+from pendulum import Timezone
 
 from atlas import Timeseries
 
@@ -197,8 +198,8 @@ class TestTimeseriesBasicOperations:
         ts.set_value("2024-01-01T01:00:00", 99)
 
         assert ts.get_data()["time"].to_list() == [
-            datetime(2024, 1, 1, 0, 0, tzinfo=zoneinfo.ZoneInfo(key="UTC")),
-            datetime(2024, 1, 1, 1, 0, tzinfo=zoneinfo.ZoneInfo(key="UTC")),
+            datetime(2024, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
+            datetime(2024, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
         ]
         assert ts.get_data()["value"].to_list() == [10, 99]
 
@@ -466,11 +467,6 @@ class TestTimeseriesManipulation:
         result = sample_ts.filter("2023-01-01T03:00:00", inplace=False)
         assert len(result) == 1
         assert result.get_data()["value1"].item() == 40
-
-    # def test_getitem_with_str(self, sample_ts):
-    #     val = sample_ts["2024-01-01T03:00:00"]
-    #     assert isinstance(val, pl.Series)
-    #     assert val.to_list() == [40]
 
 
 class TestTimeseriesExport:

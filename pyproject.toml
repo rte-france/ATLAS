@@ -28,7 +28,7 @@ include-package-data = false
 packages.find.include = ['atlas*']
 
 [tool.ruff]
-line-length = 120
+line-length = 100
 extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]

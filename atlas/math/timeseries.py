@@ -43,13 +43,17 @@ class Timeseries:
         self.timezone: str = timezone
         self.timeseries: pl.DataFrame = pl.DataFrame()
         if timeseries is None:
-            self.timeseries = pl.DataFrame(schema={"time": pl.Datetime(), "value": pl.Float64()})
+            self.timeseries = pl.DataFrame(
+                schema={"time": pl.Datetime("us", time_zone=self.timezone), "value": pl.Float64()}
+            )
         elif isinstance(timeseries, Timeseries):
             self.timeseries = timeseries.get_data()
             self.timezone = timeseries.timezone
         else:
             try:
-                df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+                df = (
+                    timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+                )
             except Exception as e:
                 raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
@@ -57,7 +61,7 @@ class Timeseries:
             if len(time_column) != 1:
                 raise ValueError("Timeseries must have exactly one datetime column")
             df = df.rename({time_column[0]: "time"}).with_columns(
-                pl.col("time").dt.replace_time_zone(self.timezone),
+                pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
             )
 
             self.timeseries = df
@@ -156,7 +160,9 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def set_value(self, time: datetime | str, value: float, inplace: bool = True) -> Timeseries:
+    def set_value(
+        self, time: datetime | str, value: float | None, inplace: bool = True
+    ) -> Timeseries:
         """
         Set or update a value at a specific datetime. If the datetime exists, it is overwritten.
 
@@ -179,9 +185,8 @@ class Timeseries:
 
         df = self.timeseries.filter(pl.col("time") != dt)
         new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
-            pl.col("time").dt.replace_time_zone(self.timezone)
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone))
         )
-
         df = pl.concat([df, new_row]).sort("time")
         if inplace:
             self.timeseries = df
@@ -260,7 +265,11 @@ class Timeseries:
         :rtype: Timeseries
         """
         if strategy == "linear":
-            df = self.timeseries.upsample(time_column="time", every=every).interpolate().fill_null(strategy="forward")
+            df = (
+                self.timeseries.upsample(time_column="time", every=every)
+                .interpolate()
+                .fill_null(strategy="forward")
+            )
         elif strategy == "constant":
             df = self.timeseries.upsample(time_column="time", every="15m").fill_null(
                 strategy="forward",
@@ -471,6 +480,10 @@ class Timeseries:
         :rtype: Timeseries
         """
         if isinstance(item, list):
+            item = [
+                pendulum.instance(i).in_tz(self.timezone) if isinstance(i, datetime) else i
+                for i in item
+            ]
             df = self.timeseries.filter(pl.col("time").is_in(item))
         elif isinstance(item, str):
             date = pendulum.parse(item, tz=self.timezone)
@@ -499,3 +512,45 @@ class Timeseries:
         if "value" in self.timeseries.columns and len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].min())
         return None
+
+    def interpolate(
+        self, method: Literal["linear", "constant"] = "constant", inplace: bool = False
+    ) -> Timeseries:
+        """Interpolate the time series to fill in missing values.
+        :param method: Interpolation method, defaults to "constant"
+        :type method: str, optional
+        :param inplace: Whether to modify the current instance, defaults to False
+        :type inplace: bool, optional
+        :raises NotImplementedError: If the method is not supported
+        :return: Interpolated time series
+        :rtype: Timeseries
+        """
+        if method == "linear":
+            df = self.timeseries.interpolate()
+        elif method == "constant":
+            df = self.timeseries.fill_null(strategy="forward")
+        else:
+            raise NotImplementedError(
+                "Unsupported interpolation method, use 'linear' or 'constant'"
+            )
+        if inplace:
+            self.timeseries = df
+            return self
+
+        return Timeseries(df, self.timezone)
+
+    def get_value(self, datetime: str | datetime | pendulum.DateTime) -> dict:
+        """Return values at the given datetime. If exact match is not found, interpolate."""
+        df = self.filter(datetime, inplace=False).get_data()
+        if len(df) > 0:
+            return df.to_dicts()[0]["value"]
+
+        df = (
+            self.set_value(datetime, None, inplace=False)
+            .interpolate(inplace=False)
+            .filter(datetime, inplace=False)
+            .get_data()
+        )
+        if len(df) > 0:
+            return df.to_dicts()[0]["value"]
+        return {"time": datetime, "value": None}
