@@ -73,7 +73,7 @@ class Timeseries:
             self.sort()
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Timeseries:
+    def from_file(cls, file_path: str | Path, separator: str = ";") -> Timeseries:
         """
         Load a Timeseries object from a file.
 
@@ -82,12 +82,12 @@ class Timeseries:
         :return: Loaded Timeseries object
         :rtype: Timeseries
         """
-        if isinstance(file_path, Path):
-            file_path = str(file_path)
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
 
-        if file_path.endswith(".csv"):
-            return cls(pl.read_csv(file_path))
-        if file_path.endswith(".parquet"):
+        if file_path.suffix == ".csv":
+            return cls(pl.read_csv(file_path, separator=separator))
+        if file_path.suffix == ".parquet":
             return cls(pl.read_parquet(file_path))
         raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
 

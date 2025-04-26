@@ -1,3 +1,3 @@
 # Input Parser
 
-::: atlas.InputParser
+::: atlas.InputLoader

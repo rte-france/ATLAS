@@ -8,7 +8,7 @@ import h5py
 import numpy as np
 import polars as pl
 
-from atlas import logger
+from atlas.config import logger
 
 
 class AtlasTransformerDataset:

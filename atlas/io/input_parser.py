@@ -18,7 +18,7 @@ from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 
 
-class InputParser:
+class InputLoader:
     """A class to handle input parsing from Atlas format."""
 
     @classmethod
@@ -28,7 +28,7 @@ class InputParser:
         separator: str = ";",
         timeseries_file_extension: str = ".parquet",
     ) -> dict[str, Any]:
-        """Parse input from a directory.
+        """Load input from a directory.
         :param directory_path: The path to the directory.
         :type directory_path: str or pathlib.Path
         :param separator: The separator used in the CSV files.
@@ -38,6 +38,8 @@ class InputParser:
         :return: A dictionary mapping object names to lists of instantiated objects.
         :rtype: dict[str, list[BusinessModel]]
         """
+        cfg.logger.debug(f"Loading input from directory: {directory_path}")
+
         if not Path(directory_path).exists():
             raise FileNotFoundError(
                 f"Directory does not exist: {directory_path}",
@@ -61,7 +63,7 @@ class InputParser:
                     f"Object type '{object_type}' is not recognized. "
                     f"Available types are: {list(cfg.MODEL_MAPPING_NAME.keys())}"
                 )
-            objects_instantiated[object_type] = cls._instantiate_objects_from_dict(
+            objects_instantiated[object_type] = cls._instantiate_math_objects_from_dict(
                 objects[object_type],
                 object_type,
                 base_path=Path(directory_path),
@@ -71,7 +73,33 @@ class InputParser:
         return objects_instantiated
 
     @classmethod
-    def _instantiate_objects_from_dict(
+    def from_file(cls, file_path: str | Path, object_type: str) -> dict[str, Any]:
+        """Load input from a object file.
+        :param file_path: The path to the file.
+        :type file_path: str or pathlib.Path
+        :param object_type: The type of the object to instantiate.
+        :type object_type: str
+        :return: A dictionary mapping object names to lists of instantiated objects.
+        :rtype: dict[str, Any]]
+        """
+        if not Path(file_path).exists():
+            raise FileNotFoundError(
+                f"File does not exist: {file_path}",
+            )
+        if not Path(file_path).is_file():
+            raise NotADirectoryError(
+                f"Path is not a file: {file_path}",
+            )
+
+        objects = cls.read_data_file(file_path)
+        return cls._instantiate_math_objects_from_dict(
+            objects,
+            object_type,
+            base_path=Path(file_path).parent,
+        )
+
+    @classmethod
+    def _instantiate_math_objects_from_dict(
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
@@ -122,13 +150,14 @@ class InputParser:
         :return: A dictionary mapping object names to lists of instantiated objects.
         :rtype: dict[str, list[BusinessModel]]
         """
+        cfg.logger.debug(f"Parsing objects from directory: {objects_path}")
         return {
-            file_path.stem: cls.from_file(file_path, separator=separator).to_dicts()
+            file_path.stem: cls.read_data_file(file_path, separator=separator).to_dicts()
             for file_path in objects_path.iterdir()
         }
 
     @staticmethod
-    def from_file(file_path: str | Path, separator: str = ";") -> pl.DataFrame:
+    def read_data_file(file_path: str | Path, separator: str = ";") -> pl.DataFrame:
         """Parse input from a CSV file or a parquet file.
 
         :param file_path: The path to the file.
@@ -139,6 +168,7 @@ class InputParser:
         :rtype: pl.DataFrame
         """
         file_extension = Path(file_path).suffix
+        cfg.logger.debug(f"Reading data file: {file_path}")
 
         if file_extension == ".csv":
             return pl.read_csv(file_path, separator=separator)
@@ -173,6 +203,9 @@ class InputParser:
             raise NotADirectoryError(f"Directory does not contain 'timeseries' subdirectory: {base_path}")
         if not timeseries_path.exists():
             raise FileNotFoundError(f"Path does not exist: {timeseries_path}")
+
+        cfg.logger.debug(f"Loading timeseries from file: {timeseries_path}")
+
         return Timeseries.from_file(file_path=timeseries_path)
 
     @staticmethod
@@ -214,6 +247,8 @@ class InputParser:
         if not matrix_file_path.exists():
             raise FileNotFoundError(f"Path does not exist: {matrix_file_path}")
 
+        cfg.logger.debug(f"Loading {matrix_type} from file: {matrix_file_path}")
+
         # if matrix_type == "scenario":
         #     return ScenarioMatrix(
         #         instance_name, list(matrix_dict.keys()), list(matrix_dict.values())
@@ -236,6 +271,8 @@ class InputParser:
     ) -> dict:
         """Load metadata.json file if it exists in the given folder."""
         metadata_path = Path(base_path) / matrix_type / object_type / instance_name / attribute_name / "metadata.json"
+
+        cfg.logger.debug(f"Loading metadata from file: {metadata_path}")
 
         if not metadata_path.exists():
             return {}

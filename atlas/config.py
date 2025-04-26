@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
+from atlas.logging import Logger
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydraulic import Hydraulic
@@ -24,6 +25,8 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
+
+logger = Logger().get_logger()
 
 MODEL_MAPPING_NAME: dict[str, Any] = {
     "control_block": ControlBlock,

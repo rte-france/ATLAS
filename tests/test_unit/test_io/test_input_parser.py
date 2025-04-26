@@ -8,7 +8,7 @@ import polars as pl
 import pytest
 
 import atlas.config as cfg
-from atlas.io.input_parser import InputParser
+from atlas.io.input_parser import InputLoader
 
 
 @pytest.fixture
@@ -55,44 +55,44 @@ class MockModelClass:
 
 
 def test_from_csv(temp_csv_file, sample_df):
-    result = InputParser._from_csv(temp_csv_file)
+    result = InputLoader._from_csv(temp_csv_file)
     assert result.shape == sample_df.shape
     assert result.columns == sample_df.columns
     assert result["id"].to_list() == sample_df["id"].to_list()
 
 
 def test_from_parquet(temp_parquet_file, sample_df):
-    result = InputParser._from_parquet(temp_parquet_file)
+    result = InputLoader._from_parquet(temp_parquet_file)
     assert result.shape == sample_df.shape
     assert result.columns == sample_df.columns
     assert result["id"].to_list() == sample_df["id"].to_list()
 
 
 def test_from_file_csv(temp_csv_file, sample_df):
-    result = InputParser.from_file(temp_csv_file)
+    result = InputLoader.from_file(temp_csv_file)
     assert result.shape == sample_df.shape
     assert result.columns == sample_df.columns
 
 
 def test_from_file_parquet(temp_parquet_file, sample_df):
-    result = InputParser.from_file(temp_parquet_file)
+    result = InputLoader.from_file(temp_parquet_file)
     assert result.shape == sample_df.shape
     assert result.columns == sample_df.columns
 
 
 def test_from_file_unsupported_extension():
     with pytest.raises(ValueError, match=r"Unsupported file extension: .txt"):
-        InputParser.from_file("test.txt")
+        InputLoader.from_file("test.txt")
 
 
 def test_from_directory_not_found():
     with pytest.raises(FileNotFoundError):
-        InputParser.from_directory("nonexistent_directory")
+        InputLoader.from_directory("nonexistent_directory")
 
 
 def test_from_directory_not_a_directory(temp_csv_file):
     with pytest.raises(NotADirectoryError):
-        InputParser.from_directory(temp_csv_file)
+        InputLoader.from_directory(temp_csv_file)
 
 
 @patch.dict(cfg.MODEL_MAPPING_NAME, {"test_model": MockModelClass})
@@ -102,7 +102,7 @@ def test_from_directory(temp_directory, mock_csv_data):
     with open(file_path, "w") as f:
         f.write(mock_csv_data)
 
-    result = InputParser.from_directory(temp_directory)
+    result = InputLoader.from_directory(temp_directory)
 
     assert "test_model" in result
     assert len(result["test_model"]) == 3
@@ -114,7 +114,7 @@ def test_from_directory(temp_directory, mock_csv_data):
 
 @patch.dict(cfg.MODEL_MAPPING_NAME, {"test_model": MockModelClass})
 def test_instantiate_objects_from_file(temp_csv_file):
-    result = InputParser._instantiate_objects_from_file(Path(temp_csv_file), "test_model")
+    result = InputLoader._instantiate_objects_from_file(Path(temp_csv_file), "test_model")
 
     assert len(result) == 3
     assert isinstance(result[0], MockModelClass)
@@ -130,7 +130,7 @@ def test_parse_business_objects(temp_directory, mock_csv_data):
         with open(file_path, "w") as f:
             f.write(mock_csv_data)
 
-    result = InputParser.parse_business_objects(temp_directory)
+    result = InputLoader.parse_business_objects(temp_directory)
 
     assert "users" in result
     assert "products" in result
@@ -141,7 +141,7 @@ def test_parse_business_objects(temp_directory, mock_csv_data):
 
 def test_parse_business_objects_directory_not_found():
     with pytest.raises(FileNotFoundError):
-        InputParser.parse_business_objects("nonexistent_directory")
+        InputLoader.parse_business_objects("nonexistent_directory")
 
 
 @patch("atlas.math.timeseries.Timeseries")
@@ -149,7 +149,7 @@ def test_load_timeseries_from_file(mock_timeseries, temp_csv_file, sample_df):
     mock_instance = MagicMock()
     mock_timeseries.return_value = mock_instance
 
-    result = InputParser.load_timeseries_from_file(temp_csv_file)
+    result = InputLoader.load_timeseries_from_file(temp_csv_file)
 
     mock_timeseries.assert_called_once()
     assert result == mock_instance
@@ -171,13 +171,13 @@ def test_load_scenario_matrix_from_file(mock_scenario_matrix, temp_directory):
     mock_ts1 = MagicMock()
     mock_ts2 = MagicMock()
 
-    with patch.object(InputParser, "load_timeseries_from_file") as mock_load:
+    with patch.object(InputLoader, "load_timeseries_from_file") as mock_load:
         mock_load.side_effect = [mock_ts1, mock_ts2]
 
         mock_instance = MagicMock()
         mock_scenario_matrix.return_value = mock_instance
 
-        result = InputParser.load_scenario_matrix_from_file(temp_directory, instance_name)
+        result = InputLoader.load_scenario_matrix_from_file(temp_directory, instance_name)
 
         # Assertions
         assert mock_load.call_count == 2
@@ -187,7 +187,7 @@ def test_load_scenario_matrix_from_file(mock_scenario_matrix, temp_directory):
 
 def test_load_scenario_matrix_not_found():
     with pytest.raises(FileNotFoundError):
-        InputParser.load_scenario_matrix_from_file("base_dir", "nonexistent_instance")
+        InputLoader.load_scenario_matrix_from_file("base_dir", "nonexistent_instance")
 
 
 @patch("atlas.math.forecasting_matrix.ForecastingMatrix")
@@ -206,13 +206,13 @@ def test_load_forecasting_matrix(mock_forecasting_matrix, temp_directory):
     mock_ts1 = MagicMock()
     mock_ts2 = MagicMock()
 
-    with patch.object(InputParser, "load_timeseries_from_file") as mock_load:
+    with patch.object(InputLoader, "load_timeseries_from_file") as mock_load:
         mock_load.side_effect = [mock_ts1, mock_ts2]
 
         mock_instance = MagicMock()
         mock_forecasting_matrix.return_value = mock_instance
 
-        result = InputParser.load_forecasting_matrix(temp_directory, instance_name)
+        result = InputLoader.load_forecasting_matrix(temp_directory, instance_name)
 
         # Assertions
         assert mock_load.call_count == 2
@@ -222,7 +222,7 @@ def test_load_forecasting_matrix(mock_forecasting_matrix, temp_directory):
 
 def test_load_forecasting_matrix_not_found():
     with pytest.raises(FileNotFoundError):
-        InputParser.load_forecasting_matrix("base_dir", "nonexistent_instance")
+        InputLoader.load_forecasting_matrix("base_dir", "nonexistent_instance")
 
 
 def test_load_metadata_exists(temp_directory):
@@ -232,11 +232,11 @@ def test_load_metadata_exists(temp_directory):
     with open(metadata_path, "w") as f:
         json.dump(metadata, f)
 
-    result = InputParser.load_metadata(temp_directory)
+    result = InputLoader.load_metadata(temp_directory)
 
     assert result == metadata
 
 
 def test_load_metadata_not_exists(temp_directory):
-    result = InputParser.load_metadata(temp_directory)
+    result = InputLoader.load_metadata(temp_directory)
     assert result == {}
