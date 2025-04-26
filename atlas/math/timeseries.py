@@ -72,6 +72,25 @@ class Timeseries:
             self.timeseries = df
             self.sort()
 
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> Timeseries:
+        """
+        Load a Timeseries object from a file.
+
+        :param file_path: Path to the file
+        :type file_path: str or Path
+        :return: Loaded Timeseries object
+        :rtype: Timeseries
+        """
+        if isinstance(file_path, Path):
+            file_path = str(file_path)
+
+        if file_path.endswith(".csv"):
+            return cls(pl.read_csv(file_path))
+        if file_path.endswith(".parquet"):
+            return cls(pl.read_parquet(file_path))
+        raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
+
     def __eq__(self, other: object) -> bool:
         """
         Check equality between the internal time series and another Polars DataFrame.
