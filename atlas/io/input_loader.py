@@ -63,7 +63,7 @@ class InputLoader:
                     f"Object type '{object_type}' is not recognized. "
                     f"Available types are: {list(cfg.MODEL_MAPPING_NAME.keys())}"
                 )
-            objects_instantiated[object_type] = cls._instantiate_math_objects_from_dict(
+            objects_instantiated[object_type] = cls._instantiate_math_objects_into_dict(
                 objects[object_type],
                 object_type,
                 base_path=Path(directory_path),
@@ -92,14 +92,14 @@ class InputLoader:
             )
 
         objects = cls.read_data_file(file_path)
-        return cls._instantiate_math_objects_from_dict(
+        return cls._instantiate_math_objects_into_dict(
             objects,
             object_type,
             base_path=Path(file_path).parent,
         )
 
     @classmethod
-    def _instantiate_math_objects_from_dict(
+    def _instantiate_math_objects_into_dict(
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
@@ -168,7 +168,6 @@ class InputLoader:
         :rtype: pl.DataFrame
         """
         file_extension = Path(file_path).suffix
-        cfg.logger.debug(f"Reading data file: {file_path}")
 
         if file_extension == ".csv":
             return pl.read_csv(file_path, separator=separator)

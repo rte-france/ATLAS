@@ -1,3 +1,3 @@
-# Input Parser
+# Input Loader
 
 ::: atlas.InputLoader

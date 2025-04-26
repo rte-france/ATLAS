@@ -1,8 +1,8 @@
-# Logging 
+# Logging
 
 This logger utility provides a project-wide logging solution using [Loguru](https://github.com/Delgan/loguru), with configuration driven by environment variables and an optional `.env` file.
 
-::: atlas.Logger
+::: atlas.logging.Logger
 
 ## Features
 
@@ -19,7 +19,7 @@ This logger utility provides a project-wide logging solution using [Loguru](http
 Very simply, import the `logger` from `atlas` package
 
 ```python
-from atlas import logger
+from atlas.config import logger
 
 logger.info("Logger is working!")
 logger.debug("This is a debug message.")
