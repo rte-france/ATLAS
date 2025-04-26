@@ -23,7 +23,7 @@ class InputParser:
     """A class to handle input parsing from Atlas format."""
 
     @classmethod
-    def from_directory(cls, directory_path: str | Path) -> dict[str, list[BusinessModel]]:
+    def from_directory(cls, directory_path: str | Path, separator: str = ";") -> dict[str, list[BusinessModel]]:
         """Parse input from a directory."""
         if not Path(directory_path).exists():
             raise FileNotFoundError(
@@ -33,7 +33,13 @@ class InputParser:
             raise NotADirectoryError(
                 f"Path is not a directory: {directory_path}",
             )
-
+        objects_dir = Path(directory_path) / "objects"
+        if objects_dir.is_dir():
+            objects = cls._parse_objects_from_directory(objects_dir, separator=separator)
+        else:
+            raise NotADirectoryError(
+                f"Directory does not contain 'objects' subdirectory: {directory_path}",
+            )
         objects_by_type: dict[str, list[BusinessModel]] = {}
 
         for file_path in Path(directory_path).iterdir():
@@ -46,7 +52,22 @@ class InputParser:
         return objects_by_type
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> pl.DataFrame:
+    def _parse_objects_from_directory(cls, objects_path: Path, separator: str = ";") -> dict[str, dict[str, str]]:
+        """Parse objects from a directory.
+
+        :param directory_path: The path to the directory.
+        :type directory_path: str or pathlib.Path
+        :return: A dictionary mapping object names to lists of instantiated objects.
+        :rtype: dict[str, list[BusinessModel]]
+        """
+        objects: dict[str, dict[str, str]] = {}
+        for file_path in objects_path.iterdir():
+            df_objects = cls.from_file(file_path, separator=separator)
+            objects[file_path.stem] = df_objects.to_dicts()
+        return objects
+
+    @classmethod
+    def from_file(cls, file_path: str | Path, separator: str = ";") -> pl.DataFrame:
         """Parse input from a CSV file or a parquet file.
 
         :param file_path: The path to the file.
@@ -57,13 +78,13 @@ class InputParser:
         file_extension = Path(file_path).suffix
 
         if file_extension == ".csv":
-            return cls._from_csv(file_path)
+            return cls._from_csv(file_path, separator=separator)
         if file_extension == ".parquet":
             return cls._from_parquet(file_path)
         raise ValueError(f"Unsupported file extension: {file_extension}")
 
     @staticmethod
-    def _from_csv(file_path: str | Path) -> pl.DataFrame:
+    def _from_csv(file_path: str | Path, separator: str = ";") -> pl.DataFrame:
         """Parse input from a CSV file.
 
         :param file_path: The path to the CSV file.
@@ -71,7 +92,7 @@ class InputParser:
         :return: A DataFrame containing the parsed CSV data.
         :rtype: pl.DataFrame
         """
-        return pl.read_csv(file_path)
+        return pl.read_csv(file_path, separator=separator)
 
     @classmethod
     def _instantiate_objects_from_file(cls, file_path: Path, model_key: str) -> list[BusinessModel]:
