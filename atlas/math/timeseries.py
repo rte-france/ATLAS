@@ -12,14 +12,18 @@ from __future__ import annotations
 import pickle
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import pendulum
+import plotly
+import plotly.graph_objects
 import polars as pl
 import pytz
 
 if TYPE_CHECKING:
     import pandas as pd
+
+import plotly.express as px
 
 
 class Timeseries:
@@ -35,15 +39,18 @@ class Timeseries:
 
     def __init__(
         self,
-        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list],
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None = None,
         timezone: str = "UTC",
     ) -> None:
         self._check_timezone(timezone)
 
         self.timezone: str = timezone
         self.timeseries: pl.DataFrame = pl.DataFrame()
-
-        if isinstance(timeseries, Timeseries):
+        if timeseries is None:
+            self.timeseries = pl.DataFrame(
+                schema={"time": pl.Datetime("us", time_zone=self.timezone), "value": pl.Float64()}
+            )
+        elif isinstance(timeseries, Timeseries):
             self.timeseries = timeseries.get_data()
             self.timezone = timeseries.timezone
         else:
@@ -53,13 +60,36 @@ class Timeseries:
                 raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
             time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+            value_column = df.select(pl.selectors.numeric()).columns
+            if len(value_column) != 1:
+                raise ValueError("Timeseries must have exactly one numeric column")
             if len(time_column) != 1:
                 raise ValueError("Timeseries must have exactly one datetime column")
-            df = df.rename({time_column[0]: "time"}).with_columns(
-                pl.col("time").dt.replace_time_zone(self.timezone),
+            df = df.rename({time_column[0]: "time", value_column[0]: "value"}).with_columns(
+                pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
             )
 
             self.timeseries = df
+            self.sort()
+
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> Timeseries:
+        """
+        Load a Timeseries object from a file.
+
+        :param file_path: Path to the file
+        :type file_path: str or Path
+        :return: Loaded Timeseries object
+        :rtype: Timeseries
+        """
+        if isinstance(file_path, Path):
+            file_path = str(file_path)
+
+        if file_path.endswith(".csv"):
+            return cls(pl.read_csv(file_path))
+        if file_path.endswith(".parquet"):
+            return cls(pl.read_parquet(file_path))
+        raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
 
     def __eq__(self, other: object) -> bool:
         """
@@ -79,9 +109,73 @@ class Timeseries:
         """Return the number of rows in the time series."""
         return self.timeseries.height
 
-    def __mul__(self, factor: float) -> Timeseries:
-        """Multiply all numeric columns by a scalar."""
-        df = self.timeseries.with_columns(pl.selectors.numeric().mul(factor))
+    def __mul__(self, other: float | Timeseries) -> Timeseries:
+        """Multiply all numeric columns by a scalar or another Timeseries."""
+        if isinstance(other, (int, float)):
+            df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
+        elif isinstance(other, Timeseries):
+            df = (
+                self._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(1)
+                .with_columns(pl.col("value").mul(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+
+        return Timeseries(df, self.timezone)
+
+    def __add__(self, other: float | Timeseries) -> Timeseries:
+        """Add all numeric columns by a scalar or timeseries."""
+        if isinstance(other, (int, float)):
+            df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
+        elif isinstance(other, Timeseries):
+            df = (
+                self._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(0)
+                .with_columns(pl.col("value").add(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+
+        return Timeseries(df, self.timezone)
+
+    def __sub__(self, other: float | Timeseries) -> Timeseries:
+        """Subtract all numeric columns by a scalar or timeseries."""
+        if isinstance(other, (int, float)):
+            df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
+        elif isinstance(other, Timeseries):
+            df = (
+                self._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(0)
+                .with_columns(pl.col("value").sub(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+
+        return Timeseries(df, self.timezone)
+
+    def __truediv__(self, other: float | Timeseries) -> Timeseries:
+        """Divide all numeric columns by a scalar or timeseries."""
+        if isinstance(other, (int, float)):
+            if other == 0:
+                raise ZeroDivisionError("Division by zero is not allowed")
+            df = self.timeseries.with_columns(pl.selectors.numeric().truediv(other))
+        elif isinstance(other, Timeseries):
+            df = (
+                self._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(1)
+                .with_columns(pl.col("value").truediv(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
 
         return Timeseries(df, self.timezone)
 
@@ -134,7 +228,6 @@ class Timeseries:
 
     def sort(
         self,
-        variables: str | list[str],
         inplace: bool = True,
         descending: bool | list[bool] = False,
     ) -> Timeseries:
@@ -150,11 +243,109 @@ class Timeseries:
         :return: Sorted time series
         :rtype: Timeseries
         """
-        df = self.timeseries.sort(variables, descending=descending)
+        df = self.timeseries.sort("time", descending=descending)
         if inplace:
             self.timeseries = df
             return self
         return Timeseries(df, self.timezone)
+
+    def set_value(
+        self,
+        time: datetime | str,
+        value: float | None,
+        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Set or update a value at a specific datetime. If the datetime exists, it is overwritten.
+
+        :param time: Datetime to set
+        :type time: datetime or str
+        :param value: Value to set
+        :type value: float or int
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        """
+        dt: pendulum.DateTime = self._check_date(time, date_format).in_tz(self.timezone)
+
+        if len(self.timeseries) == 0:
+            df = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
+                pl.col("time").dt.replace_time_zone(self.timezone)
+            )
+            if inplace:
+                self.timeseries = df
+                return self
+
+            return Timeseries(df, self.timezone)
+
+        df = self.timeseries.filter(pl.col("time") != dt)
+        new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone))
+        )
+        df = pl.concat([df, new_row]).sort("time")
+
+        if inplace:
+            self.timeseries = df
+            return self
+
+        return Timeseries(df, self.timezone)
+
+    @classmethod
+    def generate_datetimes(
+        cls,
+        start: str | datetime,
+        end: str | datetime,
+        freq: str,
+        timezone: str = "UTC",
+        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+    ) -> list[pendulum.DateTime]:
+        """
+        Generate a list of datetimes using pendulum.
+
+        :param start: Start datetime
+        :param end: End datetime
+        :param freq: Frequency (e.g. "1h", "15m", "1d")
+        :param timezone: Timezone string, defaults to "UTC"
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :type date_format: str, optional
+        :return: List of datetime objects
+        """
+        start_date: pendulum.DateTime = cls._check_date(start, date_format)
+        end_date: pendulum.DateTime = cls._check_date(end, date_format)
+
+        start_date = start_date.in_tz(timezone)
+        end_date = end_date.in_tz(timezone)
+
+        step = pendulum.duration(**Timeseries._parse_freq(freq))
+        return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
+
+    @staticmethod
+    def _check_date(
+        time: str | datetime | pendulum.DateTime, date_format: str = "YYYY-MM-DD HH:mm:ss z"
+    ) -> pendulum.DateTime:
+        """Check if the date is valid."""
+        try:
+            dt: pendulum.DateTime = (
+                pendulum.from_format(time, fmt=date_format) if isinstance(time, str) else pendulum.instance(time)
+            )
+            if not isinstance(dt, pendulum.DateTime):
+                raise TypeError("Time input must be a valid datetime object or string")
+            return dt  # noqa: TRY300
+        except Exception as e:
+            raise ValueError(f"Invalid date format: {time}") from e
+
+    @staticmethod
+    def _parse_freq(freq: str) -> dict:
+        """Parse a freq string like '15m' or '1h' into pendulum duration kwargs."""
+        if freq.endswith("m"):
+            return {"minutes": int(freq[:-1])}
+        if freq.endswith("h"):
+            return {"hours": int(freq[:-1])}
+        if freq.endswith("d"):
+            return {"days": int(freq[:-1])}
+        raise ValueError(f"Unsupported frequency: {freq}")
 
     def upsample(
         self,
@@ -235,23 +426,6 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def select(self, variables: list[str], inplace: bool = True) -> Timeseries:
-        """
-        Select the specified variables from the time series.
-
-        :param variables: List of variables to exclude
-        :type variables: list[str]
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Modified time series
-        :rtype: Timeseries
-        """
-        df = self.timeseries.select(variables)
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
-
     def remove_duplicated(
         self,
         variables: str | list[str],
@@ -273,14 +447,13 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def join(
+    def _join(
         self,
         other: Timeseries | pl.DataFrame,
         by: str = "time",
         how: Literal["inner", "left", "right", "full", "semi", "anti", "cross", "outer"] = "inner",
         suffixes: str = "_right",
-        inplace: bool = True,
-    ) -> Timeseries:
+    ) -> pl.DataFrame:
         """
         Merge this time series with another.
 
@@ -299,70 +472,7 @@ class Timeseries:
         """
         if isinstance(other, Timeseries):
             other = other.timeseries
-        df = self.timeseries.join(other, on=by, how=how, suffix=suffixes)
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
-
-    def drop(self, variables: list[str], inplace: bool = True) -> Timeseries:
-        """
-        Remove specified variables from the time series.
-
-        :param variables: Column names to remove
-        :type variables: list[str]
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Modified time series
-        :rtype: Timeseries
-        """
-        df = self.timeseries.drop(variables)
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
-
-    def get_granularity(self, unit: Literal["hour", "minute", "second"] = "hour") -> float:
-        """
-        Compute the time interval (granularity) between data points.
-
-        :param unit: Time unit to return the granularity in, defaults to "hour"
-        :type unit: Literal["hour", "minute", "second"], optional
-        :raises ValueError: If fewer than two time points exist or if unit is unsupported
-        :return: Time interval in the specified unit
-        :rtype: float
-        """
-        times = self.timeseries["time"].to_list()
-        if len(times) < 2:  # noqa: PLR2004
-            raise ValueError("Not enough time points to calculate granularity")
-        delta: float = (times[1] - times[0]).total_seconds()
-
-        if unit == "hour":
-            return delta / 3600
-        if unit == "minute":
-            return delta / 60
-        if unit == "second":
-            return delta
-        raise ValueError("Unsupported unit")
-
-    def rename(self, old_cols: list[str], new_cols: list[str], inplace: bool = True) -> Timeseries:
-        """
-        Rename columns in the time series.
-
-        :param old_cols: List of current column names
-        :type old_cols: list[str]
-        :param new_cols: List of new column names
-        :type new_cols: list[str]
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Modified time series or None
-        :rtype: Timeseries or None
-        """
-        df = self.timeseries.rename(dict(zip(old_cols, new_cols, strict=False)))
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
+        return self.timeseries.join(other, on=by, how=how, suffix=suffixes, coalesce=True)
 
     def export(
         self,
@@ -399,6 +509,7 @@ class Timeseries:
     def filter(
         self,
         item: list[datetime] | datetime | pendulum.DateTime | str,
+        date_format: str = "YYYY-MM-DD HH:mm:ss z",
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -412,9 +523,10 @@ class Timeseries:
         :rtype: Timeseries
         """
         if isinstance(item, list):
+            item = [pendulum.instance(i).in_tz(self.timezone) if isinstance(i, datetime) else i for i in item]
             df = self.timeseries.filter(pl.col("time").is_in(item))
         elif isinstance(item, str):
-            date = pendulum.parse(item, tz=self.timezone)
+            date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
             df = self.timeseries.filter(pl.col("time") == date)
         elif isinstance(item, datetime):
             date = pendulum.instance(item).in_tz(self.timezone)
@@ -429,15 +541,121 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    # def __getitem__(
-    #     self,
-    #     item: list[datetime] | datetime | str | pendulum.DateTime,
-    # ) -> Timeseries:
-    #     """Get a subset of the time series.
+    def max(self) -> float | None:
+        """Return the max value in the 'value' column."""
+        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+            return cast("float", self.timeseries["value"].max())
+        return None
 
-    #     :param item: Column name, index, or slice to select
-    #     :type item: int, slice, list[str], list[int], or list[slice]
-    #     :return: Subset of the time series
-    #     :rtype: Timeseries
-    #     """
-    #     return self.filter(item, inplace=False).get_data()
+    def min(self) -> float | None:
+        """Return the min value in the 'value' column."""
+        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+            return cast("float", self.timeseries["value"].min())
+        return None
+
+    def interpolate(self, method: Literal["linear", "constant"] = "constant", inplace: bool = False) -> Timeseries:
+        """Interpolate the time series to fill in missing values.
+        :param method: Interpolation method, defaults to "constant"
+        :type method: str, optional
+        :param inplace: Whether to modify the current instance, defaults to False
+        :type inplace: bool, optional
+        :raises NotImplementedError: If the method is not supported
+        :return: Interpolated time series
+        :rtype: Timeseries
+        """
+        if method == "linear":
+            df = self.timeseries.interpolate()
+        elif method == "constant":
+            df = self.timeseries.fill_null(strategy="forward")
+        else:
+            raise NotImplementedError("Unsupported interpolation method, use 'linear' or 'constant'")
+        if inplace:
+            self.timeseries = df
+            return self
+
+        return Timeseries(df, self.timezone)
+
+    def get_value(
+        self,
+        datetime: str | datetime | pendulum.DateTime,
+        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+    ) -> dict:
+        """Return values at the given datetime. If exact match is not found, interpolate.
+        :param datetime: Datetime to get value for
+        :type datetime: str or datetime
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :return: Dictionary with time and value
+        :rtype: dict
+        """
+        df = self.filter(datetime, date_format, inplace=False).get_data()
+        if len(df) > 0:
+            return df.to_dicts()[0]["value"]
+
+        df = (
+            self.set_value(datetime, None, date_format, inplace=False)
+            .interpolate(inplace=False)
+            .filter(datetime, date_format, inplace=False)
+            .get_data()
+        )
+        if len(df) > 0:
+            return df.to_dicts()[0]["value"]
+        return {"time": datetime, "value": None}
+
+    def plot(  # noqa: PLR0913
+        self,
+        title: str = "Time Series Plot",
+        height: int = 500,
+        width: int = 800,
+        show_grid: bool = True,
+        line_color: str = "#1f77b4",
+        line_shape: Literal["hv", "linear", "spline"] = "hv",
+        template: str = "plotly_white",
+    ) -> plotly.graph_objects.Figure:
+        """
+        Generate a Plotly figure for the time series data.
+
+        :param title: Plot title, defaults to "Time Series Plot"
+        :type title: str, optional
+        :param height: Plot height in pixels, defaults to 500
+        :type height: int, optional
+        :param width: Plot width in pixels, defaults to 800
+        :type width: int, optional
+        :param show_grid: Whether to show grid lines, defaults to True
+        :type show_grid: bool, optional
+        :param line_color: Color of the line plot, defaults to "#1f77b4" (Plotly default blue)
+        :type line_color: str, optional
+        :param template: Plotly template to use, defaults to "plotly_white"
+        :type template: str, optional
+        :param variable: Column to plot (if None, uses 'value' column), defaults to None
+        :type variable: str, optional
+        :return: Plotly figure object
+        :rtype: plotly.graph_objects.Figure
+        """
+        # Create the figure using Plotly Express
+        fig = px.line(
+            self.timeseries,
+            x="time",
+            y=self.timeseries.select(pl.selectors.numeric()).columns,
+            title=title,
+            height=height,
+            width=width,
+            template=template,
+            line_shape=line_shape,
+            color_discrete_sequence=[line_color] if line_color else None,
+        )
+
+        # Update layout for grid settings
+        fig.update_layout(
+            hovermode="x unified",
+            xaxis={
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+            yaxis={
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+        )
+
+        return fig
