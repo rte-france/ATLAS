@@ -24,7 +24,14 @@ class InputParser:
 
     @classmethod
     def from_directory(cls, directory_path: str | Path, separator: str = ";") -> dict[str, list[BusinessModel]]:
-        """Parse input from a directory."""
+        """Parse input from a directory.
+        :param directory_path: The path to the directory.
+        :type directory_path: str or pathlib.Path
+        :param separator: The separator used in the CSV files.
+        :type separator: str
+        :return: A dictionary mapping object names to lists of instantiated objects.
+        :rtype: dict[str, list[BusinessModel]]
+        """
         if not Path(directory_path).exists():
             raise FileNotFoundError(
                 f"Directory does not exist: {directory_path}",
@@ -42,17 +49,52 @@ class InputParser:
             )
         objects_by_type: dict[str, list[BusinessModel]] = {}
 
-        for file_path in Path(directory_path).iterdir():
-            if file_path.is_file() and file_path.suffix == ".csv":
-                model_key = file_path.stem
-                if model_key in cfg.MODEL_MAPPING_NAME:
-                    objects = cls._instantiate_objects_from_file(file_path, model_key)
-                    objects_by_type[model_key] = objects
+        for object_type in objects:
+            if object_type not in cfg.MODEL_MAPPING_NAME:
+                raise ValueError(
+                    f"Object type '{object_type}' is not recognized. "
+                    f"Available types are: {list(cfg.MODEL_MAPPING_NAME.keys())}"
+                )
+            cls._instantiate_object_from_dict(
+                objects[object_type],
+                object_type,
+            )
 
         return objects_by_type
 
     @classmethod
-    def _parse_objects_from_directory(cls, objects_path: Path, separator: str = ";") -> dict[str, dict[str, str]]:
+    def _instantiate_object_from_dict(
+        cls, object_list: list[dict[str, str]], object_type: str, base_path: Path
+    ) -> BusinessModel:
+        """Instantiate objects from a dictionary of attributes.
+
+        :param object_dict: A dictionary containing the attributes of the object.
+        :type object_dict: dict
+        :param object_type: The type of the object to instantiate.
+        :type object_type: str
+        :return: An instance of the specified object type.
+        :rtype: BusinessModel
+        """
+        for obj in object_list:
+            for key, value in obj.items():
+                if key not in cfg.MODEL_MAPPING_NAME[object_type].__annotations__ and key != "instance_name":
+                    raise ValueError(f"Key '{key}' is not a valid attribute for object type '{object_type}'.")
+                if value == "timeseries":
+                    obj[key] = cls.load_timeseries(
+                        base_path=base_path,
+                        object_type=object_type,
+                        instance_name=obj["instance_name"],
+                        attribute_name=key,
+                    )
+                elif value in ["forecasting_matrix", "scenario_matrix"]:
+                    obj[key] = cls.load_matrix_from_file(
+                        base_dir=base_path, instance_name=obj["instance_name"], matrix_type=value
+                    )
+
+        return obj
+
+    @classmethod
+    def _parse_objects_from_directory(cls, objects_path: Path, separator: str = ";") -> dict[str, list[dict[str, str]]]:
         """Parse objects from a directory.
 
         :param directory_path: The path to the directory.
@@ -94,18 +136,6 @@ class InputParser:
         """
         return pl.read_csv(file_path, separator=separator)
 
-    @classmethod
-    def _instantiate_objects_from_file(cls, file_path: Path, model_key: str) -> list[BusinessModel]:
-        """Instantiate objects from a single file using the model class associated with the key.
-
-        :param file_path: Path to the CSV file.
-        :param model_key: Key corresponding to the model class in CSV_MODEL_MAPPING.
-        :return: List of instantiated objects.
-        """
-        model_cls = cfg.MODEL_MAPPING_NAME[model_key]
-        df = cls.from_file(file_path)
-        return [model_cls(**row) for row in df.to_dicts()]
-
     @staticmethod
     def _from_parquet(file_path: str | Path) -> pl.DataFrame:
         """Parse input from a Parquet file.
@@ -133,7 +163,7 @@ class InputParser:
         return {file.stem: cls._from_csv(file) for file in data_dir.glob("*.csv")}
 
     @classmethod
-    def load_timeseries_from_file(cls, path: str | Path) -> Timeseries:
+    def load_timeseries(cls, base_path: Path, object_type: str, instance_name: str, attribute_name: str) -> Timeseries:
         """Load a timeseries profile from the timeseries/ folder.
 
         :param timeseries_dir: Path to the timeseries file.
@@ -141,13 +171,16 @@ class InputParser:
         :return: A Timeseries object instantiated from the file.
         :rtype: Timeseries
         """
-        return Timeseries(cls.from_file(path))
+        timeseries_path = base_path / "timeseries" / object_type / instance_name / attribute_name
+        return Timeseries(cls.from_file(timeseries_path))
 
     @classmethod
     def load_matrix_from_file(
         cls,
-        base_dir: str | Path,
+        base_path: str | Path,
         instance_name: str,
+        object_type: str,
+        attribute_name: str,
         matrix_type: Literal["scenario", "forecasting"],
     ) -> ScenarioMatrix | ForecastingMatrix:
         """Generic loader for scenario or forecasting matrix time series for a specific instance.
@@ -163,7 +196,8 @@ class InputParser:
         :raises FileNotFoundError: If the instance subfolder does not exist.
         :raises ValueError: If the matrix_type is invalid.
         """
-        instance_path = Path(base_dir) / instance_name
+        matrix_dir = matrix_type + "_matrix"
+        instance_path = Path(base_path) / matrix_dir / object_type / instance_name / attribute_name
         if not instance_path.exists():
             raise FileNotFoundError(f"Path does not exist: {instance_path}")
 
