@@ -100,8 +100,8 @@ def test_from_file_not_a_file(tmp_path):
         InputLoader.from_file(dir, object_type="wind_turbine")
 
 
-# Tests for load_timeseries_from_file
-def test_load_timeseries_from_file_success(tmp_path, mock_logger):
+# Tests for _load_timeseries
+def test__load_timeseries_success(tmp_path, mock_logger):
     timeseries_dir = tmp_path / "timeseries/wind_turbine/instance"
     timeseries_dir.mkdir(parents=True)
     file_path = timeseries_dir / "attribute.parquet"
@@ -109,7 +109,7 @@ def test_load_timeseries_from_file_success(tmp_path, mock_logger):
     df.write_parquet(file_path)
 
     with mock.patch("atlas.math.timeseries.Timeseries.from_file") as timeseries_mock:
-        InputLoader.load_timeseries_from_file(
+        InputLoader._load_timeseries(
             base_path=tmp_path,
             object_type="wind_turbine",
             instance_name="instance",
@@ -118,9 +118,9 @@ def test_load_timeseries_from_file_success(tmp_path, mock_logger):
         timeseries_mock.assert_called_once()
 
 
-def test_load_timeseries_from_file_no_timeseries_dir(tmp_path):
+def test__load_timeseries_no_timeseries_dir(tmp_path):
     with pytest.raises(NotADirectoryError):
-        InputLoader.load_timeseries_from_file(
+        InputLoader._load_timeseries(
             base_path=tmp_path,
             object_type="wind_turbine",
             instance_name="instance",
@@ -128,10 +128,10 @@ def test_load_timeseries_from_file_no_timeseries_dir(tmp_path):
         )
 
 
-def test_load_timeseries_from_file_no_file(tmp_path):
+def test__load_timeseries_no_file(tmp_path):
     (tmp_path / "timeseries/wind_turbine/instance").mkdir(parents=True)
     with pytest.raises(FileNotFoundError):
-        InputLoader.load_timeseries_from_file(
+        InputLoader._load_timeseries(
             base_path=tmp_path,
             object_type="wind_turbine",
             instance_name="instance",
@@ -139,8 +139,8 @@ def test_load_timeseries_from_file_no_file(tmp_path):
         )
 
 
-# Tests for load_matrix_from_file
-def test_load_matrix_from_file_success(tmp_path, mock_logger):
+# Tests for _load_matrix
+def test__load_matrix_success(tmp_path, mock_logger):
     matrix_dir = tmp_path / "forecasting_matrix/wind_turbine/instance/attribute"
     matrix_dir.mkdir(parents=True)
     matrix_file = matrix_dir / "attribute.parquet"
@@ -148,7 +148,7 @@ def test_load_matrix_from_file_success(tmp_path, mock_logger):
     df.write_parquet(matrix_file)
 
     with mock.patch("atlas.math.forecasting_matrix.ForecastingMatrix") as forecast_mock:
-        InputLoader.load_matrix_from_file(
+        InputLoader._load_matrix(
             base_path=tmp_path,
             instance_name="instance",
             object_type="wind_turbine",
@@ -158,9 +158,9 @@ def test_load_matrix_from_file_success(tmp_path, mock_logger):
         forecast_mock.assert_not_called()  # Not called yet because the function is incomplete in your code!
 
 
-def test_load_matrix_from_file_no_dir(tmp_path):
+def test__load_matrix_no_dir(tmp_path):
     with pytest.raises(NotADirectoryError):
-        InputLoader.load_matrix_from_file(
+        InputLoader._load_matrix(
             base_path=tmp_path,
             instance_name="instance",
             object_type="wind_turbine",
@@ -169,10 +169,10 @@ def test_load_matrix_from_file_no_dir(tmp_path):
         )
 
 
-def test_load_matrix_from_file_no_file(tmp_path):
+def test__load_matrix_no_file(tmp_path):
     (tmp_path / "forecasting_matrix/wind_turbine/instance/attribute").mkdir(parents=True)
     with pytest.raises(FileNotFoundError):
-        InputLoader.load_matrix_from_file(
+        InputLoader._load_matrix(
             base_path=tmp_path,
             instance_name="instance",
             object_type="wind_turbine",

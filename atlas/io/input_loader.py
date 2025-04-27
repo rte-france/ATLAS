@@ -56,19 +56,26 @@ class InputLoader:
                 f"Directory does not contain 'objects' subdirectory: {directory_path}",
             )
 
+        objects_instantiated_with_math_objects = {}
         objects_instantiated = {}
+
         for object_type in objects:
             if object_type not in cfg.MODEL_MAPPING_NAME:
                 raise ValueError(
                     f"Object type '{object_type}' is not recognized. "
                     f"Available types are: {list(cfg.MODEL_MAPPING_NAME.keys())}"
                 )
-            objects_instantiated[object_type] = cls._instantiate_math_objects_into_dict(
+            objects_instantiated_with_math_objects[object_type] = cls._instantiate_math_objects_into_dict(
                 objects[object_type],
                 object_type,
                 base_path=Path(directory_path),
                 timeseries_file_extension=timeseries_file_extension,
             )
+            objects_instantiated[object_type] = cls._instantiate_model_objects_into_dict(
+                objects_instantiated_with_math_objects[object_type],
+                object_type,
+            )
+        cfg.logger.debug(f"Instantiated objects of type {object_type}")
 
         return objects_instantiated
 
@@ -92,10 +99,15 @@ class InputLoader:
             )
 
         objects = cls.read_data_file(file_path)
-        return cls._instantiate_math_objects_into_dict(
+        objects_instantiated_with_math_objects = cls._instantiate_math_objects_into_dict(
             objects,
             object_type,
             base_path=Path(file_path).parent,
+        )
+
+        return cls._instantiate_model_objects_into_dict(
+            objects_instantiated_with_math_objects,
+            object_type,
         )
 
     @classmethod
@@ -123,7 +135,7 @@ class InputLoader:
         for obj in object_list:
             for key, value in obj.items():
                 if value == "timeseries":
-                    object_instantiated[key] = cls.load_timeseries_from_file(
+                    object_instantiated[key] = cls._load_timeseries(
                         base_path=base_path,
                         object_type=object_type,
                         instance_name=obj["instance_name"],
@@ -131,7 +143,7 @@ class InputLoader:
                         file_extension=timeseries_file_extension,
                     )
                 elif value in ["forecasting_matrix", "scenario_matrix"]:
-                    object_instantiated[key] = cls.load_matrix_from_file(
+                    object_instantiated[key] = cls._load_matrix(
                         base_path=base_path,
                         instance_name=obj["instance_name"],
                         attribute_name=key,
@@ -140,6 +152,48 @@ class InputLoader:
                     )
 
         return obj
+
+    @classmethod
+    def _instantiate_model_objects_into_dict(
+        cls,
+        object_list: list[dict[str, Any]],
+        object_type: str,
+    ) -> dict[str, Any]:
+        """Instantiate objects from a dictionary of attributes.
+
+        :param object_dict: A dictionary containing the attributes of the object.
+        :type object_dict: dict
+        :param object_type: The type of the object to instantiate.
+        :type object_type: str
+        :return: An instance of the specified object type.
+        :rtype: dict[str, BusinessModel]
+        """
+        object_instantiated: dict[str, Any] = {}
+        for obj in object_list:
+            instance_name = obj["instance_name"]
+            if instance_name in object_instantiated:
+                raise ValueError(f"Duplicate instance name '{instance_name}' found in {object_type} objects.")
+            object_instantiated[instance_name] = cls._instantiate_model_object(
+                obj,
+                object_type,
+            )
+        return object_instantiated
+
+    @staticmethod
+    def _instantiate_model_object(
+        object_dict: dict[str, Any],
+        object_type: str,
+    ) -> dict[str, Any]:
+        """Instantiate a business model from a dictionary of attributes.
+
+        :param object_dict: A dictionary containing the attributes of the object.
+        :type object_dict: dict
+        :param object_type: The type of the object to instantiate.
+        :type object_type: str
+        :return: An instance of the specified object type.
+        :rtype: BusinessModel
+        """
+        return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)
 
     @classmethod
     def _parse_objects_from_directory(cls, objects_path: Path, separator: str = ";") -> dict[str, list[dict[str, str]]]:
@@ -173,10 +227,13 @@ class InputLoader:
             return pl.read_csv(file_path, separator=separator)
         if file_extension == ".parquet":
             return pl.read_parquet(file_path)
+        if file_extension == ".json":
+            return pl.read_json(file_path)
+
         raise ValueError(f"Unsupported file extension: {file_extension}")
 
     @staticmethod
-    def load_timeseries_from_file(
+    def _load_timeseries(
         base_path: Path,
         object_type: str,
         instance_name: str,
@@ -208,7 +265,7 @@ class InputLoader:
         return Timeseries.from_file(file_path=timeseries_path)
 
     @staticmethod
-    def load_matrix_from_file(  # noqa: PLR0913
+    def _load_matrix(  # noqa: PLR0913
         base_path: str | Path,
         instance_name: str,
         object_type: str,
