@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "dotenv>=0.9.9",
+    "fastparquet>=2024.11.0",
     "loguru>=0.7.3",
     "numpy>=2.0.1",
     "ortools>=9.12.4544",
@@ -13,6 +14,7 @@ dependencies = [
     "pendulum>=3.0.0",
     "plotly>=6.0.1",
     "polars>=1.27.0",
+    "pyarrow>=20.0.0",
     "pydantic>=2.11.3",
     "pytz>=2025.1",
     "pyyaml>=6.0.1",
