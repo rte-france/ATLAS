@@ -11,20 +11,23 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
 import polars as pl
 
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 
+if TYPE_CHECKING:
+    import pandas as pd
+
 
 class ForecastingMatrix(Matrix):
     """
-    Stores Timeseries objects indexed by datetime, with access and forecasting utilities.
-
-    Inherits from `Matrix[datetime]` and provides additional methods for forecasting
-    reconstruction from past or future available timeseries.
+    This class is designed to handle forecasting data, where each Timeseries
+    represents a forecast for a specific datetime.
+    The matrix is sorted by datetime keys, and the keys are stored in a specific
+    format (e.g., "%d_%m_%Y %H:%M:%S").
     """
 
     def __init__(
@@ -82,8 +85,8 @@ class ForecastingMatrix(Matrix):
 
     def add(
         self,
-        index: datetime,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        index: str | datetime,
     ) -> None:
         """
         Add a Timeseries to the matrix and keep indexes sorted.
@@ -93,26 +96,15 @@ class ForecastingMatrix(Matrix):
         :param timeseries: Timeseries to add.
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
         """
-        super().add(index, timeseries)
+        if isinstance(index, str):
+            dt: str = datetime.strptime(index, self.date_format).strftime(self.date_format)  # noqa: DTZ007
+        else:
+            dt: str = index.strftime(self.date_format)
+
+        super().add(timeseries, dt)
         self._sort_indexes()
 
-    def extract(self, index: datetime, start_date: datetime, end_date: datetime) -> Timeseries:
-        """
-        Extract a portion of a Timeseries at a specific forecast date.
-
-        :param index: Forecasting datetime from which to extract.
-        :type index: datetime
-        :param start_date: Start of the extraction window.
-        :type start_date: datetime
-        :param end_date: End of the extraction window.
-        :type end_date: datetime
-        :return: A sliced Timeseries from the specified index.
-        :rtype: Timeseries
-        """
-        ts = self.get_timeseries(index)
-        return ts.filter([start_date, end_date])
-
-    def get_timeseries(self, index: str | datetime, date_format="%d_%m_%Y %H:%M:%S") -> Timeseries:
+    def get_timeseries(self, index: str | datetime, date_format: str = "%d_%m_%Y %H:%M:%S") -> Timeseries:
         """
         Retrieve a timeseries by index.
 
@@ -128,7 +120,7 @@ class ForecastingMatrix(Matrix):
             else index
         ).strftime(self.date_format)
 
-        return super().__getitem__(dt)
+        return Timeseries(super().__getitem__(dt))
 
     def delete(self, index: str | datetime) -> None:
         """

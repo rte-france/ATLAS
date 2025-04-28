@@ -25,13 +25,10 @@ class Matrix:
         """
         Initialize the matrix.
 
-        :param name: The name of the matrix.
-        :type name: str
-        :param indexes: List of indexes (e.g., scenario names or datetimes).
-        :type indexes: list[Index]
-        :param timeseries: List of Timeseries corresponding to the indexes.
-        :type timeseries: list[Timeseries]
-        :raises ValueError: If the number of indexes and timeseries do not match.
+        :param matrix: DataFrame containing the matrix data.
+        :type matrix: pd.DataFrame | pl.DataFrame
+        :param timezone: Timezone for the datetime column.
+        :type timezone: str
         """
         self._check_timezone(timezone)
 
@@ -53,7 +50,7 @@ class Matrix:
             )
 
     @classmethod
-    def from_file(cls, file_path: str) -> Matrix:
+    def from_file(cls, file_path: str | Path) -> Matrix:
         """
         Load a Matrix from a file.
 
@@ -77,10 +74,10 @@ class Matrix:
         :return: List of indexes.
         :rtype: list[str]
         """
-        time_column = self.matrix.select(pl.selectors.datetime() | pl.selectors.date()).columns
-        if len(time_column) != 1:
+        time_columns = self.matrix.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        if len(time_columns) != 1:
             raise ValueError("Matrix must have exactly one time column")
-        time_column = time_column[0]
+        time_column = time_columns[0]
         return self.matrix.drop(time_column).columns
 
     @staticmethod
@@ -113,7 +110,7 @@ class Matrix:
         """
         return index in self.indexes
 
-    def __getitem__(self, index: str) -> Timeseries:
+    def __getitem__(self, index: str) -> pl.DataFrame:
         """
         Get a timeseries by index.
 
@@ -142,7 +139,11 @@ class Matrix:
 
         return self.matrix.equals(other.matrix)
 
-    def add(self, timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]) -> None:
+    def add(
+        self,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        scenario_name: str,
+    ) -> None:
         """
         Add a timeseries to the matrix.
 
@@ -152,8 +153,16 @@ class Matrix:
         :type timeseries: Timeseries
         :raises TypeError: If types are invalid.
         """
+        if scenario_name in self.indexes:
+            raise KeyError(f"Index {scenario_name} already exists in the matrix.")
         timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
-        self.matrix = self.matrix.join(timeseries.get_data(), on="time", how="full")
+
+        self.matrix = self.matrix.join(
+            timeseries.get_data().rename({"value": scenario_name}),
+            on="time",
+            how="full",
+            coalesce=True,
+        )
         self.indexes = self._get_indexes()
 
     def delete(self, index: str) -> None:

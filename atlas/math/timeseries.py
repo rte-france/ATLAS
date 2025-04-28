@@ -100,7 +100,7 @@ class Timeseries:
         :rtype: bool
         """
         if isinstance(other, Timeseries):
-            other = other.get_data()
+            other = other.get_data(engine="polars")
             return self.timeseries.equals(other)
         raise NotImplementedError("Comparison with non-Timeseries objects is not supported")
 
@@ -225,7 +225,7 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def get_data(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame:
+    def get_data(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame | pd.DataFrame:
         """
         Return the internal Polars DataFrame.
 
