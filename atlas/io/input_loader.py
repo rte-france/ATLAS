@@ -16,6 +16,7 @@ import atlas.config as cfg
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
 
 
 class InputLoader:
@@ -98,7 +99,7 @@ class InputLoader:
                 f"Path is not a file: {file_path}",
             )
 
-        objects = cls.read_data_file(file_path)
+        objects = cls.read_data_file(file_path).to_dicts()
         objects_instantiated_with_math_objects = cls._instantiate_math_objects_into_dict(
             objects,
             object_type,
@@ -117,7 +118,7 @@ class InputLoader:
         object_type: str,
         base_path: Path,
         timeseries_file_extension: str = ".parquet",
-    ) -> dict[str, Any]:
+    ) -> list[dict[str, Any]]:
         """Instantiate objects from a dictionary of attributes.
 
         :param object_dict: A dictionary containing the attributes of the object.
@@ -131,8 +132,10 @@ class InputLoader:
         :return: An instance of the specified object type.
         :rtype: BusinessModel
         """
-        object_instantiated: dict[str, Any] = {}
+        objects_instantiated = []
+
         for obj in object_list:
+            object_instantiated: dict[str, Any] = {}
             for key, value in obj.items():
                 if value == "timeseries":
                     object_instantiated[key] = cls._load_timeseries(
@@ -150,8 +153,11 @@ class InputLoader:
                         object_type=object_type,
                         matrix_type=value,
                     )
+                else:
+                    object_instantiated[key] = value
+            objects_instantiated.append(object_instantiated)
 
-        return obj
+        return objects_instantiated
 
     @classmethod
     def _instantiate_model_objects_into_dict(
@@ -168,22 +174,20 @@ class InputLoader:
         :return: An instance of the specified object type.
         :rtype: dict[str, BusinessModel]
         """
-        object_instantiated: dict[str, Any] = {}
+        objects_instantiated: dict[str, Any] = {}
         for obj in object_list:
-            instance_name = obj["instance_name"]
-            if instance_name in object_instantiated:
-                raise ValueError(f"Duplicate instance name '{instance_name}' found in {object_type} objects.")
-            object_instantiated[instance_name] = cls._instantiate_model_object(
+            objects_instantiated[obj["instance_name"]] = cls._instantiate_model_object(
                 obj,
                 object_type,
             )
-        return object_instantiated
+
+        return objects_instantiated
 
     @staticmethod
     def _instantiate_model_object(
         object_dict: dict[str, Any],
         object_type: str,
-    ) -> dict[str, Any]:
+    ) -> BusinessModel:
         """Instantiate a business model from a dictionary of attributes.
 
         :param object_dict: A dictionary containing the attributes of the object.

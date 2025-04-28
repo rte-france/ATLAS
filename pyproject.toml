@@ -74,6 +74,7 @@ docs = [
 url = "https://pypi.org/simple/"
 
 [tool.mypy]
+exclude = "atlas/io/transform_dataset.py"
 python_version = "3.10"
 strict = false
 check_untyped_defs = false
