@@ -253,13 +253,13 @@ class AtlasTransformerDataset:
                 if not instance_dir.is_dir():
                     continue
 
-                instance_name = instance_dir.name
+                name = instance_dir.name
 
                 # Create an entry for this instance in our data dictionary
-                if instance_name not in self.instances_data:
-                    self.instances_data[self.to_snake_case(instance_name)] = {
+                if name not in self.instances_data:
+                    self.instances_data[self.to_snake_case(name)] = {
                         "business_type": self.to_snake_case(business_type),
-                        "instance_name": self.to_snake_case(instance_name),
+                        "name": self.to_snake_case(name),
                     }
 
                 # Process each attribute in this instance
@@ -269,7 +269,7 @@ class AtlasTransformerDataset:
                     # Determine the attribute type
                     if attribute_dir.is_file() and attribute_dir.suffix == ".csv":
                         # This is a Timeseries
-                        self._process_timeseries(business_type, instance_name, attribute_name, attribute_dir)
+                        self._process_timeseries(business_type, name, attribute_name, attribute_dir)
                     elif attribute_dir.is_dir():
                         # Check the files inside to determine if it's a ForecastingMatrix or ScenarioMatrix
                         csv_files = list(attribute_dir.glob("*.csv"))
@@ -279,37 +279,37 @@ class AtlasTransformerDataset:
                         if self.is_datetime_file(csv_files[0].name):
                             # This is a ForecastingMatrix
                             self._process_forecasting_matrix(
-                                business_type, instance_name, attribute_name, attribute_dir
+                                business_type, name, attribute_name, attribute_dir
                             )
                         else:
                             # This is a ScenarioMatrix
-                            self._process_scenario_matrix(business_type, instance_name, attribute_name, attribute_dir)
+                            self._process_scenario_matrix(business_type, name, attribute_name, attribute_dir)
 
-    def _process_timeseries(self, business_type, instance_name, attribute_name, file_path):
+    def _process_timeseries(self, business_type, name, attribute_name, file_path):
         """Process a Timeseries attribute."""
         # Copy the CSV file to the timeseries directory with a meaningful name
         profile_name = f"{attribute_name}.csv"
         target_path = (
             self.timeseries_dir
             / self.to_snake_case(business_type)
-            / self.to_snake_case(instance_name)
+            / self.to_snake_case(name)
             / f"{self.to_snake_case(attribute_name)}.parquet"
         )
         os.makedirs(target_path.parent, exist_ok=True)
 
         # Copy the file
-        logger.info(f"Processing Timeseries for {instance_name} {attribute_name}")
+        logger.info(f"Processing Timeseries for {name} {attribute_name}")
         pl.read_csv(file_path).with_columns(pl.from_epoch(pl.nth(0), time_unit="ns")).rename(
             {"col_0": "date", "col_1": "value"}
         ).write_parquet(target_path)
 
         # Update the instance data
-        self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = "timeseries"
+        self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = "timeseries"
 
-    def _process_forecasting_matrix(self, business_type, instance_name, attribute_name, dir_path):
+    def _process_forecasting_matrix(self, business_type, name, attribute_name, dir_path):
         """Process a ForecastingMatrix attribute."""
         # Create a directory for this matrix in the forecasting_matrix directory
-        matrix_dir = self.forecasting_matrix_dir / self.to_snake_case(business_type) / self.to_snake_case(instance_name)
+        matrix_dir = self.forecasting_matrix_dir / self.to_snake_case(business_type) / self.to_snake_case(name)
         os.makedirs(matrix_dir, exist_ok=True)
 
         # Create metadata.json
@@ -320,7 +320,7 @@ class AtlasTransformerDataset:
         unit = None
         columns = None
 
-        logger.info(f"Processing ForecastingMatrix for {instance_name} {attribute_name}")
+        logger.info(f"Processing ForecastingMatrix for {name} {attribute_name}")
         # Process each CSV file in the directory
         for csv_file in dir_path.glob("*.csv"):
             if not self.is_datetime_file(csv_file.name):
@@ -356,7 +356,7 @@ class AtlasTransformerDataset:
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-            self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = (
+            self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = (
                 "forecasting_matrix"
             )
         self.merge_matrices(matrix_dir / self.to_snake_case(attribute_name), self.to_snake_case(attribute_name))
@@ -370,16 +370,16 @@ class AtlasTransformerDataset:
             "forecast_dates": forecast_dates,
             "forecast_horizon": forecast_horizon or "48h",
             "columns": columns or ["datetime", "value"],
-            "description": f"Forecasts for {instance_name} {attribute_name}",
+            "description": f"Forecasts for {name} {attribute_name}",
         }
 
         with open(matrix_dir / self.to_snake_case(attribute_name) / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)
 
-    def _process_scenario_matrix(self, business_type, instance_name, attribute_name, dir_path):
+    def _process_scenario_matrix(self, business_type, name, attribute_name, dir_path):
         """Process a ScenarioMatrix attribute."""
         # Create a directory for this matrix in the scenario_matrix directory
-        matrix_dir = self.scenario_matrix_dir / self.to_snake_case(business_type) / self.to_snake_case(instance_name)
+        matrix_dir = self.scenario_matrix_dir / self.to_snake_case(business_type) / self.to_snake_case(name)
         os.makedirs(matrix_dir, exist_ok=True)
 
         # Process each CSV file in the directory
@@ -389,7 +389,7 @@ class AtlasTransformerDataset:
         frequency = None
         timezone = None
         unit = None
-        logger.info(f"Processing ScenarioMatrix for {instance_name} {attribute_name}")
+        logger.info(f"Processing ScenarioMatrix for {name} {attribute_name}")
         for i, csv_file in enumerate(dir_path.glob("*.csv"), 1):
             # Create a scenario name
             scenario_name = f"scenario_{i:03d}"
@@ -415,7 +415,7 @@ class AtlasTransformerDataset:
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-        self.instances_data[self.to_snake_case(instance_name)][self.to_snake_case(attribute_name)] = "scenario_matrix"
+        self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = "scenario_matrix"
         self.merge_matrices(matrix_dir / self.to_snake_case(attribute_name), self.to_snake_case(attribute_name))
         # Create metadata.json with dynamically computed values
         metadata = {
@@ -424,7 +424,7 @@ class AtlasTransformerDataset:
             "frequency": frequency or "30min",
             "timezone": timezone or "UTC",
             "scenarios": scenarios,
-            "description": f"Simulated production for {instance_name} {attribute_name} under different weather scenarios",
+            "description": f"Simulated production for {name} {attribute_name} under different weather scenarios",
         }
 
         with open(matrix_dir / self.to_snake_case(attribute_name) / "metadata.json", "w") as f:
@@ -462,7 +462,7 @@ class AtlasTransformerDataset:
         """Create CSV files for each business type containing instance data."""
         # Group instances by business type
         business_types = {}
-        for instance_name, data in self.instances_data.items():
+        for name, data in self.instances_data.items():
             business_type = data["business_type"]
             if business_type not in business_types:
                 business_types[business_type] = []
@@ -476,7 +476,7 @@ class AtlasTransformerDataset:
                 all_attributes.update(instance_data.keys())
 
             # Remove non-attribute keys
-            for key in ["business_type", "instance_name", "matrices"]:
+            for key in ["business_type", "name", "matrices"]:
                 if key in all_attributes:
                     all_attributes.remove(key)
 
@@ -484,11 +484,11 @@ class AtlasTransformerDataset:
             csv_data = []
             for instance_data in instances:
                 # Start with the instance name
-                row_data = {"instance_name": instance_data["instance_name"]}
+                row_data = {"name": instance_data["name"]}
 
                 # Add all possible attributes (whether present for this instance or not)
                 for attr in all_attributes:
-                    row_data[attr] = instance_data.get(attr, "")
+                    row_data[attr] = instance_data.get(attr, None)
 
                 csv_data.append(row_data)
 

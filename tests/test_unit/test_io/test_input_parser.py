@@ -112,7 +112,7 @@ def test__load_timeseries_success(tmp_path, mock_logger):
         InputLoader._load_timeseries(
             base_path=tmp_path,
             object_type="wind_turbine",
-            instance_name="instance",
+            name="instance",
             attribute_name="attribute",
         )
         timeseries_mock.assert_called_once()
@@ -123,7 +123,7 @@ def test__load_timeseries_no_timeseries_dir(tmp_path):
         InputLoader._load_timeseries(
             base_path=tmp_path,
             object_type="wind_turbine",
-            instance_name="instance",
+            name="instance",
             attribute_name="attribute",
         )
 
@@ -134,7 +134,7 @@ def test__load_timeseries_no_file(tmp_path):
         InputLoader._load_timeseries(
             base_path=tmp_path,
             object_type="wind_turbine",
-            instance_name="instance",
+            name="instance",
             attribute_name="attribute",
         )
 
@@ -150,7 +150,7 @@ def test__load_matrix_success(tmp_path, mock_logger):
     with mock.patch("atlas.math.forecasting_matrix.ForecastingMatrix") as forecast_mock:
         InputLoader._load_matrix(
             base_path=tmp_path,
-            instance_name="instance",
+            name="instance",
             object_type="wind_turbine",
             attribute_name="attribute",
             matrix_type="forecasting_matrix",
@@ -162,7 +162,7 @@ def test__load_matrix_no_dir(tmp_path):
     with pytest.raises(NotADirectoryError):
         InputLoader._load_matrix(
             base_path=tmp_path,
-            instance_name="instance",
+            name="instance",
             object_type="wind_turbine",
             attribute_name="attribute",
             matrix_type="forecasting_matrix",
@@ -174,7 +174,7 @@ def test__load_matrix_no_file(tmp_path):
     with pytest.raises(FileNotFoundError):
         InputLoader._load_matrix(
             base_path=tmp_path,
-            instance_name="instance",
+            name="instance",
             object_type="wind_turbine",
             attribute_name="attribute",
             matrix_type="forecasting_matrix",

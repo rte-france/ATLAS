@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import functools
 import time
 
-from atlas import logger
+from atlas.config import logger
 
 
 def timeit(func):  # noqa: ANN001, ANN201

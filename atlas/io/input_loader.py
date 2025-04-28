@@ -88,7 +88,7 @@ class InputLoader:
         :param object_type: The type of the object to instantiate.
         :type object_type: str
         :return: A dictionary mapping object names to lists of instantiated objects.
-        :rtype: dict[str, Any]]
+        :rtype: dict[str, BusinessModel]]
         """
         if not Path(file_path).exists():
             raise FileNotFoundError(
@@ -103,13 +103,33 @@ class InputLoader:
         objects_instantiated_with_math_objects = cls._instantiate_math_objects_into_dict(
             objects,
             object_type,
-            base_path=Path(file_path).parent,
+            base_path=Path(file_path).parents[1],
         )
 
         return cls._instantiate_model_objects_into_dict(
             objects_instantiated_with_math_objects,
             object_type,
         )
+
+    @classmethod
+    def from_files(
+        cls,
+        file_paths: list[str | Path],
+        object_type: list[str],
+    ) -> dict[str, Any]:
+        """Load input from a list of object files.
+        :param file_paths: The paths to the files.
+        :type file_paths: list[str | Path]
+        :param object_type: The type of the object to instantiate.
+        :type object_type: str
+        :return: A dictionary mapping object names to lists of instantiated objects.
+        :rtype: dict[str, BusinessModel]]
+        """
+        objects_instantiated = {}
+
+        for file_path, obj_type in zip(file_paths, object_type, strict=False):
+            objects_instantiated[obj_type] = cls.from_file(file_path=file_path, object_type=obj_type)
+        return objects_instantiated
 
     @classmethod
     def _instantiate_math_objects_into_dict(
@@ -141,14 +161,14 @@ class InputLoader:
                     object_instantiated[key] = cls._load_timeseries(
                         base_path=base_path,
                         object_type=object_type,
-                        instance_name=obj["instance_name"],
+                        name=obj["name"],
                         attribute_name=key,
                         file_extension=timeseries_file_extension,
                     )
                 elif value in ["forecasting_matrix", "scenario_matrix"]:
                     object_instantiated[key] = cls._load_matrix(
                         base_path=base_path,
-                        instance_name=obj["instance_name"],
+                        name=obj["name"],
                         attribute_name=key,
                         object_type=object_type,
                         matrix_type=value,
@@ -176,7 +196,7 @@ class InputLoader:
         """
         objects_instantiated: dict[str, Any] = {}
         for obj in object_list:
-            objects_instantiated[obj["instance_name"]] = cls._instantiate_model_object(
+            objects_instantiated[obj["name"]] = cls._instantiate_model_object(
                 obj,
                 object_type,
             )
@@ -240,15 +260,15 @@ class InputLoader:
     def _load_timeseries(
         base_path: Path,
         object_type: str,
-        instance_name: str,
+        name: str,
         attribute_name: str,
         file_extension: str = ".parquet",
     ) -> Timeseries:
         """Load a timeseries profile from the timeseries/ folder.
         :param base_path: Path to the timeseries/ folder.
         :type base_path: str or Path
-        :param instance_name: Name of the instance (e.g., wind_turbine1_normandie).
-        :type instance_name: str
+        :param name: Name of the instance (e.g., wind_turbine1_normandie).
+        :type name: str
         :param attribute_name: Name of the attribute (e.g., wind_speed).
         :type attribute_name: str
         :param file_extension: File extension of the timeseries file (default: ".parquet").
@@ -256,9 +276,7 @@ class InputLoader:
         :return: A Timeseries object instantiated from the file.
         :rtype: Timeseries
         """
-        timeseries_path = (
-            Path(base_path) / "timeseries" / object_type / instance_name / (attribute_name + file_extension)
-        )
+        timeseries_path = Path(base_path) / "timeseries" / object_type / name / (attribute_name + file_extension)
         if not (Path(base_path) / "timeseries").exists():
             raise NotADirectoryError(f"Directory does not contain 'timeseries' subdirectory: {base_path}")
         if not timeseries_path.exists():
@@ -271,7 +289,7 @@ class InputLoader:
     @staticmethod
     def _load_matrix(  # noqa: PLR0913
         base_path: str | Path,
-        instance_name: str,
+        name: str,
         object_type: str,
         attribute_name: str,
         matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
@@ -281,8 +299,8 @@ class InputLoader:
 
         :param base_dir: Path to the scenario_matrix/ or forecasting_matrix/ folder.
         :type base_dir: str or Path
-        :param instance_name: Name of the instance (e.g., wind_turbine1_normandie).
-        :type instance_name: str
+        :param name: Name of the instance (e.g., wind_turbine1_normandie).
+        :type name: str
         :param matrix_type: Type of matrix to load ("scenario" or "forecasting").
         :type matrix_type: str
         :param object_type: Type of object (e.g., "wind_turbine").
@@ -295,12 +313,7 @@ class InputLoader:
         :rtype: ScenarioMatrix or ForecastingMatrix
         """
         matrix_file_path = (
-            Path(base_path)
-            / matrix_type
-            / object_type
-            / instance_name
-            / attribute_name
-            / (attribute_name + file_extension)
+            Path(base_path) / matrix_type / object_type / name / attribute_name / (attribute_name + file_extension)
         )
         if not (Path(base_path) / matrix_type).exists():
             raise NotADirectoryError(f"Directory does not contain '{matrix_type}' subdirectory: {base_path}")
@@ -311,11 +324,11 @@ class InputLoader:
 
         # if matrix_type == "scenario":
         #     return ScenarioMatrix(
-        #         instance_name, list(matrix_dict.keys()), list(matrix_dict.values())
+        #         name, list(matrix_dict.keys()), list(matrix_dict.values())
         #     )
         # if matrix_type == "forecasting":
         #     return ForecastingMatrix(
-        #         instance_name, list(matrix_dict.keys()), list(matrix_dict.values())
+        #         name, list(matrix_dict.keys()), list(matrix_dict.values())
         #     )
         # raise ValueError(
         #     f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'."
@@ -324,13 +337,13 @@ class InputLoader:
     @staticmethod
     def load_metadata(
         base_path: str | Path,
-        instance_name: str,
+        name: str,
         object_type: str,
         attribute_name: str,
         matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
     ) -> dict:
         """Load metadata.json file if it exists in the given folder."""
-        metadata_path = Path(base_path) / matrix_type / object_type / instance_name / attribute_name / "metadata.json"
+        metadata_path = Path(base_path) / matrix_type / object_type / name / attribute_name / "metadata.json"
 
         cfg.logger.debug(f"Loading metadata from file: {metadata_path}")
 
