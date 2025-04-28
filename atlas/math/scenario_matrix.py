@@ -7,12 +7,14 @@ This file is part of the ATLAS project.
 Module that implements ScenarioMatrix
 """
 
+import pandas as pd
+import polars as pl
+
 from atlas.math.matrix import Matrix
-from atlas.math.timeseries import Timeseries
 
 
 class ScenarioMatrix(Matrix):
     """Stores Timeseries objects by scenario name, with access and deletion by name."""
 
-    def __init__(self, name: str, indexes: list[str | int | float], timeseries: list[Timeseries]):
-        super().__init__(name, indexes, timeseries)
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame) -> None:
+        super().__init__(matrix)

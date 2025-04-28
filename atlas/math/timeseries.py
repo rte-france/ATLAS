@@ -25,7 +25,7 @@ import pytz
 
 class Timeseries:
     """
-    A time series wrapper class using Polars backend.
+    A time series class using Polars backend.
 
     :param timeseries: The input time series data.
     :type timeseries: pl.DataFrame or Timeseries
@@ -433,10 +433,15 @@ class Timeseries:
                 self.timeseries.upsample(time_column="time", every=frequency)
                 .interpolate()
                 .fill_null(strategy="forward")
+                .sort("time")
             )
         elif strategy == "constant":
-            df = self.timeseries.upsample(time_column="time", every=frequency).fill_null(
-                strategy="forward",
+            df = (
+                self.timeseries.upsample(time_column="time", every=frequency)
+                .fill_null(
+                    strategy="forward",
+                )
+                .sort("time")
             )
         else:
             raise NotImplementedError("Unsupported interpolation strategy")
@@ -486,7 +491,7 @@ class Timeseries:
             raise NotImplementedError("Unsupported aggregation function")
 
         if inplace:
-            self.timeseries = df
+            self.timeseries = df.sort("time")
             return self
         return Timeseries(df, self.timezone)
 

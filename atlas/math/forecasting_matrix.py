@@ -7,13 +7,19 @@ This file is part of the ATLAS project.
 Module that implements ForecastingMatrix
 """
 
+from __future__ import annotations
+
 from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+import polars as pl
 
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 
 
-class ForecastingMatrix(Matrix[datetime]):
+class ForecastingMatrix(Matrix):
     """
     Stores Timeseries objects indexed by datetime, with access and forecasting utilities.
 
@@ -23,9 +29,9 @@ class ForecastingMatrix(Matrix[datetime]):
 
     def __init__(
         self,
-        name: str,
-        forecasting_dates: list[datetime],
-        timeseries: list[Timeseries],
+        matrix: pl.DataFrame | pd.DataFrame,
+        timezone: str = "UTC",
+        date_format: str = "%d_%m_%Y %H:%M:%S",
     ):
         """
         Initialize a ForecastingMatrix.
@@ -37,24 +43,57 @@ class ForecastingMatrix(Matrix[datetime]):
         :param timeseries: List of corresponding Timeseries objects.
         :type timeseries: list[Timeseries]
         """
-        super().__init__(name, forecasting_dates, timeseries)
-        self._sort_indexes()
+        super().__init__(matrix, timezone=timezone)
+        self._sort_indexes(date_format=date_format)
 
-    def _sort_indexes(self) -> None:
+        self.date_format: str = date_format
+
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> ForecastingMatrix:
+        """
+        Load a ForecastingMatrix from a file.
+
+        :param file_path: Path to the file (CSV or Parquet).
+        :type file_path: str | Path
+        :return: A ForecastingMatrix object.
+        :rtype: ForecastingMatrix
+        """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        if file_path.suffix == ".csv":
+            matrix = pl.read_csv(file_path)
+        elif file_path.suffix == ".parquet":
+            matrix = pl.read_parquet(file_path)
+        return cls(matrix)
+
+    def _sort_indexes(self, date_format: str = "%d_%m_%Y %H:%M:%S") -> None:
         """Sort the internal mapping of timeseries by datetime keys."""
-        sorted_items = sorted(self.timeseries_map.items())
-        self.timeseries_map = dict(sorted_items)
+        indexes_sorted = (
+            pl.DataFrame({"indexes": self.indexes})
+            .with_columns(pl.col("indexes").str.strptime(pl.Datetime(time_unit="us"), date_format, strict=False))
+            .sort("indexes")
+            .with_columns(pl.col("indexes").dt.strftime(date_format))
+            .to_series()
+            .to_list()
+        )
 
-    def add_timeseries(self, index: datetime, timeseries: Timeseries) -> None:
+        self.matrix = self.matrix.select("time", *indexes_sorted).sort("time")
+        self.indexes = indexes_sorted
+
+    def add(
+        self,
+        index: datetime,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+    ) -> None:
         """
         Add a Timeseries to the matrix and keep indexes sorted.
 
-        :param index: Forecasting datetime key.
+        :param index: Index key.
         :type index: datetime
-        :param timeseries: Timeseries object to insert.
-        :type timeseries: Timeseries
+        :param timeseries: Timeseries to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
         """
-        super().add_timeseries(index, timeseries)
+        super().add(index, timeseries)
         self._sort_indexes()
 
     def extract(self, index: datetime, start_date: datetime, end_date: datetime) -> Timeseries:
@@ -72,6 +111,42 @@ class ForecastingMatrix(Matrix[datetime]):
         """
         ts = self.get_timeseries(index)
         return ts.filter([start_date, end_date])
+
+    def get_timeseries(self, index: str | datetime, date_format="%d_%m_%Y %H:%M:%S") -> Timeseries:
+        """
+        Retrieve a timeseries by index.
+
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If the index is not found.
+        :return: The Timeseries object.
+        :rtype: Timeseries
+        """
+        dt: str = (
+            datetime.strptime(index, date_format)  # noqa: DTZ007
+            if isinstance(index, str)
+            else index
+        ).strftime(self.date_format)
+
+        return super().__getitem__(dt)
+
+    def delete(self, index: str | datetime) -> None:
+        """
+        Delete a timeseries by index.
+
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If index is not found.
+        """
+        dt: str = (
+            datetime.strptime(index, self.date_format)  # noqa: DTZ007
+            if isinstance(index, str)
+            else index
+        ).strftime(self.date_format)
+
+        super().delete(dt)
+
+        self._sort_indexes()
 
     # def get_forecast(
     #     self,
@@ -102,31 +177,4 @@ class ForecastingMatrix(Matrix[datetime]):
     #         result = result.merge(self.timeseries_map[date].slice(from_date, to_date))
     #         if from_date in result.series.index and to_date in result.series.index:
     #             return result
-    #     return result
-
-    # def get_forecast_old(
-    #     self,
-    #     ref_date: datetime,
-    #     from_date: datetime,
-    #     to_date: datetime,
-    # ) -> Timeseries:
-    #     """
-    #     Legacy forecast method: merge future forecasts starting from ref_date.
-
-    #     Gathers all forecast slices where the forecast date is **on or after**
-    #     `ref_date`, merging them in chronological order.
-
-    #     :param ref_date: Date from which to begin merging forward.
-    #     :type ref_date: datetime
-    #     :param from_date: Start of the desired forecast window.
-    #     :type from_date: datetime
-    #     :param to_date: End of the desired forecast window.
-    #     :type to_date: datetime
-    #     :return: A forecasted Timeseries composed of future slices.
-    #     :rtype: Timeseries
-    #     """
-    #     result = Timeseries("unknown", TimeSeriesInterpolation.CONSTANT, "", [], [])
-    #     for date in self.indexes:
-    #         if date >= ref_date:
-    #             result = result.merge(self.timeseries_map[date].slice(from_date, to_date))
     #     return result
