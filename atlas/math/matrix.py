@@ -9,34 +9,86 @@ Module that implements Matrix
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Generic, TypeVar
+from pathlib import Path
+
+import pandas as pd
+import polars as pl
+import pytz
 
 from atlas.math.timeseries import Timeseries
 
-Index = TypeVar("Index", str, int, float, datetime)
 
-
-class Matrix(Generic[Index]):
+class Matrix:
     """Base class for storing Timeseries objects indexed by scenario keys or datetimes."""
 
-    def __init__(self, name: str, indexes: list[Index], timeseries: list[Timeseries]) -> None:
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame, timezone: str = "UTC") -> None:
         """
         Initialize the matrix.
 
-        :param name: The name of the matrix.
-        :type name: str
-        :param indexes: List of indexes (e.g., scenario names or datetimes).
-        :type indexes: list[Index]
-        :param timeseries: List of Timeseries corresponding to the indexes.
-        :type timeseries: list[Timeseries]
-        :raises ValueError: If the number of indexes and timeseries do not match.
+        :param matrix: DataFrame containing the matrix data.
+        :type matrix: pd.DataFrame | pl.DataFrame
+        :param timezone: Timezone for the datetime column.
+        :type timezone: str
         """
-        if len(indexes) != len(timeseries):
-            raise ValueError("Indexes and timeseries must have the same length.")
+        self._check_timezone(timezone)
 
-        self.name: str = name
-        self.timeseries_map: dict[Index, Timeseries] = dict(zip(indexes, timeseries, strict=False))
+        df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
+
+        time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+
+        self.matrix: pl.DataFrame = (
+            df.rename({time_column[0]: "time"})
+            .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
+            .sort("time")
+        )
+        self.indexes: list[str] = self._get_indexes()
+
+        if len(time_column) + len(self.indexes) != len(df.columns):
+            raise ValueError(
+                f"Matrix must have exactly one time column and the other columns has to be numerical,"
+                f"but found {len(df.columns)} columns in total."
+            )
+
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> Matrix:
+        """
+        Load a Matrix from a file.
+
+        :param file_path: Path to the file (CSV or Parquet).
+        :type file_path: str | Path
+        :return: A Matrix object.
+        :rtype: Matrix
+        """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        if file_path.suffix == ".csv":
+            matrix = pl.read_csv(file_path)
+        elif file_path.suffix == ".parquet":
+            matrix = pl.read_parquet(file_path)
+        return cls(matrix)
+
+    def _get_indexes(self) -> list[str]:
+        """
+        Get the indexes of the matrix.
+
+        :return: List of indexes.
+        :rtype: list[str]
+        """
+        time_columns = self.matrix.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        if len(time_columns) != 1:
+            raise ValueError("Matrix must have exactly one time column")
+        time_column = time_columns[0]
+        return self.matrix.drop(time_column).columns
+
+    @staticmethod
+    def _check_timezone(timezone: str) -> None:
+        """
+        Check if the timezone is valid.
+
+        :raises ValueError: If the timezone is not valid
+        """
+        if timezone not in pytz.all_timezones:
+            raise ValueError(f"Invalid timezone: {timezone}")
 
     def __len__(self) -> int:
         """
@@ -45,9 +97,9 @@ class Matrix(Generic[Index]):
         :return: Number of elements in the matrix.
         :rtype: int
         """
-        return len(self.timeseries_map)
+        return len(self.indexes)
 
-    def __contains__(self, index: Index) -> bool:
+    def __contains__(self, index: str) -> bool:
         """
         Check if an index exists in the matrix.
 
@@ -56,9 +108,9 @@ class Matrix(Generic[Index]):
         :return: True if index exists, False otherwise.
         :rtype: bool
         """
-        return index in self.timeseries_map
+        return index in self.indexes
 
-    def __getitem__(self, index: Index) -> Timeseries:
+    def __getitem__(self, index: str) -> pl.DataFrame:
         """
         Get a timeseries by index.
 
@@ -68,9 +120,9 @@ class Matrix(Generic[Index]):
         :return: The Timeseries object.
         :rtype: Timeseries
         """
-        if index not in self.timeseries_map:
+        if index not in self.indexes:
             raise KeyError(f"No timeseries found for index: {index}")
-        return self.timeseries_map[index]
+        return self.matrix.select("time", index)
 
     def __eq__(self, other: object) -> bool:
         """
@@ -78,19 +130,20 @@ class Matrix(Generic[Index]):
 
         :param other: Another matrix instance.
         :type other: object
+        :raises TypeError: If the object to compare is not a Matrix
         :return: True if equal, False otherwise.
         :rtype: bool
         """
         if not isinstance(other, Matrix):
-            raise NotImplementedError("Cannot compare with non-Matrix object")
+            raise TypeError("Cannot compare with non-Matrix object")
 
-        return (
-            self.name == other.name
-            and list(self.timeseries_map.keys()) == list(other.timeseries_map.keys())
-            and all(self.timeseries_map[k] == other.timeseries_map[k] for k in self.timeseries_map)
-        )
+        return self.matrix.equals(other.matrix)
 
-    def add_timeseries(self, index: Index, timeseries: Timeseries) -> None:
+    def add(
+        self,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        scenario_name: str,
+    ) -> None:
         """
         Add a timeseries to the matrix.
 
@@ -100,12 +153,19 @@ class Matrix(Generic[Index]):
         :type timeseries: Timeseries
         :raises TypeError: If types are invalid.
         """
-        if not isinstance(timeseries, Timeseries):
-            raise TypeError(f"Expected Timeseries, got {type(timeseries)}")
+        if scenario_name in self.indexes:
+            raise KeyError(f"Index {scenario_name} already exists in the matrix.")
+        timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
 
-        self.timeseries_map[index] = timeseries
+        self.matrix = self.matrix.join(
+            timeseries.get_data().rename({"value": scenario_name}),
+            on="time",
+            how="full",
+            coalesce=True,
+        )
+        self.indexes = self._get_indexes()
 
-    def delete_timeseries(self, index: Index) -> None:
+    def delete(self, index: str) -> None:
         """
         Delete a timeseries by index.
 
@@ -113,29 +173,17 @@ class Matrix(Generic[Index]):
         :type index: Index
         :raises KeyError: If index is not found.
         """
-        try:
-            del self.timeseries_map[index]
-        except KeyError:
+        if index not in self.indexes:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
-    def get_timeseries(self, index: Index) -> Timeseries:
-        """
-        Retrieve a timeseries by index.
+        self.matrix = self.matrix.drop(index)
+        self.indexes = self._get_indexes()
 
-        :param index: Index key.
-        :type index: Index
-        :raises KeyError: If the index is not found.
-        :return: The Timeseries object.
-        :rtype: Timeseries
+    def get_matrix(self) -> pl.DataFrame:
         """
-        return self.__getitem__(index)
+        Get the matrix data.
 
-    @property
-    def indexes(self) -> list[Index]:
+        :return: The matrix data.
+        :rtype: pl.DataFrame
         """
-        Get the list of indexes.
-
-        :return: List of index keys.
-        :rtype: list[Index]
-        """
-        return list(self.timeseries_map.keys())
+        return self.matrix
