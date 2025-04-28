@@ -106,11 +106,19 @@ class Timeseries:
         raise NotImplementedError("Comparison with non-Timeseries objects is not supported")
 
     def __len__(self) -> int:
-        """Return the number of rows in the time series."""
+        """Return the number of rows in the time series.
+
+        :return: Number of rows in the time series
+        :rtype: bool
+        """
         return self.timeseries.height
 
     def __mul__(self, other: float | Timeseries) -> Timeseries:
-        """Multiply all numeric columns by a scalar or another Timeseries."""
+        """Multiply all numeric columns by a scalar or another Timeseries.
+
+        :return: The Timeseries where all numeric columns are multiplied by a scalar or another Timeseries
+        :rtype: Timeseries
+        """
         if isinstance(other, (int, float)):
             df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
         elif isinstance(other, Timeseries):
@@ -127,7 +135,11 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def __add__(self, other: float | Timeseries) -> Timeseries:
-        """Add all numeric columns by a scalar or timeseries."""
+        """Add all numeric columns by a scalar or timeseries.
+
+        :return: The Timeseries where a scalar or another Timeseries are added to all numeric columns
+        :rtype: Timeseries
+        """
         if isinstance(other, (int, float)):
             df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
         elif isinstance(other, Timeseries):
@@ -144,7 +156,11 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def __sub__(self, other: float | Timeseries) -> Timeseries:
-        """Subtract all numeric columns by a scalar or timeseries."""
+        """Subtract all numeric columns by a scalar or timeseries.
+
+        :return: The Timeseries where a scalar or another Timeseries are subtract to all numeric columns
+        :rtype: Timeseries
+        """
         if isinstance(other, (int, float)):
             df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
         elif isinstance(other, Timeseries):
@@ -161,7 +177,11 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def __truediv__(self, other: float | Timeseries) -> Timeseries:
-        """Divide all numeric columns by a scalar or timeseries."""
+        """Divide all numeric columns by a scalar or timeseries.
+
+        :return: The Timeseries where all numeric columns are divided by a scalar or another Timeseries
+        :rtype: Timeseries
+        """
         if isinstance(other, (int, float)):
             if other == 0:
                 raise ZeroDivisionError("Division by zero is not allowed")
@@ -234,8 +254,6 @@ class Timeseries:
         """
         Sort the time series by the given variable(s).
 
-        :param variables: Variable(s) to sort by
-        :type variables: str or list[str]
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         :param descending: Sort in descending order, defaults to False
@@ -267,6 +285,8 @@ class Timeseries:
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
+        :return: Timeseries with the added value
+        :rtype: Timeseries
         """
         dt: pendulum.DateTime = self._check_date(time, date_format).in_tz(self.timezone)
 
@@ -305,12 +325,17 @@ class Timeseries:
         Generate a list of datetimes using pendulum.
 
         :param start: Start datetime
+        :type start: datetime or str
         :param end: End datetime
+        :type end: datetime or str
         :param freq: Frequency (e.g. "1h", "15m", "1d")
+        :type freq: str
         :param timezone: Timezone string, defaults to "UTC"
+        :type timezone: str, optional
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
         :type date_format: str, optional
         :return: List of datetime objects
+        :rtype: List[pendulum.DateTime]
         """
         start_date: pendulum.DateTime = cls._check_date(start, date_format)
         end_date: pendulum.DateTime = cls._check_date(end, date_format)
@@ -325,7 +350,15 @@ class Timeseries:
     def _check_date(
         time: str | datetime | pendulum.DateTime, date_format: str = "YYYY-MM-DD HH:mm:ss z"
     ) -> pendulum.DateTime:
-        """Check if the date is valid."""
+        """Check if the date is valid.
+
+        :param time: datetime to check
+        :type time: datetime or str
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :type date_format: str, optional
+        :return: The date given
+        :rtype: pendulum.DateTime
+        """
         try:
             dt: pendulum.DateTime = (
                 pendulum.from_format(time, fmt=date_format) if isinstance(time, str) else pendulum.instance(time)
@@ -338,7 +371,13 @@ class Timeseries:
 
     @staticmethod
     def _parse_freq(freq: str) -> dict:
-        """Parse a freq string like '15m' or '1h' into pendulum duration kwargs."""
+        """Parse a freq string like '15m' or '1h' into pendulum duration kwargs.
+
+        :param freq: frequency to convert"
+        :type freq: str
+        :return: The frequency with days, hours, minutes has keys
+        :rtype: Dict
+        """
         if freq.endswith("m"):
             return {"minutes": int(freq[:-1])}
         if freq.endswith("h"):
@@ -513,10 +552,12 @@ class Timeseries:
         inplace: bool = True,
     ) -> Timeseries:
         """
-        Filter the time series based on a condition.
+        Filter the time series based on a list of datetime.
 
-        :param condition: Condition to filter by
-        :type condition: str or pl.Expr
+        :param item: Datetime to filter the Timeseries
+        :type item: list[datetime] or datetime or pendulum.DateTime or str
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         :return: Filtered time series
@@ -542,21 +583,30 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def max(self) -> float | None:
-        """Return the max value in the 'value' column."""
+        """Return the max value in the 'value' column.
+
+        :return: The Timeseries max value
+        :rtype: float or None
+        """
         if "value" in self.timeseries.columns and len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].max())
         return None
 
     def min(self) -> float | None:
-        """Return the min value in the 'value' column."""
+        """Return the min value in the 'value' column.
+
+        :return: The Timeseries min value
+        :rtype: float or None
+        """
         if "value" in self.timeseries.columns and len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].min())
         return None
 
     def interpolate(self, method: Literal["linear", "constant"] = "constant", inplace: bool = False) -> Timeseries:
         """Interpolate the time series to fill in missing values.
+
         :param method: Interpolation method, defaults to "constant"
-        :type method: str, optional
+        :type method: Literal["linear", "constant"], optional
         :param inplace: Whether to modify the current instance, defaults to False
         :type inplace: bool, optional
         :raises NotImplementedError: If the method is not supported
@@ -581,6 +631,7 @@ class Timeseries:
         date_format: str = "YYYY-MM-DD HH:mm:ss z",
     ) -> dict:
         """Return values at the given datetime. If exact match is not found, interpolate.
+
         :param datetime: Datetime to get value for
         :type datetime: str or datetime
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
@@ -625,10 +676,10 @@ class Timeseries:
         :type show_grid: bool, optional
         :param line_color: Color of the line plot, defaults to "#1f77b4" (Plotly default blue)
         :type line_color: str, optional
+        :param line_shape: Shape of the plot, defaults to "hv"
+        :type line_shape: Literal["hv", "linear", "spline"], optional
         :param template: Plotly template to use, defaults to "plotly_white"
         :type template: str, optional
-        :param variable: Column to plot (if None, uses 'value' column), defaults to None
-        :type variable: str, optional
         :return: Plotly figure object
         :rtype: plotly.graph_objects.Figure
         """
