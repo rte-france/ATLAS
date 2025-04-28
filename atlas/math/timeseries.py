@@ -349,7 +349,7 @@ class Timeseries:
 
     def upsample(
         self,
-        every: str,
+        frequency: str,
         inplace: bool = True,
         strategy: Literal["linear", "constant"] = "linear",
     ) -> Timeseries:
@@ -358,8 +358,8 @@ class Timeseries:
 
         Fills in missing timestamps by interpolating or forward-filling values.
 
-        :param every: Frequency string (e.g., "15m", "1h") defining the new time resolution
-        :type every: str
+        :param frequency: Frequency string (e.g., "15m", "1h") defining the new time resolution
+        :type frequency: str
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         :param strategy: Method to fill missing values: "linear" for interpolation, "constant" for forward fill
@@ -369,9 +369,13 @@ class Timeseries:
         :rtype: Timeseries
         """
         if strategy == "linear":
-            df = self.timeseries.upsample(time_column="time", every=every).interpolate().fill_null(strategy="forward")
+            df = (
+                self.timeseries.upsample(time_column="time", every=frequency)
+                .interpolate()
+                .fill_null(strategy="forward")
+            )
         elif strategy == "constant":
-            df = self.timeseries.upsample(time_column="time", every="15m").fill_null(
+            df = self.timeseries.upsample(time_column="time", every=frequency).fill_null(
                 strategy="forward",
             )
         else:
