@@ -79,6 +79,7 @@ class Timeseries:
 
         :param file_path: Path to the file
         :type file_path: str or Path
+        :raises ValueError: If file format is not supported
         :return: Loaded Timeseries object
         :rtype: Timeseries
         """
@@ -97,6 +98,7 @@ class Timeseries:
 
         :param other: The Polars DataFrame to compare with
         :type other: pl.DataFrame
+        :raises NotImplementedError: If the object to compare is not a Timeseries
         :return: True if the DataFrames are equal, False otherwise
         :rtype: bool
         """
@@ -116,6 +118,7 @@ class Timeseries:
     def __mul__(self, other: float | Timeseries) -> Timeseries:
         """Multiply all numeric columns by a scalar or another Timeseries.
 
+        :raises TypeError: If the object is not a timeseries or a float
         :return: The Timeseries where all numeric columns are multiplied by a scalar or another Timeseries
         :rtype: Timeseries
         """
@@ -131,12 +134,15 @@ class Timeseries:
                 .with_columns(pl.col("value").mul(pl.col("value_right")).alias("value"))
                 .select("time", "value")
             )
+        else:
+            raise TypeError("Timeseries can't be multiplied")
 
         return Timeseries(df, self.timezone)
 
     def __add__(self, other: float | Timeseries) -> Timeseries:
         """Add all numeric columns by a scalar or timeseries.
 
+        :raises TypeError: If the object is not a timeseries or a float
         :return: The Timeseries where a scalar or another Timeseries are added to all numeric columns
         :rtype: Timeseries
         """
@@ -152,12 +158,15 @@ class Timeseries:
                 .with_columns(pl.col("value").add(pl.col("value_right")).alias("value"))
                 .select("time", "value")
             )
+        else:
+            raise TypeError("Timeseries can't perform addition")
 
         return Timeseries(df, self.timezone)
 
     def __sub__(self, other: float | Timeseries) -> Timeseries:
         """Subtract all numeric columns by a scalar or timeseries.
 
+        :raises TypeError: If the object is not a timeseries or a float
         :return: The Timeseries where a scalar or another Timeseries are subtract to all numeric columns
         :rtype: Timeseries
         """
@@ -173,12 +182,15 @@ class Timeseries:
                 .with_columns(pl.col("value").sub(pl.col("value_right")).alias("value"))
                 .select("time", "value")
             )
+        else:
+            raise TypeError("Timeseries can't perform subtraction")
 
         return Timeseries(df, self.timezone)
 
     def __truediv__(self, other: float | Timeseries) -> Timeseries:
         """Divide all numeric columns by a scalar or timeseries.
 
+        :raises TypeError: If the object is not a timeseries or a float
         :return: The Timeseries where all numeric columns are divided by a scalar or another Timeseries
         :rtype: Timeseries
         """
@@ -196,6 +208,8 @@ class Timeseries:
                 .with_columns(pl.col("value").truediv(pl.col("value_right")).alias("value"))
                 .select("time", "value")
             )
+        else:
+            raise TypeError("Timeseries can't be divided")
 
         return Timeseries(df, self.timezone)
 
@@ -223,7 +237,8 @@ class Timeseries:
         """
         return self.timeseries
 
-    def _check_timezone(self, timezone: str) -> None:
+    @staticmethod
+    def _check_timezone(timezone: str) -> None:
         """
         Check if the timezone is valid.
 
@@ -356,6 +371,8 @@ class Timeseries:
         :type time: datetime or str
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
         :type date_format: str, optional
+        :raises TypeError: If the time is not a string or a datetime object
+        :raises ValueError: If the time can't be converted
         :return: The date given
         :rtype: pendulum.DateTime
         """
@@ -375,6 +392,7 @@ class Timeseries:
 
         :param freq: frequency to convert"
         :type freq: str
+        :raises ValueError: If the frequency is not supported
         :return: The frequency with days, hours, minutes has keys
         :rtype: Dict
         """
@@ -436,7 +454,7 @@ class Timeseries:
         :type agg: Literal["mean", "sum", "min", "max"], optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :raises ValueError: If the aggregation function is unsupported
+        :raises NotImplementedError: If the aggregation function is unsupported
         :return: Grouped time series
         :rtype: Timeseries
         """
@@ -560,6 +578,7 @@ class Timeseries:
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
+        :raises NotImplementedError: If the times to filter type is unsupported
         :return: Filtered time series
         :rtype: Timeseries
         """

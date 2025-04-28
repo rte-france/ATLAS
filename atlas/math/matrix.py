@@ -78,11 +78,12 @@ class Matrix(Generic[Index]):
 
         :param other: Another matrix instance.
         :type other: object
+        :raises TypeError: If the object to compare is not a Matrix
         :return: True if equal, False otherwise.
         :rtype: bool
         """
         if not isinstance(other, Matrix):
-            raise NotImplementedError("Cannot compare with non-Matrix object")
+            raise TypeError("Cannot compare with non-Matrix object")
 
         return (
             self.name == other.name
