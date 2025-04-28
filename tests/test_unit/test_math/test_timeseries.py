@@ -172,8 +172,8 @@ class TestTimeseriesBasicOperations:
         """Test length calculation."""
         assert len(sample_ts) == 4
 
-    def test_mul(self, sample_ts):
-        """Test multiplication operation."""
+    def test_mul_with_value(self, sample_ts):
+        """Test multiplication operation between a timeseries and a value."""
         ts = sample_ts * 2
         assert isinstance(ts, Timeseries)
 
@@ -183,6 +183,18 @@ class TestTimeseriesBasicOperations:
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * 2
+
+    def test_mul_with_ts(self, sample_ts):
+        """Test multiplication operation between two timeseries."""
+        ts = sample_ts * sample_ts
+        assert isinstance(ts, Timeseries)
+
+        # Original values should be doubled
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
+
+        for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
+            assert new == orig * orig
 
     def test_set_value(self, sample_ts):
         ts = Timeseries()
