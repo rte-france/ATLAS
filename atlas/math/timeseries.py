@@ -12,18 +12,15 @@ from __future__ import annotations
 import pickle
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, cast
+from typing import Literal, cast
 
+import pandas as pd
 import pendulum
 import plotly
+import plotly.express as px
 import plotly.graph_objects
 import polars as pl
 import pytz
-
-if TYPE_CHECKING:
-    import pandas as pd
-
-import plotly.express as px
 
 
 class Timeseries:
@@ -228,14 +225,20 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def get_data(self) -> pl.DataFrame:
+    def get_data(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame:
         """
         Return the internal Polars DataFrame.
 
+        :param engine: The engine to use for the output, defaults to "pandas"
+        :type engine: str, optional
         :return: The internal time series data
         :rtype: pl.DataFrame
         """
-        return self.timeseries
+        if engine == "pandas":
+            return self.timeseries.to_pandas()
+        if engine == "polars":
+            return self.timeseries
+        raise ValueError("Unsupported engine. Use 'polars' or 'pandas'.")
 
     @staticmethod
     def _check_timezone(timezone: str) -> None:

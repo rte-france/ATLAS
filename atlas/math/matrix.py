@@ -9,18 +9,16 @@ Module that implements Matrix
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Generic, TypeVar
+import pandas as pd
+import polars as pl
 
 from atlas.math.timeseries import Timeseries
 
-Index = TypeVar("Index", str, int, float, datetime)
 
-
-class Matrix(Generic[Index]):
+class Matrix:
     """Base class for storing Timeseries objects indexed by scenario keys or datetimes."""
 
-    def __init__(self, name: str, indexes: list[Index], timeseries: list[Timeseries]) -> None:
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame) -> None:
         """
         Initialize the matrix.
 
@@ -32,11 +30,8 @@ class Matrix(Generic[Index]):
         :type timeseries: list[Timeseries]
         :raises ValueError: If the number of indexes and timeseries do not match.
         """
-        if len(indexes) != len(timeseries):
-            raise ValueError("Indexes and timeseries must have the same length.")
-
-        self.name: str = name
-        self.timeseries_map: dict[Index, Timeseries] = dict(zip(indexes, timeseries, strict=False))
+        self.matrix = matrix
+        self.indexes = matrix.columns
 
     def __len__(self) -> int:
         """
