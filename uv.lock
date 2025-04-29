@@ -1653,11 +1653,11 @@ wheels = [
 
 [[package]]
 name = "narwhals"
-version = "1.37.0"
+version = "1.37.1"
 source = { registry = "https://pypi.org/simple/" }
-sdist = { url = "https://files.pythonhosted.org/packages/d0/b8/8adb05ab8ad7eb13069a241081fda5653de8532078b128cd58f647f690c7/narwhals-1.37.0.tar.gz", hash = "sha256:47cb7bb63afd85e72c5260a8c6281fce88b2e12fbe18eba777b980e3dccd5a45", size = 271458 }
+sdist = { url = "https://files.pythonhosted.org/packages/13/e1/a602073ef14da8f065b08c178861cf782f08a3676492042566ae3ccc5671/narwhals-1.37.1.tar.gz", hash = "sha256:1eb8f17ff00e6c471d5afb704e9068f41657234eb73bde2ee66ad975a170015b", size = 272029 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8e/37/9f0f514d0912bc6d4b9476904b39cba1d38f5e21731552f3d52f5e594bcf/narwhals-1.37.0-py3-none-any.whl", hash = "sha256:d7df62f3bc2bf951a7ba3589cd1f6b8ed1298da281c348444d19f9c0b5a063f6", size = 331872 },
+    { url = "https://files.pythonhosted.org/packages/b1/e3/79d95ed89f46b134dd801b54375e362c505303bd739a6737efc14d0de835/narwhals-1.37.1-py3-none-any.whl", hash = "sha256:6f358a23b7351897d6efb45496dc0528918ce4ca6c8f9631594885cd873576a7", size = 332366 },
 ]
 
 [[package]]
@@ -2959,7 +2959,7 @@ wheels = [
 
 [[package]]
 name = "typer"
-version = "0.15.2"
+version = "0.15.3"
 source = { registry = "https://pypi.org/simple/" }
 dependencies = [
     { name = "click" },
@@ -2967,9 +2967,9 @@ dependencies = [
     { name = "shellingham" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/6f/3991f0f1c7fcb2df31aef28e0594d8d54b05393a0e4e34c65e475c2a5d41/typer-0.15.2.tar.gz", hash = "sha256:ab2fab47533a813c49fe1f16b1a370fd5819099c00b119e0633df65f22144ba5", size = 100711 }
+sdist = { url = "https://files.pythonhosted.org/packages/98/1a/5f36851f439884bcfe8539f6a20ff7516e7b60f319bbaf69a90dc35cc2eb/typer-0.15.3.tar.gz", hash = "sha256:818873625d0569653438316567861899f7e9972f2e6e0c16dab608345ced713c", size = 101641 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/fc/5b29fea8cee020515ca82cc68e3b8e1e34bb19a3535ad854cac9257b414c/typer-0.15.2-py3-none-any.whl", hash = "sha256:46a499c6107d645a9c13f7ee46c5d5096cae6f5fc57dd11eccbbb9ae3e44ddfc", size = 45061 },
+    { url = "https://files.pythonhosted.org/packages/48/20/9d953de6f4367163d23ec823200eb3ecb0050a2609691e512c8b95827a9b/typer-0.15.3-py3-none-any.whl", hash = "sha256:c86a65ad77ca531f03de08d1b9cb67cd09ad02ddddf4b34745b5008f43b239bd", size = 45253 },
 ]
 
 [[package]]

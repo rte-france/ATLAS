@@ -33,7 +33,7 @@ It is completely **optional** !
 
 You can either :
 
-- Define environment variables exporting them directly.
+- Define environment variables to_fileing them directly.
 - Define environment variables in a `.env` file at the root of your project:
 
 ```txt

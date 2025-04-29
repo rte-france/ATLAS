@@ -188,7 +188,7 @@ class Matrix:
         """
         return self.matrix
 
-    def export(self, file_path: str | Path, file_format: str = "parquet") -> None:
+    def to_file(self, file_path: str | Path, file_format: str = "parquet") -> None:
         """
         Save the matrix to a file in either CSV or Parquet format.
 

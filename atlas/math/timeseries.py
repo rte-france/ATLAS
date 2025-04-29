@@ -558,7 +558,7 @@ class Timeseries:
             other = other.timeseries
         return self.timeseries.join(other, on=by, how=how, suffix=suffixes, coalesce=True)
 
-    def export(
+    def to_file(
         self,
         path: str | Path,
         file_format: Literal["csv", "parquet", "pickle"] = "csv",

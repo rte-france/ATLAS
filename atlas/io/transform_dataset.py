@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 import re
@@ -27,7 +28,7 @@ class AtlasTransformerDataset:
         self.target_root = Path(target_root)
 
         # Create the main directories in the target structure
-        self.data_dir = self.target_root / "data"
+        self.data_dir = self.target_root / "objects"
         self.timeseries_dir = self.target_root / "timeseries"
         self.scenario_matrix_dir = self.target_root / "scenario_matrix"
         self.forecasting_matrix_dir = self.target_root / "forecasting_matrix"
@@ -458,56 +459,62 @@ class AtlasTransformerDataset:
             if file != merged_file_path:
                 file.unlink()
 
-    def create_instance_csv(self):
-        """Create CSV files for each business type containing instance data."""
-        # Group instances by business type
-        business_types = {}
-        for name, data in self.instances_data.items():
-            business_type = data["business_type"]
-            if business_type not in business_types:
-                business_types[business_type] = []
-            business_types[business_type].append(data)
 
-        # Create a CSV file for each business type
-        for business_type, instances in business_types.items():
-            # Find all possible attribute columns across all instances of this type
-            all_attributes = set()
-            for instance_data in instances:
-                all_attributes.update(instance_data.keys())
+    def flatten_attributes_with_filter(self,instance_name, instance_dict):
+        """
+        Flatten attributes:
+        - Use snake_case for attribute names
+        - If a value is a dict with 'object' and non-empty 'timeseries', store the object value
+        - Use instance name only if 'name' attribute is not present
+        """
+        flat = {}
+        has_name = "name" in instance_dict
 
-            # Remove non-attribute keys
-            for key in ["business_type", "name", "matrices"]:
-                if key in all_attributes:
-                    all_attributes.remove(key)
+        for attr, value in instance_dict.items():
+            snake_attr = self.to_snake_case(attr)
+            if isinstance(value, dict):
+                if "object" in value:
+                    ts = value.get("timeseries")
+                    if ts not in (None, {}, []):
+                        flat[snake_attr] = value["object"]
+            else:
+                flat[snake_attr] = value
 
-            # Create CSV data
-            csv_data = []
-            for instance_data in instances:
-                # Start with the instance name
-                row_data = {"name": instance_data["name"]}
+        if not has_name:
+            flat["name"] = instance_name  # fallback if 'name' not present
+        return flat
 
-                # Add all possible attributes (whether present for this instance or not)
-                for attr in all_attributes:
-                    row_data[attr] = instance_data.get(attr, None)
+    def from_objects_json_to_csv_files(self, objects_json_file):
+        # Load filtered_data
+        with open(objects_json_file, "r") as f:
+            filtered_data = json.load(f)
 
-                csv_data.append(row_data)
+        # Traverse structure
+        namespaces = filtered_data.get("Namespaces", {})
+        for ns_name, ns_content in namespaces.items():
+            classes = ns_content.get("Classes", {})
+            for class_name, class_content in classes.items():
+                instances = class_content.get("Instances", {})
 
-            # Create DataFrame and save as CSV
-            df = pl.DataFrame(csv_data)
-            csv_path = self.data_dir / f"{self.to_snake_case(business_type)}.csv"
-            df.write_csv(csv_path, separator=";")
+                rows = []
+                all_attrs = set()
 
-    def transform(self):
-        """Main method to perform the complete transformation."""
-        self.process_source_tree()
-        self.create_instance_csv()
-        return self.target_root
+                for inst_name, inst_data in instances.items():
+                    flat = self.flatten_attributes_with_filter(inst_name, inst_data)
+                    rows.append(flat)
+                    all_attrs.update(flat.keys())
 
-    def run(self, hdf_path):
-        """Run the transformation process."""
-        self.convert_hdf5_to_csv(hdf_path=hdf_path, output_dir=self.source_root)
-        self.transform()
-        print(f"Transformation complete. Output directory: {self.target_root}")
+                # Determine first column
+                first_col = "name" if any("name" in row for row in rows) else None
+                fieldnames = [first_col] if first_col else []
+                fieldnames += sorted(attr for attr in all_attrs if attr != first_col)
+
+                # Write to CSV
+                csv_file = self.data_dir / f"{class_name}.csv"
+                with open(csv_file, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(rows)
 
     @staticmethod
     def to_snake_case(name: str) -> str:
@@ -520,3 +527,15 @@ class AtlasTransformerDataset:
         name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
         # Convert everything to lowercase
         return name.lower()
+
+    def transform(self, objects_json_path):
+        """Main method to perform the complete transformation."""
+        self.process_source_tree()
+        self.from_objects_json_to_csv_files(objects_json_path)
+        return self.target_root
+
+    def run(self, hdf_path, objects_json_path):
+        """Run the transformation process."""
+        self.convert_hdf5_to_csv(hdf_path=hdf_path, output_dir=self.source_root)
+        self.transform(objects_json_path)
+        print(f"Transformation complete. Output directory: {self.target_root}")

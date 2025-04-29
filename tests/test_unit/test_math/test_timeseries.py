@@ -436,35 +436,35 @@ class TestTimeseriesManipulation:
 
 
 class TestTimeseriesExport:
-    """Test exporting time series data."""
+    """Test to_fileing time series data."""
 
-    def test_export_csv(self, sample_ts):
-        """Test exporting to CSV format."""
+    def test_to_file_csv(self, sample_ts):
+        """Test to_fileing to CSV format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.csv")
-            sample_ts.export(path, file_format="csv")
+            sample_ts.to_file(path, file_format="csv")
             assert os.path.exists(path)
 
             # Check if file is readable
             df = pl.read_csv(path)
             assert len(df) == len(sample_ts)
 
-    def test_export_parquet(self, sample_ts):
-        """Test exporting to Parquet format."""
+    def test_to_file_parquet(self, sample_ts):
+        """Test to_fileing to Parquet format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.parquet")
-            sample_ts.export(path, file_format="parquet")
+            sample_ts.to_file(path, file_format="parquet")
             assert os.path.exists(path)
 
             # Check if file is readable
             df = pl.read_parquet(path)
             assert len(df) == len(sample_ts)
 
-    def test_export_pickle(self, sample_ts):
-        """Test exporting to Pickle format."""
+    def test_to_file_pickle(self, sample_ts):
+        """Test to_fileing to Pickle format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.pickle")
-            sample_ts.export(path, file_format="pickle")
+            sample_ts.to_file(path, file_format="pickle")
             assert os.path.exists(path)
 
             # Check if file is readable
@@ -473,16 +473,16 @@ class TestTimeseriesExport:
             assert isinstance(loaded_ts, Timeseries)
             assert len(loaded_ts) == len(sample_ts)
 
-    def test_export_format_mismatch(self, sample_ts):
-        """Test exporting with a format that doesn't match the file extension."""
+    def test_to_file_format_mismatch(self, sample_ts):
+        """Test to_fileing with a format that doesn't match the file extension."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.txt")
             with pytest.raises(ValueError):
-                sample_ts.export(path, file_format="csv")
+                sample_ts.to_file(path, file_format="csv")
 
-    def test_export_unsupported_format(self, sample_ts):
-        """Test exporting with an unsupported format."""
+    def test_to_file_unsupported_format(self, sample_ts):
+        """Test to_fileing with an unsupported format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.json")
             with pytest.raises(NotImplementedError):
-                sample_ts.export(path, file_format="json")
+                sample_ts.to_file(path, file_format="json")
