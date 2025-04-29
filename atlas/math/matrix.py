@@ -158,7 +158,7 @@ class Matrix:
         timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
 
         self.matrix = self.matrix.join(
-            timeseries.get_data().rename({"value": scenario_name}),
+            timeseries.get_data(engine="polars").rename({"value": scenario_name}),  # type: ignore[arg-type]
             on="time",
             how="full",
             coalesce=True,
