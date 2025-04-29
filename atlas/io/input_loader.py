@@ -136,7 +136,7 @@ class InputLoader:
         :param object_type: The type of the object to instantiate.
         :type object_type: str
         :return: A dictionary mapping object names to lists of instantiated objects.
-        :rtype: dict[str, list[BusinessModel]]
+        :rtype: dict[str, dict[str, BusinessModel]]
         """
         objects_instantiated = {}
 
@@ -169,7 +169,7 @@ class InputLoader:
         :param timeseries_file_extension: The file extension for the timeseries files.
         :type timeseries_file_extension: str
         :return: An instance of the specified object type.
-        :rtype: BusinessModel
+        :rtype: list[dict[str, BusinessModel]]
         """
         objects_instantiated = []
 
@@ -246,7 +246,7 @@ class InputLoader:
         :param directory_path: The path to the directory.
         :type directory_path: str or pathlib.Path
         :return: A dictionary mapping object names to lists of instantiated objects.
-        :rtype: dict[str, list[BusinessModel]]
+        :rtype: dict[str, list[dict[str, str]]]
         """
         cfg.logger.debug(f"Parsing objects from directory: {objects_path}")
         return {
