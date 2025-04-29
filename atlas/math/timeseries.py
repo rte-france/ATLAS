@@ -43,6 +43,7 @@ class Timeseries:
     ) -> None:
         self.check_timezone(timezone)
 
+        self.interpolation_method: str = interpolation_method
         self.timezone: str = timezone
         self.timeseries: pl.DataFrame = pl.DataFrame()
         if timeseries is None:
@@ -685,7 +686,7 @@ class Timeseries:
         :rtype: dict
         """
         if len(self.timeseries) == 0:
-            return None
+            return {"time": datetime, "value": None}
         df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).get_data(engine="polars")  # type: ignore[assignment]
         if len(df) > 0:
             return df.to_dicts()[0]["value"]

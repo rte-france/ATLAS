@@ -85,9 +85,9 @@ class LazyTimeseries:
             file_path = Path(file_path)
 
         if file_path.suffix == ".csv":
-            return cls(pl.scan_csv(file_path, separator=separator))
+            return cls(pl.scan_csv(file_path, separator=separator), timezone=timezone)
         if file_path.suffix == ".parquet":
-            return cls(pl.scan_parquet(file_path))
+            return cls(pl.scan_parquet(file_path), timezone=timezone)
         raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
 
     def get_data(
