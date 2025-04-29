@@ -99,7 +99,7 @@ class ForecastingMatrix(Matrix):
         if isinstance(index, str):
             dt: str = datetime.strptime(index, self.date_format).strftime(self.date_format)  # noqa: DTZ007
         else:
-            dt: str = index.strftime(self.date_format)
+            dt: str = index.strftime(self.date_format)  # type: ignore[no-redef]
 
         super().add(timeseries, dt)
         self._sort_indexes()

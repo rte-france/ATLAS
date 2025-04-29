@@ -48,7 +48,7 @@ class Timeseries:
                 schema={"time": pl.Datetime("us", time_zone=self.timezone), "value": pl.Float64()}
             )
         elif isinstance(timeseries, Timeseries):
-            self.timeseries = timeseries.get_data()
+            self.timeseries = timeseries.get_data(engine="polars")  # type: ignore[assignment]
             self.timezone = timeseries.timezone
         else:
             try:
@@ -101,7 +101,7 @@ class Timeseries:
         """
         if isinstance(other, Timeseries):
             other = other.get_data(engine="polars")
-            return self.timeseries.equals(other)
+            return self.timeseries.equals(other)  # type: ignore[arg-type]
         raise NotImplementedError("Comparison with non-Timeseries objects is not supported")
 
     def __len__(self) -> int:
@@ -670,12 +670,12 @@ class Timeseries:
         :return: Dictionary with time and value
         :rtype: dict
         """
-        df = self.filter(datetime, date_format, inplace=False).get_data()
+        df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).get_data(engine="polars")  # type: ignore[assignment]
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
 
         df = (
-            self.set_value(datetime, None, date_format, inplace=False)
+            self.set_value(datetime, None, date_format, inplace=False)  # type: ignore[assignment]
             .interpolate(inplace=False)
             .filter(datetime, date_format, inplace=False)
             .get_data()
