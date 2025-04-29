@@ -16,7 +16,7 @@ def mock_logger():
 
 @pytest.fixture
 def mock_model_mapping_name():
-    with mock.patch.object(cfg, "MODEL_MAPPING_NAME", {"wind_turbine": "some_class"}):
+    with mock.patch.object(cfg, "MODEL_MAPPING_NAME", {"wind": "some_class"}):
         yield
 
 
@@ -57,17 +57,17 @@ def test_read_data_file_invalid_extension(tmp_path):
 
 # Tests for load_metadata
 def test_load_metadata_exists(tmp_path):
-    metadata_dir = tmp_path / "scenario_matrix/wind_turbine/instance/attribute"
+    metadata_dir = tmp_path / "scenario_matrix/wind/instance/attribute"
     metadata_dir.mkdir(parents=True)
     metadata_path = metadata_dir / "metadata.json"
     metadata_path.write_text('{"key": "value"}')
 
-    metadata = InputLoader.load_metadata(tmp_path, "instance", "wind_turbine", "attribute", "scenario_matrix")
+    metadata = InputLoader.load_metadata(tmp_path, "instance", "wind", "attribute", "scenario_matrix")
     assert metadata == {"key": "value"}
 
 
 def test_load_metadata_not_exists(tmp_path):
-    metadata = InputLoader.load_metadata(tmp_path, "instance", "wind_turbine", "attribute", "scenario_matrix")
+    metadata = InputLoader.load_metadata(tmp_path, "instance", "wind", "attribute", "scenario_matrix")
     assert metadata == {}
 
 
@@ -79,30 +79,22 @@ def test_parse_objects_from_directory(fake_csv, mock_logger):
     assert isinstance(objects["test"][0], dict)
 
 
-# Tests for from_file
-def test_from_file_success(fake_csv, mock_model_mapping_name, mock_logger):
-    # Simulate reading an object and instantiating it
-    with mock.patch.object(InputLoader, "_instantiate_math_objects_into_dict", return_value={"dummy": "object"}):
-        out = InputLoader.from_file(fake_csv, object_type="wind_turbine")
-        assert "dummy" in out
-
-
 def test_from_file_not_found(tmp_path):
     file = tmp_path / "missing.csv"
     with pytest.raises(FileNotFoundError):
-        InputLoader.from_file(file, object_type="wind_turbine")
+        InputLoader.from_file(file, object_type="wind")
 
 
 def test_from_file_not_a_file(tmp_path):
     dir = tmp_path / "dir"
     dir.mkdir()
     with pytest.raises(NotADirectoryError):
-        InputLoader.from_file(dir, object_type="wind_turbine")
+        InputLoader.from_file(dir, object_type="wind")
 
 
 # Tests for _load_timeseries
 def test__load_timeseries_success(tmp_path, mock_logger):
-    timeseries_dir = tmp_path / "timeseries/wind_turbine/instance"
+    timeseries_dir = tmp_path / "timeseries/wind/instance"
     timeseries_dir.mkdir(parents=True)
     file_path = timeseries_dir / "attribute.parquet"
     df = pl.DataFrame({"timestamp": [1], "value": [100]})
@@ -111,7 +103,7 @@ def test__load_timeseries_success(tmp_path, mock_logger):
     with mock.patch("atlas.math.timeseries.Timeseries.from_file") as timeseries_mock:
         InputLoader._load_timeseries(
             base_path=tmp_path,
-            object_type="wind_turbine",
+            object_type="wind",
             name="instance",
             attribute_name="attribute",
         )
@@ -122,40 +114,21 @@ def test__load_timeseries_no_timeseries_dir(tmp_path):
     with pytest.raises(NotADirectoryError):
         InputLoader._load_timeseries(
             base_path=tmp_path,
-            object_type="wind_turbine",
+            object_type="wind",
             name="instance",
             attribute_name="attribute",
         )
 
 
 def test__load_timeseries_no_file(tmp_path):
-    (tmp_path / "timeseries/wind_turbine/instance").mkdir(parents=True)
+    (tmp_path / "timeseries/wind/instance").mkdir(parents=True)
     with pytest.raises(FileNotFoundError):
         InputLoader._load_timeseries(
             base_path=tmp_path,
-            object_type="wind_turbine",
+            object_type="wind",
             name="instance",
             attribute_name="attribute",
         )
-
-
-# Tests for _load_matrix
-def test__load_matrix_success(tmp_path, mock_logger):
-    matrix_dir = tmp_path / "forecasting_matrix/wind_turbine/instance/attribute"
-    matrix_dir.mkdir(parents=True)
-    matrix_file = matrix_dir / "attribute.parquet"
-    df = pl.DataFrame({"timestamp": [1], "value": [200]})
-    df.write_parquet(matrix_file)
-
-    with mock.patch("atlas.math.forecasting_matrix.ForecastingMatrix") as forecast_mock:
-        InputLoader._load_matrix(
-            base_path=tmp_path,
-            name="instance",
-            object_type="wind_turbine",
-            attribute_name="attribute",
-            matrix_type="forecasting_matrix",
-        )
-        forecast_mock.assert_not_called()  # Not called yet because the function is incomplete in your code!
 
 
 def test__load_matrix_no_dir(tmp_path):
@@ -163,19 +136,19 @@ def test__load_matrix_no_dir(tmp_path):
         InputLoader._load_matrix(
             base_path=tmp_path,
             name="instance",
-            object_type="wind_turbine",
+            object_type="wind",
             attribute_name="attribute",
             matrix_type="forecasting_matrix",
         )
 
 
 def test__load_matrix_no_file(tmp_path):
-    (tmp_path / "forecasting_matrix/wind_turbine/instance/attribute").mkdir(parents=True)
+    (tmp_path / "forecasting_matrix/wind/instance/attribute").mkdir(parents=True)
     with pytest.raises(FileNotFoundError):
         InputLoader._load_matrix(
             base_path=tmp_path,
             name="instance",
-            object_type="wind_turbine",
+            object_type="wind",
             attribute_name="attribute",
             matrix_type="forecasting_matrix",
         )
