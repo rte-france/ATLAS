@@ -85,7 +85,7 @@ class Equipment(BusinessModel):
     :type maximum_daily_energy: Timeseries
     :param minimum_daily_energy: Minimum daily quantity of energy that can be produced
     :type minimum_daily_energy: Timeseries
-    :param startup_cost: Startup cost. Only used for thermic Equipment
+    :param startup_cost: Startup cost. Only used for Thermal Equipment
     :type startup_cost: Timeseries
     :param total_id_buy_submitted_volume: Cumulative sum of buy offers from all Intraday market
     :type total_id_buy_submitted_volume: Timeseries

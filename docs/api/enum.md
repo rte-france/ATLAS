@@ -1,6 +1,6 @@
 # Enum classes
 
-::: atlas.enum.ThermicStrategy
+::: atlas.enum.ThermalStrategy
 
 ::: atlas.enum.LoadType
 

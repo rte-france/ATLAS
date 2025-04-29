@@ -6,13 +6,13 @@ This file is part of the ATLAS project.
 
 from pydantic import Field
 
-from atlas.enum import ThermicStrategy
+from atlas.enum import ThermalStrategy
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
 
-class Thermic(Equipment):
+class Thermal(Equipment):
     """:param installed_capacity: Installed capacity
     :type installed_capacity: float
     :param minimum_stable_power_duration: Sum of volume of sell offers on the Day Ahead market
@@ -36,7 +36,7 @@ class Thermic(Equipment):
     :param startup_duration: Sum of volume of sell offers on the Day Ahead market
     :type startup_duration: float
     :param strategy: Sum of volume of sell offers on the Day Ahead market
-    :type strategy: ThermicStrategy
+    :type strategy: ThermalStrategy
     :param state_sequence: Sum of volume of sell offers on the Day Ahead market
     :type state_sequence: ScenarioMatrix
     :param da_sell_submitted_volume: Sum of volume of sell offers on the Day Ahead market
@@ -63,7 +63,7 @@ class Thermic(Equipment):
     startup_delay_probability: float | None = Field(None, ge=0, le=1)
     startup_duration: float | None = Field(None, gt=0)
 
-    strategy: ThermicStrategy | None = None
+    strategy: ThermalStrategy | None = None
 
     state_sequence: ScenarioMatrix | None = None
     da_sell_submitted_volume: Timeseries | None = None

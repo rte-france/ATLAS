@@ -49,9 +49,9 @@ class StorageType(str, Enum):
     ELECTRIC_VEHICLE = "ElectricVehicle"
 
 
-class ThermicStrategy(str, Enum):
+class ThermalStrategy(str, Enum):
     """
-    Thermic generation strategy classification.
+    Thermal generation strategy classification.
 
     :cvar BASE: Base-load thermal strategy.
     :cvar INTERMEDIATE: Intermediate thermal strategy.

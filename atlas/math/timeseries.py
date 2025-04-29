@@ -31,21 +31,26 @@ class Timeseries:
     :type timeseries: pl.DataFrame or Timeseries
     :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
     :type timezone: str, optional
-    :raises ValueError: If the timeseries cannot be parsed or validated as a proper Polars DataFrame
+    :param lazy: Used for Unloaded timeseries. Set by
+    :type lazy: bool, optional
     """
 
     def __init__(
         self,
         timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None = None,
         timezone: str = "UTC",
+        interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
-        self._check_timezone(timezone)
+        self.check_timezone(timezone)
 
         self.timezone: str = timezone
         self.timeseries: pl.DataFrame = pl.DataFrame()
         if timeseries is None:
             self.timeseries = pl.DataFrame(
-                schema={"time": pl.Datetime("us", time_zone=self.timezone), "value": pl.Float64()}
+                schema={
+                    "time": pl.Datetime("us", time_zone=self.timezone),
+                    "value": pl.Float64(),
+                }
             )
         elif isinstance(timeseries, Timeseries):
             self.timeseries = timeseries.get_data(engine="polars")  # type: ignore[assignment]
@@ -240,8 +245,17 @@ class Timeseries:
             return self.timeseries
         raise ValueError("Unsupported engine. Use 'polars' or 'pandas'.")
 
+    def to_lazy(self) -> pl.LazyFrame:
+        """
+        Convert the internal Polars DataFrame to a LazyFrame.
+
+        :return: A Polars LazyFrame representation of the time series
+        :rtype: pl.LazyFrame
+        """
+        return self.timeseries.lazy()
+
     @staticmethod
-    def _check_timezone(timezone: str) -> None:
+    def check_timezone(timezone: str) -> None:
         """
         Check if the timezone is valid.
 
@@ -257,7 +271,7 @@ class Timeseries:
         :param timezone: Timezone string
         :type timezone: str
         """
-        self._check_timezone(timezone)
+        self.check_timezone(timezone)
 
         self.timezone = timezone
         self.timeseries = self.timeseries.with_columns(
@@ -670,6 +684,8 @@ class Timeseries:
         :return: Dictionary with time and value
         :rtype: dict
         """
+        if len(self.timeseries) == 0:
+            return None
         df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).get_data(engine="polars")  # type: ignore[assignment]
         if len(df) > 0:
             return df.to_dicts()[0]["value"]

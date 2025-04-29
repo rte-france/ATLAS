@@ -365,3 +365,22 @@ class InputLoader:
             return {}
         with open(metadata_path) as f:
             return json.load(f)
+
+    # @staticmethod
+    # def build_idata(nested_dict: dict[str, dict[str, Any]]) -> type[BaseModel]:
+    #     """
+    #     Builds a Pydantic model with structure InputData.ObjectType.InstanceName
+    #     from a nested dictionary: {object_type: {instance_name: instance}}.
+    #     """
+    #     object_models = {}
+
+    #     for object_type, instances in nested_dict.items():
+    #         fields = {name: (type(obj), obj) for name, obj in instances.items()}
+    #         model = create_model(object_type, **fields)
+    #         object_models[object_type] = (model, model(**instances))
+
+    #     input_fields = {
+    #         k: (model_class, instance) for k, (model_class, instance) in object_models.items()
+    #     }
+    #     idata_model = create_model("InputData", **input_fields)
+    #     return idata_model(**nested_dict)

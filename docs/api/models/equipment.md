@@ -28,6 +28,6 @@
     options:
         show_if_no_docstring: false
 
-::: atlas.Thermic
+::: atlas.Thermal
     options:
         show_if_no_docstring: false

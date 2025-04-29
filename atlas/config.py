@@ -14,7 +14,7 @@ from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.models.equipment.photovoltaic import Photovoltaic
 from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermic import Thermic
+from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
@@ -45,6 +45,6 @@ MODEL_MAPPING_NAME: dict[str, Any] = {
     "photovoltaic": Photovoltaic,
     "portfolio": Portfolio,
     "storage": Storage,
-    "thermic": Thermic,
+    "Thermal": Thermal,
     "wind": Wind,
 }

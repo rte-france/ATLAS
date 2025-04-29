@@ -2,6 +2,7 @@ from atlas.io.input_loader import InputLoader
 from atlas.io.parameters import Parameters, ParametersParser
 from atlas.logging import Logger
 from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
@@ -12,7 +13,7 @@ from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.models.equipment.photovoltaic import Photovoltaic
 from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermic import Thermic
+from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
@@ -31,6 +32,7 @@ __all__ = [
     "Equipment",
     "ForecastingMatrix",
     "Hydraulic",
+    "LazyTimeseries",
     "Load",
     "MarketArea",
     "MarketAreaPtdf",
@@ -44,7 +46,7 @@ __all__ = [
     "Portfolio",
     "ScenarioMatrix",
     "Storage",
-    "Thermic",
+    "Thermal",
     "Timeseries",
     "Wind",
 ]
