@@ -142,23 +142,23 @@ class Matrix:
     def add(
         self,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
-        scenario_name: str,
+        index: str,
     ) -> None:
         """
         Add a timeseries to the matrix.
 
-        :param index: Index key.
-        :type index: Index
+        :param index: Index to add into the matrix
+        :type index: str
         :param timeseries: Timeseries to add.
         :type timeseries: Timeseries
         :raises TypeError: If types are invalid.
         """
-        if scenario_name in self.indexes:
-            raise KeyError(f"Index {scenario_name} already exists in the matrix.")
+        if index in self.indexes:
+            raise KeyError(f"Index {index} already exists in the matrix.")
         timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
 
         self.matrix = self.matrix.join(
-            timeseries.get_data(engine="polars").rename({"value": scenario_name}),  # type: ignore[arg-type]
+            timeseries.get_data(engine="polars").rename({"value": index}),  # type: ignore[arg-type]
             on="time",
             how="full",
             coalesce=True,
@@ -169,8 +169,8 @@ class Matrix:
         """
         Delete a timeseries by index.
 
-        :param index: Index key.
-        :type index: Index
+        :param index: Index key to delete from the matrix
+        :type index: str
         :raises KeyError: If index is not found.
         """
         if index not in self.indexes:
@@ -187,3 +187,20 @@ class Matrix:
         :rtype: pl.DataFrame
         """
         return self.matrix
+
+    def export(self, file_path: str | Path, file_format: str = "parquet") -> None:
+        """
+        Save the matrix to a file in either CSV or Parquet format.
+
+        :param file_path: Output file path.
+        :type file_path: str | Path
+        :param format: Output format: "csv" or "parquet".
+        :type format: str
+        """
+        file_path = Path(file_path)
+        if file_format == "csv":
+            self.matrix.write_csv(file_path)
+        elif file_format == "parquet":
+            self.matrix.write_parquet(file_path)
+        else:
+            raise ValueError(f"Unsupported format: {format}. Use 'csv' or 'parquet'.")

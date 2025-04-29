@@ -104,15 +104,16 @@ nav:
     - Math Objects:
       - Timeseries: api/math/timeseries.md
       - Scenario Matrix: api/math/scenario_matrix.md
+      - Forecasting Matrix: api/math/forecasting_matrix.md
     - I/O:
       - Input Parser: api/io/input_parser.md
       - Parameters: api/io/parameters.md
     - Models:
       - Equipement: api/models/equipment.md
       - Market: api/models/market.md
-      - Forecasting Matrix: api/math/forecasting_matrix.md
-    - Enum: api/enum.md
-    - Logging: api/logging.md
+    - Others:
+      - Enum: api/enum.md
+      - Logging: api/logging.md
   - Examples:
     - Timeseries: examples/timeseries.ipynb
 

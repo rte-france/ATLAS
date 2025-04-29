@@ -14,6 +14,7 @@ import polars as pl
 
 import atlas.config as cfg
 from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.matrix import Matrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
@@ -28,7 +29,8 @@ class InputLoader:
         directory_path: str | Path,
         separator: str = ";",
         timeseries_file_extension: str = ".parquet",
-    ) -> dict[str, Any]:
+        matrix_file_extension: str = ".parquet",
+    ) -> dict[str, dict[str, Any]]:
         """Load input from a directory.
         :param directory_path: The path to the directory.
         :type directory_path: str or pathlib.Path
@@ -37,7 +39,7 @@ class InputLoader:
         :param timeseries_file_extension: The file extension for the timeseries files.
         :type timeseries_file_extension: str
         :return: A dictionary mapping object names to lists of instantiated objects.
-        :rtype: dict[str, list[BusinessModel]]
+        :rtype: dict[str, dict[str, list[BusinessModel]]]
         """
         cfg.logger.debug(f"Loading input from directory: {directory_path}")
 
@@ -71,6 +73,7 @@ class InputLoader:
                 object_type,
                 base_path=Path(directory_path),
                 timeseries_file_extension=timeseries_file_extension,
+                matrix_file_extension=matrix_file_extension,
             )
             objects_instantiated[object_type] = cls._instantiate_model_objects_into_dict(
                 objects_instantiated_with_math_objects[object_type],
@@ -81,7 +84,13 @@ class InputLoader:
         return objects_instantiated
 
     @classmethod
-    def from_file(cls, file_path: str | Path, object_type: str) -> dict[str, Any]:
+    def from_file(
+        cls,
+        file_path: str | Path,
+        object_type: str,
+        timeseries_file_extension: str = ".parquet",
+        matrix_file_extension: str = ".parquet",
+    ) -> dict[str, Any]:
         """Load input from a object file.
         :param file_path: The path to the file.
         :type file_path: str or pathlib.Path
@@ -104,6 +113,8 @@ class InputLoader:
             objects,
             object_type,
             base_path=Path(file_path).parents[1],
+            timeseries_file_extension=timeseries_file_extension,
+            matrix_file_extension=matrix_file_extension,
         )
 
         return cls._instantiate_model_objects_into_dict(
@@ -116,19 +127,26 @@ class InputLoader:
         cls,
         file_paths: list[str | Path],
         object_type: list[str],
-    ) -> dict[str, Any]:
+        timeseries_file_extension: str = ".parquet",
+        matrix_file_extension: str = ".parquet",
+    ) -> dict[str, dict[str, Any]]:
         """Load input from a list of object files.
         :param file_paths: The paths to the files.
         :type file_paths: list[str | Path]
         :param object_type: The type of the object to instantiate.
         :type object_type: str
         :return: A dictionary mapping object names to lists of instantiated objects.
-        :rtype: dict[str, BusinessModel]]
+        :rtype: dict[str, list[BusinessModel]]
         """
         objects_instantiated = {}
 
         for file_path, obj_type in zip(file_paths, object_type, strict=False):
-            objects_instantiated[obj_type] = cls.from_file(file_path=file_path, object_type=obj_type)
+            objects_instantiated[obj_type] = cls.from_file(
+                file_path=file_path,
+                object_type=obj_type,
+                matrix_file_extension=matrix_file_extension,
+                timeseries_file_extension=timeseries_file_extension,
+            )
         return objects_instantiated
 
     @classmethod
@@ -138,6 +156,7 @@ class InputLoader:
         object_type: str,
         base_path: Path,
         timeseries_file_extension: str = ".parquet",
+        matrix_file_extension: str = ".parquet",
     ) -> list[dict[str, Any]]:
         """Instantiate objects from a dictionary of attributes.
 
@@ -172,6 +191,7 @@ class InputLoader:
                         attribute_name=key,
                         object_type=object_type,
                         matrix_type=value,
+                        file_extension=matrix_file_extension,
                     )
                 else:
                     object_instantiated[key] = value
@@ -294,7 +314,7 @@ class InputLoader:
         attribute_name: str,
         matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
         file_extension: str = ".parquet",
-    ) -> ScenarioMatrix | ForecastingMatrix:
+    ) -> Matrix:
         """Generic loader for scenario or forecasting matrix time series for a specific instance.
 
         :param base_dir: Path to the scenario_matrix/ or forecasting_matrix/ folder.
@@ -322,17 +342,11 @@ class InputLoader:
 
         cfg.logger.debug(f"Loading {matrix_type} from file: {matrix_file_path}")
 
-        # if matrix_type == "scenario":
-        #     return ScenarioMatrix(
-        #         name, list(matrix_dict.keys()), list(matrix_dict.values())
-        #     )
-        # if matrix_type == "forecasting":
-        #     return ForecastingMatrix(
-        #         name, list(matrix_dict.keys()), list(matrix_dict.values())
-        #     )
-        # raise ValueError(
-        #     f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'."
-        # )
+        if matrix_type == "scenario_matrix":
+            return ScenarioMatrix.from_file(matrix_file_path)
+        if matrix_type == "forecasting_matrix":
+            return ForecastingMatrix.from_file(matrix_file_path)
+        raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
 
     @staticmethod
     def load_metadata(

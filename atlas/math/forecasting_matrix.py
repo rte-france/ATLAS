@@ -24,10 +24,14 @@ if TYPE_CHECKING:
 
 class ForecastingMatrix(Matrix):
     """
-    This class is designed to handle forecasting data, where each Timeseries
-    represents a forecast for a specific datetime.
-    The matrix is sorted by datetime keys, and the keys are stored in a specific
-    format (e.g., "%d_%m_%Y %H:%M:%S").
+    A specialized matrix for handling forecasted timeseries data.
+
+    Each column in the matrix corresponds to a forecast generated at a specific
+    datetime, stored as a string with a configurable format. Internally, the
+    matrix ensures columns are sorted chronologically by their forecast datetime.
+
+    Inherits from:
+        Matrix: Core matrix functionality with timeseries support.
     """
 
     def __init__(
@@ -35,16 +39,16 @@ class ForecastingMatrix(Matrix):
         matrix: pl.DataFrame | pd.DataFrame,
         timezone: str = "UTC",
         date_format: str = "%d_%m_%Y %H:%M:%S",
-    ):
+    ) -> None:
         """
-        Initialize a ForecastingMatrix.
+        Initialize a ForecastingMatrix with a matrix of forecasted timeseries.
 
-        :param name: Name of the matrix.
-        :type name: str
-        :param forecasting_dates: List of forecasting dates used as indexes.
-        :type forecasting_dates: list[datetime]
-        :param timeseries: List of corresponding Timeseries objects.
-        :type timeseries: list[Timeseries]
+        :param matrix: A DataFrame where each column (except "time") represents a forecast.
+        :type matrix: pl.DataFrame | pd.DataFrame
+        :param timezone: Timezone of the timeseries data.
+        :type timezone: str
+        :param date_format: Format used for parsing and displaying datetime indexes.
+        :type date_format: str
         """
         super().__init__(matrix, timezone=timezone)
         self._sort_indexes(date_format=date_format)
@@ -70,7 +74,15 @@ class ForecastingMatrix(Matrix):
         return cls(matrix)
 
     def _sort_indexes(self, date_format: str = "%d_%m_%Y %H:%M:%S") -> None:
-        """Sort the internal mapping of timeseries by datetime keys."""
+        """
+        Sort the forecast matrix columns based on their datetime indexes.
+
+        Columns are expected to be named using a specific datetime format.
+        This method parses, sorts, and reorders the matrix accordingly.
+
+        :param date_format: Format used to parse datetime from index names.
+        :type date_format: str
+        """
         indexes_sorted = (
             pl.DataFrame({"indexes": self.indexes})
             .with_columns(pl.col("indexes").str.strptime(pl.Datetime(time_unit="us"), date_format, strict=False))
@@ -91,10 +103,10 @@ class ForecastingMatrix(Matrix):
         """
         Add a Timeseries to the matrix and keep indexes sorted.
 
-        :param index: Index key.
-        :type index: datetime
-        :param timeseries: Timeseries to add.
+        :param timeseries: Timeseries data to add.
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
         """
         if isinstance(index, str):
             dt: str = datetime.strptime(index, self.date_format).strftime(self.date_format)  # noqa: DTZ007
@@ -108,10 +120,12 @@ class ForecastingMatrix(Matrix):
         """
         Retrieve a timeseries by index.
 
-        :param index: Index key.
-        :type index: Index
-        :raises KeyError: If the index is not found.
-        :return: The Timeseries object.
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime
+        :param date_format: Date format if the index is a string.
+        :type date_format: str
+        :raises KeyError: If the specified index is not found.
+        :return: The corresponding Timeseries object.
         :rtype: Timeseries
         """
         dt: str = (
@@ -126,9 +140,9 @@ class ForecastingMatrix(Matrix):
         """
         Delete a timeseries by index.
 
-        :param index: Index key.
-        :type index: Index
-        :raises KeyError: If index is not found.
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime
+        :raises KeyError: If the index does not exist in the matrix.
         """
         dt: str = (
             datetime.strptime(index, self.date_format)  # noqa: DTZ007
