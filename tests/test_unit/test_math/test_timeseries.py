@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import polars as pl
 import pytest
+from pendulum import Timezone
 
 from atlas import Timeseries
 
@@ -27,8 +28,7 @@ def sample_df() -> pl.DataFrame:
                 datetime(2023, 1, 1, 2, 0, 0),
                 datetime(2023, 1, 1, 3, 0, 0),
             ],
-            "value1": [10.0, 20.0, 30.0, 40.0],
-            "value2": [100, 200, 300, 400],
+            "value": [10.0, 20.0, 30.0, 40.0],
         },
     )
 
@@ -50,8 +50,7 @@ def sample_df_with_nulls() -> pl.DataFrame:
                 datetime(2023, 1, 1, 2, 0, 0),
                 datetime(2023, 1, 1, 3, 0, 0),
             ],
-            "value1": [10.0, None, 30.0, 40.0],
-            "value2": [100, 200, None, 400],
+            "value": [10.0, None, 30.0, 40.0],
         },
     )
 
@@ -67,8 +66,7 @@ def sample_pandas_df() -> pd.DataFrame:
                 datetime(2023, 1, 1, 2, 0, 0),
                 datetime(2023, 1, 1, 3, 0, 0),
             ],
-            "value1": [10.0, 20.0, 30.0, 40.0],
-            "value2": [100, 200, 300, 400],
+            "value": [10.0, 20.0, 30.0, 40.0],
         },
     )
 
@@ -174,17 +172,61 @@ class TestTimeseriesBasicOperations:
         """Test length calculation."""
         assert len(sample_ts) == 4
 
-    def test_mul(self, sample_ts):
-        """Test multiplication operation."""
+    def test_mul_with_value(self, sample_ts):
+        """Test multiplication operation between a timeseries and a value."""
         ts = sample_ts * 2
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.get_data().select(pl.col("value1")).to_series()
-        new_values = ts.get_data().select(pl.col("value1")).to_series()
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * 2
+
+    def test_mul_with_ts(self, sample_ts):
+        """Test multiplication operation between two timeseries."""
+        ts = sample_ts * sample_ts
+        assert isinstance(ts, Timeseries)
+
+        # Original values should be doubled
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
+
+        for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
+            assert new == orig * orig
+
+    def test_set_value(self, sample_ts):
+        ts = Timeseries()
+
+        # Insert new values
+        ts.set_value("2024-01-01 00:00:00", 10, "YYYY-MM-DD HH:mm:ss")
+        ts.set_value("2024-01-01 01:00:00", 20, "YYYY-MM-DD HH:mm:ss")
+
+        # Overwrite value
+        ts.set_value("2024-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
+
+        assert ts.get_data()["time"].to_list() == [
+            datetime(2024, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
+            datetime(2024, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
+        ]
+        assert ts.get_data()["value"].to_list() == [10, 99]
+
+    def test_generate_datetimes(self):
+        """Test static method to generate datetime range."""
+        start = datetime(2023, 1, 1, 0, 0)
+        end = datetime(2023, 1, 1, 6, 0)
+        step = "2h"
+
+        result = Timeseries.generate_datetimes(start=start, end=end, freq=step)
+        expected = [
+            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone("UTC")),
+            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone("UTC")),
+            datetime(2023, 1, 1, 4, 0, tzinfo=Timezone("UTC")),
+            datetime(2023, 1, 1, 6, 0, tzinfo=Timezone("UTC")),
+        ]
+
+        assert result == expected
 
 
 class TestTimeseriesManipulation:
@@ -196,11 +238,11 @@ class TestTimeseriesManipulation:
         assert len(ts) == 4
 
         ts_cleaned = ts.remove_na(inplace=False)
-        assert len(ts_cleaned) == 2  # Only rows with no nulls remain
+        assert len(ts_cleaned) == 3  # Only rows with no nulls remain
         assert len(ts) == 4  # Original unchanged
 
         ts.remove_na(inplace=True)
-        assert len(ts) == 2  # Now original is changed
+        assert len(ts) == 3  # Now original is changed
 
     def test_upsample_linear(self, sample_ts):
         """Test upsampling with linear interpolation."""
@@ -229,12 +271,12 @@ class TestTimeseriesManipulation:
 
         # Check if values are forward-filled
         times = upsampled.get_data()["time"].to_list()
-        values = upsampled.get_data()["value1"].to_list()
+        values = upsampled.get_data()["value"].to_list()
 
         # For each original time point, check next 30-min point has same value
         for i in range(len(sample_ts) - 1):
             orig_time = sample_ts.get_data()["time"][i]
-            orig_value = sample_ts.get_data()["value1"][i]
+            orig_value = sample_ts.get_data()["value"][i]
 
             # Find the next 30-min point in upsampled data
             next_time_idx = times.index(orig_time) + 1
@@ -292,23 +334,6 @@ class TestTimeseriesManipulation:
         with pytest.raises(NotImplementedError):
             sample_ts.groupby("1h", agg="invalid")
 
-    def test_select(self, sample_ts):
-        """Test selecting specific variables."""
-        # Original has time, value1, value2
-        ts = sample_ts
-        selected = ts.select(["time", "value1"], inplace=False)
-
-        # Should only have time and value1 columns
-        assert set(selected.get_data().columns) == {"time", "value1"}
-        assert "value2" not in selected.get_data().columns
-
-        # Original should be unchanged
-        assert "value2" in ts.get_data().columns
-
-        # Test inplace
-        ts.select(["time", "value1"], inplace=True)
-        assert set(ts.get_data().columns) == {"time", "value1"}
-
     def test_remove_duplicated(self, sample_df):
         """Test removal of duplicated rows."""
         # Create data with duplicates
@@ -344,88 +369,14 @@ class TestTimeseriesManipulation:
         other_ts = Timeseries(other_df)
 
         # Test inner join
-        joined = sample_ts.join(other_ts, by="time", how="inner", inplace=False)
+        joined = sample_ts._join(other_ts, by="time", how="inner")
         assert len(joined) == 3  # Only matching times
-        assert set(joined.get_data().columns) == {"time", "value1", "value2", "value3"}
+        assert set(joined.columns) == {"time", "value", "value_right"}
 
         # Test left join
-        left_joined = sample_ts.join(other_ts, by="time", how="left", inplace=False)
+        left_joined = sample_ts._join(other_ts, by="time", how="left")
         assert len(left_joined) == 4  # All rows from sample_ts
-        assert left_joined.get_data()["value3"][3] is None  # Missing value for 3:00
-
-        # Test inplace
-        original_cols = sample_ts.get_data().columns
-        sample_ts.join(other_ts, inplace=True)
-        assert set(sample_ts.get_data().columns) != set(original_cols)
-        assert "value3" in sample_ts.get_data().columns
-
-    def test_drop(self, sample_ts):
-        """Test dropping columns."""
-        # Original has time, value1, value2
-        ts = sample_ts
-        dropped = ts.drop(["value2"], inplace=False)
-
-        # Should only have time and value1 columns
-        assert set(dropped.get_data().columns) == {"time", "value1"}
-        assert "value2" not in dropped.get_data().columns
-
-        # Original should be unchanged
-        assert "value2" in ts.get_data().columns
-
-        # Test inplace
-        ts.drop(["value2"], inplace=True)
-        assert set(ts.get_data().columns) == {"time", "value1"}
-
-    def test_get_granularity(self, sample_ts):
-        """Test getting the time granularity."""
-        # Sample has hourly data
-        hourly = sample_ts.get_granularity(unit="hour")
-        assert hourly == 1.0
-
-        minute = sample_ts.get_granularity(unit="minute")
-        assert minute == 60.0
-
-        second = sample_ts.get_granularity(unit="second")
-        assert second == 3600.0
-
-    def test_get_granularity_invalid_unit(self, sample_ts):
-        """Test getting granularity with an invalid unit."""
-        with pytest.raises(ValueError):
-            sample_ts.get_granularity(unit="invalid")
-
-    def test_get_granularity_not_enough_points(self):
-        """Test getting granularity with insufficient time points."""
-        df = pl.DataFrame(
-            {
-                "time": [datetime(2023, 1, 1, 0, 0, 0)],
-                "value": [10.0],
-            },
-        )
-        ts = Timeseries(df)
-        with pytest.raises(ValueError):
-            ts.get_granularity()
-
-    def test_rename(self, sample_ts):
-        """Test renaming columns."""
-        ts = sample_ts
-        renamed = ts.rename(["value1", "value2"], ["temperature", "pressure"], inplace=False)
-
-        # Check new column names
-        assert "temperature" in renamed.get_data().columns
-        assert "pressure" in renamed.get_data().columns
-        assert "value1" not in renamed.get_data().columns
-        assert "value2" not in renamed.get_data().columns
-
-        # Original should be unchanged
-        assert "value1" in ts.get_data().columns
-        assert "value2" in ts.get_data().columns
-
-        # Test inplace
-        ts.rename(["value1", "value2"], ["temperature", "pressure"], inplace=True)
-        assert "temperature" in ts.get_data().columns
-        assert "pressure" in ts.get_data().columns
-        assert "value1" not in ts.get_data().columns
-        assert "value2" not in ts.get_data().columns
+        assert left_joined["value_right"][3] is None  # Missing value for 3:00
 
     def test_timezone_operations(self, sample_ts):
         """Test timezone conversion operations."""
@@ -451,23 +402,37 @@ class TestTimeseriesManipulation:
         dt = datetime(2023, 1, 1, 0, 0, 0)
         result = sample_ts.filter(dt, inplace=False)
         assert len(result) == 1
-        assert result.get_data()["value1"].item() == 10
+        assert result.get_data()["value"].item() == 10
 
     def test_filter_with_list_of_datetime(self, sample_ts):
         dts = [datetime(2023, 1, 1, 0, 0, 0), datetime(2023, 1, 1, 1, 0, 0)]
         result = sample_ts.filter(dts, inplace=False)
         assert len(result) == 2
-        assert result.get_data()["value1"].to_list() == [10, 20]
+        assert result.get_data()["value"].to_list() == [10, 20]
 
     def test_filter_with_str(self, sample_ts):
-        result = sample_ts.filter("2023-01-01T03:00:00", inplace=False)
+        result = sample_ts.filter("2023-01-01 03:00:00", "YYYY-MM-DD HH:mm:ss", inplace=False)
         assert len(result) == 1
-        assert result.get_data()["value1"].item() == 40
+        assert result.get_data()["value"].item() == 40
 
-    # def test_getitem_with_str(self, sample_ts):
-    #     val = sample_ts["2024-01-01T03:00:00"]
-    #     assert isinstance(val, pl.Series)
-    #     assert val.to_list() == [40]
+    def test_get_value(self, sample_ts):
+        """Test getting a value at a specific timestamp."""
+        ts = Timeseries()
+
+        date_format = "YYYY-MM-DD HH:mm:ss"
+        # Insert new values
+        ts.set_value("2024-01-01 00:00:00", 10, date_format=date_format)
+        ts.set_value("2024-01-01 01:00:00", 20, date_format=date_format)
+        ts.set_value("2024-01-01 02:00:00", 100, date_format=date_format)
+        ts.set_value("2024-01-01 04:00:00", 200, date_format=date_format)
+        ts.set_value("2024-01-01 06:00:00", 400, date_format=date_format)
+
+        dt = datetime(2024, 1, 1, 1, 0, 0)
+        value = ts.get_value(dt)
+        assert value == 20.0
+
+        value = ts.get_value("2024-01-01 03:00:00", date_format=date_format)
+        assert value == 100
 
 
 class TestTimeseriesExport:
