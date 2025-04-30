@@ -8,7 +8,7 @@ Module that implements AbstractParameters
 """
 
 from datetime import datetime
-from typing import Self
+from typing_extensions import Self
 
 from pydantic import BaseModel, model_validator
 
