@@ -32,11 +32,15 @@ class AbstractParameters(BaseModel):
 
     @model_validator(mode="after")
     def check_dates(self) -> Self:
+        if self.end_date is None or self.start_date is None:
+            return self
         if self.end_date < self.start_date:
             raise ValueError(
                 f"Start date '{self.start_date.strftime(DATE_FORMAT)}' must be inferior "
                 f"to end date '{self.end_date.strftime(DATE_FORMAT)}'"
             )
+        if self.execution_date is None:
+            return self
         if not (self.start_date < self.execution_date < self.end_date):
             raise ValueError(
                 f"Execution date '{self.execution_date.strftime(DATE_FORMAT)}' must be between "
