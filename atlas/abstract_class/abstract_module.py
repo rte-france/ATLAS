@@ -32,10 +32,6 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
         """Hook after execution."""
 
     @abstractmethod
-    def get_parameter(self, name: str) -> Any:
-        """Returns the value of the specified parameter."""
-
-    @abstractmethod
     def create_parameters(self, raw_params: dict[str, Any]) -> module_parameters_type_var:
         """Creates a concrete parameters object from raw dictionary."""
 
