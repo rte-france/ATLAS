@@ -23,11 +23,9 @@ output_dataset_type_var = TypeVar("output_dataset_type_var", bound=AbstractDatas
 class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type_var, output_dataset_type_var]):
     """Abstract base class for modules with standard execution lifecycle."""
 
-    @abstractmethod
     def before_execution(self) -> None:
         """Hook before execution."""
 
-    @abstractmethod
     def after_execution(self) -> None:
         """Hook after execution."""
 
