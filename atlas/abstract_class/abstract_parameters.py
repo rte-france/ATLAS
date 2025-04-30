@@ -6,7 +6,9 @@ This file is part of the ATLAS project.
 
 Module that implements AbstractParameters
 """
+
 from datetime import datetime
+from typing import Self
 
 from pydantic import BaseModel, model_validator
 
@@ -23,17 +25,22 @@ class AbstractParameters(BaseModel):
     :param execution_date: Study execution date
     :type execution_date: datetime
     """
+
     start_date: datetime | None = None
     end_date: datetime | None = None
     execution_date: datetime | None = None
 
-    @model_validator(mode='after')
-    def check_dates(self):
+    @model_validator(mode="after")
+    def check_dates(self) -> Self:
         if self.end_date < self.start_date:
-            raise ValueError(f"Start date '{self.start_date.strftime(DATE_FORMAT)}' must be inferior "
-                             f"to end date '{self.end_date.strftime(DATE_FORMAT)}'")
+            raise ValueError(
+                f"Start date '{self.start_date.strftime(DATE_FORMAT)}' must be inferior "
+                f"to end date '{self.end_date.strftime(DATE_FORMAT)}'"
+            )
         if not (self.start_date < self.execution_date < self.end_date):
-            raise ValueError(f"Execution date '{self.execution_date.strftime(DATE_FORMAT)}' must be between "
-                             f"start date '{self.start_date.strftime(DATE_FORMAT)}' and "
-                             f"end date '{self.end_date.strftime(DATE_FORMAT)}'")
+            raise ValueError(
+                f"Execution date '{self.execution_date.strftime(DATE_FORMAT)}' must be between "
+                f"start date '{self.start_date.strftime(DATE_FORMAT)}' and "
+                f"end date '{self.end_date.strftime(DATE_FORMAT)}'"
+            )
         return self

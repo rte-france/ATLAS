@@ -8,15 +8,19 @@ Module that implements AbstractModule
 """
 
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar, Generic
 
 from atlas import BusinessModel
-from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_parameters import AbstractParameters
 
 
-class AbstractModule(ABC):
+module_parameters_type_var = TypeVar("module_parameters_type_var", bound=AbstractParameters)
+input_dataset_type_var = TypeVar("input_dataset_type_var", bound=AbstractDataset)
+output_dataset_type_var = TypeVar("output_dataset_type_var", bound=AbstractDataset)
+
+
+class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type_var, output_dataset_type_var]):
     """Abstract base class for modules with standard execution lifecycle."""
 
     @abstractmethod
@@ -28,52 +32,60 @@ class AbstractModule(ABC):
         """Hook after execution."""
 
     @abstractmethod
-    def read_parameters(self, path: Path) -> dict[str, Any]:
-        """Reads parameters from a file using a concrete Pydantic class."""
-
-    @abstractmethod
     def get_parameter(self, name: str) -> Any:
         """Returns the value of the specified parameter."""
 
     @abstractmethod
-    def create_parameters(self, raw_params: dict[str, Any]) -> AbstractParameters:
+    def create_parameters(self, raw_params: dict[str, Any]) -> module_parameters_type_var:
         """Creates a concrete parameters object from raw dictionary."""
 
     @abstractmethod
-    def import_data(self, objects: list[BusinessModel], parameters: AbstractParameters) -> AbstractDataset:
+    def import_data(
+        self, raw_data: dict[str, list[BusinessModel]], parameters: module_parameters_type_var
+    ) -> input_dataset_type_var:
         """Imports data using business objects and parameters."""
 
     @abstractmethod
-    def validate_data(self, parameters: AbstractParameters, input_dataset: AbstractDataset) -> bool:
+    def validate_data(self, parameters: module_parameters_type_var, input_dataset: input_dataset_type_var) -> bool:
         """Validates imported or generated data."""
 
     @abstractmethod
-    def execute(self, parameters: AbstractParameters, input_dataset: AbstractDataset) -> AbstractDataset:
+    def execute(
+        self, parameters: module_parameters_type_var, input_dataset: input_dataset_type_var
+    ) -> output_dataset_type_var:
         """Executes the module's main logic."""
 
     @abstractmethod
-    def sanity_check(self, parameters: AbstractParameters, input_dataset: AbstractDataset, output_dataset:
-                     AbstractDataset) -> bool:
+    def validates_results(
+        self,
+        parameters: module_parameters_type_var,
+        input_dataset: input_dataset_type_var,
+        output_dataset: output_dataset_type_var,
+    ) -> bool:
         """Validates results"""
 
     @abstractmethod
-    def export_results(self, parameters: AbstractParameters, input_dataset: AbstractDataset, output_dataset:
-                       AbstractDataset) -> None:
+    def export_results(
+        self,
+        parameters: module_parameters_type_var,
+        input_dataset: input_dataset_type_var,
+        output_dataset: output_dataset_type_var,
+    ) -> None:
         """Exports results."""
 
-    def run(self, objects: list[BusinessModel], parameters_path: Path) -> None:
+    def run(self, raw_data: dict[str, list[BusinessModel]], raw_params: dict[str, Any]) -> None:
         """Orchestrates the preparation and execution of the module."""
-        raw_params = self.read_parameters(parameters_path)
         parameters = self.create_parameters(raw_params)
 
-        input_dataset = self.import_data(objects, parameters)
-        sanitize_data_ok = self.validate_data(parameters, input_dataset)
-        if sanitize_data_ok:
-            output_dataset = self.execute(parameters, input_dataset)
-        else:
-            pass  # raise Error
-        sanity_check_ok = self.sanity_check(parameters, input_dataset, output_dataset)
-        if sanity_check_ok:
-            self.export_results(parameters, input_dataset, output_dataset)
-        else:
-            pass  # raise Error
+        input_dataset = self.import_data(raw_data, parameters)
+        validate_data_ok = self.validate_data(parameters, input_dataset)
+        if not validate_data_ok:
+            raise AssertionError("Input Data/Parameters validation has not passed")
+
+        output_dataset = self.execute(parameters, input_dataset)
+
+        validates_results_ok = self.validates_results(parameters, input_dataset, output_dataset)
+        if not validates_results_ok:
+            raise AssertionError("Results validation has not passed")
+
+        self.export_results(parameters, input_dataset, output_dataset)
