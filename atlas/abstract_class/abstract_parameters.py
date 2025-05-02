@@ -1,5 +1,4 @@
-"""
-Copyright (c) 2025, RTE (www.rte-france.com)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
 See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
@@ -8,9 +7,9 @@ Module that implements AbstractParameters
 """
 
 from datetime import datetime
-from typing_extensions import Self
 
 from pydantic import BaseModel, model_validator
+from typing_extensions import Self
 
 from atlas.constants import DATE_FORMAT
 
@@ -32,6 +31,12 @@ class AbstractParameters(BaseModel):
 
     @model_validator(mode="after")
     def check_dates(self) -> Self:
+        """Validation of start, end and execution date
+
+        :raises ValueError: If the start, end and execution date are not coherent
+        :return: The AbstractParameters if dates are validate
+        :rtype: AbstractParameters
+        """
         if self.end_date is None or self.start_date is None:
             return self
         if self.end_date < self.start_date:

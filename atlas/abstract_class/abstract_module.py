@@ -8,12 +8,11 @@ Module that implements AbstractModule
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, TypeVar, Generic
+from typing import Any, Generic, TypeVar
 
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-
 
 module_parameters_type_var = TypeVar("module_parameters_type_var", bound=AbstractParameters)
 input_dataset_type_var = TypeVar("input_dataset_type_var", bound=AbstractDataset)
