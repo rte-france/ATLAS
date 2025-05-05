@@ -1,9 +1,10 @@
 from atlas.io.input_loader import InputLoader
 from atlas.io.parameters import Parameters, ParametersParser
 from atlas.logging import Logger
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
@@ -32,6 +33,8 @@ __all__ = [
     "Equipment",
     "ForecastingMatrix",
     "Hydraulic",
+    "LazyForecastingMatrix",
+    "LazyScenarioMatrix",
     "LazyTimeseries",
     "Load",
     "MarketArea",

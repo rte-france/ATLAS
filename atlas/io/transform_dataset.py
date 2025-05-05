@@ -108,7 +108,7 @@ class AtlasTransformerDataset:
                     # Save to CSV
                     csv_path = f"{path}.csv"
 
-                    df.write_csv(csv_path)
+                    df.write_csv(csv_path, separator=";")
 
                 except Exception as e:
                     print(f"Error processing dataset {key}: {e}")
@@ -141,104 +141,6 @@ class AtlasTransformerDataset:
         dt = datetime.strptime(old_format, "%d_%m_%Y %H:%M:%S")
         # Return only the date part in the new format
         return dt.strftime("%Y-%m-%d")
-
-    def detect_frequency(self, df):
-        """
-        Detect the time frequency of the DataFrame.
-
-        Args:
-            df: Polars DataFrame with a datetime column
-
-        Returns:
-            str: The detected frequency as a string (e.g., '30min', '1h')
-
-        """
-        if len(df) <= 1:
-            return "1h"
-
-        # Calculate differences between consecutive timestamps
-        diff = df.with_columns(pl.nth(0).diff()).drop_nulls().select(pl.nth(0))
-
-        if len(diff) == 0:
-            return "1h"  # Default if can't determine
-
-        most_common_diff = diff.to_pandas().value_counts().idxmax()[0]
-
-        minutes = (
-            most_common_diff.total_seconds() / 60 if isinstance(most_common_diff, timedelta) else most_common_diff / 1e9
-        )
-
-        # Determine frequency string
-        if minutes < 1:
-            return f"{int(minutes * 60)}s"
-        if minutes < 60:
-            return f"{int(minutes)}min"
-        return f"{int(minutes / 60)}h"
-
-    def detect_unit(self, df, attribute_name):
-        """
-        Detect or infer the unit of measurement based on the attribute name and data.
-
-        Args:
-            df: Polars DataFrame with value column
-            attribute_name: Name of the attribute
-
-        Returns:
-            str: The inferred unit (e.g., 'MW', 'MWh', '€')
-
-        """
-        attribute_lower = attribute_name.lower()
-
-        if any(term in attribute_lower for term in ["power", "procured", "upward", "downward"]):
-            return "MW"
-        if any(term in attribute_lower for term in ["energy", "volume"]):
-            return "MWh"
-        if any(term in attribute_lower for term in ["price", "cost"]):
-            return "€/MWh"
-        if any(term in attribute_lower for term in ["flow", "exchange"]):
-            return "MW"
-
-        value_col = df.select(pl.nth(1)).columns[0] if len(df.columns) > 1 else None
-        if value_col is not None:
-            col_name = df.columns[1].lower()
-            if any(term in col_name for term in ["price", "cost"]):
-                return "€/MWh"
-            if any(term in col_name for term in ["power", "capacity"]):
-                return "MW"
-            if any(term in col_name for term in ["energy"]):
-                return "MWh"
-
-        return "MW"
-
-    def compute_forecast_horizon(self, df, date_str):
-        """
-        Compute the forecast horizon based on the data.
-
-        Args:
-            df: Polars DataFrame with datetime column
-            date_str: The date string for this forecast
-
-        Returns:
-            str: The forecast horizon (e.g., '48h')
-
-        """
-        if len(df) <= 1:
-            return None
-
-        try:
-            # Get min and max timestamps
-            min_date = df.select(pl.nth(0)).min().item(0, 0)
-            max_date = df.select(pl.nth(0)).max().item(0, 0)
-
-            # Calculate duration in hours
-            if isinstance(min_date, datetime) and isinstance(max_date, datetime):
-                duration = (max_date - min_date).total_seconds() / 3600
-                return f"{int(duration)}h"
-        except:
-            pass
-
-        # Default to 48h if calculation fails
-        return None
 
     def process_source_tree(self):
         """Process the source directory tree and transform it to the target structure."""
@@ -279,9 +181,7 @@ class AtlasTransformerDataset:
 
                         if self.is_datetime_file(csv_files[0].name):
                             # This is a ForecastingMatrix
-                            self._process_forecasting_matrix(
-                                business_type, name, attribute_name, attribute_dir
-                            )
+                            self._process_forecasting_matrix(business_type, name, attribute_name, attribute_dir)
                         else:
                             # This is a ScenarioMatrix
                             self._process_scenario_matrix(business_type, name, attribute_name, attribute_dir)
@@ -313,14 +213,6 @@ class AtlasTransformerDataset:
         matrix_dir = self.forecasting_matrix_dir / self.to_snake_case(business_type) / self.to_snake_case(name)
         os.makedirs(matrix_dir, exist_ok=True)
 
-        # Create metadata.json
-        forecast_dates = []
-
-        # Store metadata info for each forecast date
-        frequency = None
-        unit = None
-        columns = None
-
         logger.info(f"Processing ForecastingMatrix for {name} {attribute_name}")
         # Process each CSV file in the directory
         for csv_file in dir_path.glob("*.csv"):
@@ -329,7 +221,6 @@ class AtlasTransformerDataset:
 
             # Convert the old datetime format to the new one
             date_name = csv_file.stem  # Get filename without extension
-            forecast_dates.append(date_name)
 
             # Read the CSV file with polars
             df = pl.read_csv(csv_file)
@@ -342,40 +233,13 @@ class AtlasTransformerDataset:
             except Exception:
                 print(f"Error converting column {df.columns[0]} to datetime")
 
-            # Get metadata from the actual data
-            if frequency is None:
-                frequency = self.detect_frequency(df)
-
-            if unit is None:
-                unit = self.detect_unit(df, attribute_name)
-
-            # Get the forecast horizon for this file
-            forecast_horizon = self.compute_forecast_horizon(df, date_name)
-
             # Convert to parquet and save
             parquet_path = matrix_dir / self.to_snake_case(attribute_name) / f"{date_name}.parquet"
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
-            self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = (
-                "forecasting_matrix"
-            )
+            self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = "forecasting_matrix"
         self.merge_matrices(matrix_dir / self.to_snake_case(attribute_name), self.to_snake_case(attribute_name))
-
-        # Create metadata.json with dynamically computed values
-        metadata = {
-            "matrix_type": "forecast",
-            "unit": unit or "MW",
-            "frequency": frequency or "1h",
-            "timezone": "UTC",
-            "forecast_dates": forecast_dates,
-            "forecast_horizon": forecast_horizon or "48h",
-            "columns": columns or ["datetime", "value"],
-            "description": f"Forecasts for {name} {attribute_name}",
-        }
-
-        with open(matrix_dir / self.to_snake_case(attribute_name) / "metadata.json", "w") as f:
-            json.dump(metadata, f, indent=2)
 
     def _process_scenario_matrix(self, business_type, name, attribute_name, dir_path):
         """Process a ScenarioMatrix attribute."""
@@ -386,10 +250,6 @@ class AtlasTransformerDataset:
         # Process each CSV file in the directory
         scenarios = []
 
-        # Store metadata info
-        frequency = None
-        timezone = None
-        unit = None
         logger.info(f"Processing ScenarioMatrix for {name} {attribute_name}")
         for i, csv_file in enumerate(dir_path.glob("*.csv"), 1):
             # Create a scenario name
@@ -406,30 +266,12 @@ class AtlasTransformerDataset:
             except Exception:
                 print(f"Error converting column {df.columns[0]} to datetime")
 
-            # Get metadata from the actual data
-            if frequency is None:
-                frequency = self.detect_frequency(df)
-            if unit is None:
-                unit = self.detect_unit(df, attribute_name)
-
             parquet_path = matrix_dir / self.to_snake_case(attribute_name) / f"{scenario_name}.parquet"
             os.makedirs(parquet_path.parent, exist_ok=True)
             df.write_parquet(parquet_path)
 
         self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = "scenario_matrix"
         self.merge_matrices(matrix_dir / self.to_snake_case(attribute_name), self.to_snake_case(attribute_name))
-        # Create metadata.json with dynamically computed values
-        metadata = {
-            "matrix_type": "scenario",
-            "unit": unit or "MW",
-            "frequency": frequency or "30min",
-            "timezone": timezone or "UTC",
-            "scenarios": scenarios,
-            "description": f"Simulated production for {name} {attribute_name} under different weather scenarios",
-        }
-
-        with open(matrix_dir / self.to_snake_case(attribute_name) / "metadata.json", "w") as f:
-            json.dump(metadata, f, indent=2)
 
     def merge_matrices(self, base_path, attribute_name):
         # Get all Parquet files in that directory (recursively if needed)
@@ -459,8 +301,7 @@ class AtlasTransformerDataset:
             if file != merged_file_path:
                 file.unlink()
 
-
-    def flatten_attributes_with_filter(self,instance_name, instance_dict):
+    def flatten_attributes_with_filter(self, instance_name, instance_dict):
         """
         Flatten attributes:
         - Use snake_case for attribute names

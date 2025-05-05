@@ -247,7 +247,8 @@ class TestTimeseriesManipulation:
     def test_upsample_linear(self, sample_ts):
         """Test upsampling with linear interpolation."""
         original_len = len(sample_ts)
-        upsampled = sample_ts.upsample("30m", inplace=False, strategy="linear")
+        sample_ts.set_interpolation_method("linear")
+        upsampled = sample_ts.upsample("30m", inplace=False)
 
         # Should have more rows now
         assert len(upsampled) > original_len
@@ -267,7 +268,8 @@ class TestTimeseriesManipulation:
 
     def test_upsample_constant(self, sample_ts):
         """Test upsampling with constant fill."""
-        upsampled = sample_ts.upsample("30m", inplace=False, strategy="constant")
+        sample_ts.set_interpolation_method("constant")
+        upsampled = sample_ts.upsample("30m", inplace=False)
 
         # Check if values are forward-filled
         times = upsampled.get_data()["time"].to_list()
@@ -283,11 +285,6 @@ class TestTimeseriesManipulation:
             next_value = values[next_time_idx]
 
             assert next_value == orig_value  # Should be forward-filled
-
-    def test_upsample_invalid_strategy(self, sample_ts):
-        """Test upsampling with an invalid strategy."""
-        with pytest.raises(NotImplementedError):
-            sample_ts.upsample("30m", strategy="invalid")
 
     def test_groupby(self, sample_ts):
         """Test grouping by time intervals."""
@@ -384,7 +381,7 @@ class TestTimeseriesManipulation:
         assert ts.timezone == "UTC"
 
         # Change timezone
-        ts.set_tz("America/New_York")
+        ts.set_timezone("America/New_York")
         assert ts.timezone == "America/New_York"
 
         # Verify times are converted
@@ -396,7 +393,7 @@ class TestTimeseriesManipulation:
     def test_invalid_timezone_conversion(self, sample_ts):
         """Test conversion to an invalid timezone."""
         with pytest.raises(ValueError):
-            sample_ts.set_tz("Invalid/Timezone")
+            sample_ts.set_timezone("Invalid/Timezone")
 
     def test_filter_with_datetime(self, sample_ts):
         dt = datetime(2023, 1, 1, 0, 0, 0)

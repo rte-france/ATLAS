@@ -10,8 +10,10 @@ This module provides LazyTimeseries.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import polars as pl
+import pytz
 
 from atlas.math.timeseries import Timeseries
 
@@ -32,8 +34,10 @@ class LazyTimeseries:
         self,
         timeseries: pl.LazyFrame | LazyTimeseries | Timeseries,
         timezone: str = "UTC",
+        interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
-        Timeseries.check_timezone(timezone)
+        self._check_timezone(timezone)
+        self._check_interpolation_method(interpolation_method)
 
         self.timezone: str = timezone
 
@@ -69,6 +73,22 @@ class LazyTimeseries:
 
         else:
             raise ValueError("LazyTimeseries requires a LazyFrame or another Timeseries object")
+
+    @staticmethod
+    def _check_interpolation_method(interpolation_method: str) -> None:
+        """Check interpolation method"""
+        if interpolation_method not in ("linear", "constant"):
+            raise NotImplementedError("Interpolation method has to be linear, or constant")
+
+    @staticmethod
+    def _check_timezone(timezone: str) -> None:
+        """
+        Check if the timezone is valid.
+
+        :raises ValueError: If the timezone is not valid
+        """
+        if timezone not in pytz.all_timezones:
+            raise ValueError(f"Invalid timezone: {timezone}")
 
     @classmethod
     def from_file(cls, file_path: str | Path, separator: str = ";", timezone: str = "UTC") -> LazyTimeseries:
@@ -108,4 +128,8 @@ class LazyTimeseries:
         :return: A regular Timeseries object with the collected data
         :rtype: Timeseries
         """
-        return Timeseries(self.timeseries.collect(), timezone=self.timezone)
+        return Timeseries(
+            self.timeseries.collect(),
+            timezone=self.timezone,
+            interpolation_method=self.interpolation_method,
+        )

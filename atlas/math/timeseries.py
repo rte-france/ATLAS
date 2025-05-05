@@ -41,7 +41,8 @@ class Timeseries:
         timezone: str = "UTC",
         interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
-        self.check_timezone(timezone)
+        self._check_timezone(timezone)
+        self._check_interpolation_method(interpolation_method)
 
         self.interpolation_method: str = interpolation_method
         self.timezone: str = timezone
@@ -76,7 +77,13 @@ class Timeseries:
             self.sort()
 
     @classmethod
-    def from_file(cls, file_path: str | Path, separator: str = ";") -> Timeseries:
+    def from_file(
+        cls,
+        file_path: str | Path,
+        separator: str = ";",
+        timezone: str = "UTC",
+        interpolation_method: Literal["linear", "constant"] = "constant",
+    ) -> Timeseries:
         """
         Load a Timeseries object from a file.
 
@@ -90,10 +97,22 @@ class Timeseries:
             file_path = Path(file_path)
 
         if file_path.suffix == ".csv":
-            return cls(pl.read_csv(file_path, separator=separator))
+            return cls(
+                pl.read_csv(file_path, separator=separator),
+                timezone=timezone,
+                interpolation_method=interpolation_method,
+            )
         if file_path.suffix == ".parquet":
-            return cls(pl.read_parquet(file_path))
+            return cls(
+                pl.read_parquet(file_path),
+                timezone=timezone,
+                interpolation_method=interpolation_method,
+            )
         raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
+
+    def __repr__(self):
+        """Provide a string representation of the Timeseries object."""
+        return f"Timeseries : {self.timeseries}"
 
     def __eq__(self, other: object) -> bool:
         """
@@ -256,7 +275,13 @@ class Timeseries:
         return self.timeseries.lazy()
 
     @staticmethod
-    def check_timezone(timezone: str) -> None:
+    def _check_interpolation_method(interpolation_method: str) -> None:
+        """Check interpolation method"""
+        if interpolation_method not in ("linear", "constant"):
+            raise NotImplementedError("Interpolation method has to be linear, or constant")
+
+    @staticmethod
+    def _check_timezone(timezone: str) -> None:
         """
         Check if the timezone is valid.
 
@@ -265,19 +290,29 @@ class Timeseries:
         if timezone not in pytz.all_timezones:
             raise ValueError(f"Invalid timezone: {timezone}")
 
-    def set_tz(self, timezone: str) -> None:
+    def set_timezone(self, timezone: str) -> None:
         """
         Convert the datetime column to a new timezone.
 
         :param timezone: Timezone string
         :type timezone: str
         """
-        self.check_timezone(timezone)
+        self._check_timezone(timezone)
 
         self.timezone = timezone
         self.timeseries = self.timeseries.with_columns(
             pl.col("time").dt.convert_time_zone(timezone),
         )
+
+    def set_interpolation_method(self, interpolation_method: str) -> None:
+        """
+        Set the interpolation method for the time series.
+
+        :param interpolation_method: The interpolation method to use, either "linear" or "constant".
+        :type interpolation_method: str
+        """
+        self._check_interpolation_method(interpolation_method)
+        self.interpolation_method = interpolation_method
 
     def sort(
         self,
@@ -325,7 +360,8 @@ class Timeseries:
 
         if len(self.timeseries) == 0:
             df = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
-                pl.col("time").dt.replace_time_zone(self.timezone)
+                pl.col("time").dt.replace_time_zone(self.timezone),
+                pl.col("value").cast(pl.Float64()),
             )
             if inplace:
                 self.timeseries = df
@@ -335,7 +371,8 @@ class Timeseries:
 
         df = self.timeseries.filter(pl.col("time") != dt)
         new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone))
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
         )
         df = pl.concat([df, new_row]).sort("time")
 
@@ -426,7 +463,6 @@ class Timeseries:
         self,
         frequency: str,
         inplace: bool = True,
-        strategy: Literal["linear", "constant"] = "linear",
     ) -> Timeseries:
         """
         Upsample the time series to a higher frequency.
@@ -443,14 +479,14 @@ class Timeseries:
         :return: Upsampled time series
         :rtype: Timeseries
         """
-        if strategy == "linear":
+        if self.interpolation_method == "linear":
             df = (
                 self.timeseries.upsample(time_column="time", every=frequency)
-                .interpolate()
+                .with_columns(pl.col("value").interpolate_by("time"))
                 .fill_null(strategy="forward")
                 .sort("time")
             )
-        elif strategy == "constant":
+        elif self.interpolation_method == "constant":
             df = (
                 self.timeseries.upsample(time_column="time", every=frequency)
                 .fill_null(
@@ -458,8 +494,6 @@ class Timeseries:
                 )
                 .sort("time")
             )
-        else:
-            raise NotImplementedError("Unsupported interpolation strategy")
 
         if inplace:
             self.timeseries = df
@@ -660,7 +694,7 @@ class Timeseries:
         :rtype: Timeseries
         """
         if method == "linear":
-            df = self.timeseries.interpolate()
+            df = self.timeseries.with_columns(pl.col("value").interpolate_by("time"))
         elif method == "constant":
             df = self.timeseries.fill_null(strategy="forward")
         else:

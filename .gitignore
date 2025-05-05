@@ -180,6 +180,7 @@ cython_debug/
 data/
 *.csv
 *.parquet
+*.pickle
 
 # Notebooks
 

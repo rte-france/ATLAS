@@ -105,8 +105,10 @@ nav:
       - Timeseries: api/math/timeseries.md
       - Scenario Matrix: api/math/scenario_matrix.md
       - Forecasting Matrix: api/math/forecasting_matrix.md
+      - LazyTimeseries: api/math/lazy_timeseries.md
+      - LazyMatrix: api/math/lazy_matrix.md
     - I/O:
-      - Input Parser: api/io/input_parser.md
+      - Input Loader: api/io/input_loader.md
       - Parameters: api/io/parameters.md
     - Models:
       - Equipement: api/models/equipment.md

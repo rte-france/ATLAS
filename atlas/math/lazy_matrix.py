@@ -29,7 +29,7 @@ class LazyMatrix:
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
-        self.check_timezone(timezone)
+        self._check_timezone(timezone)
         self.timezone = timezone
 
         if isinstance(matrix, LazyMatrix):
@@ -94,7 +94,7 @@ class LazyMatrix:
         return [col for col in self.matrix.schema if col != time_column]
 
     @staticmethod
-    def check_timezone(timezone: str) -> None:
+    def _check_timezone(timezone: str) -> None:
         """Validate timezone string."""
         if timezone not in pytz.all_timezones:
             raise ValueError(f"Invalid timezone: {timezone}")

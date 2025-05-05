@@ -51,7 +51,7 @@ def test_read_data_file_parquet(fake_parquet):
 def test_read_data_file_invalid_extension(tmp_path):
     file = tmp_path / "test.txt"
     file.write_text("text")
-    with pytest.raises(ValueError, match="Unsupported file extension"):
+    with pytest.raises(ValueError, match="File extension has to be csv, parquet or json"):
         InputLoader.read_data_file(file)
 
 
@@ -77,19 +77,6 @@ def test_parse_objects_from_directory(fake_csv, mock_logger):
     assert "test" in objects
     assert isinstance(objects["test"], list)
     assert isinstance(objects["test"][0], dict)
-
-
-def test_from_file_not_found(tmp_path):
-    file = tmp_path / "missing.csv"
-    with pytest.raises(FileNotFoundError):
-        InputLoader.from_file(file, object_type="wind")
-
-
-def test_from_file_not_a_file(tmp_path):
-    dir = tmp_path / "dir"
-    dir.mkdir()
-    with pytest.raises(NotADirectoryError):
-        InputLoader.from_file(dir, object_type="wind")
 
 
 # Tests for _load_timeseries

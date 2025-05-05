@@ -24,5 +24,5 @@ class ScenarioMatrix(Matrix):
 class LazyScenarioMatrix(LazyMatrix):
     """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
 
-    def __init__(self, matrix: pl.LazyFrame | Matrix | LazyMatrix, timezone="UTC") -> None:
+    def __init__(self, matrix: pl.LazyFrame | Matrix | LazyMatrix, timezone: str = "UTC") -> None:
         super().__init__(matrix, timezone)

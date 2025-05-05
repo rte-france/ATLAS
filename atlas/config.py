@@ -45,6 +45,6 @@ MODEL_MAPPING_NAME: dict[str, Any] = {
     "photovoltaic": Photovoltaic,
     "portfolio": Portfolio,
     "storage": Storage,
-    "Thermal": Thermal,
+    "thermal": Thermal,
     "wind": Wind,
 }

@@ -3,7 +3,7 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements Input Parser
+Module that implements Input Loader
 """
 
 import json
@@ -184,16 +184,23 @@ class InputLoader:
     def _parse_objects_from_directory(cls, objects_path: Path, separator: str = ";") -> dict[str, list[dict[str, str]]]:
         """Parse objects from a directory.
 
-        :param directory_path: The path to the directory.
-        :type directory_path: str or pathlib.Path
+        :param objects_path: The path to the directory.
+        :type objects_path: str or pathlib.Path
         :return: A dictionary mapping object names to lists of instantiated objects.
         :rtype: dict[str, list[dict[str, str]]]
         """
         cfg.logger.debug(f"Parsing objects from directory: {objects_path}")
-        return {
-            file_path.stem: cls.read_data_file(file_path, separator=separator).to_dicts()
-            for file_path in objects_path.iterdir()
-        }
+        result = {}
+        for file_path in objects_path.iterdir():
+            key = file_path.stem
+            if key in cfg.MODEL_MAPPING_NAME:
+                try:
+                    result[key] = cls.read_data_file(file_path, separator=separator).to_dicts()
+                except Exception:  # noqa: BLE001
+                    cfg.logger.warning(f"Object type key {key} won't be taken into account")
+            else:
+                cfg.logger.warning(f"File {file_path} is not a recognized objects from Atlas.")
+        return result
 
     @staticmethod
     def read_data_file(file_path: str | Path, separator: str = ";") -> pl.DataFrame:
@@ -215,7 +222,7 @@ class InputLoader:
         if file_extension == ".json":
             return pl.read_json(file_path)
 
-        raise ValueError(f"Unsupported file extension: {file_extension}")
+        raise NotImplementedError("File extension has to be csv, parquetFs or json")
 
     @staticmethod
     def _load_timeseries(  # noqa: PLR0913

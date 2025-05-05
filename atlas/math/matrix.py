@@ -30,7 +30,7 @@ class Matrix:
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
-        self.check_timezone(timezone)
+        self._check_timezone(timezone)
         self.timezone = timezone
 
         df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
@@ -82,7 +82,7 @@ class Matrix:
         return self.matrix.drop(time_column).columns
 
     @staticmethod
-    def check_timezone(timezone: str) -> None:
+    def _check_timezone(timezone: str) -> None:
         """
         Check if the timezone is valid.
 
