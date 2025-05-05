@@ -7,6 +7,7 @@ Module that implements AbstractParameters
 """
 
 from datetime import datetime
+from typing import TypeVar
 
 from pydantic import BaseModel, model_validator
 from typing_extensions import Self
@@ -23,11 +24,17 @@ class AbstractParameters(BaseModel):
     :type end_date: datetime
     :param execution_date: Study execution date
     :type execution_date: datetime
+    :param export_result: true if result should be export else false
+    :type export_result: bool
+    :param export_output_dataset: true if business model object output should be export else false
+    :type export_output_dataset: bool
     """
 
     start_date: datetime | None = None
     end_date: datetime | None = None
     execution_date: datetime | None = None
+    export_result: bool | None = True
+    export_output_dataset: bool | None = False
 
     @model_validator(mode="after")
     def check_dates(self) -> Self:
@@ -53,3 +60,6 @@ class AbstractParameters(BaseModel):
                 f"end date '{self.end_date.strftime(DATE_FORMAT)}'"
             )
         return self
+
+
+module_parameters_type_var = TypeVar("module_parameters_type_var", bound=AbstractParameters)

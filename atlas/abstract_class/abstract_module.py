@@ -8,15 +8,11 @@ Module that implements AbstractModule
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic
 
 from atlas import BusinessModel
-from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.abstract_class.abstract_parameters import AbstractParameters
-
-module_parameters_type_var = TypeVar("module_parameters_type_var", bound=AbstractParameters)
-input_dataset_type_var = TypeVar("input_dataset_type_var", bound=AbstractDataset)
-output_dataset_type_var = TypeVar("output_dataset_type_var", bound=AbstractDataset)
+from atlas.abstract_class.abstract_dataset import input_dataset_type_var, output_dataset_type_var
+from atlas.abstract_class.abstract_parameters import module_parameters_type_var
 
 
 class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type_var, output_dataset_type_var]):
@@ -67,7 +63,8 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
         """Exports results."""
 
     def run(self, raw_data: dict[str, list[BusinessModel]], raw_params: dict[str, Any]) -> None:
-        """Orchestrates the preparation and execution of the module."""
+        """Orchestrates the preparation and execution of the module.
+        Should not be overridden in subclass"""
         parameters = self.create_parameters(raw_params)
 
         input_dataset = self.import_data(raw_data, parameters)
@@ -80,5 +77,5 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
         validates_results_ok = self.validates_results(parameters, input_dataset, output_dataset)
         if not validates_results_ok:
             raise AssertionError("Results validation has not passed")
-
-        self.export_results(parameters, input_dataset, output_dataset)
+        if parameters.export_result:
+            self.export_results(parameters, input_dataset, output_dataset)
