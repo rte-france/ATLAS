@@ -40,6 +40,7 @@ class LazyTimeseries:
         self._check_interpolation_method(interpolation_method)
 
         self.timezone: str = timezone
+        self.interpolation_method = interpolation_method
 
         if timeseries is None:
             # Create an empty lazy DataFrame
