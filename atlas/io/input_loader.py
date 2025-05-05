@@ -14,6 +14,7 @@ import polars as pl
 
 import atlas.config as cfg
 from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import Matrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -283,7 +284,8 @@ class InputLoader:
         name: str,
         attribute_name: str,
         file_extension: str = ".parquet",
-    ) -> Timeseries:
+        lazy: bool = False,
+    ) -> Timeseries | LazyTimeseries:
         """Load a timeseries profile from the timeseries/ folder.
         :param base_path: Path to the timeseries/ folder.
         :type base_path: str or Path
@@ -304,6 +306,8 @@ class InputLoader:
 
         cfg.logger.debug(f"Loading timeseries from file: {timeseries_path}")
 
+        if lazy:
+            return LazyTimeseries.from_file(file_path=timeseries_path)
         return Timeseries.from_file(file_path=timeseries_path)
 
     @staticmethod
@@ -314,7 +318,8 @@ class InputLoader:
         attribute_name: str,
         matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
         file_extension: str = ".parquet",
-    ) -> Matrix:
+        lazy: bool = False,
+    ) -> Matrix | LazyMatrix:
         """Generic loader for scenario or forecasting matrix time series for a specific instance.
 
         :param base_dir: Path to the scenario_matrix/ or forecasting_matrix/ folder.
@@ -342,10 +347,16 @@ class InputLoader:
 
         cfg.logger.debug(f"Loading {matrix_type} from file: {matrix_file_path}")
 
+        if not lazy:
+            if matrix_type == "scenario_matrix":
+                return ScenarioMatrix.from_file(matrix_file_path)
+            if matrix_type == "forecasting_matrix":
+                return ForecastingMatrix.from_file(matrix_file_path)
+            raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
         if matrix_type == "scenario_matrix":
-            return ScenarioMatrix.from_file(matrix_file_path)
+            return LazyScenarioMatrix.from_file(matrix_file_path)
         if matrix_type == "forecasting_matrix":
-            return ForecastingMatrix.from_file(matrix_file_path)
+            return LazyForecastingMatrix.from_file(matrix_file_path)
         raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
 
     @staticmethod
@@ -365,22 +376,3 @@ class InputLoader:
             return {}
         with open(metadata_path) as f:
             return json.load(f)
-
-    # @staticmethod
-    # def build_idata(nested_dict: dict[str, dict[str, Any]]) -> type[BaseModel]:
-    #     """
-    #     Builds a Pydantic model with structure InputData.ObjectType.InstanceName
-    #     from a nested dictionary: {object_type: {instance_name: instance}}.
-    #     """
-    #     object_models = {}
-
-    #     for object_type, instances in nested_dict.items():
-    #         fields = {name: (type(obj), obj) for name, obj in instances.items()}
-    #         model = create_model(object_type, **fields)
-    #         object_models[object_type] = (model, model(**instances))
-
-    #     input_fields = {
-    #         k: (model_class, instance) for k, (model_class, instance) in object_models.items()
-    #     }
-    #     idata_model = create_model("InputData", **input_fields)
-    #     return idata_model(**nested_dict)

@@ -510,7 +510,7 @@ class AtlasTransformerDataset:
                 fieldnames += sorted(attr for attr in all_attrs if attr != first_col)
 
                 # Write to CSV
-                csv_file = self.data_dir / f"{class_name}.csv"
+                csv_file = self.data_dir / f"{self.to_snake_case(class_name)}.csv"
                 with open(csv_file, "w", newline="", encoding="utf-8") as f:
                     writer = csv.DictWriter(f, fieldnames=fieldnames)
                     writer.writeheader()

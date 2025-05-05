@@ -139,6 +139,15 @@ class Matrix:
 
         return self.matrix.equals(other.matrix)
 
+    def to_lazy(self) -> pl.LazyFrame:
+        """
+        Convert the internal Polars DataFrame to a LazyFrame.
+
+        :return: A Polars LazyFrame representation of the time series
+        :rtype: pl.LazyFrame
+        """
+        return self.matrix.lazy()
+
     def add(
         self,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
