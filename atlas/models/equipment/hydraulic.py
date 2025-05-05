@@ -6,7 +6,8 @@ This file is part of the ATLAS project.
 
 from pydantic import Field
 
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
@@ -25,23 +26,23 @@ class Hydraulic(Equipment):
     into different fragments
     :type fragment_volumes: list[float]
     :param stored_energy: Storage capacity of energy for different deadlines
-    :type stored_energy: ForecastingMatrix
+    :type stored_energy: ForecastingMatrix | LazyForecastingMatrix
     :param da_sell_submitted_volume: Sum of volume of sell offers for Day Ahead market
-    :type da_sell_submitted_volume: Timeseries
+    :type da_sell_submitted_volume: Timeseries | LazyTimeseries
     :param energy_target: Target of storage capacity energy
-    :type energy_target: Timeseries
+    :type energy_target: Timeseries | LazyTimeseries
     :param inflows: Inflows
-    :type inflows: Timeseries
+    :type inflows: Timeseries | LazyTimeseries
     :param initial_level: Energy contained in the hydraulic reservoir prior to execution of any ATLAS module
-    :type initial_level: Timeseries
+    :type initial_level: Timeseries | LazyTimeseries
     :param maximum_energy: Maximum energy storage capacity
-    :type maximum_energy: Timeseries
+    :type maximum_energy: Timeseries | LazyTimeseries
     :param minimum_energy: Minimum energy storage capacity
-    :type minimum_energy: Timeseries
+    :type minimum_energy: Timeseries | LazyTimeseries
     :param maximum_power: Maximum power
-    :type maximum_power: Timeseries
+    :type maximum_power: Timeseries | LazyTimeseries
     :param minimum_power: Minimum power
-    :type minimum_power: Timeseries
+    :type minimum_power: Timeseries | LazyTimeseries
     """
 
     inflow_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
@@ -56,13 +57,13 @@ class Hydraulic(Equipment):
     )
     fragment_volumes: list[float] | None = Field(None, description="List of positive volumes")
 
-    stored_energy: ForecastingMatrix | None = None
+    stored_energy: ForecastingMatrix | LazyForecastingMatrix | None = None
 
-    da_sell_submitted_volume: Timeseries | None = None
-    energy_target: Timeseries | None = None
-    inflows: Timeseries | None = None
-    initial_level: Timeseries | None = None
-    maximum_energy: Timeseries | None = None
-    minimum_energy: Timeseries | None = None
-    maximum_power: Timeseries | None = None
-    minimum_power: Timeseries | None = None
+    da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
+    energy_target: Timeseries | LazyTimeseries | None = None
+    inflows: Timeseries | LazyTimeseries | None = None
+    initial_level: Timeseries | LazyTimeseries | None = None
+    maximum_energy: Timeseries | LazyTimeseries | None = None
+    minimum_energy: Timeseries | LazyTimeseries | None = None
+    maximum_power: Timeseries | LazyTimeseries | None = None
+    minimum_power: Timeseries | LazyTimeseries | None = None

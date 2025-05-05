@@ -4,7 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
@@ -17,20 +18,20 @@ class Node(BusinessModel):
     :param market_area: Associated Market Area
     :type market_area: MarketArea
     :param balance_forecast: Physical balance forecasts on the node for each execution date
-    :type balance_forecast: ForecastingMatrix
+    :type balance_forecast: ForecastingMatrix | LazyForecastingMatrix
     :param id_power_injection: Injection (production - consumption) on the node after Intraday Clearing.
     May be negative, and thus represent withdrawal
-    :type id_power_injection: ForecastingMatrix
+    :type id_power_injection: ForecastingMatrix | LazyForecastingMatrix
     :param da_power_injection: Injection (production - consumption) on the node after Day Ahead Clearing.
     May be negative, and thus represent withdrawal
-    :type da_power_injection: Timeseries
+    :type da_power_injection: Timeseries | LazyTimeseries
     :param reference_balance: Balance define by GRT
-    :type reference_balance: Timeseries
+    :type reference_balance: Timeseries | LazyTimeseries
     """
 
     control_block: ControlBlock | None = None
     market_area: MarketArea | None = None
-    balance_forecast: ForecastingMatrix | None = None
-    id_power_injection: ForecastingMatrix | None = None
-    da_power_injection: Timeseries | None = None
-    reference_balance: Timeseries | None = None
+    balance_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
+    id_power_injection: ForecastingMatrix | LazyForecastingMatrix | None = None
+    da_power_injection: Timeseries | LazyTimeseries | None = None
+    reference_balance: Timeseries | LazyTimeseries | None = None

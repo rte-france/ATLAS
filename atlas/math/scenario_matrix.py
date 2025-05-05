@@ -10,6 +10,7 @@ Module that implements ScenarioMatrix
 import pandas as pd
 import polars as pl
 
+from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 
 
@@ -18,3 +19,10 @@ class ScenarioMatrix(Matrix):
 
     def __init__(self, matrix: pd.DataFrame | pl.DataFrame) -> None:
         super().__init__(matrix)
+
+
+class LazyScenarioMatrix(LazyMatrix):
+    """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
+
+    def __init__(self, matrix: pl.LazyFrame | Matrix | LazyMatrix, timezone="UTC") -> None:
+        super().__init__(matrix, timezone)

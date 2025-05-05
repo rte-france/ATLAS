@@ -190,5 +190,5 @@ class ForecastingMatrix(Matrix):
 class LazyForecastingMatrix(LazyMatrix):
     """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
 
-    def __init__(self, matrix: pl.DataFrame | pl.LazyFrame | ForecastingMatrix) -> None:
-        super().__init__(matrix)
+    def __init__(self, matrix: LazyMatrix | pl.LazyFrame | Matrix, timezone="UTC") -> None:
+        super().__init__(matrix, timezone)

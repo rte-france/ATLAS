@@ -31,6 +31,7 @@ class Matrix:
         :type timezone: str
         """
         self.check_timezone(timezone)
+        self.timezone = timezone
 
         df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
 

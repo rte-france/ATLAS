@@ -4,7 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
@@ -27,41 +28,41 @@ class MarketBorder(BusinessModel):
     :param time_resolution: Time resolution relative to the border
     :type time_resolution: float
     :param afrr_down_procured: Contractualization of downward AFRR crossing the border after Clearing
-    :type afrr_down_procured: ForecastingMatrix
+    :type afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
     :param afrr_up_procured: Contractualization of upward AFRR crossing the border after Clearing
-    :type afrr_up_procured: ForecastingMatrix
+    :type afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
     :param id_flow: Flows from the different Intraday Clearing
-    :type id_flow: ForecastingMatrix
+    :type id_flow: ForecastingMatrix | LazyForecastingMatrix
     :param id_shadow_price: Time resolution relative to the border
     :type id_shadow_price: float
     :param mfrr_down_procured: Contractualization of downward MFRR crossing the border after Clearing
-    :type mfrr_down_procured: ForecastingMatrix
+    :type mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
     :param mfrr_up_procured: Contractualization of upward MFRR crossing the border after Clearing
-    :type mfrr_up_procured: ForecastingMatrix
+    :type mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
     :param rr_down_procured: Contractualization of downward RR crossing the border after Clearing
-    :type rr_down_procured: ForecastingMatrix
+    :type rr_down_procured: ForecastingMatrix | LazyForecastingMatrix
     :param rr_up_procured: Contractualization of upward RR crossing the border after Clearing
-    :type rr_up_procured: ForecastingMatrix
+    :type rr_up_procured: ForecastingMatrix | LazyForecastingMatrix
     :param afrr_activated: Activated AFRR flow across the border
-    :type afrr_activated: Timeseries
+    :type afrr_activated: Timeseries | LazyTimeseries
     :param da_flow: Flows from the different Day Ahead Clearing
-    :type da_flow: Timeseries
+    :type da_flow: Timeseries | LazyTimeseries
     :param da_shadow_price: Shadow Price from the different Day Ahead Clearing
-    :type da_shadow_price: Timeseries
+    :type da_shadow_price: Timeseries | LazyTimeseries
     :param fcr_activated: Activated FCR flow across the border
-    :type fcr_activated: Timeseries
+    :type fcr_activated: Timeseries | LazyTimeseries
     :param maximum_flow: Maximum flow across the border
-    :type maximum_flow: Timeseries
+    :type maximum_flow: Timeseries | LazyTimeseries
     :param mfrr_activated: Activated MFRR flow across the border after MARI market
-    :type mfrr_activated: Timeseries
+    :type mfrr_activated: Timeseries | LazyTimeseries
     :param minimum_flow: Minimum flow across the border
-    :type minimum_flow: Timeseries
+    :type minimum_flow: Timeseries | LazyTimeseries
     :param reference_flow: Reference flow across the border
-    :type reference_flow: Timeseries
+    :type reference_flow: Timeseries | LazyTimeseries
     :param rr_activated: Activated RR flow across the border after TERRE market
-    :type rr_activated: Timeseries
+    :type rr_activated: Timeseries | LazyTimeseries
     :param total_id_flow: Cumulative sum of accepted power from all Day Ahead Clearing
-    :type total_id_flow: Timeseries
+    :type total_id_flow: Timeseries | LazyTimeseries
     """
 
     downhill_control_block: ControlBlock | None = None
@@ -71,21 +72,21 @@ class MarketBorder(BusinessModel):
     coupling_type: str | None = None
     loss_factor: float | None = None
     time_resolution: float | None = None  # Assuming this can be a float
-    afrr_down_procured: ForecastingMatrix | None = None
-    afrr_up_procured: ForecastingMatrix | None = None
-    id_flow: ForecastingMatrix | None = None
-    id_shadow_price: ForecastingMatrix | None = None
-    mfrr_down_procured: ForecastingMatrix | None = None
-    mfrr_up_procured: ForecastingMatrix | None = None
-    rr_down_procured: ForecastingMatrix | None = None
-    rr_up_procured: ForecastingMatrix | None = None
-    afrr_activated: Timeseries | None = None
-    da_flow: Timeseries | None = None
-    da_shadow_price: Timeseries | None = None
-    fcr_activated: Timeseries | None = None
-    maximum_flow: Timeseries | None = None
-    mfrr_activated: Timeseries | None = None
-    minimum_flow: Timeseries | None = None
-    reference_flow: Timeseries | None = None
-    rr_activated: Timeseries | None = None
-    total_id_flow: Timeseries | None = None
+    afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
+    afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
+    id_flow: ForecastingMatrix | LazyForecastingMatrix | None = None
+    id_shadow_price: ForecastingMatrix | LazyForecastingMatrix | None = None
+    mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
+    mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
+    rr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
+    rr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
+    afrr_activated: Timeseries | LazyTimeseries | None = None
+    da_flow: Timeseries | LazyTimeseries | None = None
+    da_shadow_price: Timeseries | LazyTimeseries | None = None
+    fcr_activated: Timeseries | LazyTimeseries | None = None
+    maximum_flow: Timeseries | LazyTimeseries | None = None
+    mfrr_activated: Timeseries | LazyTimeseries | None = None
+    minimum_flow: Timeseries | LazyTimeseries | None = None
+    reference_flow: Timeseries | LazyTimeseries | None = None
+    rr_activated: Timeseries | LazyTimeseries | None = None
+    total_id_flow: Timeseries | LazyTimeseries | None = None

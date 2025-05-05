@@ -6,7 +6,8 @@ This file is part of the ATLAS project.
 
 from pydantic import Field
 
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
@@ -17,13 +18,13 @@ class Photovoltaic(Equipment):
     :param maximum_power_forecast: Sum of volume of sell offers on the Day Ahead market
     :type maximum_power_forecast:
     :param curtailment_cost: Equipment capping cost
-    :type curtailment_cost: Timeseries
+    :type curtailment_cost: Timeseries | LazyTimeseries
     :param curtailed_power: Stores capping at the end of each Portfolio Optimization
-    :type curtailed_power: Timeseries
+    :type curtailed_power: Timeseries | LazyTimeseries
     :param da_sell_submitted_volume: Sum of volume of sell offers on the Day Ahead market
-    :type da_sell_submitted_volume: Timeseries
+    :type da_sell_submitted_volume: Timeseries | LazyTimeseries
     :param maximum_curtailment_ratio: Sum of volume of sell offers on the Day Ahead market
-    :type maximum_curtailment_ratio: Timeseries
+    :type maximum_curtailment_ratio: Timeseries | LazyTimeseries
     """
 
     installed_capacity: float | None = Field(
@@ -31,8 +32,8 @@ class Photovoltaic(Equipment):
         gt=0,
         description="Installed capacity (must be positive)",
     )
-    maximum_power_forecast: ForecastingMatrix | None = None
-    curtailment_cost: Timeseries | None = None
-    curtailed_power: Timeseries | None = None
-    da_sell_submitted_volume: Timeseries | None = None
-    maximum_curtailment_ratio: Timeseries | None = None
+    maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
+    curtailment_cost: Timeseries | LazyTimeseries | None = None
+    curtailed_power: Timeseries | LazyTimeseries | None = None
+    da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
+    maximum_curtailment_ratio: Timeseries | LazyTimeseries | None = None

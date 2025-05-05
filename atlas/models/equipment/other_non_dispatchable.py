@@ -4,17 +4,18 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
 
 class OtherNonDispatchable(Equipment):
     """:param maximum_power_forecast: Maximum production capacity forecast
-    :type maximum_power_forecast: ForecastingMatrix
+    :type maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     :param da_sell_submitted_volume: Sum of volume of sell offers on the Day Ahead market
-    :type da_sell_submitted_volume: Timeseries
+    :type da_sell_submitted_volume: Timeseries | LazyTimeseries
     """
 
-    maximum_power_forecast: ForecastingMatrix | None = None
-    da_sell_submitted_volume: Timeseries | None = None
+    maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
+    da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None

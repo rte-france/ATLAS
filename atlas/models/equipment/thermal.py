@@ -7,7 +7,8 @@ This file is part of the ATLAS project.
 from pydantic import Field
 
 from atlas.enum import ThermalStrategy
-from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
@@ -38,13 +39,13 @@ class Thermal(Equipment):
     :param strategy: Sum of volume of sell offers on the Day Ahead market
     :type strategy: ThermalStrategy
     :param state_sequence: Sum of volume of sell offers on the Day Ahead market
-    :type state_sequence: ScenarioMatrix
+    :type state_sequence: ScenarioMatrix | LazyScenarioMatrix
     :param da_sell_submitted_volume: Sum of volume of sell offers on the Day Ahead market
-    :type da_sell_submitted_volume: Timeseries
+    :type da_sell_submitted_volume: Timeseries | LazyTimeseries
     :param maximum_power: Sum of volume of sell offers on the Day Ahead market
-    :type maximum_power: Timeseries
+    :type maximum_power: Timeseries | LazyTimeseries
     :param minimum_power: Sum of volume of sell offers on the Day Ahead market
-    :type minimum_power: Timeseries
+    :type minimum_power: Timeseries | LazyTimeseries
     """
 
     installed_capacity: float | None = Field(
@@ -65,7 +66,7 @@ class Thermal(Equipment):
 
     strategy: ThermalStrategy | None = None
 
-    state_sequence: ScenarioMatrix | None = None
-    da_sell_submitted_volume: Timeseries | None = None
-    maximum_power: Timeseries | None = None
-    minimum_power: Timeseries | None = None
+    state_sequence: ScenarioMatrix | LazyScenarioMatrix | None = None
+    da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
+    maximum_power: Timeseries | LazyTimeseries | None = None
+    minimum_power: Timeseries | LazyTimeseries | None = None

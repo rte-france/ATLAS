@@ -6,7 +6,8 @@ This file is part of the ATLAS project.
 
 from pydantic import Field
 
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
@@ -15,15 +16,15 @@ class Wind(Equipment):
     """:param installed_capacity: Installed capacity
     :type installed_capacity: float
     :param maximum_power_forecast: Sum of volume of sell offers on the Day Ahead market
-    :type maximum_power_forecast: ForecastingMatrix
+    :type maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     :param curtailed_power: Stores capping at the end of each Portfolio Optimization
-    :type curtailed_power: ForecastingMatrix
+    :type curtailed_power: ForecastingMatrix | LazyForecastingMatrix
     :param curtailment_cost: Equipment capping cost
-    :type curtailment_cost: Timeseries
+    :type curtailment_cost: Timeseries | LazyTimeseries
     :param da_sell_submitted_volume: Sum of volume of sell offers on the Day Ahead market
-    :type da_sell_submitted_volume: Timeseries
+    :type da_sell_submitted_volume: Timeseries | LazyTimeseries
     :param maximum_curtailment_ratio: Sum of volume of sell offers on the Day Ahead market
-    :type maximum_curtailment_ratio: Timeseries
+    :type maximum_curtailment_ratio: Timeseries | LazyTimeseries
     """
 
     installed_capacity: float | None = Field(
@@ -31,8 +32,8 @@ class Wind(Equipment):
         gt=0,
         description="Installed capacity (must be positive)",
     )
-    maximum_power_forecast: ForecastingMatrix | None = None
-    curtailed_power: ForecastingMatrix | None = None
-    curtailment_cost: Timeseries | None = None
-    da_sell_submitted_volume: Timeseries | None = None
-    maximum_curtailment_ratio: Timeseries | None = None
+    maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
+    curtailed_power: ForecastingMatrix | LazyForecastingMatrix | None = None
+    curtailment_cost: Timeseries | LazyTimeseries | None = None
+    da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
+    maximum_curtailment_ratio: Timeseries | LazyTimeseries | None = None
