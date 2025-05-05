@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
+from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 
@@ -184,3 +185,10 @@ class ForecastingMatrix(Matrix):
     #         if from_date in result.series.index and to_date in result.series.index:
     #             return result
     #     return result
+
+
+class LazyForecastingMatrix(LazyMatrix):
+    """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
+
+    def __init__(self, matrix: pl.DataFrame | pl.LazyFrame | ForecastingMatrix) -> None:
+        super().__init__(matrix)

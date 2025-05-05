@@ -13,10 +13,11 @@ from typing import Any, Literal
 import polars as pl
 
 import atlas.config as cfg
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import Matrix
-from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 
@@ -31,6 +32,7 @@ class InputLoader:
         separator: str = ";",
         timeseries_file_extension: str = ".parquet",
         matrix_file_extension: str = ".parquet",
+        lazy: bool = False,
     ) -> dict[str, dict[str, Any]]:
         """Load input from a directory.
         :param directory_path: The path to the directory.
@@ -75,6 +77,7 @@ class InputLoader:
                 base_path=Path(directory_path),
                 timeseries_file_extension=timeseries_file_extension,
                 matrix_file_extension=matrix_file_extension,
+                lazy=lazy,
             )
             objects_instantiated[object_type] = cls._instantiate_model_objects_into_dict(
                 objects_instantiated_with_math_objects[object_type],
@@ -85,79 +88,14 @@ class InputLoader:
         return objects_instantiated
 
     @classmethod
-    def from_file(
-        cls,
-        file_path: str | Path,
-        object_type: str,
-        timeseries_file_extension: str = ".parquet",
-        matrix_file_extension: str = ".parquet",
-    ) -> dict[str, Any]:
-        """Load input from a object file.
-        :param file_path: The path to the file.
-        :type file_path: str or pathlib.Path
-        :param object_type: The type of the object to instantiate.
-        :type object_type: str
-        :return: A dictionary mapping object names to lists of instantiated objects.
-        :rtype: dict[str, BusinessModel]]
-        """
-        if not Path(file_path).exists():
-            raise FileNotFoundError(
-                f"File does not exist: {file_path}",
-            )
-        if not Path(file_path).is_file():
-            raise NotADirectoryError(
-                f"Path is not a file: {file_path}",
-            )
-
-        objects = cls.read_data_file(file_path).to_dicts()
-        objects_instantiated_with_math_objects = cls._instantiate_math_objects_into_dict(
-            objects,
-            object_type,
-            base_path=Path(file_path).parents[1],
-            timeseries_file_extension=timeseries_file_extension,
-            matrix_file_extension=matrix_file_extension,
-        )
-
-        return cls._instantiate_model_objects_into_dict(
-            objects_instantiated_with_math_objects,
-            object_type,
-        )
-
-    @classmethod
-    def from_files(
-        cls,
-        file_paths: list[str | Path],
-        object_type: list[str],
-        timeseries_file_extension: str = ".parquet",
-        matrix_file_extension: str = ".parquet",
-    ) -> dict[str, dict[str, Any]]:
-        """Load input from a list of object files.
-        :param file_paths: The paths to the files.
-        :type file_paths: list[str | Path]
-        :param object_type: The type of the object to instantiate.
-        :type object_type: str
-        :return: A dictionary mapping object names to lists of instantiated objects.
-        :rtype: dict[str, dict[str, BusinessModel]]
-        """
-        objects_instantiated = {}
-
-        for file_path, obj_type in zip(file_paths, object_type, strict=False):
-            objects_instantiated[obj_type] = cls.from_file(
-                file_path=file_path,
-                object_type=obj_type,
-                matrix_file_extension=matrix_file_extension,
-                timeseries_file_extension=timeseries_file_extension,
-            )
-        return objects_instantiated
-
-    @classmethod
-    def _instantiate_math_objects_into_dict(
+    def _instantiate_math_objects_into_dict(  # noqa: PLR0913
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
         base_path: Path,
         timeseries_file_extension: str = ".parquet",
         matrix_file_extension: str = ".parquet",
+        lazy: bool = False,
     ) -> list[dict[str, Any]]:
         """Instantiate objects from a dictionary of attributes.
 
@@ -184,6 +122,7 @@ class InputLoader:
                         name=obj["name"],
                         attribute_name=key,
                         file_extension=timeseries_file_extension,
+                        lazy=lazy,
                     )
                 elif value in ["forecasting_matrix", "scenario_matrix"]:
                     object_instantiated[key] = cls._load_matrix(
@@ -193,6 +132,7 @@ class InputLoader:
                         object_type=object_type,
                         matrix_type=value,
                         file_extension=matrix_file_extension,
+                        lazy=lazy,
                     )
                 else:
                     object_instantiated[key] = value
@@ -278,7 +218,7 @@ class InputLoader:
         raise ValueError(f"Unsupported file extension: {file_extension}")
 
     @staticmethod
-    def _load_timeseries(
+    def _load_timeseries(  # noqa: PLR0913
         base_path: Path,
         object_type: str,
         name: str,
