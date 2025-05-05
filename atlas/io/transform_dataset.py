@@ -377,7 +377,7 @@ class AtlasTransformerDataset:
 
     def transform(self, objects_json_path):
         """Main method to perform the complete transformation."""
-        # self.process_source_tree()
+        self.process_source_tree()
         self.from_objects_json_to_csv_files(objects_json_path)
         return self.target_root
 
