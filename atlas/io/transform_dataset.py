@@ -342,6 +342,10 @@ class AtlasTransformerDataset:
 
                 for inst_name, inst_data in instances.items():
                     flat = self.flatten_attributes_with_filter(inst_name, inst_data)
+                    if 'object' in flat:
+                        del flat['object']
+                    if 'comment' in flat:
+                        del flat['comment']
                     rows.append(flat)
                     all_attrs.update(flat.keys())
 
@@ -352,8 +356,10 @@ class AtlasTransformerDataset:
 
                 # Write to CSV
                 csv_file = self.data_dir / f"{self.to_snake_case(class_name)}.csv"
+                if instances == {}:
+                    continue
                 with open(csv_file, "w", newline="", encoding="utf-8") as f:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=';')
                     writer.writeheader()
                     writer.writerows(rows)
 
@@ -371,7 +377,7 @@ class AtlasTransformerDataset:
 
     def transform(self, objects_json_path):
         """Main method to perform the complete transformation."""
-        self.process_source_tree()
+        # self.process_source_tree()
         self.from_objects_json_to_csv_files(objects_json_path)
         return self.target_root
 
