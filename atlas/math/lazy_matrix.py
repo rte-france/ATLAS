@@ -91,7 +91,7 @@ class LazyMatrix:
             raise ValueError("LazyMatrix must have exactly one datetime column")
 
         time_column = time_columns[0]
-        return [col for col in self.matrix.schema if col != time_column]
+        return [col for col in self.matrix.collect_schema() if col != time_column]
 
     @staticmethod
     def _check_timezone(timezone: str) -> None:

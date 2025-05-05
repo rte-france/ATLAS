@@ -46,12 +46,12 @@ class Storage(Equipment):
 
     charge_efficiency: float | None = Field(
         None,
-        gt=0,
+        ge=0,
         description="Charge efficiency (must be positive)",
     )
     discharge_efficiency: float | None = Field(
         None,
-        gt=0,
+        ge=0,
         description="Discharge efficiency (must be positive)",
     )
     is_v2g: bool | None = None
@@ -63,7 +63,7 @@ class Storage(Equipment):
     storage_type: StorageType | None = None
     transition_duration: float | None = Field(
         None,
-        gt=0,
+        ge=0,
         description="Transition duration (must be positive)",
     )
 

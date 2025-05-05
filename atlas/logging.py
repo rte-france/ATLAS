@@ -61,7 +61,7 @@ class Logger:
             )
         else:
             self.log_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = pendulum.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = pendulum.now().to_datetime_string()
 
             log_file = self.log_dir / f"{self.name}-{timestamp}.log"
 

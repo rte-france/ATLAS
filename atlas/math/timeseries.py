@@ -339,7 +339,7 @@ class Timeseries:
         self,
         time: datetime | str,
         value: float | None,
-        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -349,7 +349,7 @@ class Timeseries:
         :type time: datetime or str
         :param value: Value to set
         :type value: float or int
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -627,7 +627,7 @@ class Timeseries:
     def filter(
         self,
         item: list[datetime] | datetime | pendulum.DateTime | str,
-        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -708,7 +708,7 @@ class Timeseries:
     def get_value(
         self,
         datetime: str | datetime | pendulum.DateTime,
-        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> dict:
         """Return values at the given datetime. If exact match is not found, interpolate.
 

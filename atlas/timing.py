@@ -4,21 +4,77 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import functools
-import time
 
-from atlas.config import logger
+def datetime_to_pendulum(fmt: str) -> str:
+    """Convert a datetime format string to a pendulum-compatible format string.
+
+    :param fmt: The input format
+    :type fmt: str
+    """
+    mapping = {
+        "%Y": "YYYY",
+        "%y": "YY",
+        "%m": "MM",
+        "%B": "MMMM",
+        "%b": "MMM",
+        "%d": "DD",
+        "%H": "HH",
+        "%I": "hh",
+        "%p": "A",
+        "%M": "mm",
+        "%S": "ss",
+        "%f": "SSSSSS",
+        "%z": "Z",
+        "%Z": "z",
+        "%a": "ddd",
+        "%A": "dddd",
+        "%j": "DDDD",
+        "%U": "ww",
+        "%W": "ww",
+        "%c": "llll",
+        "%x": "ll",
+        "%X": "LTS",
+    }
+
+    # Replace each token in format string
+    for dt_token, pendulum_token in mapping.items():
+        fmt = fmt.replace(dt_token, pendulum_token)
+
+    return fmt
 
 
-def timeit(func):  # noqa: ANN001, ANN201
-    """Decorator to measure the execution time for a method."""
+def pendulum_to_datetime(fmt: str) -> str:
+    """Convert a pendulum-compatible format string to a datetime format string.
 
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
-        start_time = time.perf_counter()
-        result = func(self, *args, **kwargs)
-        end_time = time.perf_counter()
-        logger.debug(f"{self.__class__.__name__}.{func.__name__} executed in {end_time - start_time:.6f} seconds")
-        return result
+    :param fmt: The input format
+    :type fmt: str
+    """
+    mapping = {
+        "YYYY": "%Y",
+        "YY": "%y",
+        "MMMM": "%B",
+        "MMM": "%b",
+        "MM": "%m",
+        "DD": "%d",
+        "dddd": "%A",
+        "ddd": "%a",
+        "HH": "%H",
+        "hh": "%I",
+        "A": "%p",
+        "mm": "%M",
+        "ss": "%S",
+        "SSSSSS": "%f",
+        "Z": "%z",
+        "z": "%Z",
+        "DDDD": "%j",
+        "ww": "%W",  # approximate
+        "llll": "%c",
+        "ll": "%x",
+        "LTS": "%X",
+    }
 
-    return wrapper
+    # Sort keys longest-first to avoid partial replacement (e.g., 'MM' before 'M')
+    for pendulum_token in sorted(mapping.keys(), key=lambda x: -len(x)):
+        fmt = fmt.replace(pendulum_token, mapping[pendulum_token])
+
+    return fmt

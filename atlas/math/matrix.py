@@ -51,7 +51,7 @@ class Matrix:
             )
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Matrix:
+    def from_file(cls, file_path: str | Path, timezone: str = "UTC") -> Matrix:
         """
         Load a Matrix from a file.
 
@@ -66,7 +66,7 @@ class Matrix:
             matrix = pl.read_csv(file_path)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
-        return cls(matrix)
+        return cls(matrix, timezone)
 
     def _get_indexes(self) -> list[str]:
         """

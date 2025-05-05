@@ -18,6 +18,7 @@ import polars as pl
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
+from atlas.timing import pendulum_to_datetime
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -39,7 +40,7 @@ class ForecastingMatrix(Matrix):
         self,
         matrix: pl.DataFrame | pd.DataFrame,
         timezone: str = "UTC",
-        date_format: str = "%d_%m_%Y %H:%M:%S",
+        date_format: str = "DD_MM_YYYY HH:mm:ss",
     ) -> None:
         """
         Initialize a ForecastingMatrix with a matrix of forecasted timeseries.
@@ -57,7 +58,9 @@ class ForecastingMatrix(Matrix):
         self.date_format: str = date_format
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> ForecastingMatrix:
+    def from_file(
+        cls, file_path: str | Path, timezone: str = "UTC", date_format: str = "DD_MM_YYYY HH:mm:ss"
+    ) -> ForecastingMatrix:
         """
         Load a ForecastingMatrix from a file.
 
@@ -72,9 +75,9 @@ class ForecastingMatrix(Matrix):
             matrix = pl.read_csv(file_path)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
-        return cls(matrix)
+        return cls(matrix, timezone, date_format)
 
-    def _sort_indexes(self, date_format: str = "%d_%m_%Y %H:%M:%S") -> None:
+    def _sort_indexes(self) -> None:
         """
         Sort the forecast matrix columns based on their datetime indexes.
 
@@ -86,9 +89,15 @@ class ForecastingMatrix(Matrix):
         """
         indexes_sorted = (
             pl.DataFrame({"indexes": self.indexes})
-            .with_columns(pl.col("indexes").str.strptime(pl.Datetime(time_unit="us"), date_format, strict=False))
+            .with_columns(
+                pl.col("indexes").str.strptime(
+                    pl.Datetime(time_unit="us"),
+                    pendulum_to_datetime(self.date_format),
+                    strict=False,
+                )
+            )
             .sort("indexes")
-            .with_columns(pl.col("indexes").dt.strftime(date_format))
+            .with_columns(pl.col("indexes").dt.strftime(pendulum_to_datetime(self.date_format)))
             .to_series()
             .to_list()
         )

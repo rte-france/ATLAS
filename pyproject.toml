@@ -17,6 +17,7 @@ dependencies = [
     "polars>=1.27.0",
     "pyarrow>=20.0.0",
     "pydantic>=2.11.3",
+    "pydantic-extra-types>=2.10.4",
     "pytz>=2025.1",
     "pyyaml>=6.0.1",
     "typer>=0.15.2",

@@ -50,19 +50,19 @@ class Thermal(Equipment):
 
     installed_capacity: float | None = Field(
         None,
-        gt=0,
+        ge=0,
         description="Installed capacity (must be positive)",
     )
-    minimum_stable_power_duration: float | None = Field(None, gt=0)
-    minimum_time_off: float | None = Field(None, gt=0)
-    minimum_time_on: float | None = Field(None, gt=0)
-    outage_mean_duration: float | None = Field(None, gt=0)
+    minimum_stable_power_duration: float | None = Field(None, ge=0)
+    minimum_time_off: float | None = Field(None, ge=0)
+    minimum_time_on: float | None = Field(None, ge=0)
+    outage_mean_duration: float | None = Field(None, ge=0)
     outage_probability: float | None = Field(None, ge=0, le=1)
-    scheduled_shutdown_mean_duration: float | None = Field(None, gt=0)
+    scheduled_shutdown_mean_duration: float | None = Field(None, ge=0)
     scheduled_shutdown_probability: float | None = Field(None, ge=0, le=1)
-    shutdown_duration: float | None = Field(None, gt=0)
+    shutdown_duration: float | None = Field(None, ge=0)
     startup_delay_probability: float | None = Field(None, ge=0, le=1)
-    startup_duration: float | None = Field(None, gt=0)
+    startup_duration: float | None = Field(None, ge=0)
 
     strategy: ThermalStrategy | None = None
 

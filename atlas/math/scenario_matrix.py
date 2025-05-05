@@ -17,8 +17,8 @@ from atlas.math.matrix import Matrix
 class ScenarioMatrix(Matrix):
     """Stores Timeseries objects by scenario name, with access and deletion by name."""
 
-    def __init__(self, matrix: pd.DataFrame | pl.DataFrame) -> None:
-        super().__init__(matrix)
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame, timezone: str = "UTC") -> None:
+        super().__init__(matrix, timezone)
 
 
 class LazyScenarioMatrix(LazyMatrix):

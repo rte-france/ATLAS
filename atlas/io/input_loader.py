@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
+import pendulum
 import polars as pl
 
 import atlas.config as cfg
@@ -33,6 +34,9 @@ class InputLoader:
         timeseries_file_extension: str = ".parquet",
         matrix_file_extension: str = ".parquet",
         lazy: bool = False,
+        timezone: str = "UTC",
+        date_format_forecasting_matrix: str = "DD_MM_YYYY HH:mm:ss",
+        date_format_input_files: str = "DD/MM/YYYY HH:mm:ss",
     ) -> dict[str, dict[str, Any]]:
         """Load input from a directory.
         :param directory_path: The path to the directory.
@@ -78,6 +82,9 @@ class InputLoader:
                 timeseries_file_extension=timeseries_file_extension,
                 matrix_file_extension=matrix_file_extension,
                 lazy=lazy,
+                timezone=timezone,
+                date_format_forecasting_matrix=date_format_forecasting_matrix,
+                date_format_input_files=date_format_input_files,
             )
             objects_instantiated[object_type] = cls._instantiate_model_objects_into_dict(
                 objects_instantiated_with_math_objects[object_type],
@@ -96,6 +103,9 @@ class InputLoader:
         timeseries_file_extension: str = ".parquet",
         matrix_file_extension: str = ".parquet",
         lazy: bool = False,
+        timezone: str = "UTC",
+        date_format_forecasting_matrix: str = "DD_MM_YYYY HH:mm:ss",
+        date_format_input_files: str = "DD/MM/YYYY HH:mm:ss",
     ) -> list[dict[str, Any]]:
         """Instantiate objects from a dictionary of attributes.
 
@@ -123,6 +133,7 @@ class InputLoader:
                         attribute_name=key,
                         file_extension=timeseries_file_extension,
                         lazy=lazy,
+                        timezone=timezone,
                     )
                 elif value in ["forecasting_matrix", "scenario_matrix"]:
                     object_instantiated[key] = cls._load_matrix(
@@ -133,9 +144,16 @@ class InputLoader:
                         matrix_type=value,
                         file_extension=matrix_file_extension,
                         lazy=lazy,
+                        timezone=timezone,
+                        date_format_forecasting=date_format_forecasting_matrix,
                     )
                 else:
-                    object_instantiated[key] = value
+                    try:
+                        object_instantiated[key] = pendulum.from_format(
+                            value, date_format_input_files
+                        ).to_datetime_string()
+                    except Exception:  # noqa: BLE001
+                        object_instantiated[key] = value
             objects_instantiated.append(object_instantiated)
 
         return objects_instantiated
@@ -178,6 +196,7 @@ class InputLoader:
         :return: An instance of the specified object type.
         :rtype: BusinessModel
         """
+        cfg.logger.debug(f"Instantiated model object {object_dict['name']} of type : {object_type}")
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)
 
     @classmethod
@@ -266,6 +285,8 @@ class InputLoader:
         matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
         file_extension: str = ".parquet",
         lazy: bool = False,
+        timezone: str = "UTC",
+        date_format_forecasting: str = "DD_MM_YYYY HH:mm:ss",
     ) -> Matrix | LazyMatrix:
         """Generic loader for scenario or forecasting matrix time series for a specific instance.
 
@@ -296,9 +317,9 @@ class InputLoader:
 
         if not lazy:
             if matrix_type == "scenario_matrix":
-                return ScenarioMatrix.from_file(matrix_file_path)
+                return ScenarioMatrix.from_file(matrix_file_path, timezone)
             if matrix_type == "forecasting_matrix":
-                return ForecastingMatrix.from_file(matrix_file_path)
+                return ForecastingMatrix.from_file(matrix_file_path, timezone, date_format_forecasting)
             raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
         if matrix_type == "scenario_matrix":
             return LazyScenarioMatrix.from_file(matrix_file_path)

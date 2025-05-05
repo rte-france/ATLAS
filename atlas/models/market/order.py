@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from datetime import date
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enum import OrderType, Product
 from atlas.models.business_model import BusinessModel
@@ -23,11 +23,11 @@ class Order(BusinessModel):
     :param accepted_power: Accepted power after Clearing
     :type accepted_power: float
     :param execution_date: Date of offer
-    :type execution_date: date
-    :param start_date: Offer activation start date
-    :type start_date: date
-    :param end_date: Offer activation end date
-    :type end_date: date
+    :type execution_date: DateTime
+    :param start_date: Offer activation start DateTime
+    :type start_date: DateTime
+    :param end_date: Offer activation end DateTime
+    :type end_date: DateTime
     :param individual_spread: "Profit (in the sense of social welfare) of the offer :
         _ spot price - offer price for a sell offer
         _ offer price - spot price for a purchase offer
@@ -53,9 +53,9 @@ class Order(BusinessModel):
     market_area: MarketArea | None = None
     portfolio: Portfolio | None = None
     accepted_power: float | None = None
-    execution_date: date | None = None
-    start_date: date | None = None
-    end_date: date | None = None
+    execution_date: DateTime | None = None
+    start_date: DateTime | None = None
+    end_date: DateTime | None = None
     individual_spread: float | None = None
     is_agent_tso: bool | None = None
     order_type: OrderType | None = None

@@ -105,8 +105,8 @@ class Equipment(BusinessModel):
     maximum_afrr: float | None = None
     maximum_fcr: float | None = None
     maximum_gradient: float | None = None
-    setup_delay: float | None = Field(None, gt=0, description="Setup delay (must be positive)")
-    unit_count: int | None = Field(None, gt=0, description="Unit count (must be positive)")
+    setup_delay: float | None = Field(None, ge=0, description="Setup delay (must be positive)")
+    unit_count: int | None = Field(None, ge=0, description="Unit count (must be positive)")
     afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     co2_emissions: ForecastingMatrix | LazyForecastingMatrix | None = None

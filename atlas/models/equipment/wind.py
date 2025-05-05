@@ -29,7 +29,7 @@ class Wind(Equipment):
 
     installed_capacity: float | None = Field(
         None,
-        gt=0,
+        ge=0,
         description="Installed capacity (must be positive)",
     )
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None

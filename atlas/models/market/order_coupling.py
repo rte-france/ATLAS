@@ -20,7 +20,7 @@ class OrderCoupling(BusinessModel):
     :type coupling_type: CouplingType
     """
 
-    orders: list[Order]  # List of Business model Order
+    orders: list[Order] | None = None
     complement_direction: ComplementDirection | None = None
     complement_energy: float | None = None
     coupling_type: CouplingType | None = None
