@@ -64,7 +64,8 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
 
     def run(self, raw_data: dict[str, list[BusinessModel]], raw_params: dict[str, Any]) -> None:
         """Orchestrates the preparation and execution of the module.
-        Should not be overridden in subclass"""
+        Should not be overridden in subclass
+        """
         parameters = self.create_parameters(raw_params)
 
         input_dataset = self.import_data(raw_data, parameters)

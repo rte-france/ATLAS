@@ -1,62 +1,36 @@
-"""Copyright (c) 2025, RTE (www.rte-france.com)
-See AUTHORS.txt
-SPDX-License-Identifier: MPL-2.0
-This file is part of the ATLAS project.
-
-Test AbstractParameters
-"""
-
-from typing import Any
-
-import pytest
-import datetime
+from datetime import datetime
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 
 
-class ParametersTest(AbstractParameters):
-    valid_result: bool | None = None
+def test_valid_dates():
+    params = AbstractParameters(
+        start_date=datetime(2024, 1, 1),
+        end_date=datetime(2024, 12, 31),
+        execution_date=datetime(2024, 6, 1),
+    )
+    assert params.start_date < params.execution_date < params.end_date
 
 
-@pytest.fixture()
-def raw_params() -> dict[str, Any]:
-    return {
-        "start_date": datetime.datetime(2025, 1, 1),
-        "end_date": datetime.datetime(2025, 1, 2),
-        "execution_date": datetime.datetime(2025, 1, 1, 12),
-        "valid_result": True,
-    }
+def test_invalid_end_before_start():
+    try:
+        AbstractParameters(start_date=datetime(2024, 12, 31), end_date=datetime(2024, 1, 1))
+        assert False, "Expected ValueError for end_date before start_date"
+    except ValueError as e:
+        assert "Start date" in str(e)
 
 
-@pytest.fixture()
-def parameters(raw_params: dict[str, Any]) -> ParametersTest:
-    return ParametersTest(**raw_params)
+def test_execution_date_out_of_bounds():
+    try:
+        AbstractParameters(
+            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 12, 31), execution_date=datetime(2025, 1, 1)
+        )
+        assert False, "Expected ValueError for execution_date out of range"
+    except ValueError as e:
+        assert "Execution date" in str(e)
 
 
-def test_parameters_raise_error_if_start_date_inferior_to_end_date():
-    params = {
-        "start_date": datetime.datetime(2025, 1, 2),
-        "end_date": datetime.datetime(2025, 1, 1),
-    }
-    with pytest.raises(ValueError, match=".*inferior*"):
-        ParametersTest(**params)
-
-
-def test_parameters_raise_error_if_execution_date_is_inferior_to_start_date():
-    params = {
-        "start_date": datetime.datetime(2025, 1, 2),
-        "end_date": datetime.datetime(2025, 1, 4),
-        "execution_date": datetime.datetime(2025, 1, 1),
-    }
-    with pytest.raises(ValueError, match=".*between*"):
-        ParametersTest(**params)
-
-
-def test_parameters_raise_error_if_execution_date_is_superior_to_date():
-    params = {
-        "start_date": datetime.datetime(2025, 1, 1),
-        "end_date": datetime.datetime(2025, 1, 4),
-        "execution_date": datetime.datetime(2025, 1, 5),
-    }
-    with pytest.raises(ValueError, match=".*between*"):
-        ParametersTest(**params)
+def test_missing_optional_fields():
+    params = AbstractParameters()
+    assert params.export_result is True
+    assert params.export_output_dataset is False

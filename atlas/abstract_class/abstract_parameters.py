@@ -33,8 +33,8 @@ class AbstractParameters(BaseModel):
     start_date: datetime | None = None
     end_date: datetime | None = None
     execution_date: datetime | None = None
-    export_result: bool | None = True
-    export_output_dataset: bool | None = False
+    export_result: bool = True
+    export_output_dataset: bool = False
 
     @model_validator(mode="after")
     def check_dates(self) -> Self:
