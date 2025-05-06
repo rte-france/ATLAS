@@ -137,6 +137,7 @@ dependencies = [
     { name = "pytz" },
     { name = "pyyaml" },
     { name = "typer" },
+    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -180,6 +181,7 @@ requires-dist = [
     { name = "pytz", specifier = ">=2025.1" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "typer", specifier = ">=0.15.2" },
+    { name = "typing-extensions", specifier = ">=4.13.2" },
 ]
 
 [package.metadata.requires-dev]
