@@ -208,8 +208,6 @@ class AtlasTransformerDataset:
         # Update the instance data
         self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = "timeseries"
 
-        self.merge_parquet_files_recursive(path=self.timeseries_dir / self.to_snake_case(business_type))
-
     def _process_forecasting_matrix(self, business_type, name, attribute_name, dir_path):
         """Process a ForecastingMatrix attribute."""
         # Create a directory for this matrix in the forecasting_matrix directory
@@ -244,6 +242,7 @@ class AtlasTransformerDataset:
             self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = "forecasting_matrix"
         self.merge_matrices(matrix_dir / self.to_snake_case(attribute_name), self.to_snake_case(attribute_name))
 
+
     def _process_scenario_matrix(self, business_type, name, attribute_name, dir_path):
         """Process a ScenarioMatrix attribute."""
         # Create a directory for this matrix in the scenario_matrix directory
@@ -276,6 +275,7 @@ class AtlasTransformerDataset:
         self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = "scenario_matrix"
         self.merge_matrices(matrix_dir / self.to_snake_case(attribute_name), self.to_snake_case(attribute_name))
 
+
     def merge_matrices(self, base_path, attribute_name):
         parquet_files = sorted(base_path.glob("*.parquet"))
         dfs = [pl.read_parquet(f) for f in parquet_files]
@@ -303,7 +303,6 @@ class AtlasTransformerDataset:
             if file != merged_file_path:
                 file.unlink()
 
-        self.merge_parquet_files_recursive(base_path.parents[1])
 
     def merge_parquet_files_recursive(self,path: str) -> pl.DataFrame:
         path = Path(path)
@@ -413,7 +412,14 @@ class AtlasTransformerDataset:
     def transform(self, objects_json_path):
         """Main method to perform the complete transformation."""
         self.process_source_tree()
+
+        for folders in Path(objects_json_path.parent).iterdir():
+            if 'timeseries' in str(folders) or 'forecasting' in str(folders) or 'scenario' in str(folders):
+                for path in folders.iterdir():
+                    self.merge_parquet_files_recursive(path)
+
         self.from_objects_json_to_csv_files(objects_json_path)
+
         return self.target_root
 
     def run(self, hdf_path, objects_json_path):
