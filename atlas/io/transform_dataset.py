@@ -2,6 +2,7 @@ import csv
 import json
 import os
 import re
+import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -207,6 +208,8 @@ class AtlasTransformerDataset:
         # Update the instance data
         self.instances_data[self.to_snake_case(name)][self.to_snake_case(attribute_name)] = "timeseries"
 
+        self.merge_parquet_files_recursive(path=self.timeseries_dir / self.to_snake_case(business_type))
+
     def _process_forecasting_matrix(self, business_type, name, attribute_name, dir_path):
         """Process a ForecastingMatrix attribute."""
         # Create a directory for this matrix in the forecasting_matrix directory
@@ -274,7 +277,6 @@ class AtlasTransformerDataset:
         self.merge_matrices(matrix_dir / self.to_snake_case(attribute_name), self.to_snake_case(attribute_name))
 
     def merge_matrices(self, base_path, attribute_name):
-        # Get all Parquet files in that directory (recursively if needed)
         parquet_files = sorted(base_path.glob("*.parquet"))
         dfs = [pl.read_parquet(f) for f in parquet_files]
         logger.info(f"Found {len(parquet_files)} files to merge in path: {base_path}")
@@ -300,6 +302,39 @@ class AtlasTransformerDataset:
         for file in parquet_files:
             if file != merged_file_path:
                 file.unlink()
+
+        self.merge_parquet_files_recursive(base_path.parents[1])
+
+    def merge_parquet_files_recursive(self,path: str) -> pl.DataFrame:
+        path = Path(path)
+        parquet_files = list(path.rglob("*.parquet"))
+        if not parquet_files:
+            raise ValueError("No parquet files found.")
+
+        df = pl.DataFrame()
+        if "timeseries" in str(path):
+            idx_instance = 0
+            idx_type = 1
+        else:
+            idx_instance = 1
+            idx_type = 2
+        for f in parquet_files:
+            attribute = f.stem
+            instance = f.parents[idx_instance].stem
+
+            type = f.parents[idx_type].stem
+            next_df = (
+                pl.read_parquet(f)
+                .with_columns(
+                    pl.lit(attribute).alias("attribute"),
+                )
+                .select(pl.selectors.datetime(), pl.selectors.string(), pl.selectors.numeric())
+            )
+            df = pl.concat([df, next_df], how="diagonal")
+        print("file to write", path.parent / f"{instance}.parquet")
+        df.write_parquet(path.parent / f"{instance}.parquet")
+        shutil.rmtree(path)
+        return df
 
     def flatten_attributes_with_filter(self, instance_name, instance_dict):
         """
@@ -342,10 +377,10 @@ class AtlasTransformerDataset:
 
                 for inst_name, inst_data in instances.items():
                     flat = self.flatten_attributes_with_filter(inst_name, inst_data)
-                    if 'object' in flat:
-                        del flat['object']
-                    if 'comment' in flat:
-                        del flat['comment']
+                    if "object" in flat:
+                        del flat["object"]
+                    if "comment" in flat:
+                        del flat["comment"]
                     rows.append(flat)
                     all_attrs.update(flat.keys())
 
@@ -359,7 +394,7 @@ class AtlasTransformerDataset:
                 if instances == {}:
                     continue
                 with open(csv_file, "w", newline="", encoding="utf-8") as f:
-                    writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=';')
+                    writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=";")
                     writer.writeheader()
                     writer.writerows(rows)
 

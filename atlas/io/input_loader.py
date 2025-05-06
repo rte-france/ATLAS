@@ -37,7 +37,7 @@ class InputLoader:
         timezone: str = "UTC",
         date_format_forecasting_matrix: str = "DD_MM_YYYY HH:mm:ss",
         date_format_input_files: str = "DD/MM/YYYY HH:mm:ss",
-    ) -> dict[str, dict[str, Any]]:
+    ) -> dict[str, list[Any]]:
         """Load input from a directory.
         :param directory_path: The path to the directory.
         :type directory_path: str or pathlib.Path
@@ -49,6 +49,7 @@ class InputLoader:
         :rtype: dict[str, dict[str, list[BusinessModel]]]
         """
         cfg.logger.debug(f"Loading input from directory: {directory_path}")
+        cfg.logger.debug(f"""Parameters -> directory_path: {directory_path}, lazy mode: {lazy}""")
 
         if not Path(directory_path).exists():
             raise FileNotFoundError(
@@ -163,7 +164,7 @@ class InputLoader:
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
-    ) -> dict[str, Any]:
+    ) -> list[Any]:
         """Instantiate objects from a dictionary of attributes.
 
         :param object_dict: A dictionary containing the attributes of the object.
@@ -171,13 +172,15 @@ class InputLoader:
         :param object_type: The type of the object to instantiate.
         :type object_type: str
         :return: An instance of the specified object type.
-        :rtype: dict[str, BusinessModel]
+        :rtype: list[BusinessModel]
         """
-        objects_instantiated: dict[str, Any] = {}
+        objects_instantiated: dict[str, Any] = []
         for obj in object_list:
-            objects_instantiated[obj["name"]] = cls._instantiate_model_object(
-                obj,
-                object_type,
+            objects_instantiated.append(
+                cls._instantiate_model_object(
+                    obj,
+                    object_type,
+                )
             )
 
         return objects_instantiated
@@ -196,7 +199,7 @@ class InputLoader:
         :return: An instance of the specified object type.
         :rtype: BusinessModel
         """
-        cfg.logger.debug(f"Instantiated model object {object_dict['name']} of type : {object_type}")
+        cfg.logger.debug(f"Instantiated -- business model <{object_dict['name']}> -- type <{object_type}>")
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)
 
     @classmethod
@@ -216,7 +219,9 @@ class InputLoader:
                 try:
                     result[key] = cls.read_data_file(file_path, separator=separator).to_dicts()
                 except Exception:  # noqa: BLE001
-                    cfg.logger.warning(f"Object type key {key} won't be taken into account")
+                    cfg.logger.warning(
+                        f"Failed to read {file_path}. Object type key {key} won't be taken into account."
+                    )
             else:
                 cfg.logger.warning(f"File {file_path} is not a recognized objects from Atlas.")
         return result
