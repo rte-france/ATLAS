@@ -96,7 +96,7 @@ class InputLoader:
         return objects_instantiated
 
     @classmethod
-    def _instantiate_math_objects_into_dict(  # noqa: PLR0913
+    def _instantiate_math_objects_into_dict(
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
@@ -174,14 +174,7 @@ class InputLoader:
         :return: An instance of the specified object type.
         :rtype: list[BusinessModel]
         """
-        objects_instantiated: dict[str, Any] = []
-        for obj in object_list:
-            objects_instantiated.append(
-                cls._instantiate_model_object(
-                    obj,
-                    object_type,
-                )
-            )
+        objects_instantiated: list = [cls._instantiate_model_object(obj, object_type) for obj in object_list]
 
         return objects_instantiated
 
@@ -246,16 +239,17 @@ class InputLoader:
         if file_extension == ".json":
             return pl.read_json(file_path)
 
-        raise NotImplementedError("File extension has to be csv, parquetFs or json")
+        raise NotImplementedError("File extension has to be csv, parquet or json")
 
     @staticmethod
-    def _load_timeseries(  # noqa: PLR0913
+    def _load_timeseries(
         base_path: Path,
         object_type: str,
         name: str,
         attribute_name: str,
         file_extension: str = ".parquet",
         lazy: bool = False,
+        timezone: str = "UTC",
     ) -> Timeseries | LazyTimeseries:
         """Load a timeseries profile from the timeseries/ folder.
         :param base_path: Path to the timeseries/ folder.
@@ -278,11 +272,11 @@ class InputLoader:
         cfg.logger.debug(f"Loading timeseries from file: {timeseries_path}")
 
         if lazy:
-            return LazyTimeseries.from_file(file_path=timeseries_path)
-        return Timeseries.from_file(file_path=timeseries_path)
+            return LazyTimeseries.from_file(file_path=timeseries_path, timezone=timezone)
+        return Timeseries.from_file(file_path=timeseries_path, timezone=timezone)
 
     @staticmethod
-    def _load_matrix(  # noqa: PLR0913
+    def _load_matrix(
         base_path: str | Path,
         name: str,
         object_type: str,

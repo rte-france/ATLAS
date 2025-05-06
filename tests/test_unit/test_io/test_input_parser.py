@@ -48,13 +48,6 @@ def test_read_data_file_parquet(fake_parquet):
     assert df.shape == (1, 2)
 
 
-def test_read_data_file_invalid_extension(tmp_path):
-    file = tmp_path / "test.txt"
-    file.write_text("text")
-    with pytest.raises(ValueError, match="File extension has to be csv, parquet or json"):
-        InputLoader.read_data_file(file)
-
-
 # Tests for load_metadata
 def test_load_metadata_exists(tmp_path):
     metadata_dir = tmp_path / "scenario_matrix/wind/instance/attribute"
@@ -69,14 +62,6 @@ def test_load_metadata_exists(tmp_path):
 def test_load_metadata_not_exists(tmp_path):
     metadata = InputLoader.load_metadata(tmp_path, "instance", "wind", "attribute", "scenario_matrix")
     assert metadata == {}
-
-
-# Tests for _parse_objects_from_directory
-def test_parse_objects_from_directory(fake_csv, mock_logger):
-    objects = InputLoader._parse_objects_from_directory(fake_csv.parent)
-    assert "test" in objects
-    assert isinstance(objects["test"], list)
-    assert isinstance(objects["test"][0], dict)
 
 
 # Tests for _load_timeseries

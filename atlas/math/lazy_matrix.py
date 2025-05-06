@@ -33,7 +33,7 @@ class LazyMatrix:
         self.timezone = timezone
 
         if isinstance(matrix, LazyMatrix):
-            self.matrix = matrix.get_data()
+            self.matrix = matrix.get_matrix()
             self.timezone = matrix.timezone
         elif isinstance(matrix, Matrix):
             self.matrix = matrix.to_lazy()
@@ -74,7 +74,7 @@ class LazyMatrix:
             raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
         return cls(matrix, timezone=timezone)
 
-    def get_data(self) -> pl.LazyFrame:
+    def get_matrix(self) -> pl.LazyFrame:
         """Return internal lazy frame."""
         return self.matrix
 

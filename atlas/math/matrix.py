@@ -50,6 +50,10 @@ class Matrix:
                 f"but found {len(df.columns)} columns in total."
             )
 
+    def __repr__(self):
+        """Provide a string representation of the Matrix object."""
+        return f"Matrix : {self.matrix}"
+
     @classmethod
     def from_file(cls, file_path: str | Path, timezone: str = "UTC") -> Matrix:
         """

@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pendulum
 import polars as pl
 
 from atlas.math.lazy_matrix import LazyMatrix
@@ -53,9 +54,13 @@ class ForecastingMatrix(Matrix):
         :type date_format: str
         """
         super().__init__(matrix, timezone=timezone)
-        self._sort_indexes(date_format=date_format)
 
         self.date_format: str = date_format
+        self._sort_indexes()
+
+    def __repr__(self):
+        """Provide a string representation of the Matrix object."""
+        return f"Forecasting Matrix : {self.matrix}"
 
     @classmethod
     def from_file(
@@ -119,14 +124,17 @@ class ForecastingMatrix(Matrix):
         :type index: str | datetime
         """
         if isinstance(index, str):
-            dt: str = datetime.strptime(index, self.date_format).strftime(self.date_format)  # noqa: DTZ007
+            dt: str = pendulum.from_format(index, self.date_format).format(self.date_format)
         else:
-            dt: str = index.strftime(self.date_format)  # type: ignore[no-redef]
+            dt: str = pendulum.instance(index).format(self.date_format)  # type: ignore[no-redef]
 
         super().add(timeseries, dt)
         self._sort_indexes()
 
-    def get_timeseries(self, index: str | datetime, date_format: str = "%d_%m_%Y %H:%M:%S") -> Timeseries:
+    def get_timeseries(
+        self,
+        index: str | datetime,
+    ) -> Timeseries:
         """
         Retrieve a timeseries by index.
 
@@ -139,10 +147,8 @@ class ForecastingMatrix(Matrix):
         :rtype: Timeseries
         """
         dt: str = (
-            datetime.strptime(index, date_format)  # noqa: DTZ007
-            if isinstance(index, str)
-            else index
-        ).strftime(self.date_format)
+            pendulum.from_format(index, self.date_format) if isinstance(index, str) else pendulum.instance(index)
+        ).format(self.date_format)
 
         return Timeseries(super().__getitem__(dt))
 
@@ -155,10 +161,8 @@ class ForecastingMatrix(Matrix):
         :raises KeyError: If the index does not exist in the matrix.
         """
         dt: str = (
-            datetime.strptime(index, self.date_format)  # noqa: DTZ007
-            if isinstance(index, str)
-            else index
-        ).strftime(self.date_format)
+            pendulum.from_format(index, self.date_format) if isinstance(index, str) else pendulum.instance(index)
+        ).format(self.date_format)
 
         super().delete(dt)
 

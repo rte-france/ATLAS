@@ -735,7 +735,7 @@ class Timeseries:
             return df.to_dicts()[0]["value"]
         return {"time": datetime, "value": None}
 
-    def plot(  # noqa: PLR0913
+    def plot(
         self,
         title: str = "Time Series Plot",
         height: int = 500,

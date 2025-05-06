@@ -20,6 +20,10 @@ class ScenarioMatrix(Matrix):
     def __init__(self, matrix: pd.DataFrame | pl.DataFrame, timezone: str = "UTC") -> None:
         super().__init__(matrix, timezone)
 
+    def __repr__(self):
+        """Provide a string representation of the Matrix object."""
+        return f"Scenario Matrix : {self.matrix}"
+
 
 class LazyScenarioMatrix(LazyMatrix):
     """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
