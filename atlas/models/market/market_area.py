@@ -13,44 +13,49 @@ from atlas.models.control_block import ControlBlock
 class MarketArea(BusinessModel):
     """:param control_block: Associated Control block
     :type control_block: ControlBlock
-    :param co2_emission: Stores CO2 emissions at the end of each Portfolio Optimization
+    :param co2_emission: CO2 emissions at the end of each Portfolio Optimization
     :type co2_emission: ForecastingMatrix
-    :param id_balance: Net trading position of the zone on the various Intraday Clearing (sales - purchases)
+    :param id_balance: Net position of the zone on the various Intraday market clearings (sales - purchases)
     :type id_balance: ForecastingMatrix
-    :param id_price: Prices from the Intraday clearing markets in the MarketArea
+    :param id_price: Market area prices from each Intraday clearing market
     :type id_price: ForecastingMatrix
     :param id_price_forecast: Sum of volume of sell offers on the Day Ahead market
     :type id_price_forecast: ForecastingMatrix
-    :param price_forecast_high: High scenario of energy price forecasts for the various markets (ID, DA and Balancing)
+    :param price_forecast_high: High price scenario of energy price forecasts for the various markets (ID, DA and
+    Balancing) for different forecasting horizons
     over the different deadlines
     :type price_forecast_high: ForecastingMatrix
-    :param price_forecast_low: Low scenario of energy price forecasts for the various markets (ID, DA and Balancing)
+    :param price_forecast_low: Low price scenario of energy price forecasts for the various markets (ID, DA and
+    Balancing) for different forecasting horizons
     over the different deadlines
     :type price_forecast_low: ForecastingMatrix
-    :param price_forecast_medium: Average scenario of energy price forecasts for the various markets
+    :param price_forecast_medium: Medium price scenario of energy price forecasts for the various markets (ID, DA and
+    Balancing) for different forecasting horizons
     (ID, DA and Balancing) over the different deadlines
     :type price_forecast_medium: ForecastingMatrix
-    :param afrr_activation_price: Activation price of type AFRR (from MARI Clearing)
+    :param afrr_activation_price: Activation price of aFRR (from MARI Clearing)
     :type afrr_activation_price: Timeseries
-    :param da_balance: Net trading position of the zone on the various Day Ahead Clearing (sales - purchases)
+    :param da_balance: Net position of the zone for the Day Ahead market clearing (sales - purchases)
     :type da_balance: Timeseries
-    :param fcr_activation_price: Activation price of type FCR
+    :param da_price: Market area prices from the Day Ahead clearing market
+    :type da_price: Timeseries
+    :param fcr_activation_price: Activation price of FCR
     :type fcr_activation_price: Timeseries
-    :param maximum_price: Constraint added to price_groups in Clearing, during the price fixing phase
+    :param maximum_price: Price cap for this market area
     :type maximum_price: Timeseries
-    :param minimum_price: Constraint added to price_groups in Clearing, during the price fixing phase
+    :param minimum_price: Minimum price allowed for this market area
     :type minimum_price: Timeseries
-    :param mfrr_activation_balance: Net trade position of the zone after Clearing of MFRR reserves
+    :param mfrr_activation_balance: Net position of the zone after clearing of mFRR reserves
     :type mfrr_activation_balance: Timeseries
-    :param mfrr_activation_price: Activation price of type MFRR
+    :param mfrr_activation_price: Activation price of mFRR
     :type mfrr_activation_price: Timeseries
-    :param reference_balance: Required to define flowbased constraints
+    :param reference_balance: Zonal reference net position in the base case. Used for the flow-based constraints
     :type reference_balance: Timeseries
-    :param rr_activation_balance: Net trade position of the zone after Clearing of RR reserves
+    :param rr_activation_balance: Net position of the zone after clearing of RR reserves
     :type rr_activation_balance: Timeseries
-    :param rr_activation_price: Activation price of type RR (from TERRE Clearing)
+    :param rr_activation_price: Activation price of RR (from TERRE Clearing)
     :type rr_activation_price: Timeseries
-    :param total_id_balance: Cumulative sum of net trading position from all Intraday Clearing
+    :param total_id_balance: Cumulative sum of the net position from all Intraday market clearings
     :type total_id_balance: Timeseries
     """
 
@@ -64,6 +69,7 @@ class MarketArea(BusinessModel):
     price_forecast_medium: ForecastingMatrix | None = None
     afrr_activation_price: Timeseries | None = None
     da_balance: Timeseries | None = None
+    da_price: Timeseries | None = None
     fcr_activation_price: Timeseries | None = None
     maximum_price: Timeseries | None = None
     minimum_price: Timeseries | None = None

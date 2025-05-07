@@ -13,9 +13,9 @@ from atlas.models.node import Node
 class NodePtdf(BusinessModel):
     """:param node: Associated Node
     :type node: Node
-    :param id_ptdf: PTDF from Flow Based Intraday pre-Clearing
+    :param id_ptdf: Nodal PTDF (Power Transfer Distribution Factor) for Flow Based Intraday Market(s)
     :type id_ptdf: ForecastingMatrix
-    :param da_ptdf: PTDF from Flow Based Day-Ahead pre-Clearing
+    :param da_ptdf: Nodal PTDF (Power Transfer Distribution Factor) for Flow Based Day-Ahead Market
     :type da_ptdf: ForecastingMatrix
     """
 

@@ -5,12 +5,12 @@ from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
-from atlas.models.equipment.hydraulic import Hydraulic
+from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.photovoltaic import Photovoltaic
+from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermic import Thermic
+from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
@@ -30,7 +30,7 @@ __all__ = [
     "CriticalBranch",
     "Equipment",
     "ForecastingMatrix",
-    "Hydraulic",
+    "Hydro",
     "Load",
     "MarketArea",
     "MarketAreaPtdf",
@@ -40,11 +40,11 @@ __all__ = [
     "Order",
     "OrderCoupling",
     "OtherNonDispatchable",
-    "Photovoltaic",
     "Portfolio",
     "ScenarioMatrix",
+    "Solar",
     "Storage",
-    "Thermic",
+    "Thermal",
     "Timeseries",
     "Wind",
 ]

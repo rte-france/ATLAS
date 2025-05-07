@@ -19,12 +19,13 @@ class Node(BusinessModel):
     :param balance_forecast: Physical balance forecasts on the node for each execution date
     :type balance_forecast: ForecastingMatrix
     :param id_power_injection: Injection (production - consumption) on the node after Intraday Clearing.
+    May be negative, and thus represent demand
     May be negative, and thus represent withdrawal
     :type id_power_injection: ForecastingMatrix
     :param da_power_injection: Injection (production - consumption) on the node after Day Ahead Clearing.
-    May be negative, and thus represent withdrawal
+    May be negative, and thus represent demand
     :type da_power_injection: Timeseries
-    :param reference_balance: Balance define by GRT
+    :param reference_balance: Nodal reference program for the base case
     :type reference_balance: Timeseries
     """
 

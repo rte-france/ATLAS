@@ -21,22 +21,21 @@ class CriticalBranch(BusinessModel):
     :type market_area_ptdf: MarketAreaPtdf
     :param node_ptdf: Associated Node PTDF
     :type node_ptdf: NodePtdf
-    :param id_flow: Power transiting through this critical branch for each hour of the Intraday, for each ExecutionDate
+    :param id_flow: Power transiting through this critical branch for each Intraday market
     :type id_flow: ForecastingMatrix
-    :param id_shadow_price: Shadow prices of the various Intraday clearing, for each ExecutionDate
+    :param id_shadow_price: Critical branch shadow prices of the various Intraday clearings, for each execution_date
     :type id_shadow_price: ForecastingMatrix
-    :param da_flow: Power transiting through this critical branch, after Day Ahead clearing
+    :param da_flow: Power transiting through this critical branch after the Day Ahead market clearing
     :type da_flow: Timeseries
-    :param da_shadow_price: Shadow prices for Day Ahead clearing orders
+    :param da_shadow_price: Critical branch shadow prices for the Day Ahead market clearing
     :type da_shadow_price: Timeseries
     :param flow_reliability_margin: Safety margin to avoid forecast errors or uncertainties, in the Flow Based model
     :type flow_reliability_margin: Timeseries
     :param maximum_flow: Maximum power allowed on this branch
     :type maximum_flow: Timeseries
-    :param reference_flow: Reference flow, i.e. forecast prior to an electricity market
+    :param reference_flow: Reference flow in the base case, i.e. forecasted flow prior to an electricity market
     :type reference_flow: Timeseries
-    :param total_id_flow: For each Intraday time step, cumulative sum of flows transiting the line after the various
-    Intraday clearing operations
+    :param total_id_flow: Cumulative sum of flows transiting the line for all Intraday clearing operations
     :type total_id_flow: Timeseries
     """
 

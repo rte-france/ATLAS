@@ -22,45 +22,45 @@ class MarketBorder(BusinessModel):
     :type uphill_market_area: MarketArea
     :param coupling_type: Sum of volume of sell offers on the Day Ahead market
     :type coupling_type: str
-    :param loss_factor: Loss factor
+    :param loss_factor: Network loss factor
     :type loss_factor: float
     :param time_resolution: Time resolution relative to the border
     :type time_resolution: float
-    :param afrr_down_procured: Contractualization of downward AFRR crossing the border after Clearing
+    :param afrr_down_procured: Cross-border contractualization of downward aFRR after the market clearing
     :type afrr_down_procured: ForecastingMatrix
-    :param afrr_up_procured: Contractualization of upward AFRR crossing the border after Clearing
+    :param afrr_up_procured: Cross-border contractualization of upward aFRR after the market clearing
     :type afrr_up_procured: ForecastingMatrix
-    :param id_flow: Flows from the different Intraday Clearing
+    :param id_flow: Flows from the different Intraday Clearings
     :type id_flow: ForecastingMatrix
-    :param id_shadow_price: Time resolution relative to the border
+    :param id_shadow_price: Shadow prices from the different Intraday Clearings
     :type id_shadow_price: float
-    :param mfrr_down_procured: Contractualization of downward MFRR crossing the border after Clearing
+    :param mfrr_down_procured: Cross-border contractualization of downward mFRR after the market clearing
     :type mfrr_down_procured: ForecastingMatrix
-    :param mfrr_up_procured: Contractualization of upward MFRR crossing the border after Clearing
+    :param mfrr_up_procured: Cross-border contractualization of upward mFRR after the market clearing
     :type mfrr_up_procured: ForecastingMatrix
-    :param rr_down_procured: Contractualization of downward RR crossing the border after Clearing
+    :param rr_down_procured: Cross-border contractualization of downward RR after the market clearing
     :type rr_down_procured: ForecastingMatrix
-    :param rr_up_procured: Contractualization of upward RR crossing the border after Clearing
+    :param rr_up_procured: Cross-border contractualization of upward RR after the market clearing
     :type rr_up_procured: ForecastingMatrix
-    :param afrr_activated: Activated AFRR flow across the border
+    :param afrr_activated: Activated aFRR flow across the border
     :type afrr_activated: Timeseries
-    :param da_flow: Flows from the different Day Ahead Clearing
+    :param da_flow: Cross-border flows from the Day Ahead market clearing
     :type da_flow: Timeseries
-    :param da_shadow_price: Shadow Price from the different Day Ahead Clearing
+    :param da_shadow_price: Shadow prices from the Day Ahead market clearing
     :type da_shadow_price: Timeseries
     :param fcr_activated: Activated FCR flow across the border
     :type fcr_activated: Timeseries
-    :param maximum_flow: Maximum flow across the border
+    :param maximum_flow: Maximum flow from Uphill Market Area to Downhill Market Area
     :type maximum_flow: Timeseries
-    :param mfrr_activated: Activated MFRR flow across the border after MARI market
+    :param mfrr_activated: Activated mFRR flow across the border after MARI market
     :type mfrr_activated: Timeseries
-    :param minimum_flow: Minimum flow across the border
+    :param minimum_flow: Minimum flow from Uphill Market Area to Downhill Market Area
     :type minimum_flow: Timeseries
-    :param reference_flow: Reference flow across the border
+    :param reference_flow: Cross-border reference flow in the base case
     :type reference_flow: Timeseries
     :param rr_activated: Activated RR flow across the border after TERRE market
     :type rr_activated: Timeseries
-    :param total_id_flow: Cumulative sum of accepted power from all Day Ahead Clearing
+    :param total_id_flow: Cumulative sum of accepted cross-border quantities from all Intraday market clearings
     :type total_id_flow: Timeseries
     """
 

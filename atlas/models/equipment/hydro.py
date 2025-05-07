@@ -11,28 +11,24 @@ from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
 
-class Hydraulic(Equipment):
-    """:param inflow_frequency: Frequency of inflow frequency information. "Monthly" for Antares 6 version and
-    "daily" for Antares 7
-    :type inflow_frequency: str
-    :param energy_target_frequency: Frequency of energy target information. "Monthly" for Antares 6 version and
-    "daily" for Antares 7
-    :type energy_target_frequency: str
-    :param fragment_prices: List of spreads applied to hydraulic equipment usage values, to assign prices to fragments
+class Hydro(Equipment):
+    """
+    :param fragment_prices: List of spreads applied to hydro equipment water values, to assign prices to fragments
+    calculated with fragment_volumes
     calculated with FragmentVolumes
     :type fragment_prices: list[float]
     :param fragment_volumes: List of percentages used to divide the interval between MaximumPower and MinimumPower
     into different fragments
     :type fragment_volumes: list[float]
-    :param stored_energy: Storage capacity of energy for different deadlines
+    :param stored_energy: Storage capacity of energy for different time horizons
     :type stored_energy: ForecastingMatrix
-    :param da_sell_submitted_volume: Sum of volume of sell offers for Day Ahead market
+    :param da_sell_submitted_volume:Sum of volume of sell offers submitted to the Day Ahead market
     :type da_sell_submitted_volume: Timeseries
-    :param energy_target: Target of storage capacity energy
+    :param energy_target: Daily storage target. Used for countries where inflows are not provided in input data
     :type energy_target: Timeseries
-    :param inflows: Inflows
+    :param inflows: Hydro daily inflows (in energy)
     :type inflows: Timeseries
-    :param initial_level: Energy contained in the hydraulic reservoir prior to execution of any ATLAS module
+    :param initial_level: Energy contained in the hydro reservoir prior to execution of any ATLAS module
     :type initial_level: Timeseries
     :param maximum_energy: Maximum energy storage capacity
     :type maximum_energy: Timeseries
@@ -43,12 +39,6 @@ class Hydraulic(Equipment):
     :param minimum_power: Minimum power
     :type minimum_power: Timeseries
     """
-
-    inflow_frequency: str | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
-    energy_target_frequency: str | None = Field(
-        None,
-        description="Possible values: 'Monthly', 'Daily'",
-    )
 
     fragment_prices: list[float] | None = Field(
         None,
