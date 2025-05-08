@@ -21,7 +21,7 @@ from atlas.math.timeseries import Timeseries
 class Matrix:
     """Base class for storing Timeseries objects indexed by scenario keys or datetimes."""
 
-    def __init__(self, matrix: pd.DataFrame | pl.DataFrame, timezone: str = "UTC") -> None:
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix, timezone: str = "UTC") -> None:
         """
         Initialize the matrix.
 
@@ -31,31 +31,17 @@ class Matrix:
         :type timezone: str
         """
         self._check_timezone(timezone)
-        self.timezone = timezone
+        self._check_matrix(matrix)
 
-        df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
-
-        time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
-
-        self.matrix: pl.DataFrame = (
-            df.rename({time_column[0]: "time"})
-            .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
-            .sort("time")
-        )
+        self._set_matrix(matrix=matrix, timezone=timezone)
         self.indexes: list[str] = self.get_indexes()
-
-        if len(time_column) + len(self.indexes) != len(df.columns):
-            raise ValueError(
-                f"Matrix must have exactly one time column and the other columns has to be numerical,"
-                f"but found {len(df.columns)} columns in total."
-            )
 
     def __repr__(self):
         """Provide a string representation of the Matrix object."""
         return f"Matrix : {self.matrix}"
 
     @classmethod
-    def from_file(cls, file_path: str | Path, timezone: str = "UTC") -> Matrix:
+    def from_file(cls, file_path: str | Path, timezone: str = "UTC", separator=";") -> Matrix:
         """
         Load a Matrix from a file.
 
@@ -67,10 +53,41 @@ class Matrix:
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if file_path.suffix == ".csv":
-            matrix = pl.read_csv(file_path)
+            matrix = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
         return cls(matrix, timezone)
+
+    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix, timezone: str) -> None:
+        """Set matrix attribute"""
+        if isinstance(matrix, Matrix):
+            self.matrix: pl.DataFrame = matrix.matrix
+        else:
+            df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
+
+            time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+
+            self.matrix: pl.DataFrame = (  # type: ignore[no-redef]
+                df.rename({time_column[0]: "time"})
+                .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
+                .sort("time")
+            )
+            self.timezone: str = timezone
+
+    def _check_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
+        """Check matrix data structure"""
+        if isinstance(matrix, Matrix):
+            return
+        df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
+
+        time_columns = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        if len(time_columns) != 1:
+            raise ValueError("Matrix must have exactly one time column")
+
+        value_columns = df.select(pl.selectors.numeric()).columns
+
+        if len(time_columns) + len(value_columns) != len(df.columns):
+            raise ValueError("Matrix must have N columns one for datetime and N-1 for numerical values")
 
     def get_indexes(self) -> list[str]:
         """
@@ -79,11 +96,7 @@ class Matrix:
         :return: List of indexes.
         :rtype: list[str]
         """
-        time_columns = self.matrix.select(pl.selectors.datetime() | pl.selectors.date()).columns
-        if len(time_columns) != 1:
-            raise ValueError("Matrix must have exactly one time column")
-        time_column = time_columns[0]
-        return self.matrix.drop(time_column).columns
+        return self.matrix.select(pl.selectors.numeric()).columns
 
     @staticmethod
     def _check_timezone(timezone: str) -> None:

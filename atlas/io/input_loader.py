@@ -252,6 +252,7 @@ class InputLoader:
         timezone: str = "UTC",
     ) -> Timeseries | LazyTimeseries:
         """Load a timeseries profile from the timeseries/ folder.
+
         :param base_path: Path to the timeseries/ folder.
         :type base_path: str or Path
         :param name: Name of the instance (e.g., wind_turbine1_normandie).
@@ -263,7 +264,7 @@ class InputLoader:
         :return: A Timeseries object instantiated from the file.
         :rtype: Timeseries
         """
-        timeseries_path = Path(base_path) / "timeseries" / object_type / name / (attribute_name + file_extension)
+        timeseries_path = Path(base_path) / "timeseries" / object_type / (name + file_extension)
         if not (Path(base_path) / "timeseries").exists():
             raise NotADirectoryError(f"Directory does not contain 'timeseries' subdirectory: {base_path}")
         if not timeseries_path.exists():
@@ -304,9 +305,7 @@ class InputLoader:
         :return: An instance of the corresponding matrix class with loaded data.
         :rtype: ScenarioMatrix or ForecastingMatrix
         """
-        matrix_file_path = (
-            Path(base_path) / matrix_type / object_type / name / attribute_name / (attribute_name + file_extension)
-        )
+        matrix_file_path = Path(base_path) / matrix_type / object_type / (name + file_extension)
         if not (Path(base_path) / matrix_type).exists():
             raise NotADirectoryError(f"Directory does not contain '{matrix_type}' subdirectory: {base_path}")
         if not matrix_file_path.exists():
@@ -316,9 +315,13 @@ class InputLoader:
 
         if not lazy:
             if matrix_type == "scenario_matrix":
-                return ScenarioMatrix.from_file(matrix_file_path, timezone)
+                return ScenarioMatrix.from_file(file_path=matrix_file_path, timezone=timezone)
             if matrix_type == "forecasting_matrix":
-                return ForecastingMatrix.from_file(matrix_file_path, timezone, date_format_forecasting)
+                return ForecastingMatrix.from_file(
+                    file_path=matrix_file_path,
+                    timezone=timezone,
+                    date_format=date_format_forecasting,
+                )
             raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
         if matrix_type == "scenario_matrix":
             return LazyScenarioMatrix.from_file(matrix_file_path)

@@ -46,42 +46,15 @@ class Timeseries:
 
         self.interpolation_method: str = interpolation_method
         self.timezone: str = timezone
-        self.timeseries: pl.DataFrame = pl.DataFrame()
-        if timeseries is None:
-            self.timeseries = pl.DataFrame(
-                schema={
-                    "time": pl.Datetime("us", time_zone=self.timezone),
-                    "value": pl.Float64(),
-                }
-            )
-        elif isinstance(timeseries, Timeseries):
-            self.timeseries = timeseries.get_data(engine="polars")  # type: ignore[assignment]
-            self.timezone = timeseries.timezone
-        else:
-            try:
-                df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
-            except Exception as e:
-                raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
-
-            time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
-            value_column = df.select(pl.selectors.numeric()).columns
-            if len(value_column) != 1:
-                raise ValueError("Timeseries must have exactly one numeric column")
-            if len(time_column) != 1:
-                raise ValueError("Timeseries must have exactly one datetime column")
-            df = df.rename({time_column[0]: "time", value_column[0]: "value"}).with_columns(
-                pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
-            )
-
-            self.timeseries = df
-            self.sort()
+        self._check_timeseries(timeseries)
+        self._set_timeseries(timeseries, timezone)
 
     @classmethod
     def from_file(
         cls,
         file_path: str | Path,
-        separator: str = ";",
         timezone: str = "UTC",
+        separator: str = ";",
         interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> Timeseries:
         """
@@ -109,6 +82,51 @@ class Timeseries:
                 interpolation_method=interpolation_method,
             )
         raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
+
+    def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None) -> None:
+        if timeseries is None or isinstance(timeseries, Timeseries):
+            return
+        df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+
+        time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        value_column = df.select(pl.selectors.numeric()).columns
+
+        if len(value_column) != 1:
+            raise ValueError("Timeseries must have exactly one numeric column")
+        if len(time_column) != 1:
+            raise ValueError("Timeseries must have exactly one datetime column")
+        if len(value_column) + len(time_column) != len(df.columns):
+            raise ValueError("Timeseries must have two columns, one for datetime and one numerical values")
+
+    def _set_timeseries(
+        self,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None,
+        timezone: str,
+    ) -> None:
+        if timeseries is None:
+            self.timeseries = pl.DataFrame(
+                schema={
+                    "time": pl.Datetime("us", time_zone=self.timezone),
+                    "value": pl.Float64(),
+                }
+            )
+
+        elif isinstance(timeseries, Timeseries):
+            self.timeseries = timeseries.get_data(engine="polars")  # type: ignore[assignment]
+        else:
+            try:
+                df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+            except Exception as e:
+                raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
+
+            time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+            value_column = df.select(pl.selectors.numeric()).columns
+
+            self.timeseries = df.rename({time_column[0]: "time", value_column[0]: "value"}).with_columns(
+                pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
+            )
+
+            self.sort()
 
     def __repr__(self):
         """Provide a string representation of the Timeseries object."""

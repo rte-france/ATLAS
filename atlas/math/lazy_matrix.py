@@ -41,17 +41,20 @@ class LazyMatrix:
         elif isinstance(matrix, pl.LazyFrame):
             schema = matrix.collect_schema().to_frame()
             time_column = schema.select(pl.selectors.datetime() | pl.selectors.date()).columns
+            value_column = schema.select(pl.selectors.numeric()).columns
 
             if len(time_column) != 1:
                 raise ValueError("LazyMatrix must have exactly one datetime column")
+
+            if len(time_column) + len(value_column) != len(schema.columns):
+                raise ValueError("LazyMatrix must have N columns one for datetime and N-1 for numerical values")
 
             self.matrix = (
                 matrix.rename({time_column[0]: "time"})
                 .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)))
                 .sort("time")
             )
-        else:
-            raise TypeError("LazyMatrix requires a LazyFrame, Matrix, or LazyMatrix")
+        raise TypeError("LazyMatrix requires a LazyFrame, Matrix, or LazyMatrix")
 
         self.indexes = self.get_indexes()
 

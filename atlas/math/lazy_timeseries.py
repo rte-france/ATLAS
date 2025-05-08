@@ -92,7 +92,7 @@ class LazyTimeseries:
             raise ValueError(f"Invalid timezone: {timezone}")
 
     @classmethod
-    def from_file(cls, file_path: str | Path, separator: str = ";", timezone: str = "UTC") -> LazyTimeseries:
+    def from_file(cls, file_path: str | Path, timezone: str = "UTC", separator: str = ";") -> LazyTimeseries:
         """
         Load a LazyTimeseries object from a file.
 

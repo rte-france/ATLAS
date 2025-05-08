@@ -64,7 +64,11 @@ class ForecastingMatrix(Matrix):
 
     @classmethod
     def from_file(
-        cls, file_path: str | Path, timezone: str = "UTC", date_format: str = "DD_MM_YYYY HH:mm:ss"
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        separator: str = ";",
+        date_format: str = "DD_MM_YYYY HH:mm:ss",
     ) -> ForecastingMatrix:
         """
         Load a ForecastingMatrix from a file.
@@ -77,7 +81,7 @@ class ForecastingMatrix(Matrix):
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if file_path.suffix == ".csv":
-            matrix = pl.read_csv(file_path, try_parse_dates=True)
+            matrix = pl.read_csv(file_path, try_parse_dates=True, separator=separator)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
         return cls(matrix, timezone, date_format)
