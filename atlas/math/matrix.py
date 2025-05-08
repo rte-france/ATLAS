@@ -42,7 +42,7 @@ class Matrix:
             .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
             .sort("time")
         )
-        self.indexes: list[str] = self._get_indexes()
+        self.indexes: list[str] = self.get_indexes()
 
         if len(time_column) + len(self.indexes) != len(df.columns):
             raise ValueError(
@@ -72,7 +72,7 @@ class Matrix:
             matrix = pl.read_parquet(file_path)
         return cls(matrix, timezone)
 
-    def _get_indexes(self) -> list[str]:
+    def get_indexes(self) -> list[str]:
         """
         Get the indexes of the matrix.
 
@@ -177,7 +177,7 @@ class Matrix:
             how="full",
             coalesce=True,
         )
-        self.indexes = self._get_indexes()
+        self.indexes = self.get_indexes()
 
     def delete(self, index: str) -> None:
         """
@@ -191,7 +191,7 @@ class Matrix:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
         self.matrix = self.matrix.drop(index)
-        self.indexes = self._get_indexes()
+        self.indexes = self.get_indexes()
 
     def get_matrix(self) -> pl.DataFrame:
         """

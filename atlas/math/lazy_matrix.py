@@ -53,10 +53,14 @@ class LazyMatrix:
         else:
             raise TypeError("LazyMatrix requires a LazyFrame, Matrix, or LazyMatrix")
 
-        self.indexes = self._get_indexes()
+        self.indexes = self.get_indexes()
+
+    def __repr__(self):
+        """String representation of the Matrix"""
+        return f"LazyMatrix with schema : {self.matrix.collect_schema()}"
 
     @classmethod
-    def from_file(cls, file_path: str | Path, separator: str = ";", timezone: str = "UTC") -> LazyMatrix:
+    def from_file(cls, file_path: str | Path, timezone: str = "UTC", separator: str = ";") -> LazyMatrix:
         """
         Load a LazyMatrix from a file.
 
@@ -67,7 +71,7 @@ class LazyMatrix:
         """
         file_path = Path(file_path)
         if file_path.suffix == ".csv":
-            matrix = pl.scan_csv(file_path, separator=separator)
+            matrix = pl.scan_csv(file_path, separator=separator, try_parse_dates=True)
         elif file_path.suffix == ".parquet":
             matrix = pl.scan_parquet(file_path)
         else:
@@ -82,7 +86,7 @@ class LazyMatrix:
         """Collect the lazy frame and return a regular Matrix object."""
         return Matrix(self.matrix.collect(), timezone=self.timezone)
 
-    def _get_indexes(self) -> list[str]:
+    def get_indexes(self) -> list[str]:
         """Identify index columns by excluding the time column."""
         schema = self.matrix.collect_schema().to_frame()
         time_columns = schema.select(pl.selectors.datetime() | pl.selectors.date()).columns

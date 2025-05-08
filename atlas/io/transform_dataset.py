@@ -330,9 +330,11 @@ class AtlasTransformerDataset:
                 .select(pl.selectors.datetime(), pl.selectors.string(), pl.selectors.numeric())
             )
             df = pl.concat([df, next_df], how="diagonal")
-        print("file to write", path.parent / f"{instance}.parquet")
-        df.write_parquet(path.parent / f"{instance}.parquet")
-        shutil.rmtree(path)
+        logger.info(f"File to write {path.parent /type/ f'{instance}.parquet'}")
+
+        df.write_parquet(path.parent /f"{instance}.parquet")
+        shutil.rmtree(path.parent / instance)
+        logger.info(f"Removed path {path.parent / instance}")
         return df
 
     def flatten_attributes_with_filter(self, instance_name, instance_dict):
@@ -411,12 +413,13 @@ class AtlasTransformerDataset:
 
     def transform(self, objects_json_path):
         """Main method to perform the complete transformation."""
-        self.process_source_tree()
+        # self.process_source_tree()
 
-        for folders in Path(objects_json_path.parent).iterdir():
+        for folders in Path(self.target_root).iterdir():
             if 'timeseries' in str(folders) or 'forecasting' in str(folders) or 'scenario' in str(folders):
                 for path in folders.iterdir():
-                    self.merge_parquet_files_recursive(path)
+                    for instance in path.iterdir():
+                        self.merge_parquet_files_recursive(instance)
 
         self.from_objects_json_to_csv_files(objects_json_path)
 

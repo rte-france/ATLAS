@@ -77,7 +77,7 @@ class ForecastingMatrix(Matrix):
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if file_path.suffix == ".csv":
-            matrix = pl.read_csv(file_path)
+            matrix = pl.read_csv(file_path, try_parse_dates=True)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
         return cls(matrix, timezone, date_format)
@@ -205,3 +205,7 @@ class LazyForecastingMatrix(LazyMatrix):
 
     def __init__(self, matrix: LazyMatrix | pl.LazyFrame | Matrix, timezone: str = "UTC") -> None:
         super().__init__(matrix, timezone)
+
+    def __repr__(self):
+        """String representation of the matrix"""
+        return f"LazyForecastingMatrix with schema : {self.matrix.collect_schema()}"

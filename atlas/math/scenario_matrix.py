@@ -30,3 +30,7 @@ class LazyScenarioMatrix(LazyMatrix):
 
     def __init__(self, matrix: pl.LazyFrame | Matrix | LazyMatrix, timezone: str = "UTC") -> None:
         super().__init__(matrix, timezone)
+
+    def __repr__(self):
+        """String representation of the matrix"""
+        return f"LazyScenarioMatrix with schema : {self.matrix.collect_schema()}"

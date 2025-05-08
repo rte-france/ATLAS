@@ -98,7 +98,7 @@ class Timeseries:
 
         if file_path.suffix == ".csv":
             return cls(
-                pl.read_csv(file_path, separator=separator),
+                pl.read_csv(file_path, separator=separator, try_parse_dates=True),
                 timezone=timezone,
                 interpolation_method=interpolation_method,
             )
