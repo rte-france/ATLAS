@@ -1,5 +1,5 @@
 site_name: Atlas
-site_description: Altas documentation website 
+site_description: Altas documentation website
 theme:
   name: material
   features:
@@ -7,7 +7,7 @@ theme:
     - navigation.sections
     - navigation.expand
     - search.suggest
-    - content.code.copy  
+    - content.code.copy
     - content.tabs.link
     - content.code.annotate
     - navigation.tracking
@@ -92,7 +92,7 @@ extra_css:
   - custom/custom.css
 
 nav:
-  - Home: 
+  - Home:
     - Welcome to Atlas: index.md
     - Getting Started: getting_started.md
     - Contributing: contributing.md
@@ -104,15 +104,22 @@ nav:
     - Math Objects:
       - Timeseries: api/math/timeseries.md
       - Scenario Matrix: api/math/scenario_matrix.md
+      - Forecasting Matrix: api/math/forecasting_matrix.md
+      - LazyTimeseries: api/math/lazy_timeseries.md
+      - LazyMatrix: api/math/lazy_matrix.md
+    - I/O:
+      - Input Loader: api/io/input_loader.md
+      - Parameters: api/io/parameters.md
     - Models:
       - Equipement: api/models/equipment.md
       - Market: api/models/market.md
-      - Forecasting Matrix: api/math/forecasting_matrix.md
-    - Logging: api/logging.md
+    - Others:
+      - Enum: api/enum.md
+      - Logging: api/logging.md
   - Examples:
     - Timeseries: examples/timeseries.ipynb
 
-extra:  
+extra:
   version:
     provider: mike
     default: 0.1.0

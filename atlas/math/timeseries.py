@@ -1,6 +1,6 @@
 """
 Copyright (c) 2025, RTE (www.rte-france.com)
-See AUTHORS.txt
+
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
@@ -31,46 +31,33 @@ class Timeseries:
     :type timeseries: pl.DataFrame or Timeseries
     :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
     :type timezone: str, optional
-    :raises ValueError: If the timeseries cannot be parsed or validated as a proper Polars DataFrame
+    :param lazy: Used for Unloaded timeseries. Set by
+    :type lazy: bool, optional
     """
 
     def __init__(
         self,
         timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None = None,
         timezone: str = "UTC",
+        interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
         self._check_timezone(timezone)
+        self._check_interpolation_method(interpolation_method)
 
+        self.interpolation_method: str = interpolation_method
         self.timezone: str = timezone
-        self.timeseries: pl.DataFrame = pl.DataFrame()
-        if timeseries is None:
-            self.timeseries = pl.DataFrame(
-                schema={"time": pl.Datetime("us", time_zone=self.timezone), "value": pl.Float64()}
-            )
-        elif isinstance(timeseries, Timeseries):
-            self.timeseries = timeseries.get_data(engine="polars")  # type: ignore[assignment]
-            self.timezone = timeseries.timezone
-        else:
-            try:
-                df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
-            except Exception as e:
-                raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
-
-            time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
-            value_column = df.select(pl.selectors.numeric()).columns
-            if len(value_column) != 1:
-                raise ValueError("Timeseries must have exactly one numeric column")
-            if len(time_column) != 1:
-                raise ValueError("Timeseries must have exactly one datetime column")
-            df = df.rename({time_column[0]: "time", value_column[0]: "value"}).with_columns(
-                pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
-            )
-
-            self.timeseries = df
-            self.sort()
+        self._check_timeseries(timeseries)
+        self._set_timeseries(timeseries, timezone)
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Timeseries:
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        interpolation_method: Literal["linear", "constant"] = "constant",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> Timeseries:
         """
         Load a Timeseries object from a file.
 
@@ -80,14 +67,66 @@ class Timeseries:
         :return: Loaded Timeseries object
         :rtype: Timeseries
         """
-        if isinstance(file_path, Path):
-            file_path = str(file_path)
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        if file_path.suffix == ".csv":
+            timeseries = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
+        elif file_path.suffix == ".parquet":
+            timeseries = pl.read_parquet(file_path)
+        else:
+            raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
+        if filters:
+            timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+        return cls(timeseries, timezone, interpolation_method)
 
-        if file_path.endswith(".csv"):
-            return cls(pl.read_csv(file_path))
-        if file_path.endswith(".parquet"):
-            return cls(pl.read_parquet(file_path))
-        raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
+    def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None) -> None:
+        if timeseries is None or isinstance(timeseries, Timeseries):
+            return
+        df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+
+        time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        value_column = df.select(pl.selectors.numeric()).columns
+
+        if len(value_column) != 1:
+            raise ValueError("Timeseries must have exactly one numeric column")
+        if len(time_column) != 1:
+            raise ValueError("Timeseries must have exactly one datetime column")
+        if len(value_column) + len(time_column) != len(df.columns):
+            raise ValueError("Timeseries must have two columns, one for datetime and one numerical values")
+
+    def _set_timeseries(
+        self,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None,
+        timezone: str,
+    ) -> None:
+        if timeseries is None:
+            self.timeseries = pl.DataFrame(
+                schema={
+                    "time": pl.Datetime("us", time_zone=self.timezone),
+                    "value": pl.Float64(),
+                }
+            )
+
+        elif isinstance(timeseries, Timeseries):
+            self.timeseries = timeseries.get_data(engine="polars")  # type: ignore[assignment]
+        else:
+            try:
+                df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+            except Exception as e:
+                raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
+
+            time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+            value_column = df.select(pl.selectors.numeric()).columns
+
+            self.timeseries = df.rename({time_column[0]: "time", value_column[0]: "value"}).with_columns(
+                pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
+            )
+
+            self.sort()
+
+    def __repr__(self):
+        """Provide a string representation of the Timeseries object."""
+        return f"Timeseries : {self.timeseries}"
 
     def __eq__(self, other: object) -> bool:
         """
@@ -119,7 +158,7 @@ class Timeseries:
         :return: The Timeseries where all numeric columns are multiplied by a scalar or another Timeseries
         :rtype: Timeseries
         """
-        if isinstance(other, (int, float)):
+        if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
         elif isinstance(other, Timeseries):
             df = (
@@ -143,7 +182,7 @@ class Timeseries:
         :return: The Timeseries where a scalar or another Timeseries are added to all numeric columns
         :rtype: Timeseries
         """
-        if isinstance(other, (int, float)):
+        if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
         elif isinstance(other, Timeseries):
             df = (
@@ -167,7 +206,7 @@ class Timeseries:
         :return: The Timeseries where a scalar or another Timeseries are subtract to all numeric columns
         :rtype: Timeseries
         """
-        if isinstance(other, (int, float)):
+        if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
         elif isinstance(other, Timeseries):
             df = (
@@ -191,7 +230,7 @@ class Timeseries:
         :return: The Timeseries where all numeric columns are divided by a scalar or another Timeseries
         :rtype: Timeseries
         """
-        if isinstance(other, (int, float)):
+        if isinstance(other, int | float):
             if other == 0:
                 raise ZeroDivisionError("Division by zero is not allowed")
             df = self.timeseries.with_columns(pl.selectors.numeric().truediv(other))
@@ -240,6 +279,21 @@ class Timeseries:
             return self.timeseries
         raise ValueError("Unsupported engine. Use 'polars' or 'pandas'.")
 
+    def to_lazy(self) -> pl.LazyFrame:
+        """
+        Convert the internal Polars DataFrame to a LazyFrame.
+
+        :return: A Polars LazyFrame representation of the time series
+        :rtype: pl.LazyFrame
+        """
+        return self.timeseries.lazy()
+
+    @staticmethod
+    def _check_interpolation_method(interpolation_method: str) -> None:
+        """Check interpolation method"""
+        if interpolation_method not in ("linear", "constant"):
+            raise NotImplementedError("Interpolation method has to be linear, or constant")
+
     @staticmethod
     def _check_timezone(timezone: str) -> None:
         """
@@ -250,7 +304,7 @@ class Timeseries:
         if timezone not in pytz.all_timezones:
             raise ValueError(f"Invalid timezone: {timezone}")
 
-    def set_tz(self, timezone: str) -> None:
+    def set_timezone(self, timezone: str) -> None:
         """
         Convert the datetime column to a new timezone.
 
@@ -263,6 +317,16 @@ class Timeseries:
         self.timeseries = self.timeseries.with_columns(
             pl.col("time").dt.convert_time_zone(timezone),
         )
+
+    def set_interpolation_method(self, interpolation_method: str) -> None:
+        """
+        Set the interpolation method for the time series.
+
+        :param interpolation_method: The interpolation method to use, either "linear" or "constant".
+        :type interpolation_method: str
+        """
+        self._check_interpolation_method(interpolation_method)
+        self.interpolation_method = interpolation_method
 
     def sort(
         self,
@@ -289,7 +353,7 @@ class Timeseries:
         self,
         time: datetime | str,
         value: float | None,
-        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -299,7 +363,7 @@ class Timeseries:
         :type time: datetime or str
         :param value: Value to set
         :type value: float or int
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -310,7 +374,8 @@ class Timeseries:
 
         if len(self.timeseries) == 0:
             df = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
-                pl.col("time").dt.replace_time_zone(self.timezone)
+                pl.col("time").dt.replace_time_zone(self.timezone),
+                pl.col("value").cast(pl.Float64()),
             )
             if inplace:
                 self.timeseries = df
@@ -320,7 +385,8 @@ class Timeseries:
 
         df = self.timeseries.filter(pl.col("time") != dt)
         new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone))
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
         )
         df = pl.concat([df, new_row]).sort("time")
 
@@ -411,7 +477,6 @@ class Timeseries:
         self,
         frequency: str,
         inplace: bool = True,
-        strategy: Literal["linear", "constant"] = "linear",
     ) -> Timeseries:
         """
         Upsample the time series to a higher frequency.
@@ -428,14 +493,14 @@ class Timeseries:
         :return: Upsampled time series
         :rtype: Timeseries
         """
-        if strategy == "linear":
+        if self.interpolation_method == "linear":
             df = (
                 self.timeseries.upsample(time_column="time", every=frequency)
-                .interpolate()
+                .with_columns(pl.col("value").interpolate_by("time"))
                 .fill_null(strategy="forward")
                 .sort("time")
             )
-        elif strategy == "constant":
+        elif self.interpolation_method == "constant":
             df = (
                 self.timeseries.upsample(time_column="time", every=frequency)
                 .fill_null(
@@ -443,8 +508,6 @@ class Timeseries:
                 )
                 .sort("time")
             )
-        else:
-            raise NotImplementedError("Unsupported interpolation strategy")
 
         if inplace:
             self.timeseries = df
@@ -543,7 +606,7 @@ class Timeseries:
             other = other.timeseries
         return self.timeseries.join(other, on=by, how=how, suffix=suffixes, coalesce=True)
 
-    def export(
+    def to_file(
         self,
         path: str | Path,
         file_format: Literal["csv", "parquet", "pickle"] = "csv",
@@ -578,7 +641,7 @@ class Timeseries:
     def filter(
         self,
         item: list[datetime] | datetime | pendulum.DateTime | str,
-        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -645,7 +708,7 @@ class Timeseries:
         :rtype: Timeseries
         """
         if method == "linear":
-            df = self.timeseries.interpolate()
+            df = self.timeseries.with_columns(pl.col("value").interpolate_by("time"))
         elif method == "constant":
             df = self.timeseries.fill_null(strategy="forward")
         else:
@@ -659,7 +722,7 @@ class Timeseries:
     def get_value(
         self,
         datetime: str | datetime | pendulum.DateTime,
-        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> dict:
         """Return values at the given datetime. If exact match is not found, interpolate.
 
@@ -670,6 +733,8 @@ class Timeseries:
         :return: Dictionary with time and value
         :rtype: dict
         """
+        if len(self.timeseries) == 0:
+            return {"time": datetime, "value": None}
         df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).get_data(engine="polars")  # type: ignore[assignment]
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
@@ -684,7 +749,7 @@ class Timeseries:
             return df.to_dicts()[0]["value"]
         return {"time": datetime, "value": None}
 
-    def plot(  # noqa: PLR0913
+    def plot(
         self,
         title: str = "Time Series Plot",
         height: int = 500,

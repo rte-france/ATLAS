@@ -1,6 +1,6 @@
 """
 Copyright (c) 2025, RTE (www.rte-france.com)
-See AUTHORS.txt
+
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
@@ -13,10 +13,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pendulum
 import polars as pl
 
+from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
+from atlas.timing import pendulum_to_datetime
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -24,35 +27,50 @@ if TYPE_CHECKING:
 
 class ForecastingMatrix(Matrix):
     """
-    This class is designed to handle forecasting data, where each Timeseries
-    represents a forecast for a specific datetime.
-    The matrix is sorted by datetime keys, and the keys are stored in a specific
-    format (e.g., "%d_%m_%Y %H:%M:%S").
+    A specialized matrix for handling forecasted timeseries data.
+
+    Each column in the matrix corresponds to a forecast generated at a specific
+    datetime, stored as a string with a configurable format. Internally, the
+    matrix ensures columns are sorted chronologically by their forecast datetime.
+
+    Inherits from:
+        Matrix: Core matrix functionality with timeseries support.
     """
 
     def __init__(
         self,
         matrix: pl.DataFrame | pd.DataFrame,
         timezone: str = "UTC",
-        date_format: str = "%d_%m_%Y %H:%M:%S",
-    ):
+        date_format: str = "DD_MM_YYYY HH:mm:ss",
+    ) -> None:
         """
-        Initialize a ForecastingMatrix.
+        Initialize a ForecastingMatrix with a matrix of forecasted timeseries.
 
-        :param name: Name of the matrix.
-        :type name: str
-        :param forecasting_dates: List of forecasting dates used as indexes.
-        :type forecasting_dates: list[datetime]
-        :param timeseries: List of corresponding Timeseries objects.
-        :type timeseries: list[Timeseries]
+        :param matrix: A DataFrame where each column (except "time") represents a forecast.
+        :type matrix: pl.DataFrame | pd.DataFrame
+        :param timezone: Timezone of the timeseries data.
+        :type timezone: str
+        :param date_format: Format used for parsing and displaying datetime indexes.
+        :type date_format: str
         """
         super().__init__(matrix, timezone=timezone)
-        self._sort_indexes(date_format=date_format)
 
         self.date_format: str = date_format
+        self._sort_indexes()
+
+    def __repr__(self):
+        """Provide a string representation of the Matrix object."""
+        return f"Forecasting Matrix : {self.matrix}"
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> ForecastingMatrix:
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+        date_format: str = "DD_MM_YYYY HH:mm:ss",
+    ) -> ForecastingMatrix:
         """
         Load a ForecastingMatrix from a file.
 
@@ -64,18 +82,34 @@ class ForecastingMatrix(Matrix):
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if file_path.suffix == ".csv":
-            matrix = pl.read_csv(file_path)
+            matrix = pl.read_csv(file_path, try_parse_dates=True, separator=separator)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
-        return cls(matrix)
+        if filters:
+            matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+        return cls(matrix, timezone, date_format)
 
-    def _sort_indexes(self, date_format: str = "%d_%m_%Y %H:%M:%S") -> None:
-        """Sort the internal mapping of timeseries by datetime keys."""
+    def _sort_indexes(self) -> None:
+        """
+        Sort the forecast matrix columns based on their datetime indexes.
+
+        Columns are expected to be named using a specific datetime format.
+        This method parses, sorts, and reorders the matrix accordingly.
+
+        :param date_format: Format used to parse datetime from index names.
+        :type date_format: str
+        """
         indexes_sorted = (
             pl.DataFrame({"indexes": self.indexes})
-            .with_columns(pl.col("indexes").str.strptime(pl.Datetime(time_unit="us"), date_format, strict=False))
+            .with_columns(
+                pl.col("indexes").str.strptime(
+                    pl.Datetime(time_unit="us"),
+                    pendulum_to_datetime(self.date_format),
+                    strict=False,
+                )
+            )
             .sort("indexes")
-            .with_columns(pl.col("indexes").dt.strftime(date_format))
+            .with_columns(pl.col("indexes").dt.strftime(pendulum_to_datetime(self.date_format)))
             .to_series()
             .to_list()
         )
@@ -91,34 +125,37 @@ class ForecastingMatrix(Matrix):
         """
         Add a Timeseries to the matrix and keep indexes sorted.
 
-        :param index: Index key.
-        :type index: datetime
-        :param timeseries: Timeseries to add.
+        :param timeseries: Timeseries data to add.
         :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
         """
         if isinstance(index, str):
-            dt: str = datetime.strptime(index, self.date_format).strftime(self.date_format)  # noqa: DTZ007
+            dt: str = pendulum.from_format(index, self.date_format).format(self.date_format)
         else:
-            dt: str = index.strftime(self.date_format)  # type: ignore[no-redef]
+            dt: str = pendulum.instance(index).format(self.date_format)  # type: ignore[no-redef]
 
         super().add(timeseries, dt)
         self._sort_indexes()
 
-    def get_timeseries(self, index: str | datetime, date_format: str = "%d_%m_%Y %H:%M:%S") -> Timeseries:
+    def get_timeseries(
+        self,
+        index: str | datetime,
+    ) -> Timeseries:
         """
         Retrieve a timeseries by index.
 
-        :param index: Index key.
-        :type index: Index
-        :raises KeyError: If the index is not found.
-        :return: The Timeseries object.
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime
+        :param date_format: Date format if the index is a string.
+        :type date_format: str
+        :raises KeyError: If the specified index is not found.
+        :return: The corresponding Timeseries object.
         :rtype: Timeseries
         """
         dt: str = (
-            datetime.strptime(index, date_format)  # noqa: DTZ007
-            if isinstance(index, str)
-            else index
-        ).strftime(self.date_format)
+            pendulum.from_format(index, self.date_format) if isinstance(index, str) else pendulum.instance(index)
+        ).format(self.date_format)
 
         return Timeseries(super().__getitem__(dt))
 
@@ -126,15 +163,13 @@ class ForecastingMatrix(Matrix):
         """
         Delete a timeseries by index.
 
-        :param index: Index key.
-        :type index: Index
-        :raises KeyError: If index is not found.
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime
+        :raises KeyError: If the index does not exist in the matrix.
         """
         dt: str = (
-            datetime.strptime(index, self.date_format)  # noqa: DTZ007
-            if isinstance(index, str)
-            else index
-        ).strftime(self.date_format)
+            pendulum.from_format(index, self.date_format) if isinstance(index, str) else pendulum.instance(index)
+        ).format(self.date_format)
 
         super().delete(dt)
 
@@ -170,3 +205,14 @@ class ForecastingMatrix(Matrix):
     #         if from_date in result.series.index and to_date in result.series.index:
     #             return result
     #     return result
+
+
+class LazyForecastingMatrix(LazyMatrix):
+    """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
+
+    def __init__(self, matrix: LazyMatrix | pl.LazyFrame | Matrix, timezone: str = "UTC") -> None:
+        super().__init__(matrix, timezone)
+
+    def __repr__(self):
+        """String representation of the matrix"""
+        return f"LazyForecastingMatrix with schema : {self.matrix.collect_schema()}"

@@ -1,0 +1,3 @@
+# Lazy Timeseries
+
+::: atlas.LazyTimeseries

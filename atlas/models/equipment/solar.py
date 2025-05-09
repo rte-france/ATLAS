@@ -12,16 +12,16 @@ from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
 
-class Wind(Equipment):
+class Solar(Equipment):
     """
     :param installed_capacity: Installed capacity
     :type installed_capacity: float
     :param maximum_power_forecast: Forecast of the maximum production
-    :type maximum_power_forecast: ForecastingMatrix
-    :param curtailed_power: Total curtailed power following each Portfolio Optimization
-    :type curtailed_power: ForecastingMatrix
+    :type maximum_power_forecast:
     :param curtailment_cost: Equipment curtailment cost. Positive by convention
     :type curtailment_cost: Timeseries
+    :param curtailed_power: Total curtailed power following each Portfolio Optimization
+    :type curtailed_power: Timeseries
     :param da_sell_submitted_volume: Sum of volume of sell offers submitted to the Day Ahead market
     :type da_sell_submitted_volume: Timeseries
     :param maximum_curtailment_ratio: Ratio of maximum production power (indicated by MaximumPowerForecast) that can be
@@ -35,7 +35,7 @@ class Wind(Equipment):
         description="Installed capacity (must be positive)",
     )
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
-    curtailed_power: ForecastingMatrix | LazyForecastingMatrix | None = None
     curtailment_cost: Timeseries | LazyTimeseries | None = None
+    curtailed_power: Timeseries | LazyTimeseries | None = None
     da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
     maximum_curtailment_ratio: Timeseries | LazyTimeseries | None = None
