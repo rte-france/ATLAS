@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 Module that implements Input Loader
 """
 
-import json
 from pathlib import Path
 from typing import Any, Literal
 
@@ -91,8 +90,8 @@ class InputLoader:
                 objects_instantiated_with_math_objects[object_type],
                 object_type,
             )
-        cfg.logger.debug(f"Instantiated objects of type {object_type}")
-
+            cfg.logger.success(f"Instantiated objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}")
+        cfg.logger.success("Atlas data loaded.")
         return objects_instantiated
 
     @classmethod
@@ -192,7 +191,9 @@ class InputLoader:
         :return: An instance of the specified object type.
         :rtype: BusinessModel
         """
-        cfg.logger.debug(f"Instantiated -- business model <{object_dict['name']}> -- type <{object_type}>")
+        cfg.logger.debug(
+            f"""Instantiated > business model {object_dict["name"]} - type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"""
+        )
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)
 
     @classmethod
@@ -270,11 +271,15 @@ class InputLoader:
         if not timeseries_path.exists():
             raise FileNotFoundError(f"Path does not exist: {timeseries_path}")
 
-        cfg.logger.debug(f"Loading timeseries from file: {timeseries_path}")
+        cfg.logger.debug(f"Loading timeseries from file: {timeseries_path} with attribute {attribute_name}")
 
         if lazy:
-            return LazyTimeseries.from_file(file_path=timeseries_path, timezone=timezone)
-        return Timeseries.from_file(file_path=timeseries_path, timezone=timezone)
+            return LazyTimeseries.from_file(
+                file_path=timeseries_path,
+                timezone=timezone,
+                filters=("attribute", attribute_name),
+            )
+        return Timeseries.from_file(file_path=timeseries_path, timezone=timezone, filters=("attribute", attribute_name))
 
     @staticmethod
     def _load_matrix(
@@ -315,34 +320,29 @@ class InputLoader:
 
         if not lazy:
             if matrix_type == "scenario_matrix":
-                return ScenarioMatrix.from_file(file_path=matrix_file_path, timezone=timezone)
+                return ScenarioMatrix.from_file(
+                    file_path=matrix_file_path,
+                    timezone=timezone,
+                    filters=("attribute", attribute_name),
+                )
             if matrix_type == "forecasting_matrix":
                 return ForecastingMatrix.from_file(
                     file_path=matrix_file_path,
                     timezone=timezone,
+                    filters=("attribute", attribute_name),
                     date_format=date_format_forecasting,
                 )
             raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
         if matrix_type == "scenario_matrix":
-            return LazyScenarioMatrix.from_file(matrix_file_path)
+            return LazyScenarioMatrix.from_file(
+                file_path=matrix_file_path,
+                timezone=timezone,
+                filters=("attribute", attribute_name),
+            )
         if matrix_type == "forecasting_matrix":
-            return LazyForecastingMatrix.from_file(matrix_file_path)
+            return LazyForecastingMatrix.from_file(
+                file_path=matrix_file_path,
+                timezone=timezone,
+                filters=("attribute", attribute_name),
+            )
         raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
-
-    @staticmethod
-    def load_metadata(
-        base_path: str | Path,
-        name: str,
-        object_type: str,
-        attribute_name: str,
-        matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
-    ) -> dict:
-        """Load metadata.json file if it exists in the given folder."""
-        metadata_path = Path(base_path) / matrix_type / object_type / name / attribute_name / "metadata.json"
-
-        cfg.logger.debug(f"Loading metadata from file: {metadata_path}")
-
-        if not metadata_path.exists():
-            return {}
-        with open(metadata_path) as f:
-            return json.load(f)

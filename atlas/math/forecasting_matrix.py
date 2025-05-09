@@ -67,6 +67,7 @@ class ForecastingMatrix(Matrix):
         cls,
         file_path: str | Path,
         timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
         separator: str = ";",
         date_format: str = "DD_MM_YYYY HH:mm:ss",
     ) -> ForecastingMatrix:
@@ -84,6 +85,8 @@ class ForecastingMatrix(Matrix):
             matrix = pl.read_csv(file_path, try_parse_dates=True, separator=separator)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
+        if filters:
+            matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
         return cls(matrix, timezone, date_format)
 
     def _sort_indexes(self) -> None:

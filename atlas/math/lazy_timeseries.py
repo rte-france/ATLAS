@@ -92,7 +92,14 @@ class LazyTimeseries:
             raise ValueError(f"Invalid timezone: {timezone}")
 
     @classmethod
-    def from_file(cls, file_path: str | Path, timezone: str = "UTC", separator: str = ";") -> LazyTimeseries:
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        interpolation_method: Literal["linear", "constant"] = "constant",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> LazyTimeseries:
         """
         Load a LazyTimeseries object from a file.
 
@@ -104,12 +111,15 @@ class LazyTimeseries:
         """
         if isinstance(file_path, str):
             file_path = Path(file_path)
-
         if file_path.suffix == ".csv":
-            return cls(pl.scan_csv(file_path, separator=separator, try_parse_dates=True), timezone=timezone)
-        if file_path.suffix == ".parquet":
-            return cls(pl.scan_parquet(file_path), timezone=timezone)
-        raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
+            timeseries = pl.scan_csv(file_path, separator=separator, try_parse_dates=True)
+        elif file_path.suffix == ".parquet":
+            timeseries = pl.scan_parquet(file_path)
+        else:
+            raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
+        if filters:
+            timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+        return cls(timeseries, timezone, interpolation_method)
 
     def get_data(
         self,

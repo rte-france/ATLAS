@@ -54,7 +54,8 @@ class LazyMatrix:
                 .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)))
                 .sort("time")
             )
-        raise TypeError("LazyMatrix requires a LazyFrame, Matrix, or LazyMatrix")
+        else:
+            raise TypeError("LazyMatrix requires a LazyFrame, Matrix, or LazyMatrix")
 
         self.indexes = self.get_indexes()
 
@@ -63,7 +64,13 @@ class LazyMatrix:
         return f"LazyMatrix with schema : {self.matrix.collect_schema()}"
 
     @classmethod
-    def from_file(cls, file_path: str | Path, timezone: str = "UTC", separator: str = ";") -> LazyMatrix:
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> LazyMatrix:
         """
         Load a LazyMatrix from a file.
 
@@ -72,14 +79,17 @@ class LazyMatrix:
         :param timezone: Timezone to apply
         :return: LazyMatrix instance
         """
-        file_path = Path(file_path)
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
         if file_path.suffix == ".csv":
             matrix = pl.scan_csv(file_path, separator=separator, try_parse_dates=True)
         elif file_path.suffix == ".parquet":
             matrix = pl.scan_parquet(file_path)
         else:
-            raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
-        return cls(matrix, timezone=timezone)
+            raise ValueError("Unsupported file format")
+        if filters:
+            matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+        return cls(matrix, timezone)
 
     def get_matrix(self) -> pl.LazyFrame:
         """Return internal lazy frame."""

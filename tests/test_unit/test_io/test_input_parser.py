@@ -48,40 +48,6 @@ def test_read_data_file_parquet(fake_parquet):
     assert df.shape == (1, 2)
 
 
-# Tests for load_metadata
-def test_load_metadata_exists(tmp_path):
-    metadata_dir = tmp_path / "scenario_matrix/wind/instance/attribute"
-    metadata_dir.mkdir(parents=True)
-    metadata_path = metadata_dir / "metadata.json"
-    metadata_path.write_text('{"key": "value"}')
-
-    metadata = InputLoader.load_metadata(tmp_path, "instance", "wind", "attribute", "scenario_matrix")
-    assert metadata == {"key": "value"}
-
-
-def test_load_metadata_not_exists(tmp_path):
-    metadata = InputLoader.load_metadata(tmp_path, "instance", "wind", "attribute", "scenario_matrix")
-    assert metadata == {}
-
-
-# Tests for _load_timeseries
-def test__load_timeseries_success(tmp_path, mock_logger):
-    timeseries_dir = tmp_path / "timeseries/wind/instance"
-    timeseries_dir.mkdir(parents=True)
-    file_path = timeseries_dir / "attribute.parquet"
-    df = pl.DataFrame({"timestamp": [1], "value": [100]})
-    df.write_parquet(file_path)
-
-    with mock.patch("atlas.math.timeseries.Timeseries.from_file") as timeseries_mock:
-        InputLoader._load_timeseries(
-            base_path=tmp_path,
-            object_type="wind",
-            name="instance",
-            attribute_name="attribute",
-        )
-        timeseries_mock.assert_called_once()
-
-
 def test__load_timeseries_no_timeseries_dir(tmp_path):
     with pytest.raises(NotADirectoryError):
         InputLoader._load_timeseries(

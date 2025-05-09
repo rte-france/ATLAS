@@ -382,6 +382,7 @@ class AtlasTransformerDataset:
                         del flat["object"]
                     if "comment" in flat:
                         del flat["comment"]
+                    flat['name'] = self.to_snake_case(flat['name'])
                     rows.append(flat)
                     all_attrs.update(flat.keys())
 

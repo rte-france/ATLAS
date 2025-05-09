@@ -26,7 +26,7 @@ class Matrix:
         Initialize the matrix.
 
         :param matrix: DataFrame containing the matrix data.
-        :type matrix: pd.DataFrame | pl.DataFrame
+        :type matrix: pd.DataFrame | pl.DataFrame | Matrix
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
@@ -41,7 +41,13 @@ class Matrix:
         return f"Matrix : {self.matrix}"
 
     @classmethod
-    def from_file(cls, file_path: str | Path, timezone: str = "UTC", separator=";") -> Matrix:
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> Matrix:
         """
         Load a Matrix from a file.
 
@@ -56,6 +62,8 @@ class Matrix:
             matrix = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
+        if filters:
+            matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
         return cls(matrix, timezone)
 
     def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix, timezone: str) -> None:
@@ -100,11 +108,7 @@ class Matrix:
 
     @staticmethod
     def _check_timezone(timezone: str) -> None:
-        """
-        Check if the timezone is valid.
-
-        :raises ValueError: If the timezone is not valid
-        """
+        """Check if the timezone is valid."""
         if timezone not in pytz.all_timezones:
             raise ValueError(f"Invalid timezone: {timezone}")
 

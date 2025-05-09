@@ -54,8 +54,9 @@ class Timeseries:
         cls,
         file_path: str | Path,
         timezone: str = "UTC",
-        separator: str = ";",
         interpolation_method: Literal["linear", "constant"] = "constant",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
     ) -> Timeseries:
         """
         Load a Timeseries object from a file.
@@ -68,20 +69,15 @@ class Timeseries:
         """
         if isinstance(file_path, str):
             file_path = Path(file_path)
-
         if file_path.suffix == ".csv":
-            return cls(
-                pl.read_csv(file_path, separator=separator, try_parse_dates=True),
-                timezone=timezone,
-                interpolation_method=interpolation_method,
-            )
-        if file_path.suffix == ".parquet":
-            return cls(
-                pl.read_parquet(file_path),
-                timezone=timezone,
-                interpolation_method=interpolation_method,
-            )
-        raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
+            timeseries = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
+        elif file_path.suffix == ".parquet":
+            timeseries = pl.read_parquet(file_path)
+        else:
+            raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
+        if filters:
+            timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+        return cls(timeseries, timezone, interpolation_method)
 
     def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None) -> None:
         if timeseries is None or isinstance(timeseries, Timeseries):
@@ -162,7 +158,7 @@ class Timeseries:
         :return: The Timeseries where all numeric columns are multiplied by a scalar or another Timeseries
         :rtype: Timeseries
         """
-        if isinstance(other, (int, float)):
+        if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
         elif isinstance(other, Timeseries):
             df = (
@@ -186,7 +182,7 @@ class Timeseries:
         :return: The Timeseries where a scalar or another Timeseries are added to all numeric columns
         :rtype: Timeseries
         """
-        if isinstance(other, (int, float)):
+        if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
         elif isinstance(other, Timeseries):
             df = (
@@ -210,7 +206,7 @@ class Timeseries:
         :return: The Timeseries where a scalar or another Timeseries are subtract to all numeric columns
         :rtype: Timeseries
         """
-        if isinstance(other, (int, float)):
+        if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
         elif isinstance(other, Timeseries):
             df = (
@@ -234,7 +230,7 @@ class Timeseries:
         :return: The Timeseries where all numeric columns are divided by a scalar or another Timeseries
         :rtype: Timeseries
         """
-        if isinstance(other, (int, float)):
+        if isinstance(other, int | float):
             if other == 0:
                 raise ZeroDivisionError("Division by zero is not allowed")
             df = self.timeseries.with_columns(pl.selectors.numeric().truediv(other))
