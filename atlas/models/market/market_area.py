@@ -4,7 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
@@ -61,22 +62,22 @@ class MarketArea(BusinessModel):
     """
 
     control_block: ControlBlock | None = None
-    co2_emission: ForecastingMatrix | None = None
-    id_balance: ForecastingMatrix | None = None
-    id_price: ForecastingMatrix | None = None
-    id_price_forecast: ForecastingMatrix | None = None
-    price_forecast_high: ForecastingMatrix | None = None
-    price_forecast_low: ForecastingMatrix | None = None
-    price_forecast_medium: ForecastingMatrix | None = None
-    afrr_activation_price: Timeseries | None = None
-    da_balance: Timeseries | None = None
-    da_price: Timeseries | None = None
-    fcr_activation_price: Timeseries | None = None
-    maximum_price: Timeseries | None = None
-    minimum_price: Timeseries | None = None
-    mfrr_activation_balance: Timeseries | None = None
-    mfrr_activation_price: Timeseries | None = None
-    reference_balance: Timeseries | None = None
-    rr_activation_balance: Timeseries | None = None
-    rr_activation_price: Timeseries | None = None
-    total_id_balance: Timeseries | None = None
+    co2_emission: ForecastingMatrix | LazyForecastingMatrix | None = None
+    id_balance: ForecastingMatrix | LazyForecastingMatrix | None = None
+    id_price: ForecastingMatrix | LazyForecastingMatrix | None = None
+    id_price_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
+    price_forecast_high: ForecastingMatrix | LazyForecastingMatrix | None = None
+    price_forecast_low: ForecastingMatrix | LazyForecastingMatrix | None = None
+    price_forecast_medium: ForecastingMatrix | LazyForecastingMatrix | None = None
+    afrr_activation_price: Timeseries | LazyTimeseries | None = None
+    da_balance: Timeseries | LazyTimeseries | None = None
+    da_price: Timeseries | LazyTimeseries | None = None
+    fcr_activation_price: Timeseries | LazyTimeseries | None = None
+    maximum_price: Timeseries | LazyTimeseries | None = None
+    minimum_price: Timeseries | LazyTimeseries | None = None
+    mfrr_activation_balance: Timeseries | LazyTimeseries | None = None
+    mfrr_activation_price: Timeseries | LazyTimeseries | None = None
+    reference_balance: Timeseries | LazyTimeseries | None = None
+    rr_activation_balance: Timeseries | LazyTimeseries | None = None
+    rr_activation_price: Timeseries | LazyTimeseries | None = None
+    total_id_balance: Timeseries | LazyTimeseries | None = None
