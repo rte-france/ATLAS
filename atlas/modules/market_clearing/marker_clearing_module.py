@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
-from atlas import BusinessModel
+from atlas.models.business_model import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_output_dataset import MarketClearingOutputDataset
@@ -26,7 +26,9 @@ class MarketClearingModule(
     def import_data(
         self, raw_data: dict[str, list[BusinessModel]], parameters: MarketClearingParameters
     ) -> MarketClearingInputDataset:
-        pass
+        input_dataset = MarketClearingInputDataset(parameters)
+        input_dataset.set_market_areas(raw_data["MarketArea"])
+        return input_dataset
 
     def validate_data(self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset) -> bool:
         # Check control block parameters compare to control block object

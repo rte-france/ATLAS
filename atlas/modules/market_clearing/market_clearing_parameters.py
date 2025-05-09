@@ -24,6 +24,10 @@ class ExchangeConstraintsType(str, Enum):
     FB = "FB"
 
 
+class SolverEnum(str, Enum):
+    XPRESS = "Xpress"
+
+
 class MarketClearingParameters(AbstractParameters):
     """Parameters of for Market Clearing module
 
@@ -88,6 +92,9 @@ class MarketClearingParameters(AbstractParameters):
     :type market_area_names: str | list[str]
     """
 
+    solver_name: SolverEnum = Field(
+        SolverEnum.XPRESS, description="Name of the solver to use : default value is Xpress"
+    )
     time_step: int = Field(
         default=60,
         ge=1,
