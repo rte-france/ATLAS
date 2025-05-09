@@ -12,12 +12,13 @@ from atlas.models.market.market_area import MarketArea
 
 
 class MarketAreaPtdf(BusinessModel):
-    """:param market_area: Associated MarketArea
+    """
+    :param market_area: Associated MarketArea
     :type market_area: MarketArea
-    :param id_ptdf: PTDF from Flow Based Intraday pre-Clearing
-    :type id_ptdf: ForecastingMatrix | LazyForecastingMatrix
-    :param da_ptdf: PTDF from Flow Based Day-Ahead pre-Clearing
-    :type da_ptdf: Timeseries | LazyTimeseries
+    :param id_ptdf: Zonal PTDF (Power Transfer Distribution Factor) for Flow Based Intraday Market(s)
+    :type id_ptdf: ForecastingMatrix
+    :param da_ptdf: Zonal PTDF (Power Transfer Distribution Factor) for Flow Based Day-Ahead Market
+    :type da_ptdf: Timeseries
     """
 
     market_area: MarketArea | None = None

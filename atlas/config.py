@@ -9,10 +9,10 @@ from typing import Any
 from atlas.logging import Logger
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
-from atlas.models.equipment.hydraulic import Hydraulic
+from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.photovoltaic import Photovoltaic
+from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
@@ -32,7 +32,7 @@ MODEL_MAPPING_NAME: dict[str, Any] = {
     "control_block": ControlBlock,
     "critical_branch": CriticalBranch,
     "equipment": Equipment,
-    "hydraulic": Hydraulic,
+    "hydraulic": Hydro,
     "load": Load,
     "market_area": MarketArea,
     "market_area_ptdf": MarketAreaPtdf,
@@ -42,7 +42,7 @@ MODEL_MAPPING_NAME: dict[str, Any] = {
     "order": Order,
     "order_coupling": OrderCoupling,
     "other_non_dispatchable": OtherNonDispatchable,
-    "photovoltaic": Photovoltaic,
+    "photovoltaic": Solar,
     "portfolio": Portfolio,
     "storage": Storage,
     "thermal": Thermal,

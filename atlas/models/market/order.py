@@ -33,7 +33,7 @@ class Order(BusinessModel):
         _ offer price - spot price for a purchase offer
         This difference is then multiplied by the power sold/purchased"
     :type individual_spread: float
-    :param is_agent_tso: True of Agent is TSO, False otherwise
+    :param is_agent_tso: True if Agent is TSO, False otherwise
     :type is_agent_tso: bool
     :param order_type: Order type (Buy, Sell)
     :type order_type: OrderType
@@ -43,9 +43,9 @@ class Order(BusinessModel):
     :type price_group: int
     :param product: Type of product
     :type product: Product
-    :param q_max: Maximum bid volume that can be accepted in the clearing phase
+    :param q_max: Maximum quantity that can be accepted in the clearing phase
     :type q_max: float
-    :param q_min: Minimum bid volume that can be accepted in the clearing phase
+    :param q_min: Minimum quantity that can be accepted in the clearing phase
     :type q_min: float
     """
 

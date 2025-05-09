@@ -12,7 +12,7 @@ from atlas.models.market.order import Order
 class OrderCoupling(BusinessModel):
     """:param orders: List of Order linked
     :type orders: list[Order]
-    :param complement_direction: Complement direction (EqualTo, LesserThan, GreaterThan)
+    :param complement_direction: Complement coupling constraint direction (EqualTo, LesserThan, GreaterThan)
     :type complement_direction: ComplementDirection
     :param complement_energy: Target energy for complement offers
     :type complement_energy: float

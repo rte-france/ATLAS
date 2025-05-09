@@ -13,20 +13,22 @@ from atlas.models.market.market_area import MarketArea
 
 
 class Node(BusinessModel):
-    """:param control_block: Associated Control block
+    """
+    :param control_block: Associated Control block
     :type control_block: ControlBlock
     :param market_area: Associated Market Area
     :type market_area: MarketArea
     :param balance_forecast: Physical balance forecasts on the node for each execution date
     :type balance_forecast: ForecastingMatrix | LazyForecastingMatrix
     :param id_power_injection: Injection (production - consumption) on the node after Intraday Clearing.
+    May be negative, and thus represent demand
     May be negative, and thus represent withdrawal
     :type id_power_injection: ForecastingMatrix | LazyForecastingMatrix
     :param da_power_injection: Injection (production - consumption) on the node after Day Ahead Clearing.
-    May be negative, and thus represent withdrawal
-    :type da_power_injection: Timeseries | LazyTimeseries
-    :param reference_balance: Balance define by GRT
-    :type reference_balance: Timeseries | LazyTimeseries
+    May be negative, and thus represent demand
+    :type da_power_injection: Timeseries
+    :param reference_balance: Nodal reference program for the base case
+    :type reference_balance: Timeseries
     """
 
     control_block: ControlBlock | None = None

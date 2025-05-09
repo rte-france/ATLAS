@@ -13,43 +13,47 @@ from atlas.models.market.market_area import MarketArea
 
 
 class Portfolio(BusinessModel):
-    """:param control_block: Installed capacity
+    """
+    :param control_block: Installed capacity
     :type control_block: ControlBlock
     :param market_area: Sum of volume of sell offers on the Day Ahead market
     :type market_area: MarketArea
-    :param id_cleared_quantity: Sum of accepted powers of orders for Intraday Clearing
-    :type id_cleared_quantity: ForecastingMatrix | LazyForecastingMatrix
+    :param id_cleared_quantity: Sum of the cleared quantities for all equipment in this portfolio in
+    each Intraday Market Clearing
+    :type id_cleared_quantity: ForecastingMatrix
     :param imbalance: Portfolio imbalance at the end of each Portfolio optimization. Convention : imbalance is positive
     in the case of excess production, and negative in the opposite case.
     :type imbalance: ForecastingMatrix | LazyForecastingMatrix
     :param power: Sum of every power of the Portfolio equipment
-    :type power: ForecastingMatrix | LazyForecastingMatrix
-    :param afrr_activated: Volume of AFRR activated
-    :type afrr_activated: Timeseries | LazyTimeseries
-    :param afrr_down_procured: Volume of AFRR reserves contracted downward
+    :type power: ForecastingMatrix
+    :param afrr_activated: Volume of aFRR activated
+    :type afrr_activated: Timeseries
+    :param afrr_down_procured: Volume of aFRR reserves contracted downward, summed for all equipment in this portfolio
     :type afrr_down_procured: float
-    :param afrr_up_procured: Volume of AFRR reserves contracted upward
-    :type afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
-    :param da_cleared_quantity: Sum of accepted power by day-ahead market
-    :type da_cleared_quantity: ForecastingMatrix | LazyForecastingMatrix
-    :param fcr_activated: Volume of FCR activated
-    :type fcr_activated: Timeseries | LazyTimeseries
+    :param afrr_up_procured: Volume of aFRR reserves contracted upward, summed for all equipment in this portfolio
+    :type afrr_up_procured: ForecastingMatrix
+    :param da_cleared_quantity: Sum of the cleared quantities for all equipment in this portfolio in the
+    Day Ahead Market Clearing
+    :type da_cleared_quantity: ForecastingMatrix
+    :param fcr_activated: Volume of FCR activated for this portfolio
+    :type fcr_activated: Timeseries
     :param imbalance_settlement_costs: Imbalance costs at the end of the Imbalance Settlement Process
-    :type imbalance_settlement_costs: Timeseries | LazyTimeseries
-    :param mfrr_activated: Volume of MFRR activated
-    :type mfrr_activated: Timeseries | LazyTimeseries
-    :param mfrr_down_procured: Volume of MFRR reserves contracted downward
-    :type mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
-    :param mfrr_up_procured: Volume of MFRR reserves contracted upward
-    :type mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    :type imbalance_settlement_costs: Timeseries
+    :param mfrr_activated: Volume of mFRR activated after MARI Clearing
+    :type mfrr_activated: Timeseries
+    :param mfrr_down_procured: Volume of mFRR reserves contracted downward, summed for all equipment in this portfolio
+    :type mfrr_down_procured: ForecastingMatrix
+    :param mfrr_up_procured: Volume of mFRR reserves contracted upward, summed for all equipment in this portfolio
+    :type mfrr_up_procured: ForecastingMatrix
     :param rr_activated: Volume of RR activated
-    :type rr_activated: Timeseries | LazyTimeseries
-    :param rr_down_procured: Volume of RR reserves contracted downward
-    :type rr_down_procured: Timeseries | LazyTimeseries
-    :param rr_up_procured: Volume of RR reserves contracted upward
-    :type rr_up_procured: Timeseries | LazyTimeseries
-    :param total_id_cleared_quantity: Sum of volume of sell offers on the Day Ahead market
-    :type total_id_cleared_quantity: Timeseries | LazyTimeseries
+    :type rr_activated: Timeseries
+    :param rr_down_procured: Volume of RR reserves contracted downward, summed for all equipment in this portfolio
+    :type rr_down_procured: Timeseries
+    :param rr_up_procured: Volume of RR reserves contracted upward, summed for all equipment in this portfolio
+    :type rr_up_procured: Timeseries
+    :param total_id_cleared_quantity: Cumulative sum of all cleared quantities for equipment in this portfolio across
+    all Intraday Market Clearings
+    :type total_id_cleared_quantity: Timeseries
     """
 
     control_block: ControlBlock | None = None
