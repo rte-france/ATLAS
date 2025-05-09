@@ -247,7 +247,8 @@ class TestTimeseriesManipulation:
     def test_upsample_linear(self, sample_ts):
         """Test upsampling with linear interpolation."""
         original_len = len(sample_ts)
-        upsampled = sample_ts.upsample("30m", inplace=False, strategy="linear")
+        sample_ts.set_interpolation_method("linear")
+        upsampled = sample_ts.upsample("30m", inplace=False)
 
         # Should have more rows now
         assert len(upsampled) > original_len
@@ -267,7 +268,8 @@ class TestTimeseriesManipulation:
 
     def test_upsample_constant(self, sample_ts):
         """Test upsampling with constant fill."""
-        upsampled = sample_ts.upsample("30m", inplace=False, strategy="constant")
+        sample_ts.set_interpolation_method("constant")
+        upsampled = sample_ts.upsample("30m", inplace=False)
 
         # Check if values are forward-filled
         times = upsampled.get_data()["time"].to_list()
@@ -283,11 +285,6 @@ class TestTimeseriesManipulation:
             next_value = values[next_time_idx]
 
             assert next_value == orig_value  # Should be forward-filled
-
-    def test_upsample_invalid_strategy(self, sample_ts):
-        """Test upsampling with an invalid strategy."""
-        with pytest.raises(NotImplementedError):
-            sample_ts.upsample("30m", strategy="invalid")
 
     def test_groupby(self, sample_ts):
         """Test grouping by time intervals."""
@@ -384,7 +381,7 @@ class TestTimeseriesManipulation:
         assert ts.timezone == "UTC"
 
         # Change timezone
-        ts.set_tz("America/New_York")
+        ts.set_timezone("America/New_York")
         assert ts.timezone == "America/New_York"
 
         # Verify times are converted
@@ -396,7 +393,7 @@ class TestTimeseriesManipulation:
     def test_invalid_timezone_conversion(self, sample_ts):
         """Test conversion to an invalid timezone."""
         with pytest.raises(ValueError):
-            sample_ts.set_tz("Invalid/Timezone")
+            sample_ts.set_timezone("Invalid/Timezone")
 
     def test_filter_with_datetime(self, sample_ts):
         dt = datetime(2023, 1, 1, 0, 0, 0)
@@ -436,35 +433,35 @@ class TestTimeseriesManipulation:
 
 
 class TestTimeseriesExport:
-    """Test exporting time series data."""
+    """Test to_fileing time series data."""
 
-    def test_export_csv(self, sample_ts):
-        """Test exporting to CSV format."""
+    def test_to_file_csv(self, sample_ts):
+        """Test to_fileing to CSV format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.csv")
-            sample_ts.export(path, file_format="csv")
+            sample_ts.to_file(path, file_format="csv")
             assert os.path.exists(path)
 
             # Check if file is readable
             df = pl.read_csv(path)
             assert len(df) == len(sample_ts)
 
-    def test_export_parquet(self, sample_ts):
-        """Test exporting to Parquet format."""
+    def test_to_file_parquet(self, sample_ts):
+        """Test to_fileing to Parquet format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.parquet")
-            sample_ts.export(path, file_format="parquet")
+            sample_ts.to_file(path, file_format="parquet")
             assert os.path.exists(path)
 
             # Check if file is readable
             df = pl.read_parquet(path)
             assert len(df) == len(sample_ts)
 
-    def test_export_pickle(self, sample_ts):
-        """Test exporting to Pickle format."""
+    def test_to_file_pickle(self, sample_ts):
+        """Test to_fileing to Pickle format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.pickle")
-            sample_ts.export(path, file_format="pickle")
+            sample_ts.to_file(path, file_format="pickle")
             assert os.path.exists(path)
 
             # Check if file is readable
@@ -473,16 +470,16 @@ class TestTimeseriesExport:
             assert isinstance(loaded_ts, Timeseries)
             assert len(loaded_ts) == len(sample_ts)
 
-    def test_export_format_mismatch(self, sample_ts):
-        """Test exporting with a format that doesn't match the file extension."""
+    def test_to_file_format_mismatch(self, sample_ts):
+        """Test to_fileing with a format that doesn't match the file extension."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.txt")
             with pytest.raises(ValueError):
-                sample_ts.export(path, file_format="csv")
+                sample_ts.to_file(path, file_format="csv")
 
-    def test_export_unsupported_format(self, sample_ts):
-        """Test exporting with an unsupported format."""
+    def test_to_file_unsupported_format(self, sample_ts):
+        """Test to_fileing with an unsupported format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.json")
             with pytest.raises(NotImplementedError):
-                sample_ts.export(path, file_format="json")
+                sample_ts.to_file(path, file_format="json")

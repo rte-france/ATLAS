@@ -60,6 +60,18 @@ def test_add_timeseries(hourly_df):
         "01_01_2025 02:00:00",
     ]
 
+    matrix.add(new_ts, "01_01_2025 03:00:00")
+
+    # Check new index exists, sorted
+    assert "01_01_2025 03:00:00" in matrix.indexes
+    assert matrix.matrix.columns == [
+        "time",
+        "01_01_2025 00:00:00",
+        "01_01_2025 01:00:00",
+        "01_01_2025 02:00:00",
+        "01_01_2025 03:00:00",
+    ]
+
 
 def test_get_timeseries(hourly_df):
     matrix = ForecastingMatrix(hourly_df)

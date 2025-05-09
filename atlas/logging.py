@@ -1,5 +1,5 @@
 """Copyright (c) 2025, RTE (www.rte-france.com)
-See AUTHORS.txt
+
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
@@ -40,12 +40,7 @@ class Logger:
         self.retention = os.getenv("LOG_RETENTION", "2 days")
         self.format_str = os.getenv(
             "LOG_FORMAT",
-            (
-                "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-                "<level>{level: <8}</level> | "
-                "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
-                "<level>{message}</level>"
-            ),
+            "<green>{time:HH:mm:ss}</green> | <level>{level}</level> | <level>{message}</level>",
         )
         self._configure_logger()
 
@@ -61,7 +56,7 @@ class Logger:
             )
         else:
             self.log_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = pendulum.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = pendulum.now().to_datetime_string()
 
             log_file = self.log_dir / f"{self.name}-{timestamp}.log"
 
