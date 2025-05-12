@@ -4,6 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from atlas.enum import CouplingType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
@@ -70,7 +71,7 @@ class MarketBorder(BusinessModel):
     uphill_control_block: ControlBlock | None = None
     downhill_market_area: MarketArea | None = None
     uphill_market_area: MarketArea | None = None
-    coupling_type: str | None = None
+    coupling_type: CouplingType | None = None
     loss_factor: float | None = None
     time_resolution: float | None = None  # Assuming this can be a float
     afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None

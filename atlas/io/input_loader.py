@@ -23,7 +23,12 @@ from atlas.models.business_model import BusinessModel
 
 
 class InputLoader:
-    """A class to handle input parsing from Atlas format."""
+    """
+    A class to handle input parsing and object instantiation from Atlas-formatted data directories.
+
+    Provides utilities to load BusinessModel objects from a directory structure, including
+    timeseries, forecasting matrices, and scenario matrices. Supports both eager and lazy loading modes.
+    """
 
     @classmethod
     def from_directory(
@@ -36,16 +41,32 @@ class InputLoader:
         timezone: str = "UTC",
         date_format_forecasting_matrix: str = "DD_MM_YYYY HH:mm:ss",
         date_format_input_files: str = "DD/MM/YYYY HH:mm:ss",
-    ) -> dict[str, list[Any]]:
-        """Load input from a directory.
-        :param directory_path: The path to the directory.
+    ) -> dict[str, list[type[BusinessModel]]]:
+        """
+        Load input data from a directory and return instantiated BusinessModel objects.
+
+        This method reads data files (CSV, Parquet) from a structured directory,
+        constructs intermediate mathematical objects, and then instantiates the
+        corresponding business model classes.
+
+        :param directory_path: The root path to the directory containing input data.
         :type directory_path: str or pathlib.Path
-        :param separator: The separator used in the CSV files.
+        :param separator: The separator used in CSV files (default: ";").
         :type separator: str
-        :param timeseries_file_extension: The file extension for the timeseries files.
+        :param timeseries_file_extension: File extension for timeseries files (default: ".parquet").
         :type timeseries_file_extension: str
-        :return: A dictionary mapping object names to lists of instantiated objects.
-        :rtype: dict[str, dict[str, list[BusinessModel]]]
+        :param matrix_file_extension: File extension for matrix files (default: ".parquet").
+        :type matrix_file_extension: str
+        :param lazy: Whether to use lazy loading for timeseries and matrices (default: False).
+        :type lazy: bool
+        :param timezone: Timezone for date parsing and object instantiation (default: "UTC").
+        :type timezone: str
+        :param date_format_forecasting_matrix: Date format used for forecasting matrix timestamps.
+        :type date_format_forecasting_matrix: str
+        :param date_format_input_files: Date format used in object CSV data.
+        :type date_format_input_files: str
+        :return: A dictionary mapping object type names to lists of instantiated BusinessModel objects.
+        :rtype: dict[str, list[BusinessModel]]
         """
         cfg.logger.debug(f"Loading input from directory: {directory_path}")
         cfg.logger.debug(f"""Parameters -> directory_path: {directory_path}, lazy mode: {lazy}""")
@@ -107,18 +128,8 @@ class InputLoader:
         date_format_forecasting_matrix: str = "DD_MM_YYYY HH:mm:ss",
         date_format_input_files: str = "DD/MM/YYYY HH:mm:ss",
     ) -> list[dict[str, Any]]:
-        """Instantiate objects from a dictionary of attributes.
-
-        :param object_dict: A dictionary containing the attributes of the object.
-        :type object_dict: dict
-        :param object_type: The type of the object to instantiate.
-        :type object_type: str
-        :param base_path: The base path to the directory containing the timeseries and matrix files.
-        :type base_path: str or pathlib.Path
-        :param timeseries_file_extension: The file extension for the timeseries files.
-        :type timeseries_file_extension: str
-        :return: An instance of the specified object type.
-        :rtype: list[dict[str, BusinessModel]]
+        """
+        Instantiate intermediate math objects (timeseries or matrices) from input attributes.
         """
         objects_instantiated = []
 
@@ -163,16 +174,8 @@ class InputLoader:
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
-    ) -> list[Any]:
-        """Instantiate objects from a dictionary of attributes.
-
-        :param object_dict: A dictionary containing the attributes of the object.
-        :type object_dict: dict
-        :param object_type: The type of the object to instantiate.
-        :type object_type: str
-        :return: An instance of the specified object type.
-        :rtype: list[BusinessModel]
-        """
+    ) -> list[type[BusinessModel]]:
+        """Instantiate final BusinessModel objects from intermediate math object dictionaries."""
         objects_instantiated: list = [cls._instantiate_model_object(obj, object_type) for obj in object_list]
 
         return objects_instantiated
@@ -182,15 +185,7 @@ class InputLoader:
         object_dict: dict[str, Any],
         object_type: str,
     ) -> BusinessModel:
-        """Instantiate a business model from a dictionary of attributes.
-
-        :param object_dict: A dictionary containing the attributes of the object.
-        :type object_dict: dict
-        :param object_type: The type of the object to instantiate.
-        :type object_type: str
-        :return: An instance of the specified object type.
-        :rtype: BusinessModel
-        """
+        """Instantiate a single BusinessModel object from its attributes."""
         cfg.logger.debug(
             f"""Instantiated > business model {object_dict["name"]} - type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"""
         )
@@ -198,20 +193,14 @@ class InputLoader:
 
     @classmethod
     def _parse_objects_from_directory(cls, objects_path: Path, separator: str = ";") -> dict[str, list[dict[str, str]]]:
-        """Parse objects from a directory.
-
-        :param objects_path: The path to the directory.
-        :type objects_path: str or pathlib.Path
-        :return: A dictionary mapping object names to lists of instantiated objects.
-        :rtype: dict[str, list[dict[str, str]]]
-        """
+        """Parse object definitions from the 'objects' directory."""
         cfg.logger.debug(f"Parsing objects from directory: {objects_path}")
         result = {}
         for file_path in objects_path.iterdir():
             key = file_path.stem
             if key in cfg.MODEL_MAPPING_NAME:
                 try:
-                    result[key] = cls.read_data_file(file_path, separator=separator).to_dicts()
+                    result[key] = cls._read_data_file(file_path, separator=separator).to_dicts()
                 except Exception:  # noqa: BLE001
                     cfg.logger.warning(
                         f"Failed to read {file_path}. Object type key {key} won't be taken into account."
@@ -221,16 +210,8 @@ class InputLoader:
         return result
 
     @staticmethod
-    def read_data_file(file_path: str | Path, separator: str = ";") -> pl.DataFrame:
-        """Parse input from a CSV file or a parquet file.
-
-        :param file_path: The path to the file.
-        :type file_path: str or pathlib.Path
-        :param separator: The separator used in the CSV file.
-        :type separator: str
-        :return: A DataFrame containing the parsed CSV data.
-        :rtype: pl.DataFrame
-        """
+    def _read_data_file(file_path: str | Path, separator: str = ";") -> pl.DataFrame:
+        """Read a file (CSV, Parquet, or JSON) and return a Polars DataFrame."""
         file_extension = Path(file_path).suffix
 
         if file_extension == ".csv":
@@ -252,19 +233,7 @@ class InputLoader:
         lazy: bool = False,
         timezone: str = "UTC",
     ) -> Timeseries | LazyTimeseries:
-        """Load a timeseries profile from the timeseries/ folder.
-
-        :param base_path: Path to the timeseries/ folder.
-        :type base_path: str or Path
-        :param name: Name of the instance (e.g., wind_turbine1_normandie).
-        :type name: str
-        :param attribute_name: Name of the attribute (e.g., wind_speed).
-        :type attribute_name: str
-        :param file_extension: File extension of the timeseries file (default: ".parquet").
-        :type file_extension: str
-        :return: A Timeseries object instantiated from the file.
-        :rtype: Timeseries
-        """
+        """Load a Timeseries or LazyTimeseries from a file."""
         timeseries_path = Path(base_path) / "timeseries" / object_type / (name + file_extension)
         if not (Path(base_path) / "timeseries").exists():
             raise NotADirectoryError(f"Directory does not contain 'timeseries' subdirectory: {base_path}")
@@ -293,23 +262,7 @@ class InputLoader:
         timezone: str = "UTC",
         date_format_forecasting: str = "DD_MM_YYYY HH:mm:ss",
     ) -> Matrix | LazyMatrix:
-        """Generic loader for scenario or forecasting matrix time series for a specific instance.
-
-        :param base_dir: Path to the scenario_matrix/ or forecasting_matrix/ folder.
-        :type base_dir: str or Path
-        :param name: Name of the instance (e.g., wind_turbine1_normandie).
-        :type name: str
-        :param matrix_type: Type of matrix to load ("scenario" or "forecasting").
-        :type matrix_type: str
-        :param object_type: Type of object (e.g., "wind_turbine").
-        :type object_type: str
-        :param attribute_name: Name of the attribute (e.g., "wind_speed").
-        :type attribute_name: str
-        :param file_extension: File extension of the matrix file (default: ".parquet").
-        :type file_extension: str
-        :return: An instance of the corresponding matrix class with loaded data.
-        :rtype: ScenarioMatrix or ForecastingMatrix
-        """
+        """Load a ForecastingMatrix or ScenarioMatrix (lazy or not) from a file."""
         matrix_file_path = Path(base_path) / matrix_type / object_type / (name + file_extension)
         if not (Path(base_path) / matrix_type).exists():
             raise NotADirectoryError(f"Directory does not contain '{matrix_type}' subdirectory: {base_path}")
