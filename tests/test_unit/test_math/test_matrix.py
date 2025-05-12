@@ -127,3 +127,71 @@ def test_from_file_parquet(tmp_path, sample_pandas_df):
     matrix = Matrix.from_file(file_path)
     assert matrix.indexes == ["scenario1", "scenario2"]
     assert matrix.matrix.shape == (4, 3)
+
+
+def test_from_file_csv(tmp_path, sample_pandas_df):
+    file_path = tmp_path / "matrix.csv"
+    sample_pandas_df.to_csv(file_path, index=False, sep=";")
+    matrix = Matrix.from_file(file_path)
+    assert matrix.indexes == ["scenario1", "scenario2"]
+    assert matrix.matrix.shape == (4, 3)
+
+
+def test_from_file_with_filter(tmp_path):
+    df = pl.DataFrame(
+        {
+            "region": ["FR", "FR", "DE", "DE"],
+            "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+            "load": [1, 2, 3, 4],
+        }
+    )
+    file_path = tmp_path / "filtered.parquet"
+    df.write_parquet(file_path)
+    matrix = Matrix.from_file(file_path, filters=("region", "FR"))
+    assert "region" not in matrix.matrix.columns
+    assert matrix.matrix.shape[0] == 2
+
+
+def test_to_file_csv(tmp_path, sample_polars_df):
+    path = tmp_path / "out.csv"
+    matrix = Matrix(sample_polars_df)
+    matrix.to_file(path, file_format="csv")
+    assert path.read_text().startswith("time;")
+
+
+def test_to_file_parquet(tmp_path, sample_polars_df):
+    path = tmp_path / "out.parquet"
+    matrix = Matrix(sample_polars_df)
+    matrix.to_file(path, file_format="parquet")
+    assert path.exists()
+
+
+def test_to_file_pickle(tmp_path, sample_polars_df):
+    path = tmp_path / "out.pickle"
+    matrix = Matrix(sample_polars_df)
+    matrix.to_file(path, file_format="pickle")
+    assert path.exists()
+
+
+def test_to_file_extension_mismatch(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    with pytest.raises(ValueError, match="Format and file extension don't match"):
+        matrix.to_file("test.csv", file_format="parquet")
+
+
+def test_to_lazy(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    lazy = matrix.to_lazy()
+    assert isinstance(lazy, pl.LazyFrame)
+
+
+def test_invalid_matrix_multiple_time_columns():
+    df = pl.DataFrame(
+        {
+            "time1": pd.date_range("2025-01-01", periods=4),
+            "time2": pd.date_range("2025-01-01", periods=4),
+            "val": [1, 2, 3, 4],
+        }
+    )
+    with pytest.raises(ValueError, match="exactly one time column"):
+        Matrix(df)

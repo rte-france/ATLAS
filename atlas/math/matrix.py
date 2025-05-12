@@ -73,6 +73,7 @@ class Matrix:
         """Set matrix attribute"""
         if isinstance(matrix, Matrix):
             self.matrix: pl.DataFrame = matrix.matrix
+            self.timezone: str = matrix.timezone
         else:
             df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
 
@@ -83,7 +84,7 @@ class Matrix:
                 .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
                 .sort("time")
             )
-            self.timezone: str = timezone
+            self.timezone: str = timezone  # type: ignore[no-redef]
 
     def _check_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
         """Check matrix data structure"""

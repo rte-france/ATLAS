@@ -79,6 +79,8 @@ class ForecastingMatrix(Matrix):
             matrix = pl.read_csv(file_path, try_parse_dates=True, separator=separator)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
+        else:
+            raise ValueError("Unsupported file extension, choose between csv and parquet")
         if filters:
             matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
         return cls(matrix, timezone, date_format)
