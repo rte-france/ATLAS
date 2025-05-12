@@ -28,7 +28,7 @@ def sample_polars_df(sample_pandas_df):
 def test_init_with_polars(sample_polars_df):
     matrix = Matrix(sample_polars_df)
     assert matrix.indexes == ["scenario1", "scenario2"]
-    assert matrix.matrix.shape == (4, 3)
+    assert matrix.matrix.shape == (3, 3)
 
 
 def test_init_with_pandas(sample_pandas_df):
@@ -45,7 +45,7 @@ def test_invalid_timezone(sample_polars_df):
 def test_getitem(sample_polars_df):
     matrix = Matrix(sample_polars_df)
     ts = matrix["scenario1"]
-    assert ts.shape == (4, 2)  # time + scenario1
+    assert ts.shape == (3, 2)  # time + scenario1
 
 
 def test_getitem_invalid(sample_polars_df):
@@ -195,3 +195,47 @@ def test_invalid_matrix_multiple_time_columns():
     )
     with pytest.raises(ValueError, match="exactly one time column"):
         Matrix(df)
+
+
+import pytest
+
+from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
+
+
+@pytest.fixture
+def sample_polars_df():
+    return pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [10, 20, 30],
+            "scenario2": [40, 50, 60],
+        }
+    )
+
+
+def test_scenario_matrix_init(sample_polars_df):
+    sm = ScenarioMatrix(sample_polars_df)
+    assert isinstance(sm, Matrix)
+    assert sm.indexes == ["scenario1", "scenario2"]
+    assert sm.matrix.shape == (3, 3)
+
+
+def test_scenario_matrix_repr(sample_polars_df):
+    sm = ScenarioMatrix(sample_polars_df)
+    repr_str = repr(sm)
+    assert "Scenario Matrix" in repr_str
+    assert "scenario1" in repr_str
+
+
+def test_lazy_scenario_matrix_init(sample_polars_df):
+    lazy_df = sample_polars_df.lazy()
+    lsm = LazyScenarioMatrix(lazy_df)
+    assert lsm.matrix.collect().shape == (3, 3)
+    assert lsm.indexes == ["scenario1", "scenario2"]
+
+
+def test_lazy_scenario_matrix_repr(sample_polars_df):
+    lazy_df = sample_polars_df.lazy()
+    lsm = LazyScenarioMatrix(lazy_df)
+    repr_str = repr(lsm)
+    assert "LazyScenarioMatrix with schema" in repr_str
