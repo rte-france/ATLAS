@@ -28,6 +28,34 @@ class InputLoader:
 
     Provides utilities to load BusinessModel objects from a directory structure, including
     timeseries, forecasting matrices, and scenario matrices. Supports both eager and lazy loading modes.
+
+    The input directory must follow a specific structure for successful parsing:
+
+        <root_input_directory>/
+        ├── objects/
+        │   ├── hydro.csv
+        │   ├── wind.csv
+        │   └── ...
+        ├── timeseries/
+        │   └── hydro/
+        │       ├── fr_hydro.parquet
+        │       └── ...
+        ├── scenario_matrix/
+        │   └── hydro/
+        │       ├── fr_hydro.parquet
+        │       └── ...
+        └── forecasting_matrix/
+            └── hydro/
+                ├── fr_hydro.parquet
+                └── ...
+
+    - The `objects/` directory contains CSV files, each named after an object type (e.g., `storage.csv`),
+      describing the business objects and their attributes.
+    - The `timeseries/`, `scenario_matrix/`, and `forecasting_matrix/` directories contain subdirectories
+      for each object type, with files named after the object (e.g., `fr_storage.parquet`).
+    - Each timeseries or matrix file must match the expected file extension (default: `.parquet`).
+    - Attribute names in the objects CSV must correspond to the file names in the respective subdirectories.
+
     """
 
     @classmethod

@@ -15,7 +15,13 @@ from atlas.math.matrix import Matrix
 
 
 class ScenarioMatrix(Matrix):
-    """Stores Timeseries objects by scenario name, with access and deletion by name."""
+    """Eager version of a matrix for managing time series by scenario name.
+
+    Inherits from the `Matrix` class and is backed by a Polars DataFrame.
+    Each column after the timestamp represents a time series for a specific scenario.
+
+    This class is intended for workflows where all data can be loaded and processed
+    in memory."""
 
     def __init__(self, matrix: pd.DataFrame | pl.DataFrame, timezone: str = "UTC") -> None:
         super().__init__(matrix, timezone)
@@ -26,7 +32,10 @@ class ScenarioMatrix(Matrix):
 
 
 class LazyScenarioMatrix(LazyMatrix):
-    """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
+    """Lazy version of a matrix for managing time series by scenario name.
+
+    Inherits from the `LazyMatrix` class and is backed by a Polars LazyFrame.
+    Useful for large-scale data pipelines or deferred execution scenarios."""
 
     def __init__(self, matrix: pl.LazyFrame | Matrix | LazyMatrix, timezone: str = "UTC") -> None:
         super().__init__(matrix, timezone)

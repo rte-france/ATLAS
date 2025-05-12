@@ -20,14 +20,11 @@ from atlas.math.timeseries import Timeseries
 
 class LazyTimeseries:
     """
-    An unloaded time series class using Polars lazy evaluation.
+    A lazy-evaluated time series class using a Polars LazyFrame backend.
 
-    This class allows working with large datasets without loading them entirely into memory.
-
-    :param timeseries: The input time series data
-    :type timeseries: pl.LazyFrame or LazyTimeseries or Timeseries
-    :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
-    :type timezone: str, optional
+    LazyTimeseries enables efficient, deferred computation on large time series datasets by leveraging
+    Polars' lazy execution model. This is particularly useful for workflows where data is too large to fit
+    in memory or when chaining multiple transformations before materializing results.
     """
 
     def __init__(
@@ -36,6 +33,12 @@ class LazyTimeseries:
         timezone: str = "UTC",
         interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
+        """
+        :param timeseries: The input time series data
+        :type timeseries: pl.LazyFrame or LazyTimeseries or Timeseries
+        :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
+        :type timezone: str, optional
+        """
         self._check_timezone(timezone)
         self._check_interpolation_method(interpolation_method)
 
@@ -43,7 +46,6 @@ class LazyTimeseries:
         self.interpolation_method = interpolation_method
 
         if timeseries is None:
-            # Create an empty lazy DataFrame
             self.timeseries: pl.LazyFrame = pl.LazyFrame(
                 schema={
                     "time": pl.Datetime("us", time_zone=self.timezone),
@@ -105,7 +107,6 @@ class LazyTimeseries:
 
         :param file_path: Path to the file
         :type file_path: str or Path
-        :raises ValueError: If file format is not supported
         :return: Loaded LazyTimeseries object
         :rtype: LazyTimeseries
         """

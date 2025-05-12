@@ -25,14 +25,12 @@ import pytz
 
 class Timeseries:
     """
-    A Timeseries class using Polars backend.
+    A flexible and efficient time series class using a Polars backend.
 
-    :param timeseries: The input Timeseries data.
-    :type timeseries: pl.DataFrame or Timeseries
-    :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
-    :type timezone: str, optional
-    :param lazy: Used for Unloaded timeseries. Set by
-    :type lazy: bool, optional
+    The Timeseries class provides a unified interface for handling, analyzing, and visualizing
+    time series data. It supports a variety of input formats (Polars DataFrame, Pandas DataFrame,
+    dictionary, or another Timeseries instance) and ensures robust handling of time zones and
+    interpolation methods.
     """
 
     def __init__(
@@ -41,6 +39,12 @@ class Timeseries:
         timezone: str = "UTC",
         interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
+        """
+        :param timeseries: The input Timeseries data.
+        :type timeseries: pl.DataFrame or Timeseries
+        :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
+        :type timezone: str, optional
+        """
         self._check_timezone(timezone)
         self._check_interpolation_method(interpolation_method)
 

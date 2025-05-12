@@ -21,12 +21,13 @@ from atlas.math.timeseries import Timeseries
 
 
 class Matrix:
-    """Base class for storing Timeseries objects indexed by scenario keys or datetimes."""
+    """A container for time-indexed `Timeseries` data, supporting both eager and lazy operations.
+
+    This class abstracts over Polars and Pandas DataFrames to provide a uniform way
+    to manage multiple time series, each associated with a unique index or scenario key."""
 
     def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix, timezone: str = "UTC") -> None:
         """
-        Initialize the matrix.
-
         :param matrix: DataFrame containing the matrix data.
         :type matrix: pd.DataFrame | pl.DataFrame | Matrix
         :param timezone: Timezone for the datetime column.
