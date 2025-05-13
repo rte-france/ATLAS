@@ -47,3 +47,22 @@ MODEL_MAPPING_NAME: dict[str, type[BusinessModel]] = {
     "thermal": Thermal,
     "wind": Wind,
 }
+
+MODEL_ORDER_INSTANTIATION = [
+    "control_block",
+    "market_area",
+    "market_area_ptdf",
+    "market_border",
+    "node",
+    "node_ptdf",
+    "portfolio",
+    "hydro",
+    "load",
+    "solar",
+    "wind",
+    "storage",
+    "other_non_dispatchable",
+    "thermal",
+    "order",
+    "order_coupling",
+]

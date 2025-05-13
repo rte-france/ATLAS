@@ -118,12 +118,16 @@ class InputLoader:
         objects_instantiated_with_math_objects = {}
         objects_instantiated = {}
 
-        for object_type in objects:
-            if object_type not in cfg.MODEL_MAPPING_NAME:
-                raise ValueError(
-                    f"Object type '{object_type}' is not recognized. "
-                    f"Available types are: {list(cfg.MODEL_MAPPING_NAME.keys())}"
-                )
+        invalid_elements = [x for x in objects if x not in cfg.MODEL_MAPPING_NAME]
+        if invalid_elements:
+            raise ValueError(
+                f"Object type '{invalid_elements}' are not recognized. "
+                f"Available types are: {list(cfg.MODEL_MAPPING_NAME.keys())}"
+            )
+
+        objects_type_sorted = sorted(objects, key=lambda x: cfg.MODEL_ORDER_INSTANTIATION.index(x))
+
+        for object_type in objects_type_sorted:
             objects_instantiated_with_math_objects[object_type] = cls._instantiate_math_objects_into_dict(
                 objects[object_type],
                 object_type,
@@ -138,6 +142,7 @@ class InputLoader:
             objects_instantiated[object_type] = cls._instantiate_model_objects_into_dict(
                 objects_instantiated_with_math_objects[object_type],
                 object_type,
+                objects_instantiated,
             )
             cfg.logger.success(f"Instantiated objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}")
         cfg.logger.success("Atlas data loaded.")
@@ -202,9 +207,12 @@ class InputLoader:
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
+        objects_instantiated: dict[str, type[BusinessModel]],
     ) -> list[type[BusinessModel]]:
         """Instantiate final BusinessModel objects from intermediate math object dictionaries."""
-        objects_instantiated: list = [cls._instantiate_model_object(obj, object_type) for obj in object_list]
+        objects_instantiated: list = [
+            cls._instantiate_model_object(obj, object_type, objects_instantiated) for obj in object_list
+        ]
 
         return objects_instantiated
 
@@ -212,11 +220,18 @@ class InputLoader:
     def _instantiate_model_object(
         object_dict: dict[str, Any],
         object_type: str,
+        objects_instantiated: dict[str, type[BusinessModel]],
     ) -> BusinessModel:
         """Instantiate a single BusinessModel object from its attributes."""
         cfg.logger.debug(
             f"""Instantiated > business model {object_dict["name"]} - type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"""
         )
+        for attribute in object_dict:
+            if attribute in cfg.MODEL_MAPPING_NAME:
+                objects_lookup = {model.name: model for model in objects_instantiated[attribute]}
+                name = object_dict[attribute]
+                object_dict[attribute] = objects_lookup[name]
+
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)
 
     @classmethod

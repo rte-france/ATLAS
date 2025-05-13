@@ -77,6 +77,10 @@ class LazyTimeseries:
         else:
             raise ValueError("LazyTimeseries requires a LazyFrame or another Timeseries object")
 
+    def __repr__(self):
+        """String representation of the Matrix"""
+        return f"LazyTimeseries with schema : {self.timeseries.collect_schema()}"
+
     @staticmethod
     def _check_interpolation_method(interpolation_method: str) -> None:
         """Check interpolation method"""

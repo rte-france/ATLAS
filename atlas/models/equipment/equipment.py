@@ -11,6 +11,8 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
+from atlas.models.node import Node
+from atlas.models.portfolio import Portfolio
 
 
 class Equipment(BusinessModel):
@@ -103,8 +105,8 @@ class Equipment(BusinessModel):
     :type variable_cost: Timeseries | LazyTimeseries
     """
 
-    node: str | None = Field(None, description="Class Business model Node")
-    portfolio: str | None = Field(None, description="Class Business model Portfolio")
+    node: Node | None = Field(None, description="Class Business model Node")
+    portfolio: Portfolio | None = Field(None, description="Class Business model Portfolio")
     coe2_emission_factor: float | None = Field(None, description="COE2 emission factor")
     has_daily_energy_constraint: bool | None = None
     maximum_afrr: float | None = None
