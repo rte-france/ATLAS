@@ -116,7 +116,7 @@ class InputLoader:
             )
 
         objects_instantiated_with_math_objects = {}
-        objects_instantiated = {}
+        objects_instantiated: dict[str, list[type[BusinessModel]]] = {}
 
         invalid_elements = [x for x in objects if x not in cfg.MODEL_MAPPING_NAME]
         if invalid_elements:
@@ -207,21 +207,17 @@ class InputLoader:
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
-        objects_instantiated: dict[str, type[BusinessModel]],
+        objects_instantiated: dict[str, list[type[BusinessModel]]],
     ) -> list[type[BusinessModel]]:
         """Instantiate final BusinessModel objects from intermediate math object dictionaries."""
-        objects_instantiated: list = [
-            cls._instantiate_model_object(obj, object_type, objects_instantiated) for obj in object_list
-        ]
-
-        return objects_instantiated
+        return [cls._instantiate_model_object(obj, object_type, objects_instantiated) for obj in object_list]
 
     @staticmethod
     def _instantiate_model_object(
         object_dict: dict[str, Any],
         object_type: str,
-        objects_instantiated: dict[str, type[BusinessModel]],
-    ) -> BusinessModel:
+        objects_instantiated: dict[str, list[type[BusinessModel]]],
+    ) -> type[BusinessModel]:
         """Instantiate a single BusinessModel object from its attributes."""
         cfg.logger.debug(
             f"""Instantiated > business model {object_dict["name"]} - type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"""
@@ -232,7 +228,7 @@ class InputLoader:
                 name = object_dict[attribute]
                 object_dict[attribute] = objects_lookup[name]
 
-        return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)
+        return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)  # type: ignore[return-value]
 
     @classmethod
     def _parse_objects_from_directory(cls, objects_path: Path, separator: str = ";") -> dict[str, list[dict[str, str]]]:
