@@ -66,3 +66,13 @@ MODEL_ORDER_INSTANTIATION = [
     "order",
     "order_coupling",
 ]
+
+EQUIPMENT_MODELS = [
+    "wind",
+    "storage",
+    "hydro",
+    "solar",
+    "thermal",
+    "other_non_dispatchable",
+    "load",
+]

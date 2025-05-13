@@ -224,9 +224,17 @@ class InputLoader:
         )
         for attribute in object_dict:
             if attribute in cfg.MODEL_MAPPING_NAME:
-                objects_lookup = {model.name: model for model in objects_instantiated[attribute]}
-                name = object_dict[attribute]
-                object_dict[attribute] = objects_lookup[name]
+                if attribute == "equipment":
+                    for attribute in cfg.EQUIPMENT_MODELS:
+                        equipment_lookup = {model.name: model for model in objects_instantiated[attribute]}
+                        name = object_dict["equipment"]
+                        if name in equipment_lookup:
+                            object_dict["equipment"] = equipment_lookup[name]
+                            break
+                else:
+                    name = object_dict[attribute]
+                    objects_lookup = {model.name: model for model in objects_instantiated[attribute]}
+                    object_dict[attribute] = objects_lookup[name]
 
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)  # type: ignore[return-value]
 
