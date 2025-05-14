@@ -26,6 +26,10 @@ class WorkflowStep:
         self.input_dataset = input_dataset
         self.output_dataset = None
 
+    def get_output_dataset(self) -> AbstractDataset:
+        """Returns the output dataset of the step"""
+        return self.output_dataset
+
     def execute_step(self) -> None:
         """Execute the module of this step"""
         self.output_dataset = self.module.execute(self.module_parameters, self.input_dataset)
