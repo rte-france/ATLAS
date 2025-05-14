@@ -48,25 +48,6 @@ MODEL_MAPPING_NAME: dict[str, type[BusinessModel]] = {
     "wind": Wind,
 }
 
-MODEL_ORDER_INSTANTIATION = [
-    "control_block",
-    "market_area",
-    "market_area_ptdf",
-    "market_border",
-    "node",
-    "node_ptdf",
-    "portfolio",
-    "hydro",
-    "load",
-    "solar",
-    "wind",
-    "storage",
-    "other_non_dispatchable",
-    "thermal",
-    "order",
-    "order_coupling",
-]
-
 EQUIPMENT_MODELS = [
     "wind",
     "storage",
@@ -76,3 +57,20 @@ EQUIPMENT_MODELS = [
     "other_non_dispatchable",
     "load",
 ]
+
+MODEL_ORDER_INSTANTIATION = (
+    [
+        "control_block",
+        "market_area",
+        "market_area_ptdf",
+        "market_border",
+        "node",
+        "node_ptdf",
+        "portfolio",
+    ]
+    + EQUIPMENT_MODELS
+    + [
+        "order",
+        "order_coupling",
+    ]
+)
