@@ -1,5 +1,5 @@
-# Timeseries
+# Lazy Timeseries
 
-::: atlas.Timeseries
+::: atlas.LazyTimeseries
     options:
         show_if_no_docstring: false

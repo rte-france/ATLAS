@@ -12,11 +12,11 @@
     options:
         show_if_no_docstring: false
 
-::: atlas.Hydraulic
+::: atlas.Hydro
     options:
         show_if_no_docstring: false
 
-::: atlas.Photovoltaic
+::: atlas.Solar
     options:
         show_if_no_docstring: false
 
@@ -25,5 +25,9 @@
         show_if_no_docstring: false
 
 ::: atlas.Storage
+    options:
+        show_if_no_docstring: false
+
+::: atlas.Thermal
     options:
         show_if_no_docstring: false

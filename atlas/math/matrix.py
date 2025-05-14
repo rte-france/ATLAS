@@ -1,6 +1,6 @@
 """
 Copyright (c) 2025, RTE (www.rte-france.com)
-See AUTHORS.txt
+
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
@@ -9,7 +9,9 @@ Module that implements Matrix
 
 from __future__ import annotations
 
+import pickle
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 import polars as pl
@@ -19,38 +21,36 @@ from atlas.math.timeseries import Timeseries
 
 
 class Matrix:
-    """Base class for storing Timeseries objects indexed by scenario keys or datetimes."""
+    """A container for time-indexed `Timeseries` data, supporting both eager and lazy operations.
 
-    def __init__(self, matrix: pd.DataFrame | pl.DataFrame, timezone: str = "UTC") -> None:
+    This class abstracts over Polars and Pandas DataFrames to provide a uniform way
+    to manage multiple time series, each associated with a unique index or scenario key."""
+
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix, timezone: str = "UTC") -> None:
         """
-        Initialize the matrix.
-
         :param matrix: DataFrame containing the matrix data.
-        :type matrix: pd.DataFrame | pl.DataFrame
+        :type matrix: pd.DataFrame | pl.DataFrame | Matrix
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
         self._check_timezone(timezone)
+        self._check_matrix(matrix)
 
-        df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
+        self._set_matrix(matrix=matrix, timezone=timezone)
+        self.indexes: list[str] = self.get_indexes()
 
-        time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
-
-        self.matrix: pl.DataFrame = (
-            df.rename({time_column[0]: "time"})
-            .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
-            .sort("time")
-        )
-        self.indexes: list[str] = self._get_indexes()
-
-        if len(time_column) + len(self.indexes) != len(df.columns):
-            raise ValueError(
-                f"Matrix must have exactly one time column and the other columns has to be numerical,"
-                f"but found {len(df.columns)} columns in total."
-            )
+    def __repr__(self):
+        """Provide a string representation of the Matrix object."""
+        return f"Matrix : {self.matrix}"
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Matrix:
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> Matrix:
         """
         Load a Matrix from a file.
 
@@ -62,31 +62,57 @@ class Matrix:
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if file_path.suffix == ".csv":
-            matrix = pl.read_csv(file_path)
+            matrix = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
-        return cls(matrix)
+        if filters:
+            matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+        return cls(matrix, timezone)
 
-    def _get_indexes(self) -> list[str]:
+    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix, timezone: str) -> None:
+        """Set matrix attribute"""
+        if isinstance(matrix, Matrix):
+            self.matrix: pl.DataFrame = matrix.matrix
+            self.timezone: str = matrix.timezone
+        else:
+            df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
+
+            time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+
+            self.matrix: pl.DataFrame = (  # type: ignore[no-redef]
+                df.rename({time_column[0]: "time"})
+                .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
+                .sort("time")
+            )
+            self.timezone: str = timezone  # type: ignore[no-redef]
+
+    def _check_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
+        """Check matrix data structure"""
+        if isinstance(matrix, Matrix):
+            return
+        df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
+
+        time_columns = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        if len(time_columns) != 1:
+            raise ValueError("Matrix must have exactly one time column")
+
+        value_columns = df.select(pl.selectors.numeric()).columns
+
+        if len(time_columns) + len(value_columns) != len(df.columns):
+            raise ValueError("Matrix must have N columns one for datetime and N-1 for numerical values")
+
+    def get_indexes(self) -> list[str]:
         """
         Get the indexes of the matrix.
 
         :return: List of indexes.
         :rtype: list[str]
         """
-        time_columns = self.matrix.select(pl.selectors.datetime() | pl.selectors.date()).columns
-        if len(time_columns) != 1:
-            raise ValueError("Matrix must have exactly one time column")
-        time_column = time_columns[0]
-        return self.matrix.drop(time_column).columns
+        return self.matrix.select(pl.selectors.numeric()).columns
 
     @staticmethod
     def _check_timezone(timezone: str) -> None:
-        """
-        Check if the timezone is valid.
-
-        :raises ValueError: If the timezone is not valid
-        """
+        """Check if the timezone is valid."""
         if timezone not in pytz.all_timezones:
             raise ValueError(f"Invalid timezone: {timezone}")
 
@@ -139,45 +165,54 @@ class Matrix:
 
         return self.matrix.equals(other.matrix)
 
+    def to_lazy(self) -> pl.LazyFrame:
+        """
+        Convert the internal Polars DataFrame to a LazyFrame.
+
+        :return: A Polars LazyFrame representation of the time series
+        :rtype: pl.LazyFrame
+        """
+        return self.matrix.lazy()
+
     def add(
         self,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
-        scenario_name: str,
+        index: str,
     ) -> None:
         """
         Add a timeseries to the matrix.
 
-        :param index: Index key.
-        :type index: Index
+        :param index: Index to add into the matrix
+        :type index: str
         :param timeseries: Timeseries to add.
         :type timeseries: Timeseries
         :raises TypeError: If types are invalid.
         """
-        if scenario_name in self.indexes:
-            raise KeyError(f"Index {scenario_name} already exists in the matrix.")
+        if index in self.indexes:
+            raise KeyError(f"Index {index} already exists in the matrix.")
         timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
 
         self.matrix = self.matrix.join(
-            timeseries.get_data(engine="polars").rename({"value": scenario_name}),  # type: ignore[arg-type]
+            timeseries.get_data(engine="polars").rename({"value": index}),  # type: ignore[arg-type]
             on="time",
             how="full",
             coalesce=True,
         )
-        self.indexes = self._get_indexes()
+        self.indexes = self.get_indexes()
 
     def delete(self, index: str) -> None:
         """
         Delete a timeseries by index.
 
-        :param index: Index key.
-        :type index: Index
+        :param index: Index key to delete from the matrix
+        :type index: str
         :raises KeyError: If index is not found.
         """
         if index not in self.indexes:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
         self.matrix = self.matrix.drop(index)
-        self.indexes = self._get_indexes()
+        self.indexes = self.get_indexes()
 
     def get_matrix(self) -> pl.DataFrame:
         """
@@ -187,3 +222,36 @@ class Matrix:
         :rtype: pl.DataFrame
         """
         return self.matrix
+
+    def to_file(
+        self,
+        path: str | Path,
+        file_format: Literal["csv", "parquet", "pickle"] = "csv",
+        separator: str = ";",
+    ) -> None:
+        """
+        Export the time series to a file.
+
+        :param path: Destination file path
+        :type path: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: Literal["csv", "parquet", "pickle"], optional
+        :raises ValueError: If file extension doesn't match format
+        :raises NotImplementedError: If the file format is not supported
+        """
+        file_format_lower = file_format.lower()
+
+        if isinstance(path, Path):
+            path = str(path)
+        if not path.lower().endswith(file_format_lower):
+            raise ValueError("Format and file extension don't match.")
+
+        if file_format_lower == "csv":
+            self.matrix.write_csv(path, separator=separator)
+        elif file_format_lower == "parquet":
+            self.matrix.write_parquet(path)
+        elif file_format_lower == "pickle":
+            with open(path, "wb") as f:
+                pickle.dump(self, f)
+        else:
+            raise NotImplementedError("Format not supported")

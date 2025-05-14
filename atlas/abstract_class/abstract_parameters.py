@@ -1,18 +1,16 @@
 """Copyright (c) 2025, RTE (www.rte-france.com)
-See AUTHORS.txt
+
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
 Module that implements AbstractParameters
 """
 
-from datetime import datetime
 from typing import TypeVar
 
 from pydantic import BaseModel, model_validator
+from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
-
-from atlas.constants import DATE_FORMAT
 
 
 class AbstractParameters(BaseModel):
@@ -30,9 +28,9 @@ class AbstractParameters(BaseModel):
     :type export_output_dataset: bool
     """
 
-    start_date: datetime | None = None
-    end_date: datetime | None = None
-    execution_date: datetime | None = None
+    start_date: DateTime | None = None
+    end_date: DateTime | None = None
+    execution_date: DateTime | None = None
     export_result: bool = True
     export_output_dataset: bool = False
 
@@ -48,16 +46,16 @@ class AbstractParameters(BaseModel):
             return self
         if self.end_date < self.start_date:
             raise ValueError(
-                f"Start date '{self.start_date.strftime(DATE_FORMAT)}' must be inferior "
-                f"to end date '{self.end_date.strftime(DATE_FORMAT)}'"
+                f"Start date '{self.start_date.to_datetime_string()}' must be inferior "
+                f"to end date '{self.end_date.to_datetime_string()}'"
             )
         if self.execution_date is None:
             return self
         if not (self.start_date < self.execution_date < self.end_date):
             raise ValueError(
-                f"Execution date '{self.execution_date.strftime(DATE_FORMAT)}' must be between "
-                f"start date '{self.start_date.strftime(DATE_FORMAT)}' and "
-                f"end date '{self.end_date.strftime(DATE_FORMAT)}'"
+                f"Execution date '{self.execution_date.to_datetime_string()}' must be between "
+                f"start date '{self.start_date.to_datetime_string()}' and "
+                f"end date '{self.end_date.to_datetime_string()}'"
             )
         return self
 

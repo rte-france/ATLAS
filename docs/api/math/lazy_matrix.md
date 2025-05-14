@@ -1,9 +1,9 @@
-# Scenario matrix
+# Lazy Matrix
 
-::: atlas.ScenarioMatrix
+::: atlas.LazyScenarioMatrix
     options:
         show_if_no_docstring: false
 
-::: atlas.LazyScenarioMatrix
+::: atlas.LazyForecastingMatrix
     options:
         show_if_no_docstring: false

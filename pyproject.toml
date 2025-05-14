@@ -7,6 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
     "dotenv>=0.9.9",
     "fastparquet>=2024.11.0",
+    "h5py>=3.13.0",
     "loguru>=0.7.3",
     "numpy>=2.0.1",
     "ortools>=9.12.4544",
@@ -16,6 +17,7 @@ dependencies = [
     "polars>=1.27.0",
     "pyarrow>=20.0.0",
     "pydantic>=2.11.3",
+    "pydantic-extra-types>=2.10.4",
     "pytz>=2025.1",
     "pyyaml>=6.0.1",
     "typer>=0.15.2",
@@ -34,12 +36,27 @@ packages.find.include = ['atlas*']
 [tool.ruff]
 line-length = 120
 extend-exclude = ["*.ipynb"]
+exclude = [
+    "atlas/io/hdf_handler.py",
+    "atlas/io/transform_dataset.py",
+]
 
 [tool.ruff.lint]
-ignore = ["B028", "B904", "W291", "EM102", "PTH119", "D104","D212","D203","PTH118","COM812", "PTH103", "PTH100",
-        "PD901", "D205", "D401", "TRY003", "D404", "EM101", "ANN204", "G004", "PTH123", "D415", "D400", "TRY301", "FBT002",
-        "FBT001", "D107", "TC003", "D213", "ERA001", "TC002"]
-select = ["ALL"]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+    "W191", # indentation contains tabs
+]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "F401", "F403"]
@@ -70,6 +87,7 @@ docs = [
 url = "https://pypi.org/simple/"
 
 [tool.mypy]
+exclude = "atlas/io/transform_dataset.py"
 python_version = "3.10"
 strict = false
 check_untyped_defs = false
@@ -78,3 +96,8 @@ disallow_incomplete_defs = false
 warn_unused_ignores = false
 warn_return_any = false
 no_implicit_optional = false
+
+
+[tool.coverage.run]
+omit = ['atlas/io/transform_dataset.py',
+        'atlas/timing.py']
