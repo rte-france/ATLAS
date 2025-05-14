@@ -9,7 +9,9 @@ Module that implements Matrix
 
 from __future__ import annotations
 
+import pickle
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 import polars as pl
@@ -19,12 +21,13 @@ from atlas.math.timeseries import Timeseries
 
 
 class Matrix:
-    """Base class for storing Timeseries objects indexed by scenario keys or datetimes."""
+    """A container for time-indexed `Timeseries` data, supporting both eager and lazy operations.
+
+    This class abstracts over Polars and Pandas DataFrames to provide a uniform way
+    to manage multiple time series, each associated with a unique index or scenario key."""
 
     def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix, timezone: str = "UTC") -> None:
         """
-        Initialize the matrix.
-
         :param matrix: DataFrame containing the matrix data.
         :type matrix: pd.DataFrame | pl.DataFrame | Matrix
         :param timezone: Timezone for the datetime column.
@@ -70,6 +73,7 @@ class Matrix:
         """Set matrix attribute"""
         if isinstance(matrix, Matrix):
             self.matrix: pl.DataFrame = matrix.matrix
+            self.timezone: str = matrix.timezone
         else:
             df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
 
@@ -80,7 +84,7 @@ class Matrix:
                 .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
                 .sort("time")
             )
-            self.timezone: str = timezone
+            self.timezone: str = timezone  # type: ignore[no-redef]
 
     def _check_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
         """Check matrix data structure"""
@@ -219,19 +223,35 @@ class Matrix:
         """
         return self.matrix
 
-    def to_file(self, file_path: str | Path, file_format: str = "parquet") -> None:
+    def to_file(
+        self,
+        path: str | Path,
+        file_format: Literal["csv", "parquet", "pickle"] = "csv",
+        separator: str = ";",
+    ) -> None:
         """
-        Save the matrix to a file in either CSV or Parquet format.
+        Export the time series to a file.
 
-        :param file_path: Output file path.
-        :type file_path: str | Path
-        :param format: Output format: "csv" or "parquet".
-        :type format: str
+        :param path: Destination file path
+        :type path: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: Literal["csv", "parquet", "pickle"], optional
+        :raises ValueError: If file extension doesn't match format
+        :raises NotImplementedError: If the file format is not supported
         """
-        file_path = Path(file_path)
-        if file_format == "csv":
-            self.matrix.write_csv(file_path)
-        elif file_format == "parquet":
-            self.matrix.write_parquet(file_path)
+        file_format_lower = file_format.lower()
+
+        if isinstance(path, Path):
+            path = str(path)
+        if not path.lower().endswith(file_format_lower):
+            raise ValueError("Format and file extension don't match.")
+
+        if file_format_lower == "csv":
+            self.matrix.write_csv(path, separator=separator)
+        elif file_format_lower == "parquet":
+            self.matrix.write_parquet(path)
+        elif file_format_lower == "pickle":
+            with open(path, "wb") as f:
+                pickle.dump(self, f)
         else:
-            raise ValueError(f"Unsupported format: {format}. Use 'csv' or 'parquet'.")
+            raise NotImplementedError("Format not supported")

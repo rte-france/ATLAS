@@ -4,7 +4,7 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-This module provides a Timeseries class for handling time series data using Polars.
+This module provides a Timeseries class for handling Timeseries data using Polars.
 """
 
 from __future__ import annotations
@@ -25,14 +25,12 @@ import pytz
 
 class Timeseries:
     """
-    A time series class using Polars backend.
+    A flexible and efficient time series class using a Polars backend.
 
-    :param timeseries: The input time series data.
-    :type timeseries: pl.DataFrame or Timeseries
-    :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
-    :type timezone: str, optional
-    :param lazy: Used for Unloaded timeseries. Set by
-    :type lazy: bool, optional
+    The Timeseries class provides a unified interface for handling, analyzing, and visualizing
+    time series data. It supports a variety of input formats (Polars DataFrame, Pandas DataFrame,
+    dictionary, or another Timeseries instance) and ensures robust handling of time zones and
+    interpolation methods.
     """
 
     def __init__(
@@ -41,6 +39,12 @@ class Timeseries:
         timezone: str = "UTC",
         interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
+        """
+        :param timeseries: The input Timeseries data.
+        :type timeseries: pl.DataFrame or Timeseries
+        :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
+        :type timezone: str, optional
+        """
         self._check_timezone(timezone)
         self._check_interpolation_method(interpolation_method)
 
@@ -130,7 +134,7 @@ class Timeseries:
 
     def __eq__(self, other: object) -> bool:
         """
-        Check equality between the internal time series and another Polars DataFrame.
+        Check equality between the internal Timeseries and another Polars DataFrame.
 
         :param other: The Polars DataFrame to compare with
         :type other: pl.DataFrame
@@ -144,9 +148,9 @@ class Timeseries:
         raise NotImplementedError("Comparison with non-Timeseries objects is not supported")
 
     def __len__(self) -> int:
-        """Return the number of rows in the time series.
+        """Return the number of rows in the Timeseries.
 
-        :return: Number of rows in the time series
+        :return: Number of rows in the Timeseries
         :rtype: bool
         """
         return self.timeseries.height
@@ -255,7 +259,7 @@ class Timeseries:
 
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: The cleaned time series
+        :return: The cleaned Timeseries
         :rtype: Timeseries
         """
         df = self.timeseries.drop_nulls()
@@ -270,7 +274,7 @@ class Timeseries:
 
         :param engine: The engine to use for the output, defaults to "pandas"
         :type engine: str, optional
-        :return: The internal time series data
+        :return: The internal Timeseries data
         :rtype: pl.DataFrame
         """
         if engine == "pandas":
@@ -283,7 +287,7 @@ class Timeseries:
         """
         Convert the internal Polars DataFrame to a LazyFrame.
 
-        :return: A Polars LazyFrame representation of the time series
+        :return: A Polars LazyFrame representation of the Timeseries
         :rtype: pl.LazyFrame
         """
         return self.timeseries.lazy()
@@ -320,7 +324,7 @@ class Timeseries:
 
     def set_interpolation_method(self, interpolation_method: str) -> None:
         """
-        Set the interpolation method for the time series.
+        Set the interpolation method for the Timeseries.
 
         :param interpolation_method: The interpolation method to use, either "linear" or "constant".
         :type interpolation_method: str
@@ -334,13 +338,13 @@ class Timeseries:
         descending: bool | list[bool] = False,
     ) -> Timeseries:
         """
-        Sort the time series by the given variable(s).
+        Sort the Timeseries by the given variable(s).
 
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         :param descending: Sort in descending order, defaults to False
         :type descending: bool or list[bool], optional
-        :return: Sorted time series
+        :return: Sorted Timeseries
         :rtype: Timeseries
         """
         df = self.timeseries.sort("time", descending=descending)
@@ -479,7 +483,7 @@ class Timeseries:
         inplace: bool = True,
     ) -> Timeseries:
         """
-        Upsample the time series to a higher frequency.
+        Upsample the Timeseries to a higher frequency.
 
         Fills in missing timestamps by interpolating or forward-filling values.
 
@@ -490,7 +494,7 @@ class Timeseries:
         :param strategy: Method to fill missing values: "linear" for interpolation, "constant" for forward fill
         :type strategy: str, optional
         :raises NotImplementedError: If the provided strategy is not supported
-        :return: Upsampled time series
+        :return: Upsampled Timeseries
         :rtype: Timeseries
         """
         if self.interpolation_method == "linear":
@@ -521,7 +525,7 @@ class Timeseries:
         inplace: bool = True,
     ) -> Timeseries:
         """
-        Group the time series dynamically by time intervals.
+        Group the Timeseries dynamically by time intervals.
 
         :param granularity: Grouping interval (e.g., "1h", "1d")
         :type granularity: str or timedelta
@@ -530,7 +534,7 @@ class Timeseries:
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         :raises NotImplementedError: If the aggregation function is unsupported
-        :return: Grouped time series
+        :return: Grouped Timeseries
         :rtype: Timeseries
         """
         grouped_df = self.timeseries.group_by_dynamic("time", every=granularity)
@@ -570,7 +574,7 @@ class Timeseries:
         :type variables: str or list[str]
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: Deduplicated time series
+        :return: Deduplicated Timeseries
         :rtype: Timeseries
         """
         df = self.timeseries.unique(subset=variables, maintain_order=True)
@@ -587,7 +591,7 @@ class Timeseries:
         suffixes: str = "_right",
     ) -> pl.DataFrame:
         """
-        Merge this time series with another.
+        Merge this Timeseries with another.
 
         :param other: Another Timeseries object or Polars DataFrame to merge
         :type other: Timeseries or pl.DataFrame
@@ -599,7 +603,7 @@ class Timeseries:
         :type suffixes: str or None, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: Merged time series
+        :return: Merged Timeseries
         :rtype: Timeseries
         """
         if isinstance(other, Timeseries):
@@ -610,9 +614,10 @@ class Timeseries:
         self,
         path: str | Path,
         file_format: Literal["csv", "parquet", "pickle"] = "csv",
+        separator: str = ";",
     ) -> None:
         """
-        Export the time series to a file.
+        Export the Timeseries to a file.
 
         :param path: Destination file path
         :type path: str
@@ -629,7 +634,7 @@ class Timeseries:
             raise ValueError("Format and file extension don't match.")
 
         if file_format_lower == "csv":
-            self.timeseries.write_csv(path)
+            self.timeseries.write_csv(path, separator=separator)
         elif file_format_lower == "parquet":
             self.timeseries.write_parquet(path)
         elif file_format_lower == "pickle":
@@ -645,7 +650,7 @@ class Timeseries:
         inplace: bool = True,
     ) -> Timeseries:
         """
-        Filter the time series based on a list of datetime.
+        Filter the Timeseries based on a list of datetime.
 
         :param item: Datetime to filter the Timeseries
         :type item: list[datetime] or datetime or pendulum.DateTime or str
@@ -654,7 +659,7 @@ class Timeseries:
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         :raises NotImplementedError: If the times to filter type is unsupported
-        :return: Filtered time series
+        :return: Filtered Timeseries
         :rtype: Timeseries
         """
         if isinstance(item, list):
@@ -697,14 +702,14 @@ class Timeseries:
         return None
 
     def interpolate(self, method: Literal["linear", "constant"] = "constant", inplace: bool = False) -> Timeseries:
-        """Interpolate the time series to fill in missing values.
+        """Interpolate the Timeseries to fill in missing values.
 
         :param method: Interpolation method, defaults to "constant"
         :type method: Literal["linear", "constant"], optional
         :param inplace: Whether to modify the current instance, defaults to False
         :type inplace: bool, optional
         :raises NotImplementedError: If the method is not supported
-        :return: Interpolated time series
+        :return: Interpolated Timeseries
         :rtype: Timeseries
         """
         if method == "linear":
@@ -760,7 +765,7 @@ class Timeseries:
         template: str = "plotly_white",
     ) -> plotly.graph_objects.Figure:
         """
-        Generate a Plotly figure for the time series data.
+        Generate a Plotly figure for the Timeseries data.
 
         :param title: Plot title, defaults to "Time Series Plot"
         :type title: str, optional

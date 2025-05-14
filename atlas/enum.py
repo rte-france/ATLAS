@@ -7,20 +7,6 @@ This file is part of the ATLAS project.
 from enum import Enum
 
 
-class TimeSeriesInterpolation(Enum):
-    """
-    Defines interpolation types for Timeseries objects.
-
-    :cvar CONSTANT: Constant value interpolation.
-    :cvar LINEAR: Linear interpolation between points.
-    :cvar LINEAR_AVERAGE: Linear interpolation with averaging logic.
-    """
-
-    CONSTANT = "constant"
-    LINEAR = "linear"
-    LINEAR_AVERAGE = "linear_average"
-
-
 class LoadType(str, Enum):
     """
     Represents different types of electrical loads.

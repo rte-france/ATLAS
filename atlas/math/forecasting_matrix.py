@@ -27,14 +27,10 @@ if TYPE_CHECKING:
 
 class ForecastingMatrix(Matrix):
     """
-    A specialized matrix for handling forecasted timeseries data.
+    A matrix structure for managing collections of forecast time series, indexed by forecast generation time.
 
-    Each column in the matrix corresponds to a forecast generated at a specific
-    datetime, stored as a string with a configurable format. Internally, the
-    matrix ensures columns are sorted chronologically by their forecast datetime.
-
-    Inherits from:
-        Matrix: Core matrix functionality with timeseries support.
+    The ForecastingMatrix is designed to store and organize multiple time series forecasts,
+    where each column (except for the "time" column) represents a forecast generated at a specific datetime.
     """
 
     def __init__(
@@ -44,8 +40,6 @@ class ForecastingMatrix(Matrix):
         date_format: str = "DD_MM_YYYY HH:mm:ss",
     ) -> None:
         """
-        Initialize a ForecastingMatrix with a matrix of forecasted timeseries.
-
         :param matrix: A DataFrame where each column (except "time") represents a forecast.
         :type matrix: pl.DataFrame | pd.DataFrame
         :param timezone: Timezone of the timeseries data.
@@ -85,6 +79,8 @@ class ForecastingMatrix(Matrix):
             matrix = pl.read_csv(file_path, try_parse_dates=True, separator=separator)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
+        else:
+            raise ValueError("Unsupported file extension, choose between csv and parquet")
         if filters:
             matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
         return cls(matrix, timezone, date_format)
