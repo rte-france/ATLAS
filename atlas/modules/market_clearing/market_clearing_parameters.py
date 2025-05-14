@@ -9,7 +9,7 @@ from enum import Enum
 from pydantic import Field
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.config import Product
+from atlas.enum import Product
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -192,4 +192,12 @@ class MarketClearingParameters(AbstractParameters):
         "All",
         description="Custom selection of market areas to be included in the computation or string 'All' to select all "
         "market area. the default value is 'All'",
+    )
+    initial_max_price: int = Field(
+        1e8,
+        description=" Max price : default value is 100 000 000",
+    )
+    initial_min_price: int = Field(
+        -1e8,
+        description="Min price : default value is - 100 000 000",
     )
