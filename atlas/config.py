@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
+from atlas import BusinessModel
 from atlas.logging import Logger
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
@@ -48,3 +49,6 @@ MODEL_MAPPING_NAME: dict[str, Any] = {
     "thermal": Thermal,
     "wind": Wind,
 }
+
+MODEL_TO_NAME_MAPPING: dict[type[BusinessModel], str] = dict(zip(MODEL_MAPPING_NAME.values(),
+                                                                 MODEL_MAPPING_NAME.keys()))

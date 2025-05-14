@@ -26,8 +26,7 @@ class MarketClearingModule(
     def import_data(
         self, raw_data: dict[str, list[BusinessModel]], parameters: MarketClearingParameters
     ) -> MarketClearingInputDataset:
-        input_dataset = MarketClearingInputDataset(parameters)
-        input_dataset.set_market_areas(raw_data["MarketArea"])
+        input_dataset = MarketClearingInputDataset(raw_data, parameters)
         return input_dataset
 
     def validate_data(self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset) -> bool:
@@ -38,6 +37,10 @@ class MarketClearingModule(
     def execute(
         self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset
     ) -> MarketClearingOutputDataset:
+        # Launch Clearing phase
+        # Launch Exchange Fixing phase
+        # Launch Pricing phase
+        # Launch Marginal Fixing phase
         pass
 
     def validates_results(
