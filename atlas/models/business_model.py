@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class BusinessModel(BaseModel):
-    """Implements the business model of the ATLAS project."""
+    """Implements the Atlas business models."""
 
     name: str | None = None
     model_config = ConfigDict(arbitrary_types_allowed=True)

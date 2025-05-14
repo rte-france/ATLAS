@@ -10,7 +10,7 @@ import h5py
 import numpy as np
 import polars as pl
 
-from atlas.config import logger
+from atlas.config import MODEL_MAPPING_NAME, logger
 
 
 class AtlasTransformerDataset:
@@ -351,9 +351,14 @@ class AtlasTransformerDataset:
             snake_attr = self.to_snake_case(attr)
             if isinstance(value, dict):
                 if "object" in value:
-                    ts = value.get("timeseries")
-                    if ts not in (None, {}, []):
+                    ts = value.get('timeserie')
+                    ts_matrix = value.get("timeseries")
+                    if ts_matrix not in (None, {}, []):
                         flat[snake_attr] = value["object"]
+                    if ts  not in (None, {}, []):
+                        flat[snake_attr] = 'timeseries'
+                    if snake_attr in MODEL_MAPPING_NAME:
+                        flat[snake_attr] = value["instance"].split("/")[-1]
             else:
                 flat[snake_attr] = value
 

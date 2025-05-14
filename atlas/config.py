@@ -4,10 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any
-
-from atlas import BusinessModel
 from atlas.logging import Logger
+from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
@@ -29,7 +27,7 @@ from atlas.models.portfolio import Portfolio
 
 logger = Logger().get_logger()
 
-MODEL_MAPPING_NAME: dict[str, Any] = {
+MODEL_MAPPING_NAME: dict[str, type[BusinessModel]] = {
     "control_block": ControlBlock,
     "critical_branch": CriticalBranch,
     "equipment": Equipment,
@@ -49,6 +47,33 @@ MODEL_MAPPING_NAME: dict[str, Any] = {
     "thermal": Thermal,
     "wind": Wind,
 }
+
+EQUIPMENT_MODELS = [
+    "wind",
+    "storage",
+    "hydro",
+    "solar",
+    "thermal",
+    "other_non_dispatchable",
+    "load",
+]
+
+MODEL_ORDER_INSTANTIATION = (
+    [
+        "control_block",
+        "market_area",
+        "market_area_ptdf",
+        "market_border",
+        "node",
+        "node_ptdf",
+        "portfolio",
+    ]
+    + EQUIPMENT_MODELS
+    + [
+        "order",
+        "order_coupling",
+    ]
+)
 
 MODEL_TO_NAME_MAPPING: dict[type[BusinessModel], str] = dict(zip(MODEL_MAPPING_NAME.values(),
                                                                  MODEL_MAPPING_NAME.keys()))
