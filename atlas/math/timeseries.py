@@ -12,7 +12,7 @@ from __future__ import annotations
 import pickle
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import pandas as pd
 import pendulum
@@ -82,6 +82,70 @@ class Timeseries:
         if filters:
             timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
         return cls(timeseries, timezone, interpolation_method)
+
+    @classmethod
+    def describe(cls, timeseries: pd.DataFrame | pl.DataFrame | Timeseries) -> dict[str, Any]:
+        """
+        Get metadata about the timeseries.
+
+        :param timeseries: DataFrame containing the timeseries data.
+        :type timeseries: pd.DataFrame | pl.DataFrame | Timeseries
+        :return: A dictionnary containing timeseries metadata
+        :rtype: dict[str, Any]
+        """
+        if isinstance(timeseries, pd.DataFrame):
+            df = pl.DataFrame(timeseries)
+        elif isinstance(timeseries, Timeseries):
+            df = timeseries.get_data()
+        elif isinstance(timeseries, pl.DataFrame):
+            df = timeseries
+        else:
+            raise NotImplementedError("Can't parse input data. Provide a dataframe or a Timeseries")
+
+        summary = {
+            "shape": df.shape,
+            "memory_mb": f"{df.estimated_size('mb'):.02f}",
+        }
+
+        datetime_cols = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        string_cols = df.select(pl.selectors.string()).columns
+        numeric_cols = df.select(pl.selectors.numeric()).columns
+
+        if len(datetime_cols) == 1:
+            dt_col = datetime_cols[0]
+            dt_series = df[dt_col]
+            summary["datetime"] = {  # type: ignore[assignment]
+                "column": dt_col,
+                "min": pendulum.instance(dt_series.min()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
+                "max": pendulum.instance(dt_series.max()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
+                "nulls": dt_series.null_count(),
+            }
+        else:
+            raise ValueError("Expected one datetime column exactly")
+
+        if len(string_cols) == 1:
+            cat_col = string_cols[0]
+            cat_series = df[cat_col]
+            categories = sorted(cat_series.unique().to_list())
+            summary["categorical"] = {  # type: ignore[assignment]
+                "column": cat_col,
+                "categories": categories,
+                "nulls": cat_series.null_count(),
+            }
+        else:
+            raise ValueError("Expected one string column exactly")
+
+        if len(numeric_cols) == 1:
+            num_col = numeric_cols[0]
+            num_series = df[num_col]
+            summary["numerical"] = {  # type: ignore[assignment]
+                "column": num_col,
+                "nulls": num_series.null_count(),
+                "min": num_series.min(),
+                "max": num_series.max(),
+            }
+
+        return summary
 
     def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None) -> None:
         if timeseries is None or isinstance(timeseries, Timeseries):

@@ -172,6 +172,35 @@ class TestTimeseriesInit:
         assert len(ts) == 2
         assert ts.get_data()["value"].to_list() == [10.0, 30.0]
 
+    def test_describe(self):
+        df = pl.DataFrame(
+            {
+                "category": ["A", "B", "A", "C"],
+                "time": [
+                    datetime(2023, 1, 1),
+                    datetime(2023, 1, 2),
+                    datetime(2023, 1, 3),
+                    datetime(2023, 1, 4),
+                ],
+                "value": [10.0, 20.0, 30.0, 40.0],
+            }
+        )
+
+        metadata = Timeseries.describe(timeseries=df)
+
+        assert metadata == {
+            "shape": (4, 3),
+            "memory_mb": "0.00",
+            "datetime": {
+                "column": "time",
+                "min": "2023-01-01 00:00:00",
+                "max": "2023-01-04 00:00:00",
+                "nulls": 0,
+            },
+            "categorical": {"column": "category", "categories": ["A", "B", "C"], "nulls": 0},
+            "numerical": {"column": "value", "nulls": 0, "min": 10.0, "max": 40.0},
+        }
+
     def test_from_file_parquet(self, tmp_path):
         """Test loading from file with filters."""
         # Create a sample CSV file

@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import pickle
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import pandas as pd
+import pendulum
 import polars as pl
 import pytz
 
@@ -42,6 +43,62 @@ class Matrix:
     def __repr__(self):
         """Provide a string representation of the Matrix object."""
         return f"Matrix : {self.matrix}"
+
+    @classmethod
+    def describe(cls, matrix: pd.DataFrame | pl.DataFrame | Matrix) -> dict[str, Any]:
+        """
+        Get metadata about the matrix.
+
+        :param matrix: DataFrame containing the matrix data.
+        :type matrix: pd.DataFrame | pl.DataFrame | Matrix
+        :return: A dictionnary containing matrix metadata
+        :rtype: dict[str, Any]
+        """
+        if isinstance(matrix, pd.DataFrame):
+            df = pl.DataFrame(matrix)
+        elif isinstance(matrix, Matrix):
+            df = matrix.get_matrix()
+        elif isinstance(matrix, pl.DataFrame):
+            df = matrix
+        else:
+            raise NotImplementedError("Can't parse input data. Provide a dataframe or a Matrix")
+
+        summary = {
+            "shape": df.shape,
+            "memory_mb": f"{df.estimated_size('mb'):.02f}",
+        }
+
+        datetime_cols = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        string_cols = df.select(pl.selectors.string()).columns
+        numeric_cols = df.select(pl.selectors.numeric()).columns
+
+        if len(datetime_cols) == 1:
+            dt_col = datetime_cols[0]
+            dt_series = df[dt_col]
+            summary["datetime"] = {  # type: ignore[assignment]
+                "column": dt_col,
+                "min": pendulum.instance(dt_series.min()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
+                "max": pendulum.instance(dt_series.max()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
+                "nulls": dt_series.null_count(),
+            }
+        else:
+            raise ValueError("Expected one datetime column exactly")
+
+        if len(string_cols) == 1:
+            cat_col = string_cols[0]
+            cat_series = df[cat_col]
+            categories = sorted(cat_series.unique().to_list())
+            summary["categorical"] = {  # type: ignore[assignment]
+                "column": cat_col,
+                "categories": categories,
+                "nulls": cat_series.null_count(),
+            }
+        else:
+            raise ValueError("Expected one string column exactly")
+
+        summary["numeric_columns"] = numeric_cols
+
+        return summary
 
     @classmethod
     def from_file(
@@ -86,7 +143,8 @@ class Matrix:
             )
             self.timezone: str = timezone  # type: ignore[no-redef]
 
-    def _check_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
+    @staticmethod
+    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
         """Check matrix data structure"""
         if isinstance(matrix, Matrix):
             return
