@@ -218,10 +218,8 @@ class TestTimeseriesInit:
         )
         df.write_parquet(parquet_path)
 
-        # Load with filter
         ts = Timeseries.from_file(parquet_path)
 
-        # Should only have rows where category is "A"
         assert len(ts) == 4
         assert ts.get_data()["value"].to_list() == [10.0, 20.0, 30.0, 40.0]
 
@@ -288,7 +286,7 @@ class TestTimeseriesBasicOperations:
             assert new == orig * orig
 
     def test_add_with_value(self, sample_ts):
-        """Test multiplication operation between a timeseries and a value."""
+        """Test add operation between a timeseries and a value."""
         ts = sample_ts + 2
         assert isinstance(ts, Timeseries)
 
@@ -300,7 +298,7 @@ class TestTimeseriesBasicOperations:
             assert new == orig + 2
 
     def test_add_with_ts(self, sample_ts):
-        """Test multiplication operation between two timeseries."""
+        """Test add operation between two timeseries."""
         ts = sample_ts + sample_ts
         assert isinstance(ts, Timeseries)
 
@@ -312,7 +310,7 @@ class TestTimeseriesBasicOperations:
             assert new == orig + orig
 
     def test_sub_with_value(self, sample_ts):
-        """Test multiplication operation between a timeseries and a value."""
+        """Test substraction operation between a timeseries and a value."""
         ts = sample_ts - 2
         assert isinstance(ts, Timeseries)
 
@@ -324,7 +322,7 @@ class TestTimeseriesBasicOperations:
             assert new == orig - 2
 
     def test_sub_with_ts(self, sample_ts):
-        """Test multiplication operation between two timeseries."""
+        """Test substraction operation between two timeseries."""
         ts = sample_ts - sample_ts
         assert isinstance(ts, Timeseries)
 
@@ -336,7 +334,7 @@ class TestTimeseriesBasicOperations:
             assert new == orig - orig
 
     def test_div_with_value(self, sample_ts):
-        """Test multiplication operation between a timeseries and a value."""
+        """Test division operation between a timeseries and a value."""
         ts = sample_ts / 2
         assert isinstance(ts, Timeseries)
 
@@ -348,7 +346,7 @@ class TestTimeseriesBasicOperations:
             assert new == orig / 2
 
     def test_div_with_ts(self, sample_ts):
-        """Test multiplication operation between two timeseries."""
+        """Test division operation between two timeseries."""
         ts = sample_ts / sample_ts
         assert isinstance(ts, Timeseries)
 
@@ -414,14 +412,20 @@ class TestTimeseriesBasicOperations:
         with pytest.raises(ZeroDivisionError):
             sample_ts / 0
 
-    def test_min_max_methods(self, sample_ts):
-        """Test min and max methods."""
+    def test_min_methods(self, sample_ts):
+        """Test min methods."""
         assert sample_ts.min() == 10.0
-        assert sample_ts.max() == 40.0
 
         # Test with empty Timeseries
         empty_ts = Timeseries()
         assert empty_ts.min() is None
+
+    def test_max_methods(self, sample_ts):
+        """Test max methods."""
+        assert sample_ts.max() == 40.0
+
+        # Test with empty Timeseries
+        empty_ts = Timeseries()
         assert empty_ts.max() is None
 
     def test_interpolate_method(self, sample_df_with_nulls):
@@ -451,8 +455,10 @@ class TestTimeseriesBasicOperations:
 
     def test_get_lazy(self, sample_ts):
         """Test conversion to LazyFrame."""
+
         lazy_frame = sample_ts.to_lazy()
         assert isinstance(lazy_frame, pl.LazyFrame)
+        assert lazy_frame.collect().equals(sample_ts.get_data())
 
     def test_generate_datetimes_with_different_freq(self):
         """Test generating datetimes with different frequencies."""

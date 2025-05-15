@@ -96,7 +96,7 @@ class Timeseries:
         if isinstance(timeseries, pd.DataFrame):
             df = pl.DataFrame(timeseries)
         elif isinstance(timeseries, Timeseries):
-            df = timeseries.get_data()
+            df = timeseries.get_data("polars")  # type: ignore[assignment]
         elif isinstance(timeseries, pl.DataFrame):
             df = timeseries
         else:
