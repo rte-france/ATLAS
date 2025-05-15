@@ -54,7 +54,8 @@ class InputLoader:
     - The `timeseries/`, `scenario_matrix/`, and `forecasting_matrix/` directories contain subdirectories
       for each object type, with files named after the object (e.g., `fr_storage.parquet`).
     - Each timeseries or matrix file must match the expected file extension (default: `.parquet`).
-    - Attribute names in the objects CSV must correspond to the file names in the respective subdirectories.
+    - Attribute names in the objects CSV must be either the value itself of the attribute, or the type if a math objects (e.g timeseries,
+      forecasting_matrix, scenario_matrix)
 
     """
 
