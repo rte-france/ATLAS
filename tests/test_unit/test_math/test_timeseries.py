@@ -147,6 +147,68 @@ class TestTimeseriesInit:
         with pytest.raises(ValueError):
             Timeseries(None, "invalid_timezone")
 
+    def test_from_file_with_filters(self, tmp_path):
+        """Test loading from file with filters."""
+        # Create a sample CSV file
+        csv_path = tmp_path / "test_data.csv"
+        df = pl.DataFrame(
+            {
+                "category": ["A", "B", "A", "C"],
+                "time": [
+                    datetime(2023, 1, 1),
+                    datetime(2023, 1, 2),
+                    datetime(2023, 1, 3),
+                    datetime(2023, 1, 4),
+                ],
+                "value": [10.0, 20.0, 30.0, 40.0],
+            }
+        )
+        df.write_csv(csv_path, separator=";")
+
+        # Load with filter
+        ts = Timeseries.from_file(csv_path, filters=("category", "A"))
+
+        # Should only have rows where category is "A"
+        assert len(ts) == 2
+        assert ts.get_data()["value"].to_list() == [10.0, 30.0]
+
+    def test_from_file_parquet(self, tmp_path):
+        """Test loading from file with filters."""
+        # Create a sample CSV file
+        parquet_path = tmp_path / "test_data.parquet"
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1),
+                    datetime(2023, 1, 2),
+                    datetime(2023, 1, 3),
+                    datetime(2023, 1, 4),
+                ],
+                "value": [10.0, 20.0, 30.0, 40.0],
+            }
+        )
+        df.write_parquet(parquet_path)
+
+        # Load with filter
+        ts = Timeseries.from_file(parquet_path)
+
+        # Should only have rows where category is "A"
+        assert len(ts) == 4
+        assert ts.get_data()["value"].to_list() == [10.0, 20.0, 30.0, 40.0]
+
+    def test_from_file_invalid(self, tmp_path):
+        """Test loading from file with filters."""
+        # Create a sample CSV file
+        # Load with filter
+        with pytest.raises(ValueError, match="Unsupported file format. Only CSV and Parquet are supported."):
+            ts = Timeseries.from_file("invalid_file")
+
+    def test_repr_method(self, sample_ts):
+        """Test string representation of Timeseries."""
+        repr_str = repr(sample_ts)
+        assert "Timeseries" in repr_str
+        assert isinstance(repr_str, str)
+
 
 class TestTimeseriesBasicOperations:
     """Test basic operations of the Timeseries class."""
@@ -196,6 +258,78 @@ class TestTimeseriesBasicOperations:
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * orig
 
+    def test_add_with_value(self, sample_ts):
+        """Test multiplication operation between a timeseries and a value."""
+        ts = sample_ts + 2
+        assert isinstance(ts, Timeseries)
+
+        # Original values should be doubled
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
+
+        for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
+            assert new == orig + 2
+
+    def test_add_with_ts(self, sample_ts):
+        """Test multiplication operation between two timeseries."""
+        ts = sample_ts + sample_ts
+        assert isinstance(ts, Timeseries)
+
+        # Original values should be doubled
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
+
+        for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
+            assert new == orig + orig
+
+    def test_sub_with_value(self, sample_ts):
+        """Test multiplication operation between a timeseries and a value."""
+        ts = sample_ts - 2
+        assert isinstance(ts, Timeseries)
+
+        # Original values should be doubled
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
+
+        for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
+            assert new == orig - 2
+
+    def test_sub_with_ts(self, sample_ts):
+        """Test multiplication operation between two timeseries."""
+        ts = sample_ts - sample_ts
+        assert isinstance(ts, Timeseries)
+
+        # Original values should be doubled
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
+
+        for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
+            assert new == orig - orig
+
+    def test_div_with_value(self, sample_ts):
+        """Test multiplication operation between a timeseries and a value."""
+        ts = sample_ts / 2
+        assert isinstance(ts, Timeseries)
+
+        # Original values should be doubled
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
+
+        for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
+            assert new == orig / 2
+
+    def test_div_with_ts(self, sample_ts):
+        """Test multiplication operation between two timeseries."""
+        ts = sample_ts / sample_ts
+        assert isinstance(ts, Timeseries)
+
+        # Original values should be doubled
+        original_values = sample_ts.get_data().select(pl.col("value")).to_series()
+        new_values = ts.get_data().select(pl.col("value")).to_series()
+
+        for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
+            assert new == orig / orig
+
     def test_set_value(self, sample_ts):
         ts = Timeseries()
 
@@ -227,6 +361,155 @@ class TestTimeseriesBasicOperations:
         ]
 
         assert result == expected
+
+    def test_arithmetic_operations_with_invalid_types(self, sample_ts):
+        """Test arithmetic operations with invalid types."""
+        # Test multiplication
+        with pytest.raises(TypeError):
+            sample_ts * "invalid"
+
+        # Test addition
+        with pytest.raises(TypeError):
+            sample_ts + "invalid"
+
+        # Test subtraction
+        with pytest.raises(TypeError):
+            sample_ts - "invalid"
+
+        # Test division
+        with pytest.raises(TypeError):
+            sample_ts / "invalid"
+
+    def test_division_by_zero(self, sample_ts):
+        """Test division by zero."""
+        with pytest.raises(ZeroDivisionError):
+            sample_ts / 0
+
+    def test_min_max_methods(self, sample_ts):
+        """Test min and max methods."""
+        assert sample_ts.min() == 10.0
+        assert sample_ts.max() == 40.0
+
+        # Test with empty Timeseries
+        empty_ts = Timeseries()
+        assert empty_ts.min() is None
+        assert empty_ts.max() is None
+
+    def test_interpolate_method(self, sample_df_with_nulls):
+        """Test interpolation methods."""
+        # Create a Timeseries with null values
+        ts = Timeseries(sample_df_with_nulls)
+
+        # Test linear interpolation
+        ts_linear = ts.interpolate(method="linear", inplace=False)
+        interpolated_values = ts_linear.get_data()["value"].to_list()
+
+        # For linear interpolation between 10.0 and 30.0 with a null in between
+        # The interpolated value should be 20.0
+        assert interpolated_values[1] == 20.0
+
+        # Test constant interpolation (forward fill)
+        ts_constant = ts.interpolate(method="constant", inplace=False)
+        interpolated_values = ts_constant.get_data()["value"].to_list()
+
+        # For constant interpolation, the null should be filled with the previous value
+        assert interpolated_values[1] == 10.0
+
+    def test_interpolate_invalid_method(self, sample_ts):
+        """Test interpolation with an invalid method."""
+        with pytest.raises(NotImplementedError):
+            sample_ts.interpolate(method="invalid")
+
+    def test_get_lazy(self, sample_ts):
+        """Test conversion to LazyFrame."""
+        lazy_frame = sample_ts.to_lazy()
+        assert isinstance(lazy_frame, pl.LazyFrame)
+
+    def test_generate_datetimes_with_different_freq(self):
+        """Test generating datetimes with different frequencies."""
+        # Test minute frequency
+        start = datetime(2023, 1, 1, 0, 0)
+        end = datetime(2023, 1, 1, 0, 10)
+        result_minutes = Timeseries.generate_datetimes(start, end, freq="5m")
+        assert len(result_minutes) == 3  # 0:00, 0:05, 0:10
+
+        # Test daily frequency
+        start = datetime(2023, 1, 1)
+        end = datetime(2023, 1, 5)
+        result_days = Timeseries.generate_datetimes(start, end, freq="1d")
+        assert len(result_days) == 5  # 1st, 2nd, 3rd, 4th, 5th
+
+    def test_generate_datetimes_invalid_freq(self):
+        """Test generating datetimes with an invalid frequency."""
+        start = datetime(2023, 1, 1)
+        end = datetime(2023, 1, 5)
+
+        with pytest.raises(ValueError):
+            Timeseries.generate_datetimes(start, end, freq="1y")  # Unsupported frequency
+
+    def test_set_interpolation_method(self, sample_ts):
+        """Test setting interpolation method."""
+        # Initial method should be 'constant'
+        assert sample_ts.interpolation_method == "constant"
+
+        # Change to linear
+        sample_ts.set_interpolation_method("linear")
+        assert sample_ts.interpolation_method == "linear"
+
+        # Try an invalid method
+        with pytest.raises(NotImplementedError):
+            sample_ts.set_interpolation_method("invalid")
+
+    def test_plot_method(self, sample_ts):
+        """Test plot method returns a Plotly figure."""
+        fig = sample_ts.plot()
+
+        # Check Plotly figure attributes
+        assert hasattr(fig, "data")
+        assert hasattr(fig, "layout")
+        assert len(fig.data) > 0
+
+        # Additional plot configurations
+        custom_fig = sample_ts.plot(
+            title="Custom Plot",
+            height=600,
+            width=1000,
+            show_grid=False,
+            line_color="red",
+            line_shape="spline",
+            template="plotly_dark",
+        )
+        assert custom_fig.layout.title.text == "Custom Plot"
+        assert custom_fig.layout.height == 600
+        assert custom_fig.layout.width == 1000
+
+    def test_get_data_with_different_engines(self, sample_ts):
+        """Test get_data method with different engines."""
+        # Polars engine (default)
+        polars_data = sample_ts.get_data(engine="polars")
+        assert isinstance(polars_data, pl.DataFrame)
+
+        # Pandas engine
+        pandas_data = sample_ts.get_data(engine="pandas")
+        assert isinstance(pandas_data, pd.DataFrame)
+
+        # Invalid engine
+        with pytest.raises(ValueError):
+            sample_ts.get_data(engine="invalid")
+
+    def test_get_value_with_nonexistent_time(self, sample_ts):
+        """Test get_value method with a time not in the series."""
+        # Time between two existing points
+        value = sample_ts.get_value(datetime(2023, 1, 1, 1, 30, 0))
+
+        # Should interpolate (since interpolation method is 'constant')
+        assert value == 20.0
+
+    def test_get_value_on_empty_timeseries(self):
+        """Test get_value on an empty Timeseries."""
+        ts = Timeseries()
+        value = ts.get_value(datetime(2023, 1, 1))
+        assert value == {"time": datetime(2023, 1, 1), "value": None}
 
 
 class TestTimeseriesManipulation:
@@ -483,187 +766,3 @@ class TestTimeseriesExport:
             path = os.path.join(tmpdir, "test.json")
             with pytest.raises(NotImplementedError):
                 sample_ts.to_file(path, file_format="json")
-
-
-class TestTimeseriesAdditionalCoverage:
-    """Additional tests to increase test coverage."""
-
-    def test_arithmetic_operations_with_invalid_types(self, sample_ts):
-        """Test arithmetic operations with invalid types."""
-        # Test multiplication
-        with pytest.raises(TypeError):
-            sample_ts * "invalid"
-
-        # Test addition
-        with pytest.raises(TypeError):
-            sample_ts + "invalid"
-
-        # Test subtraction
-        with pytest.raises(TypeError):
-            sample_ts - "invalid"
-
-        # Test division
-        with pytest.raises(TypeError):
-            sample_ts / "invalid"
-
-    def test_division_by_zero(self, sample_ts):
-        """Test division by zero."""
-        with pytest.raises(ZeroDivisionError):
-            sample_ts / 0
-
-    def test_min_max_methods(self, sample_ts):
-        """Test min and max methods."""
-        assert sample_ts.min() == 10.0
-        assert sample_ts.max() == 40.0
-
-        # Test with empty Timeseries
-        empty_ts = Timeseries()
-        assert empty_ts.min() is None
-        assert empty_ts.max() is None
-
-    def test_interpolate_method(self, sample_df_with_nulls):
-        """Test interpolation methods."""
-        # Create a Timeseries with null values
-        ts = Timeseries(sample_df_with_nulls)
-
-        # Test linear interpolation
-        ts_linear = ts.interpolate(method="linear", inplace=False)
-        interpolated_values = ts_linear.get_data()["value"].to_list()
-
-        # For linear interpolation between 10.0 and 30.0 with a null in between
-        # The interpolated value should be 20.0
-        assert interpolated_values[1] == 20.0
-
-        # Test constant interpolation (forward fill)
-        ts_constant = ts.interpolate(method="constant", inplace=False)
-        interpolated_values = ts_constant.get_data()["value"].to_list()
-
-        # For constant interpolation, the null should be filled with the previous value
-        assert interpolated_values[1] == 10.0
-
-    def test_interpolate_invalid_method(self, sample_ts):
-        """Test interpolation with an invalid method."""
-        with pytest.raises(NotImplementedError):
-            sample_ts.interpolate(method="invalid")
-
-    def test_get_lazy(self, sample_ts):
-        """Test conversion to LazyFrame."""
-        lazy_frame = sample_ts.to_lazy()
-        assert isinstance(lazy_frame, pl.LazyFrame)
-
-    def test_generate_datetimes_with_different_freq(self):
-        """Test generating datetimes with different frequencies."""
-        # Test minute frequency
-        start = datetime(2023, 1, 1, 0, 0)
-        end = datetime(2023, 1, 1, 0, 10)
-        result_minutes = Timeseries.generate_datetimes(start, end, freq="5m")
-        assert len(result_minutes) == 3  # 0:00, 0:05, 0:10
-
-        # Test daily frequency
-        start = datetime(2023, 1, 1)
-        end = datetime(2023, 1, 5)
-        result_days = Timeseries.generate_datetimes(start, end, freq="1d")
-        assert len(result_days) == 5  # 1st, 2nd, 3rd, 4th, 5th
-
-    def test_generate_datetimes_invalid_freq(self):
-        """Test generating datetimes with an invalid frequency."""
-        start = datetime(2023, 1, 1)
-        end = datetime(2023, 1, 5)
-
-        with pytest.raises(ValueError):
-            Timeseries.generate_datetimes(start, end, freq="1y")  # Unsupported frequency
-
-    def test_set_interpolation_method(self, sample_ts):
-        """Test setting interpolation method."""
-        # Initial method should be 'constant'
-        assert sample_ts.interpolation_method == "constant"
-
-        # Change to linear
-        sample_ts.set_interpolation_method("linear")
-        assert sample_ts.interpolation_method == "linear"
-
-        # Try an invalid method
-        with pytest.raises(NotImplementedError):
-            sample_ts.set_interpolation_method("invalid")
-
-    def test_from_file_with_filters(self, tmp_path):
-        """Test loading from file with filters."""
-        # Create a sample CSV file
-        csv_path = tmp_path / "test_data.csv"
-        df = pl.DataFrame(
-            {
-                "category": ["A", "B", "A", "C"],
-                "time": [
-                    datetime(2023, 1, 1),
-                    datetime(2023, 1, 2),
-                    datetime(2023, 1, 3),
-                    datetime(2023, 1, 4),
-                ],
-                "value": [10.0, 20.0, 30.0, 40.0],
-            }
-        )
-        df.write_csv(csv_path, separator=";")
-
-        # Load with filter
-        ts = Timeseries.from_file(csv_path, filters=("category", "A"))
-
-        # Should only have rows where category is "A"
-        assert len(ts) == 2
-        assert ts.get_data()["value"].to_list() == [10.0, 30.0]
-
-    def test_repr_method(self, sample_ts):
-        """Test string representation of Timeseries."""
-        repr_str = repr(sample_ts)
-        assert "Timeseries" in repr_str
-        assert isinstance(repr_str, str)
-
-    def test_plot_method(self, sample_ts):
-        """Test plot method returns a Plotly figure."""
-        fig = sample_ts.plot()
-
-        # Check Plotly figure attributes
-        assert hasattr(fig, "data")
-        assert hasattr(fig, "layout")
-        assert len(fig.data) > 0
-
-        # Additional plot configurations
-        custom_fig = sample_ts.plot(
-            title="Custom Plot",
-            height=600,
-            width=1000,
-            show_grid=False,
-            line_color="red",
-            line_shape="spline",
-            template="plotly_dark",
-        )
-        assert custom_fig.layout.title.text == "Custom Plot"
-        assert custom_fig.layout.height == 600
-        assert custom_fig.layout.width == 1000
-
-    def test_get_data_with_different_engines(self, sample_ts):
-        """Test get_data method with different engines."""
-        # Polars engine (default)
-        polars_data = sample_ts.get_data(engine="polars")
-        assert isinstance(polars_data, pl.DataFrame)
-
-        # Pandas engine
-        pandas_data = sample_ts.get_data(engine="pandas")
-        assert isinstance(pandas_data, pd.DataFrame)
-
-        # Invalid engine
-        with pytest.raises(ValueError):
-            sample_ts.get_data(engine="invalid")
-
-    def test_get_value_with_nonexistent_time(self, sample_ts):
-        """Test get_value method with a time not in the series."""
-        # Time between two existing points
-        value = sample_ts.get_value(datetime(2023, 1, 1, 1, 30, 0))
-
-        # Should interpolate (since interpolation method is 'constant')
-        assert value == 20.0
-
-    def test_get_value_on_empty_timeseries(self):
-        """Test get_value on an empty Timeseries."""
-        ts = Timeseries()
-        value = ts.get_value(datetime(2023, 1, 1))
-        assert value == {"time": datetime(2023, 1, 1), "value": None}

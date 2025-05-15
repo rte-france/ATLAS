@@ -29,7 +29,7 @@ class LazyTimeseries:
 
     def __init__(
         self,
-        timeseries: pl.LazyFrame | LazyTimeseries | Timeseries,
+        timeseries: pl.LazyFrame | LazyTimeseries | Timeseries | None = None,
         timezone: str = "UTC",
         interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:

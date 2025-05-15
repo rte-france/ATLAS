@@ -5,7 +5,9 @@ import pandas as pd
 import polars as pl
 import pytest
 
+from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
+from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 
 
@@ -21,12 +23,40 @@ def sample_pandas_df():
 
 
 @pytest.fixture
+def sample_pandas_df_invalid_schema():
+    return pd.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+            "scenario1": [1, 2, 3, 4],
+            "scenario2": [5, 6, 7, 8],
+            "invalid": ["A", "B", "C", "D"],
+        }
+    )
+
+
+@pytest.fixture
+def sample_polars_df_invalid_schema(sample_pandas_df_invalid_schema):
+    return pl.from_pandas(sample_pandas_df_invalid_schema)
+
+
+@pytest.fixture
 def sample_polars_df(sample_pandas_df):
     return pl.from_pandas(sample_pandas_df)
 
 
+@pytest.fixture
+def sample_matrix(sample_polars_df):
+    return Matrix(sample_polars_df)
+
+
 def test_init_with_polars(sample_polars_df):
     matrix = Matrix(sample_polars_df)
+    assert matrix.indexes == ["scenario1", "scenario2"]
+    assert matrix.matrix.shape == (3, 3)
+
+
+def test_init_with_matrix(sample_matrix):
+    matrix = Matrix(sample_matrix)
     assert matrix.indexes == ["scenario1", "scenario2"]
     assert matrix.matrix.shape == (3, 3)
 
@@ -197,11 +227,6 @@ def test_invalid_matrix_multiple_time_columns():
         Matrix(df)
 
 
-import pytest
-
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
-
-
 @pytest.fixture
 def sample_polars_df():
     return pl.DataFrame(
@@ -227,6 +252,13 @@ def test_scenario_matrix_repr(sample_polars_df):
     assert "scenario1" in repr_str
 
 
+def test_matrix_repr(sample_polars_df):
+    sm = Matrix(sample_polars_df)
+    repr_str = repr(sm)
+    assert "Matrix" in repr_str
+    assert "scenario1" in repr_str
+
+
 def test_lazy_scenario_matrix_init(sample_polars_df):
     lazy_df = sample_polars_df.lazy()
     lsm = LazyScenarioMatrix(lazy_df)
@@ -239,3 +271,24 @@ def test_lazy_scenario_matrix_repr(sample_polars_df):
     lsm = LazyScenarioMatrix(lazy_df)
     repr_str = repr(lsm)
     assert "LazyScenarioMatrix with schema" in repr_str
+
+
+def test_lazy_matrix_repr(sample_polars_df):
+    lazy_df = sample_polars_df.lazy()
+    lsm = LazyMatrix(lazy_df)
+    repr_str = repr(lsm)
+    assert "LazyMatrix with schema" in repr_str
+
+
+def test_get_indexes_invalid_schema(sample_polars_df_invalid_schema):
+    with pytest.raises(
+        ValueError,
+        match="LazyMatrix must have N columns one for datetime and N-1 for numerical values",
+    ):
+        LazyScenarioMatrix(sample_polars_df_invalid_schema.lazy())
+
+    with pytest.raises(
+        ValueError,
+        match="LazyMatrix must have N columns one for datetime and N-1 for numerical values",
+    ):
+        LazyMatrix(sample_polars_df_invalid_schema.lazy())
