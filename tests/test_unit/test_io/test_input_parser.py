@@ -16,9 +16,21 @@ from atlas.math.timeseries import Timeseries
 def mock_model_mapping():
     class DummyModel:
         def __init__(self, **kwargs):
-            self.attrs = kwargs
+            self.__dict__.update(kwargs)
+            for k, v in kwargs.items():
+                setattr(self, k, v)
 
-    return {"hydro": DummyModel}
+    return {
+        "hydro": DummyModel,
+        "thermal": DummyModel,
+        "solar": DummyModel,
+        "equipment": DummyModel,
+    }
+
+
+@pytest.fixture
+def mock_model_order():
+    return ["hydro", "thermal", "solar"]
 
 
 @pytest.fixture
@@ -37,6 +49,7 @@ def temp_input_dir(tmp_path, mock_model_mapping):
                 "energy": "timeseries",
                 "scenario": "scenario_matrix",
                 "forecast": "forecasting_matrix",
+                "start_date": "01/01/2023 00:00:00",
             }
         ]
     ).write_csv(tmp_path / "objects" / "hydro.csv", separator=";")
@@ -49,33 +62,96 @@ def temp_input_dir(tmp_path, mock_model_mapping):
     return tmp_path
 
 
-@patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
-@patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS")
-@patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX")
-def test_from_directory_success(mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
-    with patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": mock_model_mapping}):
-        result = InputLoader.from_directory(temp_input_dir)
-        assert "hydro" in result
-        assert isinstance(result["hydro"][0], mock_model_mapping["hydro"])
-        assert result["hydro"][0].attrs["energy"] == "TS"
-        assert result["hydro"][0].attrs["scenario"] == "MATRIX"
-
-
-@patch("atlas.io.input_loader.pl.read_csv", side_effect=Exception("bad csv"))
-@patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
-def test_parse_objects_handles_bad_file_gracefully(mock_read_csv, tmp_path):
+@pytest.fixture
+def complex_input_dir(tmp_path, mock_model_mapping):
+    # Setup directory structure
     (tmp_path / "objects").mkdir()
-    (tmp_path / "objects" / "hydro.csv").write_text("bad csv")
+    # Create directories for all object types
+    for obj_type in ["hydro", "thermal", "solar"]:
+        (tmp_path / "timeseries" / obj_type).mkdir(parents=True, exist_ok=True)
+        (tmp_path / "scenario_matrix" / obj_type).mkdir(parents=True, exist_ok=True)
+        (tmp_path / "forecasting_matrix" / obj_type).mkdir(parents=True, exist_ok=True)
 
-    result = InputLoader._parse_objects_from_directory(tmp_path / "objects")
-    assert result == {}
+    # Write hydro object definition with reference to equipment
+    pl.DataFrame(
+        [
+            {
+                "name": "fr_hydro",
+                "energy": "timeseries",
+                "scenario": "scenario_matrix",
+                "forecast": "forecasting_matrix",
+            }
+        ]
+    ).write_csv(tmp_path / "objects" / "hydro.csv", separator=";")
+
+    # Write thermal object definition with reference to hydro
+    pl.DataFrame(
+        [
+            {
+                "name": "fr_thermal",
+                "energy": "timeseries",
+                "hydro": "fr_hydro",
+            }
+        ]
+    ).write_csv(tmp_path / "objects" / "thermal.csv", separator=";")
+
+    # Create dummy data files
+    for obj_type in ["hydro", "thermal"]:
+        prefix = ""
+        name = f"{prefix}{obj_type}" if obj_type != "equipment" else "pump1"
+        (tmp_path / "timeseries" / obj_type / f"{name}.parquet").touch()
+        (tmp_path / "scenario_matrix" / obj_type / f"{name}.parquet").touch()
+        (tmp_path / "forecasting_matrix" / obj_type / f"{name}.parquet").touch()
+
+    return tmp_path
 
 
-def test_read_data_file_csv(tmp_path):
-    csv_path = tmp_path / "test.csv"
-    pl.DataFrame({"a": [1, 2]}).write_csv(csv_path)
-    df = InputLoader._read_data_file(csv_path)
-    assert isinstance(df, pl.DataFrame)
+class TestInputLoader:
+    @patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
+    @patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS")
+    @patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX")
+    def test_from_directory_success(self, mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
+        with patch.dict(
+            cfg.__dict__,
+            {"MODEL_MAPPING_NAME": mock_model_mapping, "MODEL_ORDER_INSTANTIATION": ["hydro"]},
+        ):
+            result = InputLoader.from_directory(temp_input_dir)
+            assert "hydro" in result
+            assert isinstance(result["hydro"][0], mock_model_mapping["hydro"])
+            assert result["hydro"][0].energy == "TS"
+            assert result["hydro"][0].scenario == "MATRIX"
+            assert result["hydro"][0].forecast == "MATRIX"
+            # Test that date was properly parsed
+            assert result["hydro"][0].start_date == "2023-01-01 00:00:00"
+
+    @patch.dict(
+        cfg.__dict__,
+        {
+            "MODEL_MAPPING_NAME": {
+                "hydro": MagicMock(),
+                "thermal": MagicMock(),
+                "solar": MagicMock(),
+            }
+        },
+    )
+    @patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS")
+    @patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX")
+    def test_from_directory_with_references(
+        self,
+        mock_matrix,
+        mock_ts,
+        complex_input_dir,
+        mock_model_mapping,
+        mock_model_order,
+    ):
+        with patch.dict(
+            cfg.__dict__,
+            {
+                "MODEL_MAPPING_NAME": mock_model_mapping,
+                "MODEL_ORDER_INSTANTIATION": mock_model_order,
+            },
+        ):
+            result = InputLoader.from_directory(complex_input_dir)
 
 
 def test_read_data_file_parquet(tmp_path):

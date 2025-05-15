@@ -311,6 +311,9 @@ class InputLoader:
         date_format_forecasting: str = "DD_MM_YYYY HH:mm:ss",
     ) -> Matrix | LazyMatrix:
         """Load a ForecastingMatrix or ScenarioMatrix (lazy or not) from a file."""
+        if matrix_type not in ("scenario_matrix", "forecasting_matrix"):
+            raise ValueError("Invalid matrix type, should be scenario_matrix or forecasting_matrix")
+
         matrix_file_path = Path(base_path) / matrix_type / object_type / (name + file_extension)
         if not (Path(base_path) / matrix_type).exists():
             raise NotADirectoryError(f"Directory does not contain '{matrix_type}' subdirectory: {base_path}")
