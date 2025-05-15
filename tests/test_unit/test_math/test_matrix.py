@@ -121,6 +121,20 @@ def test_add_timeseries(sample_polars_df):
     assert "scenario3" in matrix.indexes
 
 
+def test_add_timeseries_already_existing_index(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    new_ts = Timeseries(
+        pl.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+                "value": [9, 10, 11, 12],
+            }
+        )
+    )
+    with pytest.raises(KeyError, match="Index scenario2 already exists in the matrix."):
+        matrix.add(new_ts, "scenario2")
+
+
 def test_add_dict(sample_polars_df):
     matrix = Matrix(sample_polars_df)
     matrix.add(
@@ -167,6 +181,14 @@ def test_from_file_csv(tmp_path, sample_pandas_df):
     assert matrix.matrix.shape == (4, 3)
 
 
+def test_from_file_csv_str_input(tmp_path, sample_pandas_df):
+    file_path = tmp_path / "matrix.csv"
+    sample_pandas_df.to_csv(file_path, index=False, sep=";")
+    matrix = Matrix.from_file(str(file_path))
+    assert matrix.indexes == ["scenario1", "scenario2"]
+    assert matrix.matrix.shape == (4, 3)
+
+
 def test_from_file_with_filter(tmp_path):
     df = pl.DataFrame(
         {
@@ -180,6 +202,19 @@ def test_from_file_with_filter(tmp_path):
     matrix = Matrix.from_file(file_path, filters=("region", "FR"))
     assert "region" not in matrix.matrix.columns
     assert matrix.matrix.shape[0] == 2
+
+
+def test_from_file_with_invalid_schema(tmp_path):
+    df = pl.DataFrame(
+        {
+            "region": ["FR", "FR", "DE", "DE"],
+            "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+            "load": [1, 2, 3, 4],
+        }
+    )
+
+    with pytest.raises(ValueError, match="Matrix must have N columns one for datetime and N-1 for numerical values"):
+        matrix = Matrix(df)
 
 
 def test_to_file_csv(tmp_path, sample_polars_df):
@@ -201,6 +236,13 @@ def test_to_file_pickle(tmp_path, sample_polars_df):
     matrix = Matrix(sample_polars_df)
     matrix.to_file(path, file_format="pickle")
     assert path.exists()
+
+
+def test_to_file_invalid(tmp_path, sample_polars_df):
+    path = tmp_path / "out.xls"
+    matrix = Matrix(sample_polars_df)
+    with pytest.raises(NotImplementedError, match="Format not supported"):
+        matrix.to_file(path, file_format="xls")
 
 
 def test_to_file_extension_mismatch(sample_polars_df):
