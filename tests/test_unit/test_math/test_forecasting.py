@@ -140,7 +140,7 @@ def test_init_with_pandas_df():
             "time": pd.date_range(
                 start=datetime(2025, 1, 1, 0, 0, 0),
                 end=datetime(2025, 1, 1, 4, 0, 0),
-                freq="1H",
+                freq="1h",
             ),
             "01_01_2025 00:00:00": [1, 2, 3, 4, 5],
             "01_01_2025 01:00:00": [6, 7, 8, 9, 10],
@@ -304,7 +304,7 @@ def test_add_with_different_data_types(hourly_df):
             "time": pd.date_range(
                 start=datetime(2025, 1, 1, 3, 0, 0),
                 end=datetime(2025, 1, 1, 7, 0, 0),
-                freq="1H",
+                freq="1h",
             ),
             "values": [16, 17, 18, 19, 20],
         }
