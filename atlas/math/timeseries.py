@@ -209,7 +209,7 @@ class Timeseries:
         if isinstance(other, Timeseries):
             other = other.get_data(engine="polars")
             return self.timeseries.equals(other)  # type: ignore[arg-type]
-        raise NotImplementedError("Comparison with non-Timeseries objects is not supported")
+        raise TypeError("Comparison with non-Timeseries objects is not supported")
 
     def __len__(self) -> int:
         """Return the number of rows in the Timeseries.

@@ -15,6 +15,7 @@ from typing import Any, Literal
 
 import pandas as pd
 import pendulum
+import plotly.graph_objects as go
 import polars as pl
 import pytz
 
@@ -313,3 +314,83 @@ class Matrix:
                 pickle.dump(self, f)
         else:
             raise NotImplementedError("Format not supported")
+
+    def plot(
+        self,
+        title: str = "Matrix Timeseries Plot",
+        height: int = 500,
+        width: int = 800,
+        show_grid: bool = True,
+        line_shape: Literal["hv", "linear", "spline"] = "hv",
+        template: str = "plotly_white",
+    ) -> go.Figure:
+        """
+        Generate an interactive Plotly figure for the Matrix data with a slider to select indexes.
+
+        :param title: Plot title
+        :param height: Plot height in pixels
+        :param width: Plot width in pixels
+        :param show_grid: Whether to show grid lines
+        :param line_shape: Shape of the plot lines
+        :param template: Plotly template to use
+        :return: Plotly figure object
+        """
+        df = self.get_matrix()
+        index_columns = self.indexes
+        time_col = "time"
+
+        fig = go.Figure()
+
+        for i, idx in enumerate(index_columns):
+            visible = i == 0  # Only show first index initially
+            fig.add_trace(
+                go.Scatter(
+                    x=df[time_col],
+                    y=df[idx],
+                    mode="lines",
+                    name=idx,
+                    line_shape=line_shape,
+                    visible=visible,
+                )
+            )
+
+        steps = []
+        for i, idx in enumerate(index_columns):
+            step = {
+                "method": "update",
+                "label": idx,
+                "args": [
+                    {"visible": [j == i for j in range(len(index_columns))]},
+                    {"title": f"{title} - {idx}"},
+                ],
+            }
+            steps.append(step)
+
+        sliders = [
+            {
+                "active": 0,
+                "currentvalue": {"prefix": "Index: "},
+                "pad": {"t": 50},
+                "steps": steps,
+            }
+        ]
+
+        fig.update_layout(
+            sliders=sliders,
+            title=title,
+            height=height,
+            width=width,
+            template=template,
+            xaxis={
+                "title": "Time",
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+            yaxis={
+                "title": "Value",
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+        )
+
+        return fig

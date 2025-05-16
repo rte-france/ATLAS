@@ -2,6 +2,7 @@
 
 
 import pandas as pd
+import plotly.graph_objects as go
 import polars as pl
 import pytest
 
@@ -358,3 +359,20 @@ def test_get_indexes_invalid_schema(sample_polars_df_invalid_schema):
         match="LazyMatrix must have N columns one for datetime and N-1 for numerical values",
     ):
         LazyMatrix(sample_polars_df_invalid_schema.lazy())
+
+
+def test_matrix_plot_returns_valid_figure(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+
+    fig = matrix.plot()
+
+    assert isinstance(fig, go.Figure)
+
+    assert len(fig.data) == 2
+
+    sliders = fig.layout.sliders
+    assert sliders is not None and len(sliders) == 1
+
+    slider_steps = sliders[0]["steps"]
+    assert len(slider_steps) == 2
+    assert all("label" in step for step in slider_steps)

@@ -254,7 +254,7 @@ class TestTimeseriesBasicOperations:
 
     def test_eq_not_implemented(self, sample_ts):
         """Test equality comparison with unsupported type."""
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(TypeError, match="Comparison with non-Timeseries objects is not supported"):
             sample_ts == "not a timeseries"
 
     def test_len(self, sample_ts):
