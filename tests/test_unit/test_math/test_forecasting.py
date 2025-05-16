@@ -280,7 +280,7 @@ def test_from_file_unsupported_extension():
             os.remove(file_path)
 
 
-def test_add_with_different_data_types(hourly_df):
+def test_add_with_dict(hourly_df):
     """Test adding timeseries with different data types."""
     matrix = ForecastingMatrix(hourly_df)
 
@@ -297,6 +297,10 @@ def test_add_with_different_data_types(hourly_df):
     }
     matrix.add(dict_data, datetime(2025, 1, 1, 2, 0, 0))
     assert "01_01_2025 02:00:00" in matrix.indexes
+
+
+def test_add_pandas_df(hourly_df):
+    matrix = ForecastingMatrix(hourly_df)
 
     # Test with pandas DataFrame
     pd_df = pd.DataFrame(
