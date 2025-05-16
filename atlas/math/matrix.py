@@ -195,7 +195,7 @@ class Matrix:
         """
         return index in self.indexes
 
-    def __getitem__(self, index: str) -> pl.DataFrame:
+    def __getitem__(self, index: str) -> Timeseries:
         """
         Get a timeseries by index.
 
@@ -207,7 +207,19 @@ class Matrix:
         """
         if index not in self.indexes:
             raise KeyError(f"No timeseries found for index: {index}")
-        return self.matrix.select("time", index)
+        return Timeseries(self.matrix.select("time", index))
+
+    def select(self, index: str) -> Timeseries:
+        """
+        Get a timeseries by index.
+
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If the index is not found.
+        :return: The Timeseries object.
+        :rtype: Timeseries
+        """
+        return self.__getitem__(index)
 
     def __eq__(self, other: object) -> bool:
         """

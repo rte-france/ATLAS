@@ -10,6 +10,8 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
+from atlas.models.equipment.equipment import Equipment
 
 
 @pytest.fixture
@@ -33,6 +35,24 @@ def mock_model_order():
     return ["hydro", "thermal", "solar"]
 
 
+class DummyReferenced(BusinessModel):
+    name: str
+
+
+class DummyEquipment(Equipment):
+    name: str
+    type: str = "dummy"
+
+    def __eq__(self, other):
+        return isinstance(other, DummyEquipment) and self.name == other.name
+
+
+class DummyReferencing(BusinessModel):
+    name: str
+    ref: DummyReferenced | None = None
+    equipment: DummyEquipment | None = None
+
+
 @pytest.fixture
 def temp_input_dir(tmp_path, mock_model_mapping):
     # Setup directory structure
@@ -54,7 +74,6 @@ def temp_input_dir(tmp_path, mock_model_mapping):
         ]
     ).write_csv(tmp_path / "objects" / "hydro.csv", separator=";")
 
-    # Create empty dummy data files
     (tmp_path / "timeseries" / "hydro" / "fr_hydro.parquet").touch()
     (tmp_path / "scenario_matrix" / "hydro" / "fr_hydro.parquet").touch()
     (tmp_path / "forecasting_matrix" / "hydro" / "fr_hydro.parquet").touch()
@@ -124,34 +143,49 @@ class TestInputLoader:
             # Test that date was properly parsed
             assert result["hydro"][0].start_date == "2023-01-01 00:00:00"
 
-    @patch.dict(
-        cfg.__dict__,
-        {
-            "MODEL_MAPPING_NAME": {
-                "hydro": MagicMock(),
-                "thermal": MagicMock(),
-                "solar": MagicMock(),
-            }
-        },
-    )
-    @patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS")
-    @patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX")
-    def test_from_directory_with_references(
-        self,
-        mock_matrix,
-        mock_ts,
-        complex_input_dir,
-        mock_model_mapping,
-        mock_model_order,
-    ):
-        with patch.dict(
-            cfg.__dict__,
-            {
-                "MODEL_MAPPING_NAME": mock_model_mapping,
-                "MODEL_ORDER_INSTANTIATION": mock_model_order,
-            },
-        ):
-            result = InputLoader.from_directory(complex_input_dir)
+
+def test_instantiate_model_object_with_equipment_reference(monkeypatch):
+    # Patch MODEL_MAPPING_NAME and EQUIPMENT_MODELS temporarily
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "my_object", DummyReferencing)
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "equipment", DummyEquipment)
+    monkeypatch.setattr(cfg, "EQUIPMENT_MODELS", ["equipment"])
+
+    # Simulate already-instantiated equipment
+    equipment1 = DummyEquipment(name="eq1")
+    objects_instantiated = {
+        "equipment": [equipment1],
+    }
+
+    # Object to instantiate, referencing the equipment
+    object_dict = {"name": "obj1", "equipment": "eq1"}
+
+    result = InputLoader._instantiate_model_object(object_dict.copy(), "my_object", objects_instantiated)
+
+    assert isinstance(result, DummyReferencing)
+    assert result.name == "obj1"
+    assert result.equipment == equipment1
+
+
+def test_instantiate_model_object_with_cross_reference(monkeypatch):
+    # Simulate mapping configuration
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "dummy_referencing", DummyReferencing)
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "ref", DummyReferenced)
+    monkeypatch.setattr(cfg, "EQUIPMENT_MODELS", [])  # not dealing with equipment here
+
+    # Already instantiated object
+    referenced_obj = DummyReferenced(name="ref1")
+    objects_instantiated = {
+        "ref": [referenced_obj],
+    }
+
+    # Object to instantiate, referencing the above
+    object_dict = {"name": "obj1", "ref": "ref1"}
+
+    result = InputLoader._instantiate_model_object(object_dict.copy(), "dummy_referencing", objects_instantiated)
+
+    assert isinstance(result, DummyReferencing)
+    assert result.name == "obj1"
+    assert result.ref == referenced_obj
 
 
 def test_read_data_file_parquet(tmp_path):

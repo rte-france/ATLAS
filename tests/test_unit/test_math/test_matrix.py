@@ -76,7 +76,13 @@ def test_invalid_timezone(sample_polars_df):
 def test_getitem(sample_polars_df):
     matrix = Matrix(sample_polars_df)
     ts = matrix["scenario1"]
-    assert ts.shape == (3, 2)  # time + scenario1
+    assert ts.get_data().shape == (3, 2)
+
+
+def test_select(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    ts = matrix.select("scenario1")
+    assert ts.get_data().shape == (3, 2)
 
 
 def test_getitem_invalid(sample_polars_df):

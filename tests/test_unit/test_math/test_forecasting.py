@@ -118,7 +118,7 @@ def test_add_timeseries(hourly_df):
 def test_get_timeseries(hourly_df):
     matrix = ForecastingMatrix(hourly_df)
 
-    ts = matrix.get_timeseries(datetime(2025, 1, 1, 0, 0, 0))
+    ts = matrix.select(datetime(2025, 1, 1, 0, 0, 0))
 
     assert isinstance(ts, Timeseries)
     assert ts.get_data().shape[0] == 5  # 5 hourly points
@@ -320,7 +320,7 @@ def test_add_pandas_df(hourly_df):
 def test_get_timeseries_with_string_index(hourly_df):
     """Test getting a timeseries using a string index."""
     matrix = ForecastingMatrix(hourly_df)
-    ts = matrix.get_timeseries("01_01_2025 00:00:00")
+    ts = matrix.select("01_01_2025 00:00:00")
     assert isinstance(ts, Timeseries)
     assert ts.get_data().shape[0] == 5
 
@@ -329,7 +329,7 @@ def test_get_timeseries_invalid_index(hourly_df):
     """Test getting a timeseries with an invalid index."""
     matrix = ForecastingMatrix(hourly_df)
     with pytest.raises(KeyError):
-        matrix.get_timeseries("01_01_2025 05:00:00")
+        matrix.select("01_01_2025 05:00:00")
 
 
 def test_delete_with_string_index(hourly_df):
