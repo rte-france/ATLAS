@@ -342,11 +342,11 @@ class Matrix:
         fig = go.Figure()
 
         for i, idx in enumerate(index_columns):
-            visible = i == 0  # Only show first index initially
+            visible = i == 0
             fig.add_trace(
                 go.Scatter(
-                    x=df[time_col],
-                    y=df[idx],
+                    x=df[time_col],  # type: ignore[arg-type]
+                    y=df[idx],  # type: ignore[arg-type]
                     mode="lines",
                     name=idx,
                     line_shape=line_shape,
