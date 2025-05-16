@@ -104,9 +104,6 @@ class LazyMatrix:
         schema = self.matrix.collect_schema().to_frame()
         time_columns = schema.select(pl.selectors.datetime() | pl.selectors.date()).columns
 
-        if len(time_columns) != 1:
-            raise ValueError("LazyMatrix must have exactly one datetime column")
-
         time_column = time_columns[0]
         return [col for col in self.matrix.collect_schema() if col != time_column]
 

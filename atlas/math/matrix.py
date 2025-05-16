@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import pickle
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import pandas as pd
+import pendulum
+import plotly.graph_objects as go
 import polars as pl
 import pytz
 
@@ -42,6 +44,62 @@ class Matrix:
     def __repr__(self):
         """Provide a string representation of the Matrix object."""
         return f"Matrix : {self.matrix}"
+
+    @classmethod
+    def describe(cls, matrix: pd.DataFrame | pl.DataFrame | Matrix) -> dict[str, Any]:
+        """
+        Get metadata about the matrix.
+
+        :param matrix: DataFrame containing the matrix data.
+        :type matrix: pd.DataFrame | pl.DataFrame | Matrix
+        :return: A dictionnary containing matrix metadata
+        :rtype: dict[str, Any]
+        """
+        if isinstance(matrix, pd.DataFrame):
+            df = pl.DataFrame(matrix)
+        elif isinstance(matrix, Matrix):
+            df = matrix.get_matrix()
+        elif isinstance(matrix, pl.DataFrame):
+            df = matrix
+        else:
+            raise NotImplementedError("Can't parse input data. Provide a dataframe or a Matrix")
+
+        summary = {
+            "shape": df.shape,
+            "memory_mb": f"{df.estimated_size('mb'):.02f}",
+        }
+
+        datetime_cols = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        string_cols = df.select(pl.selectors.string()).columns
+        numeric_cols = df.select(pl.selectors.numeric()).columns
+
+        if len(datetime_cols) == 1:
+            dt_col = datetime_cols[0]
+            dt_series = df[dt_col]
+            summary["datetime"] = {  # type: ignore[assignment]
+                "column": dt_col,
+                "min": pendulum.instance(dt_series.min()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
+                "max": pendulum.instance(dt_series.max()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
+                "nulls": dt_series.null_count(),
+            }
+        else:
+            raise ValueError("Expected one datetime column exactly")
+
+        if len(string_cols) == 1:
+            cat_col = string_cols[0]
+            cat_series = df[cat_col]
+            categories = sorted(cat_series.unique().to_list())
+            summary["categorical"] = {  # type: ignore[assignment]
+                "column": cat_col,
+                "categories": categories,
+                "nulls": cat_series.null_count(),
+            }
+        else:
+            raise ValueError("Expected one string column exactly")
+
+        summary["numeric_columns"] = numeric_cols
+
+        return summary
 
     @classmethod
     def from_file(
@@ -86,7 +144,8 @@ class Matrix:
             )
             self.timezone: str = timezone  # type: ignore[no-redef]
 
-    def _check_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
+    @staticmethod
+    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
         """Check matrix data structure"""
         if isinstance(matrix, Matrix):
             return
@@ -136,7 +195,7 @@ class Matrix:
         """
         return index in self.indexes
 
-    def __getitem__(self, index: str) -> pl.DataFrame:
+    def __getitem__(self, index: str) -> Timeseries:
         """
         Get a timeseries by index.
 
@@ -148,7 +207,19 @@ class Matrix:
         """
         if index not in self.indexes:
             raise KeyError(f"No timeseries found for index: {index}")
-        return self.matrix.select("time", index)
+        return Timeseries(self.matrix.select("time", index))
+
+    def select(self, index: str) -> Timeseries:
+        """
+        Get a timeseries by index.
+
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If the index is not found.
+        :return: The Timeseries object.
+        :rtype: Timeseries
+        """
+        return self.__getitem__(index)
 
     def __eq__(self, other: object) -> bool:
         """
@@ -193,7 +264,7 @@ class Matrix:
         timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
 
         self.matrix = self.matrix.join(
-            timeseries.get_data(engine="polars").rename({"value": index}),  # type: ignore[arg-type]
+            timeseries.to_frame(engine="polars").rename({"value": index}),  # type: ignore[arg-type]
             on="time",
             how="full",
             coalesce=True,
@@ -255,3 +326,102 @@ class Matrix:
                 pickle.dump(self, f)
         else:
             raise NotImplementedError("Format not supported")
+
+    @property
+    def dataframe(self) -> pl.DataFrame:
+        """Returns the Matrix DataFrame"""
+        return self.matrix
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Returns the Matrix shape"""
+        return self._get_shape()
+
+    @property
+    def index(self) -> list[str]:
+        """Returns the Matrix indexes"""
+        return self.get_indexes()
+
+    def _get_shape(self) -> tuple[int, int]:
+        """Return (rows, columns) of the underlying Polars DataFrame."""
+        return self.matrix.shape
+
+    def plot(
+        self,
+        title: str = "Matrix Timeseries Plot",
+        height: int = 500,
+        width: int = 800,
+        show_grid: bool = True,
+        line_shape: Literal["hv", "linear", "spline"] = "hv",
+        template: str = "plotly_white",
+    ) -> go.Figure:
+        """
+        Generate an interactive Plotly figure for the Matrix data with a slider to select indexes.
+
+        :param title: Plot title
+        :param height: Plot height in pixels
+        :param width: Plot width in pixels
+        :param show_grid: Whether to show grid lines
+        :param line_shape: Shape of the plot lines
+        :param template: Plotly template to use
+        :return: Plotly figure object
+        """
+        df = self.get_matrix()
+        index_columns = self.get_indexes()
+        time_col = "time"
+
+        fig = go.Figure()
+
+        for i, idx in enumerate(index_columns):
+            visible = i == 0
+            fig.add_trace(
+                go.Scatter(
+                    x=df[time_col],  # type: ignore[arg-type]
+                    y=df[idx],  # type: ignore[arg-type]
+                    mode="lines",
+                    name=idx,
+                    line_shape=line_shape,
+                    visible=visible,
+                )
+            )
+
+        steps = []
+        for i, idx in enumerate(index_columns):
+            step = {
+                "method": "update",
+                "label": idx,
+                "args": [
+                    {"visible": [j == i for j in range(len(index_columns))]},
+                    {"title": f"{title} - {idx}"},
+                ],
+            }
+            steps.append(step)
+
+        sliders = [
+            {
+                "active": 0,
+                "currentvalue": {"prefix": "Index: "},
+                "pad": {"t": 50},
+                "steps": steps,
+            }
+        ]
+
+        fig.update_layout(
+            sliders=sliders,
+            title=title,
+            height=height,
+            width=width,
+            template=template,
+            xaxis={
+                "title": "Time",
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+            yaxis={
+                "title": "Value",
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+        )
+
+        return fig

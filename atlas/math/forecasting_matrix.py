@@ -134,7 +134,7 @@ class ForecastingMatrix(Matrix):
         super().add(timeseries, dt)
         self._sort_indexes()
 
-    def get_timeseries(
+    def __getitem__(
         self,
         index: str | datetime,
     ) -> Timeseries:
@@ -153,7 +153,19 @@ class ForecastingMatrix(Matrix):
             pendulum.from_format(index, self.date_format) if isinstance(index, str) else pendulum.instance(index)
         ).format(self.date_format)
 
-        return Timeseries(super().__getitem__(dt))
+        return super().__getitem__(dt)
+
+    def select(self, index: str | datetime) -> Timeseries:
+        """
+        Get a timeseries by index.
+
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If the index is not found.
+        :return: The Timeseries object.
+        :rtype: Timeseries
+        """
+        return self.__getitem__(index)
 
     def delete(self, index: str | datetime) -> None:
         """

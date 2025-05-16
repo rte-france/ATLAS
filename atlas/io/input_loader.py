@@ -54,7 +54,8 @@ class InputLoader:
     - The `timeseries/`, `scenario_matrix/`, and `forecasting_matrix/` directories contain subdirectories
       for each object type, with files named after the object (e.g., `fr_storage.parquet`).
     - Each timeseries or matrix file must match the expected file extension (default: `.parquet`).
-    - Attribute names in the objects CSV must correspond to the file names in the respective subdirectories.
+    - Attribute names in the objects CSV must be either the value itself of the attribute, or the type if a math objects (e.g timeseries,
+      forecasting_matrix, scenario_matrix)
 
     """
 
@@ -109,7 +110,7 @@ class InputLoader:
             )
         objects_dir = Path(directory_path) / "objects"
         if objects_dir.is_dir():
-            objects = cls._parse_objects_from_directory(objects_dir, separator=separator)
+            objects = cls._parse_objects_files(objects_dir, separator=separator)
         else:
             raise NotADirectoryError(
                 f"Directory does not contain 'objects' subdirectory: {directory_path}",
@@ -128,7 +129,7 @@ class InputLoader:
         objects_type_sorted = sorted(objects, key=lambda x: cfg.MODEL_ORDER_INSTANTIATION.index(x))
 
         for object_type in objects_type_sorted:
-            objects_instantiated_with_math_objects[object_type] = cls._instantiate_math_objects_into_dict(
+            objects_instantiated_with_math_objects[object_type] = cls._build_math_objects(
                 objects[object_type],
                 object_type,
                 base_path=Path(directory_path),
@@ -139,7 +140,7 @@ class InputLoader:
                 date_format_forecasting_matrix=date_format_forecasting_matrix,
                 date_format_input_files=date_format_input_files,
             )
-            objects_instantiated[object_type] = cls._instantiate_model_objects_into_dict(
+            objects_instantiated[object_type] = cls._build_business_models(
                 objects_instantiated_with_math_objects[object_type],
                 object_type,
                 objects_instantiated,
@@ -149,7 +150,7 @@ class InputLoader:
         return objects_instantiated
 
     @classmethod
-    def _instantiate_math_objects_into_dict(
+    def _build_math_objects(
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
@@ -203,17 +204,17 @@ class InputLoader:
         return objects_instantiated
 
     @classmethod
-    def _instantiate_model_objects_into_dict(
+    def _build_business_models(
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
         objects_instantiated: dict[str, list[type[BusinessModel]]],
     ) -> list[type[BusinessModel]]:
         """Instantiate final BusinessModel objects from intermediate math object dictionaries."""
-        return [cls._instantiate_model_object(obj, object_type, objects_instantiated) for obj in object_list]
+        return [cls._build_single_business_model(obj, object_type, objects_instantiated) for obj in object_list]
 
     @staticmethod
-    def _instantiate_model_object(
+    def _build_single_business_model(
         object_dict: dict[str, Any],
         object_type: str,
         objects_instantiated: dict[str, list[type[BusinessModel]]],
@@ -239,7 +240,7 @@ class InputLoader:
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)  # type: ignore[return-value]
 
     @classmethod
-    def _parse_objects_from_directory(cls, objects_path: Path, separator: str = ";") -> dict[str, list[dict[str, str]]]:
+    def _parse_objects_files(cls, objects_path: Path, separator: str = ";") -> dict[str, list[dict[str, str]]]:
         """Parse object definitions from the 'objects' directory."""
         cfg.logger.debug(f"Parsing objects from directory: {objects_path}")
         result = {}

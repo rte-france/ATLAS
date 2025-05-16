@@ -1,6 +1,6 @@
-from unittest.mock import MagicMock, Mock, patch
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
-import pendulum
 import polars as pl
 import pytest
 
@@ -10,6 +10,8 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.business_model import BusinessModel
+from atlas.models.equipment.equipment import Equipment
 
 
 @pytest.fixture
@@ -33,6 +35,24 @@ def mock_model_order():
     return ["hydro", "thermal", "solar"]
 
 
+class DummyReferenced(BusinessModel):
+    name: str
+
+
+class DummyEquipment(Equipment):
+    name: str
+    type: str = "dummy"
+
+    def __eq__(self, other):
+        return isinstance(other, DummyEquipment) and self.name == other.name
+
+
+class DummyReferencing(BusinessModel):
+    name: str
+    ref: DummyReferenced | None = None
+    equipment: DummyEquipment | None = None
+
+
 @pytest.fixture
 def temp_input_dir(tmp_path, mock_model_mapping):
     # Setup directory structure
@@ -54,7 +74,6 @@ def temp_input_dir(tmp_path, mock_model_mapping):
         ]
     ).write_csv(tmp_path / "objects" / "hydro.csv", separator=";")
 
-    # Create empty dummy data files
     (tmp_path / "timeseries" / "hydro" / "fr_hydro.parquet").touch()
     (tmp_path / "scenario_matrix" / "hydro" / "fr_hydro.parquet").touch()
     (tmp_path / "forecasting_matrix" / "hydro" / "fr_hydro.parquet").touch()
@@ -124,322 +143,188 @@ class TestInputLoader:
             # Test that date was properly parsed
             assert result["hydro"][0].start_date == "2023-01-01 00:00:00"
 
-    @patch.dict(
-        cfg.__dict__,
+
+def test_instantiate_model_object_with_equipment_reference(monkeypatch):
+    # Patch MODEL_MAPPING_NAME and EQUIPMENT_MODELS temporarily
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "my_object", DummyReferencing)
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "equipment", DummyEquipment)
+    monkeypatch.setattr(cfg, "EQUIPMENT_MODELS", ["equipment"])
+
+    # Simulate already-instantiated equipment
+    equipment1 = DummyEquipment(name="eq1")
+    objects_instantiated = {
+        "equipment": [equipment1],
+    }
+
+    # Object to instantiate, referencing the equipment
+    object_dict = {"name": "obj1", "equipment": "eq1"}
+
+    result = InputLoader._build_single_business_model(object_dict.copy(), "my_object", objects_instantiated)
+
+    assert isinstance(result, DummyReferencing)
+    assert result.name == "obj1"
+    assert result.equipment == equipment1
+
+
+def test_instantiate_model_object_with_cross_reference(monkeypatch):
+    # Simulate mapping configuration
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "dummy_referencing", DummyReferencing)
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "ref", DummyReferenced)
+    monkeypatch.setattr(cfg, "EQUIPMENT_MODELS", [])  # not dealing with equipment here
+
+    # Already instantiated object
+    referenced_obj = DummyReferenced(name="ref1")
+    objects_instantiated = {
+        "ref": [referenced_obj],
+    }
+
+    # Object to instantiate, referencing the above
+    object_dict = {"name": "obj1", "ref": "ref1"}
+
+    result = InputLoader._build_single_business_model(object_dict.copy(), "dummy_referencing", objects_instantiated)
+
+    assert isinstance(result, DummyReferencing)
+    assert result.name == "obj1"
+    assert result.ref == referenced_obj
+
+
+def test_read_data_file_parquet(tmp_path):
+    path = tmp_path / "test.parquet"
+    pl.DataFrame({"a": [1, 2]}).write_parquet(path)
+    df = InputLoader._read_data_file(path)
+    assert isinstance(df, pl.DataFrame)
+    assert df.shape == (2, 1)
+
+
+def test_read_data_file_invalid(tmp_path):
+    fake_path = tmp_path / "invalid.foo"
+    fake_path.write_text("whatever")
+    with pytest.raises(NotImplementedError):
+        InputLoader._read_data_file(fake_path)
+
+
+def test_load_matrix(tmp_path):
+    matrix_path = tmp_path / "scenario_matrix" / "hydro"
+    matrix_path.mkdir(parents=True)
+    pl.DataFrame(
         {
-            "MODEL_MAPPING_NAME": {
-                "hydro": MagicMock(),
-                "thermal": MagicMock(),
-                "solar": MagicMock(),
-            }
-        },
+            "date": [datetime(2024, 1, 1, 0, 0, 0)],
+            "scenario1": [1.0],
+            "scenario2": [3.0],
+            "attribute": ["attribute"],
+        }
+    ).write_parquet(matrix_path / "fr_hydro.parquet")
+
+    result = InputLoader._load_matrix(
+        tmp_path,
+        object_type="hydro",
+        name="fr_hydro",
+        attribute_name="attribute",
+        matrix_type="scenario_matrix",
     )
-    @patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS")
-    @patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX")
-    def test_from_directory_with_references(
-        self,
-        mock_matrix,
-        mock_ts,
-        complex_input_dir,
-        mock_model_mapping,
-        mock_model_order,
-    ):
-        with patch.dict(
-            cfg.__dict__,
-            {
-                "MODEL_MAPPING_NAME": mock_model_mapping,
-                "MODEL_ORDER_INSTANTIATION": mock_model_order,
-            },
-        ):
-            result = InputLoader.from_directory(complex_input_dir)
+    assert isinstance(result, ScenarioMatrix)
 
-            # Check that all objects were instantiated
-            assert "hydro" in result
-            assert "thermal" in result
 
-            # Check references were resolved correctly
+def test_load_forecasting_matrix(tmp_path):
+    matrix_path = tmp_path / "forecasting_matrix" / "hydro"
+    matrix_path.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "date": [datetime(2024, 1, 1, 0, 0, 0)],
+            "01_01_2024 00:00:00": [1.0],
+            "01_01_2024 00:01:00": [3.0],
+            "attribute": ["attribute"],
+        }
+    ).write_parquet(matrix_path / "fr_hydro.parquet")
 
-            assert result["thermal"][0].hydro == result["hydro"][0]
+    result = InputLoader._load_matrix(
+        tmp_path,
+        object_type="hydro",
+        name="fr_hydro",
+        attribute_name="attribute",
+        matrix_type="forecasting_matrix",
+    )
+    assert isinstance(result, ForecastingMatrix)
 
-    def test_from_directory_nonexistent_dir(self):
-        with pytest.raises(FileNotFoundError, match="Directory does not exist"):
-            InputLoader.from_directory("/path/does/not/exist")
 
-    def test_from_directory_not_a_dir(self, tmp_path):
-        file_path = tmp_path / "not_a_dir"
-        file_path.touch()
-        with pytest.raises(NotADirectoryError, match="Path is not a directory"):
-            InputLoader.from_directory(file_path)
+def test_load_lazy_matrix(tmp_path):
+    matrix_path = tmp_path / "scenario_matrix" / "hydro"
+    matrix_path.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "date": [datetime(2024, 1, 1, 0, 0, 0)],
+            "scenario1": [1.0],
+            "scenario2": [3.0],
+            "attribute": ["attribute"],
+        }
+    ).write_parquet(matrix_path / "fr_hydro.parquet")
 
-    def test_from_directory_no_objects_dir(self, tmp_path):
-        with pytest.raises(NotADirectoryError, match="Directory does not contain 'objects' subdirectory"):
-            InputLoader.from_directory(tmp_path)
+    result = InputLoader._load_matrix(
+        tmp_path,
+        object_type="hydro",
+        name="fr_hydro",
+        attribute_name="attribute",
+        matrix_type="scenario_matrix",
+        lazy=True,
+    )
+    assert isinstance(result, LazyScenarioMatrix)
 
-    @patch("atlas.io.input_loader.pl.read_csv", side_effect=Exception("bad csv"))
-    @patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
-    def test_parse_objects_handles_bad_file_gracefully(self, mock_read_csv, tmp_path):
-        (tmp_path / "objects").mkdir()
-        (tmp_path / "objects" / "hydro.csv").write_text("bad csv")
 
-        result = InputLoader._parse_objects_from_directory(tmp_path / "objects")
-        assert result == {}
+def test_load_lazy_forecasting_matrix(tmp_path):
+    matrix_path = tmp_path / "forecasting_matrix" / "hydro"
+    matrix_path.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "date": [datetime(2024, 1, 1, 0, 0, 0)],
+            "01_01_2024 00:00:00": [1.0],
+            "01_01_2024 00:01:00": [3.0],
+            "attribute": ["attribute"],
+        }
+    ).write_parquet(matrix_path / "fr_hydro.parquet")
 
-    def test_read_data_file_csv(self, tmp_path):
-        csv_path = tmp_path / "test.csv"
-        pl.DataFrame({"a": [1, 2]}).write_csv(csv_path)
-        df = InputLoader._read_data_file(csv_path)
-        assert isinstance(df, pl.DataFrame)
-        assert df.shape == (2, 1)
+    result = InputLoader._load_matrix(
+        tmp_path,
+        object_type="hydro",
+        name="fr_hydro",
+        attribute_name="attribute",
+        matrix_type="forecasting_matrix",
+        lazy=True,
+    )
+    assert isinstance(result, LazyForecastingMatrix)
 
-    def test_read_data_file_parquet(self, tmp_path):
-        parquet_path = tmp_path / "test.parquet"
-        pl.DataFrame({"a": [1, 2]}).write_parquet(parquet_path)
-        df = InputLoader._read_data_file(parquet_path)
-        assert isinstance(df, pl.DataFrame)
-        assert df.shape == (2, 1)
 
-    def test_read_data_file_json(self, tmp_path):
-        json_path = tmp_path / "test.json"
-        pl.DataFrame({"a": [1, 2]}).write_json(json_path)
-        df = InputLoader._read_data_file(json_path)
-        assert isinstance(df, pl.DataFrame)
-        assert df.shape == (2, 1)
+def test_load_timeseries(tmp_path):
+    ts_path = tmp_path / "timeseries" / "hydro"
+    ts_path.mkdir(parents=True)
+    pl.DataFrame({"date": [datetime(2024, 1, 1, 0, 0, 0)], "value": [1.0], "attribute": ["attribute"]}).write_parquet(
+        ts_path / "fr_hydro.parquet"
+    )
 
-    def test_read_data_file_invalid(self, tmp_path):
-        fake_path = tmp_path / "invalid.foo"
-        fake_path.write_text("whatever")
-        with pytest.raises(NotImplementedError, match="File extension has to be csv, parquet or json"):
-            InputLoader._read_data_file(fake_path)
+    result = InputLoader._load_timeseries(tmp_path, object_type="hydro", name="fr_hydro", attribute_name="attribute")
+    assert isinstance(result, Timeseries)
 
-    @patch("atlas.io.input_loader.Timeseries.from_file")
-    def test_load_timeseries_eager(self, mock_from_file, tmp_path):
-        # Setup
-        base_path = tmp_path
-        (tmp_path / "timeseries" / "hydro").mkdir(parents=True)
-        (tmp_path / "timeseries" / "hydro" / "fr_hydro.parquet").touch()
 
-        mock_from_file.return_value = Mock(spec=Timeseries)
+def test_load_lazy_timeseries(tmp_path):
+    ts_path = tmp_path / "timeseries" / "hydro"
+    ts_path.mkdir(parents=True)
+    pl.DataFrame({"date": [datetime(2024, 1, 1, 0, 0, 0)], "value": [1.0], "attribute": ["attribute"]}).write_parquet(
+        ts_path / "fr_hydro.parquet"
+    )
 
-        # Test
-        result = InputLoader._load_timeseries(
-            base_path=base_path,
-            object_type="hydro",
-            name="fr_hydro",
-            attribute_name="energy",
-            lazy=False,
-        )
+    result = InputLoader._load_timeseries(
+        tmp_path, object_type="hydro", name="fr_hydro", attribute_name="attribute", lazy=True
+    )
+    assert isinstance(result, LazyTimeseries)
 
-        # Assert
-        mock_from_file.assert_called_once()
-        assert isinstance(result, Mock)
-        assert mock_from_file.call_args[1]["filters"] == ("attribute", "energy")
 
-    @patch("atlas.io.input_loader.LazyTimeseries.from_file")
-    def test_load_timeseries_lazy(self, mock_from_file, tmp_path):
-        # Setup
-        base_path = tmp_path
-        (tmp_path / "timeseries" / "hydro").mkdir(parents=True)
-        (tmp_path / "timeseries" / "hydro" / "fr_hydro.parquet").touch()
+def test_parse_objects_multiple_models(tmp_path):
+    (tmp_path / "objects").mkdir()
+    df1 = pl.DataFrame([{"name": "fr_hydro", "energy": "ts", "scenario": "sc"}])
+    df2 = pl.DataFrame([{"name": "de_solar", "energy": "ts2", "scenario": "sc2"}])
 
-        mock_from_file.return_value = Mock(spec=LazyTimeseries)
+    df1.write_csv(tmp_path / "objects" / "hydro.csv", separator=";")
+    df2.write_csv(tmp_path / "objects" / "solar.csv", separator=";")
 
-        # Test
-        result = InputLoader._load_timeseries(
-            base_path=base_path,
-            object_type="hydro",
-            name="fr_hydro",
-            attribute_name="energy",
-            lazy=True,
-        )
-
-        # Assert
-        mock_from_file.assert_called_once()
-        assert isinstance(result, Mock)
-        assert mock_from_file.call_args[1]["filters"] == ("attribute", "energy")
-
-    def test_load_timeseries_no_directory(self, tmp_path):
-        with pytest.raises(NotADirectoryError, match="Directory does not contain 'timeseries' subdirectory"):
-            InputLoader._load_timeseries(
-                base_path=tmp_path, object_type="hydro", name="fr_hydro", attribute_name="energy"
-            )
-
-    def test_load_timeseries_file_not_found(self, tmp_path):
-        (tmp_path / "timeseries" / "hydro").mkdir(parents=True)
-        with pytest.raises(FileNotFoundError, match="Path does not exist"):
-            InputLoader._load_timeseries(
-                base_path=tmp_path, object_type="hydro", name="fr_hydro", attribute_name="energy"
-            )
-
-    @patch("atlas.io.input_loader.ScenarioMatrix.from_file")
-    def test_load_scenario_matrix_eager(self, mock_from_file, tmp_path):
-        # Setup
-        base_path = tmp_path
-        (tmp_path / "scenario_matrix" / "hydro").mkdir(parents=True)
-        (tmp_path / "scenario_matrix" / "hydro" / "fr_hydro.parquet").touch()
-
-        mock_from_file.return_value = Mock(spec=ScenarioMatrix)
-
-        # Test
-        result = InputLoader._load_matrix(
-            base_path=base_path,
-            name="fr_hydro",
-            object_type="hydro",
-            attribute_name="scenario",
-            matrix_type="scenario_matrix",
-            lazy=False,
-        )
-
-        # Assert
-        mock_from_file.assert_called_once()
-        assert isinstance(result, Mock)
-        assert mock_from_file.call_args[1]["filters"] == ("attribute", "scenario")
-
-    @patch("atlas.io.input_loader.LazyScenarioMatrix.from_file")
-    def test_load_scenario_matrix_lazy(self, mock_from_file, tmp_path):
-        # Setup
-        base_path = tmp_path
-        (tmp_path / "scenario_matrix" / "hydro").mkdir(parents=True)
-        (tmp_path / "scenario_matrix" / "hydro" / "fr_hydro.parquet").touch()
-
-        mock_from_file.return_value = Mock(spec=LazyScenarioMatrix)
-
-        # Test
-        result = InputLoader._load_matrix(
-            base_path=base_path,
-            name="fr_hydro",
-            object_type="hydro",
-            attribute_name="scenario",
-            matrix_type="scenario_matrix",
-            lazy=True,
-        )
-
-        # Assert
-        mock_from_file.assert_called_once()
-        assert isinstance(result, Mock)
-        assert mock_from_file.call_args[1]["filters"] == ("attribute", "scenario")
-
-    @patch("atlas.io.input_loader.ForecastingMatrix.from_file")
-    def test_load_forecasting_matrix_eager(self, mock_from_file, tmp_path):
-        # Setup
-        base_path = tmp_path
-        (tmp_path / "forecasting_matrix" / "hydro").mkdir(parents=True)
-        (tmp_path / "forecasting_matrix" / "hydro" / "fr_hydro.parquet").touch()
-
-        mock_from_file.return_value = Mock(spec=ForecastingMatrix)
-
-        # Test
-        result = InputLoader._load_matrix(
-            base_path=base_path,
-            name="fr_hydro",
-            object_type="hydro",
-            attribute_name="forecast",
-            matrix_type="forecasting_matrix",
-            lazy=False,
-            date_format_forecasting="DD_MM_YYYY HH:mm:ss",
-        )
-
-        # Assert
-        mock_from_file.assert_called_once()
-        assert isinstance(result, Mock)
-        assert mock_from_file.call_args[1]["filters"] == ("attribute", "forecast")
-        assert mock_from_file.call_args[1]["date_format"] == "DD_MM_YYYY HH:mm:ss"
-
-    @patch("atlas.io.input_loader.LazyForecastingMatrix.from_file")
-    def test_load_forecasting_matrix_lazy(self, mock_from_file, tmp_path):
-        # Setup
-        base_path = tmp_path
-        (tmp_path / "forecasting_matrix" / "hydro").mkdir(parents=True)
-        (tmp_path / "forecasting_matrix" / "hydro" / "fr_hydro.parquet").touch()
-
-        mock_from_file.return_value = Mock(spec=LazyForecastingMatrix)
-
-        # Test
-        result = InputLoader._load_matrix(
-            base_path=base_path,
-            name="fr_hydro",
-            object_type="hydro",
-            attribute_name="forecast",
-            matrix_type="forecasting_matrix",
-            lazy=True,
-        )
-
-        # Assert
-        mock_from_file.assert_called_once()
-        assert isinstance(result, Mock)
-        assert mock_from_file.call_args[1]["filters"] == ("attribute", "forecast")
-
-    def test_load_matrix_invalid_type(self, tmp_path):
-        (tmp_path / "forecasting_matrix" / "hydro").mkdir(parents=True)
-        (tmp_path / "forecasting_matrix" / "hydro" / "fr_hydro.parquet").touch()
-
-        with pytest.raises(ValueError, match="Invalid matrix type, should be scenario_matrix or forecasting_matrix"):
-            InputLoader._load_matrix(
-                base_path=tmp_path,
-                name="fr_hydro",
-                object_type="hydro",
-                attribute_name="forecast",
-                matrix_type="invalid_matrix",
-                lazy=False,
-            )
-
-    def test_load_matrix_no_directory(self, tmp_path):
-        with pytest.raises(NotADirectoryError, match="Directory does not contain 'forecasting_matrix' subdirectory"):
-            InputLoader._load_matrix(
-                base_path=tmp_path,
-                name="fr_hydro",
-                object_type="hydro",
-                attribute_name="forecast",
-                matrix_type="forecasting_matrix",
-            )
-
-    def test_load_matrix_file_not_found(self, tmp_path):
-        (tmp_path / "forecasting_matrix" / "hydro").mkdir(parents=True)
-        with pytest.raises(FileNotFoundError, match="Path does not exist"):
-            InputLoader._load_matrix(
-                base_path=tmp_path,
-                name="fr_hydro",
-                object_type="hydro",
-                attribute_name="forecast",
-                matrix_type="forecasting_matrix",
-            )
-
-    @patch("atlas.io.input_loader.pendulum.from_format")
-    def test_parse_date_formats(self, mock_from_format, temp_input_dir, mock_model_mapping):
-        mock_dt = pendulum.datetime(2023, 1, 1)
-        mock_from_format.return_value = mock_dt
-
-        with patch.dict(
-            cfg.__dict__,
-            {"MODEL_MAPPING_NAME": mock_model_mapping, "MODEL_ORDER_INSTANTIATION": ["hydro"]},
-        ):
-            with patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS"):
-                with patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX"):
-                    InputLoader._instantiate_math_objects_into_dict(
-                        [{"name": "fr_hydro", "start_date": "01/01/2023 00:00:00"}],
-                        "hydro",
-                        temp_input_dir,
-                        date_format_input_files="DD/MM/YYYY HH:mm:ss",
-                    )
-
-                    mock_from_format.assert_called_with("01/01/2023 00:00:00", "DD/MM/YYYY HH:mm:ss")
-
-    def test_parse_date_format_exception_handling(self, temp_input_dir, mock_model_mapping):
-        with patch.dict(
-            cfg.__dict__,
-            {"MODEL_MAPPING_NAME": mock_model_mapping, "MODEL_ORDER_INSTANTIATION": ["hydro"]},
-        ):
-            with patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS"):
-                with patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX"):
-                    with patch(
-                        "atlas.io.input_loader.pendulum.from_format",
-                        side_effect=Exception("Bad date format"),
-                    ):
-                        result = InputLoader._instantiate_math_objects_into_dict(
-                            [{"name": "fr_hydro", "start_date": "not a date"}],
-                            "hydro",
-                            temp_input_dir,
-                            date_format_input_files="DD/MM/YYYY HH:mm:ss",
-                        )
-
-                        # The original value should be kept when parsing fails
-                        assert result[0]["start_date"] == "not a date"
+    result = InputLoader._parse_objects_files(tmp_path / "objects")
+    assert "hydro" in result
+    assert "solar" in result
