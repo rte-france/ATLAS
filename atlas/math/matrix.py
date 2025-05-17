@@ -46,11 +46,13 @@ class Matrix:
         return f"Matrix : {self.matrix}"
 
     @classmethod
-    def describe(cls, matrix: pd.DataFrame | pl.DataFrame | Matrix) -> dict[str, Any]:
+    def describe(
+        cls, matrix: str | Path | pd.DataFrame | pl.DataFrame | Matrix, separator: str = ";"
+    ) -> dict[str, Any]:
         """
         Get metadata about the matrix.
 
-        :param matrix: DataFrame containing the matrix data.
+        :param matrix: DataFrame or file path containing the matrix data.
         :type matrix: pd.DataFrame | pl.DataFrame | Matrix
         :return: A dictionnary containing matrix metadata
         :rtype: dict[str, Any]
@@ -59,6 +61,9 @@ class Matrix:
             df = pl.DataFrame(matrix)
         elif isinstance(matrix, Matrix):
             df = matrix.get_matrix()
+        elif isinstance(matrix, str) | isinstance(matrix, Path):
+            file_path = Path(matrix)  # type: ignore[arg-type]
+            df = cls._read_data_file(file_path)
         elif isinstance(matrix, pl.DataFrame):
             df = matrix
         else:
@@ -117,6 +122,16 @@ class Matrix:
         :return: A Matrix object.
         :rtype: Matrix
         """
+
+        return cls(cls._read_data_file(file_path, filters, separator), timezone)
+
+    @staticmethod
+    def _read_data_file(
+        file_path: str | Path,
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> pl.DataFrame:
+        """Read a dataframe from csv or parquet"""
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if file_path.suffix == ".csv":
@@ -125,7 +140,8 @@ class Matrix:
             matrix = pl.read_parquet(file_path)
         if filters:
             matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return cls(matrix, timezone)
+
+        return matrix
 
     def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix, timezone: str) -> None:
         """Set matrix attribute"""

@@ -116,7 +116,7 @@ class ForecastingMatrix(Matrix):
     def add(
         self,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
-        index: str | datetime,
+        index: str | datetime | pendulum.DateTime,
     ) -> None:
         """
         Add a Timeseries to the matrix and keep indexes sorted.
@@ -136,7 +136,7 @@ class ForecastingMatrix(Matrix):
 
     def __getitem__(
         self,
-        index: str | datetime,
+        index: str | datetime | pendulum.DateTime,
     ) -> Timeseries:
         """
         Retrieve a timeseries by index.
@@ -167,7 +167,7 @@ class ForecastingMatrix(Matrix):
         """
         return self.__getitem__(index)
 
-    def delete(self, index: str | datetime) -> None:
+    def delete(self, index: str | datetime | pendulum.DateTime) -> None:
         """
         Delete a timeseries by index.
 
@@ -183,36 +183,66 @@ class ForecastingMatrix(Matrix):
 
         self._sort_indexes()
 
-    # def get_forecast(
-    #     self,
-    #     ref_date: datetime,
-    #     from_date: datetime,
-    #     to_date: datetime,
-    # ) -> Timeseries:
-    #     """
-    #     Construct a forecast by merging historical data up to a reference date.
+    def get_forecast(
+        self,
+        execution_date: datetime | str | pendulum.DateTime,
+        start_date: datetime | str | pendulum.DateTime,
+        end_date: datetime | str | pendulum.DateTime,
+    ) -> pl.DataFrame:
+        """
+        Returns the most up-to-date forecast available per time row in the given window.
+        Newer forecasts are prioritized. Gaps are filled from older forecasts.
+        """
 
-    #     Builds a Timeseries by merging slices from all available forecasts
-    #     that occurred **before or on** `ref_date`, in reverse order. Stops when the
-    #     full range `[from_date, to_date]` is covered.
+        execution_date = (
+            pendulum.from_format(execution_date, self.date_format)
+            if isinstance(execution_date, str)
+            else pendulum.instance(execution_date)
+        )
+        start_date = (
+            pendulum.from_format(execution_date, self.date_format)
+            if isinstance(execution_date, str)
+            else pendulum.instance(execution_date)
+        )
+        end_date = (
+            pendulum.from_format(execution_date, self.date_format)
+            if isinstance(execution_date, str)
+            else pendulum.instance(execution_date)
+        )
+        forecast_cols = (
+            pl.DataFrame({"indexes": self.indexes})
+            .with_columns(
+                pl.col("indexes").str.strptime(
+                    pl.Datetime(time_unit="us", time_zone=self.timezone),
+                    pendulum_to_datetime(self.date_format),
+                    strict=False,
+                )
+            )
+            .filter(pl.col("indexes") <= execution_date)
+            .with_columns(pl.col("indexes").dt.strftime(pendulum_to_datetime(self.date_format)))
+            .sort("indexes", descending=True)
+            .to_series()
+            .to_list()
+        )
 
-    #     :param ref_date: Reference datetime to stop looking backward.
-    #     :type ref_date: datetime
-    #     :param from_date: Start of the desired forecast window.
-    #     :type from_date: datetime
-    #     :param to_date: End of the desired forecast window.
-    #     :type to_date: datetime
-    #     :return: A reconstructed forecast as a Timeseries.
-    #     :rtype: Timeseries
-    #     """
-    #     result = Timeseries("unknown", TimeSeriesInterpolation.CONSTANT, "", [], [])
+        if not forecast_cols:
+            raise ValueError("No forecasting dates available before execution date")
 
-    #     indexes_to_check = [d for d in self.indexes if d <= ref_date]
-    #     for date in reversed(indexes_to_check):
-    #         result = result.merge(self.timeseries_map[date].slice(from_date, to_date))
-    #         if from_date in result.series.index and to_date in result.series.index:
-    #             return result
-    #     return result
+        forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
+
+        result = (
+            self.matrix.lazy()
+            .filter(pl.col("time").is_between(start_date, end_date))
+            .select(
+                [
+                    pl.col("time"),
+                    forecast_expr.alias("forecast"),
+                ]
+            )
+            .collect()
+        )
+
+        return result
 
 
 class LazyForecastingMatrix(LazyMatrix):
