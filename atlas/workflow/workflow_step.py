@@ -26,7 +26,7 @@ class WorkflowStep:
         self.input_dataset = input_dataset
         self.output_dataset = None
 
-    def get_output_dataset(self) -> AbstractDataset:
+    def get_output_dataset(self) -> AbstractDataset | None:
         """Returns the output dataset of the step"""
         return self.output_dataset
 
