@@ -7,7 +7,7 @@ from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.abstract_class.abstract_parameters import module_parameters_type_var, AbstractParameters
 from atlas.workflow.workflow import Workflow
 from atlas.workflow.workflow_helper import WorkflowHelper
-from atlas.workflow.workflow_parameters import WorkflowParameters
+from atlas.workflow.workflow_parameters_parser import WorkflowParametersParser
 from atlas.workflow.workflow_step import WorkflowStep
 
 
@@ -65,26 +65,26 @@ class DatasetTest(AbstractDataset):
 
 
 def test_parameters_reading():
-    wfp = WorkflowParameters(Path("workflow_parameters.yml"))
-    assert wfp.workflow_parameters["dataset_path"] == "dataset/path"
-    assert wfp.steps["step1"]["name"] == "test1"
-    assert wfp.steps["step2"]["name"] == "test2"
+    wfp = WorkflowParametersParser().from_file(Path("workflow_parameters.yml"))
+    assert wfp.parameters.dataset_path == "dataset/path"
+    assert wfp.steps["step1"].name == "test1"
+    assert wfp.steps["step2"].name == "test2"
 
 
 def test_basic_workflow():
-    wfp = WorkflowParameters(Path("workflow_parameters.yml"))
+    wfp = WorkflowParametersParser().from_file(Path("workflow_parameters.yml"))
     datasetTest = DatasetTest(None)
-    module_params = ModuleParamsTest(wfp.steps["step1"]["parameters"])
+    module_params = ModuleParamsTest(wfp.steps["step1"].parameters_path)
     wf = WorkflowHelper.create_simple_workflow(datasetTest, module_params, ModuleTest())
     wf.execute()
     assert wf.get_output_dataset() is not None
 
 
 def test_workflow():
-    wfp = WorkflowParameters(Path("workflow_parameters.yml"))
+    wfp = WorkflowParametersParser().from_file(Path("workflow_parameters.yml"))
     datasetTest = DatasetTest(None)
-    params_step1 = ModuleParamsTest(wfp.steps["step1"]["parameters"])
-    params_step2 = ModuleParamsTest(wfp.steps["step2"]["parameters"])
+    params_step1 = ModuleParamsTest(wfp.steps["step1"].parameters_path)
+    params_step2 = ModuleParamsTest(wfp.steps["step2"].parameters_path)
 
     wf = Workflow("wf_test", datasetTest, None)
     wf.add_step(WorkflowStep("step1", params_step1, ModuleTest()))

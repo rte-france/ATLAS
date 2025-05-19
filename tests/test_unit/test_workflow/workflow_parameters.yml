@@ -1,9 +1,9 @@
-workflow_parameters:
-  dataset_path: dataset/path
-workflow_steps:
+parameters:
+  dataset_path: "dataset/path"
+steps:
   step1:
-    name: test1
-    parameters: module_parameters/path
+    name: "test1"
+    parameters_path: "module_parameters/path"
   step2:
-    name: test2
-    parameters: module_parameters/path
+    name: "test2"
+    parameters_path: "module_parameters/path"
