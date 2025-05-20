@@ -28,7 +28,7 @@ class Matrix:
     This class abstracts over Polars and Pandas DataFrames to provide a uniform way
     to manage multiple time series, each associated with a unique index or scenario key."""
 
-    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix, timezone: str = "UTC") -> None:
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix | None = None, timezone: str = "UTC") -> None:
         """
         :param matrix: DataFrame containing the matrix data.
         :type matrix: pd.DataFrame | pl.DataFrame | Matrix
@@ -145,8 +145,16 @@ class Matrix:
 
         return matrix
 
-    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix, timezone: str) -> None:
+    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix | None, timezone: str) -> None:
         """Set matrix attribute"""
+        if matrix is None:
+            self.matrix: pl.DataFrame = pl.DataFrame(
+                schema={
+                    "time": pl.Datetime("us", time_zone=timezone),
+                }
+            )
+            self.timezone: str = timezone
+            return
         if isinstance(matrix, Matrix):
             self.matrix: pl.DataFrame = matrix.matrix
             self.timezone: str = matrix.timezone
@@ -163,8 +171,10 @@ class Matrix:
             self.timezone: str = timezone  # type: ignore[no-redef]
 
     @staticmethod
-    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
+    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | Matrix | None) -> None:
         """Check matrix data structure"""
+        if matrix is None:
+            return
         if isinstance(matrix, Matrix):
             return
         df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
@@ -174,6 +184,9 @@ class Matrix:
             raise ValueError("Matrix must have exactly one time column")
 
         value_columns = df.select(pl.selectors.numeric()).columns
+
+        if len(value_columns) < 1:
+            raise ValueError("Matrix must have at least one numeric column")
 
         if len(time_columns) + len(value_columns) != len(df.columns):
             raise ValueError("Matrix must have N columns one for datetime and N-1 for numerical values")

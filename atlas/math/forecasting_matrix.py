@@ -35,7 +35,7 @@ class ForecastingMatrix(Matrix):
 
     def __init__(
         self,
-        matrix: pl.DataFrame | pd.DataFrame,
+        matrix: pl.DataFrame | pd.DataFrame | Matrix | None = None,
         timezone: str = "UTC",
         date_format: str = "DD_MM_YYYY HH:mm:ss",
     ) -> None:
@@ -90,6 +90,8 @@ class ForecastingMatrix(Matrix):
 
 
         """
+        if self.matrix.height == 0:
+            return
         indexes_sorted = (
             pl.DataFrame({"indexes": self.indexes})
             .with_columns(
