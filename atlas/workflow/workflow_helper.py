@@ -1,6 +1,6 @@
 """
-Copyright (c) 2016-2022, RTE (www.rte-france.com)
-See AUTHORS.txt
+Copyright (c) 2025, RTE (www.rte-france.com)
+
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
@@ -17,7 +17,10 @@ class WorkflowHelper:
 
     @staticmethod
     def create_simple_workflow(
-        dataset: AbstractDataset, module_parameters: AbstractParameters, module: AbstractModule, name: str = "wf"
+        dataset: AbstractDataset,
+        module_parameters: AbstractParameters,
+        module: AbstractModule,
+        name: str = "wf",
     ) -> Workflow:
         """
         Create a workflow with one step

@@ -1,14 +1,40 @@
 from pathlib import Path
 from typing import Any
 
+import pytest
+import yaml
+
 from atlas import BusinessModel
-from atlas.abstract_class.abstract_dataset import input_dataset_type_var, output_dataset_type_var, AbstractDataset
+from atlas.abstract_class.abstract_dataset import (
+    AbstractDataset,
+    input_dataset_type_var,
+    output_dataset_type_var,
+)
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.abstract_class.abstract_parameters import module_parameters_type_var, AbstractParameters
+from atlas.abstract_class.abstract_parameters import AbstractParameters, module_parameters_type_var
 from atlas.workflow.workflow import Workflow
 from atlas.workflow.workflow_helper import WorkflowHelper
 from atlas.workflow.workflow_parameters_parser import WorkflowParametersParser
 from atlas.workflow.workflow_step import WorkflowStep
+
+
+@pytest.fixture
+def workflow_yaml_file(tmp_path: Path) -> Path:
+    # Define the YAML content as a dictionary
+    yaml_dict = {
+        "parameters": {"dataset_path": "dataset/path"},
+        "steps": {
+            "step1": {"name": "test1", "parameters_path": "module_parameters/path"},
+            "step2": {"name": "test2", "parameters_path": "module_parameters/path"},
+        },
+    }
+
+    # Dump dictionary to YAML file
+    yaml_path = tmp_path / "workflow_parameters.yml"
+    with open(yaml_path, "w") as f:
+        yaml.dump(yaml_dict, f)
+
+    return yaml_path
 
 
 class ModuleTest(AbstractModule):
@@ -20,17 +46,14 @@ class ModuleTest(AbstractModule):
         return output_dataset
 
     def create_parameters(self, raw_params: dict[str, Any]) -> module_parameters_type_var:
-        """Creates a concrete parameters object from raw dictionary."""
         pass
 
     def import_data(
         self, raw_data: dict[str, list[BusinessModel]], parameters: module_parameters_type_var
     ) -> input_dataset_type_var:
-        """Imports data using business objects and parameters."""
         pass
 
     def validate_data(self, parameters: module_parameters_type_var, input_dataset: input_dataset_type_var) -> bool:
-        """Validates imported or generated data."""
         pass
 
     def validates_results(
@@ -39,7 +62,6 @@ class ModuleTest(AbstractModule):
         input_dataset: input_dataset_type_var,
         output_dataset: output_dataset_type_var,
     ) -> bool:
-        """Validates results"""
         pass
 
     def export_results(
@@ -64,15 +86,15 @@ class DatasetTest(AbstractDataset):
         return []
 
 
-def test_parameters_reading():
-    wfp = WorkflowParametersParser().from_file(Path(__file__).parent / "workflow_parameters.yml")
+def test_parameters_reading(workflow_yaml_file: Path):
+    wfp = WorkflowParametersParser().from_file(workflow_yaml_file)
     assert wfp.parameters.dataset_path == "dataset/path"
     assert wfp.steps["step1"].name == "test1"
     assert wfp.steps["step2"].name == "test2"
 
 
-def test_basic_workflow():
-    wfp = WorkflowParametersParser().from_file(Path(__file__).parent / "workflow_parameters.yml")
+def test_basic_workflow(workflow_yaml_file: Path):
+    wfp = WorkflowParametersParser().from_file(workflow_yaml_file)
     datasetTest = DatasetTest(None)
     module_params = ModuleParamsTest(wfp.steps["step1"].parameters_path)
     wf = WorkflowHelper.create_simple_workflow(datasetTest, module_params, ModuleTest())
@@ -80,8 +102,8 @@ def test_basic_workflow():
     assert wf.get_output_dataset() is not None
 
 
-def test_workflow():
-    wfp = WorkflowParametersParser().from_file(Path(__file__).parent / "workflow_parameters.yml")
+def test_workflow(workflow_yaml_file: Path):
+    wfp = WorkflowParametersParser().from_file(workflow_yaml_file)
     datasetTest = DatasetTest(None)
     params_step1 = ModuleParamsTest(wfp.steps["step1"].parameters_path)
     params_step2 = ModuleParamsTest(wfp.steps["step2"].parameters_path)
