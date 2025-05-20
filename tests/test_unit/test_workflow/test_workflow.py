@@ -65,14 +65,14 @@ class DatasetTest(AbstractDataset):
 
 
 def test_parameters_reading():
-    wfp = WorkflowParametersParser().from_file(Path("workflow_parameters.yml"))
+    wfp = WorkflowParametersParser().from_file(Path(__file__).parent / "workflow_parameters.yml")
     assert wfp.parameters.dataset_path == "dataset/path"
     assert wfp.steps["step1"].name == "test1"
     assert wfp.steps["step2"].name == "test2"
 
 
 def test_basic_workflow():
-    wfp = WorkflowParametersParser().from_file(Path("workflow_parameters.yml"))
+    wfp = WorkflowParametersParser().from_file(Path(__file__).parent / "workflow_parameters.yml")
     datasetTest = DatasetTest(None)
     module_params = ModuleParamsTest(wfp.steps["step1"].parameters_path)
     wf = WorkflowHelper.create_simple_workflow(datasetTest, module_params, ModuleTest())
@@ -81,7 +81,7 @@ def test_basic_workflow():
 
 
 def test_workflow():
-    wfp = WorkflowParametersParser().from_file(Path("workflow_parameters.yml"))
+    wfp = WorkflowParametersParser().from_file(Path(__file__).parent / "workflow_parameters.yml")
     datasetTest = DatasetTest(None)
     params_step1 = ModuleParamsTest(wfp.steps["step1"].parameters_path)
     params_step2 = ModuleParamsTest(wfp.steps["step2"].parameters_path)
