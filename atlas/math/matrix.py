@@ -156,8 +156,8 @@ class Matrix:
             self.timezone: str = timezone
             return
         if isinstance(matrix, Matrix):
-            self.matrix: pl.DataFrame = matrix.matrix
-            self.timezone: str = matrix.timezone
+            self.matrix: pl.DataFrame = matrix.matrix  # type: ignore[no-redef]
+            self.timezone: str = matrix.timezone  # type: ignore[no-redef]
         else:
             df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
 
