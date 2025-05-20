@@ -138,6 +138,8 @@ class Matrix:
             matrix = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
+        else:
+            raise NotImplementedError("Matrix file should be a csv or parquet.")
         if filters:
             matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
 

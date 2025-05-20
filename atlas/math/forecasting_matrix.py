@@ -73,17 +73,8 @@ class ForecastingMatrix(Matrix):
         :return: A ForecastingMatrix object.
         :rtype: ForecastingMatrix
         """
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if file_path.suffix == ".csv":
-            matrix = pl.read_csv(file_path, try_parse_dates=True, separator=separator)
-        elif file_path.suffix == ".parquet":
-            matrix = pl.read_parquet(file_path)
-        else:
-            raise ValueError("Unsupported file extension, choose between csv and parquet")
-        if filters:
-            matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return cls(matrix, timezone, date_format)
+
+        return cls(cls._read_data_file(file_path, filters, separator), timezone, date_format)
 
     def _sort_indexes(self) -> None:
         """
@@ -126,10 +117,7 @@ class ForecastingMatrix(Matrix):
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
         """
-        if isinstance(index, str):
-            dt: str = pendulum.from_format(index, self.date_format).format(self.date_format)
-        else:
-            dt: str = pendulum.instance(index).format(self.date_format)  # type: ignore[no-redef]
+        dt: str = self._build_datetime(index).format(self.date_format)
 
         super().add(timeseries, dt)
         self._sort_indexes()
@@ -149,9 +137,7 @@ class ForecastingMatrix(Matrix):
         :return: The corresponding Timeseries object.
         :rtype: Timeseries
         """
-        dt: str = (
-            pendulum.from_format(index, self.date_format) if isinstance(index, str) else pendulum.instance(index)
-        ).format(self.date_format)
+        dt: str = self._build_datetime(index).format(self.date_format)
 
         return super().__getitem__(dt)
 
@@ -175,9 +161,7 @@ class ForecastingMatrix(Matrix):
         :type index: str | datetime
         :raises KeyError: If the index does not exist in the matrix.
         """
-        dt: str = (
-            pendulum.from_format(index, self.date_format) if isinstance(index, str) else pendulum.instance(index)
-        ).format(self.date_format)
+        dt: str = self._build_datetime(index).format(self.date_format)
 
         super().delete(dt)
 
@@ -188,27 +172,16 @@ class ForecastingMatrix(Matrix):
         execution_date: datetime | str | pendulum.DateTime,
         start_date: datetime | str | pendulum.DateTime,
         end_date: datetime | str | pendulum.DateTime,
-    ) -> pl.DataFrame:
+    ) -> Timeseries:
         """
         Returns the most up-to-date forecast available per time row in the given window.
         Newer forecasts are prioritized. Gaps are filled from older forecasts.
         """
 
-        execution_date = (
-            pendulum.from_format(execution_date, self.date_format)
-            if isinstance(execution_date, str)
-            else pendulum.instance(execution_date)
-        )
-        start_date = (
-            pendulum.from_format(execution_date, self.date_format)
-            if isinstance(execution_date, str)
-            else pendulum.instance(execution_date)
-        )
-        end_date = (
-            pendulum.from_format(execution_date, self.date_format)
-            if isinstance(execution_date, str)
-            else pendulum.instance(execution_date)
-        )
+        execution_date = self._build_datetime(execution_date)
+        start_date = self._build_datetime(start_date)
+        end_date = self._build_datetime(end_date)
+
         forecast_cols = (
             pl.DataFrame({"indexes": self.indexes})
             .with_columns(
@@ -242,7 +215,32 @@ class ForecastingMatrix(Matrix):
             .collect()
         )
 
-        return result
+        return Timeseries(result, timezone=self.timezone)
+
+    def _build_datetime(self, dt: datetime | str | pendulum.DateTime) -> pendulum.DateTime:
+        """Converts a datetime string or object to pendulum datetime"""
+        return pendulum.from_format(dt, self.date_format) if isinstance(dt, str) else pendulum.instance(dt)
+
+    def set_date_format(self, date_format: str) -> None:
+        new_indexes = (
+            pl.DataFrame({"indexes": self.indexes})
+            .with_columns(
+                pl.col("indexes").str.strptime(
+                    pl.Datetime(time_unit="us", time_zone=self.timezone),
+                    pendulum_to_datetime(self.date_format),
+                    strict=False,
+                )
+            )
+            .sort("indexes")
+            .with_columns(pl.col("indexes").dt.strftime(pendulum_to_datetime(date_format)))
+            .to_series()
+            .to_list()
+        )
+
+        renaming_mapping = dict(zip(self.indexes, new_indexes, strict=False))
+        self.matrix = self.matrix.rename(renaming_mapping)
+        self.indexes = self.get_indexes()
+        self.date_format = date_format
 
 
 class LazyForecastingMatrix(LazyMatrix):

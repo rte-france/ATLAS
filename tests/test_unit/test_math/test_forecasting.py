@@ -273,7 +273,7 @@ def test_from_file_unsupported_extension():
         file_path = temp_file.name
 
     try:
-        with pytest.raises(ValueError, match="Unsupported file extension"):
+        with pytest.raises(NotImplementedError, match="Matrix file should be a csv or parquet."):
             ForecastingMatrix.from_file(file_path)
     finally:
         if os.path.exists(file_path):
