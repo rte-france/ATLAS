@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 import pandas as pd
+import pendulum
 import polars as pl
 import pytest
 
@@ -121,7 +122,7 @@ def test_get_timeseries(hourly_df):
     ts = matrix.select(datetime(2025, 1, 1, 0, 0, 0))
 
     assert isinstance(ts, Timeseries)
-    assert ts.to_frame().shape[0] == 5  # 5 hourly points
+    assert ts.shape[0] == 5
 
 
 def test_delete_timeseries(hourly_df):
@@ -346,6 +347,78 @@ def test_delete_invalid_index(hourly_df):
         matrix.delete("01_01_2025 05:00:00")
 
 
+def test_set_date_format(hourly_df):
+    """Test setting a custom date format."""
+    matrix = ForecastingMatrix(hourly_df)
+    matrix.set_date_format("YYYY-MM-DD HH:mm")
+    assert matrix.date_format == "YYYY-MM-DD HH:mm"
+    assert matrix.index == ["2025-01-01 00:00", "2025-01-01 01:00"]
+
+
+def test_get_forecast():
+    # Create the ForecastingMatrix
+    forecast_matrix = ForecastingMatrix()
+
+    # Forecast 1: hourly (1h step)
+    forecast_1_time = [
+        pendulum.datetime(2025, 5, 1, 6),
+        pendulum.datetime(2025, 5, 1, 7),
+        pendulum.datetime(2025, 5, 1, 8),
+    ]
+    ts1 = Timeseries(pl.DataFrame({"time": forecast_1_time, "value": [100.0, 105.0, 107.0]}))
+    forecast_matrix.add(ts1, pendulum.datetime(2025, 4, 30, 22, 0))
+
+    # Forecast 2: 30-minute step
+    forecast_2_time = [
+        pendulum.datetime(2025, 5, 1, 7),
+        pendulum.datetime(2025, 5, 1, 7, 30),
+        pendulum.datetime(2025, 5, 1, 8),
+        pendulum.datetime(2025, 5, 1, 8, 30),
+    ]
+    ts2 = Timeseries(pl.DataFrame({"time": forecast_2_time, "value": [200.0, 202.0, 204.0, 206.0]}))
+    forecast_matrix.add(ts2, pendulum.datetime(2025, 5, 1, 5, 0))
+
+    # Forecast 3: 15-minute step
+    forecast_3_time = [
+        pendulum.datetime(2025, 5, 1, 8),
+        pendulum.datetime(2025, 5, 1, 8, 15),
+        pendulum.datetime(2025, 5, 1, 8, 30),
+        pendulum.datetime(2025, 5, 1, 8, 45),
+        pendulum.datetime(2025, 5, 1, 9),
+        pendulum.datetime(2025, 5, 1, 9, 15),
+        pendulum.datetime(2025, 5, 1, 9, 30),
+    ]
+    ts3 = Timeseries(pl.DataFrame({"time": forecast_3_time, "value": [300.0 + i for i in range(len(forecast_3_time))]}))
+    forecast_matrix.add(ts3, pendulum.datetime(2025, 5, 1, 6, 0))
+
+    # Query window
+    execution_date = pendulum.datetime(2025, 5, 1, 5, 30)
+    start_date = pendulum.datetime(2025, 5, 1, 6, 0)
+    end_date = pendulum.datetime(2025, 5, 1, 11, 0)
+
+    # Get the forecast
+    result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
+
+    expected = pl.DataFrame(
+        {
+            "time": [
+                pendulum.datetime(2025, 5, 1, 6),
+                pendulum.datetime(2025, 5, 1, 7),
+                pendulum.datetime(2025, 5, 1, 7, 30),
+                pendulum.datetime(2025, 5, 1, 8),
+                pendulum.datetime(2025, 5, 1, 8, 15),
+                pendulum.datetime(2025, 5, 1, 8, 30),
+                pendulum.datetime(2025, 5, 1, 8, 45),
+                pendulum.datetime(2025, 5, 1, 9),
+                pendulum.datetime(2025, 5, 1, 9, 15),
+                pendulum.datetime(2025, 5, 1, 9, 30),
+            ],
+            "value": [100.0, 105.0, 202.0, 107.0, None, 206, None, None, None, None],
+        }
+    )
+    assert result.to_frame().equals(expected)
+
+
 def test_lazy_forecasting_matrix():
     """Test the LazyForecastingMatrix class."""
     # Create a LazyFrame
@@ -380,3 +453,16 @@ def test_lazy_forecasting_matrix():
     # Test representation
     repr_str = repr(lazy_forecasting)
     assert "LazyForecastingMatrix" in repr_str
+
+
+def test_lazy_forecasting_matrix_collect(hourly_df):
+    """Test the collect method of LazyForecastingMatrix."""
+    lazy_df = hourly_df.lazy()
+    lazy_forecasting = LazyForecastingMatrix(lazy_df)
+
+    # Collect the lazy frame
+    collected_df = lazy_forecasting.collect()
+
+    # Check if the collected DataFrame is as expected
+    assert isinstance(collected_df, ForecastingMatrix)
+    assert collected_df.shape == (5, 3)
