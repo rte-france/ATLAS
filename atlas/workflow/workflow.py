@@ -36,7 +36,7 @@ class Workflow:
         """
         self.steps.extend(steps)
 
-    def get_output_dataset(self) -> AbstractDataset:
+    def get_output_dataset(self) -> AbstractDataset | None:
         """Returns the final dataset of the workflow"""
         return self.steps[-1].get_output_dataset()
 
