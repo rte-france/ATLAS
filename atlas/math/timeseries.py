@@ -424,7 +424,7 @@ class Timeseries:
 
         df = (
             Timeseries(
-                pl.concat([self.timeseries, new_df]).sort("time"),
+                pl.concat([self.timeseries, new_df], how="vertical").sort("time"),
                 timezone=self.timezone,
                 interpolation_method=self.interpolation_method,
             )

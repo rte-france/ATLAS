@@ -16,9 +16,9 @@ from atlas.math.timeseries import Timeseries
 def sample_pandas_df():
     return pd.DataFrame(
         {
-            "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
-            "scenario1": [1, 2, 3, 4],
-            "scenario2": [5, 6, 7, 8],
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [1, 2, 3],
+            "scenario2": [5, 6, 7],
         }
     )
 
@@ -65,7 +65,7 @@ def test_init_with_matrix(sample_matrix):
 def test_init_with_pandas(sample_pandas_df):
     matrix = Matrix(sample_pandas_df)
     assert matrix.indexes == ["scenario1", "scenario2"]
-    assert matrix.matrix.shape == (4, 3)
+    assert matrix.matrix.shape == (3, 3)
 
 
 def test_invalid_timezone(sample_polars_df):
@@ -177,7 +177,7 @@ def test_from_file_parquet(tmp_path, sample_pandas_df):
     sample_pandas_df.to_parquet(file_path, index=False)
     matrix = Matrix.from_file(file_path)
     assert matrix.indexes == ["scenario1", "scenario2"]
-    assert matrix.matrix.shape == (4, 3)
+    assert matrix.matrix.shape == (3, 3)
 
 
 def test_from_file_csv(tmp_path, sample_pandas_df):
@@ -185,7 +185,7 @@ def test_from_file_csv(tmp_path, sample_pandas_df):
     sample_pandas_df.to_csv(file_path, index=False, sep=";")
     matrix = Matrix.from_file(file_path)
     assert matrix.indexes == ["scenario1", "scenario2"]
-    assert matrix.matrix.shape == (4, 3)
+    assert matrix.matrix.shape == (3, 3)
 
 
 def test_from_file_csv_str_input(tmp_path, sample_pandas_df):
@@ -193,7 +193,7 @@ def test_from_file_csv_str_input(tmp_path, sample_pandas_df):
     sample_pandas_df.to_csv(file_path, index=False, sep=";")
     matrix = Matrix.from_file(str(file_path))
     assert matrix.indexes == ["scenario1", "scenario2"]
-    assert matrix.matrix.shape == (4, 3)
+    assert matrix.matrix.shape == (3, 3)
 
 
 def test_from_file_with_filter(tmp_path):
@@ -298,17 +298,6 @@ def test_invalid_matrix_multiple_time_columns():
     )
     with pytest.raises(ValueError, match="exactly one time column"):
         Matrix(df)
-
-
-@pytest.fixture
-def sample_polars_df():
-    return pl.DataFrame(
-        {
-            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
-            "scenario1": [10, 20, 30],
-            "scenario2": [40, 50, 60],
-        }
-    )
 
 
 def test_scenario_matrix_init(sample_polars_df):

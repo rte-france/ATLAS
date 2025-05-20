@@ -49,12 +49,17 @@ class ForecastingMatrix(Matrix):
         """
         super().__init__(matrix, timezone=timezone)
 
-        self.date_format: str = date_format
+        self._date_format: str = date_format
         self._sort_indexes()
 
     def __repr__(self):
         """Provide a string representation of the Matrix object."""
         return f"Forecasting Matrix : {self.matrix}"
+
+    @property
+    def date_format(self) -> str:
+        """Returns the matrix date format."""
+        return self._date_format
 
     @classmethod
     def from_file(
@@ -83,8 +88,7 @@ class ForecastingMatrix(Matrix):
         Columns are expected to be named using a specific datetime format.
         This method parses, sorts, and reorders the matrix accordingly.
 
-        :param date_format: Format used to parse datetime from index names.
-        :type date_format: str
+
         """
         indexes_sorted = (
             pl.DataFrame({"indexes": self.indexes})
@@ -240,15 +244,55 @@ class ForecastingMatrix(Matrix):
         renaming_mapping = dict(zip(self.indexes, new_indexes, strict=False))
         self.matrix = self.matrix.rename(renaming_mapping)
         self.indexes = self.get_indexes()
-        self.date_format = date_format
+        self._date_format = date_format
 
 
 class LazyForecastingMatrix(LazyMatrix):
     """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
 
-    def __init__(self, matrix: LazyMatrix | pl.LazyFrame | Matrix, timezone: str = "UTC") -> None:
+    def __init__(
+        self,
+        matrix: LazyMatrix | pl.LazyFrame | Matrix,
+        timezone: str = "UTC",
+        date_format: str = "DD_MM_YYYY HH:mm:ss",
+    ) -> None:
         super().__init__(matrix, timezone)
+        self.date_format: str = date_format
 
     def __repr__(self):
         """String representation of the matrix"""
         return f"LazyForecastingMatrix with schema : {self.matrix.collect_schema()}"
+
+    def collect(self) -> ForecastingMatrix:
+        """Collect the lazy frame and return a regular ForecastingMatrix object."""
+        return ForecastingMatrix(self.matrix.collect(), timezone=self.timezone, date_format=self.date_format)
+
+    @classmethod
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+        date_format: str = "DD_MM_YYYY HH:mm:ss",
+    ) -> LazyForecastingMatrix:
+        """
+        Load a LazyForecastingMatrix from a file.
+
+        :param file_path: Path to the file
+        :type file_path: str | Path
+        :param timezone: Timezone to apply
+        :type timezone: str
+        :return: LazyForecastingMatrix instance
+        :rtype: LazyForecastingMatrix
+        """
+        return cls(
+            super().from_file(
+                file_path,
+                timezone=timezone,
+                filters=filters,
+                separator=separator,
+            ),
+            timezone,
+            date_format,
+        )
