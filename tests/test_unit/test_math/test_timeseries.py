@@ -550,6 +550,52 @@ class TestTimeseriesBasicOperations:
         value = ts.get_value(datetime(2023, 1, 1))
         assert value is None
 
+    def test_reset_index(self, sample_ts: Timeseries):
+        """Test resetting the index with datetime and string inputs."""
+        # Prepare new datetime index: a mix of datetime and string
+        new_index = [
+            datetime(2023, 1, 1, 0, 30),  # datetime object
+            "2023-01-01 01:30:00",  # string
+            datetime(2023, 1, 1, 2, 30),  # datetime object
+            "2023-01-01 03:30:00",  # string
+        ]
+
+        # Test not-inplace first
+        reset_ts = sample_ts.reset_index(new_index, date_format="YYYY-MM-DD HH:mm:ss", inplace=False)
+        reset_times = reset_ts.to_frame()["time"].to_list()
+
+        expected = [
+            datetime(2023, 1, 1, 0, 30, tzinfo=Timezone("UTC")),
+            datetime(2023, 1, 1, 1, 30, tzinfo=Timezone("UTC")),
+            datetime(2023, 1, 1, 2, 30, tzinfo=Timezone("UTC")),
+            datetime(2023, 1, 1, 3, 30, tzinfo=Timezone("UTC")),
+        ]
+
+        assert reset_times == expected
+
+        # Ensure original sample_ts is unchanged
+        assert sample_ts.to_frame()["time"].to_list() != reset_times
+
+        # Test inplace modification
+        sample_ts.reset_index(new_index, date_format="YYYY-MM-DD HH:mm:ss", inplace=True)
+        reset_times_inplace = sample_ts.to_frame()["time"].to_list()
+        assert reset_times_inplace == expected
+
+    def test_properties_shape(self, sample_ts: Timeseries):
+        """Test the shape and index properties of Timeseries."""
+        # Test shape
+        shape = sample_ts.shape
+        expected_shape = (4, 2)  # Assuming sample_ts has 4 rows and 2 columns (time + one value)
+        assert shape == expected_shape, f"Expected shape {expected_shape}, got {shape}"
+
+    def test_properties_index(self, sample_ts: Timeseries):
+        # Test index
+        index = sample_ts.index
+        expected_shape = (4, 2)
+        assert isinstance(index, list)
+        assert all(isinstance(ts, datetime) for ts in index)
+        assert len(index) == expected_shape[0]
+
 
 class TestTimeseriesManipulation:
     """Test time series manipulation methods."""

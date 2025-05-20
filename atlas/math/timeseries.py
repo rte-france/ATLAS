@@ -71,6 +71,16 @@ class Timeseries:
         :return: Loaded Timeseries object
         :rtype: Timeseries
         """
+
+        return cls(cls._read_data_file(file_path, filters, separator), timezone, interpolation_method)
+
+    @staticmethod
+    def _read_data_file(
+        file_path: str | Path,
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> pl.DataFrame:
+        """Read a dataframe from csv or parquet"""
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if file_path.suffix == ".csv":
@@ -81,7 +91,8 @@ class Timeseries:
             raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
         if filters:
             timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return cls(timeseries, timezone, interpolation_method)
+
+        return timeseries
 
     @classmethod
     def describe(cls, timeseries: pd.DataFrame | pl.DataFrame | Timeseries) -> dict[str, Any]:
@@ -99,6 +110,9 @@ class Timeseries:
             df = timeseries.to_frame("polars")  # type: ignore[assignment]
         elif isinstance(timeseries, pl.DataFrame):
             df = timeseries
+        elif isinstance(timeseries, str) | isinstance(timeseries, Path):
+            file_path = Path(timeseries)  # type: ignore[arg-type]
+            df = cls._read_data_file(file_path)
         else:
             raise NotImplementedError("Can't parse input data. Provide a dataframe or a Timeseries")
 
@@ -410,7 +424,7 @@ class Timeseries:
 
         df = (
             Timeseries(
-                pl.concat([self.timeseries, new_df]).sort("time"),
+                pl.concat([self.timeseries, new_df], how="vertical").sort("time"),
                 timezone=self.timezone,
                 interpolation_method=self.interpolation_method,
             )

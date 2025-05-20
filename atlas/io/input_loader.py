@@ -50,9 +50,11 @@ class InputLoader:
                 └── ...
 
     - The `objects/` directory contains CSV files, each named after an object type (e.g., `storage.csv`),
-      describing the business objects and their attributes.
+      describing the business objects and their attributes. Each line in the CSV represents an object.
     - The `timeseries/`, `scenario_matrix/`, and `forecasting_matrix/` directories contain subdirectories
       for each object type, with files named after the object (e.g., `fr_storage.parquet`).
+    - Each matrix or timeseries file contains a column 'attribute' which is categorical and contains the timeseries or matrix name.
+      In a way that if a filter is applied on this column, the dataframe retrieved is the timeseries, or the matrix of the filter applied.
     - Each timeseries or matrix file must match the expected file extension (default: `.parquet`).
     - Attribute names in the objects CSV must be either the value itself of the attribute, or the type if a math objects (e.g timeseries,
       forecasting_matrix, scenario_matrix)
