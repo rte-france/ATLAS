@@ -5,13 +5,23 @@ This file is part of the ATLAS project.
 
 Module that implements AbstractParameters
 """
+from datetime import datetime
+from typing import TypeVar, Annotated
 
-from typing import TypeVar
-
-from pydantic import BaseModel, model_validator
+import pendulum
+from pydantic import BaseModel, model_validator, BeforeValidator, Field
 from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
 
+
+def to_pendulum_date(date : str | DateTime | datetime | None):
+    if isinstance(date, str):
+        return pendulum.from_format(date, 'DD/MM/YYYY HH:mm:ss')
+    elif isinstance(date, datetime):
+        return pendulum.instance(date)
+    return to_pendulum_date
+
+datetime_type = Annotated[DateTime, Field(None), BeforeValidator(to_pendulum_date)]
 
 class AbstractParameters(BaseModel):
     """Base class for parameters, to be extended by concrete implementations.
@@ -28,9 +38,9 @@ class AbstractParameters(BaseModel):
     :type export_output_dataset: bool
     """
 
-    start_date: DateTime | None = None
-    end_date: DateTime | None = None
-    execution_date: DateTime | None = None
+    start_date: datetime_type
+    end_date: datetime_type
+    execution_date: datetime_type
     export_result: bool = True
     export_output_dataset: bool = False
 
@@ -48,14 +58,6 @@ class AbstractParameters(BaseModel):
             raise ValueError(
                 f"Start date '{self.start_date.to_datetime_string()}' must be inferior "
                 f"to end date '{self.end_date.to_datetime_string()}'"
-            )
-        if self.execution_date is None:
-            return self
-        if not (self.start_date < self.execution_date < self.end_date):
-            raise ValueError(
-                f"Execution date '{self.execution_date.to_datetime_string()}' must be between "
-                f"start date '{self.start_date.to_datetime_string()}' and "
-                f"end date '{self.end_date.to_datetime_string()}'"
             )
         return self
 

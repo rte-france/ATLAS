@@ -7,9 +7,8 @@ def test_valid_dates():
     params = AbstractParameters(
         start_date=datetime(2024, 1, 1),
         end_date=datetime(2024, 12, 31),
-        execution_date=datetime(2024, 6, 1),
     )
-    assert params.start_date < params.execution_date < params.end_date
+    assert params.start_date < params.end_date
 
 
 def test_invalid_end_before_start():
@@ -18,16 +17,6 @@ def test_invalid_end_before_start():
         assert False, "Expected ValueError for end_date before start_date"
     except ValueError as e:
         assert "Start date" in str(e)
-
-
-def test_execution_date_out_of_bounds():
-    try:
-        AbstractParameters(
-            start_date=datetime(2024, 1, 1), end_date=datetime(2024, 12, 31), execution_date=datetime(2025, 1, 1)
-        )
-        assert False, "Expected ValueError for execution_date out of range"
-    except ValueError as e:
-        assert "Execution date" in str(e)
 
 
 def test_missing_optional_fields():
