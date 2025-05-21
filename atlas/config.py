@@ -48,6 +48,8 @@ MODEL_MAPPING_NAME: dict[str, type[BusinessModel]] = {
     "wind": Wind,
 }
 
+INVERSE_MODEL_MAPPING_NAME: dict[type[BusinessModel], str] = {model: name for name, model in MODEL_MAPPING_NAME.items()}
+
 EQUIPMENT_MODELS = [
     "wind",
     "storage",

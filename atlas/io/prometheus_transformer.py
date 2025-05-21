@@ -5,7 +5,8 @@ from pathlib import Path
 import h5py  # type: ignore[import-untyped]
 import numpy as np
 import polars as pl
-from loguru import logger
+
+from atlas.config import logger
 
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
 NAME_MAPPING = {"Baseload": "BaseLoad"}
@@ -176,5 +177,5 @@ class PrometheusToAtlasDataParser:
                     df_attrs = pl.DataFrame(attrs_list)
                     df_attrs = df_attrs.rename({col: self.to_snake_case(col) for col in df_attrs.columns})
                     csv_path = os.path.join(objects_dir, f"{object_type_snake}.csv")
-                    df_attrs.write_csv(csv_path)
+                    df_attrs.write_csv(csv_path, separator=";")
                     logger.success(f"Wrote attributes CSV for {object_type_snake} to {csv_path}")

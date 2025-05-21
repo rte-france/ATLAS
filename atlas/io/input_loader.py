@@ -6,8 +6,10 @@ This file is part of the ATLAS project.
 Module that implements Input Loader
 """
 
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from types import UnionType
+from typing import Any, Literal, get_args, get_origin
 
 import pendulum
 import polars as pl
@@ -172,7 +174,8 @@ class InputLoader:
         for obj in object_list:
             object_instantiated: dict[str, Any] = {}
             for key, value in obj.items():
-                if value == "timeseries":
+                attribute_type = get_type_attribute(object_type, key)
+                if value == "timeseries" and attribute_type in (Timeseries, LazyTimeseries):
                     object_instantiated[key] = cls._load_timeseries(
                         base_path=base_path,
                         object_type=object_type,
@@ -182,7 +185,13 @@ class InputLoader:
                         lazy=lazy,
                         timezone=timezone,
                     )
-                elif value in ["forecasting_matrix", "scenario_matrix"]:
+
+                elif value in ["forecasting_matrix", "scenario_matrix"] and attribute_type in (
+                    ForecastingMatrix,
+                    LazyForecastingMatrix,
+                    ScenarioMatrix,
+                    LazyScenarioMatrix,
+                ):
                     object_instantiated[key] = cls._load_matrix(
                         base_path=base_path,
                         name=obj["name"],
@@ -194,13 +203,15 @@ class InputLoader:
                         timezone=timezone,
                         date_format_forecasting=date_format_forecasting_matrix,
                     )
-                else:
-                    try:
-                        object_instantiated[key] = pendulum.from_format(
-                            value, date_format_input_files
-                        ).to_datetime_string()
-                    except Exception:  # noqa: BLE001
-                        object_instantiated[key] = value
+                elif attribute_type in (pendulum.DateTime, datetime) and value is not None:
+                    object_instantiated[key] = pendulum.from_format(value, date_format_input_files).to_datetime_string()
+                elif get_origin(attribute_type) is list and value is not None:
+                    inside_type = get_args(attribute_type)[0]
+                    if inside_type in (str, float, int):
+                        object_instantiated[key] = list(map(inside_type, value.split(":")))
+                else:  # noqa: PLR2004
+                    object_instantiated[key] = value
+
             objects_instantiated.append(object_instantiated)
 
         return objects_instantiated
@@ -226,17 +237,21 @@ class InputLoader:
             f"""Instantiated > business model {object_dict["name"]} - type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"""
         )
         for attribute in object_dict:
-            if attribute in cfg.MODEL_MAPPING_NAME:
+            attribute_type = get_type_attribute(object_type, attribute)
+            if attribute_type in cfg.INVERSE_MODEL_MAPPING_NAME:
                 if attribute == "equipment":
-                    for attribute in cfg.EQUIPMENT_MODELS:
-                        equipment_lookup = {model.name: model for model in objects_instantiated[attribute]}
+                    for attr in cfg.EQUIPMENT_MODELS:
+                        equipment_lookup = {model.name: model for model in objects_instantiated[attr]}
                         name = object_dict["equipment"]
                         if name in equipment_lookup:
                             object_dict["equipment"] = equipment_lookup[name]
                             break
                 else:
                     name = object_dict[attribute]
-                    objects_lookup = {model.name: model for model in objects_instantiated[attribute]}
+                    objects_lookup = {
+                        model.name: model
+                        for model in objects_instantiated[cfg.INVERSE_MODEL_MAPPING_NAME[attribute_type]]
+                    }
                     object_dict[attribute] = objects_lookup[name]
 
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)  # type: ignore[return-value]
@@ -352,3 +367,20 @@ class InputLoader:
                 filters=("attribute", attribute_name),
             )
         raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
+
+
+def get_type_attribute(object_type: str, attribute: str) -> str:
+    """Get type of attribute for a given object type."""
+    if object_type not in cfg.MODEL_MAPPING_NAME:
+        raise ValueError(f"Object type {object_type} is not valid.")
+
+    if attribute not in cfg.MODEL_MAPPING_NAME[object_type].model_fields:
+        raise KeyError(f"The attribute {attribute} is not present in Atlas model object : {object_type}")
+    attribute_type = cfg.MODEL_MAPPING_NAME[object_type].model_fields[attribute].annotation
+
+    if get_origin(attribute_type) is UnionType:
+        model = get_args(attribute_type)[0]
+        if model is None:
+            model = get_args(attribute_type)[1]
+
+    return model

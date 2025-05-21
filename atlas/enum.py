@@ -141,3 +141,30 @@ class Product(str, Enum):
     FCRActivation = "FCRActivation"
     FCRUpProcurement = "FCRUpProcurement"
     FCRDownProcurement = "FCRDownProcurement"
+
+
+class InflowFrequency(str, Enum):
+    """
+    Frequency of inflow data.
+
+    :cvar Daily: Daily frequency.
+    :cvar Monthly: Monthly frequency.
+    """
+
+    Daily = "Daily"
+    Monthly = "Monthly"
+
+
+ENUM_TYPE_MAPPING = {
+    "LoadType": LoadType,
+    "StorageType": StorageType,
+    "ThermalStrategy": ThermalStrategy,
+    "ReservesTypes": ReservesTypes,
+    "ComplementDirection": ComplementDirection,
+    "CouplingType": CouplingType,
+    "OrderType": OrderType,
+    "Product": Product,
+    "InflowFrequency": InflowFrequency,
+}
+
+INVERSE_ENUM_TYPE_MAPPING = {v: k for k, v in ENUM_TYPE_MAPPING.items()}

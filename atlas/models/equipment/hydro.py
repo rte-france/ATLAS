@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from pydantic import Field
 
+from atlas.enum import InflowFrequency
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
@@ -16,7 +17,6 @@ class Hydro(Equipment):
     """
     :param fragment_prices: List of spreads applied to hydro equipment water values, to assign prices to fragments
     calculated with fragment_volumes
-    calculated with FragmentVolumes
     :type fragment_prices: list[float]
     :param fragment_volumes: List of percentages used to divide the interval between MaximumPower and MinimumPower
     into different fragments
@@ -39,6 +39,10 @@ class Hydro(Equipment):
     :type maximum_power: Timeseries | LazyTimeseries
     :param minimum_power: Minimum power
     :type minimum_power: Timeseries | LazyTimeseries
+    :param inflow_frequency: Frequency of inflow data. Possible values: 'Monthly', 'Daily'
+    :type inflow_frequency: InflowFrequency
+    :param energy_target_frequency: Frequency of energy target data. Possible values: 'Monthly', 'Daily'
+    :type energy_target_frequency: InflowFrequency
     """
 
     fragment_prices: list[float] | None = Field(
@@ -51,6 +55,11 @@ class Hydro(Equipment):
 
     da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
     energy_target: Timeseries | LazyTimeseries | None = None
+    inflow_frequency: InflowFrequency | None = Field(None, description="Possible values: 'Monthly', 'Daily'")
+    energy_target_frequency: InflowFrequency | None = Field(
+        None,
+        description="Possible values: 'Monthly', 'Daily'",
+    )
     inflows: Timeseries | LazyTimeseries | None = None
     initial_level: Timeseries | LazyTimeseries | None = None
     maximum_energy: Timeseries | LazyTimeseries | None = None

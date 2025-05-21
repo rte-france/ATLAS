@@ -48,7 +48,8 @@ class Thermal(Equipment):
     :type maximum_power: Timeseries
     :param minimum_power: Minimum power of the unit or cluster
     :type minimum_power: Timeseries
-
+    :param co2_emission_factor: CO2 emissions per MWh
+    :type co2_emission_factor: float
     """
 
     installed_capacity: float | None = Field(
@@ -67,6 +68,7 @@ class Thermal(Equipment):
     startup_delay_probability: float | None = Field(None, ge=0, le=1)
     startup_duration: float | None = Field(None, ge=0)
 
+    co2_emission_factor: float | None = Field(None, ge=0)
     strategy: ThermalStrategy | None = None
 
     state_sequence: ScenarioMatrix | LazyScenarioMatrix | None = None
