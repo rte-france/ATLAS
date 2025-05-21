@@ -21,17 +21,17 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.parameters = parameters
 
 
-        self.market_areas = self.get_market_areas(raw_data[MODEL_TO_NAME_MAPPING[MarketArea]])
+        self.market_areas: list[MarketArea] = self.get_market_areas(raw_data[MODEL_TO_NAME_MAPPING[MarketArea]])
         self.orders_per_market_area = {}
         self.order_couplings = self.get_order_couplings(raw_data[MODEL_TO_NAME_MAPPING[OrderCoupling]])
         self.times = []
 
     def get_market_areas(self, market_areas: list[MarketArea]) -> list[MarketArea]:
-        if self.parameters.market == "All":
+        if self.parameters.market_area_names == "All":
             return market_areas
         else:
             return [
-                market_area for market_area in market_areas if market_area.name in self.parameters.market
+                market_area for market_area in market_areas if market_area.name in self.parameters.market_area_names
             ]
 
     def get_order_couplings(self, order_couplings: list[OrderCoupling]) -> list[OrderCoupling]:
