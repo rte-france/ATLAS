@@ -11,6 +11,7 @@ from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
+from atlas.modules.market_clearing.phases.clearing import Clearing
 
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 
@@ -39,12 +40,12 @@ class MarketClearingModule(
     def execute(
         self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset
     ) -> MarketClearingOutputDataset:
-        # Launch Clearing phase
+        clearing = Clearing(input_dataset, parameters)
         # Launch Exchange Fixing phase
         # Launch Pricing phase
-        # Launch Marginal Fixing phase
-        marginal_fixing = MarginalFixing()
-        pass
+        market_prices = dict()# retrieve from pricing
+        marginal_fixing = MarginalFixing(input_dataset, parameters)
+        marginal_fixing.run(clearing.retrieve_accepted_powers(), market_prices)
 
     def validates_results(
         self,
