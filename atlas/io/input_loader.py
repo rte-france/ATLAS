@@ -13,6 +13,7 @@ from typing import Any, Literal, get_args, get_origin
 
 import pendulum
 import polars as pl
+from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -203,12 +204,14 @@ class InputLoader:
                         timezone=timezone,
                         date_format_forecasting=date_format_forecasting_matrix,
                     )
-                elif attribute_type in (pendulum.DateTime, datetime) and value is not None:
+                elif attribute_type in (DateTime, datetime) and value is not None:
                     object_instantiated[key] = pendulum.from_format(value, date_format_input_files).to_datetime_string()
                 elif get_origin(attribute_type) is list and value is not None:
                     inside_type = get_args(attribute_type)[0]
                     if inside_type in (str, float, int):
                         object_instantiated[key] = list(map(inside_type, value.split(":")))
+                    else:
+                        object_instantiated[key] = list(map(str, value.split(":")))
                 else:  # noqa: PLR2004
                     object_instantiated[key] = value
 
@@ -232,7 +235,7 @@ class InputLoader:
         object_type: str,
         objects_instantiated: dict[str, list[type[BusinessModel]]],
     ) -> type[BusinessModel]:
-        """Instantiate a single BusinessModel object from its attributes."""
+        """Instantiate a single BusinessModel object from its attributes. The function instantiates the objects nested in the object_dict."""
         cfg.logger.debug(
             f"""Instantiated > business model {object_dict["name"]} - type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"""
         )
@@ -253,6 +256,16 @@ class InputLoader:
                         for model in objects_instantiated[cfg.INVERSE_MODEL_MAPPING_NAME[attribute_type]]
                     }
                     object_dict[attribute] = objects_lookup[name]
+            elif get_origin(attribute_type) is list:
+                if get_args(attribute_type)[0] in cfg.INVERSE_MODEL_MAPPING_NAME:
+                    object_list_string = object_dict[attribute]
+                    object_list_instantiated = []
+                    objects_lookup = {
+                        model.name: model
+                        for model in objects_instantiated[cfg.INVERSE_MODEL_MAPPING_NAME[get_args(attribute_type)[0]]]
+                    }
+                    for obj_string in object_list_string:
+                        object_list_instantiated.append(objects_lookup[obj_string])
 
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)  # type: ignore[return-value]
 

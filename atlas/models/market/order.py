@@ -62,5 +62,5 @@ class Order(BusinessModel):
     price: float | None = None
     price_group: int | None = None
     product: Product | None = None
-    q_max: float | None = None
-    q_min: float | None = None
+    qmax: float | None = None
+    qmin: float | None = None

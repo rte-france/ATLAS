@@ -9,7 +9,7 @@ import polars as pl
 from atlas.config import logger
 
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
-NAME_MAPPING = {"Baseload": "BaseLoad"}
+NAME_MAPPING = {"Baseload": "BaseLoad", "is_v2_g": "is_v2g"}
 
 
 class PrometheusToAtlasDataParser:
@@ -87,6 +87,8 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = self.to_snake_case(attr_name)
+                        if attr_name_snake in NAME_MAPPING:
+                            attr_name_snake = NAME_MAPPING[attr_name_snake]
                         item = instance_group[attr_name]
                         logger.debug(
                             f"Processing attribute: {attr_name} (as {attr_name_snake}) for instance {instance_snake}"
@@ -105,8 +107,14 @@ class PrometheusToAtlasDataParser:
                                     attrs[attr_name_snake] = None
                                 if attrs[attr_name_snake] == "":
                                     attrs[attr_name_snake] = None
-                                if attr_name_snake in NAME_MAPPING:
-                                    attrs[attr_name_snake] = NAME_MAPPING[attr_name_snake]
+                                if attrs[attr_name_snake] in NAME_MAPPING:
+                                    attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
+                                if attr_name_snake == "equipment":
+                                    attrs[attr_name_snake] = self.to_snake_case(attrs[attr_name_snake])
+                                if attr_name_snake == "orders":
+                                    attrs[attr_name_snake] = [
+                                        self.to_snake_case(order) for order in attrs[attr_name_snake]
+                                    ]
                                 logger.debug(f"Scalar attribute: {attr_name_snake} = {attrs[attr_name_snake]}")
                             elif isinstance(val, np.ndarray):
                                 if val.ndim == 1:
