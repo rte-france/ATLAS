@@ -112,6 +112,10 @@ nav:
     - Models:
       - Equipement: api/models/equipment.md
       - Market: api/models/market.md
+    - Workflows:
+      - Workflow: api/workflow/workflow.md
+      - Workflow step: api/workflow/workflow_step.md
+      - Workflow parameters: api/workflow/workflow_parameters.md
     - Others:
       - Enum: api/enum.md
       - Logging: api/logging.md

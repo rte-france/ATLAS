@@ -23,7 +23,7 @@ class ScenarioMatrix(Matrix):
     This class is intended for workflows where all data can be loaded and processed
     in memory."""
 
-    def __init__(self, matrix: pd.DataFrame | pl.DataFrame, timezone: str = "UTC") -> None:
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix | None = None, timezone: str = "UTC") -> None:
         super().__init__(matrix, timezone)
 
     def __repr__(self):
@@ -43,3 +43,7 @@ class LazyScenarioMatrix(LazyMatrix):
     def __repr__(self):
         """String representation of the matrix"""
         return f"LazyScenarioMatrix with schema : {self.matrix.collect_schema()}"
+
+    def collect(self) -> Matrix:
+        """Collect the lazy frame and return a regular ScenarioMatrix object."""
+        return ScenarioMatrix(self.matrix.collect(), timezone=self.timezone)

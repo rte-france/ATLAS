@@ -28,7 +28,7 @@ class Matrix:
     This class abstracts over Polars and Pandas DataFrames to provide a uniform way
     to manage multiple time series, each associated with a unique index or scenario key."""
 
-    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix, timezone: str = "UTC") -> None:
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix | None = None, timezone: str = "UTC") -> None:
         """
         :param matrix: DataFrame containing the matrix data.
         :type matrix: pd.DataFrame | pl.DataFrame | Matrix
@@ -46,11 +46,13 @@ class Matrix:
         return f"Matrix : {self.matrix}"
 
     @classmethod
-    def describe(cls, matrix: pd.DataFrame | pl.DataFrame | Matrix) -> dict[str, Any]:
+    def describe(
+        cls, matrix: str | Path | pd.DataFrame | pl.DataFrame | Matrix, separator: str = ";"
+    ) -> dict[str, Any]:
         """
         Get metadata about the matrix.
 
-        :param matrix: DataFrame containing the matrix data.
+        :param matrix: DataFrame or file path containing the matrix data.
         :type matrix: pd.DataFrame | pl.DataFrame | Matrix
         :return: A dictionnary containing matrix metadata
         :rtype: dict[str, Any]
@@ -59,6 +61,9 @@ class Matrix:
             df = pl.DataFrame(matrix)
         elif isinstance(matrix, Matrix):
             df = matrix.get_matrix()
+        elif isinstance(matrix, str) | isinstance(matrix, Path):
+            file_path = Path(matrix)  # type: ignore[arg-type]
+            df = cls._read_data_file(file_path)
         elif isinstance(matrix, pl.DataFrame):
             df = matrix
         else:
@@ -117,21 +122,42 @@ class Matrix:
         :return: A Matrix object.
         :rtype: Matrix
         """
+
+        return cls(cls._read_data_file(file_path, filters, separator), timezone)
+
+    @staticmethod
+    def _read_data_file(
+        file_path: str | Path,
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> pl.DataFrame:
+        """Read a dataframe from csv or parquet"""
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if file_path.suffix == ".csv":
             matrix = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
         elif file_path.suffix == ".parquet":
             matrix = pl.read_parquet(file_path)
+        else:
+            raise NotImplementedError("Matrix file should be a csv or parquet.")
         if filters:
             matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return cls(matrix, timezone)
 
-    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix, timezone: str) -> None:
+        return matrix
+
+    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix | None, timezone: str) -> None:
         """Set matrix attribute"""
+        if matrix is None:
+            self.matrix: pl.DataFrame = pl.DataFrame(
+                schema={
+                    "time": pl.Datetime("us", time_zone=timezone),
+                }
+            )
+            self.timezone: str = timezone
+            return
         if isinstance(matrix, Matrix):
-            self.matrix: pl.DataFrame = matrix.matrix
-            self.timezone: str = matrix.timezone
+            self.matrix: pl.DataFrame = matrix.matrix  # type: ignore[no-redef]
+            self.timezone: str = matrix.timezone  # type: ignore[no-redef]
         else:
             df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
 
@@ -145,8 +171,10 @@ class Matrix:
             self.timezone: str = timezone  # type: ignore[no-redef]
 
     @staticmethod
-    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | Matrix) -> None:
+    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | Matrix | None) -> None:
         """Check matrix data structure"""
+        if matrix is None:
+            return
         if isinstance(matrix, Matrix):
             return
         df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
@@ -156,6 +184,9 @@ class Matrix:
             raise ValueError("Matrix must have exactly one time column")
 
         value_columns = df.select(pl.selectors.numeric()).columns
+
+        if len(value_columns) < 1:
+            raise ValueError("Matrix must have at least one numeric column")
 
         if len(time_columns) + len(value_columns) != len(df.columns):
             raise ValueError("Matrix must have N columns one for datetime and N-1 for numerical values")
