@@ -10,20 +10,35 @@ from datetime import datetime
 from typing import Annotated, TypeVar
 
 import pendulum
-from pydantic import BaseModel, BeforeValidator, Field, model_validator
+from pendulum import DateTime
+from pydantic import BaseModel, BeforeValidator, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
 
+from atlas.config import logger
 
-def to_pendulum_date(date: str | DateTime | datetime | None):
+
+def to_pendulum_date(date: str | DateTime | datetime | None) -> DateTime | None:
+    date_format = "DD/MM/YYYY HH:mm:ss"
     if isinstance(date, str):
-        return pendulum.from_format(date, "DD/MM/YYYY HH:mm:ss")
+        try:
+            return pendulum.from_format(date, date_format)
+        except ValueError:
+            logger.exception(f"{date} doesn't not match {date_format}")
+            # ValueError is not catch
+            pendulum_date = pendulum.parse(date)
+            if isinstance(pendulum_date, DateTime):
+                return pendulum_date
+            else:
+                logger.exception(f"{date} doesn't not match {date_format}")
     elif isinstance(date, datetime):
         return pendulum.instance(date)
-    return to_pendulum_date
+    elif isinstance(date, DateTime):
+        return date
+    return None
 
 
-datetime_type = Annotated[DateTime, Field(None), BeforeValidator(to_pendulum_date)]
+datetime_type = Annotated[DateTime, BeforeValidator(to_pendulum_date)]
 
 
 class AbstractParameters(BaseModel):
@@ -41,9 +56,9 @@ class AbstractParameters(BaseModel):
     :type export_output_dataset: bool
     """
 
-    start_date: datetime_type
-    end_date: datetime_type
-    execution_date: datetime_type
+    start_date: datetime_type | None = None
+    end_date: datetime_type | None = None
+    execution_date: datetime_type | None = None
     export_result: bool = True
     export_output_dataset: bool = False
 
