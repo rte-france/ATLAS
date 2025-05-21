@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+from atlas import MarketArea
 from atlas.enum import OrderType
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
@@ -25,13 +26,13 @@ class MarginalFixing:
         self.input_dataset = input_dataset
         self.parameters = parameters
 
-    def run(self, accepted_powers, market_prices):
+    def run(self, accepted_powers: dict[str, dict[str, float]], market_prices: dict[str, list[float]]):
         """
 
         :param accepted_powers: Result of optimization
-        :type accepted_powers:
+        :type accepted_powers: dict[str, dict[str, float]]
         :param market_prices: Result of optimization
-        :type market_prices:
+        :type market_prices: dict[str, list[float]]
         """
         # Start with looping over time, since all time steps are independent:
         for time_index, time in enumerate(self.input_dataset.times):
@@ -42,7 +43,7 @@ class MarginalFixing:
                 local_accepted_powers = accepted_powers[area.id]
                 self.update_local_accepted_power(local_accepted_powers, area, time, spot_price)
 
-    def update_local_accepted_power(self, local_accepted_powers, area, time, spot_price):
+    def update_local_accepted_power(self, local_accepted_powers: dict[str, float], area: MarketArea, time, spot_price: float):
         # Initialize the variables storing the total amounts of usable marginal powers as well as the marginal amounts
         # of balances that can be redistributed:
         max_marginal_sales = 0.0
@@ -105,8 +106,6 @@ class MarginalFixing:
                 continue
             if order.price != spot_price:
                 continue
-            # If the order is coupling, there is no modification to do
-            # Check about exclusion type
             if order.name in self.get_order_names_in_order_couplings():
                 continue
             accepted_power = local_accepted_powers[order.id]
