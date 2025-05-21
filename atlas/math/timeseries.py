@@ -12,7 +12,7 @@ from __future__ import annotations
 import pickle
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import pandas as pd
 import pendulum
@@ -48,7 +48,7 @@ class Timeseries:
         self._check_timezone(timezone)
         self._check_interpolation_method(interpolation_method)
 
-        self.interpolation_method: str = interpolation_method
+        self.interpolation_method: Literal["constant", "linear"] = interpolation_method
         self.timezone: str = timezone
         self._check_timeseries(timeseries)
         self._set_timeseries(timeseries, timezone)
@@ -71,6 +71,16 @@ class Timeseries:
         :return: Loaded Timeseries object
         :rtype: Timeseries
         """
+
+        return cls(cls._read_data_file(file_path, filters, separator), timezone, interpolation_method)
+
+    @staticmethod
+    def _read_data_file(
+        file_path: str | Path,
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> pl.DataFrame:
+        """Read a dataframe from csv or parquet"""
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if file_path.suffix == ".csv":
@@ -81,7 +91,73 @@ class Timeseries:
             raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
         if filters:
             timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return cls(timeseries, timezone, interpolation_method)
+
+        return timeseries
+
+    @classmethod
+    def describe(cls, timeseries: pd.DataFrame | pl.DataFrame | Timeseries) -> dict[str, Any]:
+        """
+        Get metadata about the timeseries.
+
+        :param timeseries: DataFrame containing the timeseries data.
+        :type timeseries: pd.DataFrame | pl.DataFrame | Timeseries
+        :return: A dictionnary containing timeseries metadata
+        :rtype: dict[str, Any]
+        """
+        if isinstance(timeseries, pd.DataFrame):
+            df = pl.DataFrame(timeseries)
+        elif isinstance(timeseries, Timeseries):
+            df = timeseries.to_frame("polars")  # type: ignore[assignment]
+        elif isinstance(timeseries, pl.DataFrame):
+            df = timeseries
+        elif isinstance(timeseries, str) | isinstance(timeseries, Path):
+            file_path = Path(timeseries)  # type: ignore[arg-type]
+            df = cls._read_data_file(file_path)
+        else:
+            raise NotImplementedError("Can't parse input data. Provide a dataframe or a Timeseries")
+
+        summary = {
+            "shape": df.shape,
+            "memory_mb": f"{df.estimated_size('mb'):.02f}",
+        }
+
+        datetime_cols = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        string_cols = df.select(pl.selectors.string()).columns
+        numeric_cols = df.select(pl.selectors.numeric()).columns
+
+        if len(datetime_cols) == 1:
+            dt_col = datetime_cols[0]
+            dt_series = df[dt_col]
+            summary["datetime"] = {  # type: ignore[assignment]
+                "column": dt_col,
+                "min": pendulum.instance(dt_series.min()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
+                "max": pendulum.instance(dt_series.max()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
+                "nulls": dt_series.null_count(),
+            }
+        else:
+            raise ValueError("Expected one datetime column exactly")
+
+        if len(string_cols) == 1:
+            cat_col = string_cols[0]
+            cat_series = df[cat_col]
+            categories = sorted(cat_series.unique().to_list())
+            summary["categorical"] = {  # type: ignore[assignment]
+                "column": cat_col,
+                "categories": categories,
+                "nulls": cat_series.null_count(),
+            }
+
+        if len(numeric_cols) == 1:
+            num_col = numeric_cols[0]
+            num_series = df[num_col]
+            summary["numerical"] = {  # type: ignore[assignment]
+                "column": num_col,
+                "nulls": num_series.null_count(),
+                "min": num_series.min(),
+                "max": num_series.max(),
+            }
+
+        return summary
 
     def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None) -> None:
         if timeseries is None or isinstance(timeseries, Timeseries):
@@ -112,7 +188,7 @@ class Timeseries:
             )
 
         elif isinstance(timeseries, Timeseries):
-            self.timeseries = timeseries.get_data(engine="polars")  # type: ignore[assignment]
+            self.timeseries = timeseries.to_frame(engine="polars")  # type: ignore[assignment]
         else:
             try:
                 df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
@@ -134,7 +210,7 @@ class Timeseries:
 
     def __eq__(self, other: object) -> bool:
         """
-        Check equality between the internal Timeseries and another Polars DataFrame.
+        Implement the equality between two Timeseries:
 
         :param other: The Polars DataFrame to compare with
         :type other: pl.DataFrame
@@ -143,9 +219,9 @@ class Timeseries:
         :rtype: bool
         """
         if isinstance(other, Timeseries):
-            other = other.get_data(engine="polars")
+            other = other.to_frame(engine="polars")
             return self.timeseries.equals(other)  # type: ignore[arg-type]
-        raise NotImplementedError("Comparison with non-Timeseries objects is not supported")
+        raise TypeError("Comparison with non-Timeseries objects is not supported")
 
     def __len__(self) -> int:
         """Return the number of rows in the Timeseries.
@@ -253,6 +329,21 @@ class Timeseries:
 
         return Timeseries(df, self.timezone)
 
+    @property
+    def dataframe(self) -> pl.DataFrame:
+        """Returns the Timeseries DataFrame"""
+        return self.timeseries
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Returns the Timeseries shape"""
+        return self._get_shape()
+
+    @property
+    def index(self) -> list[datetime]:
+        """Returns the Timeseries indexes"""
+        return self.timeseries.select("time").to_series().to_list()
+
     def remove_na(self, inplace: bool = True) -> Timeseries:
         """
         Remove rows containing null values.
@@ -268,14 +359,14 @@ class Timeseries:
             return self
         return Timeseries(df, self.timezone)
 
-    def get_data(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame | pd.DataFrame:
+    def to_frame(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame | pd.DataFrame:
         """
-        Return the internal Polars DataFrame.
+        Return the internal time series as a data frame.
 
         :param engine: The engine to use for the output, defaults to "pandas"
         :type engine: str, optional
         :return: The internal Timeseries data
-        :rtype: pl.DataFrame
+        :rtype: pl.DataFrame or pd.DataFrame
         """
         if engine == "pandas":
             return self.timeseries.to_pandas()
@@ -308,6 +399,49 @@ class Timeseries:
         if timezone not in pytz.all_timezones:
             raise ValueError(f"Invalid timezone: {timezone}")
 
+    def reset_index(
+        self,
+        index: list[datetime | pendulum.DateTime | str],
+        date_format: str = "YYYY-MM-DD HH:mm:ss z",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """Reset the Timeseries index using a list of new indexes.
+
+        :param index: New indexes to use for the Timeseries. Should be datetime or string representation of datetimes
+        :type index: list[str  |  datetime]
+        :param date_format: _description_, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: The Timeseries with new indexes.
+        :rtype: Timeseries
+        """
+        index = [self._check_date(i, date_format=date_format).in_tz(self.timezone) for i in index]
+
+        new_df = pl.DataFrame({"time": index, "value": [None] * len(index)}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone))
+        )
+
+        df = (
+            Timeseries(
+                pl.concat([self.timeseries, new_df], how="vertical").sort("time"),
+                timezone=self.timezone,
+                interpolation_method=self.interpolation_method,
+            )
+            .interpolate()
+            .filter(index)  # type: ignore[arg-type]
+            .dataframe
+        )
+
+        if inplace:
+            self.timeseries = df
+            return self
+        return Timeseries(df, self.timezone)
+
+    def _get_shape(self) -> tuple[int, int]:
+        """Return (rows, columns) of the underlying Polars DataFrame."""
+        return self.timeseries.shape
+
     def set_timezone(self, timezone: str) -> None:
         """
         Convert the datetime column to a new timezone.
@@ -322,12 +456,12 @@ class Timeseries:
             pl.col("time").dt.convert_time_zone(timezone),
         )
 
-    def set_interpolation_method(self, interpolation_method: str) -> None:
+    def set_interpolation_method(self, interpolation_method: Literal["constant", "linear"] = "constant") -> None:
         """
         Set the interpolation method for the Timeseries.
 
         :param interpolation_method: The interpolation method to use, either "linear" or "constant".
-        :type interpolation_method: str
+        :type interpolation_method: Literal["constant", "linear"]
         """
         self._check_interpolation_method(interpolation_method)
         self.interpolation_method = interpolation_method
@@ -701,7 +835,7 @@ class Timeseries:
             return cast("float", self.timeseries["value"].min())
         return None
 
-    def interpolate(self, method: Literal["linear", "constant"] = "constant", inplace: bool = False) -> Timeseries:
+    def interpolate(self, inplace: bool = True) -> Timeseries:
         """Interpolate the Timeseries to fill in missing values.
 
         :param method: Interpolation method, defaults to "constant"
@@ -712,9 +846,9 @@ class Timeseries:
         :return: Interpolated Timeseries
         :rtype: Timeseries
         """
-        if method == "linear":
+        if self.interpolation_method == "linear":
             df = self.timeseries.with_columns(pl.col("value").interpolate_by("time"))
-        elif method == "constant":
+        elif self.interpolation_method == "constant":
             df = self.timeseries.fill_null(strategy="forward")
         else:
             raise NotImplementedError("Unsupported interpolation method, use 'linear' or 'constant'")
@@ -728,7 +862,7 @@ class Timeseries:
         self,
         datetime: str | datetime | pendulum.DateTime,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
-    ) -> dict:
+    ) -> float | None:
         """Return values at the given datetime. If exact match is not found, interpolate.
 
         :param datetime: Datetime to get value for
@@ -739,8 +873,12 @@ class Timeseries:
         :rtype: dict
         """
         if len(self.timeseries) == 0:
-            return {"time": datetime, "value": None}
-        df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).get_data(engine="polars")  # type: ignore[assignment]
+            return None
+        dt = self._check_date(datetime, date_format).in_tz(self.timezone)
+        if dt > self.timeseries["time"].max():  # type: ignore[operator]
+            return None
+
+        df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).to_frame(engine="polars")  # type: ignore[assignment]
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
 
@@ -748,11 +886,11 @@ class Timeseries:
             self.set_value(datetime, None, date_format, inplace=False)  # type: ignore[assignment]
             .interpolate(inplace=False)
             .filter(datetime, date_format, inplace=False)
-            .get_data()
+            .to_frame()
         )
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
-        return {"time": datetime, "value": None}
+        return None
 
     def plot(
         self,

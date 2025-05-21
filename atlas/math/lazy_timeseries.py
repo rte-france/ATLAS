@@ -29,7 +29,7 @@ class LazyTimeseries:
 
     def __init__(
         self,
-        timeseries: pl.LazyFrame | LazyTimeseries | Timeseries,
+        timeseries: pl.LazyFrame | LazyTimeseries | Timeseries | None = None,
         timezone: str = "UTC",
         interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
@@ -53,7 +53,7 @@ class LazyTimeseries:
                 }
             )
         elif isinstance(timeseries, LazyTimeseries):
-            self.timeseries = timeseries.get_data()
+            self.timeseries = timeseries.to_frame()
             self.timezone = timeseries.timezone
         elif isinstance(timeseries, Timeseries):
             self.timeseries = timeseries.to_lazy()
@@ -126,7 +126,7 @@ class LazyTimeseries:
             timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
         return cls(timeseries, timezone, interpolation_method)
 
-    def get_data(
+    def to_frame(
         self,
     ) -> pl.LazyFrame:
         """

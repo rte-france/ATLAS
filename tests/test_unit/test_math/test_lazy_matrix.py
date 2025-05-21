@@ -5,6 +5,7 @@ import pytest
 
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
+from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 
 
 @pytest.fixture
@@ -69,7 +70,14 @@ def test_collect_returns_matrix(simple_lazyframe):
     lm = LazyMatrix(simple_lazyframe)
     mat = lm.collect()
     assert isinstance(mat, Matrix)
-    assert mat.matrix.shape == (2, 3)
+    assert mat.shape == (2, 3)
+
+
+def test_collect_returns_scenariomatrix(simple_lazyframe):
+    lm = LazyScenarioMatrix(simple_lazyframe)
+    mat = lm.collect()
+    assert isinstance(mat, ScenarioMatrix)
+    assert mat.shape == (2, 3)
 
 
 def test_from_file_parquet(tmp_path, simple_frame):
