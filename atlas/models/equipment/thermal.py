@@ -68,7 +68,6 @@ class Thermal(Equipment):
     startup_delay_probability: float | None = Field(None, ge=0, le=1)
     startup_duration: float | None = Field(None, ge=0)
 
-    co2_emission_factor: float | None = Field(None, ge=0)
     strategy: ThermalStrategy | None = None
 
     state_sequence: ScenarioMatrix | LazyScenarioMatrix | None = None

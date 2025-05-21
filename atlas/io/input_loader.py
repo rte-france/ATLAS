@@ -266,7 +266,7 @@ class InputLoader:
                     }
                     for obj_string in object_list_string:
                         object_list_instantiated.append(objects_lookup[obj_string])
-
+                    object_dict[attribute] = object_list_instantiated
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)  # type: ignore[return-value]
 
     @classmethod
@@ -382,7 +382,7 @@ class InputLoader:
         raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
 
 
-def get_type_attribute(object_type: str, attribute: str) -> str:
+def get_type_attribute(object_type: str, attribute: str) -> type[BusinessModel]:
     """Get type of attribute for a given object type."""
     if object_type not in cfg.MODEL_MAPPING_NAME:
         raise ValueError(f"Object type {object_type} is not valid.")

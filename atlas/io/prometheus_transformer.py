@@ -111,15 +111,13 @@ class PrometheusToAtlasDataParser:
                                     attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
                                 if attr_name_snake == "equipment":
                                     attrs[attr_name_snake] = self.to_snake_case(attrs[attr_name_snake])
-                                if attr_name_snake == "orders":
-                                    attrs[attr_name_snake] = [
-                                        self.to_snake_case(order) for order in attrs[attr_name_snake]
-                                    ]
                                 logger.debug(f"Scalar attribute: {attr_name_snake} = {attrs[attr_name_snake]}")
                             elif isinstance(val, np.ndarray):
                                 if val.ndim == 1:
                                     if isinstance(list(val)[0], bytes):
                                         val = [v.decode("utf-8") for v in val]
+                                    if attr_name_snake == "orders":
+                                        val = [self.to_snake_case(order) for order in val]
                                     attrs[attr_name_snake] = ":".join(map(str, list(val)))
                                 elif val.ndim == 2:
                                     df = pl.DataFrame({attr_name_snake: val})

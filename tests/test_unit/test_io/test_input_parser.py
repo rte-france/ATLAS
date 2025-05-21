@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import polars as pl
 import pytest
+from pydantic import BaseModel
 
 import atlas.config as cfg
 from atlas.io.input_loader import InputLoader
@@ -16,7 +17,7 @@ from atlas.models.equipment.equipment import Equipment
 
 @pytest.fixture
 def mock_model_mapping():
-    class DummyModel:
+    class DummyModel(BaseModel):
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
             for k, v in kwargs.items():
