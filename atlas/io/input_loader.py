@@ -8,7 +8,6 @@ Module that implements Input Loader
 
 from datetime import datetime
 from pathlib import Path
-from types import UnionType
 from typing import Any, Literal, get_args, get_origin
 
 import pendulum
@@ -23,6 +22,7 @@ from atlas.math.matrix import Matrix
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
+from atlas.typing import get_type_attribute
 
 
 class InputLoader:
@@ -208,7 +208,7 @@ class InputLoader:
                     object_instantiated[key] = pendulum.from_format(value, date_format_input_files).to_datetime_string()
                 elif get_origin(attribute_type) is list and value is not None:
                     inside_type = get_args(attribute_type)[0]
-                    if inside_type in (str, float, int):
+                    if inside_type in (float, int):
                         object_instantiated[key] = list(map(inside_type, value.split(":")))
                     else:
                         object_instantiated[key] = list(map(str, value.split(":")))
@@ -241,7 +241,7 @@ class InputLoader:
         )
         for attribute in object_dict:
             attribute_type = get_type_attribute(object_type, attribute)
-            if attribute_type in cfg.INVERSE_MODEL_MAPPING_NAME:
+            if attribute_type in cfg.INVERSE_MODEL_MAPPING_NAME or attribute == "equipment":
                 if attribute == "equipment":
                     for attr in cfg.EQUIPMENT_MODELS:
                         equipment_lookup = {model.name: model for model in objects_instantiated[attr]}
@@ -380,20 +380,3 @@ class InputLoader:
                 filters=("attribute", attribute_name),
             )
         raise ValueError(f"Invalid matrix_type: {matrix_type}. Must be 'scenario' or 'forecasting'.")
-
-
-def get_type_attribute(object_type: str, attribute: str) -> type[BusinessModel]:
-    """Get type of attribute for a given object type."""
-    if object_type not in cfg.MODEL_MAPPING_NAME:
-        raise ValueError(f"Object type {object_type} is not valid.")
-
-    if attribute not in cfg.MODEL_MAPPING_NAME[object_type].model_fields:
-        raise KeyError(f"The attribute {attribute} is not present in Atlas model object : {object_type}")
-    attribute_type = cfg.MODEL_MAPPING_NAME[object_type].model_fields[attribute].annotation
-
-    if get_origin(attribute_type) is UnionType:
-        model = get_args(attribute_type)[0]
-        if model is None:
-            model = get_args(attribute_type)[1]
-
-    return model
