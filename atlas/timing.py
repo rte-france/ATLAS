@@ -4,6 +4,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from datetime import datetime
+from typing import Annotated
+
+import pendulum
+from pendulum import DateTime
+from pydantic import BeforeValidator
+
+from atlas.config import logger
+
 
 def datetime_to_pendulum(fmt: str) -> str:
     """Convert a datetime format string to a pendulum-compatible format string.
@@ -78,3 +87,25 @@ def pendulum_to_datetime(fmt: str) -> str:
         fmt = fmt.replace(pendulum_token, mapping[pendulum_token])
 
     return fmt
+
+
+def to_pendulum_date(date: str | DateTime | datetime | None) -> DateTime | None:
+    date_format = "DD/MM/YYYY HH:mm:ss"
+    if isinstance(date, str):
+        try:
+            return pendulum.from_format(date, date_format)
+        except ValueError:
+            logger.exception(f"{date} doesn't not match {date_format}")
+            pendulum_date = pendulum.parse(date)
+            if isinstance(pendulum_date, DateTime):
+                return pendulum_date
+            else:
+                logger.exception(f"{date} doesn't not match {date_format}")
+    elif isinstance(date, datetime):
+        return pendulum.instance(date)
+    elif isinstance(date, DateTime):
+        return date
+    return None
+
+
+datetime_type = Annotated[DateTime, BeforeValidator(to_pendulum_date)]

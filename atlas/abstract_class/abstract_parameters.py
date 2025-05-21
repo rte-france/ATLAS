@@ -6,39 +6,12 @@ This file is part of the ATLAS project.
 Module that implements AbstractParameters
 """
 
-from datetime import datetime
-from typing import Annotated, TypeVar
+from typing import TypeVar
 
-import pendulum
-from pendulum import DateTime
-from pydantic import BaseModel, BeforeValidator, model_validator
-from pydantic_extra_types.pendulum_dt import DateTime
+from pydantic import BaseModel, model_validator
 from typing_extensions import Self
 
-from atlas.config import logger
-
-
-def to_pendulum_date(date: str | DateTime | datetime | None) -> DateTime | None:
-    date_format = "DD/MM/YYYY HH:mm:ss"
-    if isinstance(date, str):
-        try:
-            return pendulum.from_format(date, date_format)
-        except ValueError:
-            logger.exception(f"{date} doesn't not match {date_format}")
-            # ValueError is not catch
-            pendulum_date = pendulum.parse(date)
-            if isinstance(pendulum_date, DateTime):
-                return pendulum_date
-            else:
-                logger.exception(f"{date} doesn't not match {date_format}")
-    elif isinstance(date, datetime):
-        return pendulum.instance(date)
-    elif isinstance(date, DateTime):
-        return date
-    return None
-
-
-datetime_type = Annotated[DateTime, BeforeValidator(to_pendulum_date)]
+from atlas.timing import datetime_type
 
 
 class AbstractParameters(BaseModel):
