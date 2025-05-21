@@ -95,7 +95,7 @@ class InputLoader:
         :param date_format_input_files: Date format used in object CSV data.
         :type date_format_input_files: str
         :return: A dictionary mapping object type names to lists of instantiated BusinessModel objects.
-        :rtype: dict[str, list[BusinessModel]]
+        :rtype: dict[str, list[type[BusinessModel]]]
         """
         cfg.logger.debug(f"Loading input from directory: {directory_path}")
         cfg.logger.debug(f"""Parameters -> directory_path: {directory_path}, lazy mode: {lazy}""")
