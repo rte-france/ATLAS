@@ -1,6 +1,12 @@
+from typing import get_args, get_origin
+
 import pytest
 
 import atlas.typing as atlas_typing
+
+
+class DummyReferenced:
+    pass
 
 
 class DummyModel:
@@ -9,6 +15,9 @@ class DummyModel:
         "float_attr": type("Field", (), {"annotation": float}),
         "str_attr": type("Field", (), {"annotation": str}),
         "union_attr": type("Field", (), {"annotation": int | None}),
+        "list_attr": type("Field", (), {"annotation": list[str]}),
+        "referenced_attr": type("Field", (), {"annotation": DummyReferenced}),
+        "list_referenced_attr": type("Field", (), {"annotation": list[DummyReferenced]}),
     }
 
 
@@ -34,8 +43,28 @@ def test_get_type_attribute_str():
 
 def test_get_type_attribute_union():
     result = atlas_typing.get_type_attribute("dummy", "union_attr")
-    # Should return int (the first type in the union)
+
     assert result is int
+
+
+def test_get_type_attribute_list():
+    result = atlas_typing.get_type_attribute("dummy", "list_attr")
+
+    assert get_origin(result) is list
+    assert get_args(result)[0] is str
+
+
+def test_get_type_attribute_referenced():
+    result = atlas_typing.get_type_attribute("dummy", "referenced_attr")
+
+    assert result is DummyReferenced
+
+
+def test_get_type_attribute_list_referenced():
+    result = atlas_typing.get_type_attribute("dummy", "list_referenced_attr")
+
+    assert get_origin(result) is list
+    assert get_args(result)[0] is DummyReferenced
 
 
 def test_get_type_attribute_invalid_object_type():
