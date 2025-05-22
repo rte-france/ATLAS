@@ -241,8 +241,8 @@ class InputLoader:
         )
         for attribute in object_dict:
             attribute_type = get_type_attribute(object_type, attribute)
-            if attribute_type in cfg.INVERSE_MODEL_MAPPING_NAME or attribute == "equipment":
-                if attribute == "equipment":
+            if attribute_type in cfg.INVERSE_MODEL_MAPPING_NAME:
+                if attribute_type is cfg.MODEL_MAPPING_NAME["equipment"]:
                     for attr in cfg.EQUIPMENT_MODELS:
                         equipment_lookup = {model.name: model for model in objects_instantiated[attr]}
                         name = object_dict["equipment"]
@@ -253,7 +253,7 @@ class InputLoader:
                     name = object_dict[attribute]
                     objects_lookup = {
                         model.name: model
-                        for model in objects_instantiated[cfg.INVERSE_MODEL_MAPPING_NAME[attribute_type]]
+                        for model in objects_instantiated[cfg.INVERSE_MODEL_MAPPING_NAME[attribute_type]]  # type: ignore[index]
                     }
                     object_dict[attribute] = objects_lookup[name]
             elif get_origin(attribute_type) is list:

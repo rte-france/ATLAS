@@ -11,7 +11,7 @@ import atlas.config as cfg
 from atlas.models.business_model import BusinessModel
 
 
-def get_type_attribute(object_type: str, attribute: str) -> type[BusinessModel]:
+def get_type_attribute(object_type: str, attribute: str) -> type[BusinessModel] | str | int | float | None:
     """Get type of attribute for a given object type."""
     if object_type not in cfg.MODEL_MAPPING_NAME:
         raise ValueError(f"Object type {object_type} is not valid.")
