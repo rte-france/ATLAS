@@ -8,8 +8,15 @@ import polars as pl
 
 from atlas.config import logger
 
-MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
-NAME_MAPPING = {"Baseload": "BaseLoad", "is_v2_g": "is_v2g", "is_sell": "order_type"}
+MAPPING_OBJECTS_TO_ATLAS = {
+    "hydraulic": "hydro",
+    "thermic": "thermal",
+    "photovoltaic": "solar",
+}
+NAME_MAPPING = {
+    "Baseload": "BaseLoad",
+    "is_v2_g": "is_v2g",
+}
 
 
 class PrometheusToAtlasDataParser:
