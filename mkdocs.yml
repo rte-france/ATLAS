@@ -108,6 +108,7 @@ nav:
       - LazyMatrix: api/math/lazy_matrix.md
     - I/O:
       - Input Loader: api/io/input_loader.md
+      - Parameters: api/io/parameters.md
     - Models:
       - Equipement: api/models/equipment.md
       - Market: api/models/market.md
