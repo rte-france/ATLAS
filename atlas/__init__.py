@@ -1,5 +1,4 @@
 from atlas.io.input_loader import InputLoader
-from atlas.io.parameters import Parameters, ParametersParser
 from atlas.logging import Logger
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
