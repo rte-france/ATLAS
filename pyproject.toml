@@ -87,7 +87,7 @@ docs = [
 url = "https://pypi.org/simple/"
 
 [tool.mypy]
-exclude = ["atlas/io/transform_dataset.py", 'atlas/io/promethus_transformer.py']
+exclude = ["atlas/io/transform_dataset.py", 'atlas/io/prometheus_transformer.py']
 
 python_version = "3.10"
 strict = false
@@ -101,5 +101,4 @@ no_implicit_optional = false
 
 [tool.coverage.run]
 omit = ['atlas/io/transform_dataset.py',
-        'atlas/io/promethus_transformer.py',
-        'atlas/timing.py']
+        'atlas/io/prometheus_transformer.py']

@@ -296,8 +296,6 @@ class InputLoader:
             return pl.read_csv(file_path, separator=separator)
         if file_extension == ".parquet":
             return pl.read_parquet(file_path)
-        if file_extension == ".json":
-            return pl.read_json(file_path)
 
         raise NotImplementedError("File extension has to be csv, parquet or json")
 
