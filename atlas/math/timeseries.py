@@ -22,7 +22,7 @@ import plotly.graph_objects
 import polars as pl
 import pytz
 
-from atlas.timing import parse_frequency
+from atlas.timing import build_datetime
 
 
 class Timeseries:
@@ -50,11 +50,12 @@ class Timeseries:
         self._check_timezone(timezone)
         self._check_interpolation_method(interpolation_method)
 
+        self.interpolation_method: Literal["constant", "linear"] = interpolation_method
+        self.timezone: str = timezone
+
         self._check_timeseries(timeseries)
         self._set_timeseries(timeseries, timezone)
 
-        self.interpolation_method: Literal["constant", "linear"] = interpolation_method
-        self.timezone: str = timezone
         self.frequency: pendulum.Duration | None = self._infer_frequency()
 
     @classmethod
@@ -459,7 +460,7 @@ class Timeseries:
         :return: The Timeseries with new indexes.
         :rtype: Timeseries
         """
-        index = [self._check_date(i, date_format=date_format).in_tz(self.timezone) for i in index]
+        index = [build_datetime(i, date_format=date_format).in_tz(self.timezone) for i in index]
 
         new_df = pl.DataFrame({"time": index, "value": [None] * len(index)}).with_columns(
             pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone))
@@ -551,7 +552,7 @@ class Timeseries:
         :return: Timeseries with the added value
         :rtype: Timeseries
         """
-        dt: pendulum.DateTime = self._check_date(time, date_format).in_tz(self.timezone)
+        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
         if len(self.timeseries) == 0:
             df = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
@@ -573,73 +574,10 @@ class Timeseries:
 
         if inplace:
             self.timeseries = df
+            self.frequency = self._infer_frequency()
             return self
 
         return Timeseries(df, self.timezone)
-
-    @classmethod
-    def generate_datetimes(
-        cls,
-        start: str | datetime,
-        end: str | datetime,
-        freq: str | pendulum.Duration,
-        timezone: str = "UTC",
-        date_format: str = "YYYY-MM-DD HH:mm:ss z",
-    ) -> list[pendulum.DateTime]:
-        """
-        Generate a list of datetimes using pendulum.
-
-        :param start: Start datetime
-        :type start: datetime or str
-        :param end: End datetime
-        :type end: datetime or str
-        :param freq: Frequency (e.g. "1h", "15m", "1d", "1w2d3h30m")
-        :type freq: str
-        :param timezone: Timezone string, defaults to "UTC"
-        :type timezone: str, optional
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
-        :type date_format: str, optional
-        :return: List of datetime objects
-        :rtype: List[pendulum.DateTime]
-        """
-        start_date: pendulum.DateTime = cls._check_date(start, date_format)
-        end_date: pendulum.DateTime = cls._check_date(end, date_format)
-
-        start_date = start_date.in_tz(timezone)
-        end_date = end_date.in_tz(timezone)
-
-        if isinstance(freq, str):
-            step = parse_frequency(freq)
-        elif isinstance(freq, pendulum.Duration):
-            step = freq
-        else:
-            raise ValueError("Frequency must be a string or a pendulum.Duration")
-        return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
-
-    @staticmethod
-    def _check_date(
-        time: str | datetime | pendulum.DateTime, date_format: str = "YYYY-MM-DD HH:mm:ss z"
-    ) -> pendulum.DateTime:
-        """Check if the date is valid.
-
-        :param time: datetime to check
-        :type time: datetime or str
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
-        :type date_format: str, optional
-        :raises TypeError: If the time is not a string or a datetime object
-        :raises ValueError: If the time can't be converted
-        :return: The date given
-        :rtype: pendulum.DateTime
-        """
-        try:
-            dt: pendulum.DateTime = (
-                pendulum.from_format(time, fmt=date_format) if isinstance(time, str) else pendulum.instance(time)
-            )
-            if not isinstance(dt, pendulum.DateTime):
-                raise TypeError("Time input must be a valid datetime object or string")
-            return dt  # noqa: TRY300
-        except Exception as e:
-            raise ValueError(f"Invalid date format: {time}") from e
 
     def upsample(
         self,
@@ -905,11 +843,11 @@ class Timeseries:
         """
         if len(self.timeseries) == 0:
             return None
-        dt = self._check_date(datetime, date_format).in_tz(self.timezone)
+        dt = build_datetime(datetime, date_format).in_tz(self.timezone)
         if dt > self.timeseries["time"].max():  # type: ignore[operator]
             return None
 
-        df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).to_frame(engine="polars")  # type: ignore[assignment]
+        df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).dataframe
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
 

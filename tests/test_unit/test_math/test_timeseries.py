@@ -10,6 +10,7 @@ import tempfile
 from datetime import datetime, timedelta
 
 import pandas as pd
+import pendulum
 import polars as pl
 import pytest
 from pendulum import Timezone
@@ -372,22 +373,19 @@ class TestTimeseriesBasicOperations:
             datetime(2024, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
         ]
         assert ts.to_frame()["value"].to_list() == [10, 99]
+        assert ts.timestep == pendulum.duration(hours=1)
 
-    def test_generate_datetimes(self):
-        """Test static method to generate datetime range."""
-        start = datetime(2023, 1, 1, 0, 0)
-        end = datetime(2023, 1, 1, 6, 0)
-        step = "2h"
+    def test_set_value_invalid_frequence(self, sample_ts):
+        ts = Timeseries()
 
-        result = Timeseries.generate_datetimes(start=start, end=end, freq=step)
-        expected = [
-            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 4, 0, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 6, 0, tzinfo=Timezone("UTC")),
-        ]
+        # Insert new values
+        ts.set_value("2024-01-01 00:00:00", 10, "YYYY-MM-DD HH:mm:ss")
+        ts.set_value("2024-01-01 01:00:00", 20, "YYYY-MM-DD HH:mm:ss")
 
-        assert result == expected
+        assert ts.timestep == pendulum.duration(hours=1)
+
+        with pytest.raises(ValueError):
+            ts.set_value("2024-01-01 01:30:00", 30, "YYYY-MM-DD HH:mm:ss")
 
     def test_arithmetic_operations_with_invalid_types(self, sample_ts):
         """Test arithmetic operations with invalid types."""
@@ -456,28 +454,6 @@ class TestTimeseriesBasicOperations:
         assert isinstance(lazy_frame, pl.LazyFrame)
         assert lazy_frame.collect().equals(sample_ts.to_frame())
 
-    def test_generate_datetimes_with_different_freq(self):
-        """Test generating datetimes with different frequencies."""
-        # Test minute frequency
-        start = datetime(2023, 1, 1, 0, 0)
-        end = datetime(2023, 1, 1, 0, 10)
-        result_minutes = Timeseries.generate_datetimes(start, end, freq="5m")
-        assert len(result_minutes) == 3  # 0:00, 0:05, 0:10
-
-        # Test daily frequency
-        start = datetime(2023, 1, 1)
-        end = datetime(2023, 1, 5)
-        result_days = Timeseries.generate_datetimes(start, end, freq="1d")
-        assert len(result_days) == 5  # 1st, 2nd, 3rd, 4th, 5th
-
-    def test_generate_datetimes_invalid_freq(self):
-        """Test generating datetimes with an invalid frequency."""
-        start = datetime(2023, 1, 1)
-        end = datetime(2023, 1, 5)
-
-        with pytest.raises(ValueError):
-            Timeseries.generate_datetimes(start, end, freq="1y")  # Unsupported frequency
-
     def test_set_interpolation_method(self, sample_ts):
         """Test setting interpolation method."""
         # Initial method should be 'constant'
@@ -533,7 +509,6 @@ class TestTimeseriesBasicOperations:
         # Time between two existing points
         value = sample_ts.get_value(datetime(2023, 1, 1, 1, 30, 0))
 
-        # Should interpolate (since interpolation method is 'constant')
         assert value == 20.0
 
     def test_get_value_with_outside_time(self, sample_ts):
@@ -552,7 +527,7 @@ class TestTimeseriesBasicOperations:
 
     def test_reset_index(self, sample_ts: Timeseries):
         """Test resetting the index with datetime and string inputs."""
-        # Prepare new datetime index: a mix of datetime and string
+
         new_index = [
             datetime(2023, 1, 1, 0, 30),  # datetime object
             "2023-01-01 01:30:00",  # string

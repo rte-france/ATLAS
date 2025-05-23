@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import re
+from datetime import datetime
 
 import pendulum
 
@@ -121,3 +122,43 @@ def parse_frequency(freq: str) -> pendulum.Duration:
         duration_kwargs[key] = duration_kwargs.get(key, 0) + int(value)
 
     return pendulum.duration(**duration_kwargs)
+
+
+def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-DD HH:mm:ss") -> pendulum.DateTime:
+    """Converts a datetime string or object to pendulum datetime"""
+    return pendulum.from_format(dt, date_format) if isinstance(dt, str) else pendulum.instance(dt)
+
+
+def generate_datetimes(
+    start: str | datetime,
+    end: str | datetime,
+    freq: str | pendulum.Duration,
+    timezone: str = "UTC",
+    date_format: str = "YYYY-MM-DD HH:mm:ss z",
+) -> list[pendulum.DateTime]:
+    """
+    Generate a list of datetimes using pendulum.
+
+    :param start: Start datetime
+    :type start: datetime or str
+    :param end: End datetime
+    :type end: datetime or str
+    :param freq: Frequency (e.g. "1h", "15m", "1d", "1w2d3h30m")
+    :type freq: str
+    :param timezone: Timezone string, defaults to "UTC"
+    :type timezone: str, optional
+    :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+    :type date_format: str, optional
+    :return: List of datetime objects
+    :rtype: List[pendulum.DateTime]
+    """
+    start_date: pendulum.DateTime = build_datetime(start, date_format).in_tz(timezone)
+    end_date: pendulum.DateTime = build_datetime(end, date_format).in_tz(timezone)
+
+    if isinstance(freq, str):
+        step = parse_frequency(freq)
+    elif isinstance(freq, pendulum.Duration):
+        step = freq
+    else:
+        raise ValueError("Frequency must be a string or a pendulum.Duration")
+    return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
