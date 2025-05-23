@@ -56,7 +56,7 @@ class Timeseries:
         self._check_timeseries(timeseries)
         self._set_timeseries(timeseries, timezone)
 
-        self.frequency: pendulum.Duration | None = self._infer_frequency()
+        self.frequency: pendulum.Duration = self._infer_frequency()
 
     @classmethod
     def from_file(
@@ -209,7 +209,7 @@ class Timeseries:
 
             self.sort()
 
-    def _infer_frequency(self) -> pendulum.Duration | None:
+    def _infer_frequency(self) -> pendulum.Duration:
         """
         Infer the frequency (timestep) as a pendulum.Duration.
         Returns None if the timeseries is empty or has only one timestamp.
@@ -217,7 +217,7 @@ class Timeseries:
         """
         times = self.timeseries.select("time").to_series().to_list()
         if len(times) < 2:
-            return None
+            return pendulum.duration()
 
         times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
         deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
@@ -242,7 +242,7 @@ class Timeseries:
         """
         if isinstance(other, Timeseries):
             other = other.dataframe
-            return self.timeseries.equals(other)  # type: ignore[arg-type]
+            return self.timeseries.equals(other)
         raise TypeError("Comparison with non-Timeseries objects is not supported")
 
     def __len__(self) -> int:
@@ -265,8 +265,9 @@ class Timeseries:
         elif isinstance(other, Timeseries):
             if self.frequency < other.frequency:
                 other.upsample(self.frequency)
-            else:
+            elif self.frequency > other.frequency:
                 self.upsample(other.frequency)
+
             df = (
                 self._join(
                     other=other,
@@ -293,7 +294,7 @@ class Timeseries:
         elif isinstance(other, Timeseries):
             if self.frequency < other.frequency:
                 other.upsample(self.frequency)
-            else:
+            elif self.frequency > other.frequency:
                 self.upsample(other.frequency)
 
             df = (
@@ -322,7 +323,7 @@ class Timeseries:
         elif isinstance(other, Timeseries):
             if self.frequency < other.frequency:
                 other.upsample(self.frequency)
-            else:
+            elif self.frequency > other.frequency:
                 self.upsample(other.frequency)
             df = (
                 self._join(
@@ -352,7 +353,7 @@ class Timeseries:
         elif isinstance(other, Timeseries):
             if self.frequency < other.frequency:
                 other.upsample(self.frequency)
-            else:
+            elif self.frequency > other.frequency:
                 self.upsample(other.frequency)
             df = (
                 self._join(
@@ -470,7 +471,7 @@ class Timeseries:
                 interpolation_method=self.interpolation_method,
             )
             .interpolate()
-            .filter(index)  # type: ignore[arg-type]
+            .filter(index)
             .dataframe
         )
 
@@ -725,7 +726,7 @@ class Timeseries:
 
     def filter(
         self,
-        item: list[datetime] | datetime | pendulum.DateTime | str,
+        item: list[datetime | pendulum.DateTime | str] | datetime | pendulum.DateTime | str,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> Timeseries:
