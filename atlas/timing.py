@@ -4,6 +4,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import re
+
+import pendulum
+
 
 def datetime_to_pendulum(fmt: str) -> str:
     """Convert a datetime format string to a pendulum-compatible format string.
@@ -78,3 +82,42 @@ def pendulum_to_datetime(fmt: str) -> str:
         fmt = fmt.replace(pendulum_token, mapping[pendulum_token])
 
     return fmt
+
+
+def parse_frequency(freq: str) -> pendulum.Duration:
+    """
+    Parse a frequency string like '15m', '1h', or '1d30m' into a pendulum Duration object.
+
+    :param freq: Frequency string to convert (e.g., '1d30m', '2h15m10s')
+    :type freq: str
+    :raises ValueError: If the frequency contains unsupported units or is malformed
+    :return: A pendulum Duration object representing the frequency
+    :rtype: pendulum.Duration
+    """
+    # Map short unit suffixes to pendulum duration keyword arguments
+    unit_map = {
+        "y": "years",
+        "M": "months",
+        "w": "weeks",
+        "d": "days",
+        "h": "hours",
+        "m": "minutes",
+        "s": "seconds",
+        "ms": "milliseconds",
+        "us": "microseconds",
+    }
+
+    pattern = re.compile(r"(\d+)(ms|us|[yMwdhms])")
+    matches = pattern.findall(freq)
+
+    if not matches:
+        raise ValueError(f"Unsupported or malformed frequency string: {freq}")
+
+    duration_kwargs = {}
+    for value, unit in matches:
+        key = unit_map.get(unit)
+        if not key:
+            raise ValueError(f"Unsupported unit in frequency string: {unit}")
+        duration_kwargs[key] = duration_kwargs.get(key, 0) + int(value)
+
+    return pendulum.duration(**duration_kwargs)

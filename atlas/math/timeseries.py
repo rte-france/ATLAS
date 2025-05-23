@@ -22,6 +22,8 @@ import plotly.graph_objects
 import polars as pl
 import pytz
 
+from atlas.timing import parse_frequency
+
 
 class Timeseries:
     """
@@ -48,10 +50,12 @@ class Timeseries:
         self._check_timezone(timezone)
         self._check_interpolation_method(interpolation_method)
 
-        self.interpolation_method: Literal["constant", "linear"] = interpolation_method
-        self.timezone: str = timezone
         self._check_timeseries(timeseries)
         self._set_timeseries(timeseries, timezone)
+
+        self.interpolation_method: Literal["constant", "linear"] = interpolation_method
+        self.timezone: str = timezone
+        self.frequency: pendulum.Duration | None = self._infer_frequency()
 
     @classmethod
     def from_file(
@@ -204,6 +208,23 @@ class Timeseries:
 
             self.sort()
 
+    def _infer_frequency(self) -> pendulum.Duration | None:
+        """
+        Infer the frequency (timestep) as a pendulum.Duration.
+        Returns None if the timeseries is empty or has only one timestamp.
+        Raises ValueError if the index is not regular.
+        """
+        times = self.timeseries.select("time").to_series().to_list()
+        if len(times) < 2:
+            return None
+
+        times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
+        deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
+        first_delta = deltas[0]
+        if not all(d == first_delta for d in deltas):
+            raise ValueError("Timeseries datetime index is not regular. Cannot infer frequency.")
+        return pendulum.duration(seconds=first_delta)
+
     def __repr__(self):
         """Provide a string representation of the Timeseries object."""
         return f"Timeseries : {self.timeseries}"
@@ -241,6 +262,10 @@ class Timeseries:
         if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
         elif isinstance(other, Timeseries):
+            if self.frequency < other.frequency:
+                other.upsample(self.frequency)
+            else:
+                self.upsample(other.frequency)
             df = (
                 self._join(
                     other=other,
@@ -265,6 +290,11 @@ class Timeseries:
         if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
         elif isinstance(other, Timeseries):
+            if self.frequency < other.frequency:
+                other.upsample(self.frequency)
+            else:
+                self.upsample(other.frequency)
+
             df = (
                 self._join(
                     other=other,
@@ -289,6 +319,10 @@ class Timeseries:
         if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
         elif isinstance(other, Timeseries):
+            if self.frequency < other.frequency:
+                other.upsample(self.frequency)
+            else:
+                self.upsample(other.frequency)
             df = (
                 self._join(
                     other=other,
@@ -315,6 +349,10 @@ class Timeseries:
                 raise ZeroDivisionError("Division by zero is not allowed")
             df = self.timeseries.with_columns(pl.selectors.numeric().truediv(other))
         elif isinstance(other, Timeseries):
+            if self.frequency < other.frequency:
+                other.upsample(self.frequency)
+            else:
+                self.upsample(other.frequency)
             df = (
                 self._join(
                     other=other,
@@ -343,6 +381,11 @@ class Timeseries:
     def index(self) -> list[datetime]:
         """Returns the Timeseries indexes"""
         return self.timeseries.select("time").to_series().to_list()
+
+    @property
+    def timestep(self) -> pendulum.Duration | None:
+        """Return the frequency string of the timeseries index."""
+        return self.frequency
 
     def remove_na(self, inplace: bool = True) -> Timeseries:
         """
@@ -539,7 +582,7 @@ class Timeseries:
         cls,
         start: str | datetime,
         end: str | datetime,
-        freq: str,
+        freq: str | pendulum.Duration,
         timezone: str = "UTC",
         date_format: str = "YYYY-MM-DD HH:mm:ss z",
     ) -> list[pendulum.DateTime]:
@@ -550,7 +593,7 @@ class Timeseries:
         :type start: datetime or str
         :param end: End datetime
         :type end: datetime or str
-        :param freq: Frequency (e.g. "1h", "15m", "1d")
+        :param freq: Frequency (e.g. "1h", "15m", "1d", "1w2d3h30m")
         :type freq: str
         :param timezone: Timezone string, defaults to "UTC"
         :type timezone: str, optional
@@ -565,7 +608,12 @@ class Timeseries:
         start_date = start_date.in_tz(timezone)
         end_date = end_date.in_tz(timezone)
 
-        step = pendulum.duration(**Timeseries._parse_freq(freq))
+        if isinstance(freq, str):
+            step = parse_frequency(freq)
+        elif isinstance(freq, pendulum.Duration):
+            step = freq
+        else:
+            raise ValueError("Frequency must be a string or a pendulum.Duration")
         return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
 
     @staticmethod
@@ -593,27 +641,9 @@ class Timeseries:
         except Exception as e:
             raise ValueError(f"Invalid date format: {time}") from e
 
-    @staticmethod
-    def _parse_freq(freq: str) -> dict:
-        """Parse a freq string like '15m' or '1h' into pendulum duration kwargs.
-
-        :param freq: frequency to convert"
-        :type freq: str
-        :raises ValueError: If the frequency is not supported
-        :return: The frequency with days, hours, minutes has keys
-        :rtype: Dict
-        """
-        if freq.endswith("m"):
-            return {"minutes": int(freq[:-1])}
-        if freq.endswith("h"):
-            return {"hours": int(freq[:-1])}
-        if freq.endswith("d"):
-            return {"days": int(freq[:-1])}
-        raise ValueError(f"Unsupported frequency: {freq}")
-
     def upsample(
         self,
-        frequency: str,
+        frequency: str | pendulum.Duration,
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -622,7 +652,7 @@ class Timeseries:
         Fills in missing timestamps by interpolating or forward-filling values.
 
         :param frequency: Frequency string (e.g., "15m", "1h") defining the new time resolution
-        :type frequency: str
+        :type frequency: str | pendulum.Duration
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         :param strategy: Method to fill missing values: "linear" for interpolation, "constant" for forward fill
@@ -631,6 +661,7 @@ class Timeseries:
         :return: Upsampled Timeseries
         :rtype: Timeseries
         """
+
         if self.interpolation_method == "linear":
             df = (
                 self.timeseries.upsample(time_column="time", every=frequency)
