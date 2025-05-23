@@ -563,6 +563,13 @@ class TestTimeseriesBasicOperations:
         expected_shape = (4, 2)  # Assuming sample_ts has 4 rows and 2 columns (time + one value)
         assert shape == expected_shape, f"Expected shape {expected_shape}, got {shape}"
 
+    def test_properties_frquency(self, sample_ts: Timeseries):
+        """Test the shape and index properties of Timeseries."""
+        # Test shape
+        freq = sample_ts.frequency
+
+        assert freq == pendulum.duration(hours=1), f"Expected shape {pendulum.duration(hours=1)}, got {freq}"
+
     def test_properties_index(self, sample_ts: Timeseries):
         # Test index
         index = sample_ts.index

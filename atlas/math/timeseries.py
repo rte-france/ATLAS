@@ -112,7 +112,7 @@ class Timeseries:
         if isinstance(timeseries, pd.DataFrame):
             df = pl.DataFrame(timeseries)
         elif isinstance(timeseries, Timeseries):
-            df = timeseries.to_frame("polars")  # type: ignore[assignment]
+            df = timeseries.dataframe  # type: ignore[assignment]
         elif isinstance(timeseries, pl.DataFrame):
             df = timeseries
         elif isinstance(timeseries, str) | isinstance(timeseries, Path):
@@ -193,7 +193,7 @@ class Timeseries:
             )
 
         elif isinstance(timeseries, Timeseries):
-            self.timeseries = timeseries.to_frame(engine="polars")  # type: ignore[assignment]
+            self.timeseries = timeseries.dataframe  # type: ignore[assignment]
         else:
             try:
                 df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
@@ -241,7 +241,7 @@ class Timeseries:
         :rtype: bool
         """
         if isinstance(other, Timeseries):
-            other = other.to_frame(engine="polars")
+            other = other.dataframe
             return self.timeseries.equals(other)  # type: ignore[arg-type]
         raise TypeError("Comparison with non-Timeseries objects is not supported")
 
@@ -398,10 +398,7 @@ class Timeseries:
         :rtype: Timeseries
         """
         df = self.timeseries.drop_nulls()
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
+        return self._return_inplace(df, inplace)
 
     def to_frame(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame | pd.DataFrame:
         """
@@ -477,10 +474,7 @@ class Timeseries:
             .dataframe
         )
 
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
+        return self._return_inplace(df, inplace)
 
     def _get_shape(self) -> tuple[int, int]:
         """Return (rows, columns) of the underlying Polars DataFrame."""
@@ -513,7 +507,7 @@ class Timeseries:
     def sort(
         self,
         inplace: bool = True,
-        descending: bool | list[bool] = False,
+        descending: bool = False,
     ) -> Timeseries:
         """
         Sort the Timeseries by the given variable(s).
@@ -521,15 +515,12 @@ class Timeseries:
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         :param descending: Sort in descending order, defaults to False
-        :type descending: bool or list[bool], optional
+        :type descending: bool, optional
         :return: Sorted Timeseries
         :rtype: Timeseries
         """
         df = self.timeseries.sort("time", descending=descending)
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
+        return self._return_inplace(df, inplace)
 
     def set_value(
         self,
@@ -572,12 +563,7 @@ class Timeseries:
         )
         df = pl.concat([df, new_row]).sort("time")
 
-        if inplace:
-            self.timeseries = df
-            self.frequency = self._infer_frequency()
-            return self
-
-        return Timeseries(df, self.timezone)
+        return self._return_inplace(df, inplace)
 
     def upsample(
         self,
@@ -616,10 +602,7 @@ class Timeseries:
                 .sort("time")
             )
 
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
+        return self._return_inplace(df, inplace)
 
     def groupby(
         self,
@@ -660,10 +643,7 @@ class Timeseries:
         else:
             raise NotImplementedError("Unsupported aggregation function")
 
-        if inplace:
-            self.timeseries = df.sort("time")
-            return self
-        return Timeseries(df, self.timezone)
+        return self._return_inplace(df, inplace)
 
     def remove_duplicated(
         self,
@@ -681,10 +661,7 @@ class Timeseries:
         :rtype: Timeseries
         """
         df = self.timeseries.unique(subset=variables, maintain_order=True)
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
+        return self._return_inplace(df, inplace)
 
     def _join(
         self,
@@ -779,10 +756,7 @@ class Timeseries:
         else:
             raise NotImplementedError("Invalid filter formatting")
 
-        if inplace:
-            self.timeseries = df
-            return self
-        return Timeseries(df, self.timezone)
+        return self._return_inplace(df, inplace)
 
     def max(self) -> float | None:
         """Return the max value in the 'value' column.
@@ -821,11 +795,8 @@ class Timeseries:
             df = self.timeseries.fill_null(strategy="forward")
         else:
             raise NotImplementedError("Unsupported interpolation method, use 'linear' or 'constant'")
-        if inplace:
-            self.timeseries = df
-            return self
 
-        return Timeseries(df, self.timezone)
+        return self._return_inplace(df, inplace)
 
     def get_value(
         self,
@@ -855,7 +826,7 @@ class Timeseries:
             self.set_value(datetime, None, date_format, inplace=False)  # type: ignore[assignment]
             .interpolate(inplace=False)
             .filter(datetime, date_format, inplace=False)
-            .to_frame()
+            .dataframe
         )
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
@@ -918,3 +889,16 @@ class Timeseries:
         )
 
         return fig
+
+    def _return_inplace(self, df: pl.DataFrame, inplace: bool) -> Timeseries:
+        """
+        Return the Timeseries object itself or modify existing.
+
+        :return: The Timeseries object
+        :rtype: Timeseries
+        """
+        if inplace:
+            self.timeseries = df.sort("time")
+            self.frequency = self._infer_frequency()
+            return self
+        return Timeseries(df, self.timezone)
