@@ -1,9 +1,48 @@
 from datetime import datetime
 
 import pendulum
+import polars as pl
 import pytest
 
-from atlas.timing import build_datetime, generate_datetimes, parse_frequency
+from atlas.timing import build_datetime, generate_datetimes, infer_frequency, parse_frequency
+
+
+def test_infer_frequency_regular_hourly():
+    times = [pendulum.datetime(2025, 1, 1, hour) for hour in range(5)]
+    df = pl.DataFrame({"time": times, "value": [1, 2, 3, 4, 5]})
+    freq = infer_frequency(df)
+    assert freq == pendulum.duration(hours=1)
+
+
+def test_infer_frequency_regular_minutes():
+    times = [pendulum.datetime(2025, 1, 1, 0, m) for m in range(0, 60, 15)]
+    df = pl.DataFrame({"time": times, "value": [1, 2, 3, 4]})
+    freq = infer_frequency(df)
+    assert freq == pendulum.duration(minutes=15)
+
+
+def test_infer_frequency_irregular_raises():
+    times = [
+        pendulum.datetime(2025, 1, 1, 0, 0),
+        pendulum.datetime(2025, 1, 1, 0, 10),
+        pendulum.datetime(2025, 1, 1, 0, 25),
+    ]
+    df = pl.DataFrame({"time": times, "value": [1, 2, 3]})
+    with pytest.raises(ValueError):
+        infer_frequency(df)
+
+
+def test_infer_frequency_single_row():
+    times = [pendulum.datetime(2025, 1, 1, 0, 0)]
+    df = pl.DataFrame({"time": times, "value": [1]})
+    freq = infer_frequency(df)
+    assert freq == pendulum.duration()
+
+
+def test_infer_frequency_empty():
+    df = pl.DataFrame({"time": [], "value": []})
+    freq = infer_frequency(df)
+    assert freq == pendulum.duration()
 
 
 def test_build_datetime_from_string():

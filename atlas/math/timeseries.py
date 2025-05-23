@@ -22,7 +22,7 @@ import plotly.graph_objects
 import polars as pl
 import pytz
 
-from atlas.timing import build_datetime
+from atlas.timing import build_datetime, infer_frequency
 
 
 class Timeseries:
@@ -56,7 +56,7 @@ class Timeseries:
         self._check_timeseries(timeseries)
         self._set_timeseries(timeseries, timezone)
 
-        self.frequency: pendulum.Duration = self._infer_frequency()
+        self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
 
     @classmethod
     def from_file(
@@ -208,23 +208,6 @@ class Timeseries:
             )
 
             self.sort()
-
-    def _infer_frequency(self) -> pendulum.Duration:
-        """
-        Infer the frequency (timestep) as a pendulum.Duration.
-        Returns None if the timeseries is empty or has only one timestamp.
-        Raises ValueError if the index is not regular.
-        """
-        times = self.timeseries.select("time").to_series().to_list()
-        if len(times) < 2:
-            return pendulum.duration()
-
-        times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
-        deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
-        first_delta = deltas[0]
-        if not all(d == first_delta for d in deltas):
-            raise ValueError("Timeseries datetime index is not regular. Cannot infer frequency.")
-        return pendulum.duration(seconds=first_delta)
 
     def __repr__(self):
         """Provide a string representation of the Timeseries object."""
@@ -900,6 +883,6 @@ class Timeseries:
         """
         if inplace:
             self.timeseries = df.sort("time")
-            self.frequency = self._infer_frequency()
+            self.frequency = infer_frequency()
             return self
         return Timeseries(df, self.timezone)

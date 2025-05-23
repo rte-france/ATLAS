@@ -8,6 +8,7 @@ import re
 from datetime import datetime
 
 import pendulum
+import polars as pl
 
 
 def datetime_to_pendulum(fmt: str) -> str:
@@ -162,3 +163,21 @@ def generate_datetimes(
     else:
         raise ValueError("Frequency must be a string or a pendulum.Duration")
     return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
+
+
+def infer_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
+    """
+    Infer the frequency (timestep) as a pendulum.Duration.
+    Returns None if the timeseries is empty or has only one timestamp.
+    Raises ValueError if the index is not regular.
+    """
+    times = timeseries.select("time").to_series().to_list()
+    if len(times) < 2:
+        return pendulum.duration()
+
+    times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
+    deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
+    first_delta = deltas[0]
+    if not all(d == first_delta for d in deltas):
+        raise ValueError("Timeseries datetime index is not regular. Cannot infer frequency.")
+    return pendulum.duration(seconds=first_delta)
