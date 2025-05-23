@@ -1,5 +1,6 @@
 from atlas.io.input_loader import InputLoader
 from atlas.io.parameters import Parameters, ParametersParser
+from atlas.io.utils import get_metadata_from_file, get_metadata_from_frame
 from atlas.logging import Logger
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
@@ -48,8 +49,15 @@ __all__ = [
     "Load",
     "MarketArea",
     "MarketAreaPtdf",
+    "LazyMatrix",
     "MarketBorder",
     "Node",
+    "InputLoader",
+    "Logger",
+    "Parameters",
+    "ParametersParser",
+    "get_metadata_from_file",
+    "get_metadata_from_frame",
     "NodePtdf",
     "Order",
     "OrderCoupling",
