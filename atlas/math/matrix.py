@@ -14,12 +14,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
-import pendulum
 import plotly.graph_objects as go
 import polars as pl
 import pytz
 
-from atlas.io.utils import read_data_file
+from atlas.io.utils import get_metadata_from_frame, read_data_file
 from atlas.math.timeseries import Timeseries
 
 
@@ -46,66 +45,14 @@ class Matrix:
         """Provide a string representation of the Matrix object."""
         return f"Matrix : {self.matrix}"
 
-    @classmethod
-    def describe(
-        cls, matrix: str | Path | pd.DataFrame | pl.DataFrame | Matrix, separator: str = ";"
-    ) -> dict[str, Any]:
+    def describe(self) -> dict[str, Any]:
         """
-        Get metadata about the matrix.
+        Get metadata about the Matrix.
 
-        :param matrix: DataFrame or file path containing the matrix data.
-        :type matrix: pd.DataFrame | pl.DataFrame | Matrix
         :return: A dictionnary containing matrix metadata
         :rtype: dict[str, Any]
         """
-        if isinstance(matrix, pd.DataFrame):
-            df = pl.DataFrame(matrix)
-        elif isinstance(matrix, Matrix):
-            df = matrix.get_matrix()
-        elif isinstance(matrix, str) | isinstance(matrix, Path):
-            file_path = Path(matrix)  # type: ignore[arg-type]
-            df = read_data_file(file_path)
-        elif isinstance(matrix, pl.DataFrame):
-            df = matrix
-        else:
-            raise NotImplementedError("Can't parse input data. Provide a dataframe or a Matrix")
-
-        summary = {
-            "shape": df.shape,
-            "memory_mb": f"{df.estimated_size('mb'):.02f}",
-        }
-
-        datetime_cols = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
-        string_cols = df.select(pl.selectors.string()).columns
-        numeric_cols = df.select(pl.selectors.numeric()).columns
-
-        if len(datetime_cols) == 1:
-            dt_col = datetime_cols[0]
-            dt_series = df[dt_col]
-            summary["datetime"] = {  # type: ignore[assignment]
-                "column": dt_col,
-                "min": pendulum.instance(dt_series.min()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
-                "max": pendulum.instance(dt_series.max()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
-                "nulls": dt_series.null_count(),
-            }
-        else:
-            raise ValueError("Expected one datetime column exactly")
-
-        if len(string_cols) == 1:
-            cat_col = string_cols[0]
-            cat_series = df[cat_col]
-            categories = sorted(cat_series.unique().to_list())
-            summary["categorical"] = {  # type: ignore[assignment]
-                "column": cat_col,
-                "categories": categories,
-                "nulls": cat_series.null_count(),
-            }
-        else:
-            raise ValueError("Expected one string column exactly")
-
-        summary["numeric_columns"] = numeric_cols
-
-        return summary
+        return get_metadata_from_frame(self.matrix)
 
     @classmethod
     def from_file(
@@ -353,6 +300,11 @@ class Matrix:
     def index(self) -> list[str]:
         """Returns the Matrix indexes"""
         return self.get_indexes()
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Return the metadata of the timeseries."""
+        return self.describe()
 
     def _get_shape(self) -> tuple[int, int]:
         """Return (rows, columns) of the underlying Polars DataFrame."""

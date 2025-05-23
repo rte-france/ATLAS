@@ -22,7 +22,7 @@ import plotly.graph_objects
 import polars as pl
 import pytz
 
-from atlas.io.utils import read_data_file
+from atlas.io.utils import get_metadata_from_frame, read_data_file
 from atlas.timing import build_datetime, infer_frequency
 
 
@@ -80,70 +80,14 @@ class Timeseries:
 
         return cls(read_data_file(file_path, filters, separator), timezone, interpolation_method)
 
-    @classmethod
-    def describe(cls, timeseries: pd.DataFrame | pl.DataFrame | Timeseries) -> dict[str, Any]:
+    def describe(self) -> dict[str, Any]:
         """
         Get metadata about the timeseries.
 
-        :param timeseries: DataFrame containing the timeseries data.
-        :type timeseries: pd.DataFrame | pl.DataFrame | Timeseries
         :return: A dictionnary containing timeseries metadata
         :rtype: dict[str, Any]
         """
-        if isinstance(timeseries, pd.DataFrame):
-            df = pl.DataFrame(timeseries)
-        elif isinstance(timeseries, Timeseries):
-            df = timeseries.dataframe  # type: ignore[assignment]
-        elif isinstance(timeseries, pl.DataFrame):
-            df = timeseries
-        elif isinstance(timeseries, str) | isinstance(timeseries, Path):
-            file_path = Path(timeseries)  # type: ignore[arg-type]
-            df = read_data_file(file_path)
-        else:
-            raise NotImplementedError("Can't parse input data. Provide a dataframe or a Timeseries")
-
-        summary = {
-            "shape": df.shape,
-            "memory_mb": f"{df.estimated_size('mb'):.02f}",
-        }
-
-        datetime_cols = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
-        string_cols = df.select(pl.selectors.string()).columns
-        numeric_cols = df.select(pl.selectors.numeric()).columns
-
-        if len(datetime_cols) == 1:
-            dt_col = datetime_cols[0]
-            dt_series = df[dt_col]
-            summary["datetime"] = {  # type: ignore[assignment]
-                "column": dt_col,
-                "min": pendulum.instance(dt_series.min()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
-                "max": pendulum.instance(dt_series.max()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
-                "nulls": dt_series.null_count(),
-            }
-        else:
-            raise ValueError("Expected one datetime column exactly")
-
-        if len(string_cols) == 1:
-            cat_col = string_cols[0]
-            cat_series = df[cat_col]
-            categories = sorted(cat_series.unique().to_list())
-            summary["categorical"] = {  # type: ignore[assignment]
-                "column": cat_col,
-                "categories": categories,
-                "nulls": cat_series.null_count(),
-            }
-
-        if len(numeric_cols) == 1:
-            num_col = numeric_cols[0]
-            num_series = df[num_col]
-            summary["numerical"] = {  # type: ignore[assignment]
-                "column": num_col,
-                "nulls": num_series.null_count(),
-                "min": num_series.min(),
-                "max": num_series.max(),
-            }
-
-        return summary
+        return get_metadata_from_frame(self.timeseries)
 
     def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None) -> None:
         if timeseries is None or isinstance(timeseries, Timeseries):
@@ -352,6 +296,11 @@ class Timeseries:
     def timestep(self) -> pendulum.Duration | None:
         """Return the frequency string of the timeseries index."""
         return self.frequency
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Return the metadata of the timeseries."""
+        return self.describe()
 
     def to_frame(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame | pd.DataFrame:
         """
