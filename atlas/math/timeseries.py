@@ -22,6 +22,7 @@ import plotly.graph_objects
 import polars as pl
 import pytz
 
+from atlas.io.utils import read_data_file
 from atlas.timing import build_datetime, infer_frequency
 
 
@@ -77,27 +78,7 @@ class Timeseries:
         :rtype: Timeseries
         """
 
-        return cls(cls._read_data_file(file_path, filters, separator), timezone, interpolation_method)
-
-    @staticmethod
-    def _read_data_file(
-        file_path: str | Path,
-        filters: tuple[str, str] | None = None,
-        separator: str = ";",
-    ) -> pl.DataFrame:
-        """Read a dataframe from csv or parquet"""
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if file_path.suffix == ".csv":
-            timeseries = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
-        elif file_path.suffix == ".parquet":
-            timeseries = pl.read_parquet(file_path)
-        else:
-            raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
-        if filters:
-            timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-
-        return timeseries
+        return cls(read_data_file(file_path, filters, separator), timezone, interpolation_method)
 
     @classmethod
     def describe(cls, timeseries: pd.DataFrame | pl.DataFrame | Timeseries) -> dict[str, Any]:
@@ -117,7 +98,7 @@ class Timeseries:
             df = timeseries
         elif isinstance(timeseries, str) | isinstance(timeseries, Path):
             file_path = Path(timeseries)  # type: ignore[arg-type]
-            df = cls._read_data_file(file_path)
+            df = read_data_file(file_path)
         else:
             raise NotImplementedError("Can't parse input data. Provide a dataframe or a Timeseries")
 
@@ -371,18 +352,6 @@ class Timeseries:
     def timestep(self) -> pendulum.Duration | None:
         """Return the frequency string of the timeseries index."""
         return self.frequency
-
-    def remove_na(self, inplace: bool = True) -> Timeseries:
-        """
-        Remove rows containing null values.
-
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: The cleaned Timeseries
-        :rtype: Timeseries
-        """
-        df = self.timeseries.drop_nulls()
-        return self._return_inplace(df, inplace)
 
     def to_frame(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame | pd.DataFrame:
         """
@@ -883,6 +852,6 @@ class Timeseries:
         """
         if inplace:
             self.timeseries = df.sort("time")
-            self.frequency = infer_frequency()
+            self.frequency = infer_frequency(self.timeseries)
             return self
         return Timeseries(df, self.timezone)

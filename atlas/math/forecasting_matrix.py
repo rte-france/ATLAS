@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 import pendulum
 import polars as pl
 
+from atlas.io.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
@@ -79,7 +80,7 @@ class ForecastingMatrix(Matrix):
         :rtype: ForecastingMatrix
         """
 
-        return cls(cls._read_data_file(file_path, filters, separator), timezone, date_format)
+        return cls(read_data_file(file_path, filters, separator), timezone, date_format)
 
     def _sort_indexes(self) -> None:
         """

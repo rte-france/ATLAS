@@ -19,6 +19,7 @@ import plotly.graph_objects as go
 import polars as pl
 import pytz
 
+from atlas.io.utils import read_data_file
 from atlas.math.timeseries import Timeseries
 
 
@@ -63,7 +64,7 @@ class Matrix:
             df = matrix.get_matrix()
         elif isinstance(matrix, str) | isinstance(matrix, Path):
             file_path = Path(matrix)  # type: ignore[arg-type]
-            df = cls._read_data_file(file_path)
+            df = read_data_file(file_path)
         elif isinstance(matrix, pl.DataFrame):
             df = matrix
         else:
@@ -123,27 +124,7 @@ class Matrix:
         :rtype: Matrix
         """
 
-        return cls(cls._read_data_file(file_path, filters, separator), timezone)
-
-    @staticmethod
-    def _read_data_file(
-        file_path: str | Path,
-        filters: tuple[str, str] | None = None,
-        separator: str = ";",
-    ) -> pl.DataFrame:
-        """Read a dataframe from csv or parquet"""
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if file_path.suffix == ".csv":
-            matrix = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
-        elif file_path.suffix == ".parquet":
-            matrix = pl.read_parquet(file_path)
-        else:
-            raise NotImplementedError("Matrix file should be a csv or parquet.")
-        if filters:
-            matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-
-        return matrix
+        return cls(read_data_file(file_path, filters, separator), timezone)
 
     def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix | None, timezone: str) -> None:
         """Set matrix attribute"""

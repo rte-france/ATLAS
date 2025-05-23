@@ -228,7 +228,7 @@ class TestTimeseriesInit:
         """Test loading from file with filters."""
         # Create a sample CSV file
         # Load with filter
-        with pytest.raises(ValueError, match="Unsupported file format. Only CSV and Parquet are supported."):
+        with pytest.raises(NotImplementedError):
             ts = Timeseries.from_file("invalid_file")
 
     def test_repr_method(self, sample_ts):
