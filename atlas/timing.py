@@ -96,7 +96,7 @@ def parse_frequency(freq: str) -> pendulum.Duration:
     :return: A pendulum Duration object representing the frequency
     :rtype: pendulum.Duration
     """
-    # Map short unit suffixes to pendulum duration keyword arguments
+
     unit_map = {
         "y": "years",
         "M": "months",
@@ -118,8 +118,6 @@ def parse_frequency(freq: str) -> pendulum.Duration:
     duration_kwargs: dict[str, float] = {}
     for value, unit in matches:
         key = unit_map.get(unit)
-        if not key:
-            raise ValueError(f"Unsupported unit in frequency string: {unit}")
         duration_kwargs[key] = duration_kwargs.get(key, 0) + int(value)
 
     return pendulum.duration(**duration_kwargs)
@@ -161,7 +159,7 @@ def generate_datetimes(
     elif isinstance(freq, pendulum.Duration):
         step = freq
     else:
-        raise ValueError("Frequency must be a string or a pendulum.Duration")
+        raise TypeError("Frequency must be a string or a pendulum.Duration")
     return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
 
 

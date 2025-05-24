@@ -547,24 +547,6 @@ class Timeseries:
 
         return self._return_inplace(df, inplace)
 
-    def remove_duplicated(
-        self,
-        variables: str | list[str],
-        inplace: bool = True,
-    ) -> Timeseries:
-        """
-        Remove duplicated rows based on given variable(s).
-
-        :param variables: Column(s) to check for duplicates
-        :type variables: str or list[str]
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Deduplicated Timeseries
-        :rtype: Timeseries
-        """
-        df = self.timeseries.unique(subset=variables, maintain_order=True)
-        return self._return_inplace(df, inplace)
-
     def _join(
         self,
         other: Timeseries | pl.DataFrame,

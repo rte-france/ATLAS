@@ -130,6 +130,42 @@ def test_generate_datetimes_with_different_freq():
     ]
 
 
+def test_generate_datetimes_with_different_freq_as_duration():
+    """Test generating datetimes with different frequencies."""
+    # Test minute frequency
+    start = datetime(2023, 1, 1, 0, 0)
+    end = datetime(2023, 1, 1, 0, 10)
+    result_minutes = generate_datetimes(start, end, freq=pendulum.duration(minutes=5))
+    assert len(result_minutes) == 3
+    assert result_minutes == [
+        datetime(2023, 1, 1, 0, 0, tzinfo=pendulum.UTC),
+        datetime(2023, 1, 1, 0, 5, tzinfo=pendulum.UTC),
+        datetime(2023, 1, 1, 0, 10, tzinfo=pendulum.UTC),
+    ]
+
+    # Test daily frequency
+    start = datetime(2023, 1, 1)
+    end = datetime(2023, 1, 5)
+    result_days = generate_datetimes(start, end, freq=pendulum.duration(days=1))
+    assert len(result_days) == 5
+    assert result_days == [
+        datetime(2023, 1, 1, tzinfo=pendulum.UTC),
+        datetime(2023, 1, 2, tzinfo=pendulum.UTC),
+        datetime(2023, 1, 3, tzinfo=pendulum.UTC),
+        datetime(2023, 1, 4, tzinfo=pendulum.UTC),
+        datetime(2023, 1, 5, tzinfo=pendulum.UTC),
+    ]
+
+
+def test_generate_datetimes_with_invalid_type():
+    """Test generating datetimes with different frequencies."""
+    # Test minute frequency
+    start = datetime(2023, 1, 1, 0, 0)
+    end = datetime(2023, 1, 1, 0, 10)
+    with pytest.raises(TypeError):
+        generate_datetimes(start, end, freq=2)
+
+
 def test_generate_datetimes_invalid_freq():
     """Test generating datetimes with an invalid frequency."""
     start = datetime(2023, 1, 1)

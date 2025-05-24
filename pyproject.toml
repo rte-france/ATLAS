@@ -37,7 +37,6 @@ packages.find.include = ['atlas*']
 line-length = 120
 extend-exclude = ["*.ipynb"]
 exclude = [
-    "atlas/io/hdf_handler.py",
     "atlas/io/transform_dataset.py",
 ]
 
@@ -99,5 +98,4 @@ no_implicit_optional = false
 
 
 [tool.coverage.run]
-omit = ['atlas/io/transform_dataset.py',
-        'atlas/timing.py']
+omit = ['atlas/io/transform_dataset.py']
