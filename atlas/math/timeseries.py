@@ -571,7 +571,7 @@ class Timeseries:
         :rtype: Timeseries
         """
         if isinstance(other, Timeseries):
-            other = other.timeseries
+            other = other.dataframe
         return self.timeseries.join(other, on=by, how=how, suffix=suffixes, coalesce=True)
 
     def to_file(
@@ -699,22 +699,12 @@ class Timeseries:
         if len(self.timeseries) == 0:
             return None
         dt = build_datetime(datetime, date_format).in_tz(self.timezone)
-        if dt > self.timeseries["time"].max():  # type: ignore[operator]
-            return None
 
         df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).dataframe
         if len(df) > 0:
             return df.to_dicts()[0]["value"]
-
-        df = (
-            self.set_value(datetime, None, date_format, inplace=False)  # type: ignore[assignment]
-            .interpolate(inplace=False)
-            .filter(datetime, date_format, inplace=False)
-            .dataframe
-        )
-        if len(df) > 0:
-            return df.to_dicts()[0]["value"]
-        return None
+        else:
+            raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
 
     def plot(
         self,
