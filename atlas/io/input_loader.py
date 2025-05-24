@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pendulum
-import polars as pl
 
 import atlas.config as cfg
+from atlas.io.utils import read_data_file
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -250,7 +250,7 @@ class InputLoader:
             key = file_path.stem
             if key in cfg.MODEL_MAPPING_NAME:
                 try:
-                    result[key] = cls._read_data_file(file_path, separator=separator).to_dicts()
+                    result[key] = read_data_file(file_path, separator=separator).to_dicts()
                 except Exception:  # noqa: BLE001
                     cfg.logger.warning(
                         f"Failed to read {file_path}. Object type key {key} won't be taken into account."
@@ -258,20 +258,6 @@ class InputLoader:
             else:
                 cfg.logger.warning(f"File {file_path} is not a recognized objects from Atlas.")
         return result
-
-    @staticmethod
-    def _read_data_file(file_path: str | Path, separator: str = ";") -> pl.DataFrame:
-        """Read a file (CSV, Parquet, or JSON) and return a Polars DataFrame."""
-        file_extension = Path(file_path).suffix
-
-        if file_extension == ".csv":
-            return pl.read_csv(file_path, separator=separator)
-        if file_extension == ".parquet":
-            return pl.read_parquet(file_path)
-        if file_extension == ".json":
-            return pl.read_json(file_path)
-
-        raise NotImplementedError("File extension has to be csv, parquet or json")
 
     @staticmethod
     def _load_timeseries(

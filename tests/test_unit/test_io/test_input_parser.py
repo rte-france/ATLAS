@@ -125,23 +125,21 @@ def complex_input_dir(tmp_path, mock_model_mapping):
     return tmp_path
 
 
-class TestInputLoader:
-    @patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
-    @patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS")
-    @patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX")
-    def test_from_directory_success(self, mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
-        with patch.dict(
-            cfg.__dict__,
-            {"MODEL_MAPPING_NAME": mock_model_mapping, "MODEL_ORDER_INSTANTIATION": ["hydro"]},
-        ):
-            result = InputLoader.from_directory(temp_input_dir)
-            assert "hydro" in result
-            assert isinstance(result["hydro"][0], mock_model_mapping["hydro"])
-            assert result["hydro"][0].energy == "TS"
-            assert result["hydro"][0].scenario == "MATRIX"
-            assert result["hydro"][0].forecast == "MATRIX"
-            # Test that date was properly parsed
-            assert result["hydro"][0].start_date == "2023-01-01 00:00:00"
+@patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
+@patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS")
+@patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX")
+def test_from_directory_success(mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
+    with patch.dict(
+        cfg.__dict__,
+        {"MODEL_MAPPING_NAME": mock_model_mapping, "MODEL_ORDER_INSTANTIATION": ["hydro"]},
+    ):
+        result = InputLoader.from_directory(temp_input_dir)
+        assert "hydro" in result
+        assert isinstance(result["hydro"][0], mock_model_mapping["hydro"])
+        assert result["hydro"][0].energy == "TS"
+        assert result["hydro"][0].scenario == "MATRIX"
+        assert result["hydro"][0].forecast == "MATRIX"
+        assert result["hydro"][0].start_date == datetime(2023, 1, 1, 0, 0)
 
 
 def test_instantiate_model_object_with_equipment_reference(monkeypatch):
@@ -186,21 +184,6 @@ def test_instantiate_model_object_with_cross_reference(monkeypatch):
     assert isinstance(result, DummyReferencing)
     assert result.name == "obj1"
     assert result.ref == referenced_obj
-
-
-def test_read_data_file_parquet(tmp_path):
-    path = tmp_path / "test.parquet"
-    pl.DataFrame({"a": [1, 2]}).write_parquet(path)
-    df = InputLoader._read_data_file(path)
-    assert isinstance(df, pl.DataFrame)
-    assert df.shape == (2, 1)
-
-
-def test_read_data_file_invalid(tmp_path):
-    fake_path = tmp_path / "invalid.foo"
-    fake_path.write_text("whatever")
-    with pytest.raises(NotImplementedError):
-        InputLoader._read_data_file(fake_path)
 
 
 def test_load_matrix(tmp_path):

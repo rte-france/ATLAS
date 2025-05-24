@@ -125,7 +125,13 @@ def parse_frequency(freq: str) -> pendulum.Duration:
 
 def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-DD HH:mm:ss") -> pendulum.DateTime:
     """Converts a datetime string or object to pendulum datetime"""
-    return pendulum.from_format(dt, date_format) if isinstance(dt, str) else pendulum.instance(dt)
+    if isinstance(dt, str):
+        return pendulum.from_format(dt, date_format)
+    if isinstance(dt, datetime):
+        return pendulum.instance(dt)
+    if isinstance(dt, pendulum.DateTime):
+        return dt
+    raise TypeError(f"Unsupported type for dt: {type(dt)}. Expected str, datetime, or pendulum.DateTime.")
 
 
 def generate_datetimes(
