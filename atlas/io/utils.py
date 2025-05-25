@@ -33,6 +33,26 @@ def read_data_file(
     return df
 
 
+def scan_data_file(
+    file_path: str | Path,
+    filters: tuple[str, str] | None = None,
+    separator: str = ";",
+):
+    """Scan a dataframe from csv or parquet"""
+    if isinstance(file_path, str):
+        file_path = Path(file_path)
+    if file_path.suffix == ".csv":
+        df = pl.scan_csv(file_path, separator=separator, try_parse_dates=True)
+    elif file_path.suffix == ".parquet":
+        df = pl.scan_parquet(file_path)
+    else:
+        raise ValueError("Atlas file should be a csv or parquet.")
+    if filters:
+        df = df.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+
+    return df
+
+
 def get_metadata_from_frame(df: pd.DataFrame | pl.DataFrame) -> dict[str, Any]:
     """
     Get metadata about the dataframe.

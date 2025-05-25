@@ -15,6 +15,7 @@ from typing import Literal
 import polars as pl
 import pytz
 
+from atlas.io.utils import scan_data_file
 from atlas.math.timeseries import Timeseries
 
 
@@ -114,17 +115,8 @@ class LazyTimeseries:
         :return: Loaded LazyTimeseries object
         :rtype: LazyTimeseries
         """
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if file_path.suffix == ".csv":
-            timeseries = pl.scan_csv(file_path, separator=separator, try_parse_dates=True)
-        elif file_path.suffix == ".parquet":
-            timeseries = pl.scan_parquet(file_path)
-        else:
-            raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
-        if filters:
-            timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return cls(timeseries, timezone, interpolation_method)
+
+        return cls(scan_data_file(file_path, filters, separator), timezone, interpolation_method)
 
     def to_frame(
         self,

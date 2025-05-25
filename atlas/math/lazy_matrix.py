@@ -14,6 +14,7 @@ from pathlib import Path
 import polars as pl
 import pytz
 
+from atlas.io.utils import scan_data_file
 from atlas.math.matrix import Matrix
 
 
@@ -79,17 +80,8 @@ class LazyMatrix:
         :param timezone: Timezone to apply
         :return: LazyMatrix instance
         """
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if file_path.suffix == ".csv":
-            matrix = pl.scan_csv(file_path, separator=separator, try_parse_dates=True)
-        elif file_path.suffix == ".parquet":
-            matrix = pl.scan_parquet(file_path)
-        else:
-            raise ValueError("Unsupported file format")
-        if filters:
-            matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return cls(matrix, timezone)
+
+        return cls(scan_data_file(file_path, filters, separator), timezone)
 
     def get_matrix(self) -> pl.LazyFrame:
         """Return internal lazy frame."""
