@@ -46,7 +46,7 @@ def scan_data_file(
     elif file_path.suffix == ".parquet":
         df = pl.scan_parquet(file_path)
     else:
-        raise ValueError("Atlas file should be a csv or parquet.")
+        raise NotImplementedError("Atlas file should be a csv or parquet.")
     if filters:
         df = df.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
 

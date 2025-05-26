@@ -148,7 +148,7 @@ def test_from_file_filter(tmp_path, sample_df_with_categories):
 def test_from_file_invalid_format(tmp_path):
     file_path = tmp_path / "data.txt"
     file_path.write_text("invalid")
-    with pytest.raises(ValueError, match="Unsupported file format"):
+    with pytest.raises(NotImplementedError, match="Atlas file should be a csv or parquet."):
         LazyTimeseries.from_file(file_path)
 
 
