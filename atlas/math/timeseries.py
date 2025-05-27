@@ -20,10 +20,9 @@ import plotly
 import plotly.express as px
 import plotly.graph_objects
 import polars as pl
-import pytz
 
 from atlas.io.utils import get_metadata_from_frame, read_data_file
-from atlas.timing import build_datetime, generate_datetimes, infer_frequency
+from atlas.timing import build_datetime, check_timezone, generate_datetimes, infer_frequency
 
 
 class Timeseries:
@@ -47,7 +46,7 @@ class Timeseries:
         :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
         :type timezone: str, optional
         """
-        self._check_timezone(timezone)
+        check_timezone(timezone)
         self.timezone: str = timezone
 
         self._check_timeseries(timeseries)
@@ -357,16 +356,6 @@ class Timeseries:
         """
         return self.timeseries.lazy()
 
-    @staticmethod
-    def _check_timezone(timezone: str) -> None:
-        """
-        Check if the timezone is valid.
-
-        :raises ValueError: If the timezone is not valid
-        """
-        if timezone not in pytz.all_timezones:
-            raise ValueError(f"Invalid timezone: {timezone}")
-
     def _get_shape(self) -> tuple[int, int]:
         """Return (rows, columns) of the underlying Polars DataFrame."""
         return self.timeseries.shape
@@ -378,7 +367,7 @@ class Timeseries:
         :param timezone: Timezone string
         :type timezone: str
         """
-        self._check_timezone(timezone)
+        check_timezone(timezone)
 
         self.timezone = timezone
         self.timeseries = self.timeseries.with_columns(

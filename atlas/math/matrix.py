@@ -16,10 +16,10 @@ from typing import Any, Literal
 import pandas as pd
 import plotly.graph_objects as go
 import polars as pl
-import pytz
 
 from atlas.io.utils import get_metadata_from_frame, read_data_file
 from atlas.math.timeseries import Timeseries
+from atlas.timing import check_timezone
 
 
 class Matrix:
@@ -35,11 +35,11 @@ class Matrix:
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
-        self._check_timezone(timezone)
+        check_timezone(timezone)
         self._check_matrix(matrix)
 
         self._set_matrix(matrix=matrix, timezone=timezone)
-        self.indexes: list[str] = self.get_indexes()
+        self.indexes: list[str] = self._get_indexes()
 
     def __repr__(self):
         """Provide a string representation of the Matrix object."""
@@ -119,7 +119,7 @@ class Matrix:
         if len(time_columns) + len(value_columns) != len(df.columns):
             raise ValueError("Matrix must have N columns one for datetime and N-1 for numerical values")
 
-    def get_indexes(self) -> list[str]:
+    def _get_indexes(self) -> list[str]:
         """
         Get the indexes of the matrix.
 
@@ -127,12 +127,6 @@ class Matrix:
         :rtype: list[str]
         """
         return self.matrix.select(pl.selectors.numeric()).columns
-
-    @staticmethod
-    def _check_timezone(timezone: str) -> None:
-        """Check if the timezone is valid."""
-        if timezone not in pytz.all_timezones:
-            raise ValueError(f"Invalid timezone: {timezone}")
 
     def __len__(self) -> int:
         """
@@ -228,7 +222,7 @@ class Matrix:
             how="full",
             coalesce=True,
         )
-        self.indexes = self.get_indexes()
+        self.indexes = self._get_indexes()
 
     def delete(self, index: str) -> None:
         """
@@ -242,7 +236,7 @@ class Matrix:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
         self.matrix = self.matrix.drop(index)
-        self.indexes = self.get_indexes()
+        self.indexes = self._get_indexes()
 
     def get_matrix(self) -> pl.DataFrame:
         """
@@ -298,8 +292,8 @@ class Matrix:
 
     @property
     def index(self) -> list[str]:
-        """Returns the Matrix indexes"""
-        return self.get_indexes()
+        """Returns the Matrix indexes (e.g columns names)"""
+        return self._get_indexes()
 
     @property
     def metadata(self) -> dict[str, Any]:
@@ -331,7 +325,7 @@ class Matrix:
         :return: Plotly figure object
         """
         df = self.get_matrix()
-        index_columns = self.get_indexes()
+        index_columns = self._get_indexes()
         time_col = "time"
 
         fig = go.Figure()

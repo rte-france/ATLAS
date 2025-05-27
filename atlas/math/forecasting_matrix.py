@@ -245,7 +245,7 @@ class ForecastingMatrix(Matrix):
 
         renaming_mapping = dict(zip(self.indexes, new_indexes, strict=False))
         self.matrix = self.matrix.rename(renaming_mapping)
-        self.indexes = self.get_indexes()
+        self.indexes = self._get_indexes()
         self._date_format = date_format
 
 

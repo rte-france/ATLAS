@@ -12,10 +12,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import polars as pl
-import pytz
 
 from atlas.io.utils import scan_data_file
 from atlas.math.matrix import Matrix
+from atlas.timing import check_timezone
 
 
 class LazyMatrix:
@@ -30,7 +30,7 @@ class LazyMatrix:
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
-        self._check_timezone(timezone)
+        check_timezone(timezone)
         self.timezone = timezone
 
         if isinstance(matrix, LazyMatrix):
@@ -58,12 +58,17 @@ class LazyMatrix:
         else:
             raise TypeError("LazyMatrix requires a LazyFrame, Matrix, or LazyMatrix")
 
-        self.indexes = self.get_indexes()
+        self.indexes = self._get_indexes()
 
     @property
     def lazyframe(self) -> pl.LazyFrame:
         """Returns the Matrix DataFrame"""
         return self.matrix
+
+    @property
+    def index(self) -> list[str]:
+        """Returns the Matrix indexes (e.g columns names)"""
+        return self._get_indexes()
 
     def __repr__(self):
         """String representation of the Matrix"""
@@ -96,16 +101,10 @@ class LazyMatrix:
         """Collect the lazy frame and return a regular Matrix object."""
         return Matrix(self.matrix.collect(), timezone=self.timezone)
 
-    def get_indexes(self) -> list[str]:
+    def _get_indexes(self) -> list[str]:
         """Identify index columns by excluding the time column."""
         schema = self.matrix.collect_schema().to_frame()
         time_columns = schema.select(pl.selectors.datetime() | pl.selectors.date()).columns
 
         time_column = time_columns[0]
         return [col for col in self.matrix.collect_schema() if col != time_column]
-
-    @staticmethod
-    def _check_timezone(timezone: str) -> None:
-        """Validate timezone string."""
-        if timezone not in pytz.all_timezones:
-            raise ValueError(f"Invalid timezone: {timezone}")

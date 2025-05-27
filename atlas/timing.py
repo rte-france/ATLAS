@@ -9,6 +9,7 @@ from datetime import datetime
 
 import pendulum
 import polars as pl
+import pytz
 
 
 def datetime_to_pendulum(fmt: str) -> str:
@@ -185,3 +186,9 @@ def infer_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     if not all(d == first_delta for d in deltas):
         raise ValueError("Timeseries datetime index is not regular. Cannot infer frequency.")
     return pendulum.duration(seconds=first_delta)
+
+
+def check_timezone(timezone: str) -> None:
+    """Validate timezone string."""
+    if timezone not in pytz.all_timezones:
+        raise ValueError(f"Invalid timezone: {timezone}")

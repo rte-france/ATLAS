@@ -12,10 +12,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import polars as pl
-import pytz
 
 from atlas.io.utils import scan_data_file
 from atlas.math.timeseries import Timeseries
+from atlas.timing import check_timezone
 
 
 class LazyTimeseries:
@@ -38,7 +38,7 @@ class LazyTimeseries:
         :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
         :type timezone: str, optional
         """
-        self._check_timezone(timezone)
+        check_timezone(timezone)
         self.timezone: str = timezone
 
         if timeseries is None:
@@ -86,16 +86,6 @@ class LazyTimeseries:
         :rtype: pl.LazyFrame
         """
         return self.timeseries
-
-    @staticmethod
-    def _check_timezone(timezone: str) -> None:
-        """
-        Check if the timezone is valid.
-
-        :raises ValueError: If the timezone is not valid
-        """
-        if timezone not in pytz.all_timezones:
-            raise ValueError(f"Invalid timezone: {timezone}")
 
     @classmethod
     def from_file(
