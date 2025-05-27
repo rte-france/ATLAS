@@ -23,7 +23,7 @@ import polars as pl
 import pytz
 
 from atlas.io.utils import get_metadata_from_frame, read_data_file
-from atlas.timing import build_datetime, infer_frequency
+from atlas.timing import build_datetime, generate_datetimes, infer_frequency
 
 
 class Timeseries:
@@ -40,7 +40,6 @@ class Timeseries:
         self,
         timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None = None,
         timezone: str = "UTC",
-        interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
         """
         :param timeseries: The input Timeseries data.
@@ -49,22 +48,16 @@ class Timeseries:
         :type timezone: str, optional
         """
         self._check_timezone(timezone)
-        self._check_interpolation_method(interpolation_method)
-
-        self.interpolation_method: Literal["constant", "linear"] = interpolation_method
         self.timezone: str = timezone
 
         self._check_timeseries(timeseries)
         self._set_timeseries(timeseries, timezone)
-
-        self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
 
     @classmethod
     def from_file(
         cls,
         file_path: str | Path,
         timezone: str = "UTC",
-        interpolation_method: Literal["linear", "constant"] = "constant",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
     ) -> Timeseries:
@@ -78,7 +71,43 @@ class Timeseries:
         :rtype: Timeseries
         """
 
-        return cls(read_data_file(file_path, filters, separator), timezone, interpolation_method)
+        return cls(read_data_file(file_path, filters, separator), timezone)
+
+    @classmethod
+    def from_args(
+        cls,
+        start_date: str | datetime | pendulum.DateTime,
+        end_date: str | datetime | pendulum.DateTime,
+        frequency: str | pendulum.Duration,
+        values: list[float],
+        timezone: str = "UTC",
+    ) -> Timeseries:
+        """
+        Create a Timeseries from start and end dates, frequency, and values.
+
+        :param start_date: Start date of the timeseries
+        :type start_date: str or datetime or pendulum.DateTime
+        :param end_date: End date of the timeseries
+        :type end_date: str or datetime or pendulum.DateTime
+        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
+        :type frequency: str or pendulum.Duration
+        :param values: List of values corresponding to the time intervals
+        :type values: list[float]
+        :param timezone: Timezone string, defaults to "UTC"
+        :type timezone: str, optional
+        :return: A Timeseries object with the specified parameters
+        :rtype: Timeseries
+        """
+        start = build_datetime(start_date).in_tz(timezone)
+        end = build_datetime(end_date).in_tz(timezone)
+
+        datetimes = generate_datetimes(start, end, frequency, timezone)
+        df = pl.DataFrame({"time": datetimes, "value": values}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=timezone)),
+            pl.col("value").cast(pl.Float64()),
+        )
+
+        return cls(df, timezone)
 
     def describe(self) -> dict[str, Any]:
         """
@@ -133,6 +162,8 @@ class Timeseries:
             )
 
             self.sort()
+
+            self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
 
     def __repr__(self):
         """Provide a string representation of the Timeseries object."""
@@ -327,12 +358,6 @@ class Timeseries:
         return self.timeseries.lazy()
 
     @staticmethod
-    def _check_interpolation_method(interpolation_method: str) -> None:
-        """Check interpolation method"""
-        if interpolation_method not in ("linear", "constant"):
-            raise NotImplementedError("Interpolation method has to be linear, or constant")
-
-    @staticmethod
     def _check_timezone(timezone: str) -> None:
         """
         Check if the timezone is valid.
@@ -341,42 +366,6 @@ class Timeseries:
         """
         if timezone not in pytz.all_timezones:
             raise ValueError(f"Invalid timezone: {timezone}")
-
-    def reset_index(
-        self,
-        index: list[datetime | pendulum.DateTime | str],
-        date_format: str = "YYYY-MM-DD HH:mm:ss z",
-        inplace: bool = True,
-    ) -> Timeseries:
-        """Reset the Timeseries index using a list of new indexes.
-
-        :param index: New indexes to use for the Timeseries. Should be datetime or string representation of datetimes
-        :type index: list[str  |  datetime]
-        :param date_format: _description_, defaults to "YYYY-MM-DD HH:mm:ss z"
-        :type date_format: str, optional
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: The Timeseries with new indexes.
-        :rtype: Timeseries
-        """
-        index = [build_datetime(i, date_format=date_format).in_tz(self.timezone) for i in index]
-
-        new_df = pl.DataFrame({"time": index, "value": [None] * len(index)}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone))
-        )
-
-        df = (
-            Timeseries(
-                pl.concat([self.timeseries, new_df], how="vertical").sort("time"),
-                timezone=self.timezone,
-                interpolation_method=self.interpolation_method,
-            )
-            .interpolate()
-            .filter(index)
-            .dataframe
-        )
-
-        return self._return_inplace(df, inplace)
 
     def _get_shape(self) -> tuple[int, int]:
         """Return (rows, columns) of the underlying Polars DataFrame."""
@@ -395,16 +384,6 @@ class Timeseries:
         self.timeseries = self.timeseries.with_columns(
             pl.col("time").dt.convert_time_zone(timezone),
         )
-
-    def set_interpolation_method(self, interpolation_method: Literal["constant", "linear"] = "constant") -> None:
-        """
-        Set the interpolation method for the Timeseries.
-
-        :param interpolation_method: The interpolation method to use, either "linear" or "constant".
-        :type interpolation_method: Literal["constant", "linear"]
-        """
-        self._check_interpolation_method(interpolation_method)
-        self.interpolation_method = interpolation_method
 
     def sort(
         self,
@@ -470,6 +449,7 @@ class Timeseries:
     def upsample(
         self,
         frequency: str | pendulum.Duration,
+        interpolation_method: Literal["linear", "constant"] = "constant",
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -488,14 +468,14 @@ class Timeseries:
         :rtype: Timeseries
         """
 
-        if self.interpolation_method == "linear":
+        if interpolation_method == "linear":
             df = (
                 self.timeseries.upsample(time_column="time", every=frequency)
                 .with_columns(pl.col("value").interpolate_by("time"))
                 .fill_null(strategy="forward")
                 .sort("time")
             )
-        elif self.interpolation_method == "constant":
+        elif interpolation_method == "constant":
             df = (
                 self.timeseries.upsample(time_column="time", every=frequency)
                 .fill_null(
@@ -662,7 +642,9 @@ class Timeseries:
             return cast("float", self.timeseries["value"].min())
         return None
 
-    def interpolate(self, inplace: bool = True) -> Timeseries:
+    def interpolate(
+        self, interpolation_method: Literal["linear", "constant"] = "constant", inplace: bool = True
+    ) -> Timeseries:
         """Interpolate the Timeseries to fill in missing values.
 
         :param method: Interpolation method, defaults to "constant"
@@ -673,9 +655,9 @@ class Timeseries:
         :return: Interpolated Timeseries
         :rtype: Timeseries
         """
-        if self.interpolation_method == "linear":
+        if interpolation_method == "linear":
             df = self.timeseries.with_columns(pl.col("value").interpolate_by("time"))
-        elif self.interpolation_method == "constant":
+        elif interpolation_method == "constant":
             df = self.timeseries.fill_null(strategy="forward")
         else:
             raise NotImplementedError("Unsupported interpolation method, use 'linear' or 'constant'")

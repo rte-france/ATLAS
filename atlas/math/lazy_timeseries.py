@@ -10,7 +10,6 @@ This module provides LazyTimeseries.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
 
 import polars as pl
 import pytz
@@ -32,7 +31,6 @@ class LazyTimeseries:
         self,
         timeseries: pl.LazyFrame | LazyTimeseries | Timeseries | None = None,
         timezone: str = "UTC",
-        interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
         """
         :param timeseries: The input time series data
@@ -41,10 +39,7 @@ class LazyTimeseries:
         :type timezone: str, optional
         """
         self._check_timezone(timezone)
-        self._check_interpolation_method(interpolation_method)
-
         self.timezone: str = timezone
-        self.interpolation_method = interpolation_method
 
         if timeseries is None:
             self.timeseries: pl.LazyFrame = pl.LazyFrame(
@@ -82,11 +77,15 @@ class LazyTimeseries:
         """String representation of the Matrix"""
         return f"LazyTimeseries with schema : {self.timeseries.collect_schema()}"
 
-    @staticmethod
-    def _check_interpolation_method(interpolation_method: str) -> None:
-        """Check interpolation method"""
-        if interpolation_method not in ("linear", "constant"):
-            raise NotImplementedError("Interpolation method has to be linear, or constant")
+    @property
+    def lazyframe(self) -> pl.LazyFrame:
+        """
+        Return the internal Polars LazyFrame.
+
+        :return: The internal lazy time series data
+        :rtype: pl.LazyFrame
+        """
+        return self.timeseries
 
     @staticmethod
     def _check_timezone(timezone: str) -> None:
@@ -103,7 +102,6 @@ class LazyTimeseries:
         cls,
         file_path: str | Path,
         timezone: str = "UTC",
-        interpolation_method: Literal["linear", "constant"] = "constant",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
     ) -> LazyTimeseries:
@@ -116,7 +114,7 @@ class LazyTimeseries:
         :rtype: LazyTimeseries
         """
 
-        return cls(scan_data_file(file_path, filters, separator), timezone, interpolation_method)
+        return cls(scan_data_file(file_path, filters, separator), timezone)
 
     def to_frame(
         self,
@@ -139,5 +137,4 @@ class LazyTimeseries:
         return Timeseries(
             self.timeseries.collect(),
             timezone=self.timezone,
-            interpolation_method=self.interpolation_method,
         )

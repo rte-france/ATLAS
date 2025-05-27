@@ -60,6 +60,11 @@ class LazyMatrix:
 
         self.indexes = self.get_indexes()
 
+    @property
+    def lazyframe(self) -> pl.LazyFrame:
+        """Returns the Matrix DataFrame"""
+        return self.matrix
+
     def __repr__(self):
         """String representation of the Matrix"""
         return f"LazyMatrix with schema : {self.matrix.collect_schema()}"

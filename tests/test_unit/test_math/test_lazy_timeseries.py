@@ -102,11 +102,6 @@ def test_invalid_timezone(sample_df):
         LazyTimeseries(sample_df.lazy(), timezone="Mars/Phobos")
 
 
-def test_invalid_interpolation_method(sample_df):
-    with pytest.raises(NotImplementedError):
-        LazyTimeseries(sample_df.lazy(), interpolation_method="spline")
-
-
 def test_invalid_schema():
     bad_df = pl.DataFrame({"foo": [1, 2], "bar": [3, 4]}).lazy()
     with pytest.raises(ValueError, match="Timeseries must have exactly one numeric column"):

@@ -208,6 +208,50 @@ class TestTimeseriesInit:
         assert "Timeseries" in repr_str
         assert isinstance(repr_str, str)
 
+    def test_timeseries_from_args(self):
+        start = "2025-01-01 00:00:00"
+        end = "2025-01-01 03:00:00"
+        freq = "1h"
+        values = [1.0, 2.0, 3.0, 4.0]
+        ts = Timeseries.from_args(start, end, freq, values, timezone="UTC")
+        # Check type and shape
+        assert isinstance(ts, Timeseries)
+        assert len(ts) == 4
+        # Check time values
+        expected_times = [
+            pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 1, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 2, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 3, 0, 0, tz="UTC"),
+        ]
+        assert ts.index == expected_times
+
+        assert ts.to_frame()["value"].to_list() == values
+
+        assert ts.timestep == pendulum.duration(hours=1)
+
+    def test_timeseries_from_argsçwth_datetime(self):
+        start = datetime(2025, 1, 1, 0, 0, 0)
+        end = datetime(2025, 1, 1, 3, 0, 0)
+        freq = pendulum.duration(hours=1)
+        values = [1.0, 2.0, 3.0, 4.0]
+        ts = Timeseries.from_args(start, end, freq, values, timezone="UTC")
+        # Check type and shape
+        assert isinstance(ts, Timeseries)
+        assert len(ts) == 4
+        # Check time values
+        expected_times = [
+            pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 1, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 2, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 3, 0, 0, tz="UTC"),
+        ]
+        assert ts.index == expected_times
+
+        assert ts.to_frame()["value"].to_list() == values
+
+        assert ts.timestep == pendulum.duration(hours=1)
+
 
 class TestTimeseriesBasicOperations:
     """Test basic operations of the Timeseries class."""
@@ -400,28 +444,23 @@ class TestTimeseriesBasicOperations:
     def test_interpolate_method(self, sample_df_with_nulls):
         """Test interpolation methods."""
         # Create a Timeseries with null values
-        ts = Timeseries(sample_df_with_nulls, interpolation_method="linear")
+        ts = Timeseries(sample_df_with_nulls)
 
         # Test linear interpolation
-        ts_linear = ts.interpolate(inplace=False)
+        ts_linear = ts.interpolate("linear", inplace=False)
         interpolated_values = ts_linear.to_frame()["value"].to_list()
 
         # For linear interpolation between 10.0 and 30.0 with a null in between
         # The interpolated value should be 20.0
         assert interpolated_values[1] == 20.0
 
-        ts = Timeseries(sample_df_with_nulls, interpolation_method="constant")
+        ts = Timeseries(sample_df_with_nulls)
         # Test constant interpolation (forward fill)
-        ts_constant = ts.interpolate(inplace=False)
+        ts_constant = ts.interpolate("constant", inplace=False)
         interpolated_values = ts_constant.to_frame()["value"].to_list()
 
         # For constant interpolation, the null should be filled with the previous value
         assert interpolated_values[1] == 10.0
-
-    def test_interpolate_invalid_method(self, sample_ts):
-        """Test interpolation with an invalid method."""
-        with pytest.raises(NotImplementedError):
-            ts = Timeseries(sample_ts, interpolation_method="invalid")
 
     def test_get_lazy(self, sample_ts):
         """Test conversion to LazyFrame."""
@@ -429,19 +468,6 @@ class TestTimeseriesBasicOperations:
         lazy_frame = sample_ts.to_lazy()
         assert isinstance(lazy_frame, pl.LazyFrame)
         assert lazy_frame.collect().equals(sample_ts.to_frame())
-
-    def test_set_interpolation_method(self, sample_ts):
-        """Test setting interpolation method."""
-        # Initial method should be 'constant'
-        assert sample_ts.interpolation_method == "constant"
-
-        # Change to linear
-        sample_ts.set_interpolation_method("linear")
-        assert sample_ts.interpolation_method == "linear"
-
-        # Try an invalid method
-        with pytest.raises(NotImplementedError):
-            sample_ts.set_interpolation_method("invalid")
 
     def test_plot_method(self, sample_ts):
         """Test plot method returns a Plotly figure."""
@@ -499,37 +525,6 @@ class TestTimeseriesBasicOperations:
         value = ts.get_value(datetime(2023, 1, 1))
         assert value is None
 
-    def test_reset_index(self, sample_ts: Timeseries):
-        """Test resetting the index with datetime and string inputs."""
-
-        new_index = [
-            datetime(2023, 1, 1, 0, 30),  # datetime object
-            "2023-01-01 01:30:00",  # string
-            datetime(2023, 1, 1, 2, 30),  # datetime object
-            "2023-01-01 03:30:00",  # string
-        ]
-
-        # Test not-inplace first
-        reset_ts = sample_ts.reset_index(new_index, date_format="YYYY-MM-DD HH:mm:ss", inplace=False)
-        reset_times = reset_ts.to_frame()["time"].to_list()
-
-        expected = [
-            datetime(2023, 1, 1, 0, 30, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 1, 30, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 2, 30, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 3, 30, tzinfo=Timezone("UTC")),
-        ]
-
-        assert reset_times == expected
-
-        # Ensure original sample_ts is unchanged
-        assert sample_ts.to_frame()["time"].to_list() != reset_times
-
-        # Test inplace modification
-        sample_ts.reset_index(new_index, date_format="YYYY-MM-DD HH:mm:ss", inplace=True)
-        reset_times_inplace = sample_ts.to_frame()["time"].to_list()
-        assert reset_times_inplace == expected
-
     def test_properties_shape(self, sample_ts: Timeseries):
         """Test the shape and index properties of Timeseries."""
         # Test shape
@@ -559,8 +554,7 @@ class TestTimeseriesManipulation:
     def test_upsample_linear(self, sample_ts):
         """Test upsampling with linear interpolation."""
         original_len = len(sample_ts)
-        sample_ts.set_interpolation_method("linear")
-        upsampled = sample_ts.upsample("30m", inplace=False)
+        upsampled = sample_ts.upsample("30m", "linear", inplace=False)
 
         # Should have more rows now
         assert len(upsampled) > original_len
@@ -580,8 +574,7 @@ class TestTimeseriesManipulation:
 
     def test_upsample_constant(self, sample_ts):
         """Test upsampling with constant fill."""
-        sample_ts.set_interpolation_method("constant")
-        upsampled = sample_ts.upsample("30m", inplace=False)
+        upsampled = sample_ts.upsample("30m", "constant", inplace=False)
 
         # Check if values are forward-filled
         times = upsampled.to_frame()["time"].to_list()
