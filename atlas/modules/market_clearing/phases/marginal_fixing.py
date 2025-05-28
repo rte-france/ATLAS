@@ -37,10 +37,10 @@ class MarginalFixing:
         # Start with looping over time, since all time steps are independent:
         for time_index, time in enumerate(self.input_dataset.times):
             # Loop again immediately on market areas, since they are also,independent of each other:
-            for area in self.input_dataset.market_areas:
+            for area in self.input_dataset.mc_market_areas:
                 # Get the values of local variables:
-                spot_price = market_prices[area.name][time_index]
-                local_accepted_powers = accepted_powers[area.id]
+                spot_price = market_prices[area.market_area.name][time_index]
+                local_accepted_powers = accepted_powers[area.market_area.name]
                 self.update_local_accepted_power(local_accepted_powers, area, time, spot_price)
 
     def update_local_accepted_power(self, local_accepted_powers: dict[str, float], area: MarketArea, time, spot_price: float):
