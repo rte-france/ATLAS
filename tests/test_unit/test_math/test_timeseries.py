@@ -230,7 +230,7 @@ class TestTimeseriesInit:
 
         assert ts.timestep == pendulum.duration(hours=1)
 
-    def test_timeseries_from_argsçwth_datetime(self):
+    def test_timeseries_from_args_with_datetime(self):
         start = datetime(2025, 1, 1, 0, 0, 0)
         end = datetime(2025, 1, 1, 3, 0, 0)
         freq = pendulum.duration(hours=1)
@@ -507,11 +507,17 @@ class TestTimeseriesBasicOperations:
             sample_ts.to_frame(engine="invalid")
 
     def test_get_value_with_inside_time(self, sample_ts):
-        """Test get_value method with a time not in the series."""
+        """Test get_value method with a time in the series."""
         # Time between two existing points
         value = sample_ts.get_value(datetime(2023, 1, 1, 1, 0, 0))
 
         assert value == 20.0
+
+    def test_get_value_with_inside_time_not_in_index(self, sample_ts):
+        """Test get_value method with a time not in the series."""
+        # Time between two existing points
+        with pytest.raises(KeyError):
+            sample_ts.get_value(datetime(2023, 1, 1, 1, 0, 1))
 
     def test_get_value_with_outside_time(self, sample_ts):
         """Test get_value method with a time not in the series."""
@@ -575,6 +581,25 @@ class TestTimeseriesManipulation:
     def test_upsample_constant(self, sample_ts):
         """Test upsampling with constant fill."""
         upsampled = sample_ts.upsample("30m", "constant", inplace=False)
+
+        # Check if values are forward-filled
+        times = upsampled.to_frame()["time"].to_list()
+        values = upsampled.to_frame()["value"].to_list()
+
+        # For each original time point, check next 30-min point has same value
+        for i in range(len(sample_ts) - 1):
+            orig_time = sample_ts.to_frame()["time"][i]
+            orig_value = sample_ts.to_frame()["value"][i]
+
+            # Find the next 30-min point in upsampled data
+            next_time_idx = times.index(orig_time) + 1
+            next_value = values[next_time_idx]
+
+            assert next_value == orig_value  # Should be forward-filled
+
+    def test_upsample_constant_with_timedelta(self, sample_ts):
+        """Test upsampling with constant fill."""
+        upsampled = sample_ts.upsample(timedelta(minutes=30), "constant", inplace=False)
 
         # Check if values are forward-filled
         times = upsampled.to_frame()["time"].to_list()
