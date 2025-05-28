@@ -160,15 +160,17 @@ def generate_datetimes(
     """
     start_date: pendulum.DateTime = build_datetime(start, date_format).in_tz(timezone)
     end_date: pendulum.DateTime = build_datetime(end, date_format).in_tz(timezone)
+    step = retrieve_step(freq)
+    return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
 
+def retrieve_step(freq: str | pendulum.Duration) -> pendulum.Duration:
     if isinstance(freq, str):
         step = parse_frequency(freq)
     elif isinstance(freq, pendulum.Duration):
         step = freq
     else:
         raise TypeError("Frequency must be a string or a pendulum.Duration")
-    return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
-
+    return step
 
 def infer_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     """

@@ -210,10 +210,9 @@ class TestTimeseriesInit:
 
     def test_timeseries_from_args(self):
         start = "2025-01-01 00:00:00"
-        end = "2025-01-01 03:00:00"
         freq = "1h"
         values = [1.0, 2.0, 3.0, 4.0]
-        ts = Timeseries.from_args(start, end, freq, values, timezone="UTC")
+        ts = Timeseries.from_args(start, freq, values, timezone="UTC")
         # Check type and shape
         assert isinstance(ts, Timeseries)
         assert len(ts) == 4
@@ -232,10 +231,9 @@ class TestTimeseriesInit:
 
     def test_timeseries_from_args_with_datetime(self):
         start = datetime(2025, 1, 1, 0, 0, 0)
-        end = datetime(2025, 1, 1, 3, 0, 0)
         freq = pendulum.duration(hours=1)
         values = [1.0, 2.0, 3.0, 4.0]
-        ts = Timeseries.from_args(start, end, freq, values, timezone="UTC")
+        ts = Timeseries.from_args(start, freq, values, timezone="UTC")
         # Check type and shape
         assert isinstance(ts, Timeseries)
         assert len(ts) == 4

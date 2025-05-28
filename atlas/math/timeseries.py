@@ -22,7 +22,7 @@ import plotly.graph_objects
 import polars as pl
 
 from atlas.io.utils import get_metadata_from_frame, read_data_file
-from atlas.timing import build_datetime, check_timezone, generate_datetimes, infer_frequency
+from atlas.timing import build_datetime, check_timezone, generate_datetimes, infer_frequency, retrieve_step
 
 
 class Timeseries:
@@ -82,7 +82,6 @@ class Timeseries:
     def from_args(
         cls,
         start_date: str | datetime | pendulum.DateTime,
-        end_date: str | datetime | pendulum.DateTime,
         frequency: str | pendulum.Duration,
         values: list[float],
         timezone: str = "UTC",
@@ -92,20 +91,22 @@ class Timeseries:
 
         :param start_date: Start date of the timeseries
         :type start_date: str or datetime or pendulum.DateTime
-        :param end_date: End date of the timeseries
-        :type end_date: str or datetime or pendulum.DateTime
         :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
         :type frequency: str or pendulum.Duration
         :param values: List of values corresponding to the time intervals
         :type values: list[float]
         :param timezone: Timezone string, defaults to "UTC"
         :type timezone: str, optional
+        :raises ValueError: If file there is no value to insert in the Timeseries
         :return: A Timeseries object with the specified parameters
         :rtype: Timeseries
         """
+        if len(values) == 0:
+            raise ValueError("Timeseries must contains at least one value")
         start = build_datetime(start_date).in_tz(timezone)
-        end = build_datetime(end_date).in_tz(timezone)
+        step = retrieve_step(frequency)
 
+        end = build_datetime(start + (len(values) - 1) * step).in_tz(timezone)
         datetimes = generate_datetimes(start, end, frequency, timezone)
         df = pl.DataFrame({"time": datetimes, "value": values}).with_columns(
             pl.col("time").cast(pl.Datetime("us", time_zone=timezone)),
