@@ -12,17 +12,37 @@ from atlas.models.market.order import Order
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 
 
-class MCOrder(Order):
-    def __init__(self, **params):
-        super().__init__(**params)
+class MCOrder:
+    instance_with_status_count = 0
+
+    @staticmethod
+    def generate_instance_with_status_id():
+        instance_id = MCOrder.instance_with_status_count
+        MCOrder.instance_with_status_count += 1
+        return instance_id
+
+    def __init__(self, order: Order):
+        self.order = order
         # Deduce duration from list of DataTime and the parameter time step (the end datetime may have to be modified so that
         # everything stays consistent).
         # NB: by convention, self.end_date are actually starts of a last time step:
         self.duration = (((self.end_date - self.start_date).total_seconds() / 60) // self.parameters.time_step) * 60
         self.end_date_processed = self.start_date.add(minutes=self.duration)
 
+        # Attributes that will be set later (while creating coupling groups):
+        self.id_with_status = None
+        self.is_mutually_excluding = False
         self.is_linked = False
         self.link_id = None
+        self.group_index = None
+        self.is_parent_children = False
+        self.parent_child_id = None
+        self.full_link_id = None
+        self.full_pc_id = None
+        self.child_id = None
+        self.is_parent = False
+        self.parent_id = False
+        self.circular_pc_id = None
 
     @staticmethod
     def is_feasible(order: Order, times: list[DateTime], parameters: MarketClearingParameters) -> bool:
