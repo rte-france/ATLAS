@@ -15,21 +15,18 @@ def test_get_metadata_from_frame_polars():
         }
     )
     meta = get_metadata_from_frame(df)
-    assert meta["shape"] == (2, 3)
-    assert "datetime" in meta
-    assert meta["datetime"]["column"] == "time"
-    assert meta["datetime"]["min"] == "2025-01-01 00:00:00"
-    assert meta["datetime"]["max"] == "2025-01-02 00:00:00"
-    assert meta["datetime"]["nulls"] == 0
-    assert "categorical" in meta
-    assert meta["categorical"]["column"] == "category"
-    assert meta["categorical"]["categories"] == ["A", "B"]
-    assert meta["categorical"]["nulls"] == 0
-    assert "numerical" in meta
-    assert meta["numerical"]["column"] == "value"
-    assert meta["numerical"]["min"] == 1.0
-    assert meta["numerical"]["max"] == 2.0
-    assert meta["numerical"]["nulls"] == 0
+    assert meta == {
+        "shape": (2, 3),
+        "memory_mb": "0.00",
+        "datetime": {
+            "column": "time",
+            "min": "2025-01-01 00:00:00",
+            "max": "2025-01-02 00:00:00",
+            "nulls": 0,
+        },
+        "categorical": {"column": "category", "categories": ["A", "B"], "nulls": 0},
+        "numerical": {"column": "value", "nulls": 0, "min": 1.0, "max": 2.0},
+    }
 
 
 def test_get_metadata_from_frame_pandas():
@@ -73,7 +70,6 @@ def test_get_metadata_from_frame_invalid():
 
 
 def test_get_metadata_from_file(tmp_path):
-    # Create a temporary parquet file
     df = pl.DataFrame(
         {
             "time": [pendulum.datetime(2025, 1, 1), pendulum.datetime(2025, 1, 2)],
@@ -84,7 +80,15 @@ def test_get_metadata_from_file(tmp_path):
     file_path = tmp_path / "test.parquet"
     df.write_parquet(file_path)
     meta = get_metadata_from_file(file_path)
-    assert meta["shape"] == (2, 3)
-    assert meta["datetime"]["column"] == "time"
-    assert meta["categorical"]["column"] == "category"
-    assert meta["numerical"]["column"] == "value"
+    assert meta == {
+        "shape": (2, 3),
+        "memory_mb": "0.00",
+        "datetime": {
+            "column": "time",
+            "min": "2025-01-01 00:00:00",
+            "max": "2025-01-02 00:00:00",
+            "nulls": 0,
+        },
+        "categorical": {"column": "category", "categories": ["A", "B"], "nulls": 0},
+        "numerical": {"column": "value", "nulls": 0, "min": 1.0, "max": 2.0},
+    }
