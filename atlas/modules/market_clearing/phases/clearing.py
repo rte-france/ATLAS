@@ -3,11 +3,10 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-from typing import Any
 
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
-from atlas.modules.market_clearing.phases.clearing_model import ClearingModel
+from atlas.modules.market_clearing.phases.clearing.clearing_model import ClearingModel
 
 
 class Clearing:
@@ -17,7 +16,7 @@ class Clearing:
         self.parameters = parameters
         self.model = None
 
-    def create_model(self):
+    def create_clearing_model(self):
         self.model = ClearingModel(self.input_dataset, self.parameters)
 
     def run(self):
