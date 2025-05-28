@@ -526,8 +526,8 @@ class TestTimeseriesBasicOperations:
     def test_get_value_on_empty_timeseries(self):
         """Test get_value on an empty Timeseries."""
         ts = Timeseries()
-        value = ts.get_value(datetime(2023, 1, 1))
-        assert value is None
+        with pytest.raises(ValueError):
+            value = ts.get_value(datetime(2023, 1, 1))
 
     def test_properties_shape(self, sample_ts: Timeseries):
         """Test the shape and index properties of Timeseries."""

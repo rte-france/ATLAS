@@ -163,6 +163,7 @@ def generate_datetimes(
     step = retrieve_step(freq)
     return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
 
+
 def retrieve_step(freq: str | pendulum.Duration) -> pendulum.Duration:
     if isinstance(freq, str):
         step = parse_frequency(freq)
@@ -171,6 +172,7 @@ def retrieve_step(freq: str | pendulum.Duration) -> pendulum.Duration:
     else:
         raise TypeError("Frequency must be a string or a pendulum.Duration")
     return step
+
 
 def infer_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     """
@@ -188,6 +190,17 @@ def infer_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     if not all(d == first_delta for d in deltas):
         raise ValueError("Timeseries datetime index is not regular. Cannot infer frequency.")
     return pendulum.duration(seconds=first_delta)
+
+
+def get_lower_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
+    times = timeseries.select("time").to_series().to_list()
+    if len(times) < 2:
+        return pendulum.duration()
+
+    times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
+    deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
+
+    return pendulum.duration(seconds=min(deltas))
 
 
 def check_timezone(timezone: str) -> None:

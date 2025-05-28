@@ -20,7 +20,7 @@ from atlas.io.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
-from atlas.timing import build_datetime, pendulum_to_datetime
+from atlas.timing import build_datetime, get_lower_frequency, infer_frequency, pendulum_to_datetime
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -213,7 +213,7 @@ class ForecastingMatrix(Matrix):
 
         forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
 
-        result = (
+        df = (
             self.matrix.lazy()
             .filter(pl.col("time").is_between(start_date, end_date))
             .select(
@@ -225,7 +225,13 @@ class ForecastingMatrix(Matrix):
             .collect()
         )
 
-        return Timeseries(result, timezone=self.timezone)
+        min_frequency = get_lower_frequency(df)
+        try:
+            infer_frequency(df)
+        except ValueError:
+            df = df.upsample("time", every=min_frequency).fill_null(strategy="forward")
+
+        return Timeseries(df, timezone=self.timezone)
 
     def set_date_format(self, date_format: str) -> None:
         new_indexes = (

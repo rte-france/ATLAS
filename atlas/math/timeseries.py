@@ -22,7 +22,13 @@ import plotly.graph_objects
 import polars as pl
 
 from atlas.io.utils import get_metadata_from_frame, read_data_file
-from atlas.timing import build_datetime, check_timezone, generate_datetimes, infer_frequency, retrieve_step
+from atlas.timing import (
+    build_datetime,
+    check_timezone,
+    generate_datetimes,
+    infer_frequency,
+    retrieve_step,
+)
 
 
 class Timeseries:
@@ -108,6 +114,7 @@ class Timeseries:
 
         end = build_datetime(start + (len(values) - 1) * step).in_tz(timezone)
         datetimes = generate_datetimes(start, end, frequency, timezone)
+
         df = pl.DataFrame({"time": datetimes, "value": values}).with_columns(
             pl.col("time").cast(pl.Datetime("us", time_zone=timezone)),
             pl.col("value").cast(pl.Float64()),
@@ -482,7 +489,6 @@ class Timeseries:
         else:
             raise NotImplementedError("Unsupported interpolation method")
 
-
         return self._return_inplace(df, inplace)
 
     def groupby(
@@ -678,7 +684,7 @@ class Timeseries:
         :rtype: dict
         """
         if len(self.timeseries) == 0:
-            return None
+            raise ValueError("Can't get value on empty timeseries.")
         dt = build_datetime(datetime, date_format).in_tz(self.timezone)
 
         df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).dataframe
