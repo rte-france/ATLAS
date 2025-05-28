@@ -450,9 +450,9 @@ class Timeseries:
         :type frequency: str | pendulum.Duration
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :param strategy: Method to fill missing values: "linear" for interpolation, "constant" for forward fill
-        :type strategy: str, optional
-        :raises NotImplementedError: If the provided strategy is not supported
+        :param interpolation_method: Method to fill missing values: "linear" for interpolation, "constant" for forward fill
+        :type interpolation_method: str, optional
+        :raises NotImplementedError: If the provided interpolation_method is not supported
         :return: Upsampled Timeseries
         :rtype: Timeseries
         """
@@ -472,6 +472,9 @@ class Timeseries:
                 )
                 .sort("time")
             )
+        else:
+            raise NotImplementedError("Unsupported interpolation method")
+
 
         return self._return_inplace(df, inplace)
 
@@ -636,8 +639,8 @@ class Timeseries:
     ) -> Timeseries:
         """Interpolate the Timeseries to fill in missing values.
 
-        :param method: Interpolation method, defaults to "constant"
-        :type method: Literal["linear", "constant"], optional
+        :param interpolation_method: Interpolation method, defaults to "constant"
+        :type interpolation_method: Literal["linear", "constant"], optional
         :param inplace: Whether to modify the current instance, defaults to False
         :type inplace: bool, optional
         :raises NotImplementedError: If the method is not supported
