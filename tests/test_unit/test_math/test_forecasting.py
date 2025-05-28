@@ -2,31 +2,16 @@ import os
 from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import List
 
 import pandas as pd
+import pendulum
 import polars as pl
 import pytest
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.timeseries import Timeseries
-
-
-@pytest.fixture
-def hourly_df():
-    return pl.DataFrame(
-        {
-            "time": pl.datetime_range(
-                start=datetime(2025, 1, 1, 0, 0, 0),
-                end=datetime(2025, 1, 1, 4, 0, 0),
-                interval="1h",
-                time_unit="us",
-                eager=True,
-            ),
-            "01_01_2025 00:00:00": [1, 2, 3, 4, 5],
-            "01_01_2025 01:00:00": [6, 7, 8, 9, 10],
-        }
-    )
 
 
 @pytest.fixture
@@ -353,71 +338,6 @@ def test_set_date_format(hourly_df):
     assert matrix.date_format == "YYYY-MM-DD HH:mm"
     assert matrix.index == ["2025-01-01 00:00", "2025-01-01 01:00"]
 
-
-# def test_get_forecast():
-#     # Create the ForecastingMatrix
-#     forecast_matrix = ForecastingMatrix()
-
-#     # Forecast 1: hourly (1h step)
-#     forecast_1_time = [
-#         pendulum.datetime(2025, 5, 1, 6),
-#         pendulum.datetime(2025, 5, 1, 7),
-#         pendulum.datetime(2025, 5, 1, 8),
-#     ]
-#     ts1 = Timeseries(pl.DataFrame({"time": forecast_1_time, "value": [100.0, 105.0, 107.0]}))
-#     forecast_matrix.add(ts1, pendulum.datetime(2025, 4, 30, 22, 0))
-
-#     # Forecast 2: 30-minute step
-#     forecast_2_time = [
-#         pendulum.datetime(2025, 5, 1, 7),
-#         pendulum.datetime(2025, 5, 1, 7, 30),
-#         pendulum.datetime(2025, 5, 1, 8),
-#         pendulum.datetime(2025, 5, 1, 8, 30),
-#     ]
-#     ts2 = Timeseries(pl.DataFrame({"time": forecast_2_time, "value": [200.0, 202.0, 204.0, 206.0]}))
-#     forecast_matrix.add(ts2, pendulum.datetime(2025, 5, 1, 5, 0))
-
-#     # Forecast 3: 15-minute step
-#     forecast_3_time = [
-#         pendulum.datetime(2025, 5, 1, 8),
-#         pendulum.datetime(2025, 5, 1, 8, 15),
-#         pendulum.datetime(2025, 5, 1, 8, 30),
-#         pendulum.datetime(2025, 5, 1, 8, 45),
-#         pendulum.datetime(2025, 5, 1, 9),
-#         pendulum.datetime(2025, 5, 1, 9, 15),
-#         pendulum.datetime(2025, 5, 1, 9, 30),
-#     ]
-#     ts3 = Timeseries(pl.DataFrame({"time": forecast_3_time, "value": [300.0 + i for i in range(len(forecast_3_time))]}))
-#     forecast_matrix.add(ts3, pendulum.datetime(2025, 5, 1, 6, 0))
-
-#     # Query window
-#     execution_date = pendulum.datetime(2025, 5, 1, 5, 30)
-#     start_date = pendulum.datetime(2025, 5, 1, 6, 0)
-#     end_date = pendulum.datetime(2025, 5, 1, 11, 0)
-
-#     # Get the forecast
-#     result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
-
-#     expected = pl.DataFrame(
-#         {
-#             "time": [
-#                 pendulum.datetime(2025, 5, 1, 6),
-#                 pendulum.datetime(2025, 5, 1, 7),
-#                 pendulum.datetime(2025, 5, 1, 7, 30),
-#                 pendulum.datetime(2025, 5, 1, 8),
-#                 pendulum.datetime(2025, 5, 1, 8, 15),
-#                 pendulum.datetime(2025, 5, 1, 8, 30),
-#                 pendulum.datetime(2025, 5, 1, 8, 45),
-#                 pendulum.datetime(2025, 5, 1, 9),
-#                 pendulum.datetime(2025, 5, 1, 9, 15),
-#                 pendulum.datetime(2025, 5, 1, 9, 30),
-#             ],
-#             "value": [100.0, 105.0, 202.0, 107.0, None, 206, None, None, None, None],
-#         }
-#     )
-#     assert result.to_frame().equals(expected)
-
-
 def test_lazy_forecasting_matrix():
     """Test the LazyForecastingMatrix class."""
     # Create a LazyFrame
@@ -465,3 +385,84 @@ def test_lazy_forecasting_matrix_collect(hourly_df):
     # Check if the collected DataFrame is as expected
     assert isinstance(collected_df, ForecastingMatrix)
     assert collected_df.shape == (5, 3)
+
+class TestGetForecast:
+
+    @staticmethod
+    def retrieve_ts(start: int, freq: str, values: List[int]):
+        return Timeseries.from_args(pendulum.datetime(2025, 1, 1, start, 0, 0), freq, values)
+
+    @pytest.fixture
+    def ts_1_hour_at_0_with_8_values(self):
+        return TestGetForecast.retrieve_ts(0, "1h", [1, 2, 3, 4, 5, 6, 7, 8])
+    @pytest.fixture
+    def ts_30_min_at_0_with_4_values(self):
+        return TestGetForecast.retrieve_ts(0, "30m", [1, 2, 3, 4])
+
+    @pytest.fixture
+    def ts_30_min_at_1_with_4_values(self):
+        return TestGetForecast.retrieve_ts(1, "30m", [11, 12, 13, 14])
+
+    @pytest.fixture
+    def ts_15_min_at_1_with_8_values(self):
+        return TestGetForecast.retrieve_ts(1, "15m", [11, 12, 13, 14, 15, 16, 17, 18])
+
+    @pytest.fixture
+    def ts_30_min_at_2_with_4_values(self):
+        return TestGetForecast.retrieve_ts(2, "30m", [21, 22, 23, 24])
+
+
+    def test_get_forecast(self, ts_30_min_at_0_with_4_values, ts_30_min_at_1_with_4_values, ts_30_min_at_2_with_4_values):
+        forecast_matrix = ForecastingMatrix()
+        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_30_min_at_1_with_4_values, pendulum.DateTime(2025, 1, 1, 1))
+        forecast_matrix.add(ts_30_min_at_2_with_4_values, pendulum.DateTime(2025, 1, 1, 2))
+        start_date = pendulum.datetime(2025, 1, 1, 0, 30)
+        end_date = pendulum.datetime(2025, 1, 1, 3, 30)
+        execution_date = pendulum.datetime(2025, 1, 1, 2)
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
+        expected_step = pendulum.duration(minutes=30)
+        expected_result = pl.DataFrame(
+            {
+                "time": [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)],
+                "value": [2.0, 11.0, 12.0, 21.0, 22.0, 23.0, 24.0],
+            }
+        )
+        assert result.to_frame().equals(expected_result)
+
+
+    def test_get_forecast_with_different_frequency(self, ts_30_min_at_0_with_4_values, ts_15_min_at_1_with_8_values, ts_30_min_at_2_with_4_values):
+        forecast_matrix = ForecastingMatrix()
+        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_15_min_at_1_with_8_values, pendulum.DateTime(2025, 1, 1, 1))
+        forecast_matrix.add(ts_30_min_at_2_with_4_values, pendulum.DateTime(2025, 1, 1, 2))
+        start_date = pendulum.datetime(2025, 1, 1, 0, 30)
+        end_date = pendulum.datetime(2025, 1, 1, 3, 30)
+        execution_date = pendulum.datetime(2025, 1, 1, 2)
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
+        expected_step = pendulum.duration(minutes=30)
+        expected_result = pl.DataFrame(
+            {
+                "time": [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)],
+                "value": [2.0, 2.0, 11.0, 12.0, 13.0, 14.0, 21.0, 21.0, 22.0, 22.0, 23.0, 23.0, 24.0],
+            }
+        )
+        assert result.to_frame().equals(expected_result)
+
+    def test_get_forecast_with_fist_one_longer(self, ts_1_hour_at_0_with_8_values, ts_30_min_at_2_with_4_values):
+        forecast_matrix = ForecastingMatrix()
+        forecast_matrix.add(ts_1_hour_at_0_with_8_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_30_min_at_2_with_4_values, pendulum.DateTime(2025, 1, 1, 2))
+        start_date = pendulum.datetime(2025, 1, 1, 0, 30)
+        end_date = pendulum.datetime(2025, 1, 1, 4, 30)
+        execution_date = pendulum.datetime(2025, 1, 1, 2)
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
+        expected_step = pendulum.duration(minutes=30)
+        expected_result = pl.DataFrame(
+            {
+                "time": [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)],
+                "value": [1.0, 2.0, 2.0, 11, 12, 13, 14, 5.0, 5.0],
+            }
+        )
+        assert result.to_frame().equals(expected_result)
+
