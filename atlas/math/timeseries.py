@@ -65,6 +65,12 @@ class Timeseries:
 
         :param file_path: Path to the file
         :type file_path: str or Path
+        :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
+        :type timezone: str, optional
+        :param filters: Filters columns, defaults to ";"
+        :type filters: tuple[str, str] or None, optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
         :raises ValueError: If file format is not supported
         :return: Loaded Timeseries object
         :rtype: Timeseries
@@ -112,7 +118,7 @@ class Timeseries:
         """
         Get metadata about the timeseries.
 
-        :return: A dictionnary containing timeseries metadata
+        :return: A dictionary containing timeseries metadata
         :rtype: dict[str, Any]
         """
         return get_metadata_from_frame(self.timeseries)
@@ -537,8 +543,6 @@ class Timeseries:
         :type how: Literal["inner", "left", "right", "full", "semi", "anti", "cross", "outer"], optional
         :param suffixes: Suffix to use for overlapping column names, defaults to None
         :type suffixes: str or None, optional
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
         :return: Merged Timeseries
         :rtype: Timeseries
         """
@@ -559,6 +563,8 @@ class Timeseries:
         :type path: str
         :param file_format: Export file format, defaults to "csv"
         :type file_format: Literal["csv", "parquet", "pickle"], optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
         :raises ValueError: If file extension doesn't match format
         :raises NotImplementedError: If the file format is not supported
         """
