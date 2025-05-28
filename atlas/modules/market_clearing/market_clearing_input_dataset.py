@@ -11,6 +11,7 @@ from atlas.models.market.order_coupling import OrderCoupling
 from atlas.config import MODEL_TO_NAME_MAPPING
 from atlas.models.business_model import BusinessModel
 from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.modules.market_clearing.market_clearing_data.marcket_clearing_market_area import MCMarketArea
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 
@@ -26,17 +27,16 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         total_minutes = (self.parameters.end_date - self.parameters.start_date).in_minutes()
         self.times = [self.parameters.start_date + step * i for i in range(0, total_minutes // self.parameters.time_step + 1)]
 
-        self.market_areas = self.get_market_areas(raw_data[MODEL_TO_NAME_MAPPING[MarketArea]])
+        self.mc_market_areas = self.get_market_areas(raw_data[MODEL_TO_NAME_MAPPING[MarketArea]])
         self.order_couplings = self.get_order_couplings(raw_data[MODEL_TO_NAME_MAPPING[OrderCoupling]])
         self.mc_orders = self.get_orders(raw_data[MODEL_TO_NAME_MAPPING[Order]])
-        self.orders_per_market_area = self.get_orders_per_market_area()
 
-    def get_market_areas(self, market_areas: list[MarketArea]) -> dict[str, MarketArea]:
+    def get_market_areas(self, market_areas: list[MarketArea]) -> dict[str, MCMarketArea]:
         if self.parameters.market_area_names == "All":
-            return {market_area.name: market_area for market_area in market_areas}
+            return {market_area.name: MCMarketArea(market_area, self) for market_area in market_areas}
         else:
             return {
-                market_area.name: market_area for market_area in market_areas if market_area.name in self.parameters.market_area_names
+                market_area.name: MCMarketArea(market_area, self) for market_area in market_areas if market_area.name in self.parameters.market_area_names
             }
 
     def get_orders(self, mc_orders: list[Order], order_couplings: list[OrderCoupling]) -> dict[str, MCOrder]:
@@ -69,12 +69,6 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         return {order_coupling.name: order_coupling for order_coupling in order_couplings
                 if self.is_order_coupling_feasible(order_coupling)
                 }
-    def get_orders_per_market_area(self):
-        return{
-            {
-                order_name: mc_order for order_name, mc_order in self.mc_orders.items() if mc_order.order.market_area == market_area
-            } for market_area in self.market_areas.values()
-         }
 
     def is_order_coupling_feasible(self, order_coupling: OrderCoupling) -> bool:
         order_names = [order.name for order in order_coupling.orders if MCOrder.is_feasible(order, self.times,
