@@ -192,7 +192,7 @@ def infer_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     return pendulum.duration(seconds=first_delta)
 
 
-def get_lower_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
+def get_lowest_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     times = timeseries.select("time").to_series().to_list()
     if len(times) < 2:
         return pendulum.duration()

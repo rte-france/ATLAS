@@ -20,7 +20,7 @@ from atlas.io.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
-from atlas.timing import build_datetime, get_lower_frequency, infer_frequency, pendulum_to_datetime
+from atlas.timing import build_datetime, get_lowest_frequency, infer_frequency, pendulum_to_datetime
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -225,7 +225,7 @@ class ForecastingMatrix(Matrix):
             .collect()
         )
 
-        min_frequency = get_lower_frequency(df)
+        min_frequency = get_lowest_frequency(df)
         try:
             infer_frequency(df)
         except ValueError:
