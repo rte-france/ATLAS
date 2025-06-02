@@ -12,6 +12,7 @@ from typing import Any, Literal
 from ortools.linear_solver import pywraplp
 from pydantic import BaseModel
 
+from atlas.config import logger
 from atlas.enum import SolverStatus
 from atlas.timing import timer
 
@@ -51,13 +52,18 @@ class OptimisationModel:
     constraint programming.
     """
 
-    def __init__(self, solver_name: str):
+    def __init__(
+        self,
+        solver_name: str,
+        name: str | None = None,
+    ):
         """
         Initialize the optimization model.
 
         :param solver_name: Specific solver name (e.g., 'GLOP', 'SCIP', 'GUROBI')
         :type solver_name: Optional[str]
         """
+        self.name = name
         self.solver_name = solver_name
         self._solver = None
         self._variables: dict[str, Any] = {}
@@ -70,6 +76,10 @@ class OptimisationModel:
 
     def _initialize_solver(self) -> None:
         """Initialize the appropriate solver based on solver type."""
+        if self.name:
+            logger.debug(f"Initializing optimisation model {self.name} with solver :'{self.solver_name}'")
+        else:
+            logger.debug(f"Initializing optimisation model with solver :'{self.solver_name}'")
         self._solver = pywraplp.Solver.CreateSolver(self.solver_name)
 
         if self._solver is None:
@@ -121,6 +131,7 @@ class OptimisationModel:
         :return: The created variable object
         :rtype: Any
         """
+        logger.debug(f"Adding variable '{name}' with bounds [{lower_bound}, {upper_bound}] and type '{var_type}'")
         if name in self._variables:
             raise ValueError(f"Variable '{name}' already exists")
 
@@ -132,7 +143,6 @@ class OptimisationModel:
             var = self._solver.BoolVar(name)
         else:
             raise ValueError(f"Unknown variable type: {var_type}")
-
         self._variables[name] = var
         return var
 
@@ -179,7 +189,8 @@ class OptimisationModel:
         :return: Constraint object
         :rtype: Any
         """
-        # Create linear expression
+        logger.debug(f"Adding constraint: {coefficients} {operator} {rhs} (name={name})")
+
         expr = self._solver.Constraint(-self._solver.infinity(), self._solver.infinity(), name)
 
         for var_name, coeff in coefficients.items():
@@ -187,7 +198,6 @@ class OptimisationModel:
                 raise KeyError(f"Variable '{var_name}' not found")
             expr.SetCoefficient(self._variables[var_name], coeff)
 
-        # Set bounds based on operator
         if operator == "<=":
             expr.SetUb(rhs)
         elif operator == ">=":
@@ -212,6 +222,7 @@ class OptimisationModel:
         :param direction: Optimization direction
         :type direction: OptimizationDirection
         """
+        logger.debug(f"Setting objective with direction '{direction}' and coefficients: {coefficients}")
 
         self._objective = self._solver.Objective()
         self._objective.Clear()
@@ -238,6 +249,8 @@ class OptimisationModel:
         :type new_coefficients: dict[str, float]
         :raises RuntimeError: If objective was not previously set
         """
+        logger.debug(f"Adding to objective: {new_coefficients}")
+
         if self._objective_dict is None:
             raise RuntimeError("Objective function must be set before it can be modified.")
 
@@ -259,9 +272,11 @@ class OptimisationModel:
         :rtype: SolutionInfo
         """
         if time_limit:
+            logger.debug(f"Setting solver time limit to {time_limit} seconds")
             self._solver.SetTimeLimit(int(time_limit * 1000))
 
         with timer() as t:
+            logger.info(f"Solving the optimisation model {self.name}...")
             status = self._solver.Solve()
         solve_time = t()
 
@@ -276,14 +291,20 @@ class OptimisationModel:
         }
 
         mapped_status = status_map.get(status, SolverStatus.NOT_SOLVED)
+        logger.info(f"Solve finished in {solve_time} with status: {mapped_status.name}")
 
         variables = {}
         objective_value = None
 
         if status in [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]:
             objective_value = self._solver.Objective().Value()
+
             for name, var in self._variables.items():
                 variables[name] = var.solution_value()
+
+            if objective_value is not None:
+                logger.debug(f"Objective value: {objective_value}")
+                logger.debug(f"Variable values: {variables}")
 
         self._solution_info = SolutionInfo(
             status=mapped_status,
@@ -322,6 +343,8 @@ class OptimisationModel:
         :param format_type: Export format ('lp', 'mps')
         :type format_type: str
         """
+        logger.debug(f"Exporting model to '{filename}' with format '{format_type}'")
+
         if format_type.lower() == "lp":
             pywraplp.ExportModelAsLpFormat(filename)
         elif format_type.lower() == "mps":
@@ -335,8 +358,8 @@ class OptimisationModel:
         self._constraints.clear()
         self._objective_dict = None
         self._solution_info = None
-        self._initialize_solver()
         self._objective.Clear()
+        self._initialize_solver()
 
     def get_model_stats(self) -> dict[str, Any]:
         """
@@ -358,7 +381,8 @@ class OptimisationModel:
         """String representation of the model."""
         stats = self.get_model_stats()
         return (
-            f"OptimisationModel(solver={self.solver_name},"
+            f"OptimisationModel(name={self.name},"
+            f"solver={self.solver_name},"
             f"variables={stats['num_variables']},"
             f"constraints={stats['num_constraints']})"
         )
