@@ -74,6 +74,7 @@ dev = [
     "types-pyyaml>=6.0.12.20250402",
     "pre-commit>=4.2.0",
     "plotly-stubs>=0.0.5",
+    "ortools-stubs>=8.0.0",
 ]
 docs = [
     "mike>=2.1.3",
