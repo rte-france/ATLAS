@@ -67,7 +67,7 @@ class OptimisationModel:
         self.solver_name = solver_name
         self._solver = None
         self._variables: dict[str, Any] = {}
-        self._constraints: dict[str, Any] = []
+        self._constraints: dict[str, Any] = {}
         self._objective_dict: dict[str, float] | None = None
         self._objective: Any | None = None
         self._solution_info: SolutionInfo | None = None
@@ -116,7 +116,7 @@ class OptimisationModel:
         lower_bound: float = 0.0,
         upper_bound: float = float("inf"),
         var_type: str = "continuous",
-    ) -> Any:
+    ) -> None:
         """
         Add a decision variable to the model.
 
@@ -128,8 +128,6 @@ class OptimisationModel:
         :type upper_bound: float
         :param var_type: Variable type ('continuous', 'integer', 'binary')
         :type var_type: str
-        :return: The created variable object
-        :rtype: Any
         """
         logger.debug(f"Adding variable '{name}' with bounds [{lower_bound}, {upper_bound}] and type '{var_type}'")
         if name in self._variables:
@@ -144,7 +142,6 @@ class OptimisationModel:
         else:
             raise ValueError(f"Unknown variable type: {var_type}")
         self._variables[name] = var
-        return var
 
     def add_variables(
         self,
@@ -152,7 +149,7 @@ class OptimisationModel:
         lower_bound: float = 0.0,
         upper_bound: float = float("inf"),
         var_type: str = "continuous",
-    ) -> dict[str, Any]:
+    ) -> None:
         """
         Add multiple decision variables to the model.
 
@@ -164,15 +161,12 @@ class OptimisationModel:
         :type upper_bound: float
         :param var_type: Variable type for all variables
         :type var_type: str
-        :return: dictionary mapping variable names to variable objects
-        :rtype: dict[str, Any]
         """
         variables = {}
         for name in names:
             variables[name] = self.add_variable(name, lower_bound, upper_bound, var_type)
-        return variables
 
-    def add_linear_constraint(self, coefficients: dict[str, float], operator: str, rhs: float, name: str) -> Any:
+    def add_linear_constraint(self, coefficients: dict[str, float], operator: str, rhs: float, name: str) -> None:
         """
         Add a linear constraint of the form: sum(coeff * var) operator rhs.
 
@@ -184,8 +178,6 @@ class OptimisationModel:
         :type rhs: float
         :param name: Optional constraint name
         :type name: Optional[str]
-        :return: Constraint object
-        :rtype: Any
         """
         logger.debug(f"Adding constraint: {coefficients} {operator} {rhs} (name={name})")
 
@@ -325,7 +317,7 @@ class OptimisationModel:
         :raises RuntimeError: If model hasn't been solved or variable not found
         """
         if not self._solution_info or not self._solution_info.variables:
-            raise RuntimeError("Model has not been solved yet")
+            raise RuntimeError("Optimisation model has not been solved yet")
 
         if name not in self._solution_info.variables:
             raise KeyError(f"Variable '{name}' not found in solution")
@@ -358,22 +350,6 @@ class OptimisationModel:
         self._solution_info = None
         self._objective.Clear()
         self._initialize_solver()
-
-    def get_model_stats(self) -> dict[str, Any]:
-        """
-        Get model statistics.
-
-        :return: dictionary containing model statistics
-        :rtype: dict[str, Any]
-        """
-        stats = {
-            "num_variables": len(self._variables),
-            "num_constraints": len(self._constraints),
-            "has_objective": self._objective_dict is not None,
-            "num_continuous_variables": self._solver.NumVariables(),
-        }
-
-        return stats
 
     def __repr__(self) -> str:
         """String representation of the model."""
