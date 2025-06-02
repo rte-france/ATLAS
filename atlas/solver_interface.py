@@ -62,7 +62,8 @@ class OptimisationModel:
         self._solver = None
         self._variables: dict[str, Any] = {}
         self._constraints: list[Any] = []
-        self._objective = None
+        self._objective_dict: dict[str, float] | None = None
+        self._objective: Any | None = None
         self._solution_info: SolutionInfo | None = None
 
         self._initialize_solver()
@@ -92,7 +93,7 @@ class OptimisationModel:
     @property
     def objective(self) -> dict[str, float] | None:
         """Return the current objective coefficients."""
-        return self._objective
+        return self._objective_dict
 
     @property
     def solution_info(self) -> SolutionInfo | None:
@@ -161,20 +162,6 @@ class OptimisationModel:
             variables[name] = self.add_variable(name, lower_bound, upper_bound, var_type)
         return variables
 
-    def get_variable(self, name: str) -> Any:
-        """
-        Get a variable by name.
-
-        :param name: Variable name
-        :type name: str
-        :return: Variable object
-        :rtype: Any
-        :raises KeyError: If variable doesn't exist
-        """
-        if name not in self._variables:
-            raise KeyError(f"Variable '{name}' not found")
-        return self._variables[name]
-
     def add_linear_constraint(
         self, coefficients: dict[str, float], operator: str, rhs: float, name: str | None = None
     ) -> Any:
@@ -193,7 +180,7 @@ class OptimisationModel:
         :rtype: Any
         """
         # Create linear expression
-        expr = self._solver.Constraint(-self._solver.infinity(), self._solver.infinity())
+        expr = self._solver.Constraint(-self._solver.infinity(), self._solver.infinity(), name)
 
         for var_name, coeff in coefficients.items():
             if var_name not in self._variables:
@@ -226,22 +213,41 @@ class OptimisationModel:
         :type direction: OptimizationDirection
         """
 
-        objective = self._solver.Objective()
-        objective.Clear()
+        self._objective = self._solver.Objective()
+        self._objective.Clear()
 
         for var_name, coeff in coefficients.items():
             if var_name not in self._variables:
                 raise KeyError(f"Variable '{var_name}' not found")
-            objective.SetCoefficient(self._variables[var_name], coeff)
+            self._objective.SetCoefficient(self._variables[var_name], coeff)
 
         if direction == "minimize":
-            objective.SetMinimization()
+            self._objective.SetMinimization()
         elif direction == "maximize":
-            objective.SetMaximization()
+            self._objective.SetMaximization()
         else:
             raise ValueError("Optimisation direction not supported.")
 
-        self._objective = coefficients
+        self._objective_dict = coefficients
+
+    def add_objective(self, new_coefficients: dict[str, float]) -> None:
+        """
+        Add new variables to the existing objective function.
+
+        :param new_coefficients: dictionary mapping variable names to new coefficients
+        :type new_coefficients: dict[str, float]
+        :raises RuntimeError: If objective was not previously set
+        """
+        if self._objective_dict is None:
+            raise RuntimeError("Objective function must be set before it can be modified.")
+
+        for var_name, coeff in new_coefficients.items():
+            if var_name not in self._variables:
+                raise KeyError(f"Variable '{var_name}' not found")
+
+            self._objective.SetCoefficient(self._variables[var_name], coeff)
+
+        self._objective_dict.update(new_coefficients)
 
     def solve(self, time_limit: float | None = None) -> SolutionInfo:
         """
@@ -253,7 +259,7 @@ class OptimisationModel:
         :rtype: SolutionInfo
         """
         if time_limit:
-            self._solver.SetTimeLimit(int(time_limit * 1000))  # Convert to milliseconds
+            self._solver.SetTimeLimit(int(time_limit * 1000))
 
         with timer() as t:
             status = self._solver.Solve()
@@ -327,9 +333,10 @@ class OptimisationModel:
         """Clear the model and reset all variables and constraints."""
         self._variables.clear()
         self._constraints.clear()
-        self._objective = None
+        self._objective_dict = None
         self._solution_info = None
         self._initialize_solver()
+        self._objective.Clear()
 
     def get_model_stats(self) -> dict[str, Any]:
         """
@@ -341,7 +348,7 @@ class OptimisationModel:
         stats = {
             "num_variables": len(self._variables),
             "num_constraints": len(self._constraints),
-            "has_objective": self._objective is not None,
+            "has_objective": self._objective_dict is not None,
             "num_continuous_variables": self._solver.NumVariables(),
         }
 
