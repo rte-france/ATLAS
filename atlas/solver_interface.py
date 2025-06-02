@@ -67,7 +67,7 @@ class OptimisationModel:
         self.solver_name = solver_name
         self._solver = None
         self._variables: dict[str, Any] = {}
-        self._constraints: list[Any] = []
+        self._constraints: dict[str, Any] = []
         self._objective_dict: dict[str, float] | None = None
         self._objective: Any | None = None
         self._solution_info: SolutionInfo | None = None
@@ -77,7 +77,7 @@ class OptimisationModel:
     def _initialize_solver(self) -> None:
         """Initialize the appropriate solver based on solver type."""
         if self.name:
-            logger.debug(f"Initializing optimisation model {self.name} with solver :'{self.solver_name}'")
+            logger.debug(f"Initializing optimisation model '{self.name}' with solver :'{self.solver_name}'")
         else:
             logger.debug(f"Initializing optimisation model with solver :'{self.solver_name}'")
         self._solver = pywraplp.Solver.CreateSolver(self.solver_name)
@@ -172,9 +172,7 @@ class OptimisationModel:
             variables[name] = self.add_variable(name, lower_bound, upper_bound, var_type)
         return variables
 
-    def add_linear_constraint(
-        self, coefficients: dict[str, float], operator: str, rhs: float, name: str | None = None
-    ) -> Any:
+    def add_linear_constraint(self, coefficients: dict[str, float], operator: str, rhs: float, name: str) -> Any:
         """
         Add a linear constraint of the form: sum(coeff * var) operator rhs.
 
@@ -207,7 +205,7 @@ class OptimisationModel:
         else:
             raise ValueError(f"Unknown operator: {operator}")
 
-        self._constraints.append(expr)
+        self._constraints[name] = expr
 
     def set_objective(
         self,
