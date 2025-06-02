@@ -7,13 +7,13 @@ This file is part of the ATLAS project.
 Module that implements OR-Tools optimisation interface.
 """
 
-import time
 from typing import Any, Literal
 
 from ortools.linear_solver import pywraplp
 from pydantic import BaseModel
 
 from atlas.enum import SolverStatus
+from atlas.timing import timer
 
 
 class SolutionInfo(BaseModel):
@@ -33,7 +33,7 @@ class SolutionInfo(BaseModel):
 
     status: SolverStatus
     objective_value: float | None = None
-    solve_time: float = 0.0
+    solve_time: str | None = None
     variables: dict[str, float] = None
     num_iterations: int | None = None
 
@@ -252,13 +252,12 @@ class OptimisationModel:
         :return: Solution information
         :rtype: SolutionInfo
         """
-        start_time = time.time()
-
         if time_limit:
             self._solver.SetTimeLimit(int(time_limit * 1000))  # Convert to milliseconds
 
-        status = self._solver.Solve()
-        solve_time = time.time() - start_time
+        with timer() as t:
+            status = self._solver.Solve()
+        solve_time = t()
 
         status_map = {
             pywraplp.Solver.OPTIMAL: SolverStatus.OPTIMAL,

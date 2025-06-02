@@ -4,6 +4,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from contextlib import contextmanager
+
+import pendulum
+
 
 def datetime_to_pendulum(fmt: str) -> str:
     """Convert a datetime format string to a pendulum-compatible format string.
@@ -78,3 +82,10 @@ def pendulum_to_datetime(fmt: str) -> str:
         fmt = fmt.replace(pendulum_token, mapping[pendulum_token])
 
     return fmt
+
+
+@contextmanager
+def timer() -> str:
+    """Context manager to measure elapsed time in seconds."""
+    start = pendulum.now()
+    yield lambda: str((pendulum.now() - start).as_duration())
