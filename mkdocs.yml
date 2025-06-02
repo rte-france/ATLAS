@@ -117,6 +117,7 @@ nav:
       - Workflow step: api/workflow/workflow_step.md
       - Workflow parameters: api/workflow/workflow_parameters.md
     - Others:
+      - Solver Interace: api/optimisation.md
       - Enum: api/enum.md
       - Logging: api/logging.md
   - Examples:

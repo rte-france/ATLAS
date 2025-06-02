@@ -1,9 +1,10 @@
 """
-OR-Tools Optimization Interface Module
+Copyright (c) 2025, RTE (www.rte-france.com)
 
-This module provides a unified interface for Google OR-Tools optimization,
-supporting Linear Programming (LP), Mixed Integer Programming (MIP), and
-Constraint Programming (CP).
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+
+Module that implements OR-Tools optimisation interface.
 """
 
 import time
@@ -24,8 +25,8 @@ class SolutionInfo(BaseModel):
     :type objective_value: Optional[float]
     :param solve_time: Time taken to solve in seconds
     :type solve_time: float
-    :param variables: Dictionary of variable names to their optimal values
-    :type variables: Dict[str, float]
+    :param variables: dictionary of variable names to their optimal values
+    :type variables: dict[str, float]
     :param num_iterations: Number of iterations performed
     :type num_iterations: Optional[int]
     """
@@ -41,7 +42,7 @@ class SolutionInfo(BaseModel):
             self.variables = {}
 
 
-class OptimizationModel:
+class OptimisationModel:
     """
     Unified interface for OR-Tools optimization problems.
 
@@ -72,6 +73,31 @@ class OptimizationModel:
 
         if self._solver is None:
             raise RuntimeError("Failed to create solver. Check if the solver is available.")
+
+    @property
+    def solver(self) -> pywraplp.Solver:
+        """Return the underlying OR-Tools solver instance."""
+        return self._solver
+
+    @property
+    def variables(self) -> dict[str, Any]:
+        """Return the dictionary of decision variables."""
+        return self._variables
+
+    @property
+    def constraints(self) -> list[Any]:
+        """Return the list of constraints."""
+        return self._constraints
+
+    @property
+    def objective(self) -> dict[str, float] | None:
+        """Return the current objective coefficients."""
+        return self._objective
+
+    @property
+    def solution_info(self) -> SolutionInfo | None:
+        """Return the last computed solution info."""
+        return self._solution_info
 
     def add_variable(
         self,
@@ -127,8 +153,8 @@ class OptimizationModel:
         :type upper_bound: float
         :param var_type: Variable type for all variables
         :type var_type: str
-        :return: Dictionary mapping variable names to variable objects
-        :rtype: Dict[str, Any]
+        :return: dictionary mapping variable names to variable objects
+        :rtype: dict[str, Any]
         """
         variables = {}
         for name in names:
@@ -155,8 +181,8 @@ class OptimizationModel:
         """
         Add a linear constraint of the form: sum(coeff * var) operator rhs.
 
-        :param coefficients: Dictionary mapping variable names to coefficients
-        :type coefficients: Dict[str, float]
+        :param coefficients: dictionary mapping variable names to coefficients
+        :type coefficients: dict[str, float]
         :param operator: Constraint operator ('<=', '>=', '==')
         :type operator: str
         :param rhs: Right-hand side value
@@ -194,8 +220,8 @@ class OptimizationModel:
         """
         Set the objective function.
 
-        :param coefficients: Dictionary mapping variable names to objective coefficients
-        :type coefficients: Dict[str, float]
+        :param coefficients: dictionary mapping variable names to objective coefficients
+        :type coefficients: dict[str, float]
         :param direction: Optimization direction
         :type direction: OptimizationDirection
         """
@@ -319,8 +345,8 @@ class OptimizationModel:
         """
         Get model statistics.
 
-        :return: Dictionary containing model statistics
-        :rtype: Dict[str, Any]
+        :return: dictionary containing model statistics
+        :rtype: dict[str, Any]
         """
         stats = {
             "num_variables": len(self._variables),
@@ -335,7 +361,7 @@ class OptimizationModel:
         """String representation of the model."""
         stats = self.get_model_stats()
         return (
-            f"OptimizationModel(solver={self.solver_name},"
+            f"OptimisationModel(solver={self.solver_name},"
             f"variables={stats['num_variables']},"
             f"constraints={stats['num_constraints']})"
         )
