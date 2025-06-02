@@ -290,15 +290,6 @@ class OptimisationModel:
 
         return self._solution_info
 
-    def get_solution(self) -> SolutionInfo | None:
-        """
-        Get the last solution information.
-
-        :return: Solution information or None if not solved
-        :rtype: Optional[SolutionInfo]
-        """
-        return self._solution_info
-
     def get_variable_value(self, name: str) -> float:
         """
         Get the optimal value of a variable.
