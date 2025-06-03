@@ -4,6 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
 import pendulum
@@ -85,7 +86,7 @@ def pendulum_to_datetime(fmt: str) -> str:
 
 
 @contextmanager
-def timer() -> str:
+def timer() -> Generator[Callable[[], str], None, None]:
     """Context manager to measure elapsed time in seconds."""
     start = pendulum.now()
     yield lambda: str((pendulum.now() - start).as_duration())

@@ -48,6 +48,7 @@ __all__ = [
     "MarketArea",
     "MarketAreaPtdf",
     "MarketBorder",
+    "OptimisationModel",
     "Node",
     "NodePtdf",
     "Order",

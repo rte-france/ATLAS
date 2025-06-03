@@ -35,7 +35,7 @@ class SolutionInfo(BaseModel):
     status: SolverStatus
     objective_value: float | None = None
     solve_time: str | None = None
-    variables: dict[str, float] = None
+    variables: dict[str, float] | None = None
     num_iterations: int | None = None
 
     def __post_init__(self):
@@ -96,7 +96,7 @@ class OptimisationModel:
         return self._variables
 
     @property
-    def constraints(self) -> list[Any]:
+    def constraints(self) -> dict[str, Any]:
         """Return the list of constraints."""
         return self._constraints
 
@@ -115,7 +115,7 @@ class OptimisationModel:
         name: str,
         lower_bound: float = 0.0,
         upper_bound: float = float("inf"),
-        var_type: str = "continuous",
+        var_type: Literal["continuous", "integer", "boolean"] = "continuous",
     ) -> None:
         """
         Add a decision variable to the model.
@@ -126,21 +126,22 @@ class OptimisationModel:
         :type lower_bound: float
         :param upper_bound: Upper bound for the variable
         :type upper_bound: float
-        :param var_type: Variable type ('continuous', 'integer', 'binary')
+        :param var_type: Variable type ('continuous', 'integer', 'boolean')
         :type var_type: str
         """
         logger.debug(f"Adding variable '{name}' with bounds [{lower_bound}, {upper_bound}] and type '{var_type}'")
         if name in self._variables:
             raise ValueError(f"Variable '{name}' already exists")
+        if self._solver:
+            if var_type == "continuous":
+                var = self._solver.NumVar(lower_bound, upper_bound, name)
+            elif var_type == "integer":
+                var = self._solver.IntVar(lower_bound, upper_bound, name)
+            elif var_type == "boolean":
+                var = self._solver.BoolVar(name)
+            else:
+                raise ValueError(f"Unknown variable type: {var_type}")
 
-        if var_type == "continuous":
-            var = self._solver.NumVar(lower_bound, upper_bound, name)
-        elif var_type == "integer":
-            var = self._solver.IntVar(lower_bound, upper_bound, name)
-        elif var_type == "binary":
-            var = self._solver.BoolVar(name)
-        else:
-            raise ValueError(f"Unknown variable type: {var_type}")
         self._variables[name] = var
 
     def add_variables(
@@ -162,9 +163,8 @@ class OptimisationModel:
         :param var_type: Variable type for all variables
         :type var_type: str
         """
-        variables = {}
         for name in names:
-            variables[name] = self.add_variable(name, lower_bound, upper_bound, var_type)
+            self.add_variable(name, lower_bound, upper_bound, var_type)
 
     def add_linear_constraint(self, coefficients: dict[str, float], operator: str, rhs: float, name: str) -> None:
         """
