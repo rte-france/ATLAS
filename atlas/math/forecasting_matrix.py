@@ -20,7 +20,7 @@ from atlas.io.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
-from atlas.timing import build_datetime, get_lowest_frequency, infer_frequency, pendulum_to_datetime
+from atlas.timing import build_datetime, get_lowest_frequency, pendulum_to_datetime
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -212,9 +212,12 @@ class ForecastingMatrix(Matrix):
             raise ValueError("No forecasting dates available before execution date")
 
         forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
+        interpolate_expr = [pl.col(col).interpolate_by("time") for col in forecast_cols]
+        min_frequency = get_lowest_frequency(self.matrix)
 
         df = (
-            self.matrix.lazy()
+            self.matrix.upsample("time", every=min_frequency)
+            .with_columns(interpolate_expr)
             .filter(pl.col("time").is_between(start_date, end_date))
             .select(
                 [
@@ -222,14 +225,9 @@ class ForecastingMatrix(Matrix):
                     forecast_expr.alias("forecast"),
                 ]
             )
-            .collect()
+            .fill_null(strategy="forward")
+            .fill_null(strategy="backward")
         )
-
-        min_frequency = get_lowest_frequency(df)
-        try:
-            infer_frequency(df)
-        except ValueError:
-            df = df.upsample("time", every=min_frequency).fill_null(strategy="forward")
 
         return Timeseries(df, timezone=self.timezone)
 

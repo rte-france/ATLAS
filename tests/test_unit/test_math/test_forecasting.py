@@ -460,17 +460,17 @@ class TestGetForecast:
                 "time": [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)],
                 "value": [
                     2.0,
-                    2.0,
+                    2.5,
                     11.0,
                     12.0,
                     13.0,
                     14.0,
                     21.0,
-                    21.0,
+                    21.5,
                     22.0,
-                    22.0,
+                    22.5,
                     23.0,
-                    23.0,
+                    23.5,
                     24.0,
                 ],
             }
@@ -491,7 +491,7 @@ class TestGetForecast:
         expected_result = pl.DataFrame(
             {
                 "time": [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)],
-                "value": [1.0, 2.0, 2.0, 11, 12, 13, 14, 5.0, 5.0],
+                "value": [1.5, 2.0, 2.5, 21, 22, 23, 24, 5.0, 5.5],
             }
         )
         assert result.to_frame().equals(expected_result)
