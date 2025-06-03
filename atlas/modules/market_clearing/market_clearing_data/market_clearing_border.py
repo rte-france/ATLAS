@@ -32,3 +32,4 @@ class MCBorder:
                     f"The time resolution of the border {self.border.name} has had to be rounded according to the time step."
                 )
         # TODO : Check link_generator
+        # Add to the market area of uphill and downhill the information of border
