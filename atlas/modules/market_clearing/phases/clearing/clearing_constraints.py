@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.phases.clearing.clearing_variables import ClearingVariables
 
 
@@ -17,7 +18,7 @@ class ClearingConstraints:
         self.constraints_3_8_1 = None
         self.constraints_3_9 = None
         self.constraints_3_10 = None
-        self.constraints_parent_child = None
+        self.parent_child = None
 
         self.constraints_3_2_1 = None
         self.constraints_3_2_2 = None
@@ -36,8 +37,29 @@ class ClearingConstraints:
         self.absolute_exchanges = None
         self.exchanges_across_borders = None
 
-    def build(self):
+    def build(self, input_dataset: MarketClearingInputDataset):
         """ Create all constraints for the clearing phase model"""
+        self.create_constraint_3_4_min_constraints(input_dataset)
+        self.create_constraint_3_4_max_constraints(input_dataset)
+        self.create_constraint_3_8_constraints(input_dataset)
+        self.create_constraint_3_8_1_constraints(input_dataset)
+        self.create_constraint_3_9_constraints(input_dataset)
+        self.create_constraint_3_10_constraints(input_dataset)
+        self.create_parent_child_constraints(input_dataset)
+        self.create_constraint_3_2_1_constraints(input_dataset)
+        self.create_constraint_3_2_2_constraints(input_dataset)
+        self.create_constraint_3_5_sold_constraints(input_dataset)
+        self.create_constraint_3_5_bought_constraints(input_dataset)
+        if input_dataset.parameters.flow_penalty_lambda_2 != 0.0:
+            self.create_constraint_3_6_1b_constraints(input_dataset)
+            self.create_constraint_3_6_1c_constraints(input_dataset)
+            self.create_constraint_3_6_1d_constraints(input_dataset)
+            self.create_constraint_3_6_1f_constraints(input_dataset)
+            self.create_constraint_3_6_1g_constraints(input_dataset)
+        if input_dataset.parameters.exchange_constraints_type != "atc":
+            self.create_constraint_3_6_2_constraints(input_dataset)
+        self.create_absolute_exchange_constraints(input_dataset)
+        self.create_exchange_across_border_constraints(input_dataset)
 
     @staticmethod
     def constraint_3_4_min_constraint_name(market_area_name: str, order_name: str) -> str:
