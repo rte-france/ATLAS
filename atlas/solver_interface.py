@@ -336,11 +336,11 @@ class OptimisationModel:
         logger.debug(f"Exporting model to '{filename}' with format '{format_type}'")
 
         if format_type.lower() == "lp":
-            pywraplp.ExportModelAsLpFormat(filename)
-        elif format_type.lower() == "mps":
-            self._solver.ExportModelAsMpsFormat(filename)
+            lp = self._solver.ExportModelAsLpFormat(False)
         else:
             raise ValueError(f"Unsupported export format: {format_type}")
+        with open(filename, "w") as f:
+            f.write(lp)
 
     def clear(self) -> None:
         """Clear the model and reset all variables and constraints."""
