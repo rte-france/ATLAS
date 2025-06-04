@@ -4,62 +4,50 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases.clearing.clearing_variables import ClearingVariables
 
 
 class ClearingConstraints:
-    def __init__(self, variables: ClearingVariables):
-        self.variables = variables
-
-        self.constraints_3_4_min = None
-        self.constraints_3_4_max = None
-
-        self.constraints_3_8 = None
-        self.constraints_3_8_1 = None
-        self.constraints_3_9 = None
-        self.constraints_3_10 = None
-        self.parent_child = None
-
-        self.constraints_3_2_1 = None
-        self.constraints_3_2_2 = None
-
-        self.constraints_3_5_sold = None
-        self.constraints_3_5_bought = None
-
-        self.constraints_3_6_1b = None
-        self.constraints_3_6_1c = None
-        self.constraints_3_6_1d = None
-        self.constraints_3_6_1f = None
-        self.constraints_3_6_1g = None
-
-        self.constraints_3_6_2 = None
-
-        self.absolute_exchanges = None
-        self.exchanges_across_borders = None
-
-    def build(self, input_dataset: MarketClearingInputDataset):
+    @staticmethod
+    def build(solver, input_dataset: MarketClearingInputDataset, parameters : MarketClearingParameters):
         """ Create all constraints for the clearing phase model"""
-        self.create_constraint_3_4_min_constraints(input_dataset)
-        self.create_constraint_3_4_max_constraints(input_dataset)
-        self.create_constraint_3_8_constraints(input_dataset)
-        self.create_constraint_3_8_1_constraints(input_dataset)
-        self.create_constraint_3_9_constraints(input_dataset)
-        self.create_constraint_3_10_constraints(input_dataset)
-        self.create_parent_child_constraints(input_dataset)
-        self.create_constraint_3_2_1_constraints(input_dataset)
-        self.create_constraint_3_2_2_constraints(input_dataset)
-        self.create_constraint_3_5_sold_constraints(input_dataset)
-        self.create_constraint_3_5_bought_constraints(input_dataset)
-        if input_dataset.parameters.flow_penalty_lambda_2 != 0.0:
-            self.create_constraint_3_6_1b_constraints(input_dataset)
-            self.create_constraint_3_6_1c_constraints(input_dataset)
-            self.create_constraint_3_6_1d_constraints(input_dataset)
-            self.create_constraint_3_6_1f_constraints(input_dataset)
-            self.create_constraint_3_6_1g_constraints(input_dataset)
-        if input_dataset.parameters.exchange_constraints_type != "atc":
-            self.create_constraint_3_6_2_constraints(input_dataset)
-        self.create_absolute_exchange_constraints(input_dataset)
-        self.create_exchange_across_border_constraints(input_dataset)
+        ClearingConstraints.create_constraint_3_4_min_constraints(solver, input_dataset, parameters)
+        ClearingConstraints.create_constraint_3_4_max_constraints(solver, input_dataset)
+        ClearingConstraints.create_constraint_3_8_constraints(solver, input_dataset)
+        ClearingConstraints.create_constraint_3_8_1_constraints(solver, input_dataset)
+        ClearingConstraints.create_constraint_3_9_constraints(solver, input_dataset)
+        ClearingConstraints.create_constraint_3_10_constraints(solver, input_dataset)
+        ClearingConstraints.create_parent_child_constraints(solver, input_dataset)
+        ClearingConstraints.create_constraint_3_2_1_constraints(solver, input_dataset)
+        ClearingConstraints.create_constraint_3_2_2_constraints(solver, input_dataset)
+        ClearingConstraints.create_constraint_3_5_sold_constraints(solver, input_dataset)
+        ClearingConstraints.create_constraint_3_5_bought_constraints(solver, input_dataset)
+        if parameters.flow_penalty_lambda_2 != 0.0:
+            ClearingConstraints.create_constraint_3_6_1b_constraints(solver, input_dataset)
+            ClearingConstraints.create_constraint_3_6_1c_constraints(solver, input_dataset)
+            ClearingConstraints.create_constraint_3_6_1d_constraints(solver, input_dataset)
+            ClearingConstraints.create_constraint_3_6_1f_constraints(solver, input_dataset)
+            ClearingConstraints.create_constraint_3_6_1g_constraints(solver, input_dataset)
+        if parameters.exchange_constraints_type != "atc":
+            ClearingConstraints.create_constraint_3_6_2_constraints(solver, input_dataset)
+        ClearingConstraints.create_absolute_exchange_constraints(solver, input_dataset)
+        ClearingConstraints.create_exchange_across_border_constraints(solver, input_dataset)
+
+    @staticmethod
+    def create_constraint_3_4_min_constraints(solver, input_dataset: MarketClearingInputDataset, parameters : MarketClearingParameters):
+        for market_area in input_dataset.mc_market_areas:
+            for order in input_dataset.orders_per_market_area[market_area.market_area.name]:
+                # Compute the constraints limiting the accepted powers of combined,
+                # indivisible and/or mutually excluding orders and linked orders (3.4):
+                if order.id_with_status is not None:
+                    order_status = solver.LookupVariable(ClearingVariables.order_status_variable_name(order.order.name))
+                    accepted_power = solver.LookupVariable(ClearingVariables.accepted_power_variable_name(order.order.name))
+                    solver.Add(
+                        order_status * max(parameters.allowed_round_off_error, order.min_power)
+                        <= accepted_power,
+                        ClearingConstraints.constraint_3_4_min_constraint_name(market_area.market_area.name, order.order.name)
+                    )
 
     @staticmethod
     def constraint_3_4_min_constraint_name(market_area_name: str, order_name: str) -> str:
