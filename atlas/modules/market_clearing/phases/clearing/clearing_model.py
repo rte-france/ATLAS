@@ -17,27 +17,22 @@ class ClearingModel:
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
         self.input_dataset = input_dataset
         self.parameters = parameters
-        self.solver = pywraplp.Solver.CreateSolver(parameters.solver_name)
-
-        self.variables : ClearingVariables = None
-        self.constraints : ClearingConstraints = None
-        self.objective : ClearingObjective = None
+        self.solver = None
 
     @staticmethod
-    def retrieve_solver_parameters(use_presolve: bool) -> pywraplp.MPSolverParameters:
+    def create_solver_parameters(use_presolve: bool) -> pywraplp.MPSolverParameters:
         solver_params = pywraplp.MPSolverParameters()
         solver_params.PRESOLVE = int(use_presolve)
         return solver_params
 
-    def build(self):
-        self.variables = self.create_variables()
-        self.constraints = self.create_constraints()
-        self.objective = self.create_objective_function()
+    def build(self, solver_name):
+        self.solver = pywraplp.Solver.CreateSolver(solver_name)
+        self.create_variables()
+        self.create_constraints()
+        self.create_objective_function()
 
-    def create_variables(self) -> ClearingVariables:
-        clearing_variables  = ClearingVariables()
-        clearing_variables.build()
-        return clearing_variables
+    def create_variables(self):
+        ClearingVariables.build(self.solver, self.input_dataset, self.parameters)
 
     def create_constraints(self) -> ClearingConstraints:
         clearing_objective  = ClearingConstraints(self.variables)
