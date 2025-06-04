@@ -193,6 +193,24 @@ class Timeseries:
         else:
             cls(timeseries)
 
+    @classmethod
+    def from_dataframe(
+        cls,
+        dataframe: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list[float]],
+        timezone="UTC",
+    ) -> Timeseries:
+        """Create a Timeseries object from a dataframe-like object.
+
+        :param dataframe: The input dataframe
+        :type dataframe: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list[float]]
+        :param timezone: The timezone of the Timeseries, defaults to "UTC"
+        :type timezone: str, optional
+        :return: The timeseries instantiated from the dataframe-like object
+        :rtype: Timeseries
+        """
+
+        cls(dataframe, timezone)
+
     def describe(self) -> dict[str, Any]:
         """
         Get metadata about the timeseries.
