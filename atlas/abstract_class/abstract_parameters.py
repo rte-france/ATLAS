@@ -49,14 +49,6 @@ class AbstractParameters(BaseModel):
                 f"Start date '{self.start_date.to_datetime_string()}' must be inferior "
                 f"to end date '{self.end_date.to_datetime_string()}'"
             )
-        if self.execution_date is None:
-            return self
-        if not (self.start_date < self.execution_date < self.end_date):
-            raise ValueError(
-                f"Execution date '{self.execution_date.to_datetime_string()}' must be between "
-                f"start date '{self.start_date.to_datetime_string()}' and "
-                f"end date '{self.end_date.to_datetime_string()}'"
-            )
         return self
 
 
