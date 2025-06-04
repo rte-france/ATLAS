@@ -94,7 +94,7 @@ class Timeseries:
         timezone: str = "UTC",
     ) -> Timeseries:
         """
-        Create a Timeseries from start and end dates, frequency, and values.
+        Create a Timeseries from start date, frequency and a list of values.
 
         :param start_date: Start date of the timeseries
         :type start_date: str or datetime or pendulum.DateTime
@@ -110,8 +110,8 @@ class Timeseries:
         """
         if len(values) < 2:
             raise ValueError("Timeseries must contains at least 2 values")
-        start = build_datetime(start_date, date_format).in_tz(timezone)
 
+        start = build_datetime(start_date, date_format).in_tz(timezone)
         end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
 
         datetimes = generate_datetimes(start, end, frequency, timezone)
@@ -132,7 +132,27 @@ class Timeseries:
         default_value: list[float] | float = 0,
         date_format="YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
-    ):
+    ) -> Timeseries:
+        """
+        Create a Timeseries from a time range and a default value or list of values.
+
+        :param start_date: Start date of the timeseries
+        :type start_date: str or datetime or pendulum.DateTime
+        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
+        :type frequency: str or pendulum.Duration
+        :param end_date: End date of the timeseries
+        :type end_date: str or datetime or pendulum.DateTime
+        :param default_value: A scalar value or a list of values to fill the timeseries
+        :type default_value: list[float] or float, optional
+        :param date_format: Format to interpret date strings, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param timezone: Timezone string, defaults to "UTC"
+        :type timezone: str, optional
+        :raises ValueError: If default_value is a list with length mismatch
+        :return: A Timeseries object with the specified index and values
+        :rtype: Timeseries
+        """
+
         start = build_datetime(start_date, date_format).in_tz(timezone)
         end = build_datetime(end_date, date_format).in_tz(timezone)
 
@@ -155,6 +175,23 @@ class Timeseries:
             )
 
         return cls(df, timezone)
+
+    @classmethod
+    def from_timeseries(cls, timeseries: Timeseries, default_value: float | None = None) -> Timeseries:
+        """Create a Timeseries from another, using its structure.
+
+        :param timeseries: The input timeseries object
+        :type timeseries: Timeseries
+        :param default_value: default value to pass to all timestamp values, defaults to None
+        :type default_value: float | None, optional
+        :return: The timeseries object instantiated
+        :rtype: Timeseries
+        """
+        if default_value:
+            df = timeseries.dataframe.with_columns(pl.lit(0).alias("value"))
+            cls(df, timezone=timeseries.timezone)
+        else:
+            cls(timeseries)
 
     def describe(self) -> dict[str, Any]:
         """
