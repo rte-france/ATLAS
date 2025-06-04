@@ -187,6 +187,9 @@ class Timeseries:
         :return: The timeseries object instantiated
         :rtype: Timeseries
         """
+
+        if not isinstance(timeseries, Timeseries):
+            raise TypeError("Input has to be a timeseries object, if using a dataframe, use 'from_dataframe' ")
         if default_value:
             df = timeseries.dataframe.with_columns(pl.lit(0).alias("value"))
             cls(df, timezone=timeseries.timezone)
@@ -196,7 +199,7 @@ class Timeseries:
     @classmethod
     def from_dataframe(
         cls,
-        dataframe: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list[float]],
+        dataframe: pl.DataFrame | pd.DataFrame,
         timezone="UTC",
     ) -> Timeseries:
         """Create a Timeseries object from a dataframe-like object.
@@ -208,6 +211,8 @@ class Timeseries:
         :return: The timeseries instantiated from the dataframe-like object
         :rtype: Timeseries
         """
+        if not isinstance(pl.DataFrame | pd.DataFrame):
+            raise TypeError("Input has to be a dataframe-like object.")
 
         cls(dataframe, timezone)
 
