@@ -192,9 +192,9 @@ class Timeseries:
             raise TypeError("Input has to be a timeseries object, if using a dataframe, use 'from_dataframe' ")
         if default_value:
             df = timeseries.dataframe.with_columns(pl.lit(0).alias("value"))
-            cls(df, timezone=timeseries.timezone)
+            return cls(df, timezone=timeseries.timezone)
         else:
-            cls(timeseries)
+            return cls(timeseries)
 
     @classmethod
     def from_dataframe(
@@ -211,10 +211,10 @@ class Timeseries:
         :return: The timeseries instantiated from the dataframe-like object
         :rtype: Timeseries
         """
-        if not isinstance(pl.DataFrame | pd.DataFrame):
+        if not isinstance(dataframe, pl.DataFrame | pd.DataFrame):
             raise TypeError("Input has to be a dataframe-like object.")
 
-        cls(dataframe, timezone)
+        return cls(dataframe, timezone)
 
     def describe(self) -> dict[str, Any]:
         """
@@ -757,7 +757,7 @@ class Timeseries:
         """
         df = self.timeseries.with_columns(pl.col("value").abs())
 
-        self._return_inplace(df, inplace)
+        return self._return_inplace(df, inplace)
 
     def interpolate(
         self, interpolation_method: Literal["linear", "constant"] = "constant", inplace: bool = True
