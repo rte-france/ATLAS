@@ -160,11 +160,11 @@ def generate_datetimes(
     """
     start_date: pendulum.DateTime = build_datetime(start, date_format).in_tz(timezone)
     end_date: pendulum.DateTime = build_datetime(end, date_format).in_tz(timezone)
-    step = retrieve_step(freq)
+    step = get_duration(freq)
     return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
 
 
-def retrieve_step(freq: str | pendulum.Duration) -> pendulum.Duration:
+def get_duration(freq: str | pendulum.Duration) -> pendulum.Duration:
     if isinstance(freq, str):
         step = parse_frequency(freq)
     elif isinstance(freq, pendulum.Duration):

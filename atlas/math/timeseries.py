@@ -26,8 +26,8 @@ from atlas.timing import (
     build_datetime,
     check_timezone,
     generate_datetimes,
+    get_duration,
     infer_frequency,
-    retrieve_step,
 )
 
 
@@ -85,11 +85,12 @@ class Timeseries:
         return cls(read_data_file(file_path, filters, separator), timezone)
 
     @classmethod
-    def from_args(
+    def from_values(
         cls,
         start_date: str | datetime | pendulum.DateTime,
         frequency: str | pendulum.Duration,
         values: list[float],
+        date_format="YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
     ) -> Timeseries:
         """
@@ -107,18 +108,51 @@ class Timeseries:
         :return: A Timeseries object with the specified parameters
         :rtype: Timeseries
         """
-        if len(values) == 0:
-            raise ValueError("Timeseries must contains at least one value")
-        start = build_datetime(start_date).in_tz(timezone)
-        step = retrieve_step(frequency)
+        if len(values) < 2:
+            raise ValueError("Timeseries must contains at least 2 values")
+        start = build_datetime(start_date, date_format).in_tz(timezone)
 
-        end = build_datetime(start + (len(values) - 1) * step).in_tz(timezone)
+        end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
+
         datetimes = generate_datetimes(start, end, frequency, timezone)
 
-        df = pl.DataFrame({"time": datetimes, "value": values}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=timezone)),
-            pl.col("value").cast(pl.Float64()),
+        df = pl.DataFrame(
+            {"time": datetimes, "value": values},
+            schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
         )
+
+        return cls(df, timezone)
+
+    @classmethod
+    def from_index(
+        cls,
+        start_date: str | datetime | pendulum.DateTime,
+        frequency: str | pendulum.Duration,
+        end_date: str | datetime | pendulum.DateTime,
+        default_value: list[float] | float = 0,
+        date_format="YYYY-MM-DD HH:mm:ss",
+        timezone: str = "UTC",
+    ):
+        start = build_datetime(start_date, date_format).in_tz(timezone)
+        end = build_datetime(end_date, date_format).in_tz(timezone)
+
+        datetimes = generate_datetimes(start, end, frequency, timezone)
+
+        if isinstance(default_value, list):
+            if len(default_value) != len(datetimes):
+                raise ValueError(
+                    f"Values  passed is of size {len(default_value)} when datetimes generated is of size {len(datetimes)}"
+                )
+            else:
+                df = pl.DataFrame(
+                    {"time": datetimes, "value": default_value},
+                    schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
+                )
+        elif isinstance(default_value, float | int):
+            df = pl.DataFrame(
+                {"time": datetimes, "value": [default_value] * len(datetimes)},
+                schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
+            )
 
         return cls(df, timezone)
 
@@ -177,6 +211,12 @@ class Timeseries:
             self.sort()
 
             self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
+
+    def __getitem__(self, column_name: str) -> list[float | datetime]:
+        if column_name not in ("time", "value"):
+            raise KeyError("Column name has to be either time or value")
+        else:
+            return self.dataframe[column_name].to_list()
 
     def __repr__(self):
         """Provide a string representation of the Timeseries object."""

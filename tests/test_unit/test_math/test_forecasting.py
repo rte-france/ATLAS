@@ -390,7 +390,7 @@ def test_lazy_forecasting_matrix_collect(hourly_df):
 class TestGetForecast:
     @staticmethod
     def retrieve_ts(start: int, freq: str, values: list[int]):
-        return Timeseries.from_args(pendulum.datetime(2025, 1, 1, start, 0, 0), freq, values)
+        return Timeseries.from_values(pendulum.datetime(2025, 1, 1, start, 0, 0), freq, values)
 
     @pytest.fixture
     def ts_1_hour_at_0_with_8_values(self):
