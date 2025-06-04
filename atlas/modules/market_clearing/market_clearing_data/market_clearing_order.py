@@ -29,6 +29,10 @@ class MCOrder:
         self.duration = (((self.end_date - self.start_date).total_seconds() / 60) // self.parameters.time_step) * 60
         self.end_date_processed = self.start_date.add(minutes=self.duration)
 
+        # Translate the order type:
+        self.production_sign = 1 if order.order_type == "Sell" else -1
+        self.is_sale = True if self.production_sign == 1 else False
+
         # Attributes that will be set later (while creating coupling groups):
         self.id_with_status = None
         self.is_mutually_excluding = False
