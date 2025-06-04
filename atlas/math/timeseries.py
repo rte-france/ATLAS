@@ -534,11 +534,7 @@ class Timeseries:
                 pl.col("time").dt.replace_time_zone(self.timezone),
                 pl.col("value").cast(pl.Float64()),
             )
-            if inplace:
-                self.timeseries = df
-                return self
-
-            return Timeseries(df, self.timezone)
+            return self._return_inplace(df, inplace)
 
         df = self.timeseries.filter(pl.col("time") != dt)
         new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
