@@ -747,6 +747,18 @@ class Timeseries:
             return cast("float", self.timeseries["value"].min())
         return None
 
+    def abs(self, inplace=True) -> Timeseries:
+        """Compute the absolute value of each timestamp
+
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: The timeseries with absolute values
+        :rtype: Timeseries
+        """
+        df = self.timeseries.with_columns(pl.col("value").abs())
+
+        self._return_inplace(df, inplace)
+
     def interpolate(
         self, interpolation_method: Literal["linear", "constant"] = "constant", inplace: bool = True
     ) -> Timeseries:
@@ -754,7 +766,7 @@ class Timeseries:
 
         :param interpolation_method: Interpolation method, defaults to "constant"
         :type interpolation_method: Literal["linear", "constant"], optional
-        :param inplace: Whether to modify the current instance, defaults to False
+        :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
         :raises NotImplementedError: If the method is not supported
         :return: Interpolated Timeseries
