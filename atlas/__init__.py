@@ -30,6 +30,8 @@ from atlas.workflow.workflow_parameters_parser import WorkflowParameters, Workfl
 from atlas.workflow.workflow_step import WorkflowStep
 
 __all__ = [
+    "Parameters",
+    "ParametersParser",
     "Workflow",
     "WorkflowStep",
     "WorkflowParameters",
@@ -40,6 +42,9 @@ __all__ = [
     "Equipment",
     "ForecastingMatrix",
     "LazyForecastingMatrix",
+    "InputLoader",
+    "LazyMatrix",
+    "Logger",
     "LazyScenarioMatrix",
     "LazyTimeseries",
     "Hydro",
