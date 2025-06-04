@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from pathlib import Path
 
 import h5py  # type: ignore[import-untyped]
@@ -7,6 +8,7 @@ import numpy as np
 import polars as pl
 
 from atlas.config import logger
+from atlas.timing import pendulum_to_datetime
 
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
 NAME_MAPPING = {"Baseload": "BaseLoad", "is_v2_g": "is_v2g"}
@@ -19,10 +21,33 @@ class PrometheusToAtlasDataParser:
         self.timeseries_path = timeseries_path
         logger.info(f"Initialized parser with HDF5 path: {self.hdf5_path} and output root: {self.root_input_directory}")
 
+        if Path(self.root_input_directory).exists():
+            self.rm_root_dir()
+
+    def rm_root_dir(self):
+        shutil.rmtree(self.root_input_directory)
+
     def ensure_dir(self, path):
         if not os.path.exists(path):
             Path(path).mkdir(parents=True, exist_ok=True)
             logger.info(f"Created directory: {path}")
+
+    @staticmethod
+    def list_all_files(root_dir):
+        file_paths = []
+        for dirpath, _, filenames in os.walk(root_dir):
+            for fname in filenames:
+                full_path = os.path.join(dirpath, fname)
+                file_paths.append(full_path)
+        return file_paths
+
+    @staticmethod
+    def find_file_with_subpaths(file_paths, str1, str2, str3):
+        for full_path in file_paths:
+            path_parts = full_path.split(os.sep)
+            if {str1, str2, str3}.issubset(path_parts):
+                return full_path
+        return None
 
     @staticmethod
     def to_snake_case(name):
@@ -41,17 +66,6 @@ class PrometheusToAtlasDataParser:
             return arr_flat.size == 1 or np.all(arr_flat == arr_flat[0])
         except Exception:
             return False
-
-    def matrix_is_forecasting(self, df: pl.DataFrame):
-        # If any column can be parsed as a datetime, treat as forecasting_matrix
-        for col in df.columns:
-            try:
-                parsed = pl.Series(df[col]).str.strptime(pl.Datetime, strict=False)
-                if (~parsed.is_null()).sum() > 0:
-                    return True
-            except Exception:
-                continue
-        return False
 
     def process(self):
         logger.info("Starting the parsing process.")
@@ -88,12 +102,76 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = self.to_snake_case(attr_name)
+
                         if attr_name_snake in NAME_MAPPING:
                             attr_name_snake = NAME_MAPPING[attr_name_snake]
                         item = instance_group[attr_name]
+
                         logger.debug(
                             f"Processing attribute: {attr_name} (as {attr_name_snake}) for instance {instance_snake}"
                         )
+
+                        file = self.find_file_with_subpaths(
+                            self.list_all_files(self.timeseries_path),
+                            object_type,
+                            instance,
+                            f"{attr_name}.csv",
+                        )
+
+                        if file:
+                            logger.debug("Find a timeseries / matrix, copying it to Atlas dataset.")
+                            if "forecast_matrix" in file:
+                                matrix_type = "forecasting_matrix"
+                                attrs[attr_name_snake] = "forecasting_matrix"
+                            elif "scenario_matrix" in file:
+                                matrix_type = "scenario_matrix"
+                                attrs[attr_name_snake] = "scenario_matrix"
+                            elif "timeseries" in file:
+                                matrix_type = "timeseries"
+                                attrs[attr_name_snake] = "timeseries"
+                            else:
+                                logger.warning("Failed to get the matrix / timeseries type")
+
+                            df = (
+                                pl.read_csv(file, separator=";")
+                                .with_columns(
+                                    pl.col("TimeStep").str.strptime(
+                                        pl.Datetime(), pendulum_to_datetime("DD_MM_YYYY_HH_mm_ss")
+                                    ),
+                                    pl.lit(attr_name_snake).alias("attribute"),
+                                )
+                                .select(
+                                    pl.selectors.datetime(),
+                                    pl.selectors.string(),
+                                    pl.selectors.numeric(),
+                                )
+                            )
+
+                            path_file_to_instance_matrix = (
+                                Path(self.root_input_directory)
+                                / matrix_type
+                                / object_type_snake
+                                / f"{instance_snake}.parquet"
+                            )
+                            if path_file_to_instance_matrix.exists():
+                                df_existing = pl.read_parquet(path_file_to_instance_matrix).select(
+                                    pl.selectors.datetime(),
+                                    pl.selectors.string(),
+                                    pl.selectors.numeric(),
+                                )
+                                if len(df) > 0:
+                                    df_concat = pl.concat([df_existing, df], how="diagonal")
+                                    df_concat.write_parquet(path_file_to_instance_matrix)
+                                else:
+                                    logger.warning("Csv has structure but is empty, skipping it")
+                                    attrs[attr_name_snake] = None
+                            else:
+                                if len(df) > 0:
+                                    df.write_parquet(path_file_to_instance_matrix)
+                                else:
+                                    logger.warning("Csv has structure but is empty, skipping it")
+                                    attrs[attr_name_snake] = None
+                            continue
 
                         if isinstance(item, h5py.Dataset):
                             val = item[()]
@@ -120,66 +198,17 @@ class PrometheusToAtlasDataParser:
                                     if attr_name_snake == "orders":
                                         val = [self.to_snake_case(order) for order in val]
                                     attrs[attr_name_snake] = ":".join(map(str, list(val)))
-                                elif val.ndim == 2:
-                                    df = pl.DataFrame({attr_name_snake: val})
-                                    df = df.with_columns(pl.lit(attr_name_snake).alias("attribute"))
-                                    df = df.rename({col: self.to_snake_case(col) for col in df.columns})
-                                    out_path = os.path.join(
-                                        self.root_input_directory,
-                                        "timeseries",
-                                        object_type_snake,
-                                        f"{instance_snake}.parquet",
-                                    )
-                                    df.write_parquet(out_path)
-                                    logger.debug(
-                                        f"Wrote 1D timeseries for {attr_name_snake} of {instance_snake} to {out_path}"
-                                    )
-                                    attrs[attr_name_snake] = "timeseries"
-                                elif val.ndim == 2:
-                                    df = pl.DataFrame(val)
-                                    df = df.with_columns(pl.lit(attr_name_snake).alias("attribute"))
-                                    df = df.rename({col: self.to_snake_case(col) for col in df.columns})
-                                    ts_type = "scenario_matrix"
-                                    if self.matrix_is_forecasting(df):
-                                        ts_type = "forecasting_matrix"
-                                    out_path = os.path.join(
-                                        self.root_input_directory,
-                                        ts_type,
-                                        object_type_snake,
-                                        f"{instance_snake}.parquet",
-                                    )
-                                    df.write_parquet(out_path)
-                                    logger.info(
-                                        f"Wrote 2D {ts_type} for {attr_name_snake} of {instance_snake} to {out_path}"
-                                    )
-                                    attrs[attr_name_snake] = ts_type
-                                else:
-                                    df = pl.DataFrame(val.reshape(val.shape[0], -1))
-                                    df = df.with_columns(pl.lit(attr_name_snake).alias("attribute"))
-                                    df = df.rename({col: self.to_snake_case(col) for col in df.columns})
-                                    ts_type = "forecasting_matrix"
-                                    out_path = os.path.join(
-                                        self.root_input_directory,
-                                        ts_type,
-                                        object_type_snake,
-                                        f"{instance_snake}.parquet",
-                                    )
-                                    df.write_parquet(out_path)
-                                    logger.debug(
-                                        f"Wrote >2D forecasting_matrix for {attr_name_snake} of {instance_snake} to {out_path}"
-                                    )
-                                    attrs[attr_name_snake] = ts_type
+
                             else:
                                 attrs[attr_name_snake] = str(item)
                                 logger.warning(f"Unhandled attribute: {attr_name_snake} (type: {type(item)})")
-                    # Attributes defined at the instance level
+
                     for attr_name, attr_value in instance_group.attrs.items():
                         attr_name_snake = self.to_snake_case(attr_name)
                         attrs[attr_name_snake] = attr_value
                         logger.info(f"Instance-level attribute: {attr_name_snake} = {attr_value}")
                     attrs_list.append(attrs)
 
-                # Write CSV for this object_type using Polars
                 if attrs_list:
                     df_attrs = pl.DataFrame(attrs_list)
                     df_attrs = df_attrs.rename({col: self.to_snake_case(col) for col in df_attrs.columns})
