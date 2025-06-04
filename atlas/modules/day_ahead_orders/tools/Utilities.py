@@ -34,13 +34,9 @@ class Utilities:
             sys.exit()  ### FUTURE WARNING : WILL HAVE TO BE REPLACED BY AN API FUNCTION THAT STOPS THE EXECUTION OF THE PROGRAM ASAP
         return result_date
 
-    def get_date_to_clean_string(date):
-        """
-        Converts a datetime object to a string without special characters
-        """
-        string = str(date)
-        string = string.replace("/", "_").replace(":", "_").replace(" ", "_")
-        return string
+    def get_date_to_clean_string(self, date: datetime) -> str:
+        """Converts a datetime object to a string without special characters"""
+        return datetime.strftime(date, "%d_%m_%Y %H_%M_%S")
 
     def define_orders_time(p) -> list[datetime]:
         """
