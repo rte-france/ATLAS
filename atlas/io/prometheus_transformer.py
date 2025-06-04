@@ -13,9 +13,10 @@ NAME_MAPPING = {"Baseload": "BaseLoad", "is_v2_g": "is_v2g"}
 
 
 class PrometheusToAtlasDataParser:
-    def __init__(self, hdf5_path, root_input_directory):
+    def __init__(self, timeseries_path, hdf5_path, root_input_directory):
         self.hdf5_path = hdf5_path
         self.root_input_directory = root_input_directory
+        self.timeseries_path = timeseries_path
         logger.info(f"Initialized parser with HDF5 path: {self.hdf5_path} and output root: {self.root_input_directory}")
 
     def ensure_dir(self, path):
