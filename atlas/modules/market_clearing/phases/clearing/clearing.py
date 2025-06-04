@@ -16,11 +16,15 @@ class Clearing:
         self.parameters = parameters
         self.model = None
 
-    def create_clearing_model(self):
-        self.model = ClearingModel(self.input_dataset, self.parameters)
+    def create_clearing_model(self) -> ClearingModel:
+        model = ClearingModel(self.input_dataset, self.parameters)
+        model.build(self.parameters.solver_name)
+        return model
 
     def run(self):
-        pass
+        self.model = self.create_clearing_model()
+        solver_parameters = self.model.create_solver_parameters(self.parameters.use_presolve)
+        self.model.solver.solve(solver_parameters)
 
     # Retrieve information after optimization
     # REMIND : nb_saturations may be retrieved with retrieve_critical_branches_saturation_value and allowed_round_off_error
