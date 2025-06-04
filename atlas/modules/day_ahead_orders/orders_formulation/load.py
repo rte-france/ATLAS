@@ -26,12 +26,10 @@ class Load:
         # Loop over the market players first
         for l in dataset.Load.instances.values():
             # Extract the forecasting matrix of the current actor.
-            consumption_forecast = l.MaximumPowerForecast.GetForecast(
-                p.execution_date, p.start_date, p.end_date.AddMinutes(-p.time_step)
+            consumption_forecast = l.MaximumPowerForecast.get_forecast(
+                p.execution_date, p.start_date, p.end_date - p.time_step
             )
-            l.DABuySubmittedVolume += (
-                consumption_forecast.Abs()
-            )  # TODO : "Converts each value in the timeseries into its absolute value and returns it."
+            l.DABuySubmittedVolume += consumption_forecast.abs()
 
             # Now we loop over the time stamps for which we want an offer to be made.
             # We formulate as many offers as there are time stamps in orders_time.
@@ -53,7 +51,7 @@ class Load:
                     bid_output.Qmax = max_consumption_value
                     bid_output.Qmin = 0
                     if l.LoadType == "PowerToGas":
-                        bid_output.Price = l.VariableCost.GetValue(t)
+                        bid_output.Price = l.VariableCost.get_value(t)
                     else:
                         bid_output.Price = p.consumption_price
                     bid_output.Product = "DayAhead"
@@ -61,4 +59,4 @@ class Load:
                     bid_output.IsAgentTSO = False
                     bid_output.ExecutionDate = str(p.execution_date)
                     bid_output.StartDate = str(t)
-                    bid_output.EndDate = str(t.AddMinutes(p.time_step))
+                    bid_output.EndDate = str(t + p.time_step)
