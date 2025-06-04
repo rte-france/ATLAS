@@ -37,8 +37,5 @@ class ClearingModel:
     def create_constraints(self):
         ClearingConstraints.build(self.solver, self.input_dataset, self.parameters)
 
-    def create_objective_function(self) -> ClearingObjective:
-        clearing_objective  = ClearingObjective()
-        clearing_objective.build()
-        return clearing_objective
-
+    def create_objective_function(self):
+       ClearingObjective.build(self.solver, self.input_dataset, self.parameters)
