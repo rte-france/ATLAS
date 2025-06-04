@@ -11,7 +11,7 @@ from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
-from atlas.modules.market_clearing.phases.clearing import Clearing
+from atlas.modules.market_clearing.phases.clearing.clearing import Clearing
 
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 
@@ -41,6 +41,7 @@ class MarketClearingModule(
         self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset
     ) -> MarketClearingOutputDataset:
         clearing = Clearing(input_dataset, parameters)
+        clearing.run()
         # Launch Exchange Fixing phase
         # Launch Pricing phase
         market_prices = dict()# retrieve from pricing
