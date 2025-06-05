@@ -198,6 +198,14 @@ class Matrix:
         """
         return self.matrix.lazy()
 
+    def abs(self, inplace: bool = True) -> Matrix:
+        df = self.matrix.select([pl.col(c).abs().alias(c) for c in self.index])
+
+        if inplace:
+            self.matrix = df
+        else:
+            return Matrix(df, timezone=self.timezone)
+
     def add(
         self,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
