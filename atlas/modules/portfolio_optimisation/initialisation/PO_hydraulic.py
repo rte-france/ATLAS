@@ -1,10 +1,8 @@
-# coding: utf-8
-
-from PO_functions import get_time_series_value
 import API
+from PO_functions import get_time_series_value
 
 
-class PO_Hydraulic(object):
+class PO_Hydraulic:
     """
     This class is used to feed a PO_Hydraulic from a hydraulic equipment
     """
@@ -141,13 +139,13 @@ class PO_Hydraulic(object):
 
             # init variables
             self.PowerLevel[time] = API.Solver.NewOpVariable(
-                "{name}_Power_level_{val}".format(name=self.name, val=time_enum),
+                f"{self.name}_Power_level_{time_enum}",
                 0,
                 max_power,
                 API.Solver.OpCategoryReal,
             )
             self.StoredEnergy[time] = API.Solver.NewOpVariable(
-                "{name}_Stored_Energy_{val}".format(name=self.name, val=time_enum),
+                f"{self.name}_Stored_Energy_{time_enum}",
                 0,
                 self.MaximumEnergy[time],
                 API.Solver.OpCategoryReal,
@@ -172,19 +170,34 @@ class PO_Hydraulic(object):
 
             # Optimisation Variables related tp,
             self.reservesUp[time] = API.Solver.NewOpVariable(
-                "ressUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
+                "ressUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.reservesDown[time] = API.Solver.NewOpVariable(
-                "resDown_e_%s_at_%s" % (self.name, str(time_enum)), min_power, max_power, API.Solver.OpCategoryReal
+                "resDown_e_%s_at_%s" % (self.name, str(time_enum)),
+                min_power,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.unprovidedReservesUp[time] = API.Solver.NewOpVariable(
-                "unpResUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
+                "unpResUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.unprovidedReservesDown[time] = API.Solver.NewOpVariable(
-                "unpResDown_e_%s_at_%s" % (self.name, str(time_enum)), min_power, max_power, API.Solver.OpCategoryReal
+                "unpResDown_e_%s_at_%s" % (self.name, str(time_enum)),
+                min_power,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.relaxedReserves[time] = API.Solver.NewOpVariable(
-                "relRes_e_%s_at_%s" % (self.name, str(time_enum)), min_power, 0, API.Solver.OpCategoryReal
+                "relRes_e_%s_at_%s" % (self.name, str(time_enum)),
+                min_power,
+                0,
+                API.Solver.OpCategoryReal,
             )
             self.automatedReservesUp[time] = API.Solver.NewOpVariable(
                 "autoResUp_e_%s_at_%s" % (self.name, str(time_enum)),
@@ -199,7 +212,10 @@ class PO_Hydraulic(object):
                 API.Solver.OpCategoryReal,
             )
             self.contractedDifferenceUp[time] = API.Solver.NewOpVariable(
-                "contractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
+                "contractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.contractedDifferenceDown[time] = API.Solver.NewOpVariable(
                 "contractedDiffDown_e_%s_at_%s" % (self.name, str(time_enum)),
@@ -208,7 +224,10 @@ class PO_Hydraulic(object):
                 API.Solver.OpCategoryReal,
             )
             self.automatedContractedDifferenceUp[time] = API.Solver.NewOpVariable(
-                "autoContractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
+                "autoContractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.automatedContractedDifferenceDown[time] = API.Solver.NewOpVariable(
                 "autoContractedDiffDown_e_%s_at_%s" % (self.name, str(time_enum)),
@@ -229,10 +248,15 @@ class PO_Hydraulic(object):
 
         delta_wu = {}
         for category in range(len(opt_hydrau.FragmentVolumes)):
-            delta_wu[category] = (opt_hydrau.FragmentVolumes[category], opt_hydrau.FragmentPrices[category])
+            delta_wu[category] = (
+                opt_hydrau.FragmentVolumes[category],
+                opt_hydrau.FragmentPrices[category],
+            )
 
         energy_forecast = self.StoredEnergyMatrix.GetForecast(
-            p.execution_date, p.start_date.AddHours(-p.time_step / 60.0), p.start_date.AddHours(-p.time_step / 60.0)
+            p.execution_date,
+            p.start_date.AddHours(-p.time_step / 60.0),
+            p.start_date.AddHours(-p.time_step / 60.0),
         )
 
         if energy_forecast.Length > 0:
@@ -278,7 +302,7 @@ class PO_Hydraulic(object):
                     price = weightInf * pmin + weightSup * pmax + delta_wu[k][1]
 
                 self.PowerLevelFragment[k][time] = API.Solver.NewOpVariable(
-                    "{name}_Power_level_frag_{vol}_at_{val}".format(name=self.name, vol=k, val=str(time)),
+                    f"{self.name}_Power_level_frag_{k}_at_{str(time)}",
                     0,
                     v,
                     API.Solver.OpCategoryReal,

@@ -1,8 +1,6 @@
-# coding: utf-8
-
-from PO_solver import OptimalPlacement
 import API
 from parameters_file import Parameters
+from PO_solver import OptimalPlacement
 
 
 def main():

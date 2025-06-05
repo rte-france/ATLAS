@@ -1,6 +1,3 @@
-# coding: utf-8
-
-
 def GetVariablesAndConstraints_load(
     time,
     equipments_load,

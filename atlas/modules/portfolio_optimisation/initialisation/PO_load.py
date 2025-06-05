@@ -1,9 +1,8 @@
-# coding: utf-8
-from PO_functions import get_time_series_value
 import API
+from PO_functions import get_time_series_value
 
 
-class PO_Load(object):
+class PO_Load:
     """
     This class is used to feed a PO_Load from a dispatchable load equipment
     """
@@ -104,7 +103,7 @@ class PO_Load(object):
             # init variables
             # create optimisation variables
             self.PowerLevel[time] = API.Solver.NewOpVariable(
-                "{name}_Power_level_{val}".format(name=self.name, val=time_index),
+                f"{self.name}_Power_level_{time_index}",
                 max_power,
                 min_power,
                 API.Solver.OpCategoryReal,

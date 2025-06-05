@@ -1,7 +1,6 @@
-# coding: utf-8
+import sys
 
 import API
-import sys
 
 
 def GetVariablesAndConstraints_Storage(
@@ -24,7 +23,7 @@ def GetVariablesAndConstraints_Storage(
         # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
         if max(PO_DSj.MaximumEnergy.values()) <= 0:
             if p.debug:
-                API.IO.Trace.Log("Equipment {} avoided, as its MaximumEnergy is 0".format(equipment_name))
+                API.IO.Trace.Log(f"Equipment {equipment_name} avoided, as its MaximumEnergy is 0")
             continue
 
         if PO_DSj.StorageType == "Battery":
@@ -73,7 +72,7 @@ def GetVariablesAndConstraints_Storage(
 
             else:
                 try:
-                    msg = "The storage type: {} don't exist".format(PO_DSj.StorageType)
+                    msg = f"The storage type: {PO_DSj.StorageType} don't exist"
                     API.IO.Trace.Log(msg, API.IO.LogTypeError)
                     sys.exit()
                 except:
@@ -198,9 +197,7 @@ def GetVariablesAndConstraints_Storage(
             )
 
             if p.verbose:
-                msg = "The energy stock at t1: {} MWh".format(
-                    PO_DSj.InitialStock + (PO_DSj.MaximumEnergy[time] - PO_DSj.MaximumEnergy[prev_time])
-                )
+                msg = f"The energy stock at t1: {PO_DSj.InitialStock + (PO_DSj.MaximumEnergy[time] - PO_DSj.MaximumEnergy[prev_time])} MWh"
                 API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
         elif time in local_op_times:

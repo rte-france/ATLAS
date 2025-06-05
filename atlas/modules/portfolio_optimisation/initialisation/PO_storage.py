@@ -1,11 +1,10 @@
-# coding: utf-8
-
-from PO_functions import get_time_series_value
-import API
 import sys
 
+import API
+from PO_functions import get_time_series_value
 
-class PO_Storage(object):
+
+class PO_Storage:
     """
     This class is used to feed a PO_Storage from a storage equipment
     """
@@ -116,7 +115,7 @@ class PO_Storage(object):
             )[0]
 
         if p.debug:
-            msg = "The initial energy storage level is : {} MWh".format(self.InitialStock)
+            msg = f"The initial energy storage level is : {self.InitialStock} MWh"
             API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
         self.isV2G = opt_storage.isV2G
@@ -124,13 +123,11 @@ class PO_Storage(object):
         self.DischargeEfficiency = opt_storage.DischargeEfficiency
 
         if self.ChargeEfficiency == 0:
-            msg = "The property ChargeEfficiency of the equipement {} must be greater than 0.".format(opt_storage.Name)
+            msg = f"The property ChargeEfficiency of the equipement {opt_storage.Name} must be greater than 0."
             API.IO.Trace.Log(msg, API.IO.LogTypeWarn)
         # Check if the equipement is able to be discharge if Zero a division by zero will appeared
         if self.DischargeEfficiency == 0:
-            msg = "The property DischargeEfficiency of the equipement {} must be greater than 0.".format(
-                opt_storage.Name
-            )
+            msg = f"The property DischargeEfficiency of the equipement {opt_storage.Name} must be greater than 0."
             API.IO.Trace.Log(msg, API.IO.LogTypeError)
             sys.exit()  ### FUTURE WARNING : WILL HAVE TO BE REPLACED BY AN API FUNCTION THAT STOPS THE EXECUTION OF THE PROGRAM ASAP
 
@@ -185,22 +182,22 @@ class PO_Storage(object):
 
             # Create variables at time
             self.PowerLevelSell[time] = API.Solver.NewOpVariable(
-                "{name}_power_level_sell_{val}".format(name=self.name, val=time_enum),
+                f"{self.name}_power_level_sell_{time_enum}",
                 0,
                 max_power,
                 API.Solver.OpCategoryReal,
             )
             self.PowerLevelBuy[time] = API.Solver.NewOpVariable(
-                "{name}_power_level_buy_{val}".format(name=self.name, val=time_enum),
+                f"{self.name}_power_level_buy_{time_enum}",
                 min_power,
                 0,
                 API.Solver.OpCategoryReal,
             )
             self.Is_Sell[time] = API.Solver.NewOpVariable(
-                "{name}_is_sell_{val}".format(name=self.name, val=time_enum), API.Solver.OpCategoryBinary
+                f"{self.name}_is_sell_{time_enum}", API.Solver.OpCategoryBinary
             )
             self.StoredEnergy[time] = API.Solver.NewOpVariable(
-                "{name}_StoredEnergy_{val}".format(name=self.name, val=time_enum),
+                f"{self.name}_StoredEnergy_{time_enum}",
                 minSOC * max_stock,
                 max_stock,
                 API.Solver.OpCategoryReal,
@@ -231,13 +228,13 @@ class PO_Storage(object):
 
             for n in range(0, nbr_fragement):
                 self.PowerLevelSell_n[n][time] = API.Solver.NewOpVariable(
-                    "{name}_power_level_sell_n_{num}_time_{val}".format(name=self.name, num=n, val=time_enum),
+                    f"{self.name}_power_level_sell_n_{n}_time_{time_enum}",
                     0,
                     max_power,
                     API.Solver.OpCategoryReal,
                 )
                 self.PowerLevelBuy_n[n][time] = API.Solver.NewOpVariable(
-                    "{name}_power_level_buy_n_{num}_time_{val}".format(name=self.name, num=n, val=time_enum),
+                    f"{self.name}_power_level_buy_n_{n}_time_{time_enum}",
                     min_power,
                     0,
                     API.Solver.OpCategoryReal,
@@ -248,16 +245,28 @@ class PO_Storage(object):
                 "resUp_e_%s_at_%s" % (self.name, str(time)), 0, max_power, API.Solver.OpCategoryReal
             )
             self.reservesDown[time] = API.Solver.NewOpVariable(
-                "resDown_e_%s_at_%s" % (self.name, str(time)), min_power, max_power, API.Solver.OpCategoryReal
+                "resDown_e_%s_at_%s" % (self.name, str(time)),
+                min_power,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.unprovidedReservesUp[time] = API.Solver.NewOpVariable(
-                "unprResUp_e_%s_at_%s" % (self.name, str(time)), 0, max_power, API.Solver.OpCategoryReal
+                "unprResUp_e_%s_at_%s" % (self.name, str(time)),
+                0,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.unprovidedReservesDown[time] = API.Solver.NewOpVariable(
-                "unprResDown_e_%s_at_%s" % (self.name, str(time)), min_power, max_power, API.Solver.OpCategoryReal
+                "unprResDown_e_%s_at_%s" % (self.name, str(time)),
+                min_power,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.automatedReservesUp[time] = API.Solver.NewOpVariable(
-                "autoResUp_e_%s_at_%s" % (self.name, str(time)), 0, self.maximumAutomated, API.Solver.OpCategoryReal
+                "autoResUp_e_%s_at_%s" % (self.name, str(time)),
+                0,
+                self.maximumAutomated,
+                API.Solver.OpCategoryReal,
             )
             self.automatedReservesDown[time] = API.Solver.NewOpVariable(
                 "autoResDown_e_%s_at_%s" % (self.name, str(time)),

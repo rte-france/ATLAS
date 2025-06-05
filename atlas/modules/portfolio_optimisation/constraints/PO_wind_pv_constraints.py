@@ -1,6 +1,3 @@
-# coding: utf-8
-
-
 def GetVariablesAndConstraints_wind_pv(
     time,
     equipments_wind_pv,

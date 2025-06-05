@@ -1,8 +1,6 @@
-# coding: utf-8
-
 import API
-from System import DateTime
 from PO_functions import get_date_to_clean_string
+from System import DateTime
 
 
 def GetVariablesAndConstraints_Thermics(
@@ -49,7 +47,7 @@ def GetVariablesAndConstraints_Thermics(
         # ---------------------------------------------------------#
         if PO_DTj.T_stop == 0 and PO_DTj.T_start == 0 and PO_DTj.T_stable == 0:
             if p.debug and time == p.start_date:
-                API.IO.Trace.Log("Equipment : {}".format(equipment_name), API.IO.LogTypeInfo)
+                API.IO.Trace.Log(f"Equipment : {equipment_name}", API.IO.LogTypeInfo)
                 API.IO.Trace.Log("Combination 1 for optimization constraints", API.IO.LogTypeInfo)
             # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
 
@@ -255,7 +253,7 @@ def GetVariablesAndConstraints_Thermics(
 
         if PO_DTj.T_stop >= 1 and PO_DTj.T_start == 0 and PO_DTj.T_stable == 0:
             if p.debug and time == p.start_date:
-                API.IO.Trace.Log("Equipment : {}".format(equipment_name), API.IO.LogTypeInfo)
+                API.IO.Trace.Log(f"Equipment : {equipment_name}", API.IO.LogTypeInfo)
                 API.IO.Trace.Log("Combination 2 for optimization constraints", API.IO.LogTypeInfo)
             # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
 
@@ -571,7 +569,7 @@ def GetVariablesAndConstraints_Thermics(
 
         if PO_DTj.T_stop == 0 and PO_DTj.T_start == 0 and PO_DTj.T_stable >= 1:
             if p.debug and time == p.start_date:
-                API.IO.Trace.Log("Equipment : {}".format(equipment_name), API.IO.LogTypeInfo)
+                API.IO.Trace.Log(f"Equipment : {equipment_name}", API.IO.LogTypeInfo)
                 API.IO.Trace.Log("Combination 3 for optimization constraints", API.IO.LogTypeInfo)
             # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
 
@@ -962,7 +960,7 @@ def GetVariablesAndConstraints_Thermics(
         if PO_DTj.T_start >= 1 and PO_DTj.T_stop == 0 and PO_DTj.T_stable == 0:
             # In this case, there are four state variables and three auxiliary variables.
             if p.debug and time == p.start_date:
-                API.IO.Trace.Log("Equipment : {}".format(equipment_name), API.IO.LogTypeInfo)
+                API.IO.Trace.Log(f"Equipment : {equipment_name}", API.IO.LogTypeInfo)
                 API.IO.Trace.Log("Combination 4 for optimization constraints", API.IO.LogTypeInfo)
             # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
 
@@ -1266,7 +1264,7 @@ def GetVariablesAndConstraints_Thermics(
 
         if PO_DTj.T_stop >= 1 and PO_DTj.T_start == 0 and PO_DTj.T_stable >= 1:
             if p.debug and time == p.start_date:
-                API.IO.Trace.Log("Equipment : {}".format(equipment_name), API.IO.LogTypeInfo)
+                API.IO.Trace.Log(f"Equipment : {equipment_name}", API.IO.LogTypeInfo)
                 API.IO.Trace.Log("Combination 5 for optimization constraints", API.IO.LogTypeInfo)
             # In this case, there are four state variables and the following auxiliary variables:
             #     - turned_on[t] and turned_off[t], indicating whether the unit has been turned on or off
@@ -1833,7 +1831,7 @@ def GetVariablesAndConstraints_Thermics(
             # We review the initial conditions, then the constraints on the state variables
             # and finally the constraints on the power output.
             if p.debug and time == p.start_date:
-                API.IO.Trace.Log("Equipment : {}".format(equipment_name), API.IO.LogTypeInfo)
+                API.IO.Trace.Log(f"Equipment : {equipment_name}", API.IO.LogTypeInfo)
                 API.IO.Trace.Log("Combination 6 for optimization constraints", API.IO.LogTypeInfo)
 
             # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
@@ -2336,7 +2334,7 @@ def GetVariablesAndConstraints_Thermics(
         if PO_DTj.T_stop >= 1 and PO_DTj.T_start >= 1 and PO_DTj.T_stable == 0:
             # In this case, there are five state variables and four auxiliary variables.
             if p.debug and time == p.start_date:
-                API.IO.Trace.Log("Equipment : {}".format(equipment_name), API.IO.LogTypeInfo)
+                API.IO.Trace.Log(f"Equipment : {equipment_name}", API.IO.LogTypeInfo)
                 API.IO.Trace.Log("Combination 7 for optimization constraints", API.IO.LogTypeInfo)
             # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
 
@@ -2695,7 +2693,7 @@ def GetVariablesAndConstraints_Thermics(
 
         if PO_DTj.T_stop >= 1 and PO_DTj.T_start >= 1 and PO_DTj.T_stable >= 1:
             if p.debug and time == p.start_date:
-                API.IO.Trace.Log("Equipment : {}".format(equipment_name), API.IO.LogTypeInfo)
+                API.IO.Trace.Log(f"Equipment : {equipment_name}", API.IO.LogTypeInfo)
                 API.IO.Trace.Log("Combination 8 for optimization constraints", API.IO.LogTypeInfo)
             # In this case, there are six state variables and the following auxiliary variables:
             #     - turned_on[t] and turned_off[t], indicating whether the unit has been turned on or off

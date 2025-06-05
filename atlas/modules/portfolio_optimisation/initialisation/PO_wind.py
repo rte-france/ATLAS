@@ -1,10 +1,8 @@
-# coding: utf-8
-
-from PO_functions import get_time_series_value
 import API
+from PO_functions import get_time_series_value
 
 
-class PO_Wind(object):
+class PO_Wind:
     """
     This class is used to feed a PO_Wind from a wind equipment
     """
@@ -99,7 +97,7 @@ class PO_Wind(object):
 
             # create optimization variables
             self.PowerLevel[time] = API.Solver.NewOpVariable(
-                "{name}_Power_level_{val}".format(name=self.name, val=time_enum),
+                f"{self.name}_Power_level_{time_enum}",
                 0,
                 max_power,
                 API.Solver.OpCategoryReal,
@@ -123,16 +121,28 @@ class PO_Wind(object):
 
             # Optimisation Variables related tp,
             self.reservesUp[time] = API.Solver.NewOpVariable(
-                "resUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
+                "resUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.reservesDown[time] = API.Solver.NewOpVariable(
-                "resDown_e_%s_at_%s" % (self.name, str(time_enum)), min_power, max_power, API.Solver.OpCategoryReal
+                "resDown_e_%s_at_%s" % (self.name, str(time_enum)),
+                min_power,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.unprovidedReservesUp[time] = API.Solver.NewOpVariable(
-                "unpResUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
+                "unpResUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.unprovidedReservesDown[time] = API.Solver.NewOpVariable(
-                "unpResDown_e_%s_at_%s" % (self.name, str(time_enum)), min_power, max_power, API.Solver.OpCategoryReal
+                "unpResDown_e_%s_at_%s" % (self.name, str(time_enum)),
+                min_power,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.automatedReservesUp[time] = API.Solver.NewOpVariable(
                 "autoResUp_e_%s_at_%s" % (self.name, str(time_enum)),
@@ -147,7 +157,10 @@ class PO_Wind(object):
                 API.Solver.OpCategoryReal,
             )
             self.contractedDifferenceUp[time] = API.Solver.NewOpVariable(
-                "contractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
+                "contractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.contractedDifferenceDown[time] = API.Solver.NewOpVariable(
                 "contractedDiffDown_e_%s_at_%s" % (self.name, str(time_enum)),
@@ -156,7 +169,10 @@ class PO_Wind(object):
                 API.Solver.OpCategoryReal,
             )
             self.automatedContractedDifferenceUp[time] = API.Solver.NewOpVariable(
-                "autoContractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
+                "autoContractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                max_power,
+                API.Solver.OpCategoryReal,
             )
             self.automatedContractedDifferenceDown[time] = API.Solver.NewOpVariable(
                 "autoContractedDiffDown_e_%s_at_%s" % (self.name, str(time_enum)),

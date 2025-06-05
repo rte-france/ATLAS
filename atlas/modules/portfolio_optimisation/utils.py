@@ -1,6 +1,110 @@
-# coding: utf-8
+def estimate_imbalance_prices(
+    time,
+    portfolio,
+    market_area,
+    controlBlock,
+    ImbalPriceUp,
+    LargeImbalPriceUp,
+    ImbalPriceDown,
+    LargeImbalPriceDown,
+    p,
+):
+    """
+    Estimates Imbalance Settlement Prices (ISP) at 'time' in 'portfolio', in both upward and downward directions,
+    for both small and large imbalances. These estimations are then stored in ImbalPriceUp,
+    LargeImbalPriceUp, ImbalPriceDown, LargeImbalPriceDown of the given portfolio.
+    NB: Upward and downward ISPs can also be directly given in the input dataset (PositiveImbalancePrice and NegativeImbalancePrice).
+    """
+    # Retrieve the price timeseries used as reference for the ISP computation
+    if p.use_forecast:
+        if p.market == "DayAhead":
+            price = market_area.PriceForecastMedium.GetForecast(p.execution_date, time, time).GetValue(time)
+        elif p.market == "Intraday":
+            price = market_area.IDPriceForecast.GetForecast(p.execution_date, time, time).GetValue(time)
+    else:
+        if p.market == "DayAhead":
+            price = get_time_series_value(market_area.DAPrice, time)
+        elif p.market == "Intraday":
+            price_da = get_time_series_value(market_area.DAPrice, time)
+            price_id = market_area.IDPrice.GetForecast(p.execution_date, time, time).GetValue(time)
 
-# ------ Imports
+            # price = (price_da + price_id)/2
+            price = price_id
+
+        elif p.market == "RRActivation":
+            price = get_time_series_value(market_area.RRActivationPrice, time)
+        elif p.market == "MFRRActivation":
+            price = get_time_series_value(market_area.MFRRActivationPrice, time)
+
+    # Estimation of ISPs
+    # Default case, ISP indicated in input marker
+    if controlBlock.NegativeImbalancePrice.Length > 0:
+        ImbalPriceUp[time] = get_time_series_value(controlBlock.NegativeImbalancePrice, time) * (
+            1 + p.small_imbalance_penalty
+        )
+        LargeImbalPriceUp[time] = get_time_series_value(controlBlock.NegativeImbalancePrice, time) * (
+            1 + p.large_imbalance_penalty
+        )
+    else:
+        """
+        # FC: Estimation according to an affine function
+        ImbalPriceUp[time] = (1.0 + p.small_imbalance_penalty ) * price + p.imbalance_penalty_offset
+        LargeImbalPriceUp[time] = (1.0 + p.large_imbalance_penalty ) * price + p.imbalance_penalty_offset
+
+        """
+        # FC: Estimation according to the French process
+        # Specific case when the reference price is null, add an arbitrarily small value to avoid side effects
+        # (e.g. shutting down all renewable units as it is equivalent for them to produce or not in the optimization)
+        if abs(price) < p.isp_forecast_lower_bound:
+            if price >= 0:
+                ImbalPriceUp[time] = (1 + p.small_imbalance_penalty) * p.isp_forecast_lower_bound
+                LargeImbalPriceUp[time] = (1 + p.large_imbalance_penalty) * p.isp_forecast_lower_bound
+            else:
+                ImbalPriceUp[time] = (1 - p.small_imbalance_penalty) * (-p.isp_forecast_lower_bound)
+                LargeImbalPriceUp[time] = (1 - p.large_imbalance_penalty) * (-p.isp_forecast_lower_bound)
+
+        else:
+            if price >= 0:
+                ImbalPriceUp[time] = (1 + p.small_imbalance_penalty) * price
+                LargeImbalPriceUp[time] = (1 + p.large_imbalance_penalty) * price
+            else:
+                ImbalPriceUp[time] = (1 - p.small_imbalance_penalty) * price
+                LargeImbalPriceUp[time] = (1 - p.large_imbalance_penalty) * price
+
+    # Default case, ISP indicated in input marker
+    if controlBlock.PositiveImbalancePrice.Length > 0:
+        ImbalPriceDown[time] = get_time_series_value(controlBlock.PositiveImbalancePrice, time) * (
+            1 - p.small_imbalance_penalty
+        )
+        LargeImbalPriceDown[time] = get_time_series_value(controlBlock.PositiveImbalancePrice, time) * (
+            1 - p.large_imbalance_penalty
+        )
+    else:
+        """
+        # FC: Estimation according to an affine function
+        ImbalPriceDown[time] = (1.0 - p.small_imbalance_penalty ) * price + p.imbalance_penalty_offset
+        LargeImbalPriceDown[time] = (1.0 - p.large_imbalance_penalty ) * price + p.imbalance_penalty_offset
+
+        """
+        # FC: Estimation according to the French process
+        # Specific case when the reference price is null
+        if abs(price) < p.isp_forecast_lower_bound:
+            if price >= 0:
+                ImbalPriceDown[time] = (1 - p.small_imbalance_penalty) * p.isp_forecast_lower_bound
+                LargeImbalPriceDown[time] = (1 - p.large_imbalance_penalty) * p.isp_forecast_lower_bound
+            else:
+                ImbalPriceDown[time] = (1 + p.small_imbalance_penalty) * (-p.isp_forecast_lower_bound)
+                LargeImbalPriceDown[time] = (1 + p.large_imbalance_penalty) * (-p.isp_forecast_lower_bound)
+
+        else:
+            if price >= 0:
+                ImbalPriceDown[time] = (1 - p.small_imbalance_penalty) * price
+                LargeImbalPriceDown[time] = (1 - p.large_imbalance_penalty) * price
+            else:
+                ImbalPriceDown[time] = (1 + p.small_imbalance_penalty) * price
+                LargeImbalPriceDown[time] = (1 + p.large_imbalance_penalty) * price
+
+
 import API
 
 
@@ -157,9 +261,7 @@ def set_manual_activation(equipment_list, p):
                         # Value below low bound
                         if p.debug:
                             API.IO.Trace.Log(
-                                "Stored energy below low bound and corrected for equipment {} at time {}".format(
-                                    equipment.Name, str(time)
-                                )
+                                f"Stored energy below low bound and corrected for equipment {equipment.Name} at time {str(time)}"
                             )
                         new_stored_energy.SetValue(time, min_energy)
                         out_of_bounds_dict[time] = (min_energy - new_energy_value) * p.time_step / 60.0
@@ -168,9 +270,7 @@ def set_manual_activation(equipment_list, p):
                     # Value above high bound
                     if p.debug:
                         API.IO.Trace.Log(
-                            "Stored energy above high bound and corrected for equipment {} at time {}".format(
-                                equipment.Name, str(time)
-                            )
+                            f"Stored energy above high bound and corrected for equipment {equipment.Name} at time {str(time)}"
                         )
                     new_stored_energy.SetValue(time, max_energy)
                     out_of_bounds_dict[time] = (max_energy - new_energy_value) * p.time_step / 60.0
@@ -180,11 +280,13 @@ def set_manual_activation(equipment_list, p):
                 if equipment.Class == "Storage":
                     if new_power.GetValue(time) > 0:
                         new_power.SetValue(
-                            time, new_power.GetValue(time) - out_of_bounds_dict[time] * equipment.DischargeEfficiency
+                            time,
+                            new_power.GetValue(time) - out_of_bounds_dict[time] * equipment.DischargeEfficiency,
                         )
                     else:
                         new_power.SetValue(
-                            time, new_power.GetValue(time) - out_of_bounds_dict[time] * 1 / equipment.ChargeEfficiency
+                            time,
+                            new_power.GetValue(time) - out_of_bounds_dict[time] * 1 / equipment.ChargeEfficiency,
                         )
                 else:
                     new_power.SetValue(time, new_power.GetValue(time) - out_of_bounds_dict[time])
@@ -203,7 +305,9 @@ def set_manual_activation(equipment_list, p):
         new_power.SetValue(
             p.end_date.AddMinutes(p.time_step),
             equipment.Power.GetForecast(
-                p.execution_date, p.end_date.AddMinutes(p.time_step), p.end_date.AddMinutes(p.time_step)
+                p.execution_date,
+                p.end_date.AddMinutes(p.time_step),
+                p.end_date.AddMinutes(p.time_step),
             ).GetValue(p.end_date.AddMinutes(p.time_step)),
         )
 
@@ -217,10 +321,11 @@ def set_manual_activation(equipment_list, p):
     if p.verbose:
         if len(equipment_list) > 1:
             API.IO.Trace.Log(
-                "Manual activation of portfolio {} completed".format(equipment_list[0].Portfolio.Name),
+                f"Manual activation of portfolio {equipment_list[0].Portfolio.Name} completed",
                 API.IO.LogTypeWarn,
             )
         else:
             API.IO.Trace.Log(
-                "Manual activation of equipment {} completed".format(equipment_list[0].Name), API.IO.LogTypeWarn
+                f"Manual activation of equipment {equipment_list[0].Name} completed",
+                API.IO.LogTypeWarn,
             )

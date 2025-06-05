@@ -1,5 +1,3 @@
-# coding: utf-8
-
 import API
 
 
@@ -76,9 +74,7 @@ def GetVariablesAndConstraints_Hydraulics(
             )
 
             if p.debug:
-                msg = "The energy stock at StartDate: {} MWh".format(
-                    PO_DHj.InitialLevel.GetValue(p.start_date.AddMinutes(-p.time_step))
-                )
+                msg = f"The energy stock at StartDate: {PO_DHj.InitialLevel.GetValue(p.start_date.AddMinutes(-p.time_step))} MWh"
                 API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
         elif time in p.target_times:
