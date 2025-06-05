@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Any, Literal, get_args, get_origin
 
 import pendulum
-import polars as pl
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
+from atlas.io.utils import read_data_file
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -205,7 +205,12 @@ class InputLoader:
                         date_format_forecasting=date_format_forecasting_matrix,
                     )
                 elif attribute_type in (DateTime, datetime) and value is not None:
-                    object_instantiated[key] = pendulum.from_format(value, date_format_input_files).to_datetime_string()
+                    if isinstance(value, datetime | DateTime):
+                        object_instantiated[key] = pendulum.instance(value).to_datetime_string()
+                    else:
+                        object_instantiated[key] = pendulum.from_format(
+                            value, date_format_input_files
+                        ).to_datetime_string()
                 elif get_origin(attribute_type) is list and value is not None:
                     inside_type = get_args(attribute_type)[0]
                     if inside_type in (float, int):
@@ -278,7 +283,7 @@ class InputLoader:
             key = file_path.stem
             if key in cfg.MODEL_MAPPING_NAME:
                 try:
-                    result[key] = cls._read_data_file(file_path, separator=separator).to_dicts()
+                    result[key] = read_data_file(file_path, separator=separator).to_dicts()
                 except Exception:  # noqa: BLE001
                     cfg.logger.warning(
                         f"Failed to read {file_path}. Object type key {key} won't be taken into account."
@@ -286,18 +291,6 @@ class InputLoader:
             else:
                 cfg.logger.warning(f"File {file_path} is not a recognized objects from Atlas.")
         return result
-
-    @staticmethod
-    def _read_data_file(file_path: str | Path, separator: str = ";") -> pl.DataFrame:
-        """Read a file (CSV, Parquet, or JSON) and return a Polars DataFrame."""
-        file_extension = Path(file_path).suffix
-
-        if file_extension == ".csv":
-            return pl.read_csv(file_path, separator=separator)
-        if file_extension == ".parquet":
-            return pl.read_parquet(file_path)
-
-        raise NotImplementedError("File extension has to be csv, parquet or json")
 
     @staticmethod
     def _load_timeseries(

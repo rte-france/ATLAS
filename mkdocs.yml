@@ -119,8 +119,6 @@ nav:
     - Others:
       - Enum: api/enum.md
       - Logging: api/logging.md
-  - Examples:
-    - Timeseries: examples/timeseries.ipynb
 
 extra:
   version:

@@ -10,6 +10,7 @@ import tempfile
 from datetime import datetime, timedelta
 
 import pandas as pd
+import pendulum
 import polars as pl
 import pytest
 from pendulum import Timezone
@@ -87,6 +88,25 @@ class TestTimeseriesInit:
         assert isinstance(ts.to_frame(), pl.DataFrame)
         assert len(ts) == 4
         assert "time" in ts.to_frame().columns
+
+    def test_from_index(self):
+        start = "2025-01-01 00:00:00"
+        end = "2025-01-01 02:00:00"
+        freq = "1h"
+
+        # Constant default_value
+        ts1 = Timeseries.from_index(start, freq, end, default_value=5.0, timezone="UTC")
+        assert ts1.shape[0] == 3
+        assert ts1.dataframe["value"].to_list() == [5.0, 5.0, 5.0]
+        assert ts1.dataframe["time"].to_list() == [
+            datetime(2025, 1, 1, 0, 0, 0, tzinfo=Timezone(key="UTC")),
+            datetime(2025, 1, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
+            datetime(2025, 1, 1, 2, 0, 0, tzinfo=Timezone(key="UTC")),
+        ]
+
+        # List default_value
+        ts2 = Timeseries.from_index(start, freq, end, default_value=[1.0, 2.0, 3.0], timezone="UTC")
+        assert ts2.dataframe["value"].to_list() == [1.0, 2.0, 3.0]
 
     def test_init_with_dict(self):
         """Test initialization with a dictionary."""
@@ -170,36 +190,7 @@ class TestTimeseriesInit:
 
         # Should only have rows where category is "A"
         assert len(ts) == 2
-        assert ts.to_frame()["value"].to_list() == [10.0, 30.0]
-
-    def test_describe(self):
-        df = pl.DataFrame(
-            {
-                "category": ["A", "B", "A", "C"],
-                "time": [
-                    datetime(2023, 1, 1),
-                    datetime(2023, 1, 2),
-                    datetime(2023, 1, 3),
-                    datetime(2023, 1, 4),
-                ],
-                "value": [10.0, 20.0, 30.0, 40.0],
-            }
-        )
-
-        metadata = Timeseries.describe(timeseries=df)
-
-        assert metadata == {
-            "shape": (4, 3),
-            "memory_mb": "0.00",
-            "datetime": {
-                "column": "time",
-                "min": "2023-01-01 00:00:00",
-                "max": "2023-01-04 00:00:00",
-                "nulls": 0,
-            },
-            "categorical": {"column": "category", "categories": ["A", "B", "C"], "nulls": 0},
-            "numerical": {"column": "value", "nulls": 0, "min": 10.0, "max": 40.0},
-        }
+        assert ts["value"] == [10.0, 30.0]
 
     def test_from_file_parquet(self, tmp_path):
         """Test loading from file with filters."""
@@ -221,13 +212,13 @@ class TestTimeseriesInit:
         ts = Timeseries.from_file(parquet_path)
 
         assert len(ts) == 4
-        assert ts.to_frame()["value"].to_list() == [10.0, 20.0, 30.0, 40.0]
+        assert ts["value"] == [10.0, 20.0, 30.0, 40.0]
 
     def test_from_file_invalid(self, tmp_path):
         """Test loading from file with filters."""
         # Create a sample CSV file
         # Load with filter
-        with pytest.raises(ValueError, match="Unsupported file format. Only CSV and Parquet are supported."):
+        with pytest.raises(NotImplementedError):
             ts = Timeseries.from_file("invalid_file")
 
     def test_repr_method(self, sample_ts):
@@ -235,6 +226,48 @@ class TestTimeseriesInit:
         repr_str = repr(sample_ts)
         assert "Timeseries" in repr_str
         assert isinstance(repr_str, str)
+
+    def test_timeseries_from_values(self):
+        start = "2025-01-01 00:00:00"
+        freq = "1h"
+        values = [1.0, 2.0, 3.0, 4.0]
+        ts = Timeseries.from_values(start, freq, values, timezone="UTC")
+        # Check type and shape
+        assert isinstance(ts, Timeseries)
+        assert len(ts) == 4
+        # Check time values
+        expected_times = [
+            pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 1, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 2, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 3, 0, 0, tz="UTC"),
+        ]
+        assert ts.index == expected_times
+
+        assert ts["value"] == values
+
+        assert ts.timestep == pendulum.duration(hours=1)
+
+    def test_timeseries_from_values_with_datetime(self):
+        start = datetime(2025, 1, 1, 0, 0, 0)
+        freq = pendulum.duration(hours=1)
+        values = [1.0, 2.0, 3.0, 4.0]
+        ts = Timeseries.from_values(start, freq, values, timezone="UTC")
+        # Check type and shape
+        assert isinstance(ts, Timeseries)
+        assert len(ts) == 4
+        # Check time values
+        expected_times = [
+            pendulum.datetime(2025, 1, 1, 0, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 1, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 2, 0, 0, tz="UTC"),
+            pendulum.datetime(2025, 1, 1, 3, 0, 0, tz="UTC"),
+        ]
+        assert ts.index == expected_times
+
+        assert ts["value"] == values
+
+        assert ts.timestep == pendulum.duration(hours=1)
 
 
 class TestTimeseriesBasicOperations:
@@ -267,8 +300,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.to_frame().select(pl.col("value")).to_series()
-        new_values = ts.to_frame().select(pl.col("value")).to_series()
+        original_values = sample_ts.dataframe.select(pl.col("value")).to_series()
+        new_values = ts.dataframe.select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * 2
@@ -279,8 +312,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.to_frame().select(pl.col("value")).to_series()
-        new_values = ts.to_frame().select(pl.col("value")).to_series()
+        original_values = sample_ts.dataframe.select(pl.col("value")).to_series()
+        new_values = ts.dataframe.select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * orig
@@ -291,8 +324,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.to_frame().select(pl.col("value")).to_series()
-        new_values = ts.to_frame().select(pl.col("value")).to_series()
+        original_values = sample_ts.dataframe.select(pl.col("value")).to_series()
+        new_values = ts.dataframe.select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig + 2
@@ -303,8 +336,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.to_frame().select(pl.col("value")).to_series()
-        new_values = ts.to_frame().select(pl.col("value")).to_series()
+        original_values = sample_ts.dataframe.select(pl.col("value")).to_series()
+        new_values = ts.dataframe.select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig + orig
@@ -315,8 +348,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.to_frame().select(pl.col("value")).to_series()
-        new_values = ts.to_frame().select(pl.col("value")).to_series()
+        original_values = sample_ts.dataframe.select(pl.col("value")).to_series()
+        new_values = ts.dataframe.select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig - 2
@@ -327,8 +360,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.to_frame().select(pl.col("value")).to_series()
-        new_values = ts.to_frame().select(pl.col("value")).to_series()
+        original_values = sample_ts.dataframe.select(pl.col("value")).to_series()
+        new_values = ts.dataframe.select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig - orig
@@ -339,8 +372,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.to_frame().select(pl.col("value")).to_series()
-        new_values = ts.to_frame().select(pl.col("value")).to_series()
+        original_values = sample_ts.dataframe.select(pl.col("value")).to_series()
+        new_values = ts.dataframe.select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig / 2
@@ -351,8 +384,8 @@ class TestTimeseriesBasicOperations:
         assert isinstance(ts, Timeseries)
 
         # Original values should be doubled
-        original_values = sample_ts.to_frame().select(pl.col("value")).to_series()
-        new_values = ts.to_frame().select(pl.col("value")).to_series()
+        original_values = sample_ts.dataframe.select(pl.col("value")).to_series()
+        new_values = ts.dataframe.select(pl.col("value")).to_series()
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig / orig
@@ -367,27 +400,24 @@ class TestTimeseriesBasicOperations:
         # Overwrite value
         ts.set_value("2024-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
 
-        assert ts.to_frame()["time"].to_list() == [
+        assert ts["time"] == [
             datetime(2024, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
             datetime(2024, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
         ]
-        assert ts.to_frame()["value"].to_list() == [10, 99]
+        assert ts["value"] == [10, 99]
+        assert ts.timestep == pendulum.duration(hours=1)
 
-    def test_generate_datetimes(self):
-        """Test static method to generate datetime range."""
-        start = datetime(2023, 1, 1, 0, 0)
-        end = datetime(2023, 1, 1, 6, 0)
-        step = "2h"
+    def test_set_value_invalid_frequence(self, sample_ts):
+        ts = Timeseries()
 
-        result = Timeseries.generate_datetimes(start=start, end=end, freq=step)
-        expected = [
-            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 4, 0, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 6, 0, tzinfo=Timezone("UTC")),
-        ]
+        # Insert new values
+        ts.set_value("2024-01-01 00:00:00", 10, "YYYY-MM-DD HH:mm:ss")
+        ts.set_value("2024-01-01 01:00:00", 20, "YYYY-MM-DD HH:mm:ss")
 
-        assert result == expected
+        assert ts.timestep == pendulum.duration(hours=1)
+
+        with pytest.raises(ValueError):
+            ts.set_value("2024-01-01 01:30:00", 30, "YYYY-MM-DD HH:mm:ss")
 
     def test_arithmetic_operations_with_invalid_types(self, sample_ts):
         """Test arithmetic operations with invalid types."""
@@ -431,20 +461,18 @@ class TestTimeseriesBasicOperations:
     def test_interpolate_method(self, sample_df_with_nulls):
         """Test interpolation methods."""
         # Create a Timeseries with null values
-        ts = Timeseries(sample_df_with_nulls, interpolation_method="linear")
+        ts = Timeseries(sample_df_with_nulls)
 
         # Test linear interpolation
-        ts_linear = ts.interpolate(inplace=False)
-        interpolated_values = ts_linear.to_frame()["value"].to_list()
+        ts_linear = ts.interpolate("linear", inplace=False)
+        interpolated_values = ts_linear["value"]
 
-        # For linear interpolation between 10.0 and 30.0 with a null in between
-        # The interpolated value should be 20.0
         assert interpolated_values[1] == 20.0
 
-        ts = Timeseries(sample_df_with_nulls, interpolation_method="constant")
+        ts = Timeseries(sample_df_with_nulls)
         # Test constant interpolation (forward fill)
-        ts_constant = ts.interpolate(inplace=False)
-        interpolated_values = ts_constant.to_frame()["value"].to_list()
+        ts_constant = ts.interpolate("constant", inplace=False)
+        interpolated_values = ts_constant["value"]
 
         # For constant interpolation, the null should be filled with the previous value
         assert interpolated_values[1] == 10.0
@@ -454,42 +482,7 @@ class TestTimeseriesBasicOperations:
 
         lazy_frame = sample_ts.to_lazy()
         assert isinstance(lazy_frame, pl.LazyFrame)
-        assert lazy_frame.collect().equals(sample_ts.to_frame())
-
-    def test_generate_datetimes_with_different_freq(self):
-        """Test generating datetimes with different frequencies."""
-        # Test minute frequency
-        start = datetime(2023, 1, 1, 0, 0)
-        end = datetime(2023, 1, 1, 0, 10)
-        result_minutes = Timeseries.generate_datetimes(start, end, freq="5m")
-        assert len(result_minutes) == 3  # 0:00, 0:05, 0:10
-
-        # Test daily frequency
-        start = datetime(2023, 1, 1)
-        end = datetime(2023, 1, 5)
-        result_days = Timeseries.generate_datetimes(start, end, freq="1d")
-        assert len(result_days) == 5  # 1st, 2nd, 3rd, 4th, 5th
-
-    def test_generate_datetimes_invalid_freq(self):
-        """Test generating datetimes with an invalid frequency."""
-        start = datetime(2023, 1, 1)
-        end = datetime(2023, 1, 5)
-
-        with pytest.raises(ValueError):
-            Timeseries.generate_datetimes(start, end, freq="1y")  # Unsupported frequency
-
-    def test_set_interpolation_method(self, sample_ts):
-        """Test setting interpolation method."""
-        # Initial method should be 'constant'
-        assert sample_ts.interpolation_method == "constant"
-
-        # Change to linear
-        sample_ts.set_interpolation_method("linear")
-        assert sample_ts.interpolation_method == "linear"
-
-        # Try an invalid method
-        with pytest.raises(NotImplementedError):
-            sample_ts.set_interpolation_method("invalid")
+        assert lazy_frame.collect().equals(sample_ts.dataframe)
 
     def test_plot_method(self, sample_ts):
         """Test plot method returns a Plotly figure."""
@@ -514,7 +507,7 @@ class TestTimeseriesBasicOperations:
         assert custom_fig.layout.height == 600
         assert custom_fig.layout.width == 1000
 
-    def test_get_data_with_different_engines(self, sample_ts):
+    def test_to_frame_with_different_engines(self, sample_ts):
         """Test to_frame method with different engines."""
         # Polars engine (default)
         polars_data = sample_ts.to_frame(engine="polars")
@@ -529,57 +522,29 @@ class TestTimeseriesBasicOperations:
             sample_ts.to_frame(engine="invalid")
 
     def test_get_value_with_inside_time(self, sample_ts):
+        """Test get_value method with a time in the series."""
+        # Time between two existing points
+        value = sample_ts.get_value(datetime(2023, 1, 1, 1, 0, 0))
+
+        assert value == 20.0
+
+    def test_get_value_with_inside_time_not_in_index(self, sample_ts):
         """Test get_value method with a time not in the series."""
         # Time between two existing points
-        value = sample_ts.get_value(datetime(2023, 1, 1, 1, 30, 0))
-
-        # Should interpolate (since interpolation method is 'constant')
-        assert value == 20.0
+        with pytest.raises(KeyError):
+            sample_ts.get_value(datetime(2023, 1, 1, 1, 0, 1))
 
     def test_get_value_with_outside_time(self, sample_ts):
         """Test get_value method with a time not in the series."""
         # Time between two existing points
-        value = sample_ts.get_value(datetime(2023, 1, 1, 4, 0, 0))
-
-        # Should interpolate (since interpolation method is 'constant')
-        assert value is None
+        with pytest.raises(KeyError):
+            value = sample_ts.get_value(datetime(2023, 1, 1, 4, 0, 0))
 
     def test_get_value_on_empty_timeseries(self):
         """Test get_value on an empty Timeseries."""
         ts = Timeseries()
-        value = ts.get_value(datetime(2023, 1, 1))
-        assert value is None
-
-    def test_reset_index(self, sample_ts: Timeseries):
-        """Test resetting the index with datetime and string inputs."""
-        # Prepare new datetime index: a mix of datetime and string
-        new_index = [
-            datetime(2023, 1, 1, 0, 30),  # datetime object
-            "2023-01-01 01:30:00",  # string
-            datetime(2023, 1, 1, 2, 30),  # datetime object
-            "2023-01-01 03:30:00",  # string
-        ]
-
-        # Test not-inplace first
-        reset_ts = sample_ts.reset_index(new_index, date_format="YYYY-MM-DD HH:mm:ss", inplace=False)
-        reset_times = reset_ts.to_frame()["time"].to_list()
-
-        expected = [
-            datetime(2023, 1, 1, 0, 30, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 1, 30, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 2, 30, tzinfo=Timezone("UTC")),
-            datetime(2023, 1, 1, 3, 30, tzinfo=Timezone("UTC")),
-        ]
-
-        assert reset_times == expected
-
-        # Ensure original sample_ts is unchanged
-        assert sample_ts.to_frame()["time"].to_list() != reset_times
-
-        # Test inplace modification
-        sample_ts.reset_index(new_index, date_format="YYYY-MM-DD HH:mm:ss", inplace=True)
-        reset_times_inplace = sample_ts.to_frame()["time"].to_list()
-        assert reset_times_inplace == expected
+        with pytest.raises(ValueError):
+            value = ts.get_value(datetime(2023, 1, 1))
 
     def test_properties_shape(self, sample_ts: Timeseries):
         """Test the shape and index properties of Timeseries."""
@@ -587,6 +552,13 @@ class TestTimeseriesBasicOperations:
         shape = sample_ts.shape
         expected_shape = (4, 2)  # Assuming sample_ts has 4 rows and 2 columns (time + one value)
         assert shape == expected_shape, f"Expected shape {expected_shape}, got {shape}"
+
+    def test_properties_frequency(self, sample_ts: Timeseries):
+        """Test the shape and index properties of Timeseries."""
+        # Test shape
+        freq = sample_ts.frequency
+
+        assert freq == pendulum.duration(hours=1), f"Expected shape {pendulum.duration(hours=1)}, got {freq}"
 
     def test_properties_index(self, sample_ts: Timeseries):
         # Test index
@@ -600,23 +572,10 @@ class TestTimeseriesBasicOperations:
 class TestTimeseriesManipulation:
     """Test time series manipulation methods."""
 
-    def test_remove_na(self, sample_df_with_nulls):
-        """Test removal of null values."""
-        ts = Timeseries(sample_df_with_nulls)
-        assert len(ts) == 4
-
-        ts_cleaned = ts.remove_na(inplace=False)
-        assert len(ts_cleaned) == 3  # Only rows with no nulls remain
-        assert len(ts) == 4  # Original unchanged
-
-        ts.remove_na(inplace=True)
-        assert len(ts) == 3  # Now original is changed
-
     def test_upsample_linear(self, sample_ts):
         """Test upsampling with linear interpolation."""
         original_len = len(sample_ts)
-        sample_ts.set_interpolation_method("linear")
-        upsampled = sample_ts.upsample("30m", inplace=False)
+        upsampled = sample_ts.upsample("30m", "linear", inplace=False)
 
         # Should have more rows now
         assert len(upsampled) > original_len
@@ -625,8 +584,8 @@ class TestTimeseriesManipulation:
         time_diffs = [
             (t2 - t1).total_seconds() / 60
             for t1, t2 in zip(
-                upsampled.to_frame()["time"][:-1],
-                upsampled.to_frame()["time"][1:],
+                upsampled["time"][:-1],
+                upsampled["time"][1:],
                 strict=False,
             )
         ]
@@ -636,17 +595,35 @@ class TestTimeseriesManipulation:
 
     def test_upsample_constant(self, sample_ts):
         """Test upsampling with constant fill."""
-        sample_ts.set_interpolation_method("constant")
-        upsampled = sample_ts.upsample("30m", inplace=False)
+        upsampled = sample_ts.upsample("30m", "constant", inplace=False)
 
         # Check if values are forward-filled
-        times = upsampled.to_frame()["time"].to_list()
-        values = upsampled.to_frame()["value"].to_list()
+        times = upsampled["time"]
+        values = upsampled["value"]
 
         # For each original time point, check next 30-min point has same value
         for i in range(len(sample_ts) - 1):
-            orig_time = sample_ts.to_frame()["time"][i]
-            orig_value = sample_ts.to_frame()["value"][i]
+            orig_time = sample_ts["time"][i]
+            orig_value = sample_ts["value"][i]
+
+            # Find the next 30-min point in upsampled data
+            next_time_idx = times.index(orig_time) + 1
+            next_value = values[next_time_idx]
+
+            assert next_value == orig_value  # Should be forward-filled
+
+    def test_upsample_constant_with_timedelta(self, sample_ts):
+        """Test upsampling with constant fill."""
+        upsampled = sample_ts.upsample(timedelta(minutes=30), "constant", inplace=False)
+
+        # Check if values are forward-filled
+        times = upsampled["time"]
+        values = upsampled["value"]
+
+        # For each original time point, check next 30-min point has same value
+        for i in range(len(sample_ts) - 1):
+            orig_time = sample_ts["time"][i]
+            orig_value = sample_ts["value"][i]
 
             # Find the next 30-min point in upsampled data
             next_time_idx = times.index(orig_time) + 1
@@ -670,7 +647,7 @@ class TestTimeseriesManipulation:
 
         # Check values (0+1+2+3+4+5)/6, (6+7+8+9+10+11)/6, etc.
         expected_means = [2.5, 8.5, 14.5, 20.5]  # Mean of each 6h group
-        actual_means = grouped.to_frame()["value"].to_list()
+        actual_means = grouped["value"]
 
         assert actual_means == pytest.approx(expected_means)
 
@@ -690,7 +667,7 @@ class TestTimeseriesManipulation:
 
         # Check values (0+1+2+3+4+5), (6+7+8+9+10+11), etc.
         expected_sums = [15, 51, 87, 123]  # Sum of each 6h group
-        actual_sums = grouped.to_frame()["value"].to_list()
+        actual_sums = grouped["value"]
 
         assert actual_sums == expected_sums
 
@@ -699,24 +676,6 @@ class TestTimeseriesManipulation:
         with pytest.raises(NotImplementedError):
             sample_ts.groupby("1h", agg="invalid")
 
-    def test_remove_duplicated(self, sample_df):
-        """Test removal of duplicated rows."""
-        # Create data with duplicates
-        df_with_dupes = pl.concat([sample_df, sample_df.slice(0, 2)])
-        ts = Timeseries(df_with_dupes)
-        assert len(ts) == 6  # 4 original + 2 duplicated
-
-        # Remove duplicates based on time
-        deduped = ts.remove_duplicated("time", inplace=False)
-        assert len(deduped) == 4  # Back to original size
-
-        # Original unchanged
-        assert len(ts) == 6
-
-        # Test inplace
-        ts.remove_duplicated("time", inplace=True)
-        assert len(ts) == 4
-
     def test_join(self, sample_ts):
         """Test joining with another time series."""
         # Create another time series
@@ -724,9 +683,9 @@ class TestTimeseriesManipulation:
             {
                 "time": [
                     datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 0, 30, 0),
                     datetime(2023, 1, 1, 1, 0, 0),
-                    datetime(2023, 1, 1, 2, 0, 0),
-                    datetime(2023, 1, 1, 4, 0, 0),  # Note: this time doesn't exist in sample_ts
+                    datetime(2023, 1, 1, 1, 30, 0),
                 ],
                 "value3": [1000, 2000, 3000, 5000],
             },
@@ -735,13 +694,13 @@ class TestTimeseriesManipulation:
 
         # Test inner join
         joined = sample_ts._join(other_ts, by="time", how="inner")
-        assert len(joined) == 3  # Only matching times
-        assert set(joined.columns) == {"time", "value", "value_right"}
+        assert len(joined) == 2  # Only matching times
+        assert joined.columns == ["time", "value", "value_right"]
 
         # Test left join
         left_joined = sample_ts._join(other_ts, by="time", how="left")
-        assert len(left_joined) == 4  # All rows from sample_ts
-        assert left_joined["value_right"][3] is None  # Missing value for 3:00
+        assert len(left_joined) == 4
+        assert left_joined["value_right"].to_list() == [1000, 3000, None, None]
 
     def test_timezone_operations(self, sample_ts):
         """Test timezone conversion operations."""
@@ -753,7 +712,7 @@ class TestTimeseriesManipulation:
         assert ts.timezone == "America/New_York"
 
         # Verify times are converted
-        times = ts.to_frame()["time"].to_list()
+        times = ts["time"]
         for t in times:
             assert t.tzinfo is not None
             assert "America/New_York" in str(t.tzinfo)
@@ -767,20 +726,30 @@ class TestTimeseriesManipulation:
         dt = datetime(2023, 1, 1, 0, 0, 0)
         result = sample_ts.filter(dt, inplace=False)
         assert len(result) == 1
-        assert result.to_frame()["value"].item() == 10
+        assert result["value"][0] == 10
+
+    def test_filter_with_datetime_pendulum(self, sample_ts):
+        dt = pendulum.datetime(2023, 1, 1, 0, 0, 0)
+        result = sample_ts.filter(dt, inplace=False)
+        assert len(result) == 1
+        assert result["value"][0] == 10
 
     def test_filter_with_list_of_datetime(self, sample_ts):
         dts = [datetime(2023, 1, 1, 0, 0, 0), datetime(2023, 1, 1, 1, 0, 0)]
         result = sample_ts.filter(dts, inplace=False)
         assert len(result) == 2
-        assert result.to_frame()["value"].to_list() == [10, 20]
+        assert result["value"] == [10, 20]
 
     def test_filter_with_str(self, sample_ts):
         result = sample_ts.filter("2023-01-01 03:00:00", "YYYY-MM-DD HH:mm:ss", inplace=False)
         assert len(result) == 1
-        assert result.to_frame()["value"].item() == 40
+        assert result["value"] == [40]
 
-    def test_get_value(self, sample_ts):
+    def test_filter_invalid(self, sample_ts):
+        with pytest.raises(NotImplementedError):
+            result = sample_ts.filter(2, inplace=False)
+
+    def test_get_value(self):
         """Test getting a value at a specific timestamp."""
         ts = Timeseries()
 
@@ -789,15 +758,15 @@ class TestTimeseriesManipulation:
         ts.set_value("2024-01-01 00:00:00", 10, date_format=date_format)
         ts.set_value("2024-01-01 01:00:00", 20, date_format=date_format)
         ts.set_value("2024-01-01 02:00:00", 100, date_format=date_format)
-        ts.set_value("2024-01-01 04:00:00", 200, date_format=date_format)
-        ts.set_value("2024-01-01 06:00:00", 400, date_format=date_format)
+        ts.set_value("2024-01-01 03:00:00", 200, date_format=date_format)
+        ts.set_value("2024-01-01 04:00:00", 400, date_format=date_format)
 
         dt = datetime(2024, 1, 1, 1, 0, 0)
         value = ts.get_value(dt)
         assert value == 20.0
 
         value = ts.get_value("2024-01-01 03:00:00", date_format=date_format)
-        assert value == 100
+        assert value == 200
 
 
 class TestTimeseriesExport:

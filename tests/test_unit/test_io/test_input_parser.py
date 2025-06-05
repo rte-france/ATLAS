@@ -207,21 +207,6 @@ def test_instantiate_model_object_with_cross_reference(monkeypatch):
     assert result.list_field == ["a", "b"]
 
 
-def test_read_data_file_parquet(tmp_path):
-    path = tmp_path / "test.parquet"
-    pl.DataFrame({"a": [1, 2]}).write_parquet(path)
-    df = InputLoader._read_data_file(path)
-    assert isinstance(df, pl.DataFrame)
-    assert df.shape == (2, 1)
-
-
-def test_read_data_file_invalid(tmp_path):
-    fake_path = tmp_path / "invalid.foo"
-    fake_path.write_text("whatever")
-    with pytest.raises(NotImplementedError):
-        InputLoader._read_data_file(fake_path)
-
-
 def test_load_matrix(tmp_path):
     matrix_path = tmp_path / "scenario_matrix" / "hydro"
     matrix_path.mkdir(parents=True)
