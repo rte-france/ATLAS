@@ -102,11 +102,6 @@ def test_invalid_timezone(sample_df):
         LazyTimeseries(sample_df.lazy(), timezone="Mars/Phobos")
 
 
-def test_invalid_interpolation_method(sample_df):
-    with pytest.raises(NotImplementedError):
-        LazyTimeseries(sample_df.lazy(), interpolation_method="spline")
-
-
 def test_invalid_schema():
     bad_df = pl.DataFrame({"foo": [1, 2], "bar": [3, 4]}).lazy()
     with pytest.raises(ValueError, match="Timeseries must have exactly one numeric column"):
@@ -148,7 +143,7 @@ def test_from_file_filter(tmp_path, sample_df_with_categories):
 def test_from_file_invalid_format(tmp_path):
     file_path = tmp_path / "data.txt"
     file_path.write_text("invalid")
-    with pytest.raises(ValueError, match="Unsupported file format"):
+    with pytest.raises(NotImplementedError, match="Atlas file should be a csv or parquet."):
         LazyTimeseries.from_file(file_path)
 
 

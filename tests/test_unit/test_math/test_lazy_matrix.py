@@ -92,5 +92,5 @@ def test_from_file_parquet(tmp_path, simple_frame):
 def test_from_file_invalid_format(tmp_path):
     bad_path = tmp_path / "data.txt"
     bad_path.write_text("some text")
-    with pytest.raises(ValueError, match="Unsupported file format"):
+    with pytest.raises(NotImplementedError, match="Atlas file should be a csv or parquet."):
         LazyMatrix.from_file(bad_path)

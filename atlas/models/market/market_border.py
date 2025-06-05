@@ -73,7 +73,7 @@ class MarketBorder(BusinessModel):
     uphill_market_area: MarketArea | None = None
     coupling_type: CouplingType | None = None
     loss_factor: float | None = None
-    time_resolution: float | None = None  # Assuming this can be a float
+    time_resolution: float | None = None
     afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_flow: ForecastingMatrix | LazyForecastingMatrix | None = None

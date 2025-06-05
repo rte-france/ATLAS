@@ -359,6 +359,8 @@ class AtlasTransformerDataset:
                         flat[snake_attr] = 'timeseries'
                     if snake_attr in MODEL_MAPPING_NAME:
                         flat[snake_attr] = value["instance"].split("/")[-1]
+                    if value.get("object") == "list_instance":
+                        flat[snake_attr] = [v.split("/")[-1] for v in value['instances']]
             else:
                 flat[snake_attr] = value
 

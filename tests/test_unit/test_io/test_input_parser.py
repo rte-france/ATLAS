@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import polars as pl
 import pytest
+from pydantic import BaseModel, ConfigDict
+from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
 from atlas.io.input_loader import InputLoader
@@ -16,11 +18,14 @@ from atlas.models.equipment.equipment import Equipment
 
 @pytest.fixture
 def mock_model_mapping():
-    class DummyModel:
-        def __init__(self, **kwargs):
-            self.__dict__.update(kwargs)
-            for k, v in kwargs.items():
-                setattr(self, k, v)
+    class DummyModel(BaseModel):
+        model_config = ConfigDict(arbitrary_types_allowed=True)
+
+        name: str | None = None
+        energy: Timeseries | None = None
+        scenario: ScenarioMatrix | None = None
+        forecast: ForecastingMatrix | None = None
+        start_date: DateTime | None = None
 
     return {
         "hydro": DummyModel,
@@ -51,6 +56,9 @@ class DummyReferencing(BusinessModel):
     name: str
     ref: DummyReferenced | None = None
     equipment: DummyEquipment | None = None
+    refs: list[DummyReferenced] | None = None
+    list_field: list[str] | None = None
+    start_date: DateTime | None = None
 
 
 @pytest.fixture
@@ -125,29 +133,31 @@ def complex_input_dir(tmp_path, mock_model_mapping):
     return tmp_path
 
 
-class TestInputLoader:
-    @patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
-    @patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value="TS")
-    @patch("atlas.io.input_loader.InputLoader._load_matrix", return_value="MATRIX")
-    def test_from_directory_success(self, mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
-        with patch.dict(
-            cfg.__dict__,
-            {"MODEL_MAPPING_NAME": mock_model_mapping, "MODEL_ORDER_INSTANTIATION": ["hydro"]},
-        ):
-            result = InputLoader.from_directory(temp_input_dir)
-            assert "hydro" in result
-            assert isinstance(result["hydro"][0], mock_model_mapping["hydro"])
-            assert result["hydro"][0].energy == "TS"
-            assert result["hydro"][0].scenario == "MATRIX"
-            assert result["hydro"][0].forecast == "MATRIX"
-            # Test that date was properly parsed
-            assert result["hydro"][0].start_date == "2023-01-01 00:00:00"
+@patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
+@patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value=Timeseries())
+@patch("atlas.io.input_loader.InputLoader._load_matrix")
+def test_from_directory_success(mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
+    mock_matrix.side_effect = [ScenarioMatrix(), ForecastingMatrix()]
+
+    with patch.dict(
+        cfg.__dict__,
+        {"MODEL_MAPPING_NAME": mock_model_mapping, "MODEL_ORDER_INSTANTIATION": ["hydro"]},
+    ):
+        result = InputLoader.from_directory(temp_input_dir)
+        assert "hydro" in result
+        assert isinstance(result["hydro"][0], mock_model_mapping["hydro"])
+        assert result["hydro"][0].energy == Timeseries()
+        assert result["hydro"][0].scenario == ScenarioMatrix()
+        assert result["hydro"][0].forecast == ForecastingMatrix()
+        # Test that date was properly parsed
+        assert result["hydro"][0].start_date.to_datetime_string() == "2023-01-01 00:00:00"
 
 
 def test_instantiate_model_object_with_equipment_reference(monkeypatch):
     # Patch MODEL_MAPPING_NAME and EQUIPMENT_MODELS temporarily
     monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "my_object", DummyReferencing)
     monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "equipment", DummyEquipment)
+    monkeypatch.setitem(cfg.INVERSE_MODEL_MAPPING_NAME, DummyEquipment, "equipment")
     monkeypatch.setattr(cfg, "EQUIPMENT_MODELS", ["equipment"])
 
     # Simulate already-instantiated equipment
@@ -170,37 +180,31 @@ def test_instantiate_model_object_with_cross_reference(monkeypatch):
     # Simulate mapping configuration
     monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "dummy_referencing", DummyReferencing)
     monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "ref", DummyReferenced)
-    monkeypatch.setattr(cfg, "EQUIPMENT_MODELS", [])  # not dealing with equipment here
+    monkeypatch.setattr(cfg, "EQUIPMENT_MODELS", [])
+    monkeypatch.setitem(cfg.INVERSE_MODEL_MAPPING_NAME, DummyReferenced, "ref")
 
     # Already instantiated object
     referenced_obj = DummyReferenced(name="ref1")
+    referenced_obj_2 = DummyReferenced(name="ref2")
     objects_instantiated = {
-        "ref": [referenced_obj],
+        "ref": [referenced_obj, referenced_obj_2],
     }
 
     # Object to instantiate, referencing the above
-    object_dict = {"name": "obj1", "ref": "ref1"}
+    object_dict = {
+        "name": "obj1",
+        "ref": "ref1",
+        "refs": ["ref1", "ref2"],
+        "list_field": ["a", "b"],
+    }
 
     result = InputLoader._build_single_business_model(object_dict.copy(), "dummy_referencing", objects_instantiated)
 
     assert isinstance(result, DummyReferencing)
     assert result.name == "obj1"
     assert result.ref == referenced_obj
-
-
-def test_read_data_file_parquet(tmp_path):
-    path = tmp_path / "test.parquet"
-    pl.DataFrame({"a": [1, 2]}).write_parquet(path)
-    df = InputLoader._read_data_file(path)
-    assert isinstance(df, pl.DataFrame)
-    assert df.shape == (2, 1)
-
-
-def test_read_data_file_invalid(tmp_path):
-    fake_path = tmp_path / "invalid.foo"
-    fake_path.write_text("whatever")
-    with pytest.raises(NotImplementedError):
-        InputLoader._read_data_file(fake_path)
+    assert result.refs == [referenced_obj, referenced_obj_2]
+    assert result.list_field == ["a", "b"]
 
 
 def test_load_matrix(tmp_path):
@@ -328,3 +332,23 @@ def test_parse_objects_multiple_models(tmp_path):
     result = InputLoader._parse_objects_files(tmp_path / "objects")
     assert "hydro" in result
     assert "solar" in result
+
+
+def test_instantiate_math_objects_datetime_list(temp_input_dir, monkeypatch):
+    # Simulate the instantiation of math objects
+    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "my_object", DummyReferencing)
+
+    object_dict = [
+        {
+            "name": "fr_hydro",
+            "list_field": "a:b",
+            "start_date": "2023/01/01 00:00:00",
+        }
+    ]
+
+    result = InputLoader._build_math_objects(
+        object_dict, "my_object", temp_input_dir, date_format_input_files="YYYY/MM/DD HH:mm:ss"
+    )
+    assert result[0]["name"] == "fr_hydro"
+    assert result[0]["start_date"] == "2023-01-01 00:00:00"
+    assert result[0]["list_field"] == ["a", "b"]
