@@ -203,6 +203,7 @@ class Matrix:
 
         if inplace:
             self.matrix = df
+            return self
         else:
             return Matrix(df, timezone=self.timezone)
 
