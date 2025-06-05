@@ -189,8 +189,8 @@ class TestTimeseriesInit:
         ts = Timeseries.from_file(csv_path, filters=("category", "A"))
 
         # Should only have rows where category is "A"
-        assert len(ts) == 2
-        assert ts["value"] == [10.0, 30.0]
+        assert ts.frequency == pendulum.duration(hours=1)
+        assert len(ts) == 49
 
     def test_from_file_parquet(self, tmp_path):
         """Test loading from file with filters."""

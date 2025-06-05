@@ -1,6 +1,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+import pendulum
 import polars as pl
 import pytest
 from pydantic import BaseModel, ConfigDict
@@ -300,12 +301,17 @@ def test_load_lazy_forecasting_matrix(tmp_path):
 def test_load_timeseries(tmp_path):
     ts_path = tmp_path / "timeseries" / "hydro"
     ts_path.mkdir(parents=True)
-    pl.DataFrame({"date": [datetime(2024, 1, 1, 0, 0, 0)], "value": [1.0], "attribute": ["attribute"]}).write_parquet(
-        ts_path / "fr_hydro.parquet"
-    )
+    pl.DataFrame(
+        {
+            "date": [datetime(2024, 1, 1, 0, 0, 0), datetime(2024, 1, 1, 1, 0, 0)],
+            "value": [1.0, 2.0],
+            "attribute": ["attribute", "attribute"],
+        }
+    ).write_parquet(ts_path / "fr_hydro.parquet")
 
     result = InputLoader._load_timeseries(tmp_path, object_type="hydro", name="fr_hydro", attribute_name="attribute")
     assert isinstance(result, Timeseries)
+    assert result.frequency == pendulum.duration(hours=1)
 
 
 def test_load_lazy_timeseries(tmp_path):
