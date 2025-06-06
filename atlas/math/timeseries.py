@@ -268,6 +268,9 @@ class Timeseries:
                 pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
             )
 
+            if len(self.timeseries) == 2 and infer_frequency(self.timeseries) > pendulum.duration(days=1):
+                self.upsample("1h", interpolation_method="linear")
+
             self.sort()
 
             self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
