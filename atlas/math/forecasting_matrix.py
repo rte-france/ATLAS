@@ -16,10 +16,11 @@ from typing import TYPE_CHECKING
 import pendulum
 import polars as pl
 
+from atlas.io.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
-from atlas.timing import pendulum_to_datetime
+from atlas.timing import build_datetime, get_lowest_frequency, pendulum_to_datetime
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -79,7 +80,7 @@ class ForecastingMatrix(Matrix):
         :rtype: ForecastingMatrix
         """
 
-        return cls(cls._read_data_file(file_path, filters, separator), timezone, date_format)
+        return cls(read_data_file(file_path, filters, separator), timezone, date_format)
 
     def _sort_indexes(self) -> None:
         """
@@ -123,7 +124,7 @@ class ForecastingMatrix(Matrix):
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
         """
-        dt: str = self._build_datetime(index).format(self.date_format)
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
 
         super().add(timeseries, dt)
         self._sort_indexes()
@@ -143,7 +144,7 @@ class ForecastingMatrix(Matrix):
         :return: The corresponding Timeseries object.
         :rtype: Timeseries
         """
-        dt: str = self._build_datetime(index).format(self.date_format)
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
 
         return super().__getitem__(dt)
 
@@ -167,7 +168,7 @@ class ForecastingMatrix(Matrix):
         :type index: str | datetime
         :raises KeyError: If the index does not exist in the matrix.
         """
-        dt: str = self._build_datetime(index).format(self.date_format)
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
 
         super().delete(dt)
 
@@ -184,9 +185,12 @@ class ForecastingMatrix(Matrix):
         Newer forecasts are prioritized. Gaps are filled from older forecasts.
         """
 
-        execution_date = self._build_datetime(execution_date)
-        start_date = self._build_datetime(start_date)
-        end_date = self._build_datetime(end_date)
+        execution_date = build_datetime(execution_date, self.date_format)
+        start_date = build_datetime(start_date, self.date_format)
+        end_date = build_datetime(end_date, self.date_format)
+
+        if start_date > end_date:
+            raise ValueError("Start date must be before end date")
 
         forecast_cols = (
             pl.DataFrame({"indexes": self.indexes})
@@ -208,9 +212,12 @@ class ForecastingMatrix(Matrix):
             raise ValueError("No forecasting dates available before execution date")
 
         forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
+        interpolate_expr = [pl.col(col).interpolate_by("time") for col in forecast_cols]
+        min_frequency = get_lowest_frequency(self.matrix)
 
-        result = (
-            self.matrix.lazy()
+        df = (
+            self.matrix.upsample("time", every=min_frequency)
+            .with_columns(interpolate_expr)
             .filter(pl.col("time").is_between(start_date, end_date))
             .select(
                 [
@@ -218,14 +225,11 @@ class ForecastingMatrix(Matrix):
                     forecast_expr.alias("forecast"),
                 ]
             )
-            .collect()
+            .fill_null(strategy="forward")
+            .fill_null(strategy="backward")
         )
 
-        return Timeseries(result, timezone=self.timezone)
-
-    def _build_datetime(self, dt: datetime | str | pendulum.DateTime) -> pendulum.DateTime:
-        """Converts a datetime string or object to pendulum datetime"""
-        return pendulum.from_format(dt, self.date_format) if isinstance(dt, str) else pendulum.instance(dt)
+        return Timeseries(df, timezone=self.timezone)
 
     def set_date_format(self, date_format: str) -> None:
         new_indexes = (
@@ -245,7 +249,7 @@ class ForecastingMatrix(Matrix):
 
         renaming_mapping = dict(zip(self.indexes, new_indexes, strict=False))
         self.matrix = self.matrix.rename(renaming_mapping)
-        self.indexes = self.get_indexes()
+        self.indexes = self._get_indexes()
         self._date_format = date_format
 
 

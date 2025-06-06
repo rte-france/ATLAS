@@ -182,6 +182,7 @@ data/
 *.parquet
 *.pickle
 *.lp
+*.pkl
 
 # Notebooks
 polars_vs_pandas.ipynb

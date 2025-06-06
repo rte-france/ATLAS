@@ -48,7 +48,8 @@ class Thermal(Equipment):
     :type maximum_power: Timeseries
     :param minimum_power: Minimum power of the unit or cluster
     :type minimum_power: Timeseries
-
+    :param co2_emission_factor: CO2 emissions per MWh
+    :type co2_emission_factor: float
     """
 
     installed_capacity: float | None = Field(

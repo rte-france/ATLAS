@@ -51,6 +51,8 @@ class Equipment(BusinessModel):
     :type rr_down_procured: ForecastingMatrix
     :param rr_up_procured: Volume of contracted upward RR reserves
     :type rr_up_procured: ForecastingMatrix
+    :param co2_emission_factor: CO2 emissions per MWh
+    :type co2_emission_factor: float
     :param co2_emissions: Cumulated CO2 emission after Portfolio Optimization
     :type co2_emissions: ForecastingMatrix
     :param id_buy_submitted_volume: Sum of volume of buy offers for each Intraday market
@@ -116,6 +118,7 @@ class Equipment(BusinessModel):
     unit_count: int | None = Field(None, ge=0, description="Unit count (must be positive)")
     afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
+    co2_emission_factor: float | None = Field(None, ge=0)
     co2_emissions: ForecastingMatrix | LazyForecastingMatrix | None = None
     fcr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     fcr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None

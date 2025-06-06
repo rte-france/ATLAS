@@ -76,9 +76,7 @@ markdown_extensions:
   - attr_list
   - toc:
       permalink: true
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
 
 extra_javascript:
   - custom/katex.js
@@ -120,8 +118,6 @@ nav:
       - Solver Interace: api/optimisation.md
       - Enum: api/enum.md
       - Logging: api/logging.md
-  - Examples:
-    - Timeseries: examples/timeseries.ipynb
 
 extra:
   version:

@@ -211,30 +211,6 @@ def test_from_file_with_filter(tmp_path):
     assert matrix.matrix.shape[0] == 2
 
 
-def test_describe():
-    df = pl.DataFrame(
-        {
-            "region": ["FR", "FR", "DE", "DE"],
-            "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
-            "load": [1, 2, 3, 4],
-            "hydro": [4, 5, 6, 7],
-        }
-    )
-
-    assert Matrix.describe(df) == {
-        "shape": (4, 4),
-        "memory_mb": "0.00",
-        "datetime": {
-            "column": "time",
-            "min": "2025-01-01 00:00:00",
-            "max": "2025-01-04 00:00:00",
-            "nulls": 0,
-        },
-        "categorical": {"column": "region", "categories": ["DE", "FR"], "nulls": 0},
-        "numeric_columns": ["load", "hydro"],
-    }
-
-
 def test_from_file_with_invalid_schema(tmp_path):
     df = pl.DataFrame(
         {

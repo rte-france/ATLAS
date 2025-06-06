@@ -6,13 +6,15 @@ This file is part of the ATLAS project.
 Module that implements Input Loader
 """
 
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_args, get_origin
 
 import pendulum
-import polars as pl
+from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
+from atlas.io.utils import read_data_file
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -20,6 +22,7 @@ from atlas.math.matrix import Matrix
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
+from atlas.typing import get_type_attribute
 
 
 class InputLoader:
@@ -172,7 +175,8 @@ class InputLoader:
         for obj in object_list:
             object_instantiated: dict[str, Any] = {}
             for key, value in obj.items():
-                if value == "timeseries":
+                attribute_type = get_type_attribute(object_type, key)
+                if value == "timeseries" and attribute_type in (Timeseries, LazyTimeseries):
                     object_instantiated[key] = cls._load_timeseries(
                         base_path=base_path,
                         object_type=object_type,
@@ -182,7 +186,13 @@ class InputLoader:
                         lazy=lazy,
                         timezone=timezone,
                     )
-                elif value in ["forecasting_matrix", "scenario_matrix"]:
+
+                elif value in ["forecasting_matrix", "scenario_matrix"] and attribute_type in (
+                    ForecastingMatrix,
+                    LazyForecastingMatrix,
+                    ScenarioMatrix,
+                    LazyScenarioMatrix,
+                ):
                     object_instantiated[key] = cls._load_matrix(
                         base_path=base_path,
                         name=obj["name"],
@@ -194,13 +204,22 @@ class InputLoader:
                         timezone=timezone,
                         date_format_forecasting=date_format_forecasting_matrix,
                     )
-                else:
-                    try:
+                elif attribute_type in (DateTime, datetime) and value is not None:
+                    if isinstance(value, datetime | DateTime):
+                        object_instantiated[key] = pendulum.instance(value).to_datetime_string()
+                    else:
                         object_instantiated[key] = pendulum.from_format(
                             value, date_format_input_files
                         ).to_datetime_string()
-                    except Exception:  # noqa: BLE001
-                        object_instantiated[key] = value
+                elif get_origin(attribute_type) is list and value is not None:
+                    inside_type = get_args(attribute_type)[0]
+                    if inside_type in (float, int):
+                        object_instantiated[key] = list(map(inside_type, value.split(":")))
+                    else:
+                        object_instantiated[key] = list(map(str, value.split(":")))
+                else:  # noqa: PLR2004
+                    object_instantiated[key] = value
+
             objects_instantiated.append(object_instantiated)
 
         return objects_instantiated
@@ -221,24 +240,38 @@ class InputLoader:
         object_type: str,
         objects_instantiated: dict[str, list[type[BusinessModel]]],
     ) -> type[BusinessModel]:
-        """Instantiate a single BusinessModel object from its attributes."""
+        """Instantiate a single BusinessModel object from its attributes. The function instantiates the objects nested in the object_dict."""
         cfg.logger.debug(
             f"""Instantiated > business model {object_dict["name"]} - type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"""
         )
         for attribute in object_dict:
-            if attribute in cfg.MODEL_MAPPING_NAME:
-                if attribute == "equipment":
-                    for attribute in cfg.EQUIPMENT_MODELS:
-                        equipment_lookup = {model.name: model for model in objects_instantiated[attribute]}
+            attribute_type = get_type_attribute(object_type, attribute)
+            if attribute_type in cfg.INVERSE_MODEL_MAPPING_NAME:
+                if attribute_type is cfg.MODEL_MAPPING_NAME["equipment"]:
+                    for attr in cfg.EQUIPMENT_MODELS:
+                        equipment_lookup = {model.name: model for model in objects_instantiated[attr]}
                         name = object_dict["equipment"]
                         if name in equipment_lookup:
                             object_dict["equipment"] = equipment_lookup[name]
                             break
                 else:
                     name = object_dict[attribute]
-                    objects_lookup = {model.name: model for model in objects_instantiated[attribute]}
+                    objects_lookup = {
+                        model.name: model
+                        for model in objects_instantiated[cfg.INVERSE_MODEL_MAPPING_NAME[attribute_type]]  # type: ignore[index]
+                    }
                     object_dict[attribute] = objects_lookup[name]
-
+            elif get_origin(attribute_type) is list:
+                if get_args(attribute_type)[0] in cfg.INVERSE_MODEL_MAPPING_NAME:
+                    object_list_string = object_dict[attribute]
+                    object_list_instantiated = []
+                    objects_lookup = {
+                        model.name: model
+                        for model in objects_instantiated[cfg.INVERSE_MODEL_MAPPING_NAME[get_args(attribute_type)[0]]]
+                    }
+                    for obj_string in object_list_string:
+                        object_list_instantiated.append(objects_lookup[obj_string])
+                    object_dict[attribute] = object_list_instantiated
         return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)  # type: ignore[return-value]
 
     @classmethod
@@ -250,7 +283,7 @@ class InputLoader:
             key = file_path.stem
             if key in cfg.MODEL_MAPPING_NAME:
                 try:
-                    result[key] = cls._read_data_file(file_path, separator=separator).to_dicts()
+                    result[key] = read_data_file(file_path, separator=separator).to_dicts()
                 except Exception:  # noqa: BLE001
                     cfg.logger.warning(
                         f"Failed to read {file_path}. Object type key {key} won't be taken into account."
@@ -258,20 +291,6 @@ class InputLoader:
             else:
                 cfg.logger.warning(f"File {file_path} is not a recognized objects from Atlas.")
         return result
-
-    @staticmethod
-    def _read_data_file(file_path: str | Path, separator: str = ";") -> pl.DataFrame:
-        """Read a file (CSV, Parquet, or JSON) and return a Polars DataFrame."""
-        file_extension = Path(file_path).suffix
-
-        if file_extension == ".csv":
-            return pl.read_csv(file_path, separator=separator)
-        if file_extension == ".parquet":
-            return pl.read_parquet(file_path)
-        if file_extension == ".json":
-            return pl.read_json(file_path)
-
-        raise NotImplementedError("File extension has to be csv, parquet or json")
 
     @staticmethod
     def _load_timeseries(
