@@ -8,7 +8,7 @@ import numpy as np
 import polars as pl
 
 from atlas.config import logger
-from atlas.timing import pendulum_to_datetime
+from atlas.timing import infer_frequency, pendulum_to_datetime
 
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
 NAME_MAPPING = {"Baseload": "BaseLoad", "is_v2_g": "is_v2g"}
@@ -137,14 +137,26 @@ class PrometheusToAtlasDataParser:
                                 .with_columns(
                                     pl.col("TimeStep").str.strptime(
                                         pl.Datetime(), pendulum_to_datetime("DD_MM_YYYY_HH_mm_ss")
-                                    ),
-                                    pl.lit(attr_name_snake).alias("attribute"),
+                                    )
                                 )
-                                .select(
-                                    pl.selectors.datetime(),
-                                    pl.selectors.string(),
-                                    pl.selectors.numeric(),
-                                )
+                                .rename({"TimeStep": "time"})
+                            )
+                            if matrix_type == "timeseries":
+                                try:
+                                    infer_frequency(df)
+                                except ValueError:
+                                    df = (
+                                        df.upsample(time_column="time", every="1h")
+                                        .fill_null(strategy="forward")
+                                        .sort("time")
+                                    ).rename({"time": "TimeStep"})
+
+                            df = df.with_columns(
+                                pl.lit(attr_name_snake).alias("attribute"),
+                            ).select(
+                                pl.selectors.datetime(),
+                                pl.selectors.string(),
+                                pl.selectors.numeric(),
                             )
 
                             path_file_to_instance_matrix = (
