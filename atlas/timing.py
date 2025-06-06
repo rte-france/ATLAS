@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import re
+from collections import Counter
 from datetime import datetime
 
 import pendulum
@@ -201,6 +202,30 @@ def get_lowest_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
 
     return pendulum.duration(seconds=min(deltas))
+
+
+def get_most_frequent_timestep(timeseries: pl.DataFrame) -> pendulum.Duration:
+    """
+    Compute the most frequent time delta between consecutive timestamps in the timeseries.
+
+    :param timeseries: Polars DataFrame with a 'time' column (datetime or pendulum.DateTime)
+    :return: The most frequent delta as pendulum.Duration
+    :rtype: pendulum.Duration
+
+    If there are multiple modes with the same count, the smallest delta is returned.
+    If the timeseries has fewer than 2 timestamps, returns 0 duration.
+    """
+    times = timeseries.select("time").to_series().to_list()
+    if len(times) < 2:
+        return pendulum.duration()
+
+    times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
+    deltas_in_seconds = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
+
+    counter = Counter(deltas_in_seconds)
+    most_common_delta, _ = counter.most_common(1)[0]
+
+    return pendulum.duration(seconds=most_common_delta)
 
 
 def check_timezone(timezone: str) -> None:
