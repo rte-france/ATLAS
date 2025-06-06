@@ -5,11 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import datetime
+from datetime import datetime, timedelta
 import os
 import sys
 
 from atlas import Logger
+from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
 
 ## NB. sys will not be used in the future. Instead, use a function that interrupts the system.
@@ -38,18 +39,23 @@ class Utilities:
         """Converts a datetime object to a string without special characters"""
         return datetime.strftime(date, "%d_%m_%Y %H_%M_%S")
 
-    def define_orders_time(p) -> list[datetime]:
+    @staticmethod
+    def define_orders_time(parameters: DayAheadOrdersParameters) -> list[datetime]:
         """
         This function creates a sequence of timestamps between a startDate and a endDate
         with step deltaTime. It returns a list of dateTime objects.
         In particular, it makes sure that no time step crosses the endDate boundary.
 
         Arguments:
-        - `p` a named tuple of subclass Parameters_List containing the dates.
+        - `parameters` an instance of DayAheadOrdersParameters.
         """
-
-        if p.start_date < p.end_date:
-            orders_time = Utilities.new_index(p.start_date, p.end_date.AddMinutes(-p.time_step), str(p.time_step) + "m")
+        orders_time = []
+        if parameters.start_date < parameters.end_date:
+            orders_time = Utilities.new_index(
+                parameters.start_date,
+                parameters.end_date - timedelta(minutes=parameters.time_step),
+                timedelta(minutes=parameters.time_step),
+            )
         else:
             msg = "The EndDate parameter must be posterior to the StartDate parameter."
             Logger.get_logger().error(msg)
@@ -57,7 +63,7 @@ class Utilities:
         return orders_time
 
     @staticmethod
-    def new_index(start_date: datetime, end_date: datetime, interval: datetime.timedelta) -> list[datetime]:
+    def new_index(start_date: datetime, end_date: datetime, interval: timedelta) -> list[datetime]:
         """
         Generate a list of datetime between `start` and `end` depending on the given interval.
 

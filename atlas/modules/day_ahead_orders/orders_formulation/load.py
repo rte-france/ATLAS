@@ -5,12 +5,18 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from datetime import datetime, timedelta
+
+from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
 class Load:
     @staticmethod
-    def formulate_load_orders(dataset, orders_time, p) -> None:
+    def formulate_load_orders(
+        dataset: DayAheadOrdersInputDataset, orders_time: list[datetime], parameters: DayAheadOrdersParameters
+    ) -> None:
         """
         Formulates consumption bids on the spot market.
         Uses the parameters specified by the user and the input marker to create bids based on the forecast
@@ -24,12 +30,14 @@ class Load:
         """
 
         # Loop over the market players first
-        for l in dataset.Load.instances.values():
+        for l in dataset.raw_data["load"]:
             # Extract the forecasting matrix of the current actor.
-            consumption_forecast = l.MaximumPowerForecast.get_forecast(
-                p.execution_date, p.start_date, p.end_date - p.time_step
+            consumption_forecast = l.maximum_power_forecast.get_forecast(
+                parameters.execution_date,
+                parameters.start_date,
+                parameters.end_date - timedelta(minutes=parameters.time_step),
             )
-            l.DABuySubmittedVolume += consumption_forecast.abs()
+            l.da_buy_submitted_volume += consumption_forecast.abs()
 
             # Now we loop over the time stamps for which we want an offer to be made.
             # We formulate as many offers as there are time stamps in orders_time.
@@ -53,10 +61,10 @@ class Load:
                     if l.LoadType == "PowerToGas":
                         bid_output.Price = l.VariableCost.get_value(t)
                     else:
-                        bid_output.Price = p.consumption_price
+                        bid_output.Price = parameters.consumption_price
                     bid_output.Product = "DayAhead"
                     bid_output.OrderType = "Buy"
                     bid_output.IsAgentTSO = False
-                    bid_output.ExecutionDate = str(p.execution_date)
+                    bid_output.ExecutionDate = str(parameters.execution_date)
                     bid_output.StartDate = str(t)
-                    bid_output.EndDate = str(t + p.time_step)
+                    bid_output.EndDate = str(t + parameters.time_step)

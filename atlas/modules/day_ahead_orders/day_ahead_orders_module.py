@@ -9,7 +9,6 @@ from typing import Any
 
 from atlas import BusinessModel, Logger
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.abstract_class.abstract_parameters import module_parameters_type_var
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
@@ -21,19 +20,19 @@ from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 class DayAheadOrdersModule(
     AbstractModule[DayAheadOrdersParameters, DayAheadOrdersInputDataset, DayAheadOrdersOutputDataset]
 ):
-    def create_parameters(self, raw_params: dict[str, Any]) -> module_parameters_type_var:
+    def create_parameters(self, raw_params: dict[str, Any]) -> DayAheadOrdersParameters:
         """Creates a concrete parameters object from raw dictionary."""
         return DayAheadOrdersParameters(**raw_params)
 
     def import_data(
-        self, raw_data: dict[str, list[BusinessModel]], parameters: module_parameters_type_var
+        self, raw_data: dict[str, list[BusinessModel]], parameters: DayAheadOrdersParameters
     ) -> DayAheadOrdersInputDataset:
         """Imports data using business objects and parameters."""
         return DayAheadOrdersInputDataset(raw_data, parameters)
 
-    def validate_data(self, parameters: module_parameters_type_var, input_dataset: DayAheadOrdersInputDataset) -> bool:
+    def validate_data(self, parameters: DayAheadOrdersParameters, input_dataset: DayAheadOrdersInputDataset) -> bool:
         """Validates imported or generated data."""
-        pass
+        return True
 
     def validates_results(
         self,
@@ -68,7 +67,7 @@ class DayAheadOrdersModule(
         logger.get_logger().info("Initialization of the Day-Ahead Orders module...")
 
         # output_dataset = DayAheadOrdersOutputDataset()
-        output_dataset = input_dataset
+        # output_dataset = input_dataset
 
         # Create the sequence of orders times. In particular, this sequence is such that the endDate of the last order will be before
         # the endDate of the overall time frame.
@@ -77,12 +76,12 @@ class DayAheadOrdersModule(
 
         #### STEP 1 - CONSUMPTION ####
         logger.get_logger().info("Formulation of the load orders...")
-        Load.formulate_load_orders(output_dataset, orders_time, parameters)
+        Load.formulate_load_orders(input_dataset, orders_time, parameters)
         logger.get_logger().info("Consumption orders formulated.")
 
         #### STEP 2 - NON DISPATCHABLE UNITS ####
         logger.get_logger().info("Formulation of the non-dispatchable orders...")
-        non_dispatchable.formulate_non_dispatchable_orders(output_dataset, orders_time, parameters)
+        non_dispatchable.formulate_non_dispatchable_orders(input_dataset, orders_time, parameters)
         logger.get_logger().info("Non-dispatchable orders formulated.")
 
         """

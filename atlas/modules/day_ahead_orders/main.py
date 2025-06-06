@@ -25,5 +25,5 @@ if __name__ == "__main__":
         raw_params = yaml.safe_load(r)
 
     mc_module = DayAheadOrdersModule()
-    raw_data = InputLoader.from_directory(raw_data_path)
+    raw_data = InputLoader.from_directory(raw_data_path, date_format_forecasting_matrix="DD/MM/YYYY HH:mm:ss")
     mc_module.run(raw_data, raw_params)
