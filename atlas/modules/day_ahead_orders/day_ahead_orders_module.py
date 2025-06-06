@@ -13,6 +13,7 @@ from atlas.abstract_class.abstract_parameters import module_parameters_type_var
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation import non_dispatchable
 from atlas.modules.day_ahead_orders.orders_formulation.load import Load
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
@@ -79,12 +80,12 @@ class DayAheadOrdersModule(
         Load.formulate_load_orders(output_dataset, orders_time, parameters)
         logger.get_logger().info("Consumption orders formulated.")
 
-        """
         #### STEP 2 - NON DISPATCHABLE UNITS ####
-        API.IO.Trace.Log("Formulation of the non-dispatchable orders...", API.IO.LogTypeInfo)
-        non_dispatchable.formulate_non_dispatchable_orders(input_dataset, output_dataset, orders_time, parameters)
-        API.IO.Trace.Log("Non-dispatchable orders formulated.", API.IO.LogTypeInfo)
+        logger.get_logger().info("Formulation of the non-dispatchable orders...")
+        non_dispatchable.formulate_non_dispatchable_orders(output_dataset, orders_time, parameters)
+        logger.get_logger().info("Non-dispatchable orders formulated.")
 
+        """
         #### STEP 3 - STORAGE UNITS ####
         API.IO.Trace.Log("Formulation of the storage orders...", API.IO.LogTypeInfo)
         storage.formulate_storage_orders(input_dataset, output_dataset, parameters)
