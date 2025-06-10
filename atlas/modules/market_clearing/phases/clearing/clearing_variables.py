@@ -34,7 +34,7 @@ class ClearingVariables:
 
     @staticmethod
     def create_border_exchange_variables(solver, input_dataset: MarketClearingInputDataset, is_atc: bool):
-        for border in input_dataset.borders:
+        for border in input_dataset.market_borders:
             for time_index, time in enumerate(input_dataset.times):
                 relative_max_flow = border.max_flow.get_value(time).sum() if is_atc else DEFAULT_MAX_FLOW
                 relative_min_flow = border.min_flow.get_value(time).sum() if is_atc else DEFAULT_MIN_FLOW
@@ -46,7 +46,7 @@ class ClearingVariables:
 
     @staticmethod
     def create_border_pos_exchanges_variables(solver, input_dataset: MarketClearingInputDataset, is_atc: bool):
-        for border in input_dataset.borders:
+        for border in input_dataset.market_borders:
             for time_index, time in enumerate(input_dataset.times):
                 relative_max_flow = border.max_flow.get_value(time).sum() if is_atc else DEFAULT_MAX_FLOW
                 solver.NumVar(
@@ -57,7 +57,7 @@ class ClearingVariables:
 
     @staticmethod
     def create_border_neg_exchange_variables(solver, input_dataset: MarketClearingInputDataset, is_atc: bool):
-        for border in input_dataset.borders:
+        for border in input_dataset.market_borders:
             for time_index, time in enumerate(input_dataset.times):
                 relative_min_flow = border.min_flow.get_value(time).sum() if is_atc else DEFAULT_MIN_FLOW
                 solver.NumVar(
@@ -67,7 +67,7 @@ class ClearingVariables:
                 )
     @staticmethod
     def create_border_imports_variables(solver, input_dataset: MarketClearingInputDataset):
-        for border in input_dataset.borders:
+        for border in input_dataset.market_borders:
             for time_index, time in enumerate(input_dataset.times):
                 solver.NumVar(
                     -float("inf"), float("inf"), ClearingVariables.border_import_variable_name(border.name, time_index)
@@ -75,7 +75,7 @@ class ClearingVariables:
 
     @staticmethod
     def create_border_exports_variables(solver, input_dataset: MarketClearingInputDataset):
-        for border in input_dataset.borders:
+        for border in input_dataset.market_borders:
             for time_index, time in enumerate(input_dataset.times):
                 solver.NumVar(
                     -float("inf"), float("inf"), ClearingVariables.border_export_variable_name(border.name, time_index)
@@ -83,7 +83,7 @@ class ClearingVariables:
 
     @staticmethod
     def create_border_xsis_variables(solver, input_dataset: MarketClearingInputDataset):
-        for border in input_dataset.borders:
+        for border in input_dataset.market_borders:
             for time_index, time in enumerate(input_dataset.times):
                 solver.NumVar(
                     -float("inf"), float("inf"), ClearingVariables.border_xsis_variable_name(border.name, time_index)
@@ -91,7 +91,7 @@ class ClearingVariables:
 
     @staticmethod
     def create_border_nus_variables(solver, input_dataset: MarketClearingInputDataset):
-        for border in input_dataset.borders:
+        for border in input_dataset.market_borders:
             for time_index, time in enumerate(input_dataset.times):
                 solver.NumVar(
                     -float("inf"), float("inf"), ClearingVariables.border_nus_variable_name(border.name, time_index)
@@ -109,7 +109,7 @@ class ClearingVariables:
     @staticmethod
     def create_accepted_powers(solver, input_dataset: MarketClearingInputDataset):
         for market_area in input_dataset.mc_market_areas:
-            for mc_order in input_dataset.orders_per_market_area[market_area.market_area.name]:
+            for mc_order in market_area.orders:
                 if mc_order.order.q_min:
                     min_power = 0.0
                     max_power = mc_order.order.q_max
@@ -124,7 +124,7 @@ class ClearingVariables:
     @staticmethod
     def create_orders_status(solver, input_dataset: MarketClearingInputDataset):
         for market_area in input_dataset.mc_market_areas:
-            for mc_order in input_dataset.orders_per_market_area[market_area.market_area.name]:
+            for mc_order in market_area.orders:
                 if mc_order.id_with_status:
                     solver.BoolVar(ClearingVariables.order_status_variable_name(mc_order.order.name))
 

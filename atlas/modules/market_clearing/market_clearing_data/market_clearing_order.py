@@ -21,13 +21,14 @@ class MCOrder:
         MCOrder.instance_with_status_count += 1
         return instance_id
 
-    def __init__(self, order: Order):
+    def __init__(self, order: Order, parameters: MarketClearingParameters):
         self.order = order
         # Deduce duration from list of DataTime and the parameter time step (the end datetime may have to be modified so that
         # everything stays consistent).
         # NB: by convention, self.end_date are actually starts of a last time step:
-        self.duration = (((self.end_date - self.start_date).total_seconds() / 60) // self.parameters.time_step) * 60
-        self.end_date_processed = self.start_date.add(minutes=self.duration)
+        self.duration = int((((self.order.end_date - self.order.start_date).total_seconds() / 60)
+                             // parameters.time_step) * 60)
+        self.end_date_processed = self.order.start_date.add(minutes=self.duration)
 
         # Translate the order type:
         self.production_sign = 1 if order.order_type == "Sell" else -1
@@ -81,7 +82,7 @@ class MCOrder:
         # consider orders that have an ExecutionDate close to the Clearing execution_date
         # The concept of "close" is here defined by the execution_date_tolerance parameter
         tolerance = parameters.execution_datetime_tolerance
-        if (parameters.execution_datetime - order.execution_date).total_seconds() / 60 > float(tolerance):
+        if (parameters.execution_date - order.execution_date).total_seconds() / 60 > float(tolerance):
             return False
 
         # MS
