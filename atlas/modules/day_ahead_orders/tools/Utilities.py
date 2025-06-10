@@ -11,6 +11,10 @@ from atlas import Logger
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
 
+## NB. sys will not be used in the future. Instead, use a function that interrupts the system.
+## once this is implemented, remove the
+
+
 # Contains miscellaneous functions used in the various files.
 class Utilities:
     @staticmethod
@@ -38,6 +42,7 @@ class Utilities:
         else:
             msg = "The EndDate parameter must be posterior to the StartDate parameter."
             Logger.get_logger().error(msg)
+            # sys.exit()
         return orders_time
 
     @staticmethod
@@ -60,3 +65,34 @@ class Utilities:
             current = current + interval
 
         return result
+
+    def QuickerGetForecast(matrix, execution_date, start_date, end_date):
+        """
+        This function is created to limit calls to the GetForecast method which is time-expensive.
+        If conditions are met, the far quicker GetTimeSeries method is called
+
+        Arguments:
+        - `matrix` a Forecasting Matrix
+        - `execution_date` the desired reference date within
+        - `start_date` the start date to crop the ts with (to limit its size), if GetForecast is called
+        - `end_date` the end date to crop the ts with (to limit its size), if GetForecast is called
+        """
+        if execution_date in matrix.Index:
+            # An Extract between start_date and end_date might be necessary here, but not usefull as of ATLAS 1.2
+            return matrix.GetTimeSeries(execution_date)
+
+        return matrix.GetForecast(execution_date, start_date, end_date)
+
+    # Helper used to manage the output path of debug data
+    def check_output_path(output_path):
+        """
+        Takes as input a path (in our case, in the SAMBA output folder of the user),
+        and checks if this path exists.
+        If not, a folder is created and the user is notified with a message in the console
+        """
+
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+            API.IO.Trace.Log("Output folder for debug created at {}".format(output_path), API.IO.LogTypeInfo)
+
+        return None

@@ -96,15 +96,15 @@ class DayAheadOrdersModule(
             hydraulic.formulate_hydraulic_orders(input_dataset, output_dataset, orders_time, parameters)
             API.IO.Trace.Log("Hydraulic orders formulated.", API.IO.LogTypeInfo)
 
-            #### STEP 5 - WIND AND PV UNITS ####
-            API.IO.Trace.Log("Formulation of the wind/pv orders...", API.IO.LogTypeInfo)
-            wind_pv.formulate_wind_and_pv_orders(input_dataset, output_dataset, orders_time, parameters)
-            API.IO.Trace.Log("Non-dispatchable orders formulated.", API.IO.LogTypeInfo)
+        #### STEP 5 - WIND AND PV UNITS ####
+        API.IO.Trace.Log("Formulation of the wind/pv orders...", API.IO.LogTypeInfo)
+        wind_pv.formulate_wind_and_pv_orders(input_dataset, output_dataset, orders_time, parameters)
+        API.IO.Trace.Log("Non-dispatchable orders formulated.", API.IO.LogTypeInfo)
 
-            #### STEP 6 - THERMIC UNITS ####
-            API.IO.Trace.Log("Formulation of the thermic orders...", API.IO.LogTypeInfo)
-            thermic_bidding.formulate_thermic_orders(input_dataset, output_dataset, orders_time, parameters)
-            API.IO.Trace.Log("Thermic orders formulated.", API.IO.LogTypeInfo)
+        #### STEP 6 - THERMIC UNITS ####
+        API.IO.Trace.Log("Formulation of the thermic orders...", API.IO.LogTypeInfo)
+        thermic_bidding.formulate_thermic_orders(input_dataset, output_dataset, orders_time, parameters)
+        API.IO.Trace.Log("Thermic orders formulated.", API.IO.LogTypeInfo)
 
             #### STEP - INDICATE TO THE USER THAT THE FORMULATION OF ORDERS IS COMPLETED.
             API.IO.Trace.Log("Formulation of orders successfully completed.", API.IO.LogTypeInfo)
