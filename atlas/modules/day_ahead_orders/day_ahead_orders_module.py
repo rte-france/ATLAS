@@ -72,41 +72,43 @@ class DayAheadOrdersModule(
         # Create the sequence of orders times. In particular, this sequence is such that the endDate of the last order will be before
         # the endDate of the overall time frame.
         orders_time = Utilities.define_orders_time(parameters)
-        logger.get_logger().info("Extraction completed, now starting the formulation of orders...")
+        if len(orders_time) > 0:
+            logger.get_logger().info("Extraction completed, now starting the formulation of orders...")
 
-        #### STEP 1 - CONSUMPTION ####
-        logger.get_logger().info("Formulation of the load orders...")
-        Load.formulate_load_orders(input_dataset, orders_time, parameters)
-        logger.get_logger().info("Consumption orders formulated.")
+            #### STEP 1 - CONSUMPTION ####
+            logger.get_logger().info("Formulation of the load orders...")
+            Load.formulate_load_orders(input_dataset, orders_time, parameters)
+            logger.get_logger().info("Consumption orders formulated.")
 
-        #### STEP 2 - NON DISPATCHABLE UNITS ####
-        logger.get_logger().info("Formulation of the non-dispatchable orders...")
-        NonDispatchable.formulate_non_dispatchable_orders(input_dataset, orders_time, parameters)
-        logger.get_logger().info("Non-dispatchable orders formulated.")
+            #### STEP 2 - NON DISPATCHABLE UNITS ####
+            logger.get_logger().info("Formulation of the non-dispatchable orders...")
+            NonDispatchable.formulate_non_dispatchable_orders(input_dataset, orders_time, parameters)
+            logger.get_logger().info("Non-dispatchable orders formulated.")
 
-        """
-        #### STEP 3 - STORAGE UNITS ####
-        API.IO.Trace.Log("Formulation of the storage orders...", API.IO.LogTypeInfo)
-        storage.formulate_storage_orders(input_dataset, output_dataset, parameters)
-        API.IO.Trace.Log("Storage orders formulated.", API.IO.LogTypeInfo)
+            #### STEP 3 - STORAGE UNITS ####
+            logger.get_logger().info("Formulation of the storage orders...")
+            Storage.formulate_storage_orders(input_dataset, input_dataset, parameters)
+            logger.get_logger().info("Storage orders formulated.")
 
-        #### STEP 4 - LAKES UNITS ####
-        API.IO.Trace.Log("Formulation of the hydraulic orders...", API.IO.LogTypeInfo)
-        hydraulic.formulate_hydraulic_orders(input_dataset, output_dataset, orders_time, parameters)
-        API.IO.Trace.Log("Hydraulic orders formulated.", API.IO.LogTypeInfo)
+            """
+            #### STEP 4 - LAKES UNITS ####
+            API.IO.Trace.Log("Formulation of the hydraulic orders...", API.IO.LogTypeInfo)
+            hydraulic.formulate_hydraulic_orders(input_dataset, output_dataset, orders_time, parameters)
+            API.IO.Trace.Log("Hydraulic orders formulated.", API.IO.LogTypeInfo)
 
-        #### STEP 5 - WIND AND PV UNITS ####
-        API.IO.Trace.Log("Formulation of the wind/pv orders...", API.IO.LogTypeInfo)
-        wind_pv.formulate_wind_and_pv_orders(input_dataset, output_dataset, orders_time, parameters)
-        API.IO.Trace.Log("Non-dispatchable orders formulated.", API.IO.LogTypeInfo)
+            #### STEP 5 - WIND AND PV UNITS ####
+            API.IO.Trace.Log("Formulation of the wind/pv orders...", API.IO.LogTypeInfo)
+            wind_pv.formulate_wind_and_pv_orders(input_dataset, output_dataset, orders_time, parameters)
+            API.IO.Trace.Log("Non-dispatchable orders formulated.", API.IO.LogTypeInfo)
 
-        #### STEP 6 - THERMIC UNITS ####
-        API.IO.Trace.Log("Formulation of the thermic orders...", API.IO.LogTypeInfo)
-        thermic_bidding.formulate_thermic_orders(input_dataset, output_dataset, orders_time, parameters)
-        API.IO.Trace.Log("Thermic orders formulated.", API.IO.LogTypeInfo)
+            #### STEP 6 - THERMIC UNITS ####
+            API.IO.Trace.Log("Formulation of the thermic orders...", API.IO.LogTypeInfo)
+            thermic_bidding.formulate_thermic_orders(input_dataset, output_dataset, orders_time, parameters)
+            API.IO.Trace.Log("Thermic orders formulated.", API.IO.LogTypeInfo)
 
-        #### STEP - INDICATE TO THE USER THAT THE FORMULATION OF ORDERS IS COMPLETED.
-        API.IO.Trace.Log("Formulation of orders successfully completed.", API.IO.LogTypeInfo)
-        """
-
-        # return output_dataset
+            #### STEP - INDICATE TO THE USER THAT THE FORMULATION OF ORDERS IS COMPLETED.
+            API.IO.Trace.Log("Formulation of orders successfully completed.", API.IO.LogTypeInfo)
+            """
+            # return output_dataset
+        else:
+            logger.get_logger().error("orders_time is empty.")
