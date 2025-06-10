@@ -35,7 +35,7 @@ class MarketClearingModule(
     def validate_data(self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset) -> bool:
         # Check control block parameters compare to control block object
         # Check market area parameters compare to Market Area object
-        pass
+        return True
 
     def execute(
         self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset
