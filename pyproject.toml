@@ -37,7 +37,6 @@ packages.find.include = ['atlas*']
 line-length = 120
 extend-exclude = ["*.ipynb"]
 exclude = [
-    "atlas/io/hdf_handler.py",
     "atlas/io/transform_dataset.py",
 ]
 
@@ -52,10 +51,10 @@ select = [
     "UP", # pyupgrade
 ]
 ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
-    "C901",  # too complex
-    "W191", # indentation contains tabs
+    "E501",
+    "B008",
+    "C901",
+    "W191",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -87,7 +86,7 @@ docs = [
 url = "https://pypi.org/simple/"
 
 [tool.mypy]
-exclude = "atlas/io/transform_dataset.py"
+exclude = ["atlas/io/transform_dataset.py", 'atlas/io/prometheus_transformer.py']
 python_version = "3.10"
 strict = false
 check_untyped_defs = false
@@ -100,4 +99,4 @@ no_implicit_optional = false
 
 [tool.coverage.run]
 omit = ['atlas/io/transform_dataset.py',
-        'atlas/timing.py']
+        'atlas/io/prometheus_transformer.py']

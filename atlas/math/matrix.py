@@ -14,12 +14,12 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
-import pendulum
 import plotly.graph_objects as go
 import polars as pl
-import pytz
 
+from atlas.io.utils import get_metadata_from_frame, read_data_file
 from atlas.math.timeseries import Timeseries
+from atlas.timing import check_timezone
 
 
 class Matrix:
@@ -35,76 +35,24 @@ class Matrix:
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
-        self._check_timezone(timezone)
+        check_timezone(timezone)
         self._check_matrix(matrix)
 
         self._set_matrix(matrix=matrix, timezone=timezone)
-        self.indexes: list[str] = self.get_indexes()
+        self.indexes: list[str] = self._get_indexes()
 
     def __repr__(self):
         """Provide a string representation of the Matrix object."""
         return f"Matrix : {self.matrix}"
 
-    @classmethod
-    def describe(
-        cls, matrix: str | Path | pd.DataFrame | pl.DataFrame | Matrix, separator: str = ";"
-    ) -> dict[str, Any]:
+    def describe(self) -> dict[str, Any]:
         """
-        Get metadata about the matrix.
+        Get metadata about the Matrix.
 
-        :param matrix: DataFrame or file path containing the matrix data.
-        :type matrix: pd.DataFrame | pl.DataFrame | Matrix
         :return: A dictionnary containing matrix metadata
         :rtype: dict[str, Any]
         """
-        if isinstance(matrix, pd.DataFrame):
-            df = pl.DataFrame(matrix)
-        elif isinstance(matrix, Matrix):
-            df = matrix.get_matrix()
-        elif isinstance(matrix, str) | isinstance(matrix, Path):
-            file_path = Path(matrix)  # type: ignore[arg-type]
-            df = cls._read_data_file(file_path)
-        elif isinstance(matrix, pl.DataFrame):
-            df = matrix
-        else:
-            raise NotImplementedError("Can't parse input data. Provide a dataframe or a Matrix")
-
-        summary = {
-            "shape": df.shape,
-            "memory_mb": f"{df.estimated_size('mb'):.02f}",
-        }
-
-        datetime_cols = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
-        string_cols = df.select(pl.selectors.string()).columns
-        numeric_cols = df.select(pl.selectors.numeric()).columns
-
-        if len(datetime_cols) == 1:
-            dt_col = datetime_cols[0]
-            dt_series = df[dt_col]
-            summary["datetime"] = {  # type: ignore[assignment]
-                "column": dt_col,
-                "min": pendulum.instance(dt_series.min()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
-                "max": pendulum.instance(dt_series.max()).to_datetime_string(),  # type: ignore[attr-defined, arg-type]
-                "nulls": dt_series.null_count(),
-            }
-        else:
-            raise ValueError("Expected one datetime column exactly")
-
-        if len(string_cols) == 1:
-            cat_col = string_cols[0]
-            cat_series = df[cat_col]
-            categories = sorted(cat_series.unique().to_list())
-            summary["categorical"] = {  # type: ignore[assignment]
-                "column": cat_col,
-                "categories": categories,
-                "nulls": cat_series.null_count(),
-            }
-        else:
-            raise ValueError("Expected one string column exactly")
-
-        summary["numeric_columns"] = numeric_cols
-
-        return summary
+        return get_metadata_from_frame(self.matrix)
 
     @classmethod
     def from_file(
@@ -123,27 +71,7 @@ class Matrix:
         :rtype: Matrix
         """
 
-        return cls(cls._read_data_file(file_path, filters, separator), timezone)
-
-    @staticmethod
-    def _read_data_file(
-        file_path: str | Path,
-        filters: tuple[str, str] | None = None,
-        separator: str = ";",
-    ) -> pl.DataFrame:
-        """Read a dataframe from csv or parquet"""
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if file_path.suffix == ".csv":
-            matrix = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
-        elif file_path.suffix == ".parquet":
-            matrix = pl.read_parquet(file_path)
-        else:
-            raise NotImplementedError("Matrix file should be a csv or parquet.")
-        if filters:
-            matrix = matrix.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-
-        return matrix
+        return cls(read_data_file(file_path, filters, separator), timezone)
 
     def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix | None, timezone: str) -> None:
         """Set matrix attribute"""
@@ -191,7 +119,7 @@ class Matrix:
         if len(time_columns) + len(value_columns) != len(df.columns):
             raise ValueError("Matrix must have N columns one for datetime and N-1 for numerical values")
 
-    def get_indexes(self) -> list[str]:
+    def _get_indexes(self) -> list[str]:
         """
         Get the indexes of the matrix.
 
@@ -199,12 +127,6 @@ class Matrix:
         :rtype: list[str]
         """
         return self.matrix.select(pl.selectors.numeric()).columns
-
-    @staticmethod
-    def _check_timezone(timezone: str) -> None:
-        """Check if the timezone is valid."""
-        if timezone not in pytz.all_timezones:
-            raise ValueError(f"Invalid timezone: {timezone}")
 
     def __len__(self) -> int:
         """
@@ -276,6 +198,15 @@ class Matrix:
         """
         return self.matrix.lazy()
 
+    def abs(self, inplace: bool = True) -> Matrix:
+        df = self.matrix.select([pl.col(c).abs().alias(c) for c in self.index])
+
+        if inplace:
+            self.matrix = df
+            return self
+        else:
+            return Matrix(df, timezone=self.timezone)
+
     def add(
         self,
         timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
@@ -300,7 +231,7 @@ class Matrix:
             how="full",
             coalesce=True,
         )
-        self.indexes = self.get_indexes()
+        self.indexes = self._get_indexes()
 
     def delete(self, index: str) -> None:
         """
@@ -314,7 +245,7 @@ class Matrix:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
         self.matrix = self.matrix.drop(index)
-        self.indexes = self.get_indexes()
+        self.indexes = self._get_indexes()
 
     def get_matrix(self) -> pl.DataFrame:
         """
@@ -370,8 +301,13 @@ class Matrix:
 
     @property
     def index(self) -> list[str]:
-        """Returns the Matrix indexes"""
-        return self.get_indexes()
+        """Returns the Matrix indexes (e.g columns names)"""
+        return self._get_indexes()
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Return the metadata of the timeseries."""
+        return self.describe()
 
     def _get_shape(self) -> tuple[int, int]:
         """Return (rows, columns) of the underlying Polars DataFrame."""
@@ -398,7 +334,7 @@ class Matrix:
         :return: Plotly figure object
         """
         df = self.get_matrix()
-        index_columns = self.get_indexes()
+        index_columns = self._get_indexes()
         time_col = "time"
 
         fig = go.Figure()

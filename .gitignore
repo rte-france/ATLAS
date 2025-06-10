@@ -181,6 +181,7 @@ data/
 *.csv
 *.parquet
 *.pickle
+*.pkl
 
 # Notebooks
 

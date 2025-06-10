@@ -10,12 +10,12 @@ This module provides LazyTimeseries.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
 
 import polars as pl
-import pytz
 
+from atlas.io.utils import scan_data_file
 from atlas.math.timeseries import Timeseries
+from atlas.timing import check_timezone
 
 
 class LazyTimeseries:
@@ -31,7 +31,6 @@ class LazyTimeseries:
         self,
         timeseries: pl.LazyFrame | LazyTimeseries | Timeseries | None = None,
         timezone: str = "UTC",
-        interpolation_method: Literal["linear", "constant"] = "constant",
     ) -> None:
         """
         :param timeseries: The input time series data
@@ -39,11 +38,8 @@ class LazyTimeseries:
         :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
         :type timezone: str, optional
         """
-        self._check_timezone(timezone)
-        self._check_interpolation_method(interpolation_method)
-
+        check_timezone(timezone)
         self.timezone: str = timezone
-        self.interpolation_method = interpolation_method
 
         if timeseries is None:
             self.timeseries: pl.LazyFrame = pl.LazyFrame(
@@ -81,28 +77,21 @@ class LazyTimeseries:
         """String representation of the Matrix"""
         return f"LazyTimeseries with schema : {self.timeseries.collect_schema()}"
 
-    @staticmethod
-    def _check_interpolation_method(interpolation_method: str) -> None:
-        """Check interpolation method"""
-        if interpolation_method not in ("linear", "constant"):
-            raise NotImplementedError("Interpolation method has to be linear, or constant")
-
-    @staticmethod
-    def _check_timezone(timezone: str) -> None:
+    @property
+    def lazyframe(self) -> pl.LazyFrame:
         """
-        Check if the timezone is valid.
+        Return the internal Polars LazyFrame.
 
-        :raises ValueError: If the timezone is not valid
+        :return: The internal lazy time series data
+        :rtype: pl.LazyFrame
         """
-        if timezone not in pytz.all_timezones:
-            raise ValueError(f"Invalid timezone: {timezone}")
+        return self.timeseries
 
     @classmethod
     def from_file(
         cls,
         file_path: str | Path,
         timezone: str = "UTC",
-        interpolation_method: Literal["linear", "constant"] = "constant",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
     ) -> LazyTimeseries:
@@ -114,17 +103,8 @@ class LazyTimeseries:
         :return: Loaded LazyTimeseries object
         :rtype: LazyTimeseries
         """
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if file_path.suffix == ".csv":
-            timeseries = pl.scan_csv(file_path, separator=separator, try_parse_dates=True)
-        elif file_path.suffix == ".parquet":
-            timeseries = pl.scan_parquet(file_path)
-        else:
-            raise ValueError("Unsupported file format. Only CSV and Parquet are supported.")
-        if filters:
-            timeseries = timeseries.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
-        return cls(timeseries, timezone, interpolation_method)
+
+        return cls(scan_data_file(file_path, filters, separator), timezone)
 
     def to_frame(
         self,
@@ -147,5 +127,4 @@ class LazyTimeseries:
         return Timeseries(
             self.timeseries.collect(),
             timezone=self.timezone,
-            interpolation_method=self.interpolation_method,
         )
