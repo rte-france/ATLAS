@@ -7,6 +7,8 @@ This file is part of the ATLAS project.
 
 from datetime import datetime, timedelta
 
+from atlas import Order
+from atlas.enum import Product, OrderType
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
@@ -35,15 +37,17 @@ class NonDispatchable:
         """
 
         # Loop over the market players first.
-        for unit in dataset.OtherNonDispatchable.instances.values():
+        for unit in dataset.raw_data["other_non_dispatchable"]:
             # Extract the forecasting matrix of the current actor.
-            production_forecast = unit.MaximumPowerForecast.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date - parameters.time_step
+            production_forecast = unit.maximum_power_forecast.get_forecast(
+                parameters.execution_date,
+                parameters.start_date,
+                parameters.end_date - timedelta(minutes=parameters.time_step),
             )
-            unit.DASellSubmittedVolume += production_forecast
+            unit.da_sell_submitted_volume += production_forecast
 
             # Extract the sequence of variable costs that will be used to define the price.
-            variable_costs = unit.VariableCost.Extract("", orders_time)
+            variable_costs = unit.variable_cost.filter(item=orders_time, inplace=False)
 
             # Now we loop over the time stamps for which we want an offer to be made.
             # We formulate as many offers as there are time stamps in orders_time.
@@ -52,20 +56,21 @@ class NonDispatchable:
                 bid_name = "otherND_order_at_{}_for_unit_{}".format(Utilities.get_date_to_clean_string(t), unit.Name)
 
                 # Initialize the order object
-                bid_output = dataset.Order.CreateInstance(bid_name)
+                bid_output = Order(name=bid_name)
 
                 # Fill the offer with the desired parameters.
-                bid_output.MarketArea = unit.Portfolio.MarketArea
-                bid_output.Portfolio = unit.Portfolio
-                bid_output.Equipment = unit
-                bid_output.Qmax = production_forecast.get_value(t)
-                bid_output.Qmin = 0
-                bid_output.Price = variable_costs.get_value(t)
-                bid_output.Product = "DayAhead"
-                bid_output.OrderType = "Sell"
-                bid_output.IsAgentTSO = False
-                bid_output.ExecutionDate = str(parameters.execution_date)
-                bid_output.StartDate = str(t)
-                bid_output.EndDate = str(t + parameters.time_step)
+                bid_output.market_area = unit.portfolio.market_area
+                bid_output.portfolio = unit.portfolio
+                bid_output.equipment = unit
+                bid_output.qmax = production_forecast.get_value(t)
+                bid_output.qmin = 0
+                bid_output.price = variable_costs.get_value(t)
+                bid_output.product = Product.DayAhead
+                bid_output.order_type = OrderType.Sell
+                bid_output.is_agent_tso = False
+                bid_output.execution_date = parameters.execution_date
+                bid_output.start_date = t
+                bid_output.end_date = t + timedelta(minutes=parameters.time_step)
+                dataset.raw_data["order"].append(bid_output)
 
         return None

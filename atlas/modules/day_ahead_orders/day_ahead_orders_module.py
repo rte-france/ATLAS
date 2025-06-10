@@ -12,8 +12,8 @@ from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation import non_dispatchable
 from atlas.modules.day_ahead_orders.orders_formulation.load import Load
+from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable import NonDispatchable
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
@@ -81,7 +81,7 @@ class DayAheadOrdersModule(
 
         #### STEP 2 - NON DISPATCHABLE UNITS ####
         logger.get_logger().info("Formulation of the non-dispatchable orders...")
-        non_dispatchable.formulate_non_dispatchable_orders(input_dataset, orders_time, parameters)
+        NonDispatchable.formulate_non_dispatchable_orders(input_dataset, orders_time, parameters)
         logger.get_logger().info("Non-dispatchable orders formulated.")
 
         """

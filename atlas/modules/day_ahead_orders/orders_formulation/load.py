@@ -7,6 +7,8 @@ This file is part of the ATLAS project.
 
 from datetime import datetime, timedelta
 
+from atlas import Order
+from atlas.enum import Product, OrderType, LoadType
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
@@ -30,14 +32,14 @@ class Load:
         """
 
         # Loop over the market players first
-        for l in dataset.raw_data["load"]:
+        for load in dataset.raw_data["load"]:
             # Extract the forecasting matrix of the current actor.
-            consumption_forecast = l.maximum_power_forecast.get_forecast(
+            consumption_forecast = load.maximum_power_forecast.get_forecast(
                 parameters.execution_date,
                 parameters.start_date,
                 parameters.end_date - timedelta(minutes=parameters.time_step),
             )
-            l.da_buy_submitted_volume += consumption_forecast.abs()
+            load.da_buy_submitted_volume += consumption_forecast.abs()
 
             # Now we loop over the time stamps for which we want an offer to be made.
             # We formulate as many offers as there are time stamps in orders_time.
@@ -48,23 +50,24 @@ class Load:
                 # Formulate an order if max_consumption_value is strictly positive
                 if max_consumption_value > 0:
                     # Initialize the order object.
-                    bid_output = dataset.Order.CreateInstance(
-                        "load_order_at_{}_for_unit_{}".format(Utilities.get_date_to_clean_string(t), l.Name)
+                    bid_output = Order(
+                        name="load_order_at_{}_for_unit_{}".format(Utilities.get_date_to_clean_string(t), load.Name)
                     )
 
                     # Fill the offer with the desired parameters.
-                    bid_output.MarketArea = l.Portfolio.MarketArea
-                    bid_output.Portfolio = l.Portfolio
-                    bid_output.Equipment = l
-                    bid_output.Qmax = max_consumption_value
-                    bid_output.Qmin = 0
-                    if l.LoadType == "PowerToGas":
-                        bid_output.Price = l.VariableCost.get_value(t)
+                    bid_output.market_area = load.portfolio.market_area
+                    bid_output.portfolio = load.portfolio
+                    bid_output.equipment = load
+                    bid_output.qmax = max_consumption_value
+                    bid_output.qmin = 0
+                    if load.load_type == LoadType.POWER_TO_GAS:
+                        bid_output.price = load.variable_cost.get_value(t)
                     else:
-                        bid_output.Price = parameters.consumption_price
-                    bid_output.Product = "DayAhead"
-                    bid_output.OrderType = "Buy"
-                    bid_output.IsAgentTSO = False
-                    bid_output.ExecutionDate = str(parameters.execution_date)
-                    bid_output.StartDate = str(t)
-                    bid_output.EndDate = str(t + parameters.time_step)
+                        bid_output.price = parameters.consumption_price
+                    bid_output.product = Product.DayAhead
+                    bid_output.order_type = OrderType.Buy
+                    bid_output.is_agent_t_s_o = False
+                    bid_output.execution_date = str(parameters.execution_date)
+                    bid_output.start_date = str(t)
+                    bid_output.end_date = str(t + timedelta(minutes=parameters.time_step))
+                    dataset.raw_data["order"].append(bid_output)
