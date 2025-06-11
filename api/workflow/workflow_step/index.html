@@ -11,25 +11,25 @@
       
       
       
-        <link rel="prev" href="../getting_started/">
+        <link rel="prev" href="../workflow/">
       
       
-        <link rel="next" href="../changelog/">
+        <link rel="next" href="../workflow_parameters/">
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
     
     
       
-        <title>Contributing - Atlas</title>
+        <title>Workflow step - Atlas</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.342714a4.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -48,15 +48,15 @@
       
     
     
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
     
       <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
     
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown.min.css">
     
-      <link rel="stylesheet" href="../custom/custom.css">
+      <link rel="stylesheet" href="../../../custom/custom.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#contributing" class="md-skip">
+        <a href="#workflow-step" class="md-skip">
           Skip to content
         </a>
       
@@ -100,7 +100,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="Atlas" class="md-header__button md-logo" aria-label="Atlas" data-md-component="logo">
+    <a href="../../.." title="Atlas" class="md-header__button md-logo" aria-label="Atlas" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -120,7 +120,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Contributing
+              Workflow step
             
           </span>
         </div>
@@ -231,13 +231,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href=".." class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
           
   
   
@@ -257,7 +255,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../concepts/overview/" class="md-tabs__link">
+        <a href="../../../concepts/overview/" class="md-tabs__link">
           
   
   
@@ -273,6 +271,8 @@
   
   
   
+    
+  
   
     
     
@@ -280,11 +280,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../api/math/timeseries/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../math/timeseries/" class="md-tabs__link">
           
   
   
@@ -321,7 +323,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="Atlas" class="md-nav__button md-logo" aria-label="Atlas" data-md-component="logo">
+    <a href="../../.." title="Atlas" class="md-nav__button md-logo" aria-label="Atlas" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -348,31 +350,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" checked>
         
           
-          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
             
   
   
@@ -385,7 +384,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_1">
             <span class="md-nav__icon md-icon"></span>
             Home
@@ -399,7 +398,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -422,7 +421,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting_started/" class="md-nav__link">
+      <a href="../../../getting_started/" class="md-nav__link">
         
   
   
@@ -442,32 +441,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Contributing
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../contributing/" class="md-nav__link">
         
   
   
@@ -478,101 +455,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#project-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      🛠️ Project Setup
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="🛠️ Project Setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-clone-the-repository" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Clone the Repository
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#set-up-the-environment" class="md-nav__link">
-    <span class="md-ellipsis">
-      Set up the Environment
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-tests" class="md-nav__link">
-    <span class="md-ellipsis">
-      🧪 Running Tests
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#code-style" class="md-nav__link">
-    <span class="md-ellipsis">
-      🧹 Code Style
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#making-a-pull-request" class="md-nav__link">
-    <span class="md-ellipsis">
-      🧩 Making a Pull Request
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="🧩 Making a Pull Request">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#branch-naming-conventions" class="md-nav__link">
-    <span class="md-ellipsis">
-      🔖 Branch Naming Conventions
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -585,7 +467,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../changelog/" class="md-nav__link">
+      <a href="../../../changelog/" class="md-nav__link">
         
   
   
@@ -608,7 +490,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authors/" class="md-nav__link">
+      <a href="../../../authors/" class="md-nav__link">
         
   
   
@@ -683,7 +565,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/overview/" class="md-nav__link">
+      <a href="../../../concepts/overview/" class="md-nav__link">
         
   
   
@@ -710,28 +592,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -744,7 +629,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             API Reference
@@ -764,10 +649,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -776,7 +664,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_1" >
         
           
-          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="">
             
   
   
@@ -803,7 +691,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/math/timeseries/" class="md-nav__link">
+      <a href="../../math/timeseries/" class="md-nav__link">
         
   
   
@@ -826,7 +714,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/math/scenario_matrix/" class="md-nav__link">
+      <a href="../../math/scenario_matrix/" class="md-nav__link">
         
   
   
@@ -849,7 +737,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/math/forecasting_matrix/" class="md-nav__link">
+      <a href="../../math/forecasting_matrix/" class="md-nav__link">
         
   
   
@@ -872,7 +760,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/math/lazy_timeseries/" class="md-nav__link">
+      <a href="../../math/lazy_timeseries/" class="md-nav__link">
         
   
   
@@ -895,7 +783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/math/lazy_matrix/" class="md-nav__link">
+      <a href="../../math/lazy_matrix/" class="md-nav__link">
         
   
   
@@ -932,10 +820,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -944,7 +835,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
             
   
   
@@ -971,7 +862,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/io/input_loader/" class="md-nav__link">
+      <a href="../../io/input_loader/" class="md-nav__link">
         
   
   
@@ -994,7 +885,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/io/parameters/" class="md-nav__link">
+      <a href="../../io/parameters/" class="md-nav__link">
         
   
   
@@ -1031,10 +922,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1043,7 +937,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
             
   
   
@@ -1070,7 +964,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/models/equipment/" class="md-nav__link">
+      <a href="../../models/equipment/" class="md-nav__link">
         
   
   
@@ -1093,7 +987,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/models/market/" class="md-nav__link">
+      <a href="../../models/market/" class="md-nav__link">
         
   
   
@@ -1121,28 +1015,31 @@
                 
   
   
+    
   
   
+  
     
     
     
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
         
           
+          
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
             
   
   
@@ -1155,7 +1052,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             Workflows
@@ -1169,7 +1066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/workflow/workflow/" class="md-nav__link">
+      <a href="../workflow/" class="md-nav__link">
         
   
   
@@ -1189,10 +1086,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../api/workflow/workflow_step/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Workflow step
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1203,6 +1122,68 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#atlas.WorkflowStep" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WorkflowStep
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" WorkflowStep">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#atlas.WorkflowStep.output_dataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;output_dataset
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#atlas.WorkflowStep.execute" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;execute
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#atlas.WorkflowStep.get_output_dataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_output_dataset
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1215,7 +1196,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/workflow/workflow_parameters/" class="md-nav__link">
+      <a href="../workflow_parameters/" class="md-nav__link">
         
   
   
@@ -1252,10 +1233,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1264,7 +1248,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
         
           
-          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
             
   
   
@@ -1291,7 +1275,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/enum/" class="md-nav__link">
+      <a href="../../enum/" class="md-nav__link">
         
   
   
@@ -1314,7 +1298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/logging/" class="md-nav__link">
+      <a href="../../logging/" class="md-nav__link">
         
   
   
@@ -1372,70 +1356,37 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#project-setup" class="md-nav__link">
+  <a href="#atlas.WorkflowStep" class="md-nav__link">
     <span class="md-ellipsis">
-      🛠️ Project Setup
+      <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WorkflowStep
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🛠️ Project Setup">
+    <nav class="md-nav" aria-label=" WorkflowStep">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-clone-the-repository" class="md-nav__link">
+  <a href="#atlas.WorkflowStep.output_dataset" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Clone the Repository
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;output_dataset
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#set-up-the-environment" class="md-nav__link">
+  <a href="#atlas.WorkflowStep.execute" class="md-nav__link">
     <span class="md-ellipsis">
-      Set up the Environment
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;execute
     </span>
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-tests" class="md-nav__link">
-    <span class="md-ellipsis">
-      🧪 Running Tests
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#code-style" class="md-nav__link">
-    <span class="md-ellipsis">
-      🧹 Code Style
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#making-a-pull-request" class="md-nav__link">
-    <span class="md-ellipsis">
-      🧩 Making a Pull Request
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="🧩 Making a Pull Request">
-      <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#branch-naming-conventions" class="md-nav__link">
+  <a href="#atlas.WorkflowStep.get_output_dataset" class="md-nav__link">
     <span class="md-ellipsis">
-      🔖 Branch Naming Conventions
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_output_dataset
     </span>
   </a>
   
@@ -1465,63 +1416,325 @@
   
 
 
-<h1 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">&para;</a></h1>
-<p>Thanks for taking the time to contribute!
-We welcome bug reports, feature suggestions, and pull requests.</p>
-<h2 id="project-setup">🛠️ Project Setup<a class="headerlink" href="#project-setup" title="Permanent link">&para;</a></h2>
-<p>This project uses <a href="https://github.com/astral-sh/uv/#installation"><code>uv</code></a> for dependency management and Python environment isolation.</p>
-<h3 id="1-clone-the-repository">1. Clone the Repository<a class="headerlink" href="#1-clone-the-repository" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/rte-france/ATLAS.git
+<h1 id="workflow-step">Workflow Step<a class="headerlink" href="#workflow-step" title="Permanent link">&para;</a></h1>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="atlas.WorkflowStep" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">atlas.WorkflowStep</span>
+
+
+<a href="#atlas.WorkflowStep" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WorkflowStep</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">module_parameters</span><span class="p">:</span> <span class="n"><span title="atlas.abstract_class.abstract_parameters.AbstractParameters">AbstractParameters</span></span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">module</span><span class="p">:</span> <span class="n"><span title="atlas.abstract_class.abstract_module.AbstractModule">AbstractModule</span></span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">input_dataset</span><span class="p">:</span> <span class="n"><span title="atlas.abstract_class.abstract_dataset.AbstractDataset">AbstractDataset</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+        <p>A step in a workflow, responsible for executing a module using provided parameters
+and producing an output dataset from an input dataset.</p>
+
+        <p>Initialize a WorkflowStep.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the workflow step.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>module_parameters</code>
+            </td>
+            <td>
+                  <code><span title="atlas.abstract_class.abstract_parameters.AbstractParameters">AbstractParameters</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Parameters for the module execution.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>module</code>
+            </td>
+            <td>
+                  <code><span title="atlas.abstract_class.abstract_module.AbstractModule">AbstractModule</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Module to be executed in this step.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>input_dataset</code>
+            </td>
+            <td>
+                  <code><span title="atlas.abstract_class.abstract_dataset.AbstractDataset">AbstractDataset</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input dataset for the module, optional.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+                  <details class="quote">
+                    <summary>Source code in <code>atlas/workflow/workflow_step.py</code></summary>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-19">19</a></span>
+<span class="normal"><a href="#__codelineno-0-20">20</a></span>
+<span class="normal"><a href="#__codelineno-0-21">21</a></span>
+<span class="normal"><a href="#__codelineno-0-22">22</a></span>
+<span class="normal"><a href="#__codelineno-0-23">23</a></span>
+<span class="normal"><a href="#__codelineno-0-24">24</a></span>
+<span class="normal"><a href="#__codelineno-0-25">25</a></span>
+<span class="normal"><a href="#__codelineno-0-26">26</a></span>
+<span class="normal"><a href="#__codelineno-0-27">27</a></span>
+<span class="normal"><a href="#__codelineno-0-28">28</a></span>
+<span class="normal"><a href="#__codelineno-0-29">29</a></span>
+<span class="normal"><a href="#__codelineno-0-30">30</a></span>
+<span class="normal"><a href="#__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#__codelineno-0-36">36</a></span>
+<span class="normal"><a href="#__codelineno-0-37">37</a></span>
+<span class="normal"><a href="#__codelineno-0-38">38</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22"></a>    <span class="n">module_parameters</span><span class="p">:</span> <span class="n">AbstractParameters</span><span class="p">,</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23"></a>    <span class="n">module</span><span class="p">:</span> <span class="n">AbstractModule</span><span class="p">,</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24"></a>    <span class="n">input_dataset</span><span class="p">:</span> <span class="n">AbstractDataset</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="p">):</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27"></a><span class="sd">    Initialize a WorkflowStep.</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28"></a>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="sd">    :param name: Name of the workflow step.</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="sd">    :param module_parameters: Parameters for the module execution.</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">    :param module: Module to be executed in this step.</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="sd">    :param input_dataset: Input dataset for the module, optional.</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">name</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">module</span><span class="p">:</span> <span class="n">AbstractModule</span> <span class="o">=</span> <span class="n">module</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">module_parameters</span><span class="p">:</span> <span class="n">AbstractParameters</span> <span class="o">=</span> <span class="n">module_parameters</span>
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">input_dataset</span><span class="p">:</span> <span class="n">AbstractDataset</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">input_dataset</span>
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_output_dataset</span><span class="p">:</span> <span class="n">AbstractDataset</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 </span></code></pre></div></td></tr></table></div>
-<h3 id="set-up-the-environment">Set up the Environment<a class="headerlink" href="#set-up-the-environment" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--all-groups
+                  </details>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="atlas.WorkflowStep.output_dataset" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">output_dataset</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#atlas.WorkflowStep.output_dataset" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">output_dataset</span><span class="p">:</span> <span class="n"><span title="atlas.abstract_class.abstract_dataset.AbstractDataset">AbstractDataset</span></span> <span class="o">|</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Output dataset produced after executing the step.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="atlas.abstract_class.abstract_dataset.AbstractDataset">AbstractDataset</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An AbstractDataset or None if not yet executed.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+    </div>
+
+</div>
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="atlas.WorkflowStep.execute" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">execute</span>
+
+
+<a href="#atlas.WorkflowStep.execute" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Execute the step's module with the given parameters and input dataset.
+Stores the resulting dataset as output.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>atlas/workflow/workflow_step.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#__codelineno-0-62">62</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-57"><a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-58"><a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="__span-0-59"><a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    Execute the step&#39;s module with the given parameters and input dataset.</span>
+</span><span id="__span-0-60"><a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    Stores the resulting dataset as output.</span>
+</span><span id="__span-0-61"><a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-62"><a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_output_dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">module_parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_dataset</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-<p>Install pre-commit hooks</p>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="atlas.WorkflowStep.get_output_dataset" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get_output_dataset</span>
+
+
+<a href="#atlas.WorkflowStep.get_output_dataset" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_output_dataset</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="atlas.abstract_class.abstract_dataset.AbstractDataset">AbstractDataset</span></span> <span class="o">|</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get the output dataset produced by this workflow step.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="atlas.abstract_class.abstract_dataset.AbstractDataset">AbstractDataset</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An AbstractDataset or None if not yet executed.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>atlas/workflow/workflow_step.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#__codelineno-0-55">55</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_output_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractDataset</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    Get the output dataset produced by this workflow step.</span>
+</span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52"></a>
+</span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    :return: An AbstractDataset or None if not yet executed.</span>
+</span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-55"><a id="__codelineno-0-55" name="__codelineno-0-55"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output_dataset</span>
 </span></code></pre></div></td></tr></table></div>
-<p>If you're contributing new dependencies, install them with:</p>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a>uv<span class="w"> </span>add<span class="w"> </span>package-name
-</span></code></pre></div></td></tr></table></div>
-<h2 id="running-tests">🧪 Running Tests<a class="headerlink" href="#running-tests" title="Permanent link">&para;</a></h2>
-<p>We use pytest for testing. To run the tests:</p>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>.
-</span></code></pre></div></td></tr></table></div>
-<blockquote>
-<p>Make sure all tests pass before submitting a PR.</p>
-</blockquote>
-<h2 id="code-style">🧹 Code Style<a class="headerlink" href="#code-style" title="Permanent link">&para;</a></h2>
-<p>We use <code>ruff</code> to format and lint the code:</p>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">1</a></span>
-<span class="normal"><a href="#__codelineno-5-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>atlas
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>atlas
-</span></code></pre></div></td></tr></table></div>
-<p>We also use <code>mypy</code> for typing analysis :</p>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>mypy<span class="w"> </span>atlas
-</span></code></pre></div></td></tr></table></div>
-<h2 id="making-a-pull-request">🧩 Making a Pull Request<a class="headerlink" href="#making-a-pull-request" title="Permanent link">&para;</a></h2>
-<p>Before contributing code, make sure you've:</p>
-<ul>
-<li>Synced with the latest version of the <code>develop</code> branch.</li>
-<li>Created a <strong>descriptive branch name</strong> using one of the following conventions:</li>
-</ul>
-<h3 id="branch-naming-conventions">🔖 Branch Naming Conventions<a class="headerlink" href="#branch-naming-conventions" title="Permanent link">&para;</a></h3>
-<ul>
-<li>
-<p><code>feat/your-feature-name</code> or <code>feature/your-feature-name</code> – for new features</p>
-</li>
-<li>
-<p><code>fix/your-fix-description</code> – for bug fixes</p>
-</li>
-<li>
-<p><code>chore/your-task</code> – for non-functional tasks like config or dependency updates</p>
-</li>
-<li>
-<p><code>docs/your-doc-change</code> – for documentation-only changes</p>
-</li>
-<li>
-<p><code>test/your-test-task</code> – for adding or improving tests</p>
-</li>
-</ul>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
 
 
 
@@ -1559,7 +1772,7 @@ We welcome bug reports, feature suggestions, and pull requests.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../getting_started/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Getting Started">
+          <a href="../workflow/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Workflow">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1569,20 +1782,20 @@ We welcome bug reports, feature suggestions, and pull requests.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Getting Started
+                Workflow
               </div>
             </div>
           </a>
         
         
           
-          <a href="../changelog/" class="md-footer__link md-footer__link--next" aria-label="Next: Changelog">
+          <a href="../workflow_parameters/" class="md-footer__link md-footer__link--next" aria-label="Next: Workflow parameters">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Changelog
+                Workflow parameters
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1634,12 +1847,12 @@ We welcome bug reports, feature suggestions, and pull requests.</p>
     
     
       
-      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "search.suggest", "content.code.copy", "content.tabs.link", "content.code.annotate", "navigation.tracking", "navigation.top", "navigation.footer", "toc.follow"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "0.1.0", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "search.suggest", "content.code.copy", "content.tabs.link", "content.code.annotate", "navigation.tracking", "navigation.top", "navigation.footer", "toc.follow"], "search": "../../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "0.1.0", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.13a4f30d.min.js"></script>
       
-        <script src="../custom/katex.js"></script>
+        <script src="../../../custom/katex.js"></script>
       
         <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
       
