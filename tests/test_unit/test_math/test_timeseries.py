@@ -189,8 +189,8 @@ class TestTimeseriesInit:
         ts = Timeseries.from_file(csv_path, filters=("category", "A"))
 
         # Should only have rows where category is "A"
-        assert len(ts) == 2
-        assert ts["value"] == [10.0, 30.0]
+        assert ts.frequency == pendulum.duration(hours=1)
+        assert len(ts) == 49
 
     def test_from_file_parquet(self, tmp_path):
         """Test loading from file with filters."""
@@ -567,6 +567,20 @@ class TestTimeseriesBasicOperations:
         assert isinstance(index, list)
         assert all(isinstance(ts, datetime) for ts in index)
         assert len(index) == expected_shape[0]
+
+    def test_set_frequency(self, sample_ts):
+        sample_ts_copy = Timeseries(sample_ts)
+        sample_ts.set_frequency(pendulum.duration(minutes=30))
+        freq = sample_ts.timestep
+
+        assert freq == pendulum.duration(minutes=30), f"Expected shape {pendulum.duration(minutes=30)}, got {freq}"
+
+        sample_ts.set_frequency("1h")
+        freq = sample_ts.timestep
+
+        assert freq == pendulum.duration(hours=1), f"Expected shape {pendulum.duration(hours=1)}, got {freq}"
+
+        assert sample_ts == sample_ts_copy
 
 
 class TestTimeseriesManipulation:

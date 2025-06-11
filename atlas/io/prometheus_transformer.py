@@ -8,7 +8,7 @@ import numpy as np
 import polars as pl
 
 from atlas.config import logger
-from atlas.timing import pendulum_to_datetime
+from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
 NAME_MAPPING = {"Baseload": "BaseLoad", "is_v2_g": "is_v2g"}
@@ -132,19 +132,28 @@ class PrometheusToAtlasDataParser:
                             else:
                                 logger.warning("Failed to get the matrix / timeseries type")
 
-                            df = (
-                                pl.read_csv(file, separator=";")
-                                .with_columns(
-                                    pl.col("TimeStep").str.strptime(
-                                        pl.Datetime(), pendulum_to_datetime("DD_MM_YYYY_HH_mm_ss")
-                                    ),
-                                    pl.lit(attr_name_snake).alias("attribute"),
+                            df = pl.read_csv(file, separator=";").with_columns(
+                                pl.col("TimeStep").str.strptime(
+                                    pl.Datetime(), pendulum_to_datetime("DD_MM_YYYY_HH_mm_ss")
                                 )
-                                .select(
-                                    pl.selectors.datetime(),
-                                    pl.selectors.string(),
-                                    pl.selectors.numeric(),
-                                )
+                            )
+                            if matrix_type == "timeseries":
+                                try:
+                                    infer_frequency(df.rename({"TimeStep": "time"}))
+                                except ValueError:
+                                    timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
+                                    df = (
+                                        df.upsample(time_column="TimeStep", every=timestep)
+                                        .fill_null(strategy="forward")
+                                        .sort("TimeStep")
+                                    )
+
+                            df = df.with_columns(
+                                pl.lit(attr_name_snake).alias("attribute"),
+                            ).select(
+                                pl.selectors.datetime(),
+                                pl.selectors.string(),
+                                pl.selectors.numeric(),
                             )
 
                             path_file_to_instance_matrix = (

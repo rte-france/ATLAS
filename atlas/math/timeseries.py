@@ -10,7 +10,7 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 from __future__ import annotations
 
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -268,6 +268,9 @@ class Timeseries:
                 pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
             )
 
+            if len(self.timeseries) == 2 and infer_frequency(self.timeseries) > pendulum.duration(days=1):
+                self.upsample("1h", interpolation_method="linear")
+
             self.sort()
 
             self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
@@ -316,12 +319,15 @@ class Timeseries:
             df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
         elif isinstance(other, Timeseries):
             if self.frequency < other.frequency:
-                other.upsample(self.frequency)
+                other = other.upsample(self.frequency, inplace=False)
+                my_ts = Timeseries(self)
             elif self.frequency > other.frequency:
-                self.upsample(other.frequency)
+                my_ts = self.upsample(other.frequency, inplace=False)
+            else:
+                my_ts = Timeseries(self)
 
             df = (
-                self._join(
+                my_ts._join(
                     other=other,
                     how="full",
                 )
@@ -345,12 +351,15 @@ class Timeseries:
             df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
         elif isinstance(other, Timeseries):
             if self.frequency < other.frequency:
-                other.upsample(self.frequency)
+                other = other.upsample(self.frequency, inplace=False)
+                my_ts = Timeseries(self)
             elif self.frequency > other.frequency:
-                self.upsample(other.frequency)
+                my_ts = self.upsample(other.frequency, inplace=False)
+            else:
+                my_ts = Timeseries(self)
 
             df = (
-                self._join(
+                my_ts._join(
                     other=other,
                     how="full",
                 )
@@ -374,11 +383,15 @@ class Timeseries:
             df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
         elif isinstance(other, Timeseries):
             if self.frequency < other.frequency:
-                other.upsample(self.frequency)
+                other = other.upsample(self.frequency, inplace=False)
+                my_ts = Timeseries(self)
             elif self.frequency > other.frequency:
-                self.upsample(other.frequency)
+                my_ts = self.upsample(other.frequency, inplace=False)
+            else:
+                my_ts = Timeseries(self)
+
             df = (
-                self._join(
+                my_ts._join(
                     other=other,
                     how="full",
                 )
@@ -404,11 +417,15 @@ class Timeseries:
             df = self.timeseries.with_columns(pl.selectors.numeric().truediv(other))
         elif isinstance(other, Timeseries):
             if self.frequency < other.frequency:
-                other.upsample(self.frequency)
+                other = other.upsample(self.frequency, inplace=False)
+                my_ts = Timeseries(self)
             elif self.frequency > other.frequency:
-                self.upsample(other.frequency)
+                my_ts = self.upsample(other.frequency, inplace=False)
+            else:
+                my_ts = Timeseries(self)
+
             df = (
-                self._join(
+                my_ts._join(
                     other=other,
                     how="full",
                 )
@@ -589,15 +606,15 @@ class Timeseries:
 
     def groupby(
         self,
-        granularity: str | timedelta,
+        frequency: str | pendulum.Duration,
         agg: Literal["mean", "sum", "min", "max"] = "mean",
         inplace: bool = True,
     ) -> Timeseries:
         """
         Group the Timeseries dynamically by time intervals.
 
-        :param granularity: Grouping interval (e.g., "1h", "1d")
-        :type granularity: str or timedelta
+        :param frequency: Grouping interval (e.g., "1h", "1d")
+        :type frequency: str or pendulum.Duration
         :param agg: Aggregation method, defaults to "mean"
         :type agg: Literal["mean", "sum", "min", "max"], optional
         :param inplace: Whether to modify the current instance, defaults to True
@@ -606,7 +623,7 @@ class Timeseries:
         :return: Grouped Timeseries
         :rtype: Timeseries
         """
-        grouped_df = self.timeseries.group_by_dynamic("time", every=granularity)
+        grouped_df = self.timeseries.group_by_dynamic("time", every=frequency)
         if agg == "mean":
             df = grouped_df.agg(
                 pl.selectors.numeric().mean(),
@@ -627,6 +644,26 @@ class Timeseries:
             raise NotImplementedError("Unsupported aggregation function")
 
         return self._return_inplace(df, inplace)
+
+    def set_frequency(self, frequency: str | pendulum.Duration, inplace: bool = True) -> Timeseries:
+        """
+        Change the frequency (timestep) of the time series.
+
+        :param frequency: The desired frequency. Can be a string (e.g., '1d', '15m') or a `pendulum.Duration`.
+        :type frequency: str or pendulum.Duration
+        :param inplace: If True, modifies the object in place. If False, returns a new modified object.
+        :type inplace: bool
+        :return: The resampled time series, either modified in place or as a new object.
+        :rtype: Timeseries
+        """
+        new_timestep = get_duration(frequency)
+
+        if new_timestep > self.frequency:
+            df = self.groupby(new_timestep, inplace=False)
+        elif new_timestep < self.frequency:
+            df = self.upsample(new_timestep, inplace=False)
+
+        return self._return_inplace(df.dataframe, inplace)
 
     def _join(
         self,
