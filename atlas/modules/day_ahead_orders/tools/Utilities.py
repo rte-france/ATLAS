@@ -5,10 +5,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
+
+import pendulum
 
 from atlas import Logger
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.timing import generate_datetimes
 
 
 # Contains miscellaneous functions used in the various files.
@@ -30,33 +33,12 @@ class Utilities:
         """
         orders_time = []
         if parameters.start_date < parameters.end_date:
-            orders_time = Utilities.new_index(
+            orders_time = generate_datetimes(
                 parameters.start_date,
-                parameters.end_date - timedelta(minutes=parameters.time_step),
-                timedelta(minutes=parameters.time_step),
+                parameters.end_date - pendulum.duration(minutes=parameters.time_step),
+                pendulum.duration(minutes=parameters.time_step),
             )
         else:
             msg = "The EndDate parameter must be posterior to the StartDate parameter."
             Logger.get_logger().error(msg)
         return orders_time
-
-    @staticmethod
-    def new_index(start_date: datetime, end_date: datetime, interval: timedelta) -> list[datetime]:
-        """
-        Generate a list of datetime between `start` and `end` depending on the given interval.
-
-        :param start_date: first datetime
-        :param end_date: last datetime
-        :param interval: time interval (timedelta)
-        :return: datetime list
-        """
-        if start_date >= end_date:
-            raise ValueError("start date must be before end date.")
-
-        result = []
-        current = start_date
-        while current <= end_date:
-            result.append(current)
-            current = current + interval
-
-        return result
