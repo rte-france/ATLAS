@@ -213,7 +213,7 @@ class ForecastingMatrix(Matrix):
 
         forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
         interpolate_expr = [pl.col(col).interpolate_by("time") for col in forecast_cols]
-        min_frequency = get_lowest_frequency(self.matrix)
+        min_frequency = get_lowest_frequency(self.matrix.select(forecast_cols))
 
         df = (
             self.matrix.upsample("time", every=min_frequency)
