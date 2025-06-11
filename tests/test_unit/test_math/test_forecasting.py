@@ -306,7 +306,7 @@ def test_get_timeseries_with_string_index(hourly_df):
     matrix = ForecastingMatrix(hourly_df)
     ts = matrix.select("01_01_2025 00:00:00")
     assert isinstance(ts, Timeseries)
-    assert ts.to_frame().shape[0] == 5
+    assert ts.dataframe.shape[0] == 5
 
 
 def test_get_timeseries_invalid_index(hourly_df):
@@ -436,7 +436,7 @@ class TestGetForecast:
                 "value": [2.0, 11.0, 12.0, 21.0, 22.0, 23.0, 24.0],
             }
         )
-        assert result.to_frame().equals(expected_result)
+        assert result.dataframe.equals(expected_result)
 
     def test_get_forecast_with_different_frequency(
         self,
@@ -475,7 +475,7 @@ class TestGetForecast:
                 ],
             }
         )
-        assert result.to_frame().equals(expected_result)
+        assert result.dataframe.equals(expected_result)
 
     def test_get_forecast_with_fist_one_longer(self, ts_1_hour_at_0_with_8_values, ts_30_min_at_2_with_4_values):
         forecast_matrix = ForecastingMatrix()
@@ -494,4 +494,4 @@ class TestGetForecast:
                 "value": [1.5, 2.0, 2.5, 21, 22, 23, 24, 5.0, 5.5],
             }
         )
-        assert result.to_frame().equals(expected_result)
+        assert result.dataframe.equals(expected_result)
