@@ -32,7 +32,7 @@ class DayAheadLoad:
         """
 
         # Loop over the market players first
-        for load in dataset.raw_data["load"]:
+        for load in dataset.load:
             # Extract the forecasting matrix of the current actor.
             consumption_forecast = load.maximum_power_forecast.get_forecast(
                 parameters.execution_date,
@@ -75,4 +75,4 @@ class DayAheadLoad:
                     bid_output.execution_date = parameters.execution_date
                     bid_output.start_date = t
                     bid_output.end_date = t.add(minutes=parameters.time_step)
-                    dataset.raw_data["order"].append(bid_output)
+                    dataset.order.append(bid_output)

@@ -37,7 +37,7 @@ class NonDispatchable:
         """
 
         # Loop over the market players first.
-        for unit in dataset.raw_data["other_non_dispatchable"]:
+        for unit in dataset.other_non_dispatchable:
             # Extract the forecasting matrix of the current actor.
             production_forecast = unit.maximum_power_forecast.get_forecast(
                 parameters.execution_date,
@@ -71,6 +71,6 @@ class NonDispatchable:
                 bid_output.execution_date = parameters.execution_date
                 bid_output.start_date = t
                 bid_output.end_date = t.add(minutes=parameters.time_step)
-                dataset.raw_data["order"].append(bid_output)
+                dataset.order.append(bid_output)
 
         return None
