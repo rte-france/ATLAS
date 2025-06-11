@@ -568,6 +568,20 @@ class TestTimeseriesBasicOperations:
         assert all(isinstance(ts, datetime) for ts in index)
         assert len(index) == expected_shape[0]
 
+    def test_set_frequency(self, sample_ts):
+        sample_ts_copy = Timeseries(sample_ts)
+        sample_ts.set_frequency(pendulum.duration(minutes=30))
+        freq = sample_ts.timestep
+
+        assert freq == pendulum.duration(minutes=30), f"Expected shape {pendulum.duration(minutes=30)}, got {freq}"
+
+        sample_ts.set_frequency("1h")
+        freq = sample_ts.timestep
+
+        assert freq == pendulum.duration(hours=1), f"Expected shape {pendulum.duration(hours=1)}, got {freq}"
+
+        assert sample_ts == sample_ts_copy
+
 
 class TestTimeseriesManipulation:
     """Test time series manipulation methods."""
