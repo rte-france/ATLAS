@@ -7,12 +7,14 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
-from atlas import BusinessModel, Logger
+import atlas.config as cfg
+from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.load import Load
+from atlas.modules.day_ahead_orders.orders_formulation.day_ahead_load import DayAheadLoad
+from atlas.modules.day_ahead_orders.orders_formulation.day_ahead_storage import DayAheadStorage
 from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable import NonDispatchable
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
@@ -53,42 +55,37 @@ class DayAheadOrdersModule(
         pass
 
     def execute(
-        self, parameters: DayAheadOrdersParameters, input_dataset: DayAheadOrdersInputDataset
+        self, parameters: DayAheadOrdersParameters, dataset: DayAheadOrdersInputDataset
     ) -> DayAheadOrdersOutputDataset:
         """Executes the module's main logic."""
-
-        logger = Logger()
 
         # Formulation of bids and orders on the day-ahead market.
         # In practice, several functions are run. Each function extract data from the input marker
         # and formulates bids or offers in the output marker. The latter is of class "Offer".
 
         #### STEP 0 - INITIALIZATION ####
-        logger.get_logger().info("Initialization of the Day-Ahead Orders module...")
-
-        # output_dataset = DayAheadOrdersOutputDataset()
-        # output_dataset = input_dataset
+        cfg.logger.info("Initialization of the Day-Ahead Orders module...")
 
         # Create the sequence of orders times. In particular, this sequence is such that the endDate of the last order will be before
         # the endDate of the overall time frame.
         orders_time = Utilities.define_orders_time(parameters)
         if len(orders_time) > 0:
-            logger.get_logger().info("Extraction completed, now starting the formulation of orders...")
+            cfg.logger.info("Extraction completed, now starting the formulation of orders...")
 
             #### STEP 1 - CONSUMPTION ####
-            logger.get_logger().info("Formulation of the load orders...")
-            Load.formulate_load_orders(input_dataset, orders_time, parameters)
-            logger.get_logger().info("Consumption orders formulated.")
+            cfg.logger.info("Formulation of the load orders...")
+            DayAheadLoad.formulate_load_orders(dataset, orders_time, parameters)
+            cfg.logger.info("Consumption orders formulated.")
 
             #### STEP 2 - NON DISPATCHABLE UNITS ####
-            logger.get_logger().info("Formulation of the non-dispatchable orders...")
-            NonDispatchable.formulate_non_dispatchable_orders(input_dataset, orders_time, parameters)
-            logger.get_logger().info("Non-dispatchable orders formulated.")
+            cfg.logger.info("Formulation of the non-dispatchable orders...")
+            NonDispatchable.formulate_non_dispatchable_orders(dataset, orders_time, parameters)
+            cfg.logger.info("Non-dispatchable orders formulated.")
 
             #### STEP 3 - STORAGE UNITS ####
-            logger.get_logger().info("Formulation of the storage orders...")
-            Storage.formulate_storage_orders(input_dataset, input_dataset, parameters)
-            logger.get_logger().info("Storage orders formulated.")
+            cfg.logger.info("Formulation of the storage orders...")
+            DayAheadStorage.formulate_storage_orders(dataset, parameters)
+            cfg.logger.info("Storage orders formulated.")
 
             """
             #### STEP 4 - LAKES UNITS ####
@@ -96,19 +93,19 @@ class DayAheadOrdersModule(
             hydraulic.formulate_hydraulic_orders(input_dataset, output_dataset, orders_time, parameters)
             API.IO.Trace.Log("Hydraulic orders formulated.", API.IO.LogTypeInfo)
 
-        #### STEP 5 - WIND AND PV UNITS ####
-        API.IO.Trace.Log("Formulation of the wind/pv orders...", API.IO.LogTypeInfo)
-        wind_pv.formulate_wind_and_pv_orders(input_dataset, output_dataset, orders_time, parameters)
-        API.IO.Trace.Log("Non-dispatchable orders formulated.", API.IO.LogTypeInfo)
+            #### STEP 5 - WIND AND PV UNITS ####
+            API.IO.Trace.Log("Formulation of the wind/pv orders...", API.IO.LogTypeInfo)
+            wind_pv.formulate_wind_and_pv_orders(input_dataset, output_dataset, orders_time, parameters)
+            API.IO.Trace.Log("Non-dispatchable orders formulated.", API.IO.LogTypeInfo)
 
-        #### STEP 6 - THERMIC UNITS ####
-        API.IO.Trace.Log("Formulation of the thermic orders...", API.IO.LogTypeInfo)
-        thermic_bidding.formulate_thermic_orders(input_dataset, output_dataset, orders_time, parameters)
-        API.IO.Trace.Log("Thermic orders formulated.", API.IO.LogTypeInfo)
+            #### STEP 6 - THERMIC UNITS ####
+            API.IO.Trace.Log("Formulation of the thermic orders...", API.IO.LogTypeInfo)
+            thermic_bidding.formulate_thermic_orders(input_dataset, output_dataset, orders_time, parameters)
+            API.IO.Trace.Log("Thermic orders formulated.", API.IO.LogTypeInfo)
 
             #### STEP - INDICATE TO THE USER THAT THE FORMULATION OF ORDERS IS COMPLETED.
             API.IO.Trace.Log("Formulation of orders successfully completed.", API.IO.LogTypeInfo)
             """
             # return output_dataset
         else:
-            logger.get_logger().error("orders_time is empty.")
+            cfg.logger.error("orders_time is empty.")

@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from datetime import datetime, timedelta
+from pendulum import DateTime
 
 from atlas import Order
 from atlas.enum import Product, OrderType
@@ -17,7 +17,7 @@ from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 class NonDispatchable:
     @staticmethod
     def formulate_non_dispatchable_orders(
-        dataset: DayAheadOrdersInputDataset, orders_time: list[datetime], parameters: DayAheadOrdersParameters
+        dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
         This function formulates non dispatchable offers. Offers are priced at the variable cost
@@ -42,7 +42,7 @@ class NonDispatchable:
             production_forecast = unit.maximum_power_forecast.get_forecast(
                 parameters.execution_date,
                 parameters.start_date,
-                parameters.end_date - timedelta(minutes=parameters.time_step),
+                parameters.end_date.subtract(minutes=parameters.time_step),
             )
             unit.da_sell_submitted_volume += production_forecast
 
@@ -70,7 +70,7 @@ class NonDispatchable:
                 bid_output.is_agent_tso = False
                 bid_output.execution_date = parameters.execution_date
                 bid_output.start_date = t
-                bid_output.end_date = t + timedelta(minutes=parameters.time_step)
+                bid_output.end_date = t.add(minutes=parameters.time_step)
                 dataset.raw_data["order"].append(bid_output)
 
         return None

@@ -5,11 +5,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from datetime import datetime
-
 import pendulum
+from pendulum import DateTime
 
-from atlas import Logger
+import atlas.config as cfg
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.timing import generate_datetimes
 
@@ -17,12 +16,12 @@ from atlas.timing import generate_datetimes
 # Contains miscellaneous functions used in the various files.
 class Utilities:
     @staticmethod
-    def get_date_to_clean_string(date: datetime) -> str:
+    def get_date_to_clean_string(date: DateTime) -> str:
         """Converts a datetime object to a string without special characters"""
-        return datetime.strftime(date, "%d_%m_%Y %H_%M_%S")
+        return date.format("YYYY_MM_DD_HH_mm_SS")
 
     @staticmethod
-    def define_orders_time(parameters: DayAheadOrdersParameters) -> list[datetime]:
+    def define_orders_time(parameters: DayAheadOrdersParameters) -> list[DateTime]:
         """
         This function creates a sequence of timestamps between a startDate and a endDate
         with step deltaTime. It returns a list of dateTime objects.
@@ -35,10 +34,10 @@ class Utilities:
         if parameters.start_date < parameters.end_date:
             orders_time = generate_datetimes(
                 parameters.start_date,
-                parameters.end_date - pendulum.duration(minutes=parameters.time_step),
+                parameters.end_date.subtract(minutes=parameters.time_step),
                 pendulum.duration(minutes=parameters.time_step),
             )
         else:
             msg = "The EndDate parameter must be posterior to the StartDate parameter."
-            Logger.get_logger().error(msg)
+            cfg.logger.error(msg)
         return orders_time

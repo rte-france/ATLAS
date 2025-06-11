@@ -6,25 +6,25 @@ This file is part of the ATLAS project.
 """
 
 from pydantic import Field
-from datetime import datetime
+from pydantic_extra_types.pendulum_dt import DateTime
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 
 
 class DayAheadOrdersParameters(AbstractParameters):
-    start_date: datetime = Field(
-        "2028/09/02 00:00:00",
+    start_date: DateTime = Field(
+        "2028-09-02 00:00:00",
         description="Beginning of the timeframe studied by the module. "
         "NB: In action plan context, value is automatically set according to task settings, and should not "
         "be reconfigured in the parameters of the study case.",
     )
-    execution_date: datetime = Field(
-        "2028/09/01 12:00:00",
+    execution_date: DateTime = Field(
+        "2028-09-01 12:00:00",
         description="Date from which the module is executed. "
         "NB: In action plan context, value is automatically set according to task settings, and should not "
         "be reconfigured in the parameters of the study case.",
     )
-    end_date: datetime = Field(
-        "2028/09/03 00:00:00",
+    end_date: DateTime = Field(
+        "2028-09-03 00:00:00",
         description="End of the timeframe studied by the module. More precisely, the end of the last time step of this timeframe. "
         "NB: In action plan context, value is automatically set according to task settings, and should not "
         "be reconfigured in the parameters of the study case.",
