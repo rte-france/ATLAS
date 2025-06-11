@@ -8,6 +8,7 @@ import re
 from datetime import datetime
 
 import pendulum
+from pendulum import DateTime
 import polars as pl
 import pytz
 
@@ -136,8 +137,8 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
 
 
 def generate_datetimes(
-    start: str | datetime,
-    end: str | datetime,
+    start: str | datetime | DateTime,
+    end: str | datetime | DateTime,
     freq: str | pendulum.Duration,
     timezone: str = "UTC",
     date_format: str = "YYYY-MM-DD HH:mm:ss z",
