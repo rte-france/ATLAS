@@ -252,7 +252,7 @@ class ForecastingMatrix(Matrix):
                         },
                     )
 
-                    df = pl.concat([df, new_df])
+                    df = pl.concat([df, new_df], how="diagonal")
 
         limits = [infer_frequency(df.select("time", col).drop_nulls()) / frequency_target for col in forecast_cols]
         interpolate_expr = [
