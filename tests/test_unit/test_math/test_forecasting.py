@@ -419,11 +419,7 @@ class TestGetForecast:
         start_date = pendulum.datetime(2025, 1, 1, 0)
         end_date = pendulum.datetime(2025, 1, 1, 1, 30)
         execution_date = pendulum.datetime(2025, 1, 1)
-
-        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
         expected_step = pendulum.duration(minutes=30)
-        # Fixme should be in get forecast
-        result.set_frequency(expected_step)
 
         expected_result = pl.DataFrame(
             {
@@ -431,6 +427,9 @@ class TestGetForecast:
                 "value": [1, 2, 3, 4],
             }
         )
+
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
+
         assert result.to_frame().equals(expected_result)
 
     def test_with_one_ts_end_date_inferior(self, ts_30_min_at_0_with_4_values):
@@ -440,19 +439,19 @@ class TestGetForecast:
         start_date = pendulum.datetime(2025, 1, 1, 0)
         end_date = pendulum.datetime(2025, 1, 1, 2, 30)
         execution_date = pendulum.datetime(2025, 1, 1)
-
-        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
         expected_step = pendulum.duration(minutes=30)
-        # Fixme should be in get forecast
-        result.set_frequency(expected_step)
 
         expected_end_date = pendulum.datetime(2025, 1, 1, 1, 30)
         expected_result = pl.DataFrame(
             {
-                "time": [start_date + i * expected_step for i in range((expected_end_date - start_date) // expected_step + 1)],
+                "time": [
+                    start_date + i * expected_step for i in range((expected_end_date - start_date) // expected_step + 1)
+                ],
                 "value": [1, 2, 3, 4],
             }
         )
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
+
         assert result.to_frame().equals(expected_result)
         with pytest.raises(KeyError):
             result.get_value(pendulum.datetime(2025, 1, 1, 2, 30))
@@ -468,13 +467,14 @@ class TestGetForecast:
         result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
         expected_start_date = pendulum.datetime(2025, 1, 1, 0, 0)
         expected_step = pendulum.duration(minutes=30)
-        # Fixme should be in get forecast
-        result.set_frequency(expected_step)
 
         expected_end_date = pendulum.datetime(2025, 1, 1, 1, 30)
         expected_result = pl.DataFrame(
             {
-                "time": [expected_start_date + i * expected_step for i in range((expected_end_date - expected_start_date) // expected_step + 1)],
+                "time": [
+                    expected_start_date + i * expected_step
+                    for i in range((expected_end_date - expected_start_date) // expected_step + 1)
+                ],
                 "value": [1, 2, 3, 4],
             }
         )
@@ -489,13 +489,8 @@ class TestGetForecast:
         start_date = pendulum.datetime(2025, 1, 1, 0)
         end_date = pendulum.datetime(2025, 1, 1, 1, 30)
         execution_date = pendulum.datetime(2025, 1, 1)
-
-        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
         expected_step = pendulum.duration(minutes=15)
         expected_times = [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)]
-        # Fixme should be in get forecast
-        result.set_frequency(expected_step)
-        result.filter(expected_times)
 
         expected_result = pl.DataFrame(
             {
@@ -503,9 +498,11 @@ class TestGetForecast:
                 "value": [1, 1, 2, 2, 3, 3, 4],
             }
         )
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
+
         assert result.to_frame().equals(expected_result)
 
-    def test_with_one_ts_and_lower_frequency_and_too_shord(self, ts_30_min_at_0_with_4_values):
+    def test_with_one_ts_and_lower_frequency_and_too_short(self, ts_30_min_at_0_with_4_values):
         forecast_matrix = ForecastingMatrix()
         forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
 
@@ -513,13 +510,13 @@ class TestGetForecast:
         end_date = pendulum.datetime(2025, 1, 1, 2, 30)
         execution_date = pendulum.datetime(2025, 1, 1)
 
-        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
         expected_step = pendulum.duration(minutes=15)
         expected_end_date = pendulum.datetime(2025, 1, 1, 1, 45)
-        expected_times = [start_date + i * expected_step for i in range((expected_end_date - start_date) // expected_step + 1)]
-        # Fixme should be in get forecast
-        result.set_frequency(expected_step)
-        result.filter(expected_times)
+        expected_times = [
+            start_date + i * expected_step for i in range((expected_end_date - start_date) // expected_step + 1)
+        ]
+
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
 
         expected_result = pl.DataFrame(
             {
@@ -541,22 +538,18 @@ class TestGetForecast:
         start_date = pendulum.datetime(2025, 1, 1, 0, 30)
         end_date = pendulum.datetime(2025, 1, 1, 3, 30)
         execution_date = pendulum.datetime(2025, 1, 1, 1)
-
-        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
         expected_step = pendulum.duration(minutes=30)
         expected_times = [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)]
-        # Fixme should be in get forecast
-        result.set_frequency(expected_step)
-        result.filter(expected_times)
         expected_result = pl.DataFrame(
             {
-                "time": [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)],
+                "time": expected_times,
                 "value": [1, 11, 13, 15, 17, 4, 4],
             }
         )
+
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
+
         assert result.to_frame().equals(expected_result)
-
-
 
     def test_get_forecast(
         self,
@@ -572,8 +565,6 @@ class TestGetForecast:
         start_date = pendulum.datetime(2025, 1, 1, 0, 30)
         end_date = pendulum.datetime(2025, 1, 1, 3, 30)
         execution_date = pendulum.datetime(2025, 1, 1, 2)
-
-        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
         expected_step = pendulum.duration(minutes=30)
 
         expected_result = pl.DataFrame(
@@ -582,6 +573,8 @@ class TestGetForecast:
                 "value": [2.0, 11.0, 12.0, 21.0, 22.0, 23.0, 24.0],
             }
         )
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
+
         assert result.dataframe.equals(expected_result)
 
     def test_get_forecast_with_different_frequency(
@@ -598,29 +591,30 @@ class TestGetForecast:
         start_date = pendulum.datetime(2025, 1, 1, 0, 30)
         end_date = pendulum.datetime(2025, 1, 1, 3, 30)
         execution_date = pendulum.datetime(2025, 1, 1, 2)
-
-        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
         expected_step = pendulum.duration(minutes=15)
         expected_result = pl.DataFrame(
             {
                 "time": [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)],
                 "value": [
                     2.0,
-                    2.5,
+                    2.0,
                     11.0,
                     12.0,
                     13.0,
                     14.0,
                     21.0,
-                    21.5,
+                    21.0,
                     22.0,
-                    22.5,
+                    22.0,
                     23.0,
-                    23.5,
+                    23.0,
                     24.0,
                 ],
             }
         )
+
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
+
         assert result.dataframe.equals(expected_result)
 
     def test_get_forecast_with_fist_one_longer(self, ts_1_hour_at_0_with_8_values, ts_30_min_at_2_with_4_values):
@@ -631,13 +625,14 @@ class TestGetForecast:
         start_date = pendulum.datetime(2025, 1, 1, 0, 30)
         end_date = pendulum.datetime(2025, 1, 1, 4, 30)
         execution_date = pendulum.datetime(2025, 1, 1, 2)
-
-        result = forecast_matrix.get_forecast(execution_date, start_date, end_date)
         expected_step = pendulum.duration(minutes=30)
         expected_result = pl.DataFrame(
             {
                 "time": [start_date + i * expected_step for i in range((end_date - start_date) // expected_step + 1)],
-                "value": [1.5, 2.0, 2.5, 21, 22, 23, 24, 5.0, 5.5],
+                "value": [1.0, 2.0, 2.0, 21, 22, 23, 24, 5.0, 5.0],
             }
         )
+
+        result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
+
         assert result.dataframe.equals(expected_result)
