@@ -430,7 +430,7 @@ class TestGetForecast:
 
         result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
 
-        assert result.to_frame().equals(expected_result)
+        assert result.dataframe.equals(expected_result)
 
     def test_with_one_ts_end_date_inferior(self, ts_30_min_at_0_with_4_values):
         forecast_matrix = ForecastingMatrix()
@@ -452,7 +452,7 @@ class TestGetForecast:
         )
         result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
 
-        assert result.to_frame().equals(expected_result)
+        assert result.dataframe.equals(expected_result)
         with pytest.raises(KeyError):
             result.get_value(pendulum.datetime(2025, 1, 1, 2, 30))
 
@@ -478,7 +478,7 @@ class TestGetForecast:
                 "value": [1, 2, 3, 4],
             }
         )
-        assert result.to_frame().equals(expected_result)
+        assert result.dataframe.equals(expected_result)
         with pytest.raises(KeyError):
             result.get_value(pendulum.datetime(2025, 1, 1, 2, 30))
 
@@ -500,7 +500,7 @@ class TestGetForecast:
         )
         result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
 
-        assert result.to_frame().equals(expected_result)
+        assert result.dataframe.equals(expected_result)
 
     def test_with_one_ts_and_lower_frequency_and_too_short(self, ts_30_min_at_0_with_4_values):
         forecast_matrix = ForecastingMatrix()
@@ -524,7 +524,7 @@ class TestGetForecast:
                 "value": [2, 2, 3, 3, 4, 4],
             }
         )
-        assert result.to_frame().equals(expected_result)
+        assert result.dataframe.equals(expected_result)
 
     def test_with_two_ts_with_different_frequency_first_one_is_longer(
         self,
@@ -549,7 +549,7 @@ class TestGetForecast:
 
         result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
 
-        assert result.to_frame().equals(expected_result)
+        assert result.dataframe.equals(expected_result)
 
     def test_get_forecast(
         self,
