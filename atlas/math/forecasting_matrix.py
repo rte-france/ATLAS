@@ -174,17 +174,6 @@ class ForecastingMatrix(Matrix):
 
         self._sort_indexes()
 
-    def abs(self) -> pl.DataFrame | pd.DataFrame | Matrix:
-        """Converts each value in the timeseries into its absolute value and returns it."""
-        if isinstance(self.matrix, pd.DataFrame):
-            return self.matrix.abs()
-        elif isinstance(self.matrix, pl.DataFrame):
-            return self.matrix.select([pl.col(c).abs().alias(c) for c in self.matrix.columns])
-        elif isinstance(self.matrix, Matrix):
-            return self.matrix.get_matrix().select([pl.col(c).abs().alias(c) for c in self.matrix.get_matrix().columns])
-        else:
-            raise TypeError("Expected a Matrix or pandas or polars DataFrame")
-
     def get_forecast(
         self,
         execution_date: datetime | str | pendulum.DateTime,
