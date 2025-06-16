@@ -59,8 +59,8 @@ class OptimisationModel:
         self.name = name
         self.solver_name = solver_name
         self._solver = None
-        self._variables: dict[str, Any] = {}
-        self._constraints: dict[str, Any] = {}
+        self._variables_name: set[str] = set()
+        self._constraints_name: set[str] = set()
         self._objective_dict: dict[str, float] | None = None
         self._objective: Any | None = None
         self._solution_info: SolutionInfo | None = None
@@ -84,14 +84,14 @@ class OptimisationModel:
         return self._solver
 
     @property
-    def variables(self) -> dict[str, Any]:
-        """Return the dictionary of decision variables."""
-        return self._variables
+    def variables_name(self) -> set[str]:
+        """Return the set of decision variables."""
+        return self._variables_name
 
     @property
-    def constraints(self) -> dict[str, Any]:
-        """Return the list of constraints."""
-        return self._constraints
+    def constraints_name(self) -> set[str]:
+        """Return the set of constraints."""
+        return self._constraints_name
 
     @property
     def objective(self) -> dict[str, float] | None:
@@ -123,7 +123,7 @@ class OptimisationModel:
         :type var_type: str
         """
         logger.debug(f"Adding variable '{name}' with bounds [{lower_bound}, {upper_bound}] and type '{var_type}'")
-        if name in self._variables:
+        if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
         if self._solver:
             if var_type == "continuous":
@@ -134,6 +134,7 @@ class OptimisationModel:
                 var = self._solver.BoolVar(name)
             else:
                 raise ValueError(f"Unknown variable type: {var_type}")
+        self._variables_name.add(name)
 
         self._variables[name] = var
 
@@ -174,12 +175,17 @@ class OptimisationModel:
         """
         logger.debug(f"Adding constraint: {coefficients} {operator} {rhs} (name={name})")
 
+        if name in self._constraints_name:
+            raise ValueError(f"Constraint '{name}' already exists")
+
         expr = self._solver.Constraint(-self._solver.infinity(), self._solver.infinity(), name)
+        self._constraints_name.add(name)
 
         for var_name, coeff in coefficients.items():
-            if var_name not in self._variables:
+            if var_name not in self._variables_name:
                 raise KeyError(f"Variable '{var_name}' not found")
-            expr.SetCoefficient(self._variables[var_name], coeff)
+            variable = self._solver.LookupVariable(var_name)
+            expr.SetCoefficient(variable, coeff)
 
         if operator == "<=":
             expr.SetUb(rhs)
@@ -189,8 +195,6 @@ class OptimisationModel:
             expr.SetBounds(rhs, rhs)
         else:
             raise ValueError(f"Unknown operator: {operator}")
-
-        self._constraints[name] = expr
 
     def set_objective(
         self,
@@ -211,9 +215,10 @@ class OptimisationModel:
         self._objective.Clear()
 
         for var_name, coeff in coefficients.items():
-            if var_name not in self._variables:
+            if var_name not in self._variables_name:
                 raise KeyError(f"Variable '{var_name}' not found")
-            self._objective.SetCoefficient(self._variables[var_name], coeff)
+            variable = self._solver.LookupVariable(var_name)
+            self._objective.SetCoefficient(variable, coeff)
 
         if direction == "minimize":
             self._objective.SetMinimization()
@@ -238,10 +243,11 @@ class OptimisationModel:
             raise RuntimeError("Objective function must be set before it can be modified.")
 
         for var_name, coeff in new_coefficients.items():
-            if var_name not in self._variables:
+            if var_name not in self._variables_name:
                 raise KeyError(f"Variable '{var_name}' not found")
 
-            self._objective.SetCoefficient(self._variables[var_name], coeff)
+            variable = self._solver.LookupVariable(var_name)
+            self._objective.SetCoefficient(variable, coeff)
 
         self._objective_dict.update(new_coefficients)
 
@@ -332,8 +338,8 @@ class OptimisationModel:
 
     def clear(self) -> None:
         """Clear the model and reset all variables and constraints."""
-        self._variables.clear()
-        self._constraints.clear()
+        self._variables_name.clear()
+        self._constraints_name.clear()
         self._objective_dict = None
         self._solution_info = None
         self._objective.Clear()
