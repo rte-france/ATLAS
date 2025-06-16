@@ -236,8 +236,8 @@ def test_load_forecasting_matrix(tmp_path):
     pl.DataFrame(
         {
             "date": [datetime(2024, 1, 1, 0, 0, 0)],
-            "01_01_2024 00:00:00": [1.0],
-            "01_01_2024 00:01:00": [3.0],
+            "2024-01-01 00:00:00": [1.0],
+            "2024-01-01 00:01:00": [3.0],
             "attribute": ["attribute"],
         }
     ).write_parquet(matrix_path / "fr_hydro.parquet")

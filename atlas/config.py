@@ -76,3 +76,17 @@ MODEL_ORDER_INSTANTIATION = (
         "order_coupling",
     ]
 )
+
+DEFAULT_VALUE_IO = {
+    "equipment": {
+        "setup_delay": 0,
+        "unit_count": 1,
+        "maximum_gradient": 0,
+    },
+    "storage": {
+        "transition_duration": 0,
+    },
+    "market_border": {
+        "coupling_type": "ATC",
+    },
+}
