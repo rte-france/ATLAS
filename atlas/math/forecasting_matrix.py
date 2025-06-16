@@ -45,7 +45,7 @@ class ForecastingMatrix(Matrix):
         self,
         matrix: pl.DataFrame | pd.DataFrame | Matrix | None = None,
         timezone: str = "UTC",
-        date_format: str = "DD_MM_YYYY HH:mm:ss",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> None:
         """
         :param matrix: A DataFrame where each column (except "time") represents a forecast.
@@ -76,7 +76,7 @@ class ForecastingMatrix(Matrix):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
-        date_format: str = "DD_MM_YYYY HH:mm:ss",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> ForecastingMatrix:
         """
         Load a ForecastingMatrix from a file.
@@ -303,7 +303,7 @@ class LazyForecastingMatrix(LazyMatrix):
         self,
         matrix: LazyMatrix | pl.LazyFrame | Matrix,
         timezone: str = "UTC",
-        date_format: str = "DD_MM_YYYY HH:mm:ss",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> None:
         super().__init__(matrix, timezone)
         self.date_format: str = date_format
@@ -323,7 +323,7 @@ class LazyForecastingMatrix(LazyMatrix):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
-        date_format: str = "DD_MM_YYYY HH:mm:ss",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> LazyForecastingMatrix:
         """
         Load a LazyForecastingMatrix from a file.

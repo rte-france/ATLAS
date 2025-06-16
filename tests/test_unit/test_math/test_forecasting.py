@@ -25,8 +25,8 @@ def hourly_df():
                 time_unit="us",
                 eager=True,
             ),
-            "01_01_2025 00:00:00": [1, 2, 3, 4, 5],
-            "01_01_2025 01:00:00": [6, 7, 8, 9, 10],
+            "2025-01-01 00:00:00": [1, 2, 3, 4, 5],
+            "2025-01-01 01:00:00": [6, 7, 8, 9, 10],
         }
     )
 
@@ -44,8 +44,8 @@ def filtered_df():
                 eager=True,
             ),
             "scenario": ["A", "A", "A", "A", "A"],
-            "01_01_2025 00:00:00": [1, 2, 3, 4, 5],
-            "01_01_2025 01:00:00": [6, 7, 8, 9, 10],
+            "2025-01-01 00:00:00": [1, 2, 3, 4, 5],
+            "2025-01-01 01:00:00": [6, 7, 8, 9, 10],
         }
     )
 
@@ -53,8 +53,8 @@ def filtered_df():
 def test_init_and_sorting(hourly_df):
     matrix = ForecastingMatrix(hourly_df)
     assert isinstance(matrix, ForecastingMatrix)
-    assert matrix.indexes == ["01_01_2025 00:00:00", "01_01_2025 01:00:00"]
-    assert matrix.matrix.columns == ["time", "01_01_2025 00:00:00", "01_01_2025 01:00:00"]
+    assert matrix.indexes == ["2025-01-01 00:00:00", "2025-01-01 01:00:00"]
+    assert matrix.matrix.columns == ["time", "2025-01-01 00:00:00", "2025-01-01 01:00:00"]
 
 
 def test_add_timeseries(hourly_df):
@@ -78,24 +78,24 @@ def test_add_timeseries(hourly_df):
     matrix.add(new_ts, datetime(2025, 1, 1, 2, 0, 0))
 
     # Check new index exists, sorted
-    assert "01_01_2025 02:00:00" in matrix.indexes
+    assert "2025-01-01 02:00:00" in matrix.indexes
     assert matrix.matrix.columns == [
         "time",
-        "01_01_2025 00:00:00",
-        "01_01_2025 01:00:00",
-        "01_01_2025 02:00:00",
+        "2025-01-01 00:00:00",
+        "2025-01-01 01:00:00",
+        "2025-01-01 02:00:00",
     ]
 
-    matrix.add(new_ts, "01_01_2025 03:00:00")
+    matrix.add(new_ts, "2025-01-01 03:00:00")
 
     # Check new index exists, sorted
-    assert "01_01_2025 03:00:00" in matrix.indexes
+    assert "2025-01-01 03:00:00" in matrix.indexes
     assert matrix.matrix.columns == [
         "time",
-        "01_01_2025 00:00:00",
-        "01_01_2025 01:00:00",
-        "01_01_2025 02:00:00",
-        "01_01_2025 03:00:00",
+        "2025-01-01 00:00:00",
+        "2025-01-01 01:00:00",
+        "2025-01-01 02:00:00",
+        "2025-01-01 03:00:00",
     ]
 
 
@@ -113,8 +113,8 @@ def test_delete_timeseries(hourly_df):
 
     matrix.delete(datetime(2025, 1, 1, 0, 0, 0))
 
-    assert "01_01_2025 00:00:00" not in matrix.indexes
-    assert matrix.matrix.columns == ["time", "01_01_2025 01:00:00"]
+    assert "2025-01-01 00:00:00" not in matrix.indexes
+    assert matrix.matrix.columns == ["time", "2025-01-01 01:00:00"]
 
 
 def test_init_with_pandas_df():
@@ -126,13 +126,13 @@ def test_init_with_pandas_df():
                 end=datetime(2025, 1, 1, 4, 0, 0),
                 freq="1h",
             ),
-            "01_01_2025 00:00:00": [1, 2, 3, 4, 5],
-            "01_01_2025 01:00:00": [6, 7, 8, 9, 10],
+            "2025-01-01 00:00:00": [1, 2, 3, 4, 5],
+            "2025-01-01 01:00:00": [6, 7, 8, 9, 10],
         }
     )
     matrix = ForecastingMatrix(pd_df)
     assert isinstance(matrix, ForecastingMatrix)
-    assert matrix.indexes == ["01_01_2025 00:00:00", "01_01_2025 01:00:00"]
+    assert matrix.indexes == ["2025-01-01 00:00:00", "2025-01-01 01:00:00"]
 
 
 def test_repr(hourly_df):
@@ -192,8 +192,8 @@ def test_custom_timezone():
                 time_unit="us",
                 eager=True,
             ),
-            "01_01_2025 00:00:00": [1, 2, 3, 4, 5],
-            "01_01_2025 01:00:00": [6, 7, 8, 9, 10],
+            "2025-01-01 00:00:00": [1, 2, 3, 4, 5],
+            "2025-01-01 01:00:00": [6, 7, 8, 9, 10],
         }
     )
     matrix = ForecastingMatrix(df, timezone="Europe/Paris")
@@ -209,7 +209,7 @@ def test_from_file_csv(hourly_df):
         hourly_df.write_csv(file_path, separator=";")
         matrix = ForecastingMatrix.from_file(file_path, separator=";")
         assert isinstance(matrix, ForecastingMatrix)
-        assert matrix.indexes == ["01_01_2025 00:00:00", "01_01_2025 01:00:00"]
+        assert matrix.indexes == ["2025-01-01 00:00:00", "2025-01-01 01:00:00"]
 
         # Test with Path object
         path_obj = Path(file_path)
@@ -229,7 +229,7 @@ def test_from_file_parquet(hourly_df):
         hourly_df.write_parquet(file_path)
         matrix = ForecastingMatrix.from_file(file_path)
         assert isinstance(matrix, ForecastingMatrix)
-        assert matrix.indexes == ["01_01_2025 00:00:00", "01_01_2025 01:00:00"]
+        assert matrix.indexes == ["2025-01-01 00:00:00", "2025-01-01 01:00:00"]
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
@@ -245,7 +245,7 @@ def test_from_file_with_filters(filtered_df):
         matrix = ForecastingMatrix.from_file(file_path, filters=("scenario", "A"), separator=";")
         assert isinstance(matrix, ForecastingMatrix)
         assert "scenario" not in matrix.matrix.columns
-        assert matrix.indexes == ["01_01_2025 00:00:00", "01_01_2025 01:00:00"]
+        assert matrix.indexes == ["2025-01-01 00:00:00", "2025-01-01 01:00:00"]
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
@@ -280,7 +280,7 @@ def test_add_with_dict(hourly_df):
         "values": [11, 12, 13, 14, 15],
     }
     matrix.add(dict_data, datetime(2025, 1, 1, 2, 0, 0))
-    assert "01_01_2025 02:00:00" in matrix.indexes
+    assert "2025-01-01 02:00:00" in matrix.indexes
 
 
 def test_add_pandas_df(hourly_df):
@@ -297,14 +297,14 @@ def test_add_pandas_df(hourly_df):
             "values": [16, 17, 18, 19, 20],
         }
     )
-    matrix.add(pd_df, "01_01_2025 03:00:00")
-    assert "01_01_2025 03:00:00" in matrix.indexes
+    matrix.add(pd_df, "2025-01-01 03:00:00")
+    assert "2025-01-01 03:00:00" in matrix.indexes
 
 
 def test_get_timeseries_with_string_index(hourly_df):
     """Test getting a timeseries using a string index."""
     matrix = ForecastingMatrix(hourly_df)
-    ts = matrix.select("01_01_2025 00:00:00")
+    ts = matrix.select("2025-01-01 00:00:00")
     assert isinstance(ts, Timeseries)
     assert ts.dataframe.shape[0] == 5
 
@@ -313,21 +313,21 @@ def test_get_timeseries_invalid_index(hourly_df):
     """Test getting a timeseries with an invalid index."""
     matrix = ForecastingMatrix(hourly_df)
     with pytest.raises(KeyError):
-        matrix.select("01_01_2025 05:00:00")
+        matrix.select("2025-01-01 05:00:00")
 
 
 def test_delete_with_string_index(hourly_df):
     """Test deleting a timeseries using a string index."""
     matrix = ForecastingMatrix(hourly_df)
-    matrix.delete("01_01_2025 00:00:00")
-    assert "01_01_2025 00:00:00" not in matrix.indexes
+    matrix.delete("2025-01-01 00:00:00")
+    assert "2025-01-01 00:00:00" not in matrix.indexes
 
 
 def test_delete_invalid_index(hourly_df):
     """Test deleting a non-existent timeseries."""
     matrix = ForecastingMatrix(hourly_df)
     with pytest.raises(KeyError):
-        matrix.delete("01_01_2025 05:00:00")
+        matrix.delete("2025-01-01 05:00:00")
 
 
 def test_set_date_format(hourly_df):
@@ -350,8 +350,8 @@ def test_lazy_forecasting_matrix():
                 time_unit="us",
                 eager=True,
             ),
-            "01_01_2025 00:00:00": [1, 2, 3, 4, 5],
-            "01_01_2025 01:00:00": [6, 7, 8, 9, 10],
+            "2025-01-01 00:00:00": [1, 2, 3, 4, 5],
+            "2025-01-01 01:00:00": [6, 7, 8, 9, 10],
         }
     ).lazy()
 

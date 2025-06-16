@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -134,3 +135,10 @@ def get_metadata_from_file(
     """
     df = read_data_file(file_path, separator=separator, filters=filters)
     return get_metadata_from_frame(df)
+
+
+def to_snake_case(name: str) -> str:
+    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
+    name = re.sub(r"[^0-9a-zA-Z]+", "_", name)
+    return name.lower().strip("_")
