@@ -26,8 +26,6 @@ class SolutionInfo(BaseModel):
     :type objective_value: Optional[float]
     :param solve_time: Time taken to solve in seconds
     :type solve_time: float
-    :param variables: dictionary of variable names to their optimal values
-    :type variables: dict[str, float]
     :param num_iterations: Number of iterations performed
     :type num_iterations: Optional[int]
     """
@@ -35,12 +33,7 @@ class SolutionInfo(BaseModel):
     status: SolverStatus
     objective_value: float | None = None
     solve_time: str | None = None
-    variables: dict[str, float] | None = None
     num_iterations: int | None = None
-
-    def __post_init__(self):
-        if self.variables is None:
-            self.variables = {}
 
 
 class OptimisationModel:
@@ -283,24 +276,18 @@ class OptimisationModel:
         mapped_status = status_map.get(status, SolverStatus.NOT_SOLVED)
         logger.info(f"Solve finished in {solve_time} with status: {mapped_status.name}")
 
-        variables = {}
         objective_value = None
 
         if status in [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]:
             objective_value = self._solver.Objective().Value()
 
-            for name, var in self._variables.items():
-                variables[name] = var.solution_value()
-
             if objective_value is not None:
                 logger.debug(f"Objective value: {objective_value}")
-                logger.debug(f"Variable values: {variables}")
 
         self._solution_info = SolutionInfo(
             status=mapped_status,
             objective_value=objective_value,
             solve_time=solve_time,
-            variables=variables,
             num_iterations=self._solver.iterations(),
         )
 
@@ -316,11 +303,12 @@ class OptimisationModel:
         :rtype: float
         :raises RuntimeError: If model hasn't been solved or variable not found
         """
-        if not self._solution_info or not self._solution_info.variables:
+        if not self._solution_info:
             raise RuntimeError("Optimisation model has not been solved yet")
 
-        if name not in self._solution_info.variables:
-            raise KeyError(f"Variable '{name}' not found in solution")
+        # FIXME
+        # if name not in self._solution_info.variables:
+        #   raise KeyError(f"Variable '{name}' not found in solution")
 
         return self._solution_info.variables[name]
 
