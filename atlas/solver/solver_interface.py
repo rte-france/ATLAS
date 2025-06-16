@@ -186,7 +186,13 @@ class OptimisationModel:
         for name in names:
             self.add_continious_variable(name, lower_bound, upper_bound)
 
-    def add_linear_constraint(self, coefficients: dict[str, float], operator: str, rhs: float, name: str) -> None:
+    def add_linear_constraint(
+            self,
+            coefficients: dict[str, float],
+            operator: str,
+            rhs: float,
+            name: str
+    ) -> None:
         """
         Add a linear constraint of the form: sum(coeff * var) operator rhs.
 
