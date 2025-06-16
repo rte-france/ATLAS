@@ -42,4 +42,4 @@ def get_class_inheritance_chain(class_name: str, as_pydantic: bool = False) -> l
         raise ValueError(f"Class '{class_name}' not found in model_mapping.")
 
     mro_chain = cls.mro()
-    return mro_chain if as_pydantic else [to_snake_case(base.__name__) for base in mro_chain]
+    return mro_chain if as_pydantic else [to_snake_case(base.__name__) for base in mro_chain]  # type: ignore[misc]
