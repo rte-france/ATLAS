@@ -103,15 +103,14 @@ class OptimisationModel:
         """Return the last computed solution info."""
         return self._solution_info
 
-    def add_variable(
+    def add_continious_variable(
         self,
         name: str,
         lower_bound: float = 0.0,
         upper_bound: float = float("inf"),
-        var_type: Literal["continuous", "integer", "boolean"] = "continuous",
     ) -> None:
         """
-        Add a decision variable to the model.
+        Add a continious variable to the model.
 
         :param name: Variable name
         :type name: str
@@ -119,46 +118,73 @@ class OptimisationModel:
         :type lower_bound: float
         :param upper_bound: Upper bound for the variable
         :type upper_bound: float
-        :param var_type: Variable type ('continuous', 'integer', 'boolean')
-        :type var_type: str
         """
-        logger.debug(f"Adding variable '{name}' with bounds [{lower_bound}, {upper_bound}] and type '{var_type}'")
+        logger.debug(f"Adding continuous variable '{name}' with bounds [{lower_bound}, {upper_bound}]")
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
-        if self._solver:
-            if var_type == "continuous":
-                var = self._solver.NumVar(lower_bound, upper_bound, name)
-            elif var_type == "integer":
-                var = self._solver.IntVar(lower_bound, upper_bound, name)
-            elif var_type == "boolean":
-                var = self._solver.BoolVar(name)
-            else:
-                raise ValueError(f"Unknown variable type: {var_type}")
+        self._solver.NumVar(lower_bound, upper_bound, name)
         self._variables_name.add(name)
 
-        self._variables[name] = var
+    def add_integer_variable(
+        self,
+        name: str,
+        lower_bound: float = 0.0,
+        upper_bound: float = float("inf"),
+    ) -> None:
+        """
+        Add a integer variable to the model.
 
-    def add_variables(
+        :param name: Variable name
+        :type name: str
+        :param lower_bound: Lower bound for the variable
+        :type lower_bound: float
+        :param upper_bound: Upper bound for the variable
+        :type upper_bound: float
+        """
+        logger.debug(f"Adding integer variable '{name}' with bounds [{lower_bound}, {upper_bound}]")
+        if name in self._variables_name:
+            raise ValueError(f"Variable '{name}' already exists")
+        self._solver.IntVar(lower_bound, upper_bound, name)
+        self._variables_name.add(name)
+
+    def add_boolean_variable(
+            self,
+            name: str
+    ) -> None:
+        """
+        Add a boolean variable to the model.
+
+        :param name: Variable name
+        :type name: str
+        :param lower_bound: Lower bound for the variable
+        :type lower_bound: float
+        :param upper_bound: Upper bound for the variable
+        :type upper_bound: float
+        """
+        logger.debug(f"Adding boolean variable '{name}'")
+        if name in self._variables_name:
+            raise ValueError(f"Variable '{name}' already exists")
+        self._solver.BoolVar(name)
+        self._variables_name.add(name)
+
+    def add_continious_variables(
         self,
         names: list[str],
         lower_bound: float = 0.0,
         upper_bound: float = float("inf"),
-        var_type: str = "continuous",
     ) -> None:
         """
-        Add multiple decision variables to the model.
+        Add multiple continous variables to the model with the same bounds.
 
-        :param names: List of variable names
-        :type names: List[str]
-        :param lower_bound: Lower bound for all variables
+        :param name: List of variable names
+        :type name: List[str]
+        :param lower_bound: Lower bound for the variable
         :type lower_bound: float
-        :param upper_bound: Upper bound for all variables
+        :param upper_bound: Upper bound for the variable
         :type upper_bound: float
-        :param var_type: Variable type for all variables
-        :type var_type: str
         """
         for name in names:
-            self.add_variable(name, lower_bound, upper_bound, var_type)
+            self.add_continious_variable(name, lower_bound, upper_bound)
 
     def add_linear_constraint(self, coefficients: dict[str, float], operator: str, rhs: float, name: str) -> None:
         """
