@@ -24,7 +24,7 @@ class MarketBorder(BusinessModel):
     :param uphill_market_area: Uphill Market Area
     :type uphill_market_area: MarketArea
     :param coupling_type: Sum of volume of sell offers on the Day Ahead market
-    :type coupling_type: str
+    :type coupling_type: CouplingType
     :param loss_factor: Network loss factor
     :type loss_factor: float
     :param time_resolution: Time resolution relative to the border

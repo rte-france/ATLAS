@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pendulum
 import polars as pl
@@ -20,7 +20,14 @@ from atlas.io.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
-from atlas.timing import build_datetime, get_lowest_frequency, pendulum_to_datetime
+from atlas.timing import (
+    build_datetime,
+    generate_datetimes,
+    get_duration,
+    get_lowest_frequency,
+    infer_frequency,
+    pendulum_to_datetime,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -38,7 +45,7 @@ class ForecastingMatrix(Matrix):
         self,
         matrix: pl.DataFrame | pd.DataFrame | Matrix | None = None,
         timezone: str = "UTC",
-        date_format: str = "DD_MM_YYYY HH:mm:ss",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> None:
         """
         :param matrix: A DataFrame where each column (except "time") represents a forecast.
@@ -69,7 +76,7 @@ class ForecastingMatrix(Matrix):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
-        date_format: str = "DD_MM_YYYY HH:mm:ss",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> ForecastingMatrix:
         """
         Load a ForecastingMatrix from a file.
@@ -179,6 +186,7 @@ class ForecastingMatrix(Matrix):
         execution_date: datetime | str | pendulum.DateTime,
         start_date: datetime | str | pendulum.DateTime,
         end_date: datetime | str | pendulum.DateTime,
+        timestep: str | pendulum.Duration | None = None,
     ) -> Timeseries:
         """
         Returns the most up-to-date forecast available per time row in the given window.
@@ -211,12 +219,49 @@ class ForecastingMatrix(Matrix):
         if not forecast_cols:
             raise ValueError("No forecasting dates available before execution date")
 
+        df = self.matrix.select("time", *forecast_cols)
         forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
-        interpolate_expr = [pl.col(col).interpolate_by("time") for col in forecast_cols]
-        min_frequency = get_lowest_frequency(self.matrix)
 
+        if timestep:
+            frequency_target = get_duration(timestep)
+        else:
+            frequency_target = get_lowest_frequency(df)
+
+        if end_date > df["time"].max():  # type: ignore[operator]
+            dt = cast("pendulum.DateTime", df["time"].max())
+            column_wth_last_timestamp = df.filter(pl.col("time").eq(dt)).select(pl.selectors.numeric()).columns[0]
+            frequency_columns_last_timestamp = infer_frequency(
+                df.select("time", column_wth_last_timestamp).drop_nulls()
+            )
+            if frequency_target < frequency_columns_last_timestamp:
+                datetimes_to_add = generate_datetimes(
+                    start=dt,
+                    end=dt + frequency_columns_last_timestamp - frequency_target,
+                    freq=frequency_target,
+                    timezone=self.timezone,
+                )
+                if len(datetimes_to_add) > 1:
+                    new_df = pl.DataFrame(
+                        {
+                            "time": datetimes_to_add[1:],
+                            column_wth_last_timestamp: [None] * len(datetimes_to_add[1:]),
+                        },
+                        schema={
+                            "time": pl.Datetime("us", self.timezone),
+                            column_wth_last_timestamp: pl.Float64(),
+                        },
+                    )
+
+                    df = pl.concat([df, new_df], how="diagonal")
+
+        limits = [infer_frequency(df.select("time", col).drop_nulls()) / frequency_target for col in forecast_cols]
+        interpolate_expr = [
+            pl.col(col).forward_fill(limit=int(limit))
+            for (col, limit) in zip(forecast_cols, limits, strict=False)
+            if limit > 1
+        ]
         df = (
-            self.matrix.upsample("time", every=min_frequency)
+            df.upsample("time", every=frequency_target)
             .with_columns(interpolate_expr)
             .filter(pl.col("time").is_between(start_date, end_date))
             .select(
@@ -225,8 +270,6 @@ class ForecastingMatrix(Matrix):
                     forecast_expr.alias("forecast"),
                 ]
             )
-            .fill_null(strategy="forward")
-            .fill_null(strategy="backward")
         )
 
         return Timeseries(df, timezone=self.timezone)
@@ -260,7 +303,7 @@ class LazyForecastingMatrix(LazyMatrix):
         self,
         matrix: LazyMatrix | pl.LazyFrame | Matrix,
         timezone: str = "UTC",
-        date_format: str = "DD_MM_YYYY HH:mm:ss",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> None:
         super().__init__(matrix, timezone)
         self.date_format: str = date_format
@@ -280,7 +323,7 @@ class LazyForecastingMatrix(LazyMatrix):
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
-        date_format: str = "DD_MM_YYYY HH:mm:ss",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> LazyForecastingMatrix:
         """
         Load a LazyForecastingMatrix from a file.

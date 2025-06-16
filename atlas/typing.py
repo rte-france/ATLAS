@@ -8,6 +8,7 @@ from types import UnionType
 from typing import get_args, get_origin
 
 import atlas.config as cfg
+from atlas.io.utils import to_snake_case
 from atlas.models.business_model import BusinessModel
 
 
@@ -27,3 +28,18 @@ def get_type_attribute(object_type: str, attribute: str) -> type[BusinessModel] 
     else:
         model = attribute_type
     return model
+
+
+def get_class_inheritance_chain(class_name: str, as_pydantic: bool = False) -> list[str] | list[type[BusinessModel]]:
+    """
+    Given the name of a class and a mapping from names to class objects,
+    return the class inheritance chain as a list of class names (as strings),
+    from the class itself up to `object`.
+
+    """
+    cls = cfg.MODEL_MAPPING_NAME.get(class_name)
+    if cls is None:
+        raise ValueError(f"Class '{class_name}' not found in model_mapping.")
+
+    mro_chain = cls.mro()
+    return mro_chain if as_pydantic else [to_snake_case(base.__name__) for base in mro_chain]  # type: ignore[misc]
