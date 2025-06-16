@@ -73,8 +73,8 @@ class InputLoader:
         matrix_file_extension: str = ".parquet",
         lazy: bool = False,
         timezone: str = "UTC",
-        date_format_forecasting_matrix: str = "DD_MM_YYYY HH:mm:ss",
-        date_format_input_files: str = "DD/MM/YYYY HH:mm:ss",
+        date_format_forecasting_matrix: str = "YYY-MM-DD HH:mm:ss",
+        date_format_input_files: str = "YYYY-MM-DD HH:mm:ss",
     ) -> dict[str, list[type[BusinessModel]]]:
         """
         Load input data from a directory and return instantiated BusinessModel objects.
@@ -164,8 +164,8 @@ class InputLoader:
         matrix_file_extension: str = ".parquet",
         lazy: bool = False,
         timezone: str = "UTC",
-        date_format_forecasting_matrix: str = "DD_MM_YYYY HH:mm:ss",
-        date_format_input_files: str = "DD/MM/YYYY HH:mm:ss",
+        date_format_forecasting_matrix: str = "YYY-MM-DD HH:mm:ss",
+        date_format_input_files: str = "YYY-MM-DD HH:mm:ss",
     ) -> list[dict[str, Any]]:
         """
         Instantiate intermediate math objects (timeseries or matrices) from input attributes.
@@ -329,7 +329,7 @@ class InputLoader:
         file_extension: str = ".parquet",
         lazy: bool = False,
         timezone: str = "UTC",
-        date_format_forecasting: str = "DD_MM_YYYY HH:mm:ss",
+        date_format_forecasting: str = "YYY-MM-DD HH:mm:ss",
     ) -> Matrix | LazyMatrix:
         """Load a ForecastingMatrix or ScenarioMatrix (lazy or not) from a file."""
         if matrix_type not in ("scenario_matrix", "forecasting_matrix"):
