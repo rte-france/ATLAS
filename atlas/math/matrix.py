@@ -1,0 +1,394 @@
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+
+Module that implements Matrix
+"""
+
+from __future__ import annotations
+
+import pickle
+from pathlib import Path
+from typing import Any, Literal
+
+import pandas as pd
+import plotly.graph_objects as go
+import polars as pl
+
+from atlas.io.utils import get_metadata_from_frame, read_data_file
+from atlas.math.timeseries import Timeseries
+from atlas.timing import check_timezone
+
+
+class Matrix:
+    """A container for time-indexed `Timeseries` data, supporting both eager and lazy operations.
+
+    This class abstracts over Polars and Pandas DataFrames to provide a uniform way
+    to manage multiple time series, each associated with a unique index or scenario key."""
+
+    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix | None = None, timezone: str = "UTC") -> None:
+        """
+        :param matrix: DataFrame containing the matrix data.
+        :type matrix: pd.DataFrame | pl.DataFrame | Matrix
+        :param timezone: Timezone for the datetime column.
+        :type timezone: str
+        """
+        check_timezone(timezone)
+        self._check_matrix(matrix)
+
+        self._set_matrix(matrix=matrix, timezone=timezone)
+        self.indexes: list[str] = self._get_indexes()
+
+    def __repr__(self):
+        """Provide a string representation of the Matrix object."""
+        return f"Matrix : {self.matrix}"
+
+    def describe(self) -> dict[str, Any]:
+        """
+        Get metadata about the Matrix.
+
+        :return: A dictionnary containing matrix metadata
+        :rtype: dict[str, Any]
+        """
+        return get_metadata_from_frame(self.matrix)
+
+    @classmethod
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> Matrix:
+        """
+        Load a Matrix from a file.
+
+        :param file_path: Path to the file (CSV or Parquet).
+        :type file_path: str | Path
+        :return: A Matrix object.
+        :rtype: Matrix
+        """
+
+        return cls(read_data_file(file_path, filters, separator), timezone)
+
+    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix | None, timezone: str) -> None:
+        """Set matrix attribute"""
+        if matrix is None:
+            self.matrix: pl.DataFrame = pl.DataFrame(
+                schema={
+                    "time": pl.Datetime("us", time_zone=timezone),
+                }
+            )
+            self.timezone: str = timezone
+            return
+        if isinstance(matrix, Matrix):
+            self.matrix: pl.DataFrame = matrix.matrix  # type: ignore[no-redef]
+            self.timezone: str = matrix.timezone  # type: ignore[no-redef]
+        else:
+            df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
+
+            time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+
+            self.matrix: pl.DataFrame = (  # type: ignore[no-redef]
+                df.rename({time_column[0]: "time"})
+                .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
+                .sort("time")
+            )
+            self.timezone: str = timezone  # type: ignore[no-redef]
+
+    @staticmethod
+    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | Matrix | None) -> None:
+        """Check matrix data structure"""
+        if matrix is None:
+            return
+        if isinstance(matrix, Matrix):
+            return
+        df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
+
+        time_columns = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        if len(time_columns) != 1:
+            raise ValueError("Matrix must have exactly one time column")
+
+        value_columns = df.select(pl.selectors.numeric()).columns
+
+        if len(value_columns) < 1:
+            raise ValueError("Matrix must have at least one numeric column")
+
+        if len(time_columns) + len(value_columns) != len(df.columns):
+            raise ValueError("Matrix must have N columns one for datetime and N-1 for numerical values")
+
+    def _get_indexes(self) -> list[str]:
+        """
+        Get the indexes of the matrix.
+
+        :return: List of indexes.
+        :rtype: list[str]
+        """
+        return self.matrix.select(pl.selectors.numeric()).columns
+
+    def __len__(self) -> int:
+        """
+        Number of timeseries in the matrix.
+
+        :return: Number of elements in the matrix.
+        :rtype: int
+        """
+        return len(self.indexes)
+
+    def __contains__(self, index: str) -> bool:
+        """
+        Check if an index exists in the matrix.
+
+        :param index: The index to check.
+        :type index: Index
+        :return: True if index exists, False otherwise.
+        :rtype: bool
+        """
+        return index in self.indexes
+
+    def __getitem__(self, index: str) -> Timeseries:
+        """
+        Get a timeseries by index.
+
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If the index is not found.
+        :return: The Timeseries object.
+        :rtype: Timeseries
+        """
+        if index not in self.indexes:
+            raise KeyError(f"No timeseries found for index: {index}")
+        return Timeseries(self.matrix.select("time", index))
+
+    def select(self, index: str) -> Timeseries:
+        """
+        Get a timeseries by index.
+
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If the index is not found.
+        :return: The Timeseries object.
+        :rtype: Timeseries
+        """
+        return self.__getitem__(index)
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Check equality with another matrix.
+
+        :param other: Another matrix instance.
+        :type other: object
+        :raises TypeError: If the object to compare is not a Matrix
+        :return: True if equal, False otherwise.
+        :rtype: bool
+        """
+        if not isinstance(other, Matrix):
+            raise TypeError("Cannot compare with non-Matrix object")
+
+        return self.matrix.equals(other.matrix)
+
+    def to_lazy(self) -> pl.LazyFrame:
+        """
+        Convert the internal Polars DataFrame to a LazyFrame.
+
+        :return: A Polars LazyFrame representation of the time series
+        :rtype: pl.LazyFrame
+        """
+        return self.matrix.lazy()
+
+    def abs(self, inplace: bool = True) -> Matrix:
+        df = self.matrix.select([pl.col(c).abs().alias(c) for c in self.index])
+
+        if inplace:
+            self.matrix = df
+            return self
+        else:
+            return Matrix(df, timezone=self.timezone)
+
+    def add(
+        self,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        index: str,
+    ) -> None:
+        """
+        Add a timeseries to the matrix.
+
+        :param index: Index to add into the matrix
+        :type index: str
+        :param timeseries: Timeseries to add.
+        :type timeseries: Timeseries
+        :raises TypeError: If types are invalid.
+        """
+        if index in self.indexes:
+            raise KeyError(f"Index {index} already exists in the matrix.")
+        timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
+
+        self.matrix = self.matrix.join(
+            timeseries.to_frame(engine="polars").rename({"value": index}),  # type: ignore[arg-type]
+            on="time",
+            how="full",
+            coalesce=True,
+        )
+        self.indexes = self._get_indexes()
+
+    def delete(self, index: str) -> None:
+        """
+        Delete a timeseries by index.
+
+        :param index: Index key to delete from the matrix
+        :type index: str
+        :raises KeyError: If index is not found.
+        """
+        if index not in self.indexes:
+            raise KeyError(f"No timeseries to delete at index: {index}")
+
+        self.matrix = self.matrix.drop(index)
+        self.indexes = self._get_indexes()
+
+    def get_matrix(self) -> pl.DataFrame:
+        """
+        Get the matrix data.
+
+        :return: The matrix data.
+        :rtype: pl.DataFrame
+        """
+        return self.matrix
+
+    def to_file(
+        self,
+        path: str | Path,
+        file_format: Literal["csv", "parquet", "pickle"] = "csv",
+        separator: str = ";",
+    ) -> None:
+        """
+        Export the time series to a file.
+
+        :param path: Destination file path
+        :type path: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: Literal["csv", "parquet", "pickle"], optional
+        :raises ValueError: If file extension doesn't match format
+        :raises NotImplementedError: If the file format is not supported
+        """
+        file_format_lower = file_format.lower()
+
+        if isinstance(path, Path):
+            path = str(path)
+        if not path.lower().endswith(file_format_lower):
+            raise ValueError("Format and file extension don't match.")
+
+        if file_format_lower == "csv":
+            self.matrix.write_csv(path, separator=separator)
+        elif file_format_lower == "parquet":
+            self.matrix.write_parquet(path)
+        elif file_format_lower == "pickle":
+            with open(path, "wb") as f:
+                pickle.dump(self, f)
+        else:
+            raise NotImplementedError("Format not supported")
+
+    @property
+    def dataframe(self) -> pl.DataFrame:
+        """Returns the Matrix DataFrame"""
+        return self.matrix
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Returns the Matrix shape"""
+        return self._get_shape()
+
+    @property
+    def index(self) -> list[str]:
+        """Returns the Matrix indexes (e.g columns names)"""
+        return self._get_indexes()
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Return the metadata of the timeseries."""
+        return self.describe()
+
+    def _get_shape(self) -> tuple[int, int]:
+        """Return (rows, columns) of the underlying Polars DataFrame."""
+        return self.matrix.shape
+
+    def plot(
+        self,
+        title: str = "Matrix Timeseries Plot",
+        height: int = 500,
+        width: int = 800,
+        show_grid: bool = True,
+        line_shape: Literal["hv", "linear", "spline"] = "hv",
+        template: str = "plotly_white",
+    ) -> go.Figure:
+        """
+        Generate an interactive Plotly figure for the Matrix data with a slider to select indexes.
+
+        :param title: Plot title
+        :param height: Plot height in pixels
+        :param width: Plot width in pixels
+        :param show_grid: Whether to show grid lines
+        :param line_shape: Shape of the plot lines
+        :param template: Plotly template to use
+        :return: Plotly figure object
+        """
+        df = self.get_matrix()
+        index_columns = self._get_indexes()
+        time_col = "time"
+
+        fig = go.Figure()
+
+        for i, idx in enumerate(index_columns):
+            visible = i == 0
+            fig.add_trace(
+                go.Scatter(
+                    x=df[time_col],  # type: ignore[arg-type]
+                    y=df[idx],  # type: ignore[arg-type]
+                    mode="lines",
+                    name=idx,
+                    line_shape=line_shape,
+                    visible=visible,
+                )
+            )
+
+        steps = []
+        for i, idx in enumerate(index_columns):
+            step = {
+                "method": "update",
+                "label": idx,
+                "args": [
+                    {"visible": [j == i for j in range(len(index_columns))]},
+                    {"title": f"{title} - {idx}"},
+                ],
+            }
+            steps.append(step)
+
+        sliders = [
+            {
+                "active": 0,
+                "currentvalue": {"prefix": "Index: "},
+                "pad": {"t": 50},
+                "steps": steps,
+            }
+        ]
+
+        fig.update_layout(
+            sliders=sliders,
+            title=title,
+            height=height,
+            width=width,
+            template=template,
+            xaxis={
+                "title": "Time",
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+            yaxis={
+                "title": "Value",
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+        )
+
+        return fig

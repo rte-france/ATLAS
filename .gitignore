@@ -180,7 +180,14 @@ cython_debug/
 data/
 *.csv
 *.parquet
+*.pickle
+*.pkl
 
 # Notebooks
 
 test.ipynb
+
+# scripts
+commit.sh
+test.py
+polars_vs_pandas.ipynb

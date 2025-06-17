@@ -1,368 +1,912 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
-See AUTHORS.txt
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
+
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements TimeSeries class
+This module provides a Timeseries class for handling Timeseries data using Polars.
 """
 
-import datetime
-import logging
-from copy import deepcopy
+from __future__ import annotations
 
-import numpy as np
+import pickle
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Literal, cast
+
 import pandas as pd
+import pendulum
+import plotly
+import plotly.express as px
+import plotly.graph_objects
+import polars as pl
 
-from .timeseries_interpolation import CONSTANT, LINEAR, LINEAR_AVERAGE
+from atlas.io.utils import get_metadata_from_frame, read_data_file
+from atlas.timing import (
+    build_datetime,
+    check_timezone,
+    generate_datetimes,
+    get_duration,
+    infer_frequency,
+)
 
 
-class UnloadedTimeSeries:
-    def __init__(self, attribute):
-        self.attribute = attribute
+class Timeseries:
+    """
+    A flexible and efficient time series class using a Polars backend.
 
-    def __eq__(self, other_timeserie):
-        """Test whether two UnloadedTimeSeries objects are equals.
-        Objects are considered equal if they store the same values in their 'attribute' attribute.
+    The Timeseries class provides a unified interface for handling, analyzing, and visualizing
+    time series data. It supports a variety of input formats (Polars DataFrame, Pandas DataFrame,
+    dictionary, or another Timeseries instance) and ensures robust handling of time zones and
+    interpolation methods.
+    """
 
-        :param other_timeserie: TimesSeries. The other timeserie to compare to.
-        :return: bool. True if equal else False.
+    def __init__(
+        self,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list[float]] | None = None,
+        timezone: str = "UTC",
+    ) -> None:
         """
-        return self.attribute == other_timeserie.attribute
-
-    def create_timeseries(self, data_manager):
-        """Create a Timeseries by converting value given in this object
-
-        :param data_manager: DataManager.
-        :return: Timeseries. Newly created Timeseries
+        :param timeseries: The input Timeseries data.
+        :type timeseries: pl.DataFrame or Timeseries
+        :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
+        :type timezone: str, optional
         """
-        if self.attribute["timeserie"] is None:
-            ts_value, ts_date = [], []
-        else:
-            ts_id = self.attribute["timeserie"]
-            ts = data_manager.timeseries[ts_id]
-            ts_value = ts[:, 1]
-            # TODO The method pd.to_datetime takes most of the time for timeseries deserialization
-            #  Idea: test using ts[:, 0].astype('datetime64[ns]') ?
-            # Maybe don't create it yet
-            ts_date = ts[:, 0].astype("datetime64[ns]")
-        return TimeSeries(
-            self.attribute["Name"],
-            self.attribute["Interpolation"],
-            self.attribute["Unit"],
-            ts_date,
-            ts_value,
+        check_timezone(timezone)
+        self.timezone: str = timezone
+
+        self._check_timeseries(timeseries)
+        self._set_timeseries(timeseries, timezone)
+
+    @classmethod
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+    ) -> Timeseries:
+        """
+        Load a Timeseries object from a file.
+
+        :param file_path: Path to the file
+        :type file_path: str or Path
+        :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
+        :type timezone: str, optional
+        :param filters: Filters columns, defaults to ";"
+        :type filters: tuple[str, str] or None, optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
+        :raises ValueError: If file format is not supported
+        :return: Loaded Timeseries object
+        :rtype: Timeseries
+        """
+
+        return cls(read_data_file(file_path, filters, separator), timezone)
+
+    @classmethod
+    def from_values(
+        cls,
+        start_date: str | datetime | pendulum.DateTime,
+        frequency: str | pendulum.Duration,
+        values: list[float],
+        date_format="YYYY-MM-DD HH:mm:ss",
+        timezone: str = "UTC",
+    ) -> Timeseries:
+        """
+        Create a Timeseries from start date, frequency and a list of values.
+
+        :param start_date: Start date of the timeseries
+        :type start_date: str or datetime or pendulum.DateTime
+        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
+        :type frequency: str or pendulum.Duration
+        :param values: List of values corresponding to the time intervals
+        :type values: list[float]
+        :param timezone: Timezone string, defaults to "UTC"
+        :type timezone: str, optional
+        :raises ValueError: If file there is no value to insert in the Timeseries
+        :return: A Timeseries object with the specified parameters
+        :rtype: Timeseries
+        """
+        if len(values) < 2:
+            raise ValueError("Timeseries must contains at least 2 values")
+
+        start = build_datetime(start_date, date_format).in_tz(timezone)
+        end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
+
+        datetimes = generate_datetimes(start, end, frequency, timezone)
+
+        df = pl.DataFrame(
+            {"time": datetimes, "value": values},
+            schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
         )
 
+        return cls(df, timezone)
 
-class TimeSeries:
-    """A TimeSeries stores a list of numerical numbers associated with a date."""
-
-    def __init__(self, name, interpolation, unit, datetimes, values):
-        """:param name: str. Name of the timeseries
-        :param interpolation: TimeSeriesInterpolation. Interpolation method to use when
-        trying to get the value of a missing datetime in the timeseries
-        :param unit: str. Unit of the values
-        :param datetimes: List of datetime. Indexes of the timeseries
-        :param values: numerical or list of numerical. Values of the timeseries, if a list, its length must be equal to
-        datetimes length
+    @classmethod
+    def from_index(
+        cls,
+        start_date: str | datetime | pendulum.DateTime,
+        frequency: str | pendulum.Duration,
+        end_date: str | datetime | pendulum.DateTime,
+        default_value: list[float] | float = 0,
+        date_format="YYYY-MM-DD HH:mm:ss",
+        timezone: str = "UTC",
+    ) -> Timeseries:
         """
-        if isinstance(values, (int, float)):
-            values = np.full(len(datetimes), values)
-        if len(datetimes) != len(values):
-            raise ValueError(
-                "datetimes and values parameters must contain the same number of elements",
+        Create a Timeseries from a time range and a default value or list of values.
+
+        :param start_date: Start date of the timeseries
+        :type start_date: str or datetime or pendulum.DateTime
+        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
+        :type frequency: str or pendulum.Duration
+        :param end_date: End date of the timeseries
+        :type end_date: str or datetime or pendulum.DateTime
+        :param default_value: A scalar value or a list of values to fill the timeseries
+        :type default_value: list[float] or float, optional
+        :param date_format: Format to interpret date strings, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param timezone: Timezone string, defaults to "UTC"
+        :type timezone: str, optional
+        :raises ValueError: If default_value is a list with length mismatch
+        :return: A Timeseries object with the specified index and values
+        :rtype: Timeseries
+        """
+
+        start = build_datetime(start_date, date_format).in_tz(timezone)
+        end = build_datetime(end_date, date_format).in_tz(timezone)
+
+        datetimes = generate_datetimes(start, end, frequency, timezone)
+
+        if isinstance(default_value, list):
+            if len(default_value) != len(datetimes):
+                raise ValueError(
+                    f"Values  passed is of size {len(default_value)} when datetimes generated is of size {len(datetimes)}"
+                )
+            else:
+                df = pl.DataFrame(
+                    {"time": datetimes, "value": default_value},
+                    schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
+                )
+        elif isinstance(default_value, float | int):
+            df = pl.DataFrame(
+                {"time": datetimes, "value": [default_value] * len(datetimes)},
+                schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
             )
 
-        self.name = name
-        self.interpolation = interpolation
-        self.unit = unit
-        self.series = pd.Series(values, datetimes, dtype=float)
-        self.series = self.series.sort_index()
-        # Convert index to datetime in case datetimes is empty list
-        if len(datetimes) == 0:
-            self.series.index = pd.to_datetime(self.series.index)
+        return cls(df, timezone)
 
     @classmethod
-    def from_pd_series(cls, name, interpolation, unit, pd_series):
-        """Creates a TimeSeries object from a pd.Series object
-        :param name: str. Name of the timeseries.
-        :param interpolation: TimeSeriesInterpolation. Interpolation method to use when trying to get the value of a
-        missing datetime in the timeseries.
-        :param unit: str. Unit of the values.
-        :param pd_series: pd.Series. The series containing values and datetimes.
-        :return: TimeSeries
+    def from_timeseries(cls, timeseries: Timeseries, default_value: float | None = None) -> Timeseries:
+        """Create a Timeseries from another, using its structure.
+
+        :param timeseries: The input timeseries object
+        :type timeseries: Timeseries
+        :param default_value: default value to pass to all timestamp values, defaults to None
+        :type default_value: float | None, optional
+        :return: The timeseries object instantiated
+        :rtype: Timeseries
         """
-        return cls(name, interpolation, unit, pd_series.index, pd_series.values.squeeze())
 
-    @classmethod
-    def series_range(
-        cls,
-        name,
-        interpolation,
-        unit,
-        start_date=None,
-        end_date=None,
-        freq=None,
-        length=None,
-        value=0,
-    ):
-        """Method that creates a new TimeSeries given a start date, a frequency, a length and a value to fill.
-        :param name: str. Name of the timeseries.
-        :param interpolation: TimeSeriesInterpolation. Interpolation method to use when trying to get the value of a
-        missing datetime in the timeseries.
-        :param unit: str. Unit of the values.
-        :param start_date: datetime. The start date of the timeseries.
-        :param end_date: datetime. The end date of the timeseries.
-        :param freq: str. String representing the frequency of the timeseries.
-        :param length: int. The length of the timeseries.
-        :param value: float. The value to fill the timeseries with.
-        :return: TimeSeries.
-        """
-        datetimes = pd.date_range(start=start_date, end=end_date, periods=length, freq=freq)
-        values = [value] * len(datetimes)
-        return cls(name, interpolation, unit, datetimes, values)
-
-    @classmethod
-    def new_index(
-        cls,
-        start_date: datetime,
-        end_date: datetime,
-        interval: datetime.timedelta,
-    ) -> list[datetime]:
-        """Generate a list of datetime between `start` and `end` depending on the given interval.
-
-        :param start_date: first datetime
-        :param end_date: last datetime
-        :param interval: time interval (timedelta)
-        :return: datetime list
-        """
-        if start_date >= end_date:
-            raise ValueError("start date must be before end date.")
-
-        result = []
-        current = start_date
-        while current <= end_date:
-            result.append(current)
-            current = current + interval
-
-        return result
-
-    def __eq__(self, other_timeserie):
-        """Test whether two TimeSeries objects are equals.
-        Objects are considered equal if they store the same name, interpolation, unit and date/values.
-
-        :param other_timeserie: TimesSeries. The other timeserie to compare to.
-        :return: bool. True if equal else False.
-        """
-        if self.name != other_timeserie.name:
-            return False
-        if self.interpolation != other_timeserie.interpolation:
-            return False
-        if self.unit != other_timeserie.unit:
-            return False
-        if not self.series.index.equals(other_timeserie.series.index):
-            return False
-        # Use np.allclose to avoid False negative due to round error on float
-        if not np.allclose(self.series.values, other_timeserie.series.values):
-            return False
-        return True
-
-    def get_value(self, index, interpol=None):
-        """Returns a value or list of values for the given index(es) using the interpolation method. If interpol is not
-        given, the TimeSeries interpolation attribute is used
-
-        :param index: Datetime or list of datetime. Datetime(s) to get value(s) from the timeseries
-        :param interpol: TimeSeriesInterpolation. Method to interpolate missing value(s) in the timeseries. Default
-        value is the object interpolation attribute
-        :return: double or list of double
-        """
-        if len(self.series) == 0:
-            if isinstance(index, datetime.datetime):
-                return None
-            return np.zeros(len(index))
-
-        scalar_input = False
-        if isinstance(index, datetime.datetime):
-            index = [index]
-            scalar_input = True
-
-        if interpol is None:
-            interpol = self.interpolation
-
-        new_series = self.series.add(pd.Series(np.nan, index), fill_value=0)
-
-        if interpol is LINEAR:
-            res_values = new_series.interpolate(method="polynomial", order=1, limit_area="inside")[index].values
-        elif interpol is LINEAR_AVERAGE:
-            res_values = (
-                new_series.ffill(limit_area="inside")[index].values
-                + new_series.bfill(limit_area="inside")[index].values
-            ) / 2
-        elif interpol is CONSTANT:
-            res_values = new_series.ffill(limit_area="inside")[index].values
+        if not isinstance(timeseries, Timeseries):
+            raise TypeError("Input has to be a timeseries object, if using a dataframe, use 'from_dataframe' ")
+        if default_value:
+            df = timeseries.dataframe.with_columns(pl.lit(0).alias("value"))
+            return cls(df, timezone=timeseries.timezone)
         else:
-            raise ValueError(
-                f"interpol parameters must be {LINEAR}, {LINEAR_AVERAGE} or {CONSTANT}",
+            return cls(timeseries)
+
+    @classmethod
+    def from_dataframe(
+        cls,
+        dataframe: pl.DataFrame | pd.DataFrame,
+        timezone="UTC",
+    ) -> Timeseries:
+        """Create a Timeseries object from a dataframe-like object.
+
+        :param dataframe: The input dataframe
+        :type dataframe: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list[float]]
+        :param timezone: The timezone of the Timeseries, defaults to "UTC"
+        :type timezone: str, optional
+        :return: The timeseries instantiated from the dataframe-like object
+        :rtype: Timeseries
+        """
+        if not isinstance(dataframe, pl.DataFrame | pd.DataFrame):
+            raise TypeError("Input has to be a dataframe-like object.")
+
+        return cls(dataframe, timezone)
+
+    def describe(self) -> dict[str, Any]:
+        """
+        Get metadata about the timeseries.
+
+        :return: A dictionary containing timeseries metadata
+        :rtype: dict[str, Any]
+        """
+        return get_metadata_from_frame(self.timeseries)
+
+    def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None) -> None:
+        if timeseries is None or isinstance(timeseries, Timeseries):
+            return
+        df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+
+        time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        value_column = df.select(pl.selectors.numeric()).columns
+
+        if len(value_column) != 1:
+            raise ValueError("Timeseries must have exactly one numeric column")
+        if len(time_column) != 1:
+            raise ValueError("Timeseries must have exactly one datetime column")
+        if len(value_column) + len(time_column) != len(df.columns):
+            raise ValueError("Timeseries must have two columns, one for datetime and one numerical values")
+
+    def _set_timeseries(
+        self,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None,
+        timezone: str,
+    ) -> None:
+        if timeseries is None:
+            self.timeseries = pl.DataFrame(
+                schema={
+                    "time": pl.Datetime("us", time_zone=self.timezone),
+                    "value": pl.Float64(),
+                }
             )
 
-        # Replace nan by 0
-        res_values[np.isnan(res_values)] = 0
+        elif isinstance(timeseries, Timeseries):
+            self.timeseries = timeseries.dataframe  # type: ignore[assignment]
+        else:
+            try:
+                df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
+            except Exception as e:
+                raise ValueError("Timeseries cannot be formatted as a DataFrame") from e
 
-        if scalar_input:
-            return res_values[0]
-        return res_values
+            time_column = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
+            value_column = df.select(pl.selectors.numeric()).columns
 
-    def set_value(self, index: datetime, value: float):
-        self.series.at[index] = value
+            self.timeseries = df.rename({time_column[0]: "time", value_column[0]: "value"}).with_columns(
+                pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
+            )
 
-    def __getitem__(self, index):
-        """Returns a value or list of values for the given index(es) using the TimeSeries interpolation method
+            if len(self.timeseries) == 2 and infer_frequency(self.timeseries) > pendulum.duration(days=1):
+                self.upsample("1h", interpolation_method="linear")
 
-        :param index: Datetime or list of datetime. Datetime(s) to get value(s) from the timeseries
-        value is the object interpolation attribute
-        :return: double or list of double
+            self.sort()
+
+            self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
+
+    def __getitem__(self, column_name: str) -> list[float | datetime]:
+        if column_name not in ("time", "value"):
+            raise KeyError("Column name has to be either time or value")
+        else:
+            return self.dataframe[column_name].to_list()
+
+    def __repr__(self):
+        """Provide a string representation of the Timeseries object."""
+        return f"Timeseries : {self.timeseries}"
+
+    def __eq__(self, other: object) -> bool:
         """
-        return self.get_value(index)
+        Implement the equality between two Timeseries:
 
-    def slice(self, start_date, end_date):
-        """Returns a TimeSeries extracted between the two date given as parameter
-
-        :param start_date: datetime. Beginning of slice interval
-        :param end_date: datetime. End of slice
-        :return: TimeSeries
+        :param other: The Polars DataFrame to compare with
+        :type other: pl.DataFrame
+        :raises NotImplementedError: If the object to compare is not a Timeseries
+        :return: True if the DataFrames are equal, False otherwise
+        :rtype: bool
         """
-        timeserie = deepcopy(self)
-        timeserie.series = timeserie.series[start_date:end_date]
+        if isinstance(other, Timeseries):
+            other = other.dataframe
+            return self.timeseries.equals(other)
+        raise TypeError("Comparison with non-Timeseries objects is not supported")
 
-        return timeserie
+    def __len__(self) -> int:
+        """Return the number of rows in the Timeseries.
 
-    def __len__(self):
-        return len(self.series)
-
-    def merge(self, timeserie, name=None):
-        """Merge two timeseries together to create a new one. If they have indexes in
-        common, values of the second timeserie will be kept. The interpolation type of the
-        second timeserie will be also kept.
-
-        :param timeserie: TimeSeries. Timeserie to merge with the current one
-        :param name: str. Name of the new timeseries
-        :return: TimeSeries
+        :return: Number of rows in the Timeseries
+        :rtype: bool
         """
-        res_timeserie = deepcopy(timeserie)
-        res_timeserie.series = res_timeserie.series.combine_first(self.series)
-        if name is not None:
-            res_timeserie.name = name
+        return self.timeseries.height
 
-        return res_timeserie
+    def __mul__(self, other: float | Timeseries) -> Timeseries:
+        """Multiply all numeric columns by a scalar or another Timeseries.
 
-    def extract(self, name, times, interpolation=None):
-        """Returns a TimeSeries extracted using the given list of dates and the interpolation method of the TimeSeries
-
-        :param name: str. Name of the extracted TimeSeries
-        :param times: list of datetime. Datetime(s) to get value(s) from the input TimesSeries
-        :param interpolation: TimeSeriesInterpolation. Method to interpolate missing data. Default value is TimeSeries
-        object interpolation attribute
-        :return: TimeSeries
+        :raises TypeError: If the object is not a timeseries or a float
+        :return: The Timeseries where all numeric columns are multiplied by a scalar or another Timeseries
+        :rtype: Timeseries
         """
-        if interpolation is None:
-            interpolation = self.interpolation
+        if isinstance(other, int | float):
+            df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
+        elif isinstance(other, Timeseries):
+            if self.frequency < other.frequency:
+                other = other.upsample(self.frequency, inplace=False)
+                my_ts = Timeseries(self)
+            elif self.frequency > other.frequency:
+                my_ts = self.upsample(other.frequency, inplace=False)
+            else:
+                my_ts = Timeseries(self)
 
-        values = self.get_value(times, interpolation)
-        return TimeSeries(name, interpolation, self.unit, times, values)
+            df = (
+                my_ts._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(1)
+                .with_columns(pl.col("value").mul(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+        else:
+            raise TypeError("Timeseries can't be multiplied")
 
-    def __add__(self, other):
-        """Returns the sum between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
-        values are added and their values are interpolated to have a 1-1 match on indexes, if a number, each value of
-        the TimeSeries is increase by this value.
+        return Timeseries(df, self.timezone)
 
-        :param other: TimeSeries or number. The other TimeSeries or value to add.
-        :return: TimeSeries
+    def __add__(self, other: float | Timeseries) -> Timeseries:
+        """Add all numeric columns by a scalar or timeseries.
+
+        :raises TypeError: If the object is not a timeseries or a float
+        :return: The Timeseries where a scalar or another Timeseries are added to all numeric columns
+        :rtype: Timeseries
         """
-        timeserie = deepcopy(self)
-        if isinstance(other, (int, float)):
-            timeserie.series += other
-            return timeserie
-        indexes = self.series.index.union(other.series.index)
-        # Use interpolation to get value for each indexes
-        values = timeserie[indexes] + other[indexes]
-        name = f"{self.name} + {other.name}"
-        unit = self.unit
-        interpolation = self.interpolation
-        return TimeSeries(name, interpolation, unit, indexes, values)
+        if isinstance(other, int | float):
+            df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
+        elif isinstance(other, Timeseries):
+            if self.frequency < other.frequency:
+                other = other.upsample(self.frequency, inplace=False)
+                my_ts = Timeseries(self)
+            elif self.frequency > other.frequency:
+                my_ts = self.upsample(other.frequency, inplace=False)
+            else:
+                my_ts = Timeseries(self)
 
-    def __mul__(self, other):
-        """Returns the multiplication between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
-        values are multiplied and their values are interpolated to have a 1-1 match on indexes, if a number, each value
-        of the TimeSeries is multiplied by this value.
+            df = (
+                my_ts._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(0)
+                .with_columns(pl.col("value").add(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+        else:
+            raise TypeError("Timeseries can't perform addition")
 
-        :param other: TimeSeries or number. The other TimeSeries or value to multiply.
-        :return: TimeSeries
+        return Timeseries(df, self.timezone)
+
+    def __sub__(self, other: float | Timeseries) -> Timeseries:
+        """Subtract all numeric columns by a scalar or timeseries.
+
+        :raises TypeError: If the object is not a timeseries or a float
+        :return: The Timeseries where a scalar or another Timeseries are subtract to all numeric columns
+        :rtype: Timeseries
         """
-        timeserie = deepcopy(self)
-        if isinstance(other, (int, float)):
-            timeserie.series *= other
-            return timeserie
-        indexes = self.series.index.union(other.series.index)
-        # Use interpolation to get value for each indexes
-        values = timeserie[indexes] * other[indexes]
-        name = f"{self.name} * {other.name}"
-        unit = self.unit
-        interpolation = self.interpolation
-        return TimeSeries(name, interpolation, unit, indexes, values)
+        if isinstance(other, int | float):
+            df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
+        elif isinstance(other, Timeseries):
+            if self.frequency < other.frequency:
+                other = other.upsample(self.frequency, inplace=False)
+                my_ts = Timeseries(self)
+            elif self.frequency > other.frequency:
+                my_ts = self.upsample(other.frequency, inplace=False)
+            else:
+                my_ts = Timeseries(self)
 
-    def __sub__(self, other):
-        """Returns the subtraction between a TimeSeries and another TimeSeries or a number, if a TimeSeries, their
-        values are substracted and their values are interpolated to have a 1-1 match on indexes, if a number, each value
-        of the TimeSeries is reduced by this value.
+            df = (
+                my_ts._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(0)
+                .with_columns(pl.col("value").sub(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+        else:
+            raise TypeError("Timeseries can't perform subtraction")
 
-        :param other: TimeSeries or number. The other TimeSeries or value to substract.
-        :return: TimeSeries
+        return Timeseries(df, self.timezone)
+
+    def __truediv__(self, other: float | Timeseries) -> Timeseries:
+        """Divide all numeric columns by a scalar or timeseries.
+
+        :raises TypeError: If the object is not a timeseries or a float
+        :return: The Timeseries where all numeric columns are divided by a scalar or another Timeseries
+        :rtype: Timeseries
         """
-        timeserie = deepcopy(self)
-        if isinstance(other, (int, float)):
-            timeserie.series += other
-            return timeserie
-        indexes = self.series.index.union(other.series.index)
-        # Use interpolation to get value for each indexes
-        values = timeserie[indexes] - other[indexes]
-        name = f"{self.name} - {other.name}"
-        unit = self.unit
-        interpolation = self.interpolation
-        return TimeSeries(name, interpolation, unit, indexes, values)
+        if isinstance(other, int | float):
+            if other == 0:
+                raise ZeroDivisionError("Division by zero is not allowed")
+            df = self.timeseries.with_columns(pl.selectors.numeric().truediv(other))
+        elif isinstance(other, Timeseries):
+            if self.frequency < other.frequency:
+                other = other.upsample(self.frequency, inplace=False)
+                my_ts = Timeseries(self)
+            elif self.frequency > other.frequency:
+                my_ts = self.upsample(other.frequency, inplace=False)
+            else:
+                my_ts = Timeseries(self)
 
-    # Define right operations to make work operations float + TimeSeries, float - TimeSeries, float * TimeSeries.
-    __rmul__ = __mul__
-    __radd__ = __add__
-    __rsub__ = __sub__
+            df = (
+                my_ts._join(
+                    other=other,
+                    how="full",
+                )
+                .fill_null(1)
+                .with_columns(pl.col("value").truediv(pl.col("value_right")).alias("value"))
+                .select("time", "value")
+            )
+        else:
+            raise TypeError("Timeseries can't be divided")
 
-    @staticmethod
-    def safe_extract(time_series, name, times):
-        """This function makes sure the time_series parameter is not None before extracting it. If so, a None value is
-        returned, else the TimeSeries is extracted normally.
+        return Timeseries(df, self.timezone)
 
-        :param time_series: TimeSeries. The TimeSeries to safely extract
-        :param name: str. The name to give to the extracted TimeSeries
-        :param times: list of datetime. Datetime(s) to get value(s) from the input TimesSeries
-        :return: TimeSeries
+    @property
+    def dataframe(self) -> pl.DataFrame:
+        """Returns the Timeseries DataFrame"""
+        return self.timeseries
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Returns the Timeseries shape"""
+        return self._get_shape()
+
+    @property
+    def index(self) -> list[datetime]:
+        """Returns the Timeseries indexes"""
+        return self.timeseries.select("time").to_series().to_list()
+
+    @property
+    def timestep(self) -> pendulum.Duration | None:
+        """Return the frequency string of the timeseries index."""
+        return self.frequency
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Return the metadata of the timeseries."""
+        return self.describe()
+
+    def to_frame(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame | pd.DataFrame:
         """
-        if time_series is not None and len(time_series) != 0:
-            return time_series.extract(name, times)
+        Return the internal time series as a data frame.
+
+        :param engine: The engine to use for the output, defaults to "pandas"
+        :type engine: str, optional
+        :return: The internal Timeseries data
+        :rtype: pl.DataFrame or pd.DataFrame
+        """
+        if engine == "pandas":
+            return self.timeseries.to_pandas()
+        if engine == "polars":
+            return self.timeseries
+        raise ValueError("Unsupported engine. Use 'polars' or 'pandas'.")
+
+    def to_lazy(self) -> pl.LazyFrame:
+        """
+        Convert the internal Polars DataFrame to a LazyFrame.
+
+        :return: A Polars LazyFrame representation of the Timeseries
+        :rtype: pl.LazyFrame
+        """
+        return self.timeseries.lazy()
+
+    def _get_shape(self) -> tuple[int, int]:
+        """Return (rows, columns) of the underlying Polars DataFrame."""
+        return self.timeseries.shape
+
+    def set_timezone(self, timezone: str) -> None:
+        """
+        Convert the datetime column to a new timezone.
+
+        :param timezone: Timezone string
+        :type timezone: str
+        """
+        check_timezone(timezone)
+
+        self.timezone = timezone
+        self.timeseries = self.timeseries.with_columns(
+            pl.col("time").dt.convert_time_zone(timezone),
+        )
+
+    def sort(
+        self,
+        inplace: bool = True,
+        descending: bool = False,
+    ) -> Timeseries:
+        """
+        Sort the Timeseries by the given variable(s).
+
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :param descending: Sort in descending order, defaults to False
+        :type descending: bool, optional
+        :return: Sorted Timeseries
+        :rtype: Timeseries
+        """
+        df = self.timeseries.sort("time", descending=descending)
+        return self._return_inplace(df, inplace)
+
+    def set_value(
+        self,
+        time: datetime | str,
+        value: float | None,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Set or update a value at a specific datetime. If the datetime exists, it is overwritten.
+
+        :param time: Datetime to set
+        :type time: datetime or str
+        :param value: Value to set
+        :type value: float or int
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Timeseries with the added value
+        :rtype: Timeseries
+        """
+        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+
+        if len(self.timeseries) == 0:
+            df = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
+                pl.col("time").dt.replace_time_zone(self.timezone),
+                pl.col("value").cast(pl.Float64()),
+            )
+            return self._return_inplace(df, inplace)
+
+        df = self.timeseries.filter(pl.col("time") != dt)
+        new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
+        )
+        df = pl.concat([df, new_row]).sort("time")
+
+        return self._return_inplace(df, inplace)
+
+    def upsample(
+        self,
+        frequency: str | pendulum.Duration,
+        interpolation_method: Literal["linear", "constant"] = "constant",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Upsample the Timeseries to a higher frequency.
+
+        Fills in missing timestamps by interpolating or forward-filling values.
+
+        :param frequency: Frequency string (e.g., "15m", "1h") defining the new time resolution
+        :type frequency: str | pendulum.Duration
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :param interpolation_method: Method to fill missing values: "linear" for interpolation, "constant" for forward fill
+        :type interpolation_method: str, optional
+        :raises NotImplementedError: If the provided interpolation_method is not supported
+        :return: Upsampled Timeseries
+        :rtype: Timeseries
+        """
+
+        if interpolation_method == "linear":
+            df = (
+                self.timeseries.upsample(time_column="time", every=frequency)
+                .with_columns(pl.col("value").interpolate_by("time"))
+                .fill_null(strategy="forward")
+                .sort("time")
+            )
+        elif interpolation_method == "constant":
+            df = (
+                self.timeseries.upsample(time_column="time", every=frequency)
+                .fill_null(
+                    strategy="forward",
+                )
+                .sort("time")
+            )
+        else:
+            raise NotImplementedError("Unsupported interpolation method")
+
+        return self._return_inplace(df, inplace)
+
+    def groupby(
+        self,
+        frequency: str | pendulum.Duration,
+        agg: Literal["mean", "sum", "min", "max"] = "mean",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Group the Timeseries dynamically by time intervals.
+
+        :param frequency: Grouping interval (e.g., "1h", "1d")
+        :type frequency: str or pendulum.Duration
+        :param agg: Aggregation method, defaults to "mean"
+        :type agg: Literal["mean", "sum", "min", "max"], optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :raises NotImplementedError: If the aggregation function is unsupported
+        :return: Grouped Timeseries
+        :rtype: Timeseries
+        """
+        grouped_df = self.timeseries.group_by_dynamic("time", every=frequency)
+        if agg == "mean":
+            df = grouped_df.agg(
+                pl.selectors.numeric().mean(),
+            )
+        elif agg == "sum":
+            df = grouped_df.agg(
+                pl.selectors.numeric().sum(),
+            )
+        elif agg == "min":
+            df = grouped_df.agg(
+                pl.selectors.numeric().min(),
+            )
+        elif agg == "max":
+            df = grouped_df.agg(
+                pl.selectors.numeric().max(),
+            )
+        else:
+            raise NotImplementedError("Unsupported aggregation function")
+
+        return self._return_inplace(df, inplace)
+
+    def set_frequency(self, frequency: str | pendulum.Duration, inplace: bool = True) -> Timeseries:
+        """
+        Change the frequency (timestep) of the time series.
+
+        :param frequency: The desired frequency. Can be a string (e.g., '1d', '15m') or a `pendulum.Duration`.
+        :type frequency: str or pendulum.Duration
+        :param inplace: If True, modifies the object in place. If False, returns a new modified object.
+        :type inplace: bool
+        :return: The resampled time series, either modified in place or as a new object.
+        :rtype: Timeseries
+        """
+        new_timestep = get_duration(frequency)
+
+        if new_timestep > self.frequency:
+            df = self.groupby(new_timestep, inplace=False)
+        elif new_timestep < self.frequency:
+            df = self.upsample(new_timestep, inplace=False)
+        else:
+            df = self
+
+        return self._return_inplace(df.dataframe, inplace)
+
+    def _join(
+        self,
+        other: Timeseries | pl.DataFrame,
+        by: str = "time",
+        how: Literal["inner", "left", "right", "full", "semi", "anti", "cross", "outer"] = "inner",
+        suffixes: str = "_right",
+    ) -> pl.DataFrame:
+        """
+        Merge this Timeseries with another.
+
+        :param other: Another Timeseries object or Polars DataFrame to merge
+        :type other: Timeseries or pl.DataFrame
+        :param by: Column name to join on, defaults to "time"
+        :type by: str, optional
+        :param how: Type of join operation, defaults to "inner"
+        :type how: Literal["inner", "left", "right", "full", "semi", "anti", "cross", "outer"], optional
+        :param suffixes: Suffix to use for overlapping column names, defaults to None
+        :type suffixes: str or None, optional
+        :return: Merged Timeseries
+        :rtype: Timeseries
+        """
+        if isinstance(other, Timeseries):
+            other = other.dataframe
+        return self.timeseries.join(other, on=by, how=how, suffix=suffixes, coalesce=True)
+
+    def to_file(
+        self,
+        path: str | Path,
+        file_format: Literal["csv", "parquet", "pickle"] = "csv",
+        separator: str = ";",
+    ) -> None:
+        """
+        Export the Timeseries to a file.
+
+        :param path: Destination file path
+        :type path: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: Literal["csv", "parquet", "pickle"], optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
+        :raises ValueError: If file extension doesn't match format
+        :raises NotImplementedError: If the file format is not supported
+        """
+        file_format_lower = file_format.lower()
+
+        if isinstance(path, Path):
+            path = str(path)
+        if not path.lower().endswith(file_format_lower):
+            raise ValueError("Format and file extension don't match.")
+
+        if file_format_lower == "csv":
+            self.timeseries.write_csv(path, separator=separator)
+        elif file_format_lower == "parquet":
+            self.timeseries.write_parquet(path)
+        elif file_format_lower == "pickle":
+            with open(path, "wb") as f:
+                pickle.dump(self, f)
+        else:
+            raise NotImplementedError("Format not supported")
+
+    def filter(
+        self,
+        item: list[datetime | pendulum.DateTime | str] | datetime | pendulum.DateTime | str,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Filter the Timeseries based on a list of datetime.
+
+        :param item: Datetime to filter the Timeseries
+        :type item: list[datetime] or datetime or pendulum.DateTime or str
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :raises NotImplementedError: If the times to filter type is unsupported
+        :return: Filtered Timeseries
+        :rtype: Timeseries
+        """
+        if isinstance(item, list):
+            item = [pendulum.instance(i).in_tz(self.timezone) if isinstance(i, datetime) else i for i in item]
+            df = self.timeseries.filter(pl.col("time").is_in(item))
+        elif isinstance(item, str):
+            date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
+        elif isinstance(item, datetime):
+            date = pendulum.instance(item).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
+        elif isinstance(item, pendulum.DateTime):
+            df = self.timeseries.filter(pl.col("time") == item)
+        else:
+            raise NotImplementedError("Invalid filter formatting")
+
+        return self._return_inplace(df, inplace)
+
+    def max(self) -> float | None:
+        """Return the max value in the 'value' column.
+
+        :return: The Timeseries max value
+        :rtype: float or None
+        """
+        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+            return cast("float", self.timeseries["value"].max())
         return None
 
-    # Helper for extracting TimeSeries with default values in case of failure:
-    @staticmethod
-    def safe_extract_with_default(time_series, name, times, default_value):
-        """This function makes sure the time_series parameter is not None before extracting it. If so, a constant
-        TimeSeries is generated and returned instead, based on the set of simulation times as index and filled with the
-        provided default_value.
+    def min(self) -> float | None:
+        """Return the min value in the 'value' column.
 
-        :param time_series: TimeSeries. The TimeSeries to safely extract
-        :param name: str. The name to give to the extracted TimeSeries
-        :param times: list of datetime. Datetime(s) to get value(s) from the input TimesSeries
-        :param default_value: float. Value to fill the returned TimeSeries with if input time_series parameter is None
-        :return: TimeSeries
+        :return: The Timeseries min value
+        :rtype: float or None
         """
-        if time_series is not None and len(time_series) != 0:
-            return time_series.extract(name, times)
-        logging.warning(f"Taking default value {default_value} for {name}")
-        return TimeSeries(name, CONSTANT, "MW", times, np.full(len(times), default_value))
+        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+            return cast("float", self.timeseries["value"].min())
+        return None
+
+    def abs(self, inplace=True) -> Timeseries:
+        """Compute the absolute value of each timestamp
+
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: The timeseries with absolute values
+        :rtype: Timeseries
+        """
+        df = self.timeseries.with_columns(pl.col("value").abs())
+
+        return self._return_inplace(df, inplace)
+
+    def interpolate(
+        self, interpolation_method: Literal["linear", "constant"] = "constant", inplace: bool = True
+    ) -> Timeseries:
+        """Interpolate the Timeseries to fill in missing values.
+
+        :param interpolation_method: Interpolation method, defaults to "constant"
+        :type interpolation_method: Literal["linear", "constant"], optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :raises NotImplementedError: If the method is not supported
+        :return: Interpolated Timeseries
+        :rtype: Timeseries
+        """
+        if interpolation_method == "linear":
+            df = self.timeseries.with_columns(pl.col("value").interpolate_by("time"))
+        elif interpolation_method == "constant":
+            df = self.timeseries.fill_null(strategy="forward")
+        else:
+            raise NotImplementedError("Unsupported interpolation method, use 'linear' or 'constant'")
+
+        return self._return_inplace(df, inplace)
+
+    def get_value(
+        self,
+        datetime: str | datetime | pendulum.DateTime,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> float | None:
+        """Return values at the given datetime. If exact match is not found, interpolate.
+
+        :param datetime: Datetime to get value for
+        :type datetime: str or datetime
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :return: Dictionary with time and value
+        :rtype: dict
+        """
+        if len(self.timeseries) == 0:
+            raise ValueError("Can't get value on empty timeseries.")
+        dt = build_datetime(datetime, date_format).in_tz(self.timezone)
+
+        df: pl.DataFrame = self.filter(datetime, date_format, inplace=False).dataframe
+        if len(df) > 0:
+            return df.to_dicts()[0]["value"]
+        else:
+            raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
+
+    def plot(
+        self,
+        title: str = "Time Series Plot",
+        height: int = 500,
+        width: int = 800,
+        show_grid: bool = True,
+        line_color: str = "#1f77b4",
+        line_shape: Literal["hv", "linear", "spline"] = "hv",
+        template: str = "plotly_white",
+    ) -> plotly.graph_objects.Figure:
+        """
+        Generate a Plotly figure for the Timeseries data.
+
+        :param title: Plot title, defaults to "Time Series Plot"
+        :type title: str, optional
+        :param height: Plot height in pixels, defaults to 500
+        :type height: int, optional
+        :param width: Plot width in pixels, defaults to 800
+        :type width: int, optional
+        :param show_grid: Whether to show grid lines, defaults to True
+        :type show_grid: bool, optional
+        :param line_color: Color of the line plot, defaults to "#1f77b4" (Plotly default blue)
+        :type line_color: str, optional
+        :param line_shape: Shape of the plot, defaults to "hv"
+        :type line_shape: Literal["hv", "linear", "spline"], optional
+        :param template: Plotly template to use, defaults to "plotly_white"
+        :type template: str, optional
+        :return: Plotly figure object
+        :rtype: plotly.graph_objects.Figure
+        """
+        # Create the figure using Plotly Express
+        fig = px.line(
+            self.timeseries,
+            x="time",
+            y=self.timeseries.select(pl.selectors.numeric()).columns,
+            title=title,
+            height=height,
+            width=width,
+            template=template,
+            line_shape=line_shape,
+            color_discrete_sequence=[line_color] if line_color else None,
+        )
+
+        # Update layout for grid settings
+        fig.update_layout(
+            hovermode="x unified",
+            xaxis={
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+            yaxis={
+                "showgrid": show_grid,
+                "gridcolor": "lightgray" if show_grid else None,
+            },
+        )
+
+        return fig
+
+    def _return_inplace(self, df: pl.DataFrame, inplace: bool) -> Timeseries:
+        """
+        Return the Timeseries object itself or modify existing.
+
+        :return: The Timeseries object
+        :rtype: Timeseries
+        """
+        if inplace:
+            self.timeseries = df.sort("time")
+            self.frequency = infer_frequency(self.timeseries)
+            return self
+        return Timeseries(df, self.timezone)

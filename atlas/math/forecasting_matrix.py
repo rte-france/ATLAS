@@ -1,152 +1,347 @@
-"""Copyright (c) 2016-2022, RTE (www.rte-france.com)
-See AUTHORS.txt
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
+
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
 Module that implements ForecastingMatrix
 """
 
+from __future__ import annotations
+
 from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
-from .timeseries import TimeSeries
-from .timeseries_interpolation import CONSTANT
+import pendulum
+import polars as pl
+
+from atlas.io.utils import read_data_file
+from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.matrix import Matrix
+from atlas.math.timeseries import Timeseries
+from atlas.timing import (
+    build_datetime,
+    generate_datetimes,
+    get_duration,
+    get_lowest_frequency,
+    infer_frequency,
+    pendulum_to_datetime,
+)
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
-class ForecastingMatrix:
-    """A class that stores TimeSeries by datetimes and allows to access
-    and delete them by their datetimes.
+class ForecastingMatrix(Matrix):
+    """
+    A matrix structure for managing collections of forecast time series, indexed by forecast generation time.
+
+    The ForecastingMatrix is designed to store and organize multiple time series forecasts,
+    where each column (except for the "time" column) represents a forecast generated at a specific datetime.
     """
 
-    def __init__(self, name, forecasting_dates=None, timeseries=None):
-        """Create a ForecastingMatrix from a list of datetimes and timeseries.
-
-        :param name: str. Name of the matrix
-        :param forecasting_dates: list of str. Name of each scenario of the matrix
-        :param timeseries: list of Timeseries. Timeserie of each scenario of the matrix
+    def __init__(
+        self,
+        matrix: pl.DataFrame | pd.DataFrame | Matrix | None = None,
+        timezone: str = "UTC",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> None:
         """
-        if forecasting_dates is None:
-            forecasting_dates = []
-        if timeseries is None:
-            timeseries = []
+        :param matrix: A DataFrame where each column (except "time") represents a forecast.
+        :type matrix: pl.DataFrame | pd.DataFrame
+        :param timezone: Timezone of the timeseries data.
+        :type timezone: str
+        :param date_format: Format used for parsing and displaying datetime indexes.
+        :type date_format: str
+        """
+        super().__init__(matrix, timezone=timezone)
 
-        if len(forecasting_dates) != len(timeseries):
-            raise ValueError(
-                "forecasting_dates and timeseries parameters must contain the same number of elements",
+        self._date_format: str = date_format
+        self._sort_indexes()
+
+    def __repr__(self):
+        """Provide a string representation of the Matrix object."""
+        return f"Forecasting Matrix : {self.matrix}"
+
+    @property
+    def date_format(self) -> str:
+        """Returns the matrix date format."""
+        return self._date_format
+
+    @classmethod
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> ForecastingMatrix:
+        """
+        Load a ForecastingMatrix from a file.
+
+        :param file_path: Path to the file (CSV or Parquet).
+        :type file_path: str | Path
+        :return: A ForecastingMatrix object.
+        :rtype: ForecastingMatrix
+        """
+
+        return cls(read_data_file(file_path, filters, separator), timezone, date_format)
+
+    def _sort_indexes(self) -> None:
+        """
+        Sort the forecast matrix columns based on their datetime indexes.
+
+        Columns are expected to be named using a specific datetime format.
+        This method parses, sorts, and reorders the matrix accordingly.
+
+
+        """
+        if self.matrix.height == 0:
+            return
+        indexes_sorted = (
+            pl.DataFrame({"indexes": self.indexes})
+            .with_columns(
+                pl.col("indexes").str.strptime(
+                    pl.Datetime(time_unit="us"),
+                    pendulum_to_datetime(self.date_format),
+                    strict=False,
+                )
             )
+            .sort("indexes")
+            .with_columns(pl.col("indexes").dt.strftime(pendulum_to_datetime(self.date_format)))
+            .to_series()
+            .to_list()
+        )
 
-        self.name = name
-        self.forecasting_dates = sorted(forecasting_dates)
-        self.forecasts = dict(zip(forecasting_dates, timeseries, strict=False))
+        self.matrix = self.matrix.select("time", *indexes_sorted).sort("time")
+        self.indexes = indexes_sorted
 
-    def __len__(self):
-        return len(self.forecasts)
-
-    def __eq__(self, other_matrix):
-        """Test whether two ForecastingMatrix objects are equal.
-        Objects are considered equal if they store the same name and forecasting dates/timeseries.
-
-        :param other_matrix: ForecastingMatrix. The other forecasting matrix to compare to.
-        :return: True if equal else False.
+    def add(
+        self,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        index: str | datetime | pendulum.DateTime,
+    ) -> None:
         """
-        if self.name != other_matrix.name:
-            return False
-        if self.forecasting_dates != other_matrix.forecasting_dates:
-            return False
-        if self.forecasts.keys() != other_matrix.forecasts.keys():
-            return False
-        for date, timeserie in self.forecasts.items():
-            if timeserie != other_matrix.forecasts[date]:
-                return False
-        return True
+        Add a Timeseries to the matrix and keep indexes sorted.
 
-    def add_timeseries(self, index, timeserie):
-        """Add a timeserie at the given index in the matrix.
-
-        :param index: datetime. The index to set the timeseries in the matrix
-        :param timeserie: TimeSeries. The timeserie to add in the matrix
-        :return: TimeSeries
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
         """
-        if not isinstance(index, datetime):
-            raise TypeError(f"Expected index type datetime, got {type(index)}")
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
 
-        if not isinstance(timeserie, TimeSeries):
-            raise TypeError(f"Expected timeserie type TimeSeries, got {type(index)}")
+        super().add(timeseries, dt)
+        self._sort_indexes()
 
-        self.forecasting_dates.append(index)
-        self.forecasting_dates.sort()
-        self.forecasts[index] = timeserie
-
-    def delete_timeseries(self, index):
-        """Delete timeserie at the given index in the matrix.
-
-        :param index: datetime. The index of the timeserie to delete in the matrix
-        :return:
+    def __getitem__(
+        self,
+        index: str | datetime | pendulum.DateTime,
+    ) -> Timeseries:
         """
-        if not isinstance(index, datetime):
-            raise TypeError(f"Expected index type datetime, got {type(index)}")
+        Retrieve a timeseries by index.
 
-        if index not in self.forecasting_dates:
-            raise ValueError(f"index argument {index} is not present in forecasting_dates")
-
-        if index in self.forecasts:
-            # Delete value in scenarios dict
-            del self.forecasts[index]
-            # Find its index in indexes list and delete it
-            ind = self.forecasting_dates.index(index)
-            del self.forecasting_dates[ind]
-
-    def extract(self, index, start_date, end_date):
-        """Extract a part of a timeseries contained in the matrix at the given index
-
-        :param index: datetime. The index of the timeseries to get in the matrix
-        :param start_date: datetime. Begining of the extraction interval
-        :param end_date: datetime. End of the extraction interval
-        :return: TimeSeries
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime
+        :param date_format: Date format if the index is a string.
+        :type date_format: str
+        :raises KeyError: If the specified index is not found.
+        :return: The corresponding Timeseries object.
+        :rtype: Timeseries
         """
-        if not isinstance(index, datetime):
-            raise TypeError(f"Expected index type datetime, got {type(datetime)}")
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
 
-        if index not in self.forecasting_dates:
-            raise ValueError(f"index argument {index} is not present in forecasting_dates")
+        return super().__getitem__(dt)
 
-        timeserie = self.forecasts[index]
-        return timeserie.slice(start_date, end_date)
-
-    def get_forecast(self, ref_date, from_date, to_date):
-        """Construct a forecasting timeseries with provided parameters. The reconstruction interval is built with the outer
-        bounds of all the timeseries.
-
-        :param ref_date: datetime. The reference date to use
-        :param from_date: from_date. Begining of the reconstruction interval
-        :param to_date: to_date. End of the reconstruction interval
-        :return: TimeSeries
+    def select(self, index: str | datetime) -> Timeseries:
         """
-        res_timeserie = TimeSeries("unknown", CONSTANT, "", [], [])
-        # FIXME : Quick fix
-        if self.forecasting_dates:
-            index = self.forecasting_dates.index(ref_date)
-            indexes_to_check = self.forecasting_dates[: index + 1]
-            for i in range(1, len(indexes_to_check) + 1):
-                date = indexes_to_check[-i]
-                res_timeserie = res_timeserie.merge(self.forecasts[date].slice(from_date, to_date))
-                if from_date in res_timeserie.series.index and to_date in res_timeserie.series.index:
-                    return res_timeserie
-        return res_timeserie
+        Get a timeseries by index.
 
-    def get_forecast_old(self, ref_date, from_date, to_date):
-        """Construct a forecasting timeseries with provided parameters. The reconstruction interval is built with the outer
-        bounds of all the timeseries.
-
-        :param ref_date: datetime. The reference date to use
-        :param from_date: from_date. Begining of the reconstruction interval
-        :param to_date: to_date. End of the reconstruction interval
-        :return: TimeSeries
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If the index is not found.
+        :return: The Timeseries object.
+        :rtype: Timeseries
         """
-        res_timeserie = TimeSeries("unknown", CONSTANT, "", [], [])
-        # self.forecasting_dates is sorted, so we iterate dates by order
-        for date in self.forecasting_dates:
-            if ref_date > date:
-                continue
+        return self.__getitem__(index)
 
-            res_timeserie = res_timeserie.merge(self.forecasts[date].slice(from_date, to_date))
-        return res_timeserie
+    def delete(self, index: str | datetime | pendulum.DateTime) -> None:
+        """
+        Delete a timeseries by index.
+
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime
+        :raises KeyError: If the index does not exist in the matrix.
+        """
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
+
+        super().delete(dt)
+
+        self._sort_indexes()
+
+    def get_forecast(
+        self,
+        execution_date: datetime | str | pendulum.DateTime,
+        start_date: datetime | str | pendulum.DateTime,
+        end_date: datetime | str | pendulum.DateTime,
+        timestep: str | pendulum.Duration | None = None,
+    ) -> Timeseries:
+        """
+        Returns the most up-to-date forecast available per time row in the given window.
+        Newer forecasts are prioritized. Gaps are filled from older forecasts.
+        """
+
+        execution_date = build_datetime(execution_date, self.date_format)
+        start_date = build_datetime(start_date, self.date_format)
+        end_date = build_datetime(end_date, self.date_format)
+
+        if start_date > end_date:
+            raise ValueError("Start date must be before end date")
+
+        forecast_cols = (
+            pl.DataFrame({"indexes": self.indexes})
+            .with_columns(
+                pl.col("indexes").str.strptime(
+                    pl.Datetime(time_unit="us", time_zone=self.timezone),
+                    pendulum_to_datetime(self.date_format),
+                    strict=False,
+                )
+            )
+            .filter(pl.col("indexes") <= execution_date)
+            .with_columns(pl.col("indexes").dt.strftime(pendulum_to_datetime(self.date_format)))
+            .sort("indexes", descending=True)
+            .to_series()
+            .to_list()
+        )
+
+        if not forecast_cols:
+            raise ValueError("No forecasting dates available before execution date")
+
+        df = self.matrix.select("time", *forecast_cols)
+        forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
+
+        if timestep:
+            frequency_target = get_duration(timestep)
+        else:
+            frequency_target = get_lowest_frequency(df)
+
+        if end_date > df["time"].max():  # type: ignore[operator]
+            dt = cast("pendulum.DateTime", df["time"].max())
+            column_wth_last_timestamp = df.filter(pl.col("time").eq(dt)).select(pl.selectors.numeric()).columns[0]
+            frequency_columns_last_timestamp = infer_frequency(
+                df.select("time", column_wth_last_timestamp).drop_nulls()
+            )
+            if frequency_target < frequency_columns_last_timestamp:
+                datetimes_to_add = generate_datetimes(
+                    start=dt,
+                    end=dt + frequency_columns_last_timestamp - frequency_target,
+                    freq=frequency_target,
+                    timezone=self.timezone,
+                )
+                if len(datetimes_to_add) > 1:
+                    new_df = pl.DataFrame(
+                        {
+                            "time": datetimes_to_add[1:],
+                            column_wth_last_timestamp: [None] * len(datetimes_to_add[1:]),
+                        },
+                        schema={
+                            "time": pl.Datetime("us", self.timezone),
+                            column_wth_last_timestamp: pl.Float64(),
+                        },
+                    )
+
+                    df = pl.concat([df, new_df], how="diagonal")
+
+        limits = [infer_frequency(df.select("time", col).drop_nulls()) / frequency_target for col in forecast_cols]
+        interpolate_expr = [
+            pl.col(col).forward_fill(limit=int(limit))
+            for (col, limit) in zip(forecast_cols, limits, strict=False)
+            if limit > 1
+        ]
+        df = (
+            df.upsample("time", every=frequency_target)
+            .with_columns(interpolate_expr)
+            .filter(pl.col("time").is_between(start_date, end_date))
+            .select(
+                [
+                    pl.col("time"),
+                    forecast_expr.alias("forecast"),
+                ]
+            )
+        )
+
+        return Timeseries(df, timezone=self.timezone)
+
+    def set_date_format(self, date_format: str) -> None:
+        new_indexes = (
+            pl.DataFrame({"indexes": self.indexes})
+            .with_columns(
+                pl.col("indexes").str.strptime(
+                    pl.Datetime(time_unit="us", time_zone=self.timezone),
+                    pendulum_to_datetime(self.date_format),
+                    strict=False,
+                )
+            )
+            .sort("indexes")
+            .with_columns(pl.col("indexes").dt.strftime(pendulum_to_datetime(date_format)))
+            .to_series()
+            .to_list()
+        )
+
+        renaming_mapping = dict(zip(self.indexes, new_indexes, strict=False))
+        self.matrix = self.matrix.rename(renaming_mapping)
+        self.indexes = self._get_indexes()
+        self._date_format = date_format
+
+
+class LazyForecastingMatrix(LazyMatrix):
+    """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
+
+    def __init__(
+        self,
+        matrix: LazyMatrix | pl.LazyFrame | Matrix,
+        timezone: str = "UTC",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> None:
+        super().__init__(matrix, timezone)
+        self.date_format: str = date_format
+
+    def __repr__(self):
+        """String representation of the matrix"""
+        return f"LazyForecastingMatrix with schema : {self.matrix.collect_schema()}"
+
+    def collect(self) -> ForecastingMatrix:
+        """Collect the lazy frame and return a regular ForecastingMatrix object."""
+        return ForecastingMatrix(self.matrix.collect(), timezone=self.timezone, date_format=self.date_format)
+
+    @classmethod
+    def from_file(
+        cls,
+        file_path: str | Path,
+        timezone: str = "UTC",
+        filters: tuple[str, str] | None = None,
+        separator: str = ";",
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> LazyForecastingMatrix:
+        """
+        Load a LazyForecastingMatrix from a file.
+
+        :param file_path: Path to the file
+        :type file_path: str | Path
+        :param timezone: Timezone to apply
+        :type timezone: str
+        :return: LazyForecastingMatrix instance
+        :rtype: LazyForecastingMatrix
+        """
+        return cls(
+            super().from_file(
+                file_path,
+                timezone=timezone,
+                filters=filters,
+                separator=separator,
+            ),
+            timezone,
+            date_format,
+        )
