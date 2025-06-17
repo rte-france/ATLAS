@@ -29,7 +29,7 @@ class ClearingModel:
         return solver_params
 
     def build(self, solver_name):
-        self.solver = pywraplp.Solver.CreateSolver(solver_name)
+        self.solver = pywraplp.Solver.CreateSolver('CBC')
         self.build_variables()
         self.build_constraints()
         self.build_objective()
