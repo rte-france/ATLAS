@@ -1,0 +1,68 @@
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from typing import Any
+
+from atlas import BusinessModel
+from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
+from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+
+
+class PortfolioOptimisationModule(
+    AbstractModule[
+        PortfolioOptimisationParameters,
+        PortfolioOptimisationInputDataset,
+        PortfolioOptimisationOutputDataset,
+    ]
+):
+    def create_parameters(self, raw_params: dict[str, Any]) -> PortfolioOptimisationParameters:
+        """Creates a concrete parameters object from raw dictionary."""
+        return PortfolioOptimisationParameters(**raw_params)
+
+    def import_data(
+        self,
+        input_data: dict[str, list[BusinessModel]],
+        parameters: PortfolioOptimisationParameters,
+    ) -> PortfolioOptimisationInputDataset:
+        """Imports data using business objects and parameters."""
+        return PortfolioOptimisationInputDataset(input_data, parameters)
+
+    def validate_data(
+        self,
+        parameters: PortfolioOptimisationParameters,
+        input_dataset: PortfolioOptimisationInputDataset,
+    ) -> bool:
+        """Validates imported or generated data."""
+        return True
+
+    def validates_results(
+        self,
+        parameters: PortfolioOptimisationParameters,
+        input_dataset: PortfolioOptimisationInputDataset,
+        output_dataset: PortfolioOptimisationOutputDataset,
+    ) -> bool:
+        """Validates results"""
+        pass
+
+    def export_results(
+        self,
+        parameters: PortfolioOptimisationParameters,
+        input_dataset: PortfolioOptimisationInputDataset,
+        output_dataset: PortfolioOptimisationOutputDataset,
+    ) -> None:
+        """Exports results."""
+        pass
+
+    def execute(
+        self,
+        parameters: PortfolioOptimisationParameters,
+        dataset: PortfolioOptimisationInputDataset,
+    ) -> PortfolioOptimisationOutputDataset:
+        """Executes the module's main logic."""
+        pass

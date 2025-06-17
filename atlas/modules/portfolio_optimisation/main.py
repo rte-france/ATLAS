@@ -1,27 +1,27 @@
-import API
-from parameters_file import Parameters
-from PO_solver import OptimalPlacement
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+See AUTHORS.txt
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
 
+import argparse
 
-def main():
-    # ------ Markers and Parameters
-    input_marker = API.IO.GetInputMarkerByIdentifier("PO_input_marker")
-    API.IO.SetOutputMarkerByIdentifier("PO_output_marker", input_marker)
-    output_marker = API.IO.GetOutputMarkerByIdentifier("PO_output_marker")
+from atlas.io.input_loader import InputLoader
+from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
+from atlas.modules.portfolio_optimisation_legacy.parameters import PortfolioOptimizationParameters
 
-    p = Parameters(output_marker)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
-    if p.verbose:
-        API.IO.Trace.Log(str(p), API.IO.LogTypeInfo)
+    parser.add_argument("--parameters", type=str, required=True, help="Path to the yaml parameters file")
+    parser.add_argument("--data", type=str, required=True, help="Path to the data directory")
 
-        msg = "Action starts ..."
-        API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
+    args = parser.parse_args()
 
-    OptimalPlacement(output_marker, p)
+    input_data_path = args.data
+    raw_params_path = args.parameters
+    params = PortfolioOptimizationParameters.from_file(raw_params_path)
 
-    if p.verbose:
-        msg = "Action ends ..."
-        API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
-
-
-main()
+    mc_module = PortfolioOptimisationModule()
+    input_data = InputLoader.from_directory(input_data_path)
+    mc_module.run(input_data, params)
