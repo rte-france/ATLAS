@@ -115,15 +115,15 @@ def estimate_imbalance_prices(
                 large_imbalance_price_down[time] = (1 + parameters.large_imbalance_penalty) * price
 
 
-def set_manual_activation(equipment_list, parameters):
+def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOptimisationParameters):
     """
     Update power matrix and stored energy for equipment portfolio based on market clearing.
 
     Args:
-        equipment_list: List of equipment objects to process
+        equipments: List of equipment objects to process
         parameters: Configuration parameters containing market type, dates, etc.
     """
-    for equipment in equipment_list:
+    for equipment in equipments:
         new_power = _calculate_new_power(equipment, parameters)
         activated_power = _calculate_activated_power(equipment, parameters)
 
@@ -132,15 +132,15 @@ def set_manual_activation(equipment_list, parameters):
 
         _apply_power_constraints(equipment, new_power, parameters)
 
-        if type(equipment) in [Hydro, Storage]:
+        if isinstance(equipment, Hydro | Storage):
             _update_stored_energy(equipment, new_power, parameters)
 
         _finalize_power_update(equipment, new_power, parameters)
 
-    _log_completion(equipment_list, parameters)
+    _log_completion(equipments, parameters)
 
 
-def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimisationParameters):
+def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimisationParameters) -> Timeseries:
     """Calculate new power based on market type."""
     if parameters.market == MarketEnum.dayahead:
         return equipment.da_cleared_quantity.filter(parameters.target_times)
@@ -162,13 +162,17 @@ def _calculate_activated_power(equipment, parameters):
         ).filter("LocalIDCleared", parameters.target_times)
 
 
-def _should_skip_equipment(equipment, activated_power: Timeseries, parameters: PortfolioOptimisationParameters):
+def _should_skip_equipment(
+    equipment: type[Equipment],
+    activated_power: Timeseries,
+    parameters: PortfolioOptimisationParameters,
+):
     """Check if equipment should be skipped due to zero activation."""
     if parameters.use_forecast:
         return False
 
     # Always process these equipment types
-    if type(equipment) in [Wind, Solar, Thermal]:
+    if isinstance(equipment, Wind | Solar | Thermal):
         return False
 
     # Skip if power is effectively zero
@@ -232,20 +236,22 @@ def _get_min_power(equipment, time, max_power_forecast: Timeseries, max_power):
         return 0
 
 
-def _update_stored_energy(equipment: type[Equipment], new_power, parameters: PortfolioOptimisationParameters):
+def _update_stored_energy(
+    equipment: Hydro | Storage, new_power: Timeseries, parameters: PortfolioOptimisationParameters
+):
     """Update stored energy for storage and hydraulic equipment."""
-    new_stored_energy = API.TimeSeries.NewTimeSeries(
-        "StoredEnergy", API.TimeSeries.Constant, "MWh", parameters.target_times, 0
-    )
+    # new_stored_energy = API.TimeSeries.NewTimeSeries(
+    #     "StoredEnergy", API.TimeSeries.Constant, "MWh", parameters.target_times, 0
+    # )
+
+    new_stored_energy = Timeseries.from_index(default_value=0)
 
     initial_stored_energy = _get_initial_stored_energy(equipment, parameters)
     out_of_bounds_corrections = {}
 
-    for time_enum, time in enumerate(parameters.target_times):
+    for index, time in enumerate(parameters.target_times):
         previous_energy = (
-            initial_stored_energy
-            if time_enum == 0
-            else new_stored_energy.get_value(time.substract(parameters.time_step))
+            initial_stored_energy if index == 0 else new_stored_energy.get_value(time.subtract(parameters.time_step))
         )
 
         new_energy_value = _calculate_new_energy_value(equipment, time, previous_energy, new_power, parameters)
@@ -297,7 +303,7 @@ def _get_initial_stored_energy(equipment: Hydro | Storage, parameters: Portfolio
     if isinstance(equipment, Hydro):
         return equipment.initial_level.get_value(parameters.start_date.add(-parameters.time_step))
     else:
-        max_energy = equipment.maximum_energy.get_value(parameters.start_date.substract(parameters.time_step))
+        max_energy = equipment.maximum_energy.get_value(parameters.start_date.subtract(parameters.time_step))
         return equipment.storage_initial_level * max_energy
 
 
@@ -305,7 +311,7 @@ def _calculate_new_energy_value(
     equipment: Storage | Hydro,
     time: DateTime,
     previous_energy,
-    new_power,
+    new_power: Timeseries,
     parameters: PortfolioOptimisationParameters,
 ):
     """Calculate new energy value based on power and efficiency."""
@@ -331,7 +337,7 @@ def _calculate_new_energy_value(
         return previous_energy - power_value * time_factor
 
 
-def _get_energy_bounds(equipment: type[Equipment], time: DateTime):
+def _get_energy_bounds(equipment: Hydro | Storage, time: DateTime):
     """Get energy bounds for equipment at given time."""
     max_energy = equipment.maximum_energy.get_value(time)
 
@@ -357,7 +363,7 @@ def _apply_energy_bounds(energy_value, bounds, time, parameters):
         return energy_value, 0
 
 
-def _apply_power_corrections(equipment: type[Equipment], new_power, corrections):
+def _apply_power_corrections(equipment: type[Equipment], new_power: Timeseries, corrections):
     """Apply power corrections based on energy bound violations."""
     for time, correction in corrections.items():
         current_power = new_power.get_value(time)
@@ -393,14 +399,14 @@ def _finalize_power_update(
         equipment.power.add(parameters.execution_date, new_power)
 
 
-def _log_completion(equipment_list, parameters):
+def _log_completion(equipments, parameters):
     """Log completion message if verbose mode is enabled."""
     if not parameters.verbose:
         return
 
-    if len(equipment_list) > 1:
-        message = f"Manual activation of portfolio {equipment_list[0].Portfolio.Name} completed"
+    if len(equipments) > 1:
+        message = f"Manual activation of portfolio {equipments[0].Portfolio.Name} completed"
     else:
-        message = f"Manual activation of equipment {equipment_list[0].Name} completed"
+        message = f"Manual activation of equipment {equipments[0].Name} completed"
 
     API.IO.Trace.Log(message, API.IO.LogTypeWarn)

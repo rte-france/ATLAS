@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from enum import Enum
 
+from pendulum import DateTime
 from pydantic import Field
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.timing import generate_datetimes
 
 
 class MarketEnum(str, Enum):
@@ -122,17 +124,20 @@ class PortfolioOptimisationParameters(AbstractParameters):
     solver_timeout: int = Field(240, description="Timeout (in seconds) of the optimization.")
     thermal_additional_hours: int = Field(12, description="Optimization period in hours for thermal group.")
     time_step: int = Field(60, description="Time step (in minutes) of the simulated market.")
-    excluded_market_areas: str | None = Field(
+    _excluded_market_areas: str | None = Field(
         None,
-        description='List of market areas (separated by ";") excluded from classic optimization. None and "All" are possible values.',
+        description='list of market areas (separated by ";") excluded from classic optimization. None and "all" are possible values.',
+        alias="excluded_market_areas",
     )
-    excluded_technologies: str | None = Field(
+    _excluded_technologies: str | None = Field(
         None,
-        description='List of equipment types (separated by ";") excluded from classic optimization. None and "All" are possible values.',
+        description='list of equipment types (separated by ";") excluded from classic optimization. None and "all" are possible values.',
+        alias="excluded_technologies",
     )
-    excluded_thermal_strategies: str | None = Field(
+    _excluded_thermal_strategies: str | None = Field(
         None,
-        description='List of thermal strategies (separated by ";") for which manual activation is always used. "Peak", "Intermediate", "Base", "All", None.',
+        description='list of thermal strategies (separated by ";") for which manual activation is always used. "Peak", "Intermediate", "Base", "all", None.',
+        alias="excluded_thermal_strategy",
     )
     market: MarketEnum = Field(
         MarketEnum.dayahead,
@@ -146,3 +151,95 @@ class PortfolioOptimisationParameters(AbstractParameters):
         SolverEnum.xpress,
         description='Solver to use. Default: "XPRESS". Other options: "PNE", "GLOP", "SCIP", "CP-SAT".',
     )
+
+    @property
+    def target_times(self) -> list[DateTime]:
+        """Datetime index for the main optimization period."""
+        return generate_datetimes(self.start_date, self.end_date, self.time_step)
+
+    @property
+    def original_end_date(self) -> DateTime:
+        """Original end date before time step adjustment."""
+        return self.end_date.add(minutes=self.time_step)
+
+    @property
+    def excluded_market_areas(self) -> list[str]:
+        """list of market areas excluded from optimization."""
+        val = self._excluded_market_areas
+        if val is None or val.lower() == "none":
+            return []
+        if val.lower() == "all":
+            return ["all"]
+        return [area.strip() for area in val.split(";")]
+
+    @property
+    def excluded_technologies(self) -> list[str]:
+        """list of technologies excluded from optimization."""
+        val = self._excluded_technologies
+        if val is None or val.lower() == "none":
+            return []
+        if val.lower() == "all":
+            return ["all"]
+        return [tech.strip() for tech in val.split(";")]
+
+    @property
+    def excluded_thermal_strategies(self) -> list[str]:
+        """list of thermal strategies excluded from optimization."""
+        val = self._excluded_thermal_strategies
+        if val is None or val.lower() == "none":
+            return []
+        if val.lower() == "all":
+            return ["Base", "Intermediate", "Peak"]
+        return [strat.strip() for strat in val.split(";")]
+
+    @property
+    def adjusted_end_date(self) -> DateTime:
+        """End date adjusted by subtracting one time step."""
+        return self.end_date.subtract(minutes=self.time_step)
+
+    @property
+    def op_times(self) -> list[DateTime]:
+        """Datetime index for the main optimization period (with additional hours)."""
+        end = self.adjusted_end_date.add(minutes=self.additional_hours * 60)
+        return generate_datetimes(self.start_date, end, self.time_step)
+
+    @property
+    def thermal_optimization_period(self) -> int:
+        return len(self.target_times) + int(self.thermal_additional_hours * 60.0 / self.time_step)
+
+    @property
+    def thermal_op_times(self) -> list[DateTime]:
+        end = self.adjusted_end_date.add(minutes=self.thermal_additional_hours * 60)
+        return generate_datetimes(self.start_date, end, self.time_step)
+
+    @property
+    def hydraulic_op_times(self) -> list[DateTime]:
+        end = self.adjusted_end_date.add(minutes=self.hydraulic_additional_hours * 60)
+        return generate_datetimes(self.start_date, end, self.time_step)
+
+    @property
+    def battery_op_times(self) -> list[DateTime]:
+        end = self.adjusted_end_date.add(minutes=self.battery_additional_hours * 60)
+        return generate_datetimes(self.start_date, end, self.time_step)
+
+    @property
+    def phs_op_times(self) -> list[DateTime]:
+        end = self.adjusted_end_date.add(minutes=self.pumped_hydraulic_storage_additional_hours * 60)
+        return generate_datetimes(self.start_date, end, self.time_step)
+
+    @property
+    def ev_op_times(self) -> list[DateTime]:
+        end = self.adjusted_end_date.add(minutes=self.electric_vehicle_additional_hours * 60)
+        return generate_datetimes(self.start_date, end, self.time_step)
+
+    @property
+    def init_battery_time(self) -> DateTime:
+        """Datetime for the initial battery state (start_date - time_step)."""
+        return self.start_date.subtract(minutes=self.time_step)
+
+    @property
+    def output_folder_path(self) -> str:
+        """Final output folder path for LP exports."""
+
+        folder = self.output_folder or "PO"
+        return f"{folder}/{self.market}/{self.execution_date.to_date_string()}"

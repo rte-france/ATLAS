@@ -564,7 +564,7 @@ def _extract_energy_timeseries(optim_equipment, parameters):
     energy_ts = API.TimeSeries.NewTimeSeries("StoredEnergy", API.TimeSeries.Constant, "MWh", parameters.target_times, 0)
 
     for time in parameters.target_times:
-        energy_ts.SetValue(time, optim_equipment.StoredEnergy[time].VarValue)
+        energy_ts.set_value(time, optim_equipment.stored_energy[time].VarValue)
 
     return energy_ts
 
