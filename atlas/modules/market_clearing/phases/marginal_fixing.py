@@ -51,38 +51,38 @@ class MarginalFixing:
         marginal_demand = 0.0
         for order, accepted_power in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
             if order.order_type == OrderType.Sell:
-                max_marginal_sales += order.q_max - order.q_min
-                marginal_demand += accepted_power - order.q_min
+                max_marginal_sales += order.qmax - order.qmin
+                marginal_demand += accepted_power - order.qmin
             else:
-                max_marginal_purchases += order.q_max - order.q_min
-                marginal_demand -= accepted_power - order.q_min
+                max_marginal_purchases += order.qmax - order.qmin
+                marginal_demand -= accepted_power - order.qmin
 
             sharable_purchase_power = None
             sharable_sale_power = None
             if marginal_demand >= max_marginal_sales - max_marginal_purchases:
                 for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
                     if order.order_type == OrderType.Sell:
-                        local_accepted_powers[order.id] = order.q_max
+                        local_accepted_powers[order.id] = order.qmax
                 sharable_purchase_power = max_marginal_sales - marginal_demand
             else:
                 for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
                     if order.order_type == OrderType.Buy:
-                        local_accepted_powers[order.id] = order.q_max
+                        local_accepted_powers[order.id] = order.qmax
                 sharable_sale_power = max_marginal_purchases + marginal_demand
 
             if sharable_purchase_power is not None:
                 for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
-                    if order.order_type == OrderType.Buy and max_marginal_purchases * (order.q_max - order.q_min) != 0:
+                    if order.order_type == OrderType.Buy and max_marginal_purchases * (order.qmax - order.qmin) != 0:
                         local_accepted_powers[order.id] = (
-                                order.q_min
-                                + sharable_purchase_power / max_marginal_purchases * (order.q_max - order.q_min)
+                                order.qmin
+                                + sharable_purchase_power / max_marginal_purchases * (order.qmax - order.qmin)
                         )
             else:
                 for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
-                    if order.order_type == OrderType.Sell and max_marginal_sales * (order.q_max - order.q_min) != 0:
+                    if order.order_type == OrderType.Sell and max_marginal_sales * (order.qmax - order.qmin) != 0:
                         local_accepted_powers[order.id] = (
-                                order.q_min
-                                + sharable_sale_power / max_marginal_sales * (order.q_max - order.q_min)
+                                order.qmin
+                                + sharable_sale_power / max_marginal_sales * (order.qmax - order.qmin)
                         )
 
     def get_marginal_orders(self, current_time, market_area, spot_price, local_accepted_powers) -> list[MCOrder]:
@@ -109,7 +109,7 @@ class MarginalFixing:
             if order.name in self.get_order_names_in_order_couplings():
                 continue
             accepted_power = local_accepted_powers[order.id]
-            if order.q_min == 0.0 or (order.q_max != order.q_min and accepted_power != 0.0):
+            if order.qmin == 0.0 or (order.qmax != order.qmin and accepted_power != 0.0):
                 # TODO: return only order
                 yield order, accepted_power
 
