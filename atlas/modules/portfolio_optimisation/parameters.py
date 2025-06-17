@@ -25,18 +25,6 @@ class SolverEnum(str, Enum):
 class PortfolioOptimisationParameters(AbstractParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
-    start_date: str = Field(
-        "2028/07/01 01:00:00",
-        description="Beginning of the timeframe studied by the module. In action plan context, value is set by task settings.",
-    )
-    execution_date: str = Field(
-        "2028/06/30 13:00:00",
-        description="Date from which the module is executed. In action plan context, value is set by task settings.",
-    )
-    end_date: str = Field(
-        "2028/07/01 03:00:00",
-        description="End of the timeframe studied by the module (end of the last time step). In action plan context, value is set by task settings.",
-    )
     debug: bool = Field(False, description="Boolean indicating if the PO is in debug mode.")
     is_portfolio_bidding: bool = Field(
         True, description="True if optimization is on portfolios, False for individual units."

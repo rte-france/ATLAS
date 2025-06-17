@@ -25,6 +25,7 @@ from atlas import (
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.timing import generate_datetimes
 
 
 class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationParameters]):
@@ -35,6 +36,12 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
     ):
         self.input_data = input_data
         self.parameters = parameters
+
+        self.times = generate_datetimes(
+            start=self.parameters.start_date,
+            end=self.parameters.end_date,
+            freq=self.parameters.time_step,
+        )
 
         self.control_block = input_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]
         self.market_area = input_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]]

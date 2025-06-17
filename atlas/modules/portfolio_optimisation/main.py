@@ -22,6 +22,6 @@ def _portfolio_optimisation(
     :type data: str
     """
     params = PortfolioOptimisationParameters.from_file(parameters)
-    module = PortfolioOptimisationModule()
     input_data = InputLoader.from_directory(data)
+    module = PortfolioOptimisationModule()
     module.run(input_data, params)
