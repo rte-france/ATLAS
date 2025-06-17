@@ -1,3 +1,5 @@
+from importlib.metadata import version
+
 from atlas.io.input_loader import InputLoader
 from atlas.io.parameters import Parameters, ParametersParser
 from atlas.io.utils import get_metadata_from_file, get_metadata_from_frame
@@ -72,3 +74,6 @@ __all__ = [
     "Timeseries",
     "Wind",
 ]
+
+
+__version__ = version("atlas")

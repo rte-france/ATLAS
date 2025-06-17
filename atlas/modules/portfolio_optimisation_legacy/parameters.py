@@ -3,7 +3,7 @@ from pydantic import Field
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 
 
-class PortfolioOptimizationParameters(AbstractParameters):
+class PortfolioOptimisationParameters(AbstractParameters):
     """
     Parameters for configuring the portfolio optimization module.
 
