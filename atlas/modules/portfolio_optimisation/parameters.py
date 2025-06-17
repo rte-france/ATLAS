@@ -22,7 +22,7 @@ class SolverEnum(str, Enum):
     cpsat = "CP-SAT"
 
 
-class PortfolioOptimizationConfig(AbstractParameters):
+class PortfolioOptimizationParameters(AbstractParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
     start_date: str = Field(
