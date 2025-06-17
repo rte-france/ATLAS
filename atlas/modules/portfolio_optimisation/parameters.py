@@ -1,97 +1,160 @@
 from __future__ import annotations
 
+from enum import Enum
+
 from pydantic import Field
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 
 
+class MarketEnum(str, Enum):
+    dayahead = "DayAhead"
+    intraday = "Intraday"
+    rr_activation = "RRActivation"
+    mfrr_activation = "MFRRActivation"
+
+
+class SolverEnum(str, Enum):
+    xpress = "XPRESS"
+    pne = "PNE"
+    glop = "GLOP"
+    scip = "SCIP"
+    cpsat = "CP-SAT"
+
+
 class PortfolioOptimizationConfig(AbstractParameters):
-    debug: bool = Field(default=False, description="Boolean indicating if the PO is in debug mode.")
+    """Pydantic model for module parameters with documentation and defaults."""
+
+    start_date: str = Field(
+        "2028/07/01 01:00:00",
+        description="Beginning of the timeframe studied by the module. In action plan context, value is set by task settings.",
+    )
+    execution_date: str = Field(
+        "2028/06/30 13:00:00",
+        description="Date from which the module is executed. In action plan context, value is set by task settings.",
+    )
+    end_date: str = Field(
+        "2028/07/01 03:00:00",
+        description="End of the timeframe studied by the module (end of the last time step). In action plan context, value is set by task settings.",
+    )
+    debug: bool = Field(False, description="Boolean indicating if the PO is in debug mode.")
     is_portfolio_bidding: bool = Field(
-        default=True,
-        description="True if the optimization should be done on portfolios, False if on individual units.",
+        True, description="True if optimization is on portfolios, False for individual units."
     )
-    consider_constraints_for_kpis: bool = Field(
-        default=False,
-        description="If true, KPIs are computed taking into account constraints on the bids (capa, ramps, etc.)",
+    use_forecast: bool = Field(
+        False,
+        description="Whether to take a price forecast. If true, optimization happens before a market.",
     )
-    consider_only_units_from_candidates: bool = Field(
-        default=False,
-        description="If true, the optimization considers only units in the candidate portfolios.",
+    use_presolve: bool = Field(False, description="Boolean indicating if the solver should use a presolve mode.")
+    verbose: bool = Field(
+        True,
+        description="If True, information of the module execution will be displayed in the terminal.",
     )
-    non_conformities_enabled: bool = Field(
-        default=True, description="If true, the optimization accounts for non-conformities."
+    with_rounding: bool = Field(
+        True, description="If true, optimization outputs are rounded at the end to avoid artefacts."
     )
-    auto_assign_units: bool = Field(
-        default=True,
-        description="If true, units are automatically assigned to portfolios without a user-defined assignment.",
+    allowed_round_off_error: float = Field(
+        0.01, description="Error (in MW) below which the activated power is considered equal to 0."
     )
-    check_input_integrity: bool = Field(
-        default=True,
-        description="If true, an integrity check of the inputs is performed before the optimization.",
+    automated_unprocured_reserves_penalty: float = Field(
+        30000, description="Penalty (euro/MW per hour) for not providing automated reserves."
     )
-    check_input_integrity_level: int = Field(
-        default=3, description="Controls the intensity of the integrity check (1=light, 3=full)."
+    battery_smoothing_factor: float = Field(
+        0.2, description="Smoothing factor for battery power offer/demand curve (0-1)."
     )
-    output_folder: str = Field(default="outputs", description="Path to the folder where outputs will be written.")
-    constraint_threshold: float = Field(
-        default=1e-5, description="Threshold for relaxing constraints to avoid numerical issues."
+    electric_vehicle_smoothing_factor: float = Field(
+        0.2, description="Smoothing factor for EV power offer/demand curve (0-1)."
     )
-    use_storage_for_clearing: bool = Field(
-        default=False,
-        description="If true, storage units can be used in the market clearing algorithm.",
+    imbalance_penalty_offset: float = Field(
+        10,
+        description="Offset (euros/MWh) applied when forecasting the imbalance settlement price.",
     )
-    write_excel_outputs: bool = Field(
-        default=False, description="If true, optimization results are exported as Excel files."
+    isp_forecast_lower_bound: float = Field(
+        10,
+        description="Lower bound (euro/MWh) of the absolute value of the Imbalance Settlement Price forecast.",
     )
-    verbose: bool = Field(default=True, description="If true, more information is printed during optimization.")
-    legacy_costs: bool = Field(default=False, description="If true, the optimization uses the legacy cost computation.")
-    enable_min_bid_size_constraint: bool = Field(
-        default=True,
-        description="If true, applies a minimum bid size constraint to the optimization.",
+    large_imbalance_penalty: float = Field(
+        0.2,
+        description="Coefficient for estimating imbalance settlement price for large imbalances.",
     )
-    validate_profiles: bool = Field(
-        default=True, description="If true, profiles are validated before the optimization."
+    maximum_imbalance: float = Field(100000, description="Maximum imbalance allowed within a portfolio, in MW.")
+    manual_unprocured_reserves_penalty: float = Field(
+        30000, description="Penalty (euro/MW per hour) for not providing manual reserves."
     )
-    enable_foresight_validation: bool = Field(
-        default=True, description="If true, foresight is validated for all units."
+    pumped_hydraulic_smoothing_factor: float = Field(
+        0.2, description="Smoothing factor for pumped hydraulic power offer/demand curve (0-1)."
     )
-    drop_virtual_units: bool = Field(
-        default=True, description="If true, virtual units are dropped from the optimization."
+    small_imbalance_penalty: float = Field(
+        0.1,
+        description="Coefficient for estimating imbalance settlement price for small imbalances.",
     )
-    update_inputs: bool = Field(
-        default=True,
-        description="If true, input files are updated with results from the optimization.",
+    small_imbalance_size: float = Field(
+        0.15,
+        description="Quantity (%) of imbalance qualified as small, relative to max portfolio energy.",
     )
-    enable_target_energy: bool = Field(
-        default=False,
-        description="If true, allows the setting of target energy constraints in the optimization.",
+    solver_duality_gap: float = Field(0.0001, description="Duality gap used for the optimization.")
+    additional_hours: int = Field(
+        12,
+        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
     )
-    aggregate_at_portfolio_level: bool = Field(
-        default=False, description="If true, KPIs are aggregated at the portfolio level."
+    battery_additional_hours: int = Field(
+        48, description="Optimization period in hours for Storage Equipments of type Battery."
     )
-    enable_soft_constraints: bool = Field(default=True, description="If true, enables the use of soft constraints.")
-    write_json_outputs: bool = Field(
-        default=False, description="If true, optimization results are exported in JSON format."
+    battery_automated_reserve_duration: int = Field(60, description="Automated reserve duration for battery equipment.")
+    battery_number_of_fragments: int = Field(
+        3, description="Number of power fragments for battery; last fragments are more expensive."
     )
-    capacity_constraint_model: str = Field(
-        default="strict",
-        description="Model to be used for capacity constraints. Options might include 'strict' or 'relaxed'.",
+    battery_reserve_duration: int = Field(60, description="Manual reserve duration for battery equipment.")
+    electric_vehicle_additional_hours: int = Field(
+        144,
+        description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",
     )
-    consider_emissions: bool = Field(
-        default=False,
-        description="If true, emissions constraints or KPIs are considered in the optimization.",
+    electric_vehicle_automated_reserve_duration: int = Field(
+        1, description="Automated reserve duration for electric vehicle equipment."
     )
-    enable_spinning_reserve: bool = Field(
-        default=False, description="If true, spinning reserve requirements are enforced."
+    electric_vehicle_number_of_fragments: int = Field(3, description="Number of power fragments for electric vehicle.")
+    electric_vehicle_reserve_duration: int = Field(
+        0, description="Manual reserve duration for electric vehicle equipment."
     )
-    write_extended_kpis: bool = Field(
-        default=False, description="If true, additional KPIs (extended) are calculated and written."
+    hydraulic_additional_hours: int = Field(12, description="Optimization period in hours for hydraulic group.")
+    hydraulic_minimal_fragment_size: int = Field(
+        100, description="Minimal amount of power for an offer to be formulated for hydraulic."
     )
-    write_debug_data: bool = Field(
-        default=False, description="If true, writes detailed debug data for further analysis."
+    pumped_hydraulic_automated_reserve_duration: int = Field(
+        60, description="Automated reserve duration for pumped hydraulic equipment."
     )
-    force_solver: str | None = Field(
-        default=None,
-        description="Force a specific solver (e.g. 'cbc', 'glpk', 'gurobi') to be used.",
+    pumped_hydraulic_number_of_fragments: int = Field(3, description="Number of power fragments for pumped hydraulic.")
+    pumped_hydraulic_reserve_duration: int = Field(
+        60, description="Manual reserve duration for pumped hydraulic equipment."
+    )
+    pumped_hydraulic_storage_additional_hours: int = Field(
+        144,
+        description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",
+    )
+    solver_timeout: int = Field(240, description="Timeout (in seconds) of the optimization.")
+    thermal_additional_hours: int = Field(12, description="Optimization period in hours for thermal group.")
+    time_step: int = Field(60, description="Time step (in minutes) of the simulated market.")
+    excluded_market_areas: str | None = Field(
+        None,
+        description='List of market areas (separated by ";") excluded from classic optimization. None and "All" are possible values.',
+    )
+    excluded_technologies: str | None = Field(
+        None,
+        description='List of equipment types (separated by ";") excluded from classic optimization. None and "All" are possible values.',
+    )
+    excluded_thermal_strategies: str | None = Field(
+        None,
+        description='List of thermal strategies (separated by ";") for which manual activation is always used. "Peak", "Intermediate", "Base", "All", None.',
+    )
+    market: MarketEnum = Field(
+        MarketEnum.dayahead,
+        description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
+    )
+    output_folder: str = Field(
+        "PO",
+        description='Optional output folder in the SAMBA folder for LP exports. If None, a folder "PO_{Market}_{ExecutionDate}" is created.',
+    )
+    solver: SolverEnum = Field(
+        SolverEnum.xpress,
+        description='Solver to use. Default: "XPRESS". Other options: "PNE", "GLOP", "SCIP", "CP-SAT".',
     )
