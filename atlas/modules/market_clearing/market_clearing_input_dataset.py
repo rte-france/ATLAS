@@ -9,7 +9,7 @@ from atlas import MarketBorder
 from atlas.models.market.order import Order
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.config import MODEL_TO_NAME_MAPPING
+from atlas.config import INVERSE_MODEL_MAPPING_NAME
 from atlas.models.business_model import BusinessModel
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.modules.market_clearing.market_clearing_data.marcket_clearing_market_area import MCMarketArea
@@ -28,10 +28,10 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         total_minutes = (self.parameters.end_date - self.parameters.start_date).in_minutes()
         self.times = [self.parameters.start_date + step * i for i in range(0, total_minutes // self.parameters.time_step + 1)]
 
-        self.order_couplings = self.get_order_couplings(raw_data[MODEL_TO_NAME_MAPPING[OrderCoupling]])
-        self.mc_orders = self.get_orders(raw_data[MODEL_TO_NAME_MAPPING[Order]], self.order_couplings)
-        self.mc_market_areas = self.get_market_areas(raw_data[MODEL_TO_NAME_MAPPING[MarketArea]], self.mc_orders)
-        self.market_borders = self.get_market_borders(raw_data[MODEL_TO_NAME_MAPPING[MarketBorder]])
+        self.order_couplings = self.get_order_couplings(raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]])
+        self.mc_orders = self.get_orders(raw_data[INVERSE_MODEL_MAPPING_NAME[Order]], self.order_couplings)
+        self.mc_market_areas = self.get_market_areas(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]], self.mc_orders)
+        self.market_borders = self.get_market_borders(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]])
 
     def get_market_areas(self, market_areas: list[MarketArea], mc_orders: dict[str, MCOrder]) -> dict[str, MCMarketArea]:
         if self.parameters.market_area_names == "All":
