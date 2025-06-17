@@ -55,6 +55,7 @@ class ClearingModel:
     def build_constraints(self):
         """ Create all constraints for the clearing phase model"""
         self.create_constraint_3_4_min_constraints()
+        """
         self.create_constraint_3_4_max_constraints()
         self.create_constraint_3_8_constraints()
         self.create_constraint_3_8_1_constraints()
@@ -75,18 +76,18 @@ class ClearingModel:
             self.create_constraint_3_6_2_constraints()
         self.create_absolute_exchange_constraints()
         self.create_exchange_across_border_constraints()
-
+        """
     def build_objective(self):
         """ Create objective function for the clearing phase model"""
-        objective = self.add_accepted_powers(self.input_dataset, self.parameters.price_modifier_lambda_1)
+        objective = self.add_accepted_powers(self.parameters.price_modifier_lambda_1)
         if self.parameters.flow_penalty_lambda_2 != 0.0:
             objective -= self.add_global_exchanges()
-        if self.parameters.exchanges_constraint == "atc":
+        if self.parameters.exchange_constraints_type == "atc":
             if self.parameters.flow_penalty_lambda_3 != 0.0:
                 objective -= self.add_max_exchanges()
             if self.parameters.flow_penalty_lambda_4 != 0.0:
                 objective -= self.add_min_exchanges()
-        self.solver.Maximise(objective)
+        self.solver.Maximize(objective)
 
     ##################################
     # Variables
@@ -151,19 +152,19 @@ class ClearingModel:
                 )
 
     def create_local_balances_variables(self):
-        for market_area in self.input_dataset.mc_market_areas:
+        for market_area_name in self.input_dataset.mc_market_areas:
             for time_index, time in enumerate(self.input_dataset.times):
                 self.solver.NumVar(
                     -float("inf"), float("inf"),
-                    constants.local_balance_variable_name(market_area.name, time_index)
+                    constants.local_balance_variable_name(market_area_name, time_index)
                 )
 
     def create_accepted_powers(self):
-        for market_area in self.input_dataset.mc_market_areas:
-            for mc_order in market_area.orders:
-                if mc_order.order.q_min:
+        for market_area in self.input_dataset.mc_market_areas.values():
+            for mc_order in market_area.orders.values():
+                if mc_order.order.qmin:
                     min_power = 0.0
-                    max_power = mc_order.order.q_max
+                    max_power = mc_order.order.qmax
                     self.solver.NumVar(
                         min_power, max_power, constants.accepted_power_variable_name(mc_order.order.name)
                     )
@@ -173,8 +174,8 @@ class ClearingModel:
                     )
 
     def create_orders_status(self):
-        for market_area in self.input_dataset.mc_market_areas:
-            for mc_order in market_area.orders:
+        for market_area in self.input_dataset.mc_market_areas.values():
+            for mc_order in market_area.orders.values():
                 if mc_order.id_with_status:
                     self.solver.BoolVar(constants.order_status_variable_name(mc_order.order.name))
 
@@ -183,14 +184,14 @@ class ClearingModel:
     ##################################
     def create_constraint_3_4_min_constraints(self):
         for market_area in self.input_dataset.mc_market_areas.values():
-            for order in market_area.orders:
+            for order in market_area.orders.values():
                 # Compute the constraints limiting the accepted powers of combined,
                 # indivisible and/or mutually excluding orders and linked orders (3.4):
                 if order.id_with_status is not None:
                     order_status = self.solver.LookupVariable(constants.order_status_variable_name(order.order.name))
                     accepted_power = self.solver.LookupVariable(constants.accepted_power_variable_name(order.order.name))
                     self.solver.Add(
-                        order_status * max(self.parameters.allowed_round_off_error, order.min_power)
+                        order_status * max(self.parameters.allowed_round_off_error, order.order.qmin)
                         <= accepted_power,
                         constants.constraint_3_4_min_constraint_name(market_area.market_area.name, order.order.name)
                     )
@@ -199,9 +200,9 @@ class ClearingModel:
     ##################################
     def add_accepted_powers(self, lambda1: float):
         objective = 0.0
-        for area in self.input_dataset.mc_market_areas:
-            for order in area.orders:
-                accepted_power = constants.accepted_power_variable_name(order.order.name)
+        for market_area in self.input_dataset.mc_market_areas.values():
+            for order in market_area.orders.values():
+                accepted_power = self.solver.LookupVariable(constants.accepted_power_variable_name(order.order.name))
                 altered_price = order.order.price - order.production_sign * lambda1
                 objective -= order.production_sign * altered_price * order.duration * accepted_power / 60
         return objective
