@@ -13,7 +13,7 @@ from atlas.modules.market_clearing.market_clearing_data.market_clearing_order im
 # Clearing model
 # Variables
 def border_exchange_variable_name(border_name: str, time_index: int) -> str:
-    return f"balance_on_{border_name}_at_{time_index}"
+    return f"exchange_on_{border_name}_at_{time_index}"
 
 def border_pos_exchange_variable_name(border_name: str, time_index: int) -> str:
     return f"positive_exchange_on_{border_name}_at_{time_index}"
