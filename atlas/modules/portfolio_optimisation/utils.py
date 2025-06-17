@@ -2,6 +2,7 @@ from collections.abc import Mapping
 
 from pendulum import DateTime
 
+import atlas.config as cfg
 from atlas.enum import StorageType
 from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
@@ -23,7 +24,7 @@ from atlas.modules.portfolio_optimisation.parameters import (
 
 def estimate_imbalance_prices(
     time: DateTime,
-    portfolio: Portfolio,  # type ignored per original
+    portfolio: Portfolio,
     market_area: MarketArea,
     control_block: ControlBlock,
     imbalance_price_up: Mapping[DateTime, float],
@@ -47,22 +48,22 @@ def estimate_imbalance_prices(
     """
     # 1. Get reference price
     if parameters.use_forecast:
-        if parameters.market == "DayAhead":
+        if parameters.market == MarketEnum.dayahead:
             ts = market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time)
             price = ts.get_value(time)
-        elif parameters.market == "Intraday":
+        elif parameters.market == MarketEnum.intraday:
             ts = market_area.id_price_forecast.get_forecast(parameters.execution_date, time, time)
             price = ts.get_value(time)
         else:
             price = 0.0  # safe default; original logic covers only DA/ID in forecast mode
     else:
-        if parameters.market == "DayAhead":
+        if parameters.market == MarketEnum.dayahead:
             price = market_area.da_price.get_value(time)
-        elif parameters.market == "Intraday":
+        elif parameters.market == MarketEnum.intraday:
             price = market_area.id_price.get_forecast(parameters.execution_date, time, time).get_value(time)
-        elif parameters.market == "RRActivation":
+        elif parameters.market == MarketEnum.rr_activation:
             price = market_area.rr_activation_price.get_value(time)
-        elif parameters.market == "MFRRActivation":
+        elif parameters.market == MarketEnum.mfrr_activation:
             price = market_area.mfrr_activation_price.get_value(time)
         else:
             price = 0.0  # fallback
@@ -137,8 +138,6 @@ def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOpti
 
         _finalize_power_update(equipment, new_power, parameters)
 
-    _log_completion(equipments, parameters)
-
 
 def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimisationParameters) -> Timeseries:
     """Calculate new power based on market type."""
@@ -151,15 +150,15 @@ def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimi
         return da_power + id_power
 
 
-def _calculate_activated_power(equipment, parameters):
+def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimisationParameters):
     """Calculate activated power for validation."""
-    if parameters.market == "DayAhead":
-        return equipment.DAClearedQuantity.filter("LocalDACleared", parameters.target_times)
+    if parameters.market == MarketEnum.dayahead:
+        return equipment.da_cleared_quantity.filter(parameters.target_times)
 
-    elif parameters.market == "Intraday":
-        return equipment.IDClearedQuantity.get_forecast(
+    elif parameters.market == MarketEnum.intraday:
+        return equipment.id_cleared_quantity.get_forecast(
             parameters.execution_date, parameters.start_date, parameters.end_date
-        ).filter("LocalIDCleared", parameters.target_times)
+        ).filter(parameters.target_times)
 
 
 def _should_skip_equipment(
@@ -221,7 +220,7 @@ def _get_max_power(equipment: type[Equipment], time: DateTime, max_power_forecas
         return equipment.maximum_power.get_value(time)
 
 
-def _get_min_power(equipment, time, max_power_forecast: Timeseries, max_power):
+def _get_min_power(equipment, time, max_power_forecast: Timeseries, max_power) -> float:
     """Get minimum power limit for equipment at given time."""
     if isinstance(equipment, Load):
         return max_power_forecast.get_value(time)
@@ -265,7 +264,7 @@ def _update_stored_energy(
             out_of_bounds_corrections[time] = correction
             if parameters.debug:
                 bound_type = "high" if correction < 0 else "low"
-                API.IO.Trace.Log(f"Stored energy {bound_type} bound corrected for {equipment.Name} at {time}")
+                cfg.logger.debug(f"Stored energy {bound_type} bound corrected for {equipment.Name} at {time}")
 
     # Apply power corrections based on energy bound violations
     _apply_power_corrections(equipment, new_power, out_of_bounds_corrections)
@@ -397,16 +396,3 @@ def _finalize_power_update(
         if parameters.execution_date in equipment.power.index:
             equipment.power.delete(parameters.execution_date)
         equipment.power.add(parameters.execution_date, new_power)
-
-
-def _log_completion(equipments, parameters):
-    """Log completion message if verbose mode is enabled."""
-    if not parameters.verbose:
-        return
-
-    if len(equipments) > 1:
-        message = f"Manual activation of portfolio {equipments[0].Portfolio.Name} completed"
-    else:
-        message = f"Manual activation of equipment {equipments[0].Name} completed"
-
-    API.IO.Trace.Log(message, API.IO.LogTypeWarn)
