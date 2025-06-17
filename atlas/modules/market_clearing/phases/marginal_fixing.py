@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 from atlas import MarketArea
 from atlas.enum import OrderType
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
@@ -43,7 +44,9 @@ class MarginalFixing:
                 local_accepted_powers = accepted_powers[area.market_area.name]
                 self.update_local_accepted_power(local_accepted_powers, area, time, spot_price)
 
-    def update_local_accepted_power(self, local_accepted_powers: dict[str, float], area: MarketArea, time, spot_price: float):
+    def update_local_accepted_power(
+        self, local_accepted_powers: dict[str, float], area: MarketArea, time, spot_price: float
+    ):
         # Initialize the variables storing the total amounts of usable marginal powers as well as the marginal amounts
         # of balances that can be redistributed:
         max_marginal_sales = 0.0
@@ -74,15 +77,13 @@ class MarginalFixing:
                 for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
                     if order.order_type == OrderType.Buy and max_marginal_purchases * (order.qmax - order.qmin) != 0:
                         local_accepted_powers[order.id] = (
-                                order.qmin
-                                + sharable_purchase_power / max_marginal_purchases * (order.qmax - order.qmin)
+                            order.qmin + sharable_purchase_power / max_marginal_purchases * (order.qmax - order.qmin)
                         )
             else:
                 for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
                     if order.order_type == OrderType.Sell and max_marginal_sales * (order.qmax - order.qmin) != 0:
-                        local_accepted_powers[order.id] = (
-                                order.qmin
-                                + sharable_sale_power / max_marginal_sales * (order.qmax - order.qmin)
+                        local_accepted_powers[order.id] = order.qmin + sharable_sale_power / max_marginal_sales * (
+                            order.qmax - order.qmin
                         )
 
     def get_marginal_orders(self, current_time, market_area, spot_price, local_accepted_powers) -> list[MCOrder]:

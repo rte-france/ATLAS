@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 from atlas.config import logger
 from atlas.models.market.market_border import MarketBorder
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
@@ -11,13 +12,15 @@ from atlas.modules.market_clearing.market_clearing_input_dataset import MarketCl
 class MCBorder:
     def __init__(self, border: MarketBorder, input_dataset: MarketClearingInputDataset):
         self.border = border
-        self.max_flow = None # extract TS
-        self.min_flow = None # extract TS
+        self.max_flow = None  # extract TS
+        self.min_flow = None  # extract TS
         # TODO : extract ref_flow to update min and max flow
 
         self.has_loss_factor = True if self.border.loss_factor > 0 else False
 
-        self.time_resolution = self.border.time_resolution if self.border.time_resolution else input_dataset.parameters.time_step
+        self.time_resolution = (
+            self.border.time_resolution if self.border.time_resolution else input_dataset.parameters.time_step
+        )
         # Check and adapt if needed the time resolution:
         if self.time_resolution < input_dataset.parameters.time_step:
             self.time_resolution = input_dataset.parameters.time_step

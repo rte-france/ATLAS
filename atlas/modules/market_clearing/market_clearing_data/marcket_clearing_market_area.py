@@ -12,6 +12,6 @@ class MCMarketArea:
     def __init__(self, market_area: MarketArea, orders: dict[str, MCOrder]):
         self.market_area = market_area
         self.orders = orders
-        self.ref_balance = None # Extract TS
-        self.max_price = None # Extract TS
-        self.min_price = None # Extract TS
+        self.ref_balance = None  # Extract TS
+        self.max_price = None  # Extract TS
+        self.min_price = None  # Extract TS

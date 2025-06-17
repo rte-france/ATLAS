@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+import json
 
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
@@ -10,7 +11,6 @@ from atlas.modules.market_clearing.phases.clearing.clearing_model import Clearin
 
 
 class Clearing:
-
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
         self.input_dataset = input_dataset
         self.parameters = parameters
@@ -24,11 +24,23 @@ class Clearing:
     def run(self):
         self.model = self.create_clearing_model()
         solver_parameters = self.model.create_solver_parameters(self.parameters.use_presolve)
-        self.model.solver.solve(solver_parameters)
+        status = self.model.solver.Solve(solver_parameters)
+        self.export_lp()
+        self.export_solver_variables()
+
+    def export_lp(self, filepath="model.lp"):
+        # Export au format LP
+        with open(filepath, "w") as f:
+            f.write(self.model.solver.ExportModelAsLpFormat(False))
+
+    def export_solver_variables(self, filepath="variables.json"):
+        results = {var.name(): var.solution_value() for var in self.model.solver.variables()}
+        with open(filepath, 'w') as f:
+            json.dump(results, f, indent=2)
 
     # Retrieve information after optimization
     # REMIND : nb_saturations may be retrieved with retrieve_critical_branches_saturation_value and allowed_round_off_error
-    def retrieve_critical_branches_saturation_value(self) -> dict[str: list[float]]:
+    def retrieve_critical_branches_saturation_value(self) -> dict[str : list[float]]:
         """
 
         :return: A dictionary containing list of constraint value if the critical branches for each timestep

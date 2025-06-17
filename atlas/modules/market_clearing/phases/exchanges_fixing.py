@@ -3,7 +3,6 @@ from atlas.modules.market_clearing.market_clearing_parameters import MarketClear
 
 
 class ExchangesFixing:
-
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
         self.input_dataset = input_dataset
         self.parameters = parameters
@@ -24,7 +23,7 @@ class ExchangesFixing:
         pass
 
     def retrieve_borders_imports(self) -> dict[str, list[float]]:
-        """ Only available if there is border with loss and atc model
+        """Only available if there is border with loss and atc model
 
         :return: A dictionary containing the import of each border for each timestep
         :rtype: dict[str, list[float]]
@@ -32,7 +31,7 @@ class ExchangesFixing:
         pass
 
     def retrieve_borders_exports(self) -> dict[str, list[float]]:
-        """ Only available if there is border with loss and atc model
+        """Only available if there is border with loss and atc model
 
         :return: A dictionary containing the export of each border for each timestep
         :rtype: dict[str, list[float]]
@@ -40,7 +39,7 @@ class ExchangesFixing:
         pass
 
     def retrieve_borders_xsis(self) -> dict[str, list[float]]:
-        """ Only available if there is border with loss and atc model
+        """Only available if there is border with loss and atc model
 
         :return: A dictionary containing the xsis of each border for each timestep
         :rtype: dict[str, list[float]]
@@ -48,7 +47,7 @@ class ExchangesFixing:
         pass
 
     def retrieve_borders_nus(self) -> dict[str, list[float]]:
-        """ Only available if there is border with loss and atc model
+        """Only available if there is border with loss and atc model
 
         :return: A dictionary containing the nus of each border for each timestep
         :rtype: dict[str, list[float]]

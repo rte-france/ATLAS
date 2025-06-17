@@ -3,7 +3,6 @@ from atlas.modules.market_clearing.market_clearing_parameters import MarketClear
 
 
 class Pricing:
-
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
         self.input_dataset = input_dataset
         self.parameters = parameters

@@ -194,10 +194,10 @@ class MarketClearingParameters(AbstractParameters):
         "market area. the default value is 'All'",
     )
     initial_max_price: int = Field(
-        1e8,
+        int(1e8),
         description=" Max price : default value is 100 000 000",
     )
     initial_min_price: int = Field(
-        -1e8,
+        -int(1e8),
         description="Min price : default value is - 100 000 000",
     )

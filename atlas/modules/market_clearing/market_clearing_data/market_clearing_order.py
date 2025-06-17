@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.logging import logger
-
 from atlas.models.market.order import Order
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 
@@ -26,8 +25,9 @@ class MCOrder:
         # Deduce duration from list of DataTime and the parameter time step (the end datetime may have to be modified so that
         # everything stays consistent).
         # NB: by convention, self.end_date are actually starts of a last time step:
-        self.duration = int((((self.order.end_date - self.order.start_date).total_seconds() / 60)
-                             // parameters.time_step) * 60)
+        self.duration = int(
+            (((self.order.end_date - self.order.start_date).total_seconds() / 60) // parameters.time_step) * 60
+        )
         self.end_date_processed = self.order.start_date.add(minutes=self.duration)
 
         # Translate the order type:
@@ -94,4 +94,3 @@ class MCOrder:
             return False
 
         return True
-

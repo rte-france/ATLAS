@@ -6,13 +6,12 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
-from atlas.models.business_model import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.models.business_model import BusinessModel
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases.clearing.clearing import Clearing
-
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 
 
@@ -27,7 +26,7 @@ class MarketClearingModule(
         return MarketClearingParameters(**raw_params)
 
     def import_data(
-        self, raw_data: dict[str, list[BusinessModel]], parameters: MarketClearingParameters
+        self, raw_data: dict[str, list[type(BusinessModel)]], parameters: MarketClearingParameters
     ) -> MarketClearingInputDataset:
         input_dataset = MarketClearingInputDataset(raw_data, parameters)
         return input_dataset
@@ -44,9 +43,10 @@ class MarketClearingModule(
         clearing.run()
         # Launch Exchange Fixing phase
         # Launch Pricing phase
-        market_prices = dict()# retrieve from pricing
+        market_prices = {}  # retrieve from pricing
         marginal_fixing = MarginalFixing(input_dataset, parameters)
         marginal_fixing.run(clearing.retrieve_accepted_powers(), market_prices)
+        return MarketClearingOutputDataset()
 
     def validates_results(
         self,
