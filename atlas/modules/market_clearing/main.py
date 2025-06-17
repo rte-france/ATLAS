@@ -3,13 +3,15 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-
+import os
 import argparse
+import pickle
 
 import yaml
 
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 from atlas.io.input_loader import InputLoader
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -25,5 +27,15 @@ if __name__ == "__main__":
         raw_params = yaml.safe_load(r)
 
     mc_module = MarketClearingModule()
-    raw_data = InputLoader.from_directory(raw_data_path)
+    pkl_path = os.path.join(raw_data_path, "..", "raw_data.pkl")
+    if os.path.exists(pkl_path):
+        print("Chargement rapide depuis un pickle...")
+        with open(pkl_path, "rb") as f:
+            raw_data = pickle.load(f)
+    else:
+        print("Chargement long des données...")
+        raw_data = InputLoader.from_directory(raw_data_path)
+        print("Création d'un pickle...")
+        with open(pkl_path, "wb") as f:
+            pickle.dump(raw_data, f)
     mc_module.run(raw_data, raw_params)
