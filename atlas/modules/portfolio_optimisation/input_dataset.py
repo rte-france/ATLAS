@@ -37,7 +37,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        self.times = generate_datetimes(
+        self.target_times = generate_datetimes(
             start=self.parameters.start_date,
             end=self.parameters.end_date,
             freq=self.parameters.time_step,
