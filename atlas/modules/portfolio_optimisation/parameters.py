@@ -4,6 +4,7 @@ from enum import Enum
 
 from pendulum import DateTime
 from pydantic import Field
+from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.timing import generate_datetimes
@@ -123,7 +124,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
     )
     solver_timeout: int = Field(240, description="Timeout (in seconds) of the optimization.")
     thermal_additional_hours: int = Field(12, description="Optimization period in hours for thermal group.")
-    time_step: int = Field(60, description="Time step (in minutes) of the simulated market.")
+    time_step: Duration = Field("H", description="Time step (in minutes) of the simulated market.")
     _excluded_market_areas: str | None = Field(
         None,
         description='list of market areas (separated by ";") excluded from classic optimization. None and "all" are possible values.',
@@ -160,7 +161,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def original_end_date(self) -> DateTime:
         """Original end date before time step adjustment."""
-        return self.end_date.add(minutes=self.time_step)
+        return self.end_date + self.time_step
 
     @property
     def excluded_market_areas(self) -> list[str]:
