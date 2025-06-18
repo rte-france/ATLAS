@@ -60,9 +60,10 @@ class OptimisationModel:
         self.solver_name = solver_name
         self._solver = None
         self._variables_name: set[str] = set()
+        self._variables_objects: dict[str, Any] = {}
         self._constraints_name: set[str] = set()
-        self._objective_dict: dict[str, float] | None = None
         self._objective: Any | None = None
+        self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._solution_info: SolutionInfo | None = None
 
         self._initialize_solver()
@@ -84,19 +85,14 @@ class OptimisationModel:
         return self._solver
 
     @property
-    def variables_name(self) -> set[str]:
+    def variables(self) -> set[str]:
         """Return the set of decision variables."""
         return self._variables_name
 
     @property
-    def constraints_name(self) -> set[str]:
+    def constraints(self) -> set[str]:
         """Return the set of constraints."""
         return self._constraints_name
-
-    @property
-    def objective(self) -> dict[str, float] | None:
-        """Return the current objective coefficients."""
-        return self._objective_dict
 
     @property
     def solution_info(self) -> SolutionInfo | None:
@@ -108,7 +104,7 @@ class OptimisationModel:
         name: str,
         lower_bound: float = 0.0,
         upper_bound: float = float("inf"),
-    ) -> None:
+    ) -> Any:
         """
         Add a continuous variable to the model.
 
@@ -118,19 +114,24 @@ class OptimisationModel:
         :type lower_bound: float
         :param upper_bound: Upper bound for the variable
         :type upper_bound: float
+        :return: OR-Tools variable object that can be used in expressions
+        :rtype: pywraplp.Variable
         """
         logger.debug(f"Adding continuous variable '{name}' with bounds [{lower_bound}, {upper_bound}]")
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
-        self._solver.NumVar(lower_bound, upper_bound, name)
+
+        var = self._solver.NumVar(lower_bound, upper_bound, name)
         self._variables_name.add(name)
+        self._variables_objects[name] = var
+        return var
 
     def add_integer_variable(
         self,
         name: str,
         lower_bound: float = 0.0,
         upper_bound: float = float("inf"),
-    ) -> None:
+    ) -> Any:
         """
         Add a integer variable to the model.
 
@@ -140,139 +141,150 @@ class OptimisationModel:
         :type lower_bound: float
         :param upper_bound: Upper bound for the variable
         :type upper_bound: float
+        :return: OR-Tools variable object that can be used in expressions
+        :rtype: pywraplp.Variable
         """
         logger.debug(f"Adding integer variable '{name}' with bounds [{lower_bound}, {upper_bound}]")
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
-        self._solver.IntVar(lower_bound, upper_bound, name)
-        self._variables_name.add(name)
 
-    def add_boolean_variable(self, name: str) -> None:
+        var = self._solver.IntVar(lower_bound, upper_bound, name)
+        self._variables_name.add(name)
+        self._variables_objects[name] = var
+        return var
+
+    def add_boolean_variable(self, name: str) -> Any:
         """
         Add a boolean variable to the model.
 
         :param name: Variable name
         :type name: str
-        :param lower_bound: Lower bound for the variable
-        :type lower_bound: float
-        :param upper_bound: Upper bound for the variable
-        :type upper_bound: float
+        :return: OR-Tools variable object that can be used in expressions
+        :rtype: pywraplp.Variable
         """
         logger.debug(f"Adding boolean variable '{name}'")
         if name in self._variables_name:
             raise ValueError(f"Variable '{name}' already exists")
-        self._solver.BoolVar(name)
+
+        var = self._solver.BoolVar(name)
         self._variables_name.add(name)
+        self._variables_objects[name] = var
+        return var
 
-    def add_continuous_variables(
-        self,
-        names: list[str],
-        lower_bound: float = 0.0,
-        upper_bound: float = float("inf"),
-    ) -> None:
+    def get_variable(self, name: str) -> Any:
         """
-        Add multiple continuous variables to the model with the same bounds.
+        Get a variable object by name for use in expressions.
 
-        :param name: List of variable names
-        :type name: List[str]
-        :param lower_bound: Lower bound for the variable
-        :type lower_bound: float
-        :param upper_bound: Upper bound for the variable
-        :type upper_bound: float
+        :param name: Variable name
+        :type name: str
+        :return: OR-Tools variable object
+        :rtype: pywraplp.Variable
+        :raises ValueError: If variable doesn't exist
         """
-        for name in names:
-            self.add_continuous_variable(name, lower_bound, upper_bound)
+        if name not in self._variables_objects:
+            raise ValueError(f"Variable '{name}' not found")
+        return self._variables_objects[name]
 
-    def add_linear_constraint(self, coefficients: dict[str, float], operator: str, rhs: float, name: str) -> None:
+    def add_constraint(self, constraint_expr: Any, name: str | None = None) -> None:
         """
-        Add a linear constraint of the form: sum(coeff * var) operator rhs.
+        Add a constraint using OR-Tools expression syntax.
 
-        :param coefficients: dictionary mapping variable names to coefficients
-        :type coefficients: dict[str, float]
-        :param operator: Constraint operator ('<=', '>=', '==')
-        :type operator: str
-        :param rhs: Right-hand side value
-        :type rhs: float
+        This method allows you to pass constraints directly like:
+        model.add_constraint(x + y <= 10, "sum_constraint")
+        model.add_constraint(2 * x + 3 * y >= 5, "min_constraint")
+        model.add_constraint(x == y, "equality_constraint")
+
+        :param constraint_expr: OR-Tools constraint expression
+        :type constraint_expr: Any (OR-Tools constraint object)
         :param name: Optional constraint name
         :type name: Optional[str]
         """
-        logger.debug(f"Adding constraint: {coefficients} {operator} {rhs} (name={name})")
+        if name is None:
+            name = f"constraint_{len(self._constraints_name)}"
 
         if name in self._constraints_name:
             raise ValueError(f"Constraint '{name}' already exists")
 
-        expr = self._solver.Constraint(-self._solver.infinity(), self._solver.infinity(), name)
+        logger.debug(f"Adding constraint: {name}")
+
+        self._solver.Add(constraint_expr, name)
         self._constraints_name.add(name)
 
-        for var_name, coeff in coefficients.items():
-            if var_name not in self._variables_name:
-                raise KeyError(f"Variable '{var_name}' not found")
-            variable = self._solver.LookupVariable(var_name)
-            expr.SetCoefficient(variable, coeff)
-
-        if operator == "<=":
-            expr.SetUb(rhs)
-        elif operator == ">=":
-            expr.SetLb(rhs)
-        elif operator == "==":
-            expr.SetBounds(rhs, rhs)
-        else:
-            raise ValueError(f"Unknown operator: {operator}")
-
-    def set_objective(
+    def add_objective(
         self,
-        coefficients: dict[str, float],
+        objective_expr: Any,
         direction: Literal["maximize", "minimize"] = "maximize",
     ) -> None:
         """
-        Set the objective function.
+        Add terms to the objective function.
 
-        :param coefficients: dictionary mapping variable names to objective coefficients
-        :type coefficients: dict[str, float]
-        :param direction: Optimization direction
-        :type direction: OptimizationDirection
+        This method allows you to incrementally build the objective function by adding
+        terms one at a time. If this is the first call, it sets the optimization direction.
+        Subsequent calls must use the same direction.
+
+        Examples:
+        model.add_objective(x + 2 * y, "maximize")
+        model.add_objective(3 * z, "maximize")  # Adds to existing objective
+
+        :param objective_expr: OR-Tools expression to add to the objective
+        :type objective_expr: Any (OR-Tools expression object)
+        :param direction: Optimization direction (must be consistent across calls)
+        :type direction: Literal["maximize", "minimize"]
+        :raises ValueError: If direction differs from previously set direction
         """
-        logger.debug(f"Setting objective with direction '{direction}' and coefficients: {coefficients}")
+        if self._objective is None:
+            logger.debug(f"Initializing objective with direction '{direction}'")
+            self._objective_direction = direction
+            self._objective = objective_expr
+        else:
+            if self._objective_direction is None:
+                self._objective_direction = direction
+            elif direction != self._objective_direction:
+                raise ValueError(
+                    f"Objective direction '{direction}' conflicts with previously set direction "
+                    f"'{self._objective_direction}'"
+                )
+            logger.debug(f"Adding term to existing objective with direction '{direction}'")
+            self._objective = self._objective + objective_expr
 
-        self._objective = self._solver.Objective()
-        self._objective.Clear()
+        if self._objective_direction == "minimize":
+            self._solver.Minimize(self._objective)
+        elif self._objective_direction == "maximize":
+            self._solver.Maximize(self._objective)
+        else:
+            raise ValueError(f"Unsupported optimization direction: {self._objective_direction}")
 
-        for var_name, coeff in coefficients.items():
-            if var_name not in self._variables_name:
-                raise KeyError(f"Variable '{var_name}' not found")
-            variable = self._solver.LookupVariable(var_name)
-            self._objective.SetCoefficient(variable, coeff)
+    def set_objective(
+        self,
+        objective_expr: Any,
+        direction: Literal["maximize", "minimize"] = "maximize",
+    ) -> None:
+        """
+        Set the objective function using OR-Tools expression syntax.
+
+        This method replaces any existing objective function. Use add_objective()
+        if you want to incrementally build the objective.
+
+        This method allows you to set objectives directly like:
+        model.set_objective(x + 2 * y, "maximize")
+        model.set_objective(3 * x - y + 5, "minimize")
+
+        :param objective_expr: OR-Tools expression for the objective
+        :type objective_expr: Any (OR-Tools expression object)
+        :param direction: Optimization direction
+        :type direction: Literal["maximize", "minimize"]
+        """
+        logger.debug(f"Setting objective expression with direction '{direction}'")
+
+        self._objective = objective_expr
+        self._objective_direction = direction
 
         if direction == "minimize":
-            self._objective.SetMinimization()
+            self._solver.Minimize(objective_expr)
         elif direction == "maximize":
-            self._objective.SetMaximization()
+            self._solver.Maximize(objective_expr)
         else:
             raise ValueError("Optimisation direction not supported.")
-
-        self._objective_dict = coefficients
-
-    def add_objective(self, new_coefficients: dict[str, float]) -> None:
-        """
-        Add new variables to the existing objective function.
-
-        :param new_coefficients: dictionary mapping variable names to new coefficients
-        :type new_coefficients: dict[str, float]
-        :raises RuntimeError: If objective was not previously set
-        """
-        logger.debug(f"Adding to objective: {new_coefficients}")
-
-        if self._objective_dict is None:
-            raise RuntimeError("Objective function must be set before it can be modified.")
-
-        for var_name, coeff in new_coefficients.items():
-            if var_name not in self._variables_name:
-                raise KeyError(f"Variable '{var_name}' not found")
-
-            variable = self._solver.LookupVariable(var_name)
-            self._objective.SetCoefficient(variable, coeff)
-
-        self._objective_dict.update(new_coefficients)
 
     def solve(self, time_limit: float | None = None) -> SolutionInfo:
         """
@@ -360,12 +372,13 @@ class OptimisationModel:
     def clear(self) -> None:
         """Clear the model and reset all variables and constraints."""
         self._variables_name.clear()
+        self._variables_objects.clear()
         self._constraints_name.clear()
-        self._objective_dict = None
         self._solution_info = None
         self._objective = None
+        self._objective_direction = None
         self._initialize_solver()
 
     def __repr__(self) -> str:
         """String representation of the model."""
-        return f"OptimisationModel(name={self.name},solver={self.solver_name}"
+        return f"OptimisationModel(name={self.name},solver={self.solver_name})"
