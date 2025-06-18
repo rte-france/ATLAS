@@ -62,24 +62,24 @@ def constraint_3_4_max_constraint_name(market_area_name: str, order_name: str) -
     return f"Constraint_3_4_max_mkt_{market_area_name}_o_{order_name}"
 
 
-def constraint_3_8_constraint_name(coupling_group_name: str, order_name: str) -> str:
-    return f"Constraint_3_8_id_volume_o_n_{order_name}_group_n_{coupling_group_name}"
+def constraint_3_8_constraint_name(order_coupling_name: str, order_name: str) -> str:
+    return f"Constraint_3_8_id_volume_o_n_{order_name}_group_n_{order_coupling_name}"
 
 
-def constraint_3_8_1_constraint_name(coupling_group_name: str, order_name: str) -> str:
-    return f"Constraint_3_8_1_id_ratio_o_n_{order_name}_group_n_{coupling_group_name}"
+def constraint_3_8_1_constraint_name(order_coupling_name: str, order_name: str) -> str:
+    return f"Constraint_3_8_1_id_ratio_o_n_{order_name}_group_n_{order_coupling_name}"
 
 
-def constraint_3_9_constraint_name(coupling_group_name: str) -> str:
-    return f"C_3_9_compl_o_group_{coupling_group_name}"
+def constraint_3_9_constraint_name(order_coupling_name: str) -> str:
+    return f"C_3_9_compl_o_group_{order_coupling_name}"
 
 
-def constraint_3_10_constraint_name(coupling_group_name: str) -> str:
-    return f"Constraint_3_10_exclusive_o_g_number_{coupling_group_name}"
+def constraint_3_10_constraint_name(order_coupling_name: str) -> str:
+    return f"Constraint_3_10_exclusive_o_g_number_{order_coupling_name}"
 
 
-def constraint_parent_child_constraint_name(coupling_group_name: str, order_name: str) -> str:
-    return f"Constraint_parent_child_on_child_{order_name}_on_group{coupling_group_name}"
+def constraint_parent_child_constraint_name(order_coupling_name: str, order_name: str) -> str:
+    return f"Constraint_parent_child_on_child_{order_name}_on_group{order_coupling_name}"
 
 
 def constraint_3_2_1_constraint_name(market_area_name: str, time_index: int) -> str:

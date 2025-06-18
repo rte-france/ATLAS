@@ -8,6 +8,8 @@ import json
 from ortools.linear_solver import pywraplp
 
 import atlas.modules.market_clearing.market_clearing_constants as constants
+from atlas import OrderCoupling
+from atlas.enum import CouplingType
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 
@@ -67,8 +69,8 @@ class ClearingModel:
     def build_constraints(self):
         """Create all constraints for the clearing phase model"""
         self.create_constraint_3_4_constraints()
+        self.add_order_coupling_constraints()
         """
-        self.create_constraint_3_8_constraints()
         self.create_constraint_3_8_1_constraints()
         self.create_constraint_3_9_constraints()
         self.create_constraint_3_10_constraints()
@@ -214,6 +216,43 @@ class ClearingModel:
             order_status * max_power >= accepted_power,
             constants.constraint_3_4_max_constraint_name(market_area_name, order_name),
         )
+
+    def add_order_coupling_constraints(self):
+        for order_coupling in self.input_dataset.order_couplings.values():
+            match order_coupling.coupling_type:
+                case CouplingType.IDENTICAL_VOLUME:
+                    self.add_identical_volume_order_coupling_constraints(order_coupling)
+                case CouplingType.IDENTICAL_RATIO:
+                    self.add_identical_ratio_order_coupling_constraints(order_coupling)
+                case CouplingType.COMPLEMENT:
+                    print()
+                case CouplingType.EXCLUSION:
+                    print()
+                case CouplingType.PARENT_CHILDREN:
+                    print()
+
+    def add_identical_volume_order_coupling_constraints(self, order_coupling: OrderCoupling):
+        # Not find in dataset
+        self.solver.Add(
+            1 == 1,
+            constants.constraint_3_8_constraint_name(order_coupling.name, "order.name"),
+        )
+
+    def add_identical_ratio_order_coupling_constraints(self, order_coupling: OrderCoupling):
+        for i, order in enumerate(order_coupling.orders[1:]):
+            prev_order = order_coupling.orders[i]
+            if prev_order.qmax == prev_order.qmin or order.qmax == order.qmin:
+                continue
+            prev_accepted_quantity = self.solver.LookupVariable(constants.accepted_power_variable_name(prev_order.name))
+            accepted_quantity = self.solver.LookupVariable(constants.accepted_power_variable_name(prev_order.name))
+
+            prev_ratio = (prev_accepted_quantity - prev_order.qmin) / (prev_order.qmax - prev_order.qmin)
+            ratio = (accepted_quantity - order.qmin) / (order.qmax - order.qmin)
+
+
+            self.solver.Add(
+                ratio == prev_ratio, constants.constraint_3_8_1_constraint_name(order_coupling.name, order.name)
+            )
 
     ##################################
     # Objective
