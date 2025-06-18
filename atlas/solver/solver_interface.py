@@ -341,7 +341,7 @@ class OptimisationModel:
 
         return self._solver.LookupVariable(name).solution_value()
 
-    def export_model(self, filename: str, format_type: Literal["lp", "mps"] = "lp") -> None:
+    def export_model(self, filename: str) -> None:
         """
         Export the model to a file.
 
@@ -350,12 +350,10 @@ class OptimisationModel:
         :param format_type: Export format ('lp', 'mps')
         :type format_type: str
         """
-        logger.debug(f"Exporting model to '{filename}' with format '{format_type}'")
+        logger.debug(f"Exporting model to '{filename}'")
 
-        if format_type.lower() == "lp":
-            lp = self._solver.ExportModelAsLpFormat(False)
-        else:
-            raise ValueError(f"Unsupported export format: {format_type}")
+        lp = self._solver.ExportModelAsLpFormat(False)
+
         with open(filename, "w") as f:
             f.write(lp)
 
@@ -370,10 +368,4 @@ class OptimisationModel:
 
     def __repr__(self) -> str:
         """String representation of the model."""
-        stats = self.get_model_stats()
-        return (
-            f"OptimisationModel(name={self.name},"
-            f"solver={self.solver_name},"
-            f"variables={stats['num_variables']},"
-            f"constraints={stats['num_constraints']})"
-        )
+        return f"OptimisationModel(name={self.name},solver={self.solver_name}"
