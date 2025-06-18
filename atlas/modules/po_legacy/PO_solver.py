@@ -1,16 +1,15 @@
-# coding: utf-8
-
 # --- Imports
-import API
 import os
+
+import API
 import PO_functions
-from PO_portfolio import PO_portfolio
-from PO_thermic_constraints import GetVariablesAndConstraints_Thermics
-from PO_hydraulic_constraints import GetVariablesAndConstraints_Hydraulics
-from PO_storage_constraints import GetVariablesAndConstraints_Storage
-from PO_wind_pv_constraints import GetVariablesAndConstraints_wind_pv
-from PO_load_constraints import GetVariablesAndConstraints_load
 from manual_activation import set_manual_activation
+from PO_hydraulic_constraints import GetVariablesAndConstraints_Hydraulics
+from PO_load_constraints import GetVariablesAndConstraints_load
+from PO_portfolio import PO_portfolio
+from PO_storage_constraints import GetVariablesAndConstraints_Storage
+from PO_thermic_constraints import GetVariablesAndConstraints_Thermics
+from PO_wind_pv_constraints import GetVariablesAndConstraints_wind_pv
 
 
 # --- Script
@@ -37,22 +36,29 @@ def OptimalPlacement(output_marker, p):
         if equipment.Class in p.excluded_technologies:
             set_manual_activation([equipment], p)
             if p.verbose:
-                API.IO.Trace.Log(
-                    "Equipment {} of excluded type {} is manually activated".format(equipment.Name, equipment.Class)
-                )
+                API.IO.Trace.Log(f"Equipment {equipment.Name} of excluded type {equipment.Class} is manually activated")
         elif equipment.Strategy in p.excluded_thermal_strategies:
             set_manual_activation([equipment], p)
             if p.verbose:
                 API.IO.Trace.Log(
-                    "Equipment {} with excluded strategy {} is manually activated".format(
-                        equipment.Name, equipment.Strategy
-                    )
+                    f"Equipment {equipment.Name} with excluded strategy {equipment.Strategy} is manually activated"
                 )
         elif p.is_portfolio_bidding:
             opt_equipments_DT.append(equipment)
         else:
             OptimalPlacement_compute(
-                output_marker, [equipment.Portfolio], [equipment], [], [], [], [], [], [], [], equipment, p
+                output_marker,
+                [equipment.Portfolio],
+                [equipment],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                equipment,
+                p,
             )
 
     # Hydraulic
@@ -60,14 +66,23 @@ def OptimalPlacement(output_marker, p):
         if equipment.Class in p.excluded_technologies:
             set_manual_activation([equipment], p)
             if p.verbose:
-                API.IO.Trace.Log(
-                    "Equipment {} of excluded type {} is manually activated".format(equipment.Name, equipment.Class)
-                )
+                API.IO.Trace.Log(f"Equipment {equipment.Name} of excluded type {equipment.Class} is manually activated")
         elif p.is_portfolio_bidding:
             opt_equipments_DH.append(equipment)
         else:
             OptimalPlacement_compute(
-                output_marker, [equipment.Portfolio], [], [equipment], [], [], [], [], [], [], equipment, p
+                output_marker,
+                [equipment.Portfolio],
+                [],
+                [equipment],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                equipment,
+                p,
             )
 
     # Storage
@@ -75,14 +90,23 @@ def OptimalPlacement(output_marker, p):
         if equipment.Class in p.excluded_technologies:
             set_manual_activation([equipment], p)
             if p.verbose:
-                API.IO.Trace.Log(
-                    "Equipment {} of excluded type {} is manually activated".format(equipment.Name, equipment.Class)
-                )
+                API.IO.Trace.Log(f"Equipment {equipment.Name} of excluded type {equipment.Class} is manually activated")
         elif p.is_portfolio_bidding:
             opt_equipments_DS.append(equipment)
         else:
             OptimalPlacement_compute(
-                output_marker, [equipment.Portfolio], [], [], [equipment], [], [], [], [], [], equipment, p
+                output_marker,
+                [equipment.Portfolio],
+                [],
+                [],
+                [equipment],
+                [],
+                [],
+                [],
+                [],
+                [],
+                equipment,
+                p,
             )
 
     # Load
@@ -90,9 +114,7 @@ def OptimalPlacement(output_marker, p):
         if equipment.Class in p.excluded_technologies:
             set_manual_activation([equipment], p)
             if p.verbose:
-                API.IO.Trace.Log(
-                    "Equipment {} of excluded type {} is manually activated".format(equipment.Name, equipment.Class)
-                )
+                API.IO.Trace.Log(f"Equipment {equipment.Name} of excluded type {equipment.Class} is manually activated")
         elif p.is_portfolio_bidding:
             # Power to gas equipments are dispatchable, the rest is considered non dispatchable
             # (DSR is modeled using thermal units)
@@ -103,11 +125,33 @@ def OptimalPlacement(output_marker, p):
         else:
             if equipment.LoadType == "PowerToGas":
                 OptimalPlacement_compute(
-                    output_marker, [equipment.Portfolio], [], [], [], [], [equipment], [], [], [], equipment, p
+                    output_marker,
+                    [equipment.Portfolio],
+                    [],
+                    [],
+                    [],
+                    [],
+                    [equipment],
+                    [],
+                    [],
+                    [],
+                    equipment,
+                    p,
                 )
             else:
                 OptimalPlacement_compute(
-                    output_marker, [equipment.Portfolio], [], [], [], [equipment], [], [], [], [], equipment, p
+                    output_marker,
+                    [equipment.Portfolio],
+                    [],
+                    [],
+                    [],
+                    [equipment],
+                    [],
+                    [],
+                    [],
+                    [],
+                    equipment,
+                    p,
                 )
 
     # Wind
@@ -115,14 +159,23 @@ def OptimalPlacement(output_marker, p):
         if equipment.Class in p.excluded_technologies:
             set_manual_activation([equipment], p)
             if p.verbose:
-                API.IO.Trace.Log(
-                    "Equipment {} of excluded type {} is manually activated".format(equipment.Name, equipment.Class)
-                )
+                API.IO.Trace.Log(f"Equipment {equipment.Name} of excluded type {equipment.Class} is manually activated")
         elif p.is_portfolio_bidding:
             opt_equipments_Wind.append(equipment)
         else:
             OptimalPlacement_compute(
-                output_marker, [equipment.Portfolio], [], [], [], [], [], [equipment], [], [], equipment, p
+                output_marker,
+                [equipment.Portfolio],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [equipment],
+                [],
+                [],
+                equipment,
+                p,
             )
 
     # PV
@@ -130,14 +183,23 @@ def OptimalPlacement(output_marker, p):
         if equipment.Class in p.excluded_technologies:
             set_manual_activation([equipment], p)
             if p.verbose:
-                API.IO.Trace.Log(
-                    "Equipment {} of excluded type {} is manually activated".format(equipment.Name, equipment.Class)
-                )
+                API.IO.Trace.Log(f"Equipment {equipment.Name} of excluded type {equipment.Class} is manually activated")
         elif p.is_portfolio_bidding:
             opt_equipments_PV.append(equipment)
         else:
             OptimalPlacement_compute(
-                output_marker, [equipment.Portfolio], [], [], [], [], [], [], [equipment], [], equipment, p
+                output_marker,
+                [equipment.Portfolio],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [equipment],
+                [],
+                equipment,
+                p,
             )
 
     # Non dispatchable generation
@@ -145,14 +207,23 @@ def OptimalPlacement(output_marker, p):
         if equipment.Class in p.excluded_technologies:
             set_manual_activation([equipment], p)
             if p.verbose:
-                API.IO.Trace.Log(
-                    "Equipment {} of excluded type {} is manually activated".format(equipment.Name, equipment.Class)
-                )
+                API.IO.Trace.Log(f"Equipment {equipment.Name} of excluded type {equipment.Class} is manually activated")
         elif p.is_portfolio_bidding:
             opt_equipments_NDP.append(equipment)
         else:
             OptimalPlacement_compute(
-                output_marker, [equipment.Portfolio], [], [], [], [], [], [], [], [equipment], equipment, p
+                output_marker,
+                [equipment.Portfolio],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [equipment],
+                equipment,
+                p,
             )
 
     if p.is_portfolio_bidding:
@@ -199,7 +270,7 @@ def OptimalPlacement_compute(
             if opt_portfolio.MarketArea.Name in p.excluded_market_areas:
                 if p.is_portfolio_bidding:
                     API.IO.Trace.Log(
-                        "Portfolio {} is in an excluded market area, and is not optimized".format(opt_portfolio.Name),
+                        f"Portfolio {opt_portfolio.Name} is in an excluded market area, and is not optimized",
                         API.IO.LogTypeWarn,
                     )
                     set_manual_activation(opt_portfolio.GetChildren("Equipment"), p)
@@ -207,7 +278,7 @@ def OptimalPlacement_compute(
 
                 else:
                     API.IO.Trace.Log(
-                        "Equipment {} is in an excluded market area, and is not optimized".format(equipment.Name),
+                        f"Equipment {equipment.Name} is in an excluded market area, and is not optimized",
                         API.IO.LogTypeWarn,
                     )
                     set_manual_activation([equipment], p)
@@ -263,11 +334,11 @@ def OptimalPlacement_compute(
             continue
 
         if p.is_portfolio_bidding:
-            msg = "----- portfolio : {} -----".format(opt_portfolio.Name)
+            msg = f"----- portfolio : {opt_portfolio.Name} -----"
             API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
         else:
-            msg = "----- equipment : {} -----".format(equipment.Name)
+            msg = f"----- equipment : {equipment.Name} -----"
             API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
         # Creates the 'PROB' variable to contain the problem data
@@ -282,7 +353,14 @@ def OptimalPlacement_compute(
 
         # Get the longest optimisation periode
         max_op_time = sorted(
-            [p.op_times, p.thermal_op_times, p.hydraulic_op_times, p.battery_op_times, p.phs_op_times, p.ev_op_times],
+            [
+                p.op_times,
+                p.thermal_op_times,
+                p.hydraulic_op_times,
+                p.battery_op_times,
+                p.phs_op_times,
+                p.ev_op_times,
+            ],
             key=lambda x: len(x),
         )[-1]
         POportfolio.InitVariablesAndPreComputations(
@@ -309,28 +387,22 @@ def OptimalPlacement_compute(
                 # debug
                 if p.debug:
                     API.IO.Trace.Log(
-                        "Small imbalance price up at time {} : {}".format(time, str(POportfolio.imbal_price_up[time])),
+                        f"Small imbalance price up at time {time} : {str(POportfolio.imbal_price_up[time])}",
                         API.IO.LogTypeInfo,
                     )
 
                     API.IO.Trace.Log(
-                        "Large imbalance price up at time {} : {}".format(
-                            time, str(POportfolio.large_imbal_price_up[time])
-                        ),
+                        f"Large imbalance price up at time {time} : {str(POportfolio.large_imbal_price_up[time])}",
                         API.IO.LogTypeInfo,
                     )
 
                     API.IO.Trace.Log(
-                        "Small imbalance price down at time {} : {}".format(
-                            time, str(POportfolio.imbal_price_down[time])
-                        ),
+                        f"Small imbalance price down at time {time} : {str(POportfolio.imbal_price_down[time])}",
                         API.IO.LogTypeInfo,
                     )
 
                     API.IO.Trace.Log(
-                        "Large imbalance price down at time {} : {}".format(
-                            time, str(POportfolio.large_imbal_price_down[time])
-                        ),
+                        f"Large imbalance price down at time {time} : {str(POportfolio.large_imbal_price_down[time])}",
                         API.IO.LogTypeInfo,
                     )
 
@@ -551,7 +623,7 @@ def OptimalPlacement_compute(
             SYMMETRY=1"""
 
             optim_solver.SetSolverSpecificParameters(
-                "MAXTIME {} MIPRELSTOP {} PRESOLVE {}".format(str(p.time_out), str(p.duality_gap), xpress_presolve)
+                f"MAXTIME {str(p.time_out)} MIPRELSTOP {str(p.duality_gap)} PRESOLVE {xpress_presolve}"
             )
 
         else:
@@ -564,9 +636,9 @@ def OptimalPlacement_compute(
         # Print LP
         if p.debug:
             if p.is_portfolio_bidding:
-                lp_file_name = os.path.join(p.output_folder, "Portfolio_{}.lp".format(opt_portfolio.Name))
+                lp_file_name = os.path.join(p.output_folder, f"Portfolio_{opt_portfolio.Name}.lp")
             else:
-                lp_file_name = os.path.join(p.output_folder, "Equipment_{}.lp".format(equipment.Name))
+                lp_file_name = os.path.join(p.output_folder, f"Equipment_{equipment.Name}.lp")
 
             if p.solver.upper() == "XPRESS":
                 PROB.WriteLP(lp_file_name, True)
@@ -574,7 +646,7 @@ def OptimalPlacement_compute(
             else:
                 PROB.WriteLP(lp_file_name)
 
-                print(open(API.Workspace + "\\" + lp_file_name, "r").read())
+                print(open(API.Workspace + "\\" + lp_file_name).read())
 
         if p.solver in ["GLPK", "PNE"]:
             PROB.Solve(p.solver)
@@ -587,11 +659,11 @@ def OptimalPlacement_compute(
         API.Solver.ExportSolution(PROB, "solution_%s.out" % PROB.Name)
 
         # The status of the solution is printed to the screen
-        msg = "Resolution ends with Status = {}".format(PROB.Status)
+        msg = f"Resolution ends with Status = {PROB.Status}"
         API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
         # the objective function result is printed to the screen
-        msg = "The total cost is: {} E".format(API.Solver.Value(PROB.Objective))
+        msg = f"The total cost is: {API.Solver.Value(PROB.Objective)} E"
         API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
         lst_msg_status.append(
@@ -613,27 +685,19 @@ def OptimalPlacement_compute(
         if p.debug and p.is_portfolio_bidding:
             for time in p.target_times:
                 API.IO.Trace.Log(
-                    "Large upward imbalance of PO {} at time {}: {}".format(
-                        POportfolio.name, time, POportfolio.Large_imbal_up[time].VarValue
-                    ),
+                    f"Large upward imbalance of PO {POportfolio.name} at time {time}: {POportfolio.Large_imbal_up[time].VarValue}",
                     API.IO.LogTypeInfo,
                 )
                 API.IO.Trace.Log(
-                    "Large downward imbalance of PO {} at time {}: {}".format(
-                        POportfolio.name, time, POportfolio.Large_imbal_down[time].VarValue
-                    ),
+                    f"Large downward imbalance of PO {POportfolio.name} at time {time}: {POportfolio.Large_imbal_down[time].VarValue}",
                     API.IO.LogTypeInfo,
                 )
                 API.IO.Trace.Log(
-                    "Small upward imbalance of PO {} at time {}: {}".format(
-                        POportfolio.name, time, POportfolio.Small_imbal_up[time].VarValue
-                    ),
+                    f"Small upward imbalance of PO {POportfolio.name} at time {time}: {POportfolio.Small_imbal_up[time].VarValue}",
                     API.IO.LogTypeInfo,
                 )
                 API.IO.Trace.Log(
-                    "Small downward imbalance of PO {} at time {}: {}".format(
-                        POportfolio.name, time, POportfolio.Small_imbal_down[time].VarValue
-                    ),
+                    f"Small downward imbalance of PO {POportfolio.name} at time {time}: {POportfolio.Small_imbal_down[time].VarValue}",
                     API.IO.LogTypeInfo,
                 )
 
@@ -842,7 +906,8 @@ def output_marker_update(marker_equipment, optim_equipment, equipment_type, p):
 
         if equipment_type == "Thermic":
             marker_equipment.StateSequence.AddTimeSeries(
-                "{}_PO_Forecast".format(PO_functions.get_date_to_clean_string(p.execution_date)), state_sequence
+                f"{PO_functions.get_date_to_clean_string(p.execution_date)}_PO_Forecast",
+                state_sequence,
             )
     else:
         if p.execution_date in marker_equipment.Power.Index:
@@ -851,7 +916,8 @@ def output_marker_update(marker_equipment, optim_equipment, equipment_type, p):
 
         if equipment_type == "Thermic":
             marker_equipment.StateSequence.AddTimeSeries(
-                "{}_PO".format(PO_functions.get_date_to_clean_string(p.execution_date)), state_sequence
+                f"{PO_functions.get_date_to_clean_string(p.execution_date)}_PO",
+                state_sequence,
             )
 
         if equipment_type in ["Hydraulic", "Storage"]:
@@ -920,9 +986,7 @@ def power_output_rounding(marker_equipment, Power_TimeSeries, p):
         if power_to_floor != power_floored:
             if p.debug:
                 API.IO.Trace.Log(
-                    "Rounding correction for equipment {} at time {}: Out of bound".format(
-                        marker_equipment.Name, str(time_t)
-                    ),
+                    f"Rounding correction for equipment {marker_equipment.Name} at time {str(time_t)}: Out of bound",
                     API.IO.LogTypeWarn,
                 )
             Power_TimeSeries.SetValue(time_t, power_floored)
@@ -946,9 +1010,7 @@ def power_output_rounding(marker_equipment, Power_TimeSeries, p):
             if abs(Power_TimeSeries.GetValue(time_t) - power_sd_minus_1) <= accepted_error:
                 if p.debug:
                     API.IO.Trace.Log(
-                        "Rounding correction for equipment {} at time {}: Flat power".format(
-                            marker_equipment.Name, str(time_t)
-                        ),
+                        f"Rounding correction for equipment {marker_equipment.Name} at time {str(time_t)}: Flat power",
                         API.IO.LogTypeWarn,
                     )
                 Power_TimeSeries.SetValue(time_t, power_sd_minus_1)
@@ -1054,9 +1116,7 @@ def power_output_rounding(marker_equipment, Power_TimeSeries, p):
                     delta_P_corrected_value = previous_fixed_delta_P
                     if p.debug:
                         API.IO.Trace.Log(
-                            "Rounding correction for equipment {} at time {}: Ramping".format(
-                                marker_equipment.Name, str(time_t)
-                            ),
+                            f"Rounding correction for equipment {marker_equipment.Name} at time {str(time_t)}: Ramping",
                             API.IO.LogTypeWarn,
                         )
 
@@ -1078,9 +1138,7 @@ def power_output_rounding(marker_equipment, Power_TimeSeries, p):
                     )
                     if p.debug:
                         API.IO.Trace.Log(
-                            "Rounding correction for equipment {} at time {}: Ramping".format(
-                                marker_equipment.Name, str(ramping_index)
-                            ),
+                            f"Rounding correction for equipment {marker_equipment.Name} at time {str(ramping_index)}: Ramping",
                             API.IO.LogTypeWarn,
                         )
                     Power_TimeSeries.SetValue(ramping_index, new_q)
@@ -1135,9 +1193,7 @@ def stored_energy_rounding(marker_equipment, energy_timeseries, p):
         if energy_to_floor != energy_floored:
             if p.debug:
                 API.IO.Trace.Log(
-                    "Rounding correction for equipment {} at time {}: Out of bound energy".format(
-                        marker_equipment.Name, str(time_t)
-                    ),
+                    f"Rounding correction for equipment {marker_equipment.Name} at time {str(time_t)}: Out of bound energy",
                     API.IO.LogTypeWarn,
                 )
             energy_timeseries.SetValue(time_t, energy_floored)

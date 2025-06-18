@@ -1,11 +1,8 @@
-from collections.abc import Mapping
-
 from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enum import StorageType
 from atlas.math.timeseries import Timeseries
-from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
@@ -14,106 +11,10 @@ from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
-from atlas.models.market.market_area import MarketArea
-from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import (
     MarketEnum,
     PortfolioOptimisationParameters,
 )
-
-
-def estimate_imbalance_prices(
-    time: DateTime,
-    portfolio: Portfolio,
-    market_area: MarketArea,
-    control_block: ControlBlock,
-    imbalance_price_up: Mapping[DateTime, float],
-    large_imbalance_price_up: Mapping[DateTime, float],
-    imbalance_price_down: Mapping[DateTime, float],
-    large_imbalance_price_down: Mapping[DateTime, float],
-    parameters: PortfolioOptimisationParameters,
-) -> None:
-    """
-    Estimate imbalance settlement prices (ISP) at a given time and store them in the provided dictionaries.
-
-    There are four outputs:
-      - imbalance_price_up: small upward imbalance
-      - large_imbalance_price_up: large upward imbalance
-      - imbalance_price_down: small downward imbalance
-      - large_imbalance_price_down: large downward imbalance
-
-    Uses either forecast or actual reference price depending on `parameters.use_forecast`,
-    and applies either provided imbalance price markers or calculates them using
-    French regulation method with penalties and lower bounds.
-    """
-    # 1. Get reference price
-    if parameters.use_forecast:
-        if parameters.market == MarketEnum.dayahead:
-            ts = market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time)
-            price = ts.get_value(time)
-        elif parameters.market == MarketEnum.intraday:
-            ts = market_area.id_price_forecast.get_forecast(parameters.execution_date, time, time)
-            price = ts.get_value(time)
-        else:
-            price = 0.0  # safe default; original logic covers only DA/ID in forecast mode
-    else:
-        if parameters.market == MarketEnum.dayahead:
-            price = market_area.da_price.get_value(time)
-        elif parameters.market == MarketEnum.intraday:
-            price = market_area.id_price.get_forecast(parameters.execution_date, time, time).get_value(time)
-        elif parameters.market == MarketEnum.rr_activation:
-            price = market_area.rr_activation_price.get_value(time)
-        elif parameters.market == MarketEnum.mfrr_activation:
-            price = market_area.mfrr_activation_price.get_value(time)
-        else:
-            price = 0.0  # fallback
-
-    # 2. Upward imbalance prices
-    if len(control_block.negative_imbalance_price) > 0:
-        base = control_block.negative_imbalance_price.get_value(time)
-        imbalance_price_up[time] = base * (1 + parameters.small_imbalance_penalty)
-        large_imbalance_price_up[time] = base * (1 + parameters.large_imbalance_penalty)
-    else:
-        # French rule estimation
-        ref = parameters.isp_forecast_lower_bound
-        abs_price = abs(price)
-        if abs_price < ref:
-            if price >= 0:
-                imbalance_price_up[time] = (1 + parameters.small_imbalance_penalty) * ref
-                large_imbalance_price_up[time] = (1 + parameters.large_imbalance_penalty) * ref
-            else:
-                imbalance_price_up[time] = (1 - parameters.small_imbalance_penalty) * -ref
-                large_imbalance_price_up[time] = (1 - parameters.large_imbalance_penalty) * -ref
-        else:
-            if price >= 0:
-                imbalance_price_up[time] = (1 + parameters.small_imbalance_penalty) * price
-                large_imbalance_price_up[time] = (1 + parameters.large_imbalance_penalty) * price
-            else:
-                imbalance_price_up[time] = (1 - parameters.small_imbalance_penalty) * price
-                large_imbalance_price_up[time] = (1 - parameters.large_imbalance_penalty) * price
-
-    # 3. Downward imbalance prices
-    if len(control_block.positive_imbalance_price) > 0:
-        base = control_block.positive_imbalance_price.get_value(time)
-        imbalance_price_down[time] = base * (1 - parameters.small_imbalance_penalty)
-        large_imbalance_price_down[time] = base * (1 - parameters.large_imbalance_penalty)
-    else:
-        ref = parameters.isp_forecast_lower_bound
-        abs_price = abs(price)
-        if abs_price < ref:
-            if price >= 0:
-                imbalance_price_down[time] = (1 - parameters.small_imbalance_penalty) * ref
-                large_imbalance_price_down[time] = (1 - parameters.large_imbalance_penalty) * ref
-            else:
-                imbalance_price_down[time] = (1 + parameters.small_imbalance_penalty) * -ref
-                large_imbalance_price_down[time] = (1 + parameters.large_imbalance_penalty) * -ref
-        else:
-            if price >= 0:
-                imbalance_price_down[time] = (1 - parameters.small_imbalance_penalty) * price
-                large_imbalance_price_down[time] = (1 - parameters.large_imbalance_penalty) * price
-            else:
-                imbalance_price_down[time] = (1 + parameters.small_imbalance_penalty) * price
-                large_imbalance_price_down[time] = (1 + parameters.large_imbalance_penalty) * price
 
 
 def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOptimisationParameters):
