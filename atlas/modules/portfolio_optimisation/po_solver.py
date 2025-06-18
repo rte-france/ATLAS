@@ -1,11 +1,9 @@
-"""
-Energy Portfolio Optimization Module
+"""Copyright (c) 2025, RTE (www.rte-france.com)
 
-This module provides optimal placement and unit commitment functionality for
-energy portfolios containing various types of generation, storage, and load equipment.
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
 """
 
-from dataclasses import dataclass
 from typing import Any
 
 from pendulum import DateTime
@@ -13,7 +11,6 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
-from atlas.modules.portfolio_optimisation import Portfolio
 from atlas.modules.portfolio_optimisation.enum import EquipmentType, SolverStatus
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.constraint_builder import ConstraintBuilder
@@ -24,81 +21,7 @@ from atlas.modules.portfolio_optimisation.utils.equipment import (
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.modules.portfolio_optimisation.utils.output_manager import OutputManager
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
-
-
-@dataclass
-class OptimizationResults:
-    """Results from the optimization process."""
-
-    status: SolverStatus
-    objective_value: float
-    portfolio_name: str
-    equipment_name: str | None = None
-    solve_time: float | None = None
-    gap: float | None = None
-
-    @classmethod
-    def from_solution_info(cls, solution_info: SolutionInfo, portfolio_name: str, equipment_name: str = None):
-        """Create OptimizationResults from SolutionInfo."""
-        # Map SolverStatus from OptimisationModel to portfolio optimization SolverStatus
-        status_mapping = {
-            solution_info.status: SolverStatus.OPTIMAL
-            if solution_info.status.name == "OPTIMAL"
-            else SolverStatus.FEASIBLE
-            if solution_info.status.name == "FEASIBLE"
-            else SolverStatus.INFEASIBLE
-            if solution_info.status.name == "INFEASIBLE"
-            else SolverStatus.UNBOUNDED
-            if solution_info.status.name == "UNBOUNDED"
-            else SolverStatus.NOT_SOLVED
-        }
-
-        return cls(
-            status=status_mapping.get(solution_info.status, SolverStatus.NOT_SOLVED),
-            objective_value=solution_info.objective_value or 0.0,
-            portfolio_name=portfolio_name,
-            equipment_name=equipment_name,
-            solve_time=float(solution_info.solve_time.replace("s", "")) if solution_info.solve_time else None,
-            gap=None,  # Gap not directly available from OR-Tools
-        )
-
-
-class SolverManager:
-    """Manages the optimization solver using OptimisationModel."""
-
-    def __init__(self, parameters: PortfolioOptimisationParameters):
-        self.parameters = parameters
-        self.solver_name = self._get_solver_name()
-
-    def _get_solver_name(self) -> str:
-        """Map solver names from parameters to OR-Tools solver names."""
-        solver_mapping = {
-            "CPLEX": "CPLEX_MIXED_INTEGER_PROGRAMMING",
-            "GUROBI": "GUROBI_MIXED_INTEGER_PROGRAMMING",
-            "SCIP": "SCIP_MIXED_INTEGER_PROGRAMMING",
-            "GLOP": "GLOP_LINEAR_PROGRAMMING",
-            "CBC": "CBC_MIXED_INTEGER_PROGRAMMING",
-        }
-
-        solver_name = getattr(self.parameters, "solver", "SCIP")
-        return solver_mapping.get(solver_name, "SCIP_MIXED_INTEGER_PROGRAMMING")
-
-    def create_optimization_problem(self, problem_name: str) -> OptimisationModel:
-        """Create a new optimization problem."""
-        return OptimisationModel(solver_name=self.solver_name, name=problem_name)
-
-    def solve_problem(self, model: OptimisationModel) -> OptimizationResults:
-        """Solve the optimization problem."""
-        # Set solver parameters
-        time_limit = getattr(self.parameters, "time_out", 3600)
-
-        # Solve the problem
-        solution_info = model.solve(time_limit=time_limit)
-
-        # Convert to OptimizationResults
-        return OptimizationResults.from_solution_info(
-            solution_info=solution_info, portfolio_name=model.name or "Unknown"
-        )
+from atlas.solver.solver_interface import SolverStatus as ModelSolverStatus
 
 
 class ObjectiveFunctionBuilder:
@@ -236,10 +159,22 @@ class OptimalPlacementOptimizer:
         # Initialize components
         self.equipment_classifier = EquipmentClassifier(parameters)
         self.equipment_collector = EquipmentCollector()
-        self.solver_manager = SolverManager(parameters)
         self.objective_builder = ObjectiveFunctionBuilder(parameters)
         self.constraint_adapter = ConstraintAdapter(parameters)
         self.output_manager = OutputManager(parameters)
+
+    def _get_solver_name(self) -> str:
+        """Map solver names from parameters to OR-Tools solver names."""
+        solver_mapping = {
+            "CPLEX": "CPLEX_MIXED_INTEGER_PROGRAMMING",
+            "GUROBI": "GUROBI_MIXED_INTEGER_PROGRAMMING",
+            "SCIP": "SCIP_MIXED_INTEGER_PROGRAMMING",
+            "GLOP": "GLOP_LINEAR_PROGRAMMING",
+            "CBC": "CBC_MIXED_INTEGER_PROGRAMMING",
+        }
+
+        solver_name = getattr(self.parameters, "solver", "SCIP")
+        return solver_mapping.get(solver_name, "SCIP_MIXED_INTEGER_PROGRAMMING")
 
     def optimize(self, output_marker) -> list[str]:
         """
@@ -361,9 +296,23 @@ class OptimalPlacementOptimizer:
                 continue
 
             # Perform optimization
-            result = self._optimize_single_portfolio(output_marker, portfolio, portfolio_equipment, single_equipment)
+            solution_info = self._optimize_single_portfolio(
+                output_marker, portfolio, portfolio_equipment, single_equipment
+            )
 
-            status_messages.append(f"{portfolio.name} ended with status {result.status.value}")
+            # Map ModelSolverStatus to SolverStatus
+            status_map = {
+                ModelSolverStatus.OPTIMAL: SolverStatus.OPTIMAL,
+                ModelSolverStatus.FEASIBLE: SolverStatus.FEASIBLE,
+                ModelSolverStatus.INFEASIBLE: SolverStatus.INFEASIBLE,
+                ModelSolverStatus.UNBOUNDED: SolverStatus.UNBOUNDED,
+                ModelSolverStatus.ABNORMAL: SolverStatus.ABNORMAL,
+                ModelSolverStatus.NOT_SOLVED: SolverStatus.NOT_SOLVED,
+                ModelSolverStatus.MODEL_INVALID: SolverStatus.MODEL_INVALID,
+            }
+
+            mapped_status = status_map.get(solution_info.status, SolverStatus.NOT_SOLVED)
+            status_messages.append(f"{portfolio.name} ended with status {mapped_status.value}")
 
         return status_messages
 
@@ -373,14 +322,15 @@ class OptimalPlacementOptimizer:
         portfolio: Portfolio,
         equipment_dict: dict[EquipmentType, list],
         single_equipment=None,
-    ) -> OptimizationResults:
+    ) -> SolutionInfo:
         """Optimize a single portfolio using OptimisationModel."""
         portfolio_name = single_equipment.name if single_equipment else portfolio.name
 
         cfg.logger.info(f"Optimizing portfolio: {portfolio_name}")
 
         # Create optimization model
-        model = self.solver_manager.create_optimization_problem(portfolio_name)
+        solver_name = self._get_solver_name()
+        model = OptimisationModel(solver_name=solver_name, name=portfolio_name)
 
         try:
             # Create portfolio object
@@ -397,19 +347,22 @@ class OptimalPlacementOptimizer:
             self.constraint_adapter.build_and_add_constraints(model, Portfolio, optimization_times)
 
             # Solve problem
-            result = self.solver_manager.solve_problem(model)
+            time_limit = getattr(self.parameters, "time_out", 3600)
+            solution_info = model.solve(time_limit=time_limit)
 
-            cfg.logger.info(f"Portfolio {portfolio_name} optimization completed with status: {result.status.value}")
+            cfg.logger.info(
+                f"Portfolio {portfolio_name} optimization completed with status: {solution_info.status.name}"
+            )
 
             # Export results
-            if result.status == SolverStatus.OPTIMAL:
-                self._export_optimization_results(output_marker, model, Portfolio, result)
+            if solution_info.status == ModelSolverStatus.OPTIMAL:
+                self._export_optimization_results(output_marker, model, Portfolio, solution_info)
             else:
                 # Fallback to manual activation
                 equipment_list = [single_equipment] if single_equipment else portfolio.GetChildren("Equipment")
                 set_manual_activation(equipment_list, self.parameters)
 
-            return result
+            return solution_info
 
         except Exception as e:
             cfg.logger.error(f"Optimization failed for portfolio {portfolio_name}: {e}")
@@ -418,11 +371,12 @@ class OptimalPlacementOptimizer:
             equipment_list = [single_equipment] if single_equipment else portfolio.GetChildren("Equipment")
             set_manual_activation(equipment_list, self.parameters)
 
-            return OptimizationResults(
-                status=SolverStatus.NOT_SOLVED,
-                objective_value=0.0,
-                portfolio_name=portfolio_name,
-                equipment_name=single_equipment.name if single_equipment else None,
+            # Return a failed solution info
+            return SolutionInfo(
+                status=ModelSolverStatus.NOT_SOLVED,
+                objective_value=None,
+                solve_time=None,
+                num_iterations=None,
             )
 
     def _export_optimization_results(
@@ -430,7 +384,7 @@ class OptimalPlacementOptimizer:
         output_marker,
         model: OptimisationModel,
         Portfolio: Portfolio,
-        result: OptimizationResults,
+        solution_info: SolutionInfo,
     ):
         """Export optimization results using the model's variable values."""
         try:
@@ -441,7 +395,7 @@ class OptimalPlacementOptimizer:
 
             # Use output manager to export results
             # You may need to adapt this based on how OutputManager expects the data
-            self.output_manager.export_results(output_marker, Portfolio, result, variable_values)
+            self.output_manager.export_results(output_marker, Portfolio, solution_info, variable_values)
 
         except Exception as e:
             cfg.logger.error(f"Failed to export results: {e}")
@@ -513,7 +467,7 @@ def OptimalPlacement(output_marker, parameters):
     Main entry point for optimal placement optimization.
 
     This function maintains backward compatibility with the original interface
-    while using the refactored implementation with OptimisationModel.
+    while using your OptimisationModel directly.
 
     Args:
         output_marker: The output marker containing all equipment data
@@ -557,7 +511,7 @@ def OptimalPlacement_compute(
     Legacy function for backward compatibility.
 
     This function is maintained for compatibility with existing code
-    but internally uses the new refactored implementation with OptimisationModel.
+    but internally uses your OptimisationModel directly.
     """
     # Convert legacy parameters to new format
     equipment_dict = {
