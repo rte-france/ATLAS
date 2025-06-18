@@ -66,9 +66,8 @@ class ClearingModel:
 
     def build_constraints(self):
         """Create all constraints for the clearing phase model"""
-        self.create_constraint_3_4_min_constraints()
+        self.create_constraint_3_4_constraints()
         """
-        self.create_constraint_3_4_max_constraints()
         self.create_constraint_3_8_constraints()
         self.create_constraint_3_8_1_constraints()
         self.create_constraint_3_9_constraints()
@@ -190,7 +189,7 @@ class ClearingModel:
     ##################################
     # Constraints
     ##################################
-    def create_constraint_3_4_min_constraints(self):
+    def create_constraint_3_4_constraints(self):
         for market_area in self.input_dataset.mc_market_areas.values():
             for order in market_area.orders.values():
                 # Compute the constraints limiting the accepted powers of combined,
@@ -200,10 +199,21 @@ class ClearingModel:
                     accepted_power = self.solver.LookupVariable(
                         constants.accepted_power_variable_name(order.order.name)
                     )
-                    self.solver.Add(
-                        order_status * max(self.parameters.allowed_round_off_error, order.order.qmin) <= accepted_power,
-                        constants.constraint_3_4_min_constraint_name(market_area.market_area.name, order.order.name),
-                    )
+                    self.create_constraint_3_4_min_constraint(market_area.market_area.name, order.order.name, order_status, order.order.qmin, accepted_power)
+                    self.create_constraint_3_4_max_constraint(market_area.market_area.name, order.order.name, order_status, order.order.qmax, accepted_power)
+
+
+    def create_constraint_3_4_min_constraint(self, market_area_name: str, order_name: str, order_status, min_power: float, accepted_power):
+        self.solver.Add(
+            order_status * max(self.parameters.allowed_round_off_error, min_power) <= accepted_power,
+            constants.constraint_3_4_min_constraint_name(market_area_name, order_name),
+        )
+
+    def create_constraint_3_4_max_constraint(self, market_area_name: str, order_name: str, order_status, max_power: float, accepted_power):
+        self.solver.Add(
+            order_status * max_power >= accepted_power,
+            constants.constraint_3_4_max_constraint_name(market_area_name, order_name),
+        )
 
     ##################################
     # Objective
