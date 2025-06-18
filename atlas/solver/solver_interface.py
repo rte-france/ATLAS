@@ -103,14 +103,14 @@ class OptimisationModel:
         """Return the last computed solution info."""
         return self._solution_info
 
-    def add_continious_variable(
+    def add_continuous_variable(
         self,
         name: str,
         lower_bound: float = 0.0,
         upper_bound: float = float("inf"),
     ) -> None:
         """
-        Add a continious variable to the model.
+        Add a continuous variable to the model.
 
         :param name: Variable name
         :type name: str
@@ -167,14 +167,14 @@ class OptimisationModel:
         self._solver.BoolVar(name)
         self._variables_name.add(name)
 
-    def add_continious_variables(
+    def add_continuous_variables(
         self,
         names: list[str],
         lower_bound: float = 0.0,
         upper_bound: float = float("inf"),
     ) -> None:
         """
-        Add multiple continous variables to the model with the same bounds.
+        Add multiple continuous variables to the model with the same bounds.
 
         :param name: List of variable names
         :type name: List[str]
@@ -184,7 +184,7 @@ class OptimisationModel:
         :type upper_bound: float
         """
         for name in names:
-            self.add_continious_variable(name, lower_bound, upper_bound)
+            self.add_continuous_variable(name, lower_bound, upper_bound)
 
     def add_linear_constraint(
             self,
