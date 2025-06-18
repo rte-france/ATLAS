@@ -1,0 +1,460 @@
+"""
+Pytest tests for the OptimisationModel with expression syntax.
+
+Run with: pytest test_optimisation_model.py -v
+"""
+
+import os
+import tempfile
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from atlas.enum import SolverStatus
+from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
+
+
+class TestOptimisationModel:
+    """Test suite for OptimisationModel class."""
+
+    @pytest.fixture
+    def mock_solver(self):
+        """Mock OR-Tools solver for testing."""
+        mock_solver = MagicMock()
+        mock_solver.NumVar.return_value = MagicMock()
+        mock_solver.IntVar.return_value = MagicMock()
+        mock_solver.BoolVar.return_value = MagicMock()
+        mock_solver.Add.return_value = None
+        mock_solver.Minimize.return_value = None
+        mock_solver.Maximize.return_value = None
+        mock_solver.Solve.return_value = 0  # OPTIMAL
+        mock_solver.Objective.return_value.Value.return_value = 100.0
+        mock_solver.iterations.return_value = 10
+        mock_solver.LookupVariable.return_value.solution_value.return_value = 5.0
+        mock_solver.ExportModelAsLpFormat.return_value = "LP FORMAT CONTENT"
+        mock_solver.SetTimeLimit.return_value = None
+        return mock_solver
+
+    @pytest.fixture
+    def model(self, mock_solver):
+        """Create a test OptimisationModel instance."""
+        with patch("ortools.linear_solver.pywraplp.Solver.CreateSolver", return_value=mock_solver):
+            return OptimisationModel("GLOP", "test_model")
+
+    def test_model_initialization_with_name(self, mock_solver):
+        """Test model initialization with name."""
+        with patch("ortools.linear_solver.pywraplp.Solver.CreateSolver", return_value=mock_solver):
+            model = OptimisationModel("GLOP", "test_model")
+            assert model.name == "test_model"
+            assert model.solver_name == "GLOP"
+            assert model.solver is mock_solver
+
+    def test_model_initialization_without_name(self, mock_solver):
+        """Test model initialization without name."""
+        with patch("ortools.linear_solver.pywraplp.Solver.CreateSolver", return_value=mock_solver):
+            model = OptimisationModel("SCIP")
+            assert model.name is None
+            assert model.solver_name == "SCIP"
+
+    def test_solver_creation_failure(self):
+        """Test handling of solver creation failure."""
+        with patch("ortools.linear_solver.pywraplp.Solver.CreateSolver", return_value=None):
+            with pytest.raises(RuntimeError, match="Failed to create solver"):
+                OptimisationModel("INVALID_SOLVER")
+
+    def test_add_continuous_variable(self, model, mock_solver):
+        """Test adding continuous variables."""
+        # Test normal case
+        var = model.add_continuous_variable("x", 0, 10)
+        assert "x" in model.variables_name
+        assert "x" in model._variables_objects
+        mock_solver.NumVar.assert_called_with(0, 10, "x")
+        assert var is mock_solver.NumVar.return_value
+
+        # Test with default bounds
+        model.add_continuous_variable("y")
+        mock_solver.NumVar.assert_called_with(0.0, float("inf"), "y")
+
+        # Test duplicate variable
+        with pytest.raises(ValueError, match="Variable 'x' already exists"):
+            model.add_continuous_variable("x", 0, 5)
+
+    def test_add_integer_variable(self, model, mock_solver):
+        """Test adding integer variables."""
+        var = model.add_integer_variable("y", -5, 15)
+        assert "y" in model.variables_name
+        assert "y" in model._variables_objects
+        mock_solver.IntVar.assert_called_with(-5, 15, "y")
+
+        # Test duplicate variable
+        with pytest.raises(ValueError, match="Variable 'y' already exists"):
+            model.add_integer_variable("y")
+
+    def test_add_boolean_variable(self, model, mock_solver):
+        """Test adding boolean variables."""
+        var = model.add_boolean_variable("z")
+        assert "z" in model.variables_name
+        assert "z" in model._variables_objects
+        mock_solver.BoolVar.assert_called_with("z")
+
+        # Test duplicate variable
+        with pytest.raises(ValueError, match="Variable 'z' already exists"):
+            model.add_boolean_variable("z")
+
+    def test_add_continuous_variables_multiple(self, model, mock_solver):
+        """Test adding multiple continuous variables."""
+        names = ["a", "b", "c"]
+        variables = model.add_continuous_variables(names, 0, 5)
+
+        assert len(variables) == 3
+        for name in names:
+            assert name in model.variables_name
+            assert name in variables
+            assert variables[name] is mock_solver.NumVar.return_value
+
+        # Test with default bounds
+        variables2 = model.add_continuous_variables(["d", "e"])
+        assert len(variables2) == 2
+
+    def test_get_variable(self, model):
+        """Test getting variable objects."""
+        # Add a variable first
+        var = model.add_continuous_variable("x", 0, 10)
+
+        # Test getting existing variable
+        retrieved_var = model.get_variable("x")
+        assert retrieved_var is var
+
+        # Test getting non-existent variable
+        with pytest.raises(ValueError, match="Variable 'nonexistent' not found"):
+            model.get_variable("nonexistent")
+
+    def test_add_constraint(self, model, mock_solver):
+        """Test adding constraints with expressions."""
+        mock_expr = MagicMock()
+
+        # Test adding constraint with automatic name
+        model.add_constraint(mock_expr)
+        expected_name = "constraint_0"
+        assert expected_name in model.constraints_name
+        mock_solver.Add.assert_called_with(mock_expr, expected_name)
+
+        # Test adding constraint with custom name
+        model.add_constraint(mock_expr, "custom_constraint")
+        assert "custom_constraint" in model.constraints_name
+        mock_solver.Add.assert_called_with(mock_expr, "custom_constraint")
+
+        # Test duplicate constraint name
+        with pytest.raises(ValueError, match="Constraint 'custom_constraint' already exists"):
+            model.add_constraint(mock_expr, "custom_constraint")
+
+    def test_set_objective_maximize(self, model, mock_solver):
+        """Test setting objective with maximize direction."""
+        mock_expr = MagicMock()
+        model.set_objective(mock_expr, "maximize")
+
+        mock_solver.Maximize.assert_called_with(mock_expr)
+        assert model.objective == {"expression": 1.0}
+
+    def test_set_objective_minimize(self, model, mock_solver):
+        """Test setting objective with minimize direction."""
+        mock_expr = MagicMock()
+        model.set_objective(mock_expr, "minimize")
+
+        mock_solver.Minimize.assert_called_with(mock_expr)
+        assert model.objective == {"expression": 1.0}
+
+    def test_set_objective_default_direction(self, model, mock_solver):
+        """Test setting objective with default direction (maximize)."""
+        mock_expr = MagicMock()
+        model.set_objective(mock_expr)  # Should default to maximize
+
+        mock_solver.Maximize.assert_called_with(mock_expr)
+
+    def test_set_objective_invalid_direction(self, model):
+        """Test setting objective with invalid direction."""
+        mock_expr = MagicMock()
+        with pytest.raises(ValueError, match="Optimisation direction not supported"):
+            model.set_objective(mock_expr, "invalid_direction")
+
+    def test_solve_without_time_limit(self, model, mock_solver):
+        """Test solving without time limit."""
+        solution = model.solve()
+
+        assert isinstance(solution, SolutionInfo)
+        assert solution.status == SolverStatus.OPTIMAL
+        assert solution.objective_value == 100.0
+        assert solution.num_iterations == 10
+        assert solution.solve_time is not None
+
+        mock_solver.Solve.assert_called_once()
+        mock_solver.SetTimeLimit.assert_not_called()
+
+    def test_solve_with_time_limit(self, model, mock_solver):
+        """Test solving with time limit."""
+        solution = model.solve(time_limit=30.0)
+
+        mock_solver.SetTimeLimit.assert_called_with(30000)  # 30.0 * 1000
+        mock_solver.Solve.assert_called_once()
+
+    def test_solve_infeasible(self, model, mock_solver):
+        """Test solving infeasible problem."""
+        # Mock infeasible status
+        mock_solver.Solve.return_value = 2  # INFEASIBLE
+
+        solution = model.solve()
+
+        assert solution.status == SolverStatus.INFEASIBLE
+        assert solution.objective_value is None
+
+    def test_get_variable_value_after_solving(self, model, mock_solver):
+        """Test getting variable values after solving."""
+        # Add variable and solve first
+        model.add_continuous_variable("x", 0, 10)
+        model.solve()
+
+        value = model.get_variable_value("x")
+        assert value == 5.0
+        mock_solver.LookupVariable.assert_called_with("x")
+
+    def test_get_variable_value_before_solving(self, model):
+        """Test getting variable values before solving."""
+        model.add_continuous_variable("x", 0, 10)
+
+        with pytest.raises(RuntimeError, match="Optimisation model has not been solved yet"):
+            model.get_variable_value("x")
+
+    def test_get_variable_value_nonexistent_variable(self, model, mock_solver):
+        """Test getting value of non-existent variable."""
+        # Solve first to have solution info
+        model.solve()
+
+        with pytest.raises(ValueError, match="Variable 'nonexistent' not found in solution"):
+            model.get_variable_value("nonexistent")
+
+    def test_export_model(self, model, mock_solver):
+        """Test exporting model to file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".lp", delete=False) as f:
+            temp_filename = f.name
+
+        try:
+            model.export_model(temp_filename)
+
+            mock_solver.ExportModelAsLpFormat.assert_called_with(False)
+
+            # Check file was written
+            assert os.path.exists(temp_filename)
+            with open(temp_filename) as f:
+                content = f.read()
+                assert content == "LP FORMAT CONTENT"
+        finally:
+            if os.path.exists(temp_filename):
+                os.unlink(temp_filename)
+
+    def test_clear(self, model):
+        """Test clearing the model."""
+        # Add some data first
+        model.add_continuous_variable("x", 0, 10)
+        model.add_constraint(MagicMock(), "test_constraint")
+        model.set_objective(MagicMock(), "maximize")
+        model.solve()  # Create solution info
+
+        # Verify data exists
+        assert len(model.variables_name) > 0
+        assert len(model.constraints_name) > 0
+        assert model.objective is not None
+        assert model.solution_info is not None
+
+        # Clear and verify
+        model.clear()
+        assert len(model.variables_name) == 0
+        assert len(model._variables_objects) == 0
+        assert len(model.constraints_name) == 0
+        assert model.objective is None
+        assert model.solution_info is None
+
+    def test_model_properties(self, model):
+        """Test model properties."""
+        # Test empty model
+        assert len(model.variables_name) == 0
+        assert len(model.constraints_name) == 0
+        assert model.objective is None
+        assert model.solution_info is None
+
+        # Add some data and test
+        model.add_continuous_variable("x")
+        model.add_continuous_variable("y")
+        assert len(model.variables_name) == 2
+
+        model.add_constraint(MagicMock(), "c1")
+        model.add_constraint(MagicMock(), "c2")
+        assert len(model.constraints_name) == 2
+
+        model.set_objective(MagicMock())
+        assert model.objective == {"expression": 1.0}
+
+    def test_model_repr(self, model):
+        """Test string representation of the model."""
+        expected = "OptimisationModel(name=test_model,solver=GLOP)"
+        assert repr(model) == expected
+
+        # Test without name
+        with patch("ortools.linear_solver.pywraplp.Solver.CreateSolver"):
+            model_no_name = OptimisationModel("SCIP")
+            expected_no_name = "OptimisationModel(name=None,solver=SCIP)"
+            assert repr(model_no_name) == expected_no_name
+
+
+class TestIntegrationScenarios:
+    """Integration tests for common optimization scenarios."""
+
+    @pytest.fixture
+    def mock_solver_setup(self):
+        """Setup a mock solver for integration tests."""
+        mock_solver = MagicMock()
+        mock_solver.NumVar.return_value = MagicMock()
+        mock_solver.IntVar.return_value = MagicMock()
+        mock_solver.BoolVar.return_value = MagicMock()
+        mock_solver.Add.return_value = None
+        mock_solver.Maximize.return_value = None
+        mock_solver.Minimize.return_value = None
+        mock_solver.Solve.return_value = 0  # OPTIMAL
+        mock_solver.Objective.return_value.Value.return_value = 150.0
+        mock_solver.iterations.return_value = 5
+        mock_solver.LookupVariable.return_value.solution_value.return_value = 2.5
+        mock_solver.ExportModelAsLpFormat.return_value = (
+            "Minimize\n obj: x + y\nSubject To\n constraint: x + y <= 10\nEnd"
+        )
+        return mock_solver
+
+    @pytest.fixture
+    def integration_model(self, mock_solver_setup):
+        """Create a model for integration testing."""
+        with patch("ortools.linear_solver.pywraplp.Solver.CreateSolver", return_value=mock_solver_setup):
+            return OptimisationModel("GLOP", "integration_test")
+
+    def test_simple_linear_program(self, integration_model):
+        """Test a simple linear programming problem."""
+        # Variables: x, y >= 0
+        x = integration_model.add_continuous_variable("x", 0, 10)
+        y = integration_model.add_continuous_variable("y", 0, 10)
+
+        # Constraints:
+        # x + y <= 8
+        # 2x + y <= 10
+        # x, y >= 0 (handled by bounds)
+        integration_model.add_constraint(x + y, "capacity")  # Mock expression
+        integration_model.add_constraint(2 * x + y, "resource")  # Mock expression
+
+        # Objective: maximize 3x + 2y
+        integration_model.set_objective(3 * x + 2 * y, "maximize")
+
+        # Solve
+        solution = integration_model.solve()
+
+        assert solution.status == SolverStatus.OPTIMAL
+        assert solution.objective_value == 150.0
+        assert len(integration_model.variables_name) == 2
+        assert len(integration_model.constraints_name) == 2
+
+        # Get variable values
+        x_value = integration_model.get_variable_value("x")
+        y_value = integration_model.get_variable_value("y")
+        assert x_value == 2.5
+        assert y_value == 2.5
+
+    def test_mixed_integer_program(self, integration_model):
+        """Test a mixed integer programming problem."""
+        # Continuous and integer variables
+        x = integration_model.add_continuous_variable("x", 0, 100)
+        y = integration_model.add_integer_variable("y", 0, 50)
+        z = integration_model.add_boolean_variable("z")
+
+        # Constraints with mixed variables
+        integration_model.add_constraint(x + 5 * y, "capacity")
+        integration_model.add_constraint(x - 10 * z, "activation")
+        integration_model.add_constraint(y - 20 * z, "linking")
+
+        # Objective
+        integration_model.set_objective(2 * x + 10 * y + 50 * z, "maximize")
+
+        solution = integration_model.solve()
+
+        assert solution.status == SolverStatus.OPTIMAL
+        assert len(integration_model.variables_name) == 3
+        assert len(integration_model.constraints_name) == 3
+
+    def test_workflow_with_modifications(self, integration_model):
+        """Test a workflow with model modifications."""
+        # Initial setup
+        x = integration_model.add_continuous_variable("x", 0, 10)
+        y = integration_model.add_continuous_variable("y", 0, 10)
+
+        integration_model.add_constraint(x + y, "initial_constraint")
+        integration_model.set_objective(x + y, "maximize")
+
+        # Solve initial model
+        solution1 = integration_model.solve()
+        assert solution1.status == SolverStatus.OPTIMAL
+
+        # Add more variables and constraints
+        z = integration_model.add_boolean_variable("z")
+        integration_model.add_constraint(x + z, "additional_constraint")
+
+        # Solve modified model
+        solution2 = integration_model.solve()
+        assert solution2.status == SolverStatus.OPTIMAL
+        assert len(integration_model.variables_name) == 3
+        assert len(integration_model.constraints_name) == 2
+
+    def test_error_handling_workflow(self, integration_model):
+        """Test error handling in a typical workflow."""
+        # Add variables
+        x = integration_model.add_continuous_variable("x")
+
+        # Try to add duplicate variable
+        with pytest.raises(ValueError, match="Variable 'x' already exists"):
+            integration_model.add_continuous_variable("x")
+
+        # Add constraint and try duplicate
+        integration_model.add_constraint(x, "test_constraint")
+        with pytest.raises(ValueError, match="Constraint 'test_constraint' already exists"):
+            integration_model.add_constraint(x, "test_constraint")
+
+        # Try to get non-existent variable
+        with pytest.raises(ValueError, match="Variable 'nonexistent' not found"):
+            integration_model.get_variable("nonexistent")
+
+        # Try to get variable value before solving
+        with pytest.raises(RuntimeError, match="Optimisation model has not been solved yet"):
+            integration_model.get_variable_value("x")
+
+    def test_model_export_and_clear_workflow(self, integration_model):
+        """Test export and clear in a workflow."""
+        # Build model
+        x = integration_model.add_continuous_variable("x")
+        y = integration_model.add_continuous_variable("y")
+        integration_model.add_constraint(x + y, "sum_constraint")
+        integration_model.set_objective(x + y, "maximize")
+
+        # Solve
+        solution = integration_model.solve()
+        assert solution.status == SolverStatus.OPTIMAL
+
+        # Export
+        with tempfile.NamedTemporaryFile(suffix=".lp", delete=False) as f:
+            temp_file = f.name
+
+        try:
+            integration_model.export_model(temp_file)
+            assert os.path.exists(temp_file)
+        finally:
+            if os.path.exists(temp_file):
+                os.unlink(temp_file)
+
+        # Clear and verify
+        integration_model.clear()
+        assert len(integration_model.variables_name) == 0
+        assert len(integration_model.constraints_name) == 0
+        assert integration_model.objective is None
+        assert integration_model.solution_info is None

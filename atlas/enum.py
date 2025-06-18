@@ -144,6 +144,18 @@ class Product(str, Enum):
     FCRDownProcurement = "FCRDownProcurement"
 
 
+class SolverStatus(Enum):
+    """Enumeration of solver status codes."""
+
+    OPTIMAL = "optimal"
+    FEASIBLE = "feasible"
+    INFEASIBLE = "infeasible"
+    UNBOUNDED = "unbounded"
+    ABNORMAL = "abnormal"
+    NOT_SOLVED = "not_solved"
+    MODEL_INVALID = "model_invalid"
+
+
 class InflowFrequency(str, Enum):
     """
     Frequency of inflow data.
