@@ -374,7 +374,7 @@ class OptimisationModel:
         self._constraints_name.clear()
         self._objective_dict = None
         self._solution_info = None
-        self._objective.Clear()
+        self._objective = None
         self._initialize_solver()
 
     def __repr__(self) -> str:
