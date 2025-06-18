@@ -70,8 +70,9 @@ class ClearingModel:
 
     def build_constraints(self):
         """Create all constraints for the clearing phase model"""
-        self.create_constraint_3_4_constraints()
-        self.add_order_coupling_constraints()
+        self.create_limited_accepted_power_constraints()
+        self.create_order_coupling_constraints()
+        self.create_local_balances_constraints()
         """
         self.create_constraint_3_2_1_constraints()
         self.create_constraint_3_2_2_constraints()
@@ -189,10 +190,28 @@ class ClearingModel:
     ##################################
     # Constraints
     ##################################
-    def create_constraint_3_4_constraints(self):
+    def create_local_balances_constraints(self):
+        for time_index, time in enumerate(self.input_dataset.times):
+            for market_area in self.input_dataset.mc_market_areas.values():
+                accepted_powers = []
+                for mc_order in market_area.orders.values():
+                    # Focus on orders comprising the current time in their duration:
+                    if mc_order.order.start_date <= time < mc_order.end_datetime:
+                        accepted_power = self.solver.LookupVariable(
+                            constants.accepted_power_variable_name(mc_order.order.name)
+                        )
+                        accepted_powers.append(mc_order.production_sign * accepted_power)
+                local_balance = self.solver.LookupVariable(
+                    constants.local_balance_variable_name(market_area.market_area.name, time_index)
+                )
+                self.solver.Add(sum(accepted_powers) == local_balance, constants.constraint_3_2_1_constraint_name(market_area.market_area.name, time_index))
+
+
+
+
+    def create_limited_accepted_power_constraints(self):
         for market_area in self.input_dataset.mc_market_areas.values():
             for mc_order in market_area.orders.values():
-
                 # Compute the constraints limiting the accepted powers of combined,
                 # indivisible and/or mutually excluding orders and linked orders (3.4):
                 if mc_order.id_with_status is not None:
@@ -200,37 +219,37 @@ class ClearingModel:
                     accepted_power = self.solver.LookupVariable(
                         constants.accepted_power_variable_name(mc_order.order.name)
                     )
-                    self.create_constraint_3_4_min_constraint(market_area.market_area.name, mc_order.order.name, order_status, mc_order.order.qmin, accepted_power)
-                    self.create_constraint_3_4_max_constraint(market_area.market_area.name, mc_order.order.name, order_status, mc_order.order.qmax, accepted_power)
+                    self.create_min_accepted_power_constraint(market_area.market_area.name, mc_order.order.name, order_status, mc_order.order.qmin, accepted_power)
+                    self.create_max_accepted_power_constraint(market_area.market_area.name, mc_order.order.name, order_status, mc_order.order.qmax, accepted_power)
 
 
-    def create_constraint_3_4_min_constraint(self, market_area_name: str, order_name: str, order_status, min_power: float, accepted_power):
+    def create_min_accepted_power_constraint(self, market_area_name: str, order_name: str, order_status, min_power: float, accepted_power):
         self.solver.Add(
             order_status * max(self.parameters.allowed_round_off_error, min_power) <= accepted_power,
-            constants.constraint_3_4_min_constraint_name(market_area_name, order_name),
+            constants.min_accepted_power_constraint_name(market_area_name, order_name),
         )
 
-    def create_constraint_3_4_max_constraint(self, market_area_name: str, order_name: str, order_status, max_power: float, accepted_power):
+    def create_max_accepted_power_constraint(self, market_area_name: str, order_name: str, order_status, max_power: float, accepted_power):
         self.solver.Add(
             order_status * max_power >= accepted_power,
-            constants.constraint_3_4_max_constraint_name(market_area_name, order_name),
+            constants.max_accepted_power_constraint_name(market_area_name, order_name),
         )
 
-    def add_order_coupling_constraints(self):
+    def create_order_coupling_constraints(self):
         for order_coupling in self.input_dataset.order_couplings.values():
             match order_coupling.coupling_type:
                 case CouplingType.IDENTICAL_VOLUME:
-                    self.add_identical_volume_order_coupling_constraints(order_coupling)
+                    self.create_identical_volume_order_coupling_constraints(order_coupling)
                 case CouplingType.IDENTICAL_RATIO:
-                    self.add_identical_ratio_order_coupling_constraints(order_coupling)
+                    self.create_identical_ratio_order_coupling_constraints(order_coupling)
                 case CouplingType.COMPLEMENT:
-                    self.add_complement_order_coupling_constraints(order_coupling)
+                    self.create_complement_order_coupling_constraints(order_coupling)
                 case CouplingType.EXCLUSION:
-                    self.add_exclusion_order_coupling_constraints(order_coupling)
+                    self.create_exclusion_order_coupling_constraints(order_coupling)
                 case CouplingType.PARENT_CHILDREN:
-                    self.add_parent_children_order_coupling_constraints(order_coupling)
+                    self.create_parent_children_order_coupling_constraints(order_coupling)
 
-    def add_identical_volume_order_coupling_constraints(self, order_coupling: OrderCoupling):
+    def create_identical_volume_order_coupling_constraints(self, order_coupling: OrderCoupling):
         for i, order in enumerate(order_coupling.orders[1:]):
             prev_order = order_coupling.orders[i]
             prev_accepted_power = self.solver.LookupVariable(constants.accepted_power_variable_name(prev_order.name))
@@ -240,32 +259,32 @@ class ClearingModel:
                 accepted_power == prev_accepted_power, constants.constraint_3_8_constraint_name(order_coupling.name, order.name)
             )
 
-    def add_complement_order_coupling_constraints(self, order_coupling: OrderCoupling):
-        aggregated_proportion = 0.0
+    def create_complement_order_coupling_constraints(self, order_coupling: OrderCoupling):
+        aggregated_accepted_power = []
         for order in order_coupling.orders:
             if not MCOrder.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
             accepted_power = self.solver.LookupVariable(constants.accepted_power_variable_name(order.name))
-            proportion_value = accepted_power * self.parameters.time_step / 60
             if order.order_type == OrderType.Sell:
-                aggregated_proportion -= proportion_value
+                aggregated_accepted_power.append(-accepted_power)
             elif order.order_type == OrderType.Buy:
-                aggregated_proportion += proportion_value
+                aggregated_accepted_power.append(accepted_power)
             else:
                 logger.info(f"Can't create constraint complement order coupling ('{order_coupling.name}') on "
                             f"'{order.name}' because the order type '{order.order_type.value}' is not implemented")
+        aggregated_proportion_accepted_power = sum(aggregated_accepted_power) * self.parameters.time_step / 60
         constraint_name = constants.constraint_3_9_constraint_name(order_coupling.name)
         if order_coupling.complement_direction == ComplementDirection.EqualTo:
-            self.solver.Add(aggregated_proportion == order_coupling.complement_energy, constraint_name)
+            self.solver.Add(aggregated_proportion_accepted_power == order_coupling.complement_energy, constraint_name)
         elif order_coupling.complement_direction == ComplementDirection.GreaterThan:
-            self.solver.Add(aggregated_proportion >= order_coupling.complement_energy, constraint_name)
+            self.solver.Add(aggregated_proportion_accepted_power >= order_coupling.complement_energy, constraint_name)
         elif order_coupling.complement_direction == ComplementDirection.LesserThan:
-            self.solver.Add(aggregated_proportion <= order_coupling.complement_energy, constraint_name)
+            self.solver.Add(aggregated_proportion_accepted_power <= order_coupling.complement_energy, constraint_name)
         else:
             logger.info(f"Can't create constraint complement order coupling ('{order_coupling.name}') because complement"
                         f" direction '{order_coupling.complement_direction.value}' is not implemented")
 
-    def add_exclusion_order_coupling_constraints(self, order_coupling: OrderCoupling):
+    def create_exclusion_order_coupling_constraints(self, order_coupling: OrderCoupling):
         aggregated_status = []
         for order in order_coupling.orders:
             if not MCOrder.is_feasible(order, self.input_dataset.times, self.parameters):
@@ -274,7 +293,7 @@ class ClearingModel:
             aggregated_status.append(order_status)
         self.solver.Add(sum(aggregated_status) <= 1, constants.constraint_3_10_constraint_name(order_coupling.name))
 
-    def add_parent_children_order_coupling_constraints(self, order_coupling: OrderCoupling):
+    def create_parent_children_order_coupling_constraints(self, order_coupling: OrderCoupling):
         parent_order = order_coupling.orders[0]
         if not MCOrder.is_feasible(parent_order, self.input_dataset.times, self.parameters):
             return
@@ -285,7 +304,7 @@ class ClearingModel:
             order_status = self.solver.LookupVariable(constants.order_status_variable_name(order.name))
             self.solver.Add(order_status <= parent_order_status, constants.constraint_parent_child_constraint_name(order_coupling.name, order.name))
 
-    def add_identical_ratio_order_coupling_constraints(self, order_coupling: OrderCoupling):
+    def create_identical_ratio_order_coupling_constraints(self, order_coupling: OrderCoupling):
         for i, order in enumerate(order_coupling.orders[1:]):
             prev_order = order_coupling.orders[i]
             if prev_order.qmax == prev_order.qmin or order.qmax == order.qmin:

@@ -25,8 +25,8 @@ def border_neg_exchange_variable_name(border_name: str, time_index: int) -> str:
     return f"negative_exchange_on_{border_name}_at_{time_index}"
 
 
-def local_balance_variable_name(area_name: str, time_index: int) -> str:
-    return f"balance_on_{area_name}_at_{time_index}"
+def local_balance_variable_name(market_area_name: str, time_index: int) -> str:
+    return f"balance_on_{market_area_name}_at_{time_index}"
 
 
 def accepted_power_variable_name(order_name: str) -> str:
@@ -54,11 +54,11 @@ def border_nus_variable_name(border_name: str, time_index: int) -> str:
 
 
 # Constraints
-def constraint_3_4_min_constraint_name(market_area_name: str, order_name: str) -> str:
+def min_accepted_power_constraint_name(market_area_name: str, order_name: str) -> str:
     return f"Constraint_3_4_min_mkt_{market_area_name}_o_{order_name}"
 
 
-def constraint_3_4_max_constraint_name(market_area_name: str, order_name: str) -> str:
+def max_accepted_power_constraint_name(market_area_name: str, order_name: str) -> str:
     return f"Constraint_3_4_max_mkt_{market_area_name}_o_{order_name}"
 
 
