@@ -46,9 +46,9 @@ class OptimisationModel:
     """
 
     def __init__(
-            self,
-            solver_name: str,
-            name: str | None = None,
+        self,
+        solver_name: str,
+        name: str | None = None,
     ):
         """
         Initialize the optimization model.
@@ -104,10 +104,10 @@ class OptimisationModel:
         return self._solution_info
 
     def add_continuous_variable(
-            self,
-            name: str,
-            lower_bound: float = 0.0,
-            upper_bound: float = float("inf"),
+        self,
+        name: str,
+        lower_bound: float = 0.0,
+        upper_bound: float = float("inf"),
     ) -> None:
         """
         Add a continuous variable to the model.
@@ -126,10 +126,10 @@ class OptimisationModel:
         self._variables_name.add(name)
 
     def add_integer_variable(
-            self,
-            name: str,
-            lower_bound: float = 0.0,
-            upper_bound: float = float("inf"),
+        self,
+        name: str,
+        lower_bound: float = 0.0,
+        upper_bound: float = float("inf"),
     ) -> None:
         """
         Add a integer variable to the model.
@@ -147,10 +147,7 @@ class OptimisationModel:
         self._solver.IntVar(lower_bound, upper_bound, name)
         self._variables_name.add(name)
 
-    def add_boolean_variable(
-            self,
-            name: str
-    ) -> None:
+    def add_boolean_variable(self, name: str) -> None:
         """
         Add a boolean variable to the model.
 
@@ -168,10 +165,10 @@ class OptimisationModel:
         self._variables_name.add(name)
 
     def add_continuous_variables(
-            self,
-            names: list[str],
-            lower_bound: float = 0.0,
-            upper_bound: float = float("inf"),
+        self,
+        names: list[str],
+        lower_bound: float = 0.0,
+        upper_bound: float = float("inf"),
     ) -> None:
         """
         Add multiple continuous variables to the model with the same bounds.
@@ -186,13 +183,7 @@ class OptimisationModel:
         for name in names:
             self.add_continuous_variable(name, lower_bound, upper_bound)
 
-    def add_linear_constraint(
-            self,
-            coefficients: dict[str, float],
-            operator: str,
-            rhs: float,
-            name: str
-    ) -> None:
+    def add_linear_constraint(self, coefficients: dict[str, float], operator: str, rhs: float, name: str) -> None:
         """
         Add a linear constraint of the form: sum(coeff * var) operator rhs.
 
@@ -229,9 +220,9 @@ class OptimisationModel:
             raise ValueError(f"Unknown operator: {operator}")
 
     def set_objective(
-            self,
-            coefficients: dict[str, float],
-            direction: Literal["maximize", "minimize"] = "maximize",
+        self,
+        coefficients: dict[str, float],
+        direction: Literal["maximize", "minimize"] = "maximize",
     ) -> None:
         """
         Set the objective function.
