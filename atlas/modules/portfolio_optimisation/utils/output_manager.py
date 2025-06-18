@@ -1,15 +1,17 @@
 import atlas.config as cfg
+from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.enum import SolverStatus
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.po_solver import OptimizationResults
 
 
 class OutputManager:
     """Manages optimization output and result export."""
 
-    def __init__(self, parameters):
+    def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
 
-    def export_results(self, output_marker, portfolio: PO_portfolio, optimization_results: OptimizationResults):
+    def export_results(self, output_marker, portfolio: Portfolio, optimization_results: OptimizationResults):
         """Export optimization results to the output marker."""
         if optimization_results.status != SolverStatus.OPTIMAL:
             cfg.logger.warning(f"Optimization for {portfolio.name} failed with status: {optimization_results.status}")
@@ -29,7 +31,7 @@ class OutputManager:
         # Export total power time series
         self._export_power_timeseries(output_marker, portfolio)
 
-    def _export_imbalance_timeseries(self, output_marker, portfolio: PO_portfolio):
+    def _export_imbalance_timeseries(self, output_marker, portfolio: Portfolio):
         """Export portfolio imbalance time series."""
         imbalance_ts = API.TimeSeries.NewTimeSeries(
             "Imbalance", API.TimeSeries.Constant, "MW", self.parameters.target_times, 0
@@ -47,9 +49,9 @@ class OutputManager:
         # Find portfolio in output marker and add time series
         opt_portfolio = self._find_portfolio_by_name(output_marker, portfolio.name)
         if opt_portfolio:
-            opt_portfolio.Imbalance.AddTimeSeries(self.parameters.execution_date, imbalance_ts)
+            opt_portfolio.Imbalance.add(self.parameters.execution_date, imbalance_ts)
 
-    def _export_power_timeseries(self, output_marker, portfolio: PO_portfolio):
+    def _export_power_timeseries(self, output_marker, portfolio: Portfolio):
         """Export portfolio total power time series."""
         power_ts = API.TimeSeries.NewTimeSeries(
             "PO_power", API.TimeSeries.Constant, "MW", self.parameters.target_times, 0
@@ -64,17 +66,17 @@ class OutputManager:
         for time in self.parameters.target_times:
             total_power = 0
             for marker_equipment in equipment_list:
-                forecast = marker_equipment.Power.GetForecast(self.parameters.execution_date, time, time)
+                forecast = marker_equipment.power.get_forecast(self.parameters.execution_date, time, time)
                 total_power += forecast.GetValue(time)
 
             power_ts.SetValue(time, total_power)
 
         # Replace existing power time series
-        if self.parameters.execution_date in opt_portfolio.Power.Index:
-            opt_portfolio.Power.DeleteTimeSeries(self.parameters.execution_date)
-        opt_portfolio.Power.AddTimeSeries(self.parameters.execution_date, power_ts)
+        if self.parameters.execution_date in opt_portfolio.power.index:
+            opt_portfolio.power.delete(self.parameters.execution_date)
+        opt_portfolio.power.add(self.parameters.execution_date, power_ts)
 
-    def _export_equipment_results(self, output_marker, portfolio: PO_portfolio):
+    def _export_equipment_results(self, output_marker, portfolio: Portfolio):
         """Export individual equipment results."""
         equipment_exporters = {
             "thermics": ("Thermic", output_marker.Thermic),
@@ -95,7 +97,7 @@ class OutputManager:
         # Export non-dispatchable results
         self._export_non_dispatchable_results(output_marker, portfolio)
 
-    def _export_non_dispatchable_results(self, output_marker, portfolio: PO_portfolio):
+    def _export_non_dispatchable_results(self, output_marker, portfolio: Portfolio):
         """Export non-dispatchable equipment results."""
         # Non-dispatchable load
         for equipment_name, dispatch_values in portfolio.Optimal_dispatch_NDL.items():
