@@ -339,16 +339,16 @@ class OptimisationModel:
         :type name: str
         :return: Variable value
         :rtype: float
-        :raises RuntimeError: If model hasn't been solved or variable not found
+        :raises RuntimeError: If model hasn't been solved
+        :raises ValueError: If variable hasn't been added
         """
         if not self._solution_info:
             raise RuntimeError("Optimisation model has not been solved yet")
 
-        # FIXME
-        # if name not in self._solution_info.variables:
-        #   raise KeyError(f"Variable '{name}' not found in solution")
+        if name not in self._variables_name:
+            raise ValueError(f"Variable '{name}' not found in solution")
 
-        return self._solution_info.variables[name]
+        return self._solver.LookupVariable(name).solution_value()
 
     def export_model(self, filename: str, format_type: Literal["lp", "mps"] = "lp") -> None:
         """
