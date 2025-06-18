@@ -34,7 +34,6 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.order_couplings = self.get_order_couplings(raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]])
         self.mc_orders = self.get_orders(raw_data[INVERSE_MODEL_MAPPING_NAME[Order]], self.order_couplings)
         self.mc_market_areas = self.get_market_areas(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]], self.mc_orders)
-        #self.order_to_mc_market_area = self.add_market_area_reference_to_order()
         self.market_borders = self.get_market_borders(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]])
 
     def get_market_areas(
@@ -86,8 +85,8 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     mc_order.link_id = order_coupling.name
         return mc_orders
 
-    def add_market_area_reference_to_order(self) -> dict[Order: MCMarketArea]:
-        order_to_market_area = dict()
+    def add_market_area_reference_to_order(self) -> dict[Order:MCMarketArea]:
+        order_to_market_area = {}
         for mc_market_area in self.mc_market_areas.values():
             for order in mc_market_area.orders.values():
                 order_to_market_area[order.order] = mc_market_area

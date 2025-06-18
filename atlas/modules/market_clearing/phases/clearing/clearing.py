@@ -3,7 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-import json
+
 
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
@@ -24,7 +24,7 @@ class Clearing:
     def run(self):
         self.model = self.create_clearing_model()
         solver_parameters = self.model.create_solver_parameters(self.parameters.use_presolve)
-        status = self.model.solver.Solve(solver_parameters)
+        self.model.solver.Solve(solver_parameters)
         self.model.export_lp(self.model.solver)
         self.model.export_solver_variables(self.model.solver)
 
