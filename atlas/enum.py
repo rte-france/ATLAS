@@ -93,6 +93,7 @@ class CouplingType(str, Enum):
     IDENTICAL_VOLUME = "IDENTICAL_VOLUME"
     PARENT_CHILDREN = "PARENT_CHILDREN"
     IDENTICAL_RATIO = "IDENTICAL_RATIO"
+    ATC = "ATC"
 
 
 class OrderType(str, Enum):

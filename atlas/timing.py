@@ -170,8 +170,14 @@ def generate_datetimes(
     """
     start_date: pendulum.DateTime = build_datetime(start, date_format).in_tz(timezone)
     end_date: pendulum.DateTime = build_datetime(end, date_format).in_tz(timezone)
-    step = get_duration(freq)
-    return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
+
+    if end_date < start_date:
+        raise ValueError("End date has to be after start date")
+    elif end_date == start_date:
+        return []
+    else:
+        step = get_duration(freq)
+        return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
 
 
 def get_duration(freq: str | pendulum.Duration) -> pendulum.Duration:
