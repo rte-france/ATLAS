@@ -25,18 +25,8 @@ class Clearing:
         self.model = self.create_clearing_model()
         solver_parameters = self.model.create_solver_parameters(self.parameters.use_presolve)
         status = self.model.solver.Solve(solver_parameters)
-        self.export_lp()
-        self.export_solver_variables()
-
-    def export_lp(self, filepath="model.lp"):
-        # Export au format LP
-        with open(filepath, "w") as f:
-            f.write(self.model.solver.ExportModelAsLpFormat(False))
-
-    def export_solver_variables(self, filepath="variables.json"):
-        results = {var.name(): var.solution_value() for var in self.model.solver.variables()}
-        with open(filepath, 'w') as f:
-            json.dump(results, f, indent=2)
+        self.model.export_lp(self.model.solver)
+        self.model.export_solver_variables(self.model.solver)
 
     # Retrieve information after optimization
     # REMIND : nb_saturations may be retrieved with retrieve_critical_branches_saturation_value and allowed_round_off_error

@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+import json
 
 from ortools.linear_solver import pywraplp
 
@@ -26,6 +27,18 @@ class ClearingModel:
         solver_params = pywraplp.MPSolverParameters()
         solver_params.PRESOLVE = int(use_presolve)
         return solver_params
+
+    @staticmethod
+    def export_lp(solver, filepath="model.lp"):
+        # Export au format LP
+        with open(filepath, "w") as f:
+            f.write(solver.ExportModelAsLpFormat(False))
+
+    @staticmethod
+    def export_solver_variables(solver, filepath="variables.json"):
+        results = {var.name(): var.solution_value() for var in solver.variables()}
+        with open(filepath, 'w') as f:
+            json.dump(results, f, indent=2)
 
     def build(self, solver_name):
         self.solver = pywraplp.Solver.CreateSolver("CBC")
