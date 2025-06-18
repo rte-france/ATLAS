@@ -9,9 +9,10 @@ from typing import Any
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.enum import SolverStatus
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
-from atlas.modules.portfolio_optimisation.enum import EquipmentType, SolverStatus
+from atlas.modules.portfolio_optimisation.enum import EquipmentType
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.constraint_builder import ConstraintBuilder
 from atlas.modules.portfolio_optimisation.utils.equipment import (
@@ -21,7 +22,6 @@ from atlas.modules.portfolio_optimisation.utils.equipment import (
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.modules.portfolio_optimisation.utils.output_manager import OutputManager
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
-from atlas.solver.solver_interface import SolverStatus as ModelSolverStatus
 
 
 class ObjectiveFunctionBuilder:
@@ -300,19 +300,7 @@ class OptimalPlacementOptimizer:
                 output_marker, portfolio, portfolio_equipment, single_equipment
             )
 
-            # Map ModelSolverStatus to SolverStatus
-            status_map = {
-                ModelSolverStatus.OPTIMAL: SolverStatus.OPTIMAL,
-                ModelSolverStatus.FEASIBLE: SolverStatus.FEASIBLE,
-                ModelSolverStatus.INFEASIBLE: SolverStatus.INFEASIBLE,
-                ModelSolverStatus.UNBOUNDED: SolverStatus.UNBOUNDED,
-                ModelSolverStatus.ABNORMAL: SolverStatus.ABNORMAL,
-                ModelSolverStatus.NOT_SOLVED: SolverStatus.NOT_SOLVED,
-                ModelSolverStatus.MODEL_INVALID: SolverStatus.MODEL_INVALID,
-            }
-
-            mapped_status = status_map.get(solution_info.status, SolverStatus.NOT_SOLVED)
-            status_messages.append(f"{portfolio.name} ended with status {mapped_status.value}")
+            status_messages.append(f"{portfolio.name} ended with status {solution_info.status.value}")
 
         return status_messages
 
@@ -355,7 +343,7 @@ class OptimalPlacementOptimizer:
             )
 
             # Export results
-            if solution_info.status == ModelSolverStatus.OPTIMAL:
+            if solution_info.status == SolverStatus.OPTIMAL:
                 self._export_optimization_results(output_marker, model, Portfolio, solution_info)
             else:
                 # Fallback to manual activation
@@ -373,7 +361,7 @@ class OptimalPlacementOptimizer:
 
             # Return a failed solution info
             return SolutionInfo(
-                status=ModelSolverStatus.NOT_SOLVED,
+                status=SolverStatus.NOT_SOLVED,
                 objective_value=None,
                 solve_time=None,
                 num_iterations=None,
