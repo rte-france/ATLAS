@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 
 import re
 from collections import Counter
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from datetime import datetime
 
 import pendulum
@@ -86,6 +88,13 @@ def pendulum_to_datetime(fmt: str) -> str:
         fmt = fmt.replace(pendulum_token, mapping[pendulum_token])
 
     return fmt
+
+
+@contextmanager
+def timer() -> Generator[Callable[[], str], None, None]:
+    """Context manager to measure elapsed time in seconds."""
+    start = pendulum.now()
+    yield lambda: str((pendulum.now() - start).as_duration())
 
 
 def parse_frequency(freq: str) -> pendulum.Duration:
