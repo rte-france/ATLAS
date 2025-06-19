@@ -66,7 +66,7 @@ class TestOptimisationModel:
         """Test adding continuous variables."""
         # Test normal case
         var = model.add_continuous_variable("x", 0, 10)
-        assert "x" in model.variables_name
+        assert "x" in model.variables
         assert "x" in model._variables_objects
         mock_solver.NumVar.assert_called_with(0, 10, "x")
         assert var is mock_solver.NumVar.return_value
@@ -82,7 +82,7 @@ class TestOptimisationModel:
     def test_add_integer_variable(self, model, mock_solver):
         """Test adding integer variables."""
         var = model.add_integer_variable("y", -5, 15)
-        assert "y" in model.variables_name
+        assert "y" in model.variables
         assert "y" in model._variables_objects
         mock_solver.IntVar.assert_called_with(-5, 15, "y")
 
@@ -93,28 +93,13 @@ class TestOptimisationModel:
     def test_add_boolean_variable(self, model, mock_solver):
         """Test adding boolean variables."""
         var = model.add_boolean_variable("z")
-        assert "z" in model.variables_name
+        assert "z" in model.variables
         assert "z" in model._variables_objects
         mock_solver.BoolVar.assert_called_with("z")
 
         # Test duplicate variable
         with pytest.raises(ValueError, match="Variable 'z' already exists"):
             model.add_boolean_variable("z")
-
-    def test_add_continuous_variables_multiple(self, model, mock_solver):
-        """Test adding multiple continuous variables."""
-        names = ["a", "b", "c"]
-        variables = model.add_continuous_variables(names, 0, 5)
-
-        assert len(variables) == 3
-        for name in names:
-            assert name in model.variables_name
-            assert name in variables
-            assert variables[name] is mock_solver.NumVar.return_value
-
-        # Test with default bounds
-        variables2 = model.add_continuous_variables(["d", "e"])
-        assert len(variables2) == 2
 
     def test_get_variable(self, model):
         """Test getting variable objects."""
@@ -136,12 +121,12 @@ class TestOptimisationModel:
         # Test adding constraint with automatic name
         model.add_constraint(mock_expr)
         expected_name = "constraint_0"
-        assert expected_name in model.constraints_name
+        assert expected_name in model.constraints
         mock_solver.Add.assert_called_with(mock_expr, expected_name)
 
         # Test adding constraint with custom name
         model.add_constraint(mock_expr, "custom_constraint")
-        assert "custom_constraint" in model.constraints_name
+        assert "custom_constraint" in model.constraints
         mock_solver.Add.assert_called_with(mock_expr, "custom_constraint")
 
         # Test duplicate constraint name
@@ -154,7 +139,8 @@ class TestOptimisationModel:
         model.set_objective(mock_expr, "maximize")
 
         mock_solver.Maximize.assert_called_with(mock_expr)
-        assert model.objective == {"expression": 1.0}
+        assert model._objective is mock_expr
+        assert model._objective_direction == "maximize"
 
     def test_set_objective_minimize(self, model, mock_solver):
         """Test setting objective with minimize direction."""
@@ -162,7 +148,8 @@ class TestOptimisationModel:
         model.set_objective(mock_expr, "minimize")
 
         mock_solver.Minimize.assert_called_with(mock_expr)
-        assert model.objective == {"expression": 1.0}
+        assert model._objective is mock_expr
+        assert model._objective_direction == "minimize"
 
     def test_set_objective_default_direction(self, model, mock_solver):
         """Test setting objective with default direction (maximize)."""
@@ -170,12 +157,114 @@ class TestOptimisationModel:
         model.set_objective(mock_expr)  # Should default to maximize
 
         mock_solver.Maximize.assert_called_with(mock_expr)
+        assert model._objective_direction == "maximize"
 
     def test_set_objective_invalid_direction(self, model):
         """Test setting objective with invalid direction."""
         mock_expr = MagicMock()
         with pytest.raises(ValueError, match="Optimisation direction not supported"):
             model.set_objective(mock_expr, "invalid_direction")
+
+    def test_add_objective_first_call_maximize(self, model, mock_solver):
+        """Test first call to add_objective with maximize direction."""
+        mock_expr = MagicMock()
+        model.add_objective(mock_expr, "maximize")
+
+        mock_solver.Maximize.assert_called_with(mock_expr)
+        assert model._objective is mock_expr
+        assert model._objective_direction == "maximize"
+
+    def test_add_objective_first_call_minimize(self, model, mock_solver):
+        """Test first call to add_objective with minimize direction."""
+        mock_expr = MagicMock()
+        model.add_objective(mock_expr, "minimize")
+
+        mock_solver.Minimize.assert_called_with(mock_expr)
+        assert model._objective is mock_expr
+        assert model._objective_direction == "minimize"
+
+    def test_add_objective_multiple_calls_same_direction(self, model, mock_solver):
+        """Test multiple calls to add_objective with same direction."""
+        mock_expr1 = MagicMock()
+        mock_expr2 = MagicMock()
+        mock_expr3 = MagicMock()
+
+        # Configure mock addition to return new mock objects
+        mock_expr1.__add__ = MagicMock(return_value=MagicMock())
+        mock_expr1.__add__.return_value.__add__ = MagicMock(return_value=MagicMock())
+
+        # First call
+        model.add_objective(mock_expr1, "maximize")
+        assert model._objective is mock_expr1
+        assert model._objective_direction == "maximize"
+
+        # Second call - should add to existing objective
+        model.add_objective(mock_expr2, "maximize")
+        mock_expr1.__add__.assert_called_with(mock_expr2)
+        assert model._objective_direction == "maximize"
+
+        # Third call - should add to existing combined objective
+        model.add_objective(mock_expr3, "maximize")
+        assert model._objective_direction == "maximize"
+
+    def test_add_objective_direction_conflict(self, model, mock_solver):
+        """Test add_objective with conflicting directions."""
+        mock_expr1 = MagicMock()
+        mock_expr2 = MagicMock()
+
+        # First call with maximize
+        model.add_objective(mock_expr1, "maximize")
+
+        # Second call with minimize should raise error
+        with pytest.raises(
+            ValueError,
+            match="Objective direction 'minimize' conflicts with previously set direction 'maximize'",
+        ):
+            model.add_objective(mock_expr2, "minimize")
+
+    def test_add_objective_default_direction(self, model, mock_solver):
+        """Test add_objective with default direction."""
+        mock_expr = MagicMock()
+        model.add_objective(mock_expr)  # Should default to maximize
+
+        mock_solver.Maximize.assert_called_with(mock_expr)
+        assert model._objective_direction == "maximize"
+
+    def test_add_objective_invalid_direction(self, model):
+        """Test add_objective with invalid direction."""
+        mock_expr = MagicMock()
+        with pytest.raises(ValueError, match="Unsupported optimization direction: invalid"):
+            model.add_objective(mock_expr, "invalid")
+
+    def test_add_objective_after_set_objective(self, model, mock_solver):
+        """Test add_objective after using set_objective."""
+        mock_expr1 = MagicMock()
+        mock_expr2 = MagicMock()
+
+        # Configure mock addition
+        mock_expr1.__add__ = MagicMock(return_value=MagicMock())
+
+        # First set objective
+        model.set_objective(mock_expr1, "maximize")
+
+        # Then add to it
+        model.add_objective(mock_expr2, "maximize")
+        mock_expr1.__add__.assert_called_with(mock_expr2)
+
+    def test_set_objective_after_add_objective(self, model, mock_solver):
+        """Test set_objective after using add_objective (should replace)."""
+        mock_expr1 = MagicMock()
+        mock_expr2 = MagicMock()
+
+        # First add objective
+        model.add_objective(mock_expr1, "maximize")
+        assert model._objective is mock_expr1
+
+        # Then set objective (should replace)
+        model.set_objective(mock_expr2, "minimize")
+        assert model._objective is mock_expr2
+        assert model._objective_direction == "minimize"
+        mock_solver.Minimize.assert_called_with(mock_expr2)
 
     def test_solve_without_time_limit(self, model, mock_solver):
         """Test solving without time limit."""
@@ -260,38 +349,38 @@ class TestOptimisationModel:
         model.solve()  # Create solution info
 
         # Verify data exists
-        assert len(model.variables_name) > 0
-        assert len(model.constraints_name) > 0
-        assert model.objective is not None
+        assert len(model.variables) > 0
+        assert len(model.constraints) > 0
         assert model.solution_info is not None
+        assert model._objective is not None
+        assert model._objective_direction is not None
 
         # Clear and verify
         model.clear()
-        assert len(model.variables_name) == 0
+        assert len(model.variables) == 0
         assert len(model._variables_objects) == 0
-        assert len(model.constraints_name) == 0
-        assert model.objective is None
+        assert len(model.constraints) == 0
         assert model.solution_info is None
+        assert model._objective is None
+        assert model._objective_direction is None
 
     def test_model_properties(self, model):
         """Test model properties."""
         # Test empty model
-        assert len(model.variables_name) == 0
-        assert len(model.constraints_name) == 0
-        assert model.objective is None
+        assert len(model.variables) == 0
+        assert len(model.constraints) == 0
         assert model.solution_info is None
 
         # Add some data and test
         model.add_continuous_variable("x")
         model.add_continuous_variable("y")
-        assert len(model.variables_name) == 2
+        assert len(model.variables) == 2
 
         model.add_constraint(MagicMock(), "c1")
         model.add_constraint(MagicMock(), "c2")
-        assert len(model.constraints_name) == 2
+        assert len(model.constraints) == 2
 
         model.set_objective(MagicMock())
-        assert model.objective == {"expression": 1.0}
 
     def test_model_repr(self, model):
         """Test string representation of the model."""
@@ -354,14 +443,44 @@ class TestIntegrationScenarios:
 
         assert solution.status == SolverStatus.OPTIMAL
         assert solution.objective_value == 150.0
-        assert len(integration_model.variables_name) == 2
-        assert len(integration_model.constraints_name) == 2
+        assert len(integration_model.variables) == 2
+        assert len(integration_model.constraints) == 2
 
         # Get variable values
         x_value = integration_model.get_variable_value("x")
         y_value = integration_model.get_variable_value("y")
         assert x_value == 2.5
         assert y_value == 2.5
+
+    def test_incremental_objective_building(self, integration_model):
+        """Test building objective incrementally with add_objective."""
+        # Variables
+        x = integration_model.add_continuous_variable("x", 0, 10)
+        y = integration_model.add_continuous_variable("y", 0, 10)
+        z = integration_model.add_continuous_variable("z", 0, 10)
+
+        # Mock expression addition
+        mock_expr1 = MagicMock()
+        mock_expr2 = MagicMock()
+        mock_expr3 = MagicMock()
+        mock_combined1 = MagicMock()
+        mock_combined2 = MagicMock()
+
+        mock_expr1.__add__ = MagicMock(return_value=mock_combined1)
+        mock_combined1.__add__ = MagicMock(return_value=mock_combined2)
+
+        # Build objective incrementally
+        integration_model.add_objective(mock_expr1, "maximize")  # Start with first term
+        integration_model.add_objective(mock_expr2, "maximize")  # Add second term
+        integration_model.add_objective(mock_expr3, "maximize")  # Add third term
+
+        # Verify the expressions were combined
+        mock_expr1.__add__.assert_called_with(mock_expr2)
+        mock_combined1.__add__.assert_called_with(mock_expr3)
+
+        # Solve
+        solution = integration_model.solve()
+        assert solution.status == SolverStatus.OPTIMAL
 
     def test_mixed_integer_program(self, integration_model):
         """Test a mixed integer programming problem."""
@@ -381,8 +500,8 @@ class TestIntegrationScenarios:
         solution = integration_model.solve()
 
         assert solution.status == SolverStatus.OPTIMAL
-        assert len(integration_model.variables_name) == 3
-        assert len(integration_model.constraints_name) == 3
+        assert len(integration_model.variables) == 3
+        assert len(integration_model.constraints) == 3
 
     def test_workflow_with_modifications(self, integration_model):
         """Test a workflow with model modifications."""
@@ -404,8 +523,28 @@ class TestIntegrationScenarios:
         # Solve modified model
         solution2 = integration_model.solve()
         assert solution2.status == SolverStatus.OPTIMAL
-        assert len(integration_model.variables_name) == 3
-        assert len(integration_model.constraints_name) == 2
+        assert len(integration_model.variables) == 3
+        assert len(integration_model.constraints) == 2
+
+    def test_add_objective_workflow(self, integration_model):
+        """Test workflow using add_objective method."""
+        # Variables
+        x = integration_model.add_continuous_variable("x", 0, 10)
+        y = integration_model.add_continuous_variable("y", 0, 10)
+        z = integration_model.add_continuous_variable("z", 0, 10)
+
+        # Build objective step by step
+        integration_model.add_objective(x, "maximize")  # profit from x
+        integration_model.add_objective(2 * y, "maximize")  # double profit from y
+        integration_model.add_objective(-0.5 * z, "maximize")  # cost of z
+
+        # Add constraints
+        integration_model.add_constraint(x + y + z, "resource_limit")
+
+        # Solve
+        solution = integration_model.solve()
+        assert solution.status == SolverStatus.OPTIMAL
+        assert integration_model._objective_direction == "maximize"
 
     def test_error_handling_workflow(self, integration_model):
         """Test error handling in a typical workflow."""
@@ -429,13 +568,22 @@ class TestIntegrationScenarios:
         with pytest.raises(RuntimeError, match="Optimisation model has not been solved yet"):
             integration_model.get_variable_value("x")
 
+        # Test add_objective direction conflict
+        integration_model.add_objective(x, "maximize")
+        with pytest.raises(
+            ValueError,
+            match="Objective direction 'minimize' conflicts with previously set direction 'maximize'",
+        ):
+            integration_model.add_objective(x, "minimize")
+
     def test_model_export_and_clear_workflow(self, integration_model):
         """Test export and clear in a workflow."""
         # Build model
         x = integration_model.add_continuous_variable("x")
         y = integration_model.add_continuous_variable("y")
         integration_model.add_constraint(x + y, "sum_constraint")
-        integration_model.set_objective(x + y, "maximize")
+        integration_model.add_objective(x, "maximize")
+        integration_model.add_objective(y, "maximize")
 
         # Solve
         solution = integration_model.solve()
@@ -454,7 +602,8 @@ class TestIntegrationScenarios:
 
         # Clear and verify
         integration_model.clear()
-        assert len(integration_model.variables_name) == 0
-        assert len(integration_model.constraints_name) == 0
-        assert integration_model.objective is None
+        assert len(integration_model.variables) == 0
+        assert len(integration_model.constraints) == 0
         assert integration_model.solution_info is None
+        assert integration_model._objective is None
+        assert integration_model._objective_direction is None

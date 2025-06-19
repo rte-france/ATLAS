@@ -62,8 +62,8 @@ class OptimisationModel:
         self._variables_name: set[str] = set()
         self._variables_objects: dict[str, Any] = {}
         self._constraints_name: set[str] = set()
-        self._objective_dict: dict[str, float] | None = None
         self._objective: Any | None = None
+        self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._solution_info: SolutionInfo | None = None
 
         self._initialize_solver()
@@ -85,19 +85,14 @@ class OptimisationModel:
         return self._solver
 
     @property
-    def variables_name(self) -> set[str]:
+    def variables(self) -> set[str]:
         """Return the set of decision variables."""
         return self._variables_name
 
     @property
-    def constraints_name(self) -> set[str]:
+    def constraints(self) -> set[str]:
         """Return the set of constraints."""
         return self._constraints_name
-
-    @property
-    def objective(self) -> dict[str, float] | None:
-        """Return the current objective coefficients."""
-        return self._objective_dict
 
     @property
     def solution_info(self) -> SolutionInfo | None:
@@ -176,29 +171,6 @@ class OptimisationModel:
         self._variables_objects[name] = var
         return var
 
-    def add_continuous_variables(
-        self,
-        names: list[str],
-        lower_bound: float = 0.0,
-        upper_bound: float = float("inf"),
-    ) -> dict[str, Any]:
-        """
-        Add multiple continuous variables to the model with the same bounds.
-
-        :param names: List of variable names
-        :type names: List[str]
-        :param lower_bound: Lower bound for the variable
-        :type lower_bound: float
-        :param upper_bound: Upper bound for the variable
-        :type upper_bound: float
-        :return: Dictionary mapping variable names to OR-Tools variable objects
-        :rtype: dict[str, pywraplp.Variable]
-        """
-        variables = {}
-        for name in names:
-            variables[name] = self.add_continuous_variable(name, lower_bound, upper_bound)
-        return variables
-
     def get_variable(self, name: str) -> Any:
         """
         Get a variable object by name for use in expressions.
@@ -235,9 +207,52 @@ class OptimisationModel:
 
         logger.debug(f"Adding constraint: {name}")
 
-        # Add the constraint expression directly to the solver
         self._solver.Add(constraint_expr, name)
         self._constraints_name.add(name)
+
+    def add_objective(
+        self,
+        objective_expr: Any,
+        direction: Literal["maximize", "minimize"] = "maximize",
+    ) -> None:
+        """
+        Add terms to the objective function.
+
+        This method allows you to incrementally build the objective function by adding
+        terms one at a time. If this is the first call, it sets the optimization direction.
+        Subsequent calls must use the same direction.
+
+        Examples:
+        model.add_objective(x + 2 * y, "maximize")
+        model.add_objective(3 * z, "maximize")  # Adds to existing objective
+
+        :param objective_expr: OR-Tools expression to add to the objective
+        :type objective_expr: Any (OR-Tools expression object)
+        :param direction: Optimization direction (must be consistent across calls)
+        :type direction: Literal["maximize", "minimize"]
+        :raises ValueError: If direction differs from previously set direction
+        """
+        if self._objective is None:
+            logger.debug(f"Initializing objective with direction '{direction}'")
+            self._objective_direction = direction
+            self._objective = objective_expr
+        else:
+            if self._objective_direction is None:
+                self._objective_direction = direction
+            elif direction != self._objective_direction:
+                raise ValueError(
+                    f"Objective direction '{direction}' conflicts with previously set direction "
+                    f"'{self._objective_direction}'"
+                )
+            logger.debug(f"Adding term to existing objective with direction '{direction}'")
+            self._objective = self._objective + objective_expr
+
+        if self._objective_direction == "minimize":
+            self._solver.Minimize(self._objective)
+        elif self._objective_direction == "maximize":
+            self._solver.Maximize(self._objective)
+        else:
+            raise ValueError(f"Unsupported optimization direction: {self._objective_direction}")
 
     def set_objective(
         self,
@@ -246,6 +261,9 @@ class OptimisationModel:
     ) -> None:
         """
         Set the objective function using OR-Tools expression syntax.
+
+        This method replaces any existing objective function. Use add_objective()
+        if you want to incrementally build the objective.
 
         This method allows you to set objectives directly like:
         model.set_objective(x + 2 * y, "maximize")
@@ -258,17 +276,15 @@ class OptimisationModel:
         """
         logger.debug(f"Setting objective expression with direction '{direction}'")
 
+        self._objective = objective_expr
+        self._objective_direction = direction
+
         if direction == "minimize":
             self._solver.Minimize(objective_expr)
         elif direction == "maximize":
             self._solver.Maximize(objective_expr)
         else:
             raise ValueError("Optimisation direction not supported.")
-
-        # Store a placeholder for consistency
-        self._objective_dict = {"expression": 1.0}
-
-        # Remove set_objective_expression as it's now redundant
 
     def solve(self, time_limit: float | None = None) -> SolutionInfo:
         """
@@ -358,9 +374,9 @@ class OptimisationModel:
         self._variables_name.clear()
         self._variables_objects.clear()
         self._constraints_name.clear()
-        self._objective_dict = None
         self._solution_info = None
         self._objective = None
+        self._objective_direction = None
         self._initialize_solver()
 
     def __repr__(self) -> str:
