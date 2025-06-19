@@ -1,166 +1,179 @@
-# coding: utf-8
-
-from PO_functions import get_time_series_value
 import API
 
+from atlas.models.equipment.wind import Wind
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
-class PO_Wind(object):
+
+class POWind:
     """
-    This class is used to feed a PO_Wind from a wind equipment
+    This class is used to feed a POWind from a wind equipment
     """
 
     def __init__(self, name):
         # variables
         self.name = name
-        self.PowerLevel = {}
-        self.Price = {}
+        self.power_level = {}
+        self.price = {}
 
         # reserve requirements
-        self.AFRRUpProcured = {}
-        self.AFRRDownProcured = {}
-        self.MFRRUpProcured = {}
-        self.MFRRDownProcured = {}
-        self.RRUpProcured = {}
-        self.RRDownProcured = {}
-        self.FCRUpProcured = {}
-        self.FCRDownProcured = {}
-        self.reservesUpProcured = {}
-        self.reservesDownProcured = {}
+        self.afrr_up_procured = {}
+        self.afrr_down_procured = {}
+        self.mfrr_up_procured = {}
+        self.mfrr_down_procured = {}
+        self.rr_up_procured = {}
+        self.rr_down_procured = {}
+        self.fcr_up_procured = {}
+        self.fcr_down_procured = {}
+        self.reserves_up_procured = {}
+        self.reserves_down_procured = {}
 
-        self.feasibleAutomatedReservesUpProcured = {}
-        self.feasibleAutomatedReservesDownProcured = {}
-        self.automatedUnsuppliedReserves = 0
+        self.feasible_automated_reserves_up_procured = {}
+        self.feasible_automated_reserves_down_procured = {}
+        self.automated_unsupplied_reserves = 0
 
         # reserve variables
-        self.reservesUp = {}
-        self.reservesDown = {}
-        self.unprovidedReservesUp = {}
-        self.unprovidedReservesDown = {}
-        self.relaxedReserves = {}
-        self.automatedReservesUp = {}
-        self.automatedReservesDown = {}
-        self.contractedDifferenceUp = {}
-        self.contractedDifferenceDown = {}
-        self.automatedContractedDifferenceUp = {}
-        self.automatedContractedDifferenceDown = {}
+        self.reserves_up = {}
+        self.reserves_down = {}
+        self.unprovided_reserves_up = {}
+        self.unprovided_reserves_down = {}
+        self.relaxed_reserves = {}
+        self.automated_reserves_up = {}
+        self.automated_reserves_down = {}
+        self.contracted_difference_up = {}
+        self.contracted_difference_down = {}
+        self.automated_contracted_difference_up = {}
+        self.automated_contracted_difference_down = {}
 
-        self.maximumAFRR = 0
-        self.maximumFCR = 0
-        self.maximumAutomated = 0
+        self.maximum_afrr = 0
+        self.maximum_fcr = 0
+        self.maximum_automated = 0
 
-        self.MaximumPower = {}
-        self.MinimumPower = {}
+        self.maximum_power = {}
+        self.minimum_power = {}
 
-    def init_variables(self, opt_Wind, p):
-        self.maximumAFRR = opt_Wind.MaximumAFRR
-        self.maximumFCR = opt_Wind.MaximumFCR
+    def init_variables(self, wind_object: Wind, p: PortfolioOptimisationParameters):
+        self.maximum_afrr = wind_object.maximum_afrr
+        self.maximum_fcr = wind_object.maximum_fcr
 
         # get global matrix power
-        t0MinusDeltaT = API.DatetimeIndex.Shift(p.target_times, "-" + p.time_step_str)[0]
-        power = opt_Wind.Power.GetForecast(p.execution_date, t0MinusDeltaT, p.start_date)
+        t0_minus_delta_t = API.datetime_index.shift(p.target_times, "-" + p.time_step_str)[0]
+        power = wind_object.power.get_forecast(p.execution_date, t0_minus_delta_t, p.start_date)
         if power is None:
-            power = opt_Wind.FinalProg
-
-        # The following power level should be from last forecast of Power matrix, it is final prog for test
-        # self.power_level_prev =  get_time_series_value(power, t0MinusDeltaT)
+            power = wind_object.final_prog
 
         for time_enum, time in enumerate(p.target_times):
             # Get min and max power
-            max_power = get_time_series_value(
-                opt_Wind.MaximumPowerForecast.GetForecast(p.execution_date, time, time), time
-            )
-            min_power = (1 - get_time_series_value(opt_Wind.MaximumCurtailmentRatio, time)) * max_power
+            max_power = wind_object.maximum_power_forecast.get_forecast(p.execution_date, time, time).get_value(time)
+            min_power = (1 - wind_object.maximum_curtailment_ratio.get_value(time)) * max_power
 
-            # Get variable cost and curtailment cost
-            price = get_time_series_value(opt_Wind.VariableCost, time)
+            price = wind_object.variable_cost.get_value(time)
 
-            # Get procured reserves
-            afrrup = opt_Wind.AFRRUpProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            afrrdown = opt_Wind.AFRRDownProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            mfrrup = opt_Wind.MFRRUpProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            mfrrdown = opt_Wind.MFRRDownProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            rrup = opt_Wind.RRUpProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            rrdown = opt_Wind.RRDownProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            fcrup = opt_Wind.FCRUpProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            fcrdown = opt_Wind.FCRDownProcured.GetForecast(p.execution_date, time, time).GetValue(time)
+            afrr_up = wind_object.afrr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            afrr_down = wind_object.afrr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            mfrr_up = wind_object.mfrr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            mfrr_down = wind_object.mfrr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            rr_up = wind_object.rr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            rr_down = wind_object.rr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            fcr_up = wind_object.fcr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            fcr_down = wind_object.fcr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
 
-            self.MaximumPower[time] = max_power
-            self.MinimumPower[time] = min_power
-            self.Price[time] = price
+            self.maximum_power[time] = max_power
+            self.minimum_power[time] = min_power
+            self.price[time] = price
 
-            self.AFRRUpProcured[time] = afrrup
-            self.AFRRDownProcured[time] = afrrdown
-            self.MFRRUpProcured[time] = mfrrup
-            self.MFRRDownProcured[time] = mfrrdown
-            self.RRUpProcured[time] = rrup
-            self.RRDownProcured[time] = rrdown
-            self.FCRUpProcured[time] = fcrup
-            self.FCRDownProcured[time] = fcrdown
+            self.afrr_up_procured[time] = afrr_up
+            self.afrr_down_procured[time] = afrr_down
+            self.mfrr_up_procured[time] = mfrr_up
+            self.mfrr_down_procured[time] = mfrr_down
+            self.rr_up_procured[time] = rr_up
+            self.rr_down_procured[time] = rr_down
+            self.fcr_up_procured[time] = fcr_up
+            self.fcr_down_procured[time] = fcr_down
 
             # create optimization variables
-            self.PowerLevel[time] = API.Solver.NewOpVariable(
-                "{name}_Power_level_{val}".format(name=self.name, val=time_enum),
+            self.power_level[time] = API.solver.new_op_variable(
+                f"{self.name}_power_level_{time_enum}",
                 0,
                 max_power,
-                API.Solver.OpCategoryReal,
+                API.solver.op_category_real,
             )
 
             # Set-up the reserve requirements
-            self.reservesUpProcured[time] = rrup + mfrrup
-            self.reservesDownProcured[time] = rrdown + mfrrdown
-            self.maximumAutomated = self.maximumAFRR + self.maximumFCR
+            self.reserves_up_procured[time] = rr_up + mfrr_up
+            self.reserves_down_procured[time] = rr_down + mfrr_down
+            self.maximum_automated = self.maximum_afrr + self.maximum_fcr
 
-            self.feasibleAutomatedReservesUpProcured[time] = min(afrrup, self.maximumAFRR) + min(fcrup, self.maximumFCR)
-            self.feasibleAutomatedReservesDownProcured[time] = min(afrrdown, self.maximumAFRR) + min(
-                fcrdown, self.maximumFCR
+            self.feasible_automated_reserves_up_procured[time] = min(afrr_up, self.maximum_afrr) + min(
+                fcr_up, self.maximum_fcr
             )
-            self.automatedUnsuppliedReserves += (
-                max(afrrup - self.maximumAFRR, 0)
-                + max(fcrup - self.maximumFCR, 0)
-                + max(afrrdown - self.maximumAFRR, 0)
-                + max(fcrdown - self.maximumFCR, 0)
+            self.feasible_automated_reserves_down_procured[time] = min(afrr_down, self.maximum_afrr) + min(
+                fcr_down, self.maximum_fcr
+            )
+            self.automated_unsupplied_reserves += (
+                max(afrr_up - self.maximum_afrr, 0)
+                + max(fcr_up - self.maximum_fcr, 0)
+                + max(afrr_down - self.maximum_afrr, 0)
+                + max(fcr_down - self.maximum_fcr, 0)
             )
 
             # Optimisation Variables related tp,
-            self.reservesUp[time] = API.Solver.NewOpVariable(
-                "resUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
-            )
-            self.reservesDown[time] = API.Solver.NewOpVariable(
-                "resDown_e_%s_at_%s" % (self.name, str(time_enum)), min_power, max_power, API.Solver.OpCategoryReal
-            )
-            self.unprovidedReservesUp[time] = API.Solver.NewOpVariable(
-                "unpResUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
-            )
-            self.unprovidedReservesDown[time] = API.Solver.NewOpVariable(
-                "unpResDown_e_%s_at_%s" % (self.name, str(time_enum)), min_power, max_power, API.Solver.OpCategoryReal
-            )
-            self.automatedReservesUp[time] = API.Solver.NewOpVariable(
-                "autoResUp_e_%s_at_%s" % (self.name, str(time_enum)),
+            self.reserves_up[time] = API.solver.new_op_variable(
+                f"res_up_e_{self.name}_at_{str(time_enum)}",
                 0,
-                self.maximumAutomated,
-                API.Solver.OpCategoryReal,
+                max_power,
+                API.solver.op_category_real,
             )
-            self.automatedReservesDown[time] = API.Solver.NewOpVariable(
-                "autoResDown_e_%s_at_%s" % (self.name, str(time_enum)),
-                0,
-                self.maximumAutomated,
-                API.Solver.OpCategoryReal,
-            )
-            self.contractedDifferenceUp[time] = API.Solver.NewOpVariable(
-                "contractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
-            )
-            self.contractedDifferenceDown[time] = API.Solver.NewOpVariable(
-                "contractedDiffDown_e_%s_at_%s" % (self.name, str(time_enum)),
+            self.reserves_down[time] = API.solver.new_op_variable(
+                f"res_down_e_{self.name}_at_{str(time_enum)}",
                 min_power,
                 max_power,
-                API.Solver.OpCategoryReal,
+                API.solver.op_category_real,
             )
-            self.automatedContractedDifferenceUp[time] = API.Solver.NewOpVariable(
-                "autoContractedDiffUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, max_power, API.Solver.OpCategoryReal
+            self.unprovided_reserves_up[time] = API.solver.new_op_variable(
+                f"unp_res_up_e_{self.name}_at_{str(time_enum)}",
+                0,
+                max_power,
+                API.solver.op_category_real,
             )
-            self.automatedContractedDifferenceDown[time] = API.Solver.NewOpVariable(
-                "autoContractedDiffDown_e_%s_at_%s" % (self.name, str(time_enum)),
+            self.unprovided_reserves_down[time] = API.solver.new_op_variable(
+                f"unp_res_down_e_{self.name}_at_{str(time_enum)}",
                 min_power,
                 max_power,
-                API.Solver.OpCategoryReal,
+                API.solver.op_category_real,
+            )
+            self.automated_reserves_up[time] = API.solver.new_op_variable(
+                f"auto_res_up_e_{self.name}_at_{str(time_enum)}",
+                0,
+                self.maximum_automated,
+                API.solver.op_category_real,
+            )
+            self.automated_reserves_down[time] = API.solver.new_op_variable(
+                f"auto_res_down_e_{self.name}_at_{str(time_enum)}",
+                0,
+                self.maximum_automated,
+                API.solver.op_category_real,
+            )
+            self.contracted_difference_up[time] = API.solver.new_op_variable(
+                f"contracted_diff_up_e_{self.name}_at_{str(time_enum)}",
+                0,
+                max_power,
+                API.solver.op_category_real,
+            )
+            self.contracted_difference_down[time] = API.solver.new_op_variable(
+                f"contracted_diff_down_e_{self.name}_at_{str(time_enum)}",
+                min_power,
+                max_power,
+                API.solver.op_category_real,
+            )
+            self.automated_contracted_difference_up[time] = API.solver.new_op_variable(
+                f"auto_contracted_diff_up_e_{self.name}_at_{str(time_enum)}",
+                0,
+                max_power,
+                API.solver.op_category_real,
+            )
+            self.automated_contracted_difference_down[time] = API.solver.new_op_variable(
+                f"auto_contracted_diff_down_e_{self.name}_at_{str(time_enum)}",
+                min_power,
+                max_power,
+                API.solver.op_category_real,
             )
