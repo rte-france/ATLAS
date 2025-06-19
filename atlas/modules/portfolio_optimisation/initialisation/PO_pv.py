@@ -98,7 +98,6 @@ class POPV:
             self.fcr_up_procured[time] = fcr_up
             self.fcr_down_procured[time] = fcr_down
 
-            # init variables
             # create optimisation variables
             self.power_level[time] = API.solver.new_op_variable(
                 f"{self.name}_power_level_{time_enum}",
@@ -127,61 +126,61 @@ class POPV:
 
             # Optimisation Variables related tp,
             self.reserves_up[time] = API.solver.new_op_variable(
-                "res_up_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"res_up_e_{self.name}_at_{str(time_enum)}",
                 0,
                 max_power,
                 API.solver.op_category_real,
             )
             self.reserves_down[time] = API.solver.new_op_variable(
-                "res_down_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"res_down_e_{self.name}_at_{str(time_enum)}",
                 min_power,
                 max_power,
                 API.solver.op_category_real,
             )
             self.unprovided_reserves_up[time] = API.solver.new_op_variable(
-                "unp_res_up_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"unp_res_up_e_{self.name}_at_{str(time_enum)}",
                 0,
                 max_power,
                 API.solver.op_category_real,
             )
             self.unprovided_reserves_down[time] = API.solver.new_op_variable(
-                "unp_res_down_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"unp_res_down_e_{self.name}_at_{str(time_enum)}",
                 min_power,
                 max_power,
                 API.solver.op_category_real,
             )
             self.automated_reserves_up[time] = API.solver.new_op_variable(
-                "auto_res_up_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"auto_res_up_e_{self.name}_at_{str(time_enum)}",
                 0,
                 self.maximum_automated,
                 API.solver.op_category_real,
             )
             self.automated_reserves_down[time] = API.solver.new_op_variable(
-                "auto_res_down_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"auto_res_down_e_{self.name}_at_{str(time_enum)}",
                 0,
                 self.maximum_automated,
                 API.solver.op_category_real,
             )
             self.contracted_difference_up[time] = API.solver.new_op_variable(
-                "contracted_diff_up_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"contracted_diff_up_e_{self.name}_at_{str(time_enum)}",
                 0,
                 max_power,
                 API.solver.op_category_real,
             )
             self.contracted_difference_down[time] = API.solver.new_op_variable(
-                "contracted_diff_down_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"contracted_diff_down_e_{self.name}_at_{str(time_enum)}",
                 min_power,
                 max_power,
                 API.solver.op_category_real,
             )
             self.automated_contracted_difference_up[time] = API.solver.new_op_variable(
-                "auto_contracted_diff_up_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"auto_contracted_diff_up_e_{self.name}_at_{str(time_enum)}",
                 0,
                 max_power,
                 API.solver.op_category_real,
             )
             self.automated_contracted_difference_down[time] = API.solver.new_op_variable(
-                "auto_contracted_diff_down_e_%s_at_%s" % (self.name, str(time_enum)),
+                f"auto_contracted_diff_down_e_{self.name}_at_{str(time_enum)}",
                 min_power,
                 max_power,
                 API.solver.op_category_real,

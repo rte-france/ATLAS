@@ -1,267 +1,274 @@
-# coding: utf-8
-
-from PO_functions import get_time_series_value
 import API
-import sys
+
+from atlas.enum import StorageType
+from atlas.models.equipment.storage import Storage
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-class PO_Storage(object):
+class POStorage:
     """
-    This class is used to feed a PO_Storage from a storage equipment
+    This class is used to feed a POStorage from a storage equipment
     """
 
     def __init__(self, name, p):
         self.name = name
-        self.StorageType = ""
-        self.PowerLevelBuy = {}
-        self.PowerLevelSell = {}
+        self.storage_type: StorageType | None = None
+        self.power_level_buy = {}
+        self.power_level_sell = {}
 
-        self.PowerLevelBuy_n = {}
-        self.PowerLevelSell_n = {}
+        self.power_level_buy_n = {}
+        self.power_level_sell_n = {}
 
         for n in range(0, max(p.ev_nb_fragments, p.battery_nb_fragments, p.phs_nb_fragments)):
-            self.PowerLevelBuy_n[n] = {}
-            self.PowerLevelSell_n[n] = {}
+            self.power_level_buy_n[n] = {}
+            self.power_level_sell_n[n] = {}
 
-        self.StoredEnergy = {}
-        self.Usable_energy = {}
+        self.stored_energy = {}
+        self.usable_energy = {}
 
-        self.Is_Sell = {}
+        self.is_sell = {}
 
         # parameters from optimate equipment to optimized memory
-        self.LastTimeT = 0
-        self.VariableCost = 0
-        self.StartupCost = 0
-        self.InitialStock = 0
-        self.ChargeEfficiency = 1
-        self.DischargeEfficiency = 1
-        self.isV2G = 0
+        self.last_time_t = 0
+        self.variable_cost = 0
+        self.startup_cost = 0
+        self.initial_stock = 0
+        self.charge_efficiency = 1
+        self.discharge_efficiency = 1
+        self.is_v2g = 0
 
-        # self.AFRRMax = 0
-        self.MaximumPower = {}
-        self.MinimumPower = {}
-        self.DAClearedQuantity = {}
-        self.DisplacementEnergy = {}
+        # self.afrr_max = 0
+        self.maximum_power = {}
+        self.minimum_power = {}
+        self.da_cleared_quantity = {}
+        self.displacement_energy = {}
 
         # reserve requirements
-        self.aFRRUpProcured = {}
-        self.aFRRDownProcured = {}
-        self.mFRRUpProcured = {}
-        self.mFRRDownProcured = {}
-        self.rRUpProcured = {}
-        self.rRDownProcured = {}
-        self.fCRUpProcured = {}
-        self.fCRDownProcured = {}
-        self.reservesUpProcured = {}
-        self.reservesDownProcured = {}
+        self.afrr_up_procured = {}
+        self.afrr_down_procured = {}
+        self.mfrr_up_procured = {}
+        self.mfrr_down_procured = {}
+        self.rr_up_procured = {}
+        self.rr_down_procured = {}
+        self.fcr_up_procured = {}
+        self.fcr_down_procured = {}
+        self.reserves_up_procured = {}
+        self.reserves_down_procured = {}
 
-        self.feasibleAutomatedReservesUpProcured = {}
-        self.feasibleAutomatedReservesDownProcured = {}
-        self.automatedUnsuppliedReserves = 0
+        self.feasible_automated_reserves_up_procured = {}
+        self.feasible_automated_reserves_down_procured = {}
+        self.automated_unsupplied_reserves = 0
 
         # reserve variables
-        self.reservesUp = {}
-        self.reservesDown = {}
-        self.unprovidedReservesUp = {}
-        self.unprovidedReservesDown = {}
-        self.automatedReservesUp = {}
-        self.automatedReservesDown = {}
-        self.contractedDifferenceUp = {}
-        self.contractedDifferenceDown = {}
-        self.automatedContractedDifferenceUp = {}
-        self.automatedContractedDifferenceDown = {}
+        self.reserves_up = {}
+        self.reserves_down = {}
+        self.unprovided_reserves_up = {}
+        self.unprovided_reserves_down = {}
+        self.automated_reserves_up = {}
+        self.automated_reserves_down = {}
+        self.contracted_difference_up = {}
+        self.contracted_difference_down = {}
+        self.automated_contracted_difference_up = {}
+        self.automated_contracted_difference_down = {}
 
-        self.MaximumEnergy = {}
-        self.MinimumStateOfCharge = {}
-        self.maximumAFRR = 0
-        self.maximumFCR = 0
-        self.maximumAutomated = 0
+        self.maximum_energy = {}
+        self.minimum_state_of_charge = {}
+        self.maximum_afrr = 0
+        self.maximum_fcr = 0
+        self.maximum_automated = 0
 
-    def init_variables(self, opt_storage, p):
+    def init_variables(self, storage_object: Storage, p: PortfolioOptimisationParameters):
         # Retrieve the optimization time frame
-        if opt_storage.StorageType == "Battery":
+        if storage_object.storage_type == "Battery":
             op_time_frame = p.battery_op_times
-        elif opt_storage.StorageType == "PumpedHydraulicStorage":
+        elif storage_object.storage_type == "PumpedHydraulicStorage":
             op_time_frame = p.phs_op_times
-        elif opt_storage.StorageType == "ElectricVehicle":
+        elif storage_object.storage_type == "ElectricVehicle":
             op_time_frame = p.ev_op_times
 
         # get data from optimate equipment
-        self.VariableCost = get_time_series_value(opt_storage.VariableCost, p.start_date)
-        self.StartupCost = get_time_series_value(opt_storage.StartupCost, p.start_date)
+        self.variable_cost = storage_object.variable_cost.get_value(p.start_date)
+        self.startup_cost = storage_object.startup_cost.get_value(p.start_date)
 
-        self.maximumAFRR = opt_storage.MaximumAFRR
-        self.maximumFCR = opt_storage.MaximumFCR
+        self.maximum_afrr = storage_object.maximum_afrr
+        self.maximum_fcr = storage_object.maximum_fcr
 
         # a affiner en fonction de stored energy
-        self.StorageType = opt_storage.StorageType
+        self.storage_type = storage_object.storage_type
 
-        # FC: hypothesis here, we check if the StoredEnergy matrix has values over the last 48 hours
+        # FC: hypothesis here, we check if the stored_energy matrix has values over the last 48 hours
         # If it is not the case, the equipment is assumed to be in initial state.
         # This hypothesis could be challenged, but is at least applied uniformly to all modules
         if (
-            opt_storage.StoredEnergy.GetForecast(
-                p.execution_date, p.init_battery_time.AddDays(-2), p.init_battery_time
-            ).Length
+            len(
+                storage_object.stored_energy.get_forecast(
+                    p.execution_date, p.init_battery_time.subtract(days=-2), p.init_battery_time
+                )
+            )
             == 0
         ):
-            self.InitialStock = (
-                get_time_series_value(opt_storage.MaximumEnergy, p.start_date.AddMinutes(-p.time_step))
-                * opt_storage.StorageInitialLevel
+            self.initial_stock = storage_object.maximum_energy.get_value(
+                (p.start_date - p.time_step) * storage_object.storage_initial_level,
             )
 
         else:
-            self.InitialStock = opt_storage.StoredEnergy.GetForecast(
+            self.initial_stock = storage_object.stored_energy.get_forecast(
                 p.execution_date, p.init_battery_time, p.init_battery_time
             )[0]
 
         if p.debug:
-            msg = "The initial energy storage level is : {} MWh".format(self.InitialStock)
-            API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
+            msg = f"The initial energy storage level is : {self.initial_stock} MWh"
+            API.io.trace.log(msg, API.io.log_type_info)
 
-        self.isV2G = opt_storage.isV2G
-        self.ChargeEfficiency = opt_storage.ChargeEfficiency
-        self.DischargeEfficiency = opt_storage.DischargeEfficiency
-
-        if self.ChargeEfficiency == 0:
-            msg = "The property ChargeEfficiency of the equipement {} must be greater than 0.".format(opt_storage.Name)
-            API.IO.Trace.Log(msg, API.IO.LogTypeWarn)
-        # Check if the equipement is able to be discharge if Zero a division by zero will appeared
-        if self.DischargeEfficiency == 0:
-            msg = "The property DischargeEfficiency of the equipement {} must be greater than 0.".format(
-                opt_storage.Name
-            )
-            API.IO.Trace.Log(msg, API.IO.LogTypeError)
-            sys.exit()  ### FUTURE WARNING : WILL HAVE TO BE REPLACED BY AN API FUNCTION THAT STOPS THE EXECUTION OF THE PROGRAM ASAP
-
-        # self.MinimumStateOfCharge = opt_storage.MinimumStateOfCharge
+        self.is_v2g = storage_object.is_v2g
+        self.charge_efficiency = storage_object.charge_efficiency
+        self.discharge_efficiency = storage_object.discharge_efficiency
 
         for time_enum, time in enumerate(op_time_frame):
-            max_power = get_time_series_value(opt_storage.MaximumPower, time)
-            if opt_storage.MinimumPower.Count == 0:
+            max_power = storage_object.maximum_power.get_value(time)
+            if storage_object.minimum_power.count == 0:
                 min_power = -max_power
             else:
-                min_power = get_time_series_value(opt_storage.MinimumPower, time)
+                min_power = storage_object.minimum_power.get_value(time)
 
-            max_stock = get_time_series_value(opt_storage.MaximumEnergy, time)
-            minSOC = get_time_series_value(opt_storage.MinimumStateOfCharge, time)
-            disp_en = get_time_series_value(opt_storage.DisplacementEnergy, time)
+            max_stock = storage_object.maximum_energy.get_value(time)
+            min_soc = storage_object.minimum_state_of_charge.get_value(time)
+            disp_en = storage_object.displacement_energy.get_value(time)
 
-            afrrup = opt_storage.AFRRUpProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            afrrdown = opt_storage.AFRRDownProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            mfrrup = opt_storage.MFRRUpProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            mfrrdown = opt_storage.MFRRDownProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            rrup = opt_storage.RRUpProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            rrdown = opt_storage.RRDownProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            fcrup = opt_storage.FCRUpProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            fcrdown = opt_storage.FCRDownProcured.GetForecast(p.execution_date, time, time).GetValue(time)
+            afrr_up = storage_object.afrr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            afrr_down = storage_object.afrr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            mfrr_up = storage_object.mfrr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            mfrr_down = storage_object.mfrr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            rr_up = storage_object.rr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            rr_down = storage_object.rr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            fcr_up = storage_object.fcr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            fcr_down = storage_object.fcr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
 
-            self.MaximumPower[time] = max_power
-            self.MinimumPower[time] = min_power
+            self.maximum_power[time] = max_power
+            self.minimum_power[time] = min_power
 
             if time_enum == 0:
-                self.MaximumEnergy[time.AddMinutes(-p.time_step)] = get_time_series_value(
-                    opt_storage.MaximumEnergy, time.AddMinutes(-p.time_step)
-                )
-                self.MinimumStateOfCharge[time.AddMinutes(-p.time_step)] = get_time_series_value(
-                    opt_storage.MinimumStateOfCharge, time.AddMinutes(-p.time_step)
-                )
-                self.DisplacementEnergy[time.AddMinutes(-p.time_step)] = get_time_series_value(
-                    opt_storage.DisplacementEnergy, time.AddMinutes(-p.time_step)
+                self.maximum_energy[time.add_minutes(-p.time_step)] = storage_object.maximum_energy.get_value(
+                    time - p.time_step
                 )
 
-            self.MaximumEnergy[time] = max_stock
-            self.MinimumStateOfCharge[time] = minSOC
-            self.DisplacementEnergy[time] = disp_en
+                self.minimum_state_of_charge[time - p.time_step] = storage_object.minimum_state_of_charge.get_value(
+                    time - p.time_step
+                )
 
-            self.aFRRUpProcured[time] = afrrup
-            self.aFRRDownProcured[time] = afrrdown
-            self.mFRRUpProcured[time] = mfrrup
-            self.mFRRDownProcured[time] = mfrrdown
-            self.rRUpProcured[time] = rrup
-            self.rRDownProcured[time] = rrdown
-            self.fCRUpProcured[time] = fcrup
-            self.fCRDownProcured[time] = fcrdown
+                self.displacement_energy[time - p.time_step] = storage_object.displacement_energy.get_value(
+                    time - p.time_step
+                )
+
+            self.maximum_energy[time] = max_stock
+            self.minimum_state_of_charge[time] = min_soc
+            self.displacement_energy[time] = disp_en
+
+            self.afrr_up_procured[time] = afrr_up
+            self.afrr_down_procured[time] = afrr_down
+            self.mfrr_up_procured[time] = mfrr_up
+            self.mfrr_down_procured[time] = mfrr_down
+            self.rr_up_procured[time] = rr_up
+            self.rr_down_procured[time] = rr_down
+            self.fcr_up_procured[time] = fcr_up
+            self.fcr_down_procured[time] = fcr_down
 
             # Create variables at time
-            self.PowerLevelSell[time] = API.Solver.NewOpVariable(
-                "{name}_power_level_sell_{val}".format(name=self.name, val=time_enum),
+            self.power_level_sell[time] = API.solver.new_op_variable(
+                f"{self.name}_power_level_sell_{time_enum}",
                 0,
                 max_power,
-                API.Solver.OpCategoryReal,
+                API.solver.op_category_real,
             )
-            self.PowerLevelBuy[time] = API.Solver.NewOpVariable(
-                "{name}_power_level_buy_{val}".format(name=self.name, val=time_enum),
+            self.power_level_buy[time] = API.solver.new_op_variable(
+                f"{self.name}_power_level_buy_{time_enum}",
                 min_power,
                 0,
-                API.Solver.OpCategoryReal,
+                API.solver.op_category_real,
             )
-            self.Is_Sell[time] = API.Solver.NewOpVariable(
-                "{name}_is_sell_{val}".format(name=self.name, val=time_enum), API.Solver.OpCategoryBinary
+            self.is_sell[time] = API.solver.new_op_variable(
+                f"{self.name}_is_sell_{time_enum}", API.solver.op_category_binary
             )
-            self.StoredEnergy[time] = API.Solver.NewOpVariable(
-                "{name}_StoredEnergy_{val}".format(name=self.name, val=time_enum),
-                minSOC * max_stock,
+            self.stored_energy[time] = API.solver.new_op_variable(
+                f"{self.name}_stored_energy_{time_enum}",
+                min_soc * max_stock,
                 max_stock,
-                API.Solver.OpCategoryReal,
+                API.solver.op_category_real,
             )
 
             # Set-up the reserve requirements
-            self.reservesUpProcured[time] = rrup + mfrrup
-            self.reservesDownProcured[time] = rrdown + mfrrdown
-            self.maximumAutomated = self.maximumAFRR + self.maximumFCR
+            self.reserves_up_procured[time] = rr_up + mfrr_up
+            self.reserves_down_procured[time] = rr_down + mfrr_down
+            self.maximum_automated = self.maximum_afrr + self.maximum_fcr
 
-            self.feasibleAutomatedReservesUpProcured[time] = min(afrrup, self.maximumAFRR) + min(fcrup, self.maximumFCR)
-            self.feasibleAutomatedReservesDownProcured[time] = min(afrrdown, self.maximumAFRR) + min(
-                fcrdown, self.maximumFCR
+            self.feasible_automated_reserves_up_procured[time] = min(afrr_up, self.maximum_afrr) + min(
+                fcr_up, self.maximum_fcr
             )
-            self.automatedUnsuppliedReserves += (
-                max(afrrup - self.maximumAFRR, 0)
-                + max(fcrup - self.maximumFCR, 0)
-                + max(afrrdown - self.maximumAFRR, 0)
-                + max(fcrdown - self.maximumFCR, 0)
+            self.feasible_automated_reserves_down_procured[time] = min(afrr_down, self.maximum_afrr) + min(
+                fcr_down, self.maximum_fcr
+            )
+            self.automated_unsupplied_reserves += (
+                max(afrr_up - self.maximum_afrr, 0)
+                + max(fcr_up - self.maximum_fcr, 0)
+                + max(afrr_down - self.maximum_afrr, 0)
+                + max(fcr_down - self.maximum_fcr, 0)
             )
 
-            if self.StorageType == "Battery":
-                nbr_fragement = p.battery_nb_fragments
-            elif self.StorageType == "ElectricVehicle":
-                nbr_fragement = p.ev_nb_fragments
-            elif self.StorageType == "PumpedHydraulicStorage":
-                nbr_fragement = p.phs_nb_fragments
+            if self.storage_type == StorageType.BATTERY:
+                nbr_fragment = p.battery_nb_fragments
+            elif self.storage_type == StorageType.ELECTRIC_VEHICLE:
+                nbr_fragment = p.ev_nb_fragments
+            elif self.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
+                nbr_fragment = p.phs_nb_fragments
 
-            for n in range(0, nbr_fragement):
-                self.PowerLevelSell_n[n][time] = API.Solver.NewOpVariable(
-                    "{name}_power_level_sell_n_{num}_time_{val}".format(name=self.name, num=n, val=time_enum),
+            for n in range(0, nbr_fragment):
+                self.power_level_sell_n[n][time] = API.solver.new_op_variable(
+                    f"{self.name}_power_level_sell_n_{n}_time_{time_enum}",
                     0,
                     max_power,
-                    API.Solver.OpCategoryReal,
+                    API.solver.op_category_real,
                 )
-                self.PowerLevelBuy_n[n][time] = API.Solver.NewOpVariable(
-                    "{name}_power_level_buy_n_{num}_time_{val}".format(name=self.name, num=n, val=time_enum),
+                self.power_level_buy_n[n][time] = API.solver.new_op_variable(
+                    f"{self.name}_power_level_buy_n_{n}_time_{time_enum}",
                     min_power,
                     0,
-                    API.Solver.OpCategoryReal,
+                    API.solver.op_category_real,
                 )
 
             # Optimisation Variables related tp,
-            self.reservesUp[time] = API.Solver.NewOpVariable(
-                "resUp_e_%s_at_%s" % (self.name, str(time)), 0, max_power, API.Solver.OpCategoryReal
+            self.reserves_up[time] = API.solver.new_op_variable(
+                f"res_up_e_{self.name}_at_{str(time)}",
+                0,
+                max_power,
+                API.solver.op_category_real,
             )
-            self.reservesDown[time] = API.Solver.NewOpVariable(
-                "resDown_e_%s_at_%s" % (self.name, str(time)), min_power, max_power, API.Solver.OpCategoryReal
+            self.reserves_down[time] = API.solver.new_op_variable(
+                f"res_down_e_{self.name}_at_{str(time)}",
+                min_power,
+                max_power,
+                API.solver.op_category_real,
             )
-            self.unprovidedReservesUp[time] = API.Solver.NewOpVariable(
-                "unprResUp_e_%s_at_%s" % (self.name, str(time)), 0, max_power, API.Solver.OpCategoryReal
+            self.unprovided_reserves_up[time] = API.solver.new_op_variable(
+                f"unpr_res_up_e_{self.name}_at_{str(time)}",
+                0,
+                max_power,
+                API.solver.op_category_real,
             )
-            self.unprovidedReservesDown[time] = API.Solver.NewOpVariable(
-                "unprResDown_e_%s_at_%s" % (self.name, str(time)), min_power, max_power, API.Solver.OpCategoryReal
+            self.unprovided_reserves_down[time] = API.solver.new_op_variable(
+                f"unpr_res_down_e_{self.name}_at_{str(time)}",
+                min_power,
+                max_power,
+                API.solver.op_category_real,
             )
-            self.automatedReservesUp[time] = API.Solver.NewOpVariable(
-                "autoResUp_e_%s_at_%s" % (self.name, str(time)), 0, self.maximumAutomated, API.Solver.OpCategoryReal
+            self.automated_reserves_up[time] = API.solver.new_op_variable(
+                f"auto_res_up_e_{self.name}_at_{str(time)}",
+                0,
+                self.maximum_automated,
+                API.solver.op_category_real,
             )
-            self.automatedReservesDown[time] = API.Solver.NewOpVariable(
-                "autoResDown_e_%s_at_%s" % (self.name, str(time)),
-                -self.maximumAutomated,
-                self.maximumAutomated,
-                API.Solver.OpCategoryReal,
+            self.automated_reserves_down[time] = API.solver.new_op_variable(
+                f"auto_res_down_e_{self.name}_at_{str(time)}",
+                -self.maximum_automated,
+                self.maximum_automated,
+                API.solver.op_category_real,
             )

@@ -185,67 +185,67 @@ class POHydraulic:
 
             # Optimisation Variables related tp,
             self.reserves_up[time] = API.Solver.NewOpVariable(
-                "ress_up_e_%s_at_%s" % (self.name, str(idx)),
+                f"ress_up_e_{self.name}_at_{str(idx)}",
                 0,
                 max_power,
                 API.Solver.OpCategoryReal,
             )
             self.reserves_down[time] = API.Solver.NewOpVariable(
-                "res_down_e_%s_at_%s" % (self.name, str(idx)),
+                f"res_down_e_{self.name}_at_{str(idx)}",
                 min_power,
                 max_power,
                 API.Solver.OpCategoryReal,
             )
             self.unprovided_reserves_up[time] = API.Solver.NewOpVariable(
-                "unp_res_up_e_%s_at_%s" % (self.name, str(idx)),
+                f"unp_res_up_e_{self.name}_at_{str(idx)}",
                 0,
                 max_power,
                 API.Solver.OpCategoryReal,
             )
             self.unprovided_reserves_down[time] = API.Solver.NewOpVariable(
-                "unp_res_down_e_%s_at_%s" % (self.name, str(idx)),
+                f"unp_res_down_e_{self.name}_at_{str(idx)}",
                 min_power,
                 max_power,
                 API.Solver.OpCategoryReal,
             )
             self.relaxed_reserves[time] = API.Solver.NewOpVariable(
-                "rel_res_e_%s_at_%s" % (self.name, str(idx)),
+                f"rel_res_e_{self.name}_at_{str(idx)}",
                 min_power,
                 0,
                 API.Solver.OpCategoryReal,
             )
             self.automated_reserves_up[time] = API.Solver.NewOpVariable(
-                "auto_res_up_e_%s_at_%s" % (self.name, str(idx)),
+                f"auto_res_up_e_{self.name}_at_{str(idx)}",
                 0,
                 self.maximum_automated,
                 API.Solver.OpCategoryReal,
             )
             self.automated_reserves_down[time] = API.Solver.NewOpVariable(
-                "auto_res_down_e_%s_at_%s" % (self.name, str(idx)),
+                f"auto_res_down_e_{self.name}_at_{str(idx)}",
                 0,
                 self.maximum_automated,
                 API.Solver.OpCategoryReal,
             )
             self.contracted_difference_up[time] = API.Solver.NewOpVariable(
-                "contracted_diff_up_e_%s_at_%s" % (self.name, str(idx)),
+                f"contracted_diff_up_e_{self.name}_at_{str(idx)}",
                 0,
                 max_power,
                 API.Solver.OpCategoryReal,
             )
             self.contracted_difference_down[time] = API.Solver.NewOpVariable(
-                "contracted_diff_down_e_%s_at_%s" % (self.name, str(idx)),
+                f"contracted_diff_down_e_{self.name}_at_{str(idx)}",
                 min_power,
                 max_power,
                 API.Solver.OpCategoryReal,
             )
             self.automated_contracted_difference_up[time] = API.Solver.NewOpVariable(
-                "auto_contracted_diff_up_e_%s_at_%s" % (self.name, str(idx)),
+                f"auto_contracted_diff_up_e_{self.name}_at_{str(idx)}",
                 0,
                 max_power,
                 API.Solver.OpCategoryReal,
             )
             self.automated_contracted_difference_down[time] = API.Solver.NewOpVariable(
-                "auto_contracted_diff_down_e_%s_at_%s" % (self.name, str(idx)),
+                f"auto_contracted_diff_down_e_{self.name}_at_{str(idx)}",
                 min_power,
                 max_power,
                 API.Solver.OpCategoryReal,
