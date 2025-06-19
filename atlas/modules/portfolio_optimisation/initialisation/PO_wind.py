@@ -2,6 +2,7 @@ import API
 
 from atlas.models.equipment.wind import Wind
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 
 class POWind:
@@ -9,7 +10,7 @@ class POWind:
     This class is used to feed a POWind from a wind equipment
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         # variables
         self.name = name
         self.power_level = {}
@@ -51,31 +52,42 @@ class POWind:
         self.maximum_power = {}
         self.minimum_power = {}
 
-    def init_variables(self, wind_object: Wind, p: PortfolioOptimisationParameters):
+    def init_variables(
+        self,
+        wind_object: Wind,
+        parameters: PortfolioOptimisationParameters,
+        optimisation_model: OptimisationModel,
+    ):
         self.maximum_afrr = wind_object.maximum_afrr
         self.maximum_fcr = wind_object.maximum_fcr
 
         # get global matrix power
-        t0_minus_delta_t = API.datetime_index.shift(p.target_times, "-" + p.time_step_str)[0]
-        power = wind_object.power.get_forecast(p.execution_date, t0_minus_delta_t, p.start_date)
+        t0_minus_delta_t = API.datetime_index.shift(parameters.target_times, "-" + parameters.time_step_str)[0]
+        power = wind_object.power.get_forecast(parameters.execution_date, t0_minus_delta_t, parameters.start_date)
         if power is None:
             power = wind_object.final_prog
 
-        for time_enum, time in enumerate(p.target_times):
+        for time_enum, time in enumerate(parameters.target_times):
             # Get min and max power
-            max_power = wind_object.maximum_power_forecast.get_forecast(p.execution_date, time, time).get_value(time)
+            max_power = wind_object.maximum_power_forecast.get_forecast(
+                parameters.execution_date, time, time
+            ).get_value(time)
             min_power = (1 - wind_object.maximum_curtailment_ratio.get_value(time)) * max_power
 
             price = wind_object.variable_cost.get_value(time)
 
-            afrr_up = wind_object.afrr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            afrr_down = wind_object.afrr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            mfrr_up = wind_object.mfrr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            mfrr_down = wind_object.mfrr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            rr_up = wind_object.rr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            rr_down = wind_object.rr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            fcr_up = wind_object.fcr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            fcr_down = wind_object.fcr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            afrr_up = wind_object.afrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            afrr_down = wind_object.afrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
+            mfrr_up = wind_object.mfrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            mfrr_down = wind_object.mfrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
+            rr_up = wind_object.rr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            rr_down = wind_object.rr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            fcr_up = wind_object.fcr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            fcr_down = wind_object.fcr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
 
             self.maximum_power[time] = max_power
             self.minimum_power[time] = min_power
@@ -91,11 +103,10 @@ class POWind:
             self.fcr_down_procured[time] = fcr_down
 
             # create optimization variables
-            self.power_level[time] = API.solver.new_op_variable(
-                f"{self.name}_power_level_{time_enum}",
-                0,
-                max_power,
-                API.solver.op_category_real,
+            self.power_level[time] = optimisation_model.add_continuous_variable(
+                name=f"{self.name}_power_level_{time_enum}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
 
             # Set-up the reserve requirements
@@ -116,64 +127,54 @@ class POWind:
                 + max(fcr_down - self.maximum_fcr, 0)
             )
 
-            # Optimisation Variables related tp,
-            self.reserves_up[time] = API.solver.new_op_variable(
-                f"res_up_e_{self.name}_at_{str(time_enum)}",
-                0,
-                max_power,
-                API.solver.op_category_real,
+            # Optimisation Variables related to reserves
+            self.reserves_up[time] = optimisation_model.add_continuous_variable(
+                name=f"res_up_e_{self.name}_at_{time_enum}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.reserves_down[time] = API.solver.new_op_variable(
-                f"res_down_e_{self.name}_at_{str(time_enum)}",
-                min_power,
-                max_power,
-                API.solver.op_category_real,
+            self.reserves_down[time] = optimisation_model.add_continuous_variable(
+                name=f"res_down_e_{self.name}_at_{time_enum}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
-            self.unprovided_reserves_up[time] = API.solver.new_op_variable(
-                f"unp_res_up_e_{self.name}_at_{str(time_enum)}",
-                0,
-                max_power,
-                API.solver.op_category_real,
+            self.unprovided_reserves_up[time] = optimisation_model.add_continuous_variable(
+                name=f"unp_res_up_e_{self.name}_at_{time_enum}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.unprovided_reserves_down[time] = API.solver.new_op_variable(
-                f"unp_res_down_e_{self.name}_at_{str(time_enum)}",
-                min_power,
-                max_power,
-                API.solver.op_category_real,
+            self.unprovided_reserves_down[time] = optimisation_model.add_continuous_variable(
+                name=f"unp_res_down_e_{self.name}_at_{time_enum}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
-            self.automated_reserves_up[time] = API.solver.new_op_variable(
-                f"auto_res_up_e_{self.name}_at_{str(time_enum)}",
-                0,
-                self.maximum_automated,
-                API.solver.op_category_real,
+            self.automated_reserves_up[time] = optimisation_model.add_continuous_variable(
+                name=f"auto_res_up_e_{self.name}_at_{time_enum}",
+                lower_bound=0,
+                upper_bound=self.maximum_automated,
             )
-            self.automated_reserves_down[time] = API.solver.new_op_variable(
-                f"auto_res_down_e_{self.name}_at_{str(time_enum)}",
-                0,
-                self.maximum_automated,
-                API.solver.op_category_real,
+            self.automated_reserves_down[time] = optimisation_model.add_continuous_variable(
+                name=f"auto_res_down_e_{self.name}_at_{time_enum}",
+                lower_bound=0,
+                upper_bound=self.maximum_automated,
             )
-            self.contracted_difference_up[time] = API.solver.new_op_variable(
-                f"contracted_diff_up_e_{self.name}_at_{str(time_enum)}",
-                0,
-                max_power,
-                API.solver.op_category_real,
+            self.contracted_difference_up[time] = optimisation_model.add_continuous_variable(
+                name=f"contracted_diff_up_e_{self.name}_at_{time_enum}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.contracted_difference_down[time] = API.solver.new_op_variable(
-                f"contracted_diff_down_e_{self.name}_at_{str(time_enum)}",
-                min_power,
-                max_power,
-                API.solver.op_category_real,
+            self.contracted_difference_down[time] = optimisation_model.add_continuous_variable(
+                name=f"contracted_diff_down_e_{self.name}_at_{time_enum}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
-            self.automated_contracted_difference_up[time] = API.solver.new_op_variable(
-                f"auto_contracted_diff_up_e_{self.name}_at_{str(time_enum)}",
-                0,
-                max_power,
-                API.solver.op_category_real,
+            self.automated_contracted_difference_up[time] = self.optimisation_model.add_continuous_variable(
+                name=f"auto_contracted_diff_up_e_{self.name}_at_{time_enum}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.automated_contracted_difference_down[time] = API.solver.new_op_variable(
-                f"auto_contracted_diff_down_e_{self.name}_at_{str(time_enum)}",
-                min_power,
-                max_power,
-                API.solver.op_category_real,
+            self.automated_contracted_difference_down[time] = self.optimisation_model.add_continuous_variable(
+                name=f"auto_contracted_diff_down_e_{self.name}_at_{time_enum}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
