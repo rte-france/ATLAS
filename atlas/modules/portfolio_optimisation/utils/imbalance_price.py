@@ -44,7 +44,7 @@ def estimate_imbalance_prices(
             ts = market_area.id_price_forecast.get_forecast(parameters.execution_date, time, time)
             price = ts.get_value(time)
         else:
-            price = 0.0  # safe default; original logic covers only DA/ID in forecast mode
+            price = 0.0
     else:
         if parameters.market == MarketEnum.dayahead:
             price = market_area.da_price.get_value(time)
