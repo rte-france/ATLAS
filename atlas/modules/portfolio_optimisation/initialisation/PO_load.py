@@ -1,0 +1,129 @@
+import API
+
+from atlas.enum import LoadType
+from atlas.models.equipment.load import Load
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+
+
+class POLoad:
+    """
+    This class is used to feed a POLoad from a dispatchable load equipment
+    """
+
+    def __init__(self, name):
+        # Variables
+        self.name = name
+        self.power_level = {}
+        self.price = {}
+
+        self.afrr_up_procured = {}
+        self.afrr_down_procured = {}
+        self.mfrr_up_procured = {}
+        self.mfrr_down_procured = {}
+        self.rr_up_procured = {}
+        self.rr_down_procured = {}
+        self.fcr_up_procured = {}
+        self.fcr_down_procured = {}
+        self.reserves_up_procured = {}
+        self.reserves_down_procured = {}
+
+        self.feasible_automated_reserves_up_procured = {}
+        self.feasible_automated_reserves_down_procured = {}
+        self.automated_unsupplied_reserves = 0
+
+        # reserve variables
+        self.reserves_up = {}
+        self.reserves_down = {}
+        self.unprovided_reserves_up = {}
+        self.unprovided_reserves_down = {}
+        self.relaxed_reserves = {}
+        self.automated_reserves_up = {}
+        self.automated_reserves_down = {}
+        self.contracted_difference_up = {}
+        self.contracted_difference_down = {}
+        self.automated_contracted_difference_up = {}
+        self.automated_contracted_difference_down = {}
+
+        self.maximum_afrr = 0
+        self.maximum_fcr = 0
+        self.maximum_automated = 0
+
+        self.maximum_power = {}
+        self.minimum_power = {}
+
+        self.load_type: LoadType | None = None
+
+    def init_variables(self, load_object: Load, parameters: PortfolioOptimisationParameters):
+        self.maximum_afrr = load_object.maximum_afrr
+        self.maximum_fcr = load_object.maximum_fcr
+        self.load_type = load_object.load_type
+
+        # get global matrix power
+        t0_minus_delta_t = API.DatetimeIndex.Shift(parameters.target_times, "-" + parameters.time_step_str)[0]
+        power = load_object.power.get_forecast(parameters.execution_date, t0_minus_delta_t, parameters.start_date)
+        if power is None:
+            power = load_object.FinalProg
+
+        # The following power level should be from last forecast of power matrix, it is final prog for test
+        # self.power_level_prev = get_time_series_value(power, t0_minus_delta_t)
+
+        for time_index, time in enumerate(parameters.target_times):
+            max_power = load_object.maximum_power_forecast.get_forecast(
+                parameters.execution_date, time, time
+            ).get_value(time)
+
+            min_power = 0
+
+            # Get variable cost
+            price = load_object.variable_cost.get_value(time)
+
+            # Get procured reserves
+            afrr_up = load_object.afrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            afrr_down = load_object.afrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
+            mfrr_up = load_object.mfrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            mfrr_down = load_object.mfrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
+            rr_up = load_object.rr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            rr_down = load_object.rr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            fcr_up = load_object.fcr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            fcr_down = load_object.fcr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+
+            self.maximum_power[time] = max_power
+            self.minimum_power[time] = min_power
+            self.price[time] = price
+
+            self.afrr_up_procured[time] = afrr_up
+            self.afrr_down_procured[time] = afrr_down
+            self.mfrr_up_procured[time] = mfrr_up
+            self.mfrr_down_procured[time] = mfrr_down
+            self.rr_up_procured[time] = rr_up
+            self.rr_down_procured[time] = rr_down
+            self.fcr_up_procured[time] = fcr_up
+            self.fcr_down_procured[time] = fcr_down
+
+            self.power_level[time] = API.Solver.NewOpVariable(
+                f"{self.name}_power_level_{time_index}",
+                max_power,
+                min_power,
+                API.Solver.OpCategoryReal,
+            )
+
+            self.reserves_up_procured[time] = rr_up + mfrr_up
+            self.reserves_down_procured[time] = rr_down + mfrr_down
+            self.maximum_automated = self.maximum_afrr + self.maximum_fcr
+
+            self.feasible_automated_reserves_up_procured[time] = min(afrr_up, self.maximum_afrr) + min(
+                fcr_up, self.maximum_fcr
+            )
+            self.feasible_automated_reserves_down_procured[time] = min(afrr_down, self.maximum_afrr) + min(
+                fcr_down, self.maximum_fcr
+            )
+            self.automated_unsupplied_reserves += (
+                max(afrr_up - self.maximum_afrr, 0)
+                + max(fcr_up - self.maximum_fcr, 0)
+                + max(afrr_down - self.maximum_afrr, 0)
+                + max(fcr_down - self.maximum_fcr, 0)
+            )

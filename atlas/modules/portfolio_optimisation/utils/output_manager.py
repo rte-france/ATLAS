@@ -20,7 +20,7 @@ class OutputManager:
         self._export_portfolio_results(output_marker, portfolio)
         self._export_equipment_results(output_marker, portfolio)
 
-    def _export_portfolio_results(self, output_marker, portfolio: PO_portfolio):
+    def _export_portfolio_results(self, output_marker, portfolio: Portfolio):
         """Export portfolio-level results."""
         if not self.parameters.is_portfolio_bidding:
             return

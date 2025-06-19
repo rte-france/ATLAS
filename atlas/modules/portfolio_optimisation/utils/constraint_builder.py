@@ -1,10 +1,13 @@
+from atlas.models.portfolio import Portfolio
+
+
 class ConstraintBuilder:
     """Builds optimization constraints."""
 
     def __init__(self, parameters):
         self.parameters = parameters
 
-    def build_constraints(self, portfolio: PO_portfolio, optimization_times: dict[str, list]) -> tuple[list, list]:
+    def build_constraints(self, portfolio: Portfolio, optimization_times: dict[str, list]) -> tuple[list, list]:
         """Build all constraints for the optimization problem."""
         constraint_list = API.Solver.CreateListOpConstraint()
         global_constraint_list = API.Solver.CreateListOpConstraint()
@@ -23,7 +26,7 @@ class ConstraintBuilder:
     def _build_time_constraints(
         self,
         time,
-        portfolio: PO_portfolio,
+        portfolio: Portfolio,
         constraint_list: list,
         global_constraint_list: list,
         optimization_times: dict[str, list],
@@ -53,7 +56,7 @@ class ConstraintBuilder:
     def _add_equipment_constraints(
         self,
         time,
-        portfolio: PO_portfolio,
+        portfolio: Portfolio,
         constraint_list: list,
         sum_power_level: list,
         reserve_vars: dict[str, list],
@@ -147,7 +150,7 @@ class ConstraintBuilder:
     def _add_global_constraints(
         self,
         time,
-        portfolio: PO_portfolio,
+        portfolio: Portfolio,
         global_constraint_list: list,
         sum_power_level: list,
         reserve_vars: dict[str, list],
