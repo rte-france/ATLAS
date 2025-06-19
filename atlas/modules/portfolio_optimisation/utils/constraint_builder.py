@@ -1,23 +1,38 @@
+from pendulum import DateTime
+
 from atlas.models.portfolio import Portfolio
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 
 class ConstraintBuilder:
     """Builds optimization constraints."""
 
-    def __init__(self, parameters):
+    def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
 
-    def build_constraints(self, portfolio: Portfolio, optimization_times: dict[str, list]) -> tuple[list, list]:
+    def build_constraints(
+        self,
+        portfolio: Portfolio,
+        optimization_times: dict[str, list],
+        model: OptimisationModel = None,
+    ) -> None:
         """Build all constraints for the optimization problem."""
-        constraint_list = API.Solver.CreateListOpConstraint()
-        global_constraint_list = API.Solver.CreateListOpConstraint()
+        # Use passed model or fall back to global model
+        if model is not None:
+            optimisation_model = model
+        else:
+            global optimization_model
+            if optimization_model is None:
+                raise RuntimeError(
+                    "No optimization model provided and global optimization model not set. Either pass a model or call set_global_optimization_model() first."
+                )
+            optimisation_model = optimization_model
 
         max_op_time = self._get_longest_optimization_period(optimization_times)
 
         for time in max_op_time:
-            self._build_time_constraints(time, portfolio, constraint_list, global_constraint_list, optimization_times)
-
-        return constraint_list, global_constraint_list
+            self._build_time_constraints(time, portfolio, optimisation_model, optimization_times)
 
     def _get_longest_optimization_period(self, optimization_times: dict[str, list]) -> list:
         """Get the longest optimization time period."""
@@ -27,148 +42,295 @@ class ConstraintBuilder:
         self,
         time,
         portfolio: Portfolio,
-        constraint_list: list,
-        global_constraint_list: list,
+        optimisation_model: OptimisationModel,
         optimization_times: dict[str, list],
     ):
         """Build constraints for a specific time period."""
-        sum_power_level = API.Solver.CreateListOpVariable()
+        # Track power level variables for summing
+        power_level_variables = []
         reserve_vars = self._initialize_reserve_variables()
 
         # Add equipment-specific constraints
         self._add_equipment_constraints(
-            time, portfolio, constraint_list, sum_power_level, reserve_vars, optimization_times
+            time,
+            portfolio,
+            optimisation_model,
+            power_level_variables,
+            reserve_vars,
+            optimization_times,
         )
 
         # Add global portfolio constraints
         if time in self.parameters.target_times:
-            self._add_global_constraints(time, portfolio, global_constraint_list, sum_power_level, reserve_vars)
+            self._add_global_constraints(time, portfolio, optimisation_model, power_level_variables, reserve_vars)
 
     def _initialize_reserve_variables(self) -> dict[str, list]:
         """Initialize reserve-related variables."""
         return {
-            "up": API.Solver.CreateListOpVariable(),
-            "down": API.Solver.CreateListOpVariable(),
-            "automated_up": API.Solver.CreateListOpVariable(),
-            "automated_down": API.Solver.CreateListOpVariable(),
+            "up": [],
+            "down": [],
+            "automated_up": [],
+            "automated_down": [],
         }
 
     def _add_equipment_constraints(
         self,
-        time,
+        time: DateTime,
         portfolio: Portfolio,
-        constraint_list: list,
-        sum_power_level: list,
+        optimisation_model: OptimisationModel,
+        power_level_variables: list,
         reserve_vars: dict[str, list],
         optimization_times: dict[str, list],
     ):
         """Add constraints for different equipment types."""
-        obj_function = API.Solver.CreateListOpAffineExpression()
 
         # Wind and PV constraints
         if time in optimization_times.get("op_times", []):
             for equipment_dict in [portfolio.wind, portfolio.pv]:
-                GetVariablesAndConstraints_wind_pv(
+                self._get_variables_and_constraints_wind_pv(
                     time,
                     equipment_dict,
-                    obj_function,
-                    constraint_list,
-                    sum_power_level,
+                    optimisation_model,
+                    power_level_variables,
                     reserve_vars["up"],
                     reserve_vars["down"],
                     reserve_vars["automated_up"],
                     reserve_vars["automated_down"],
-                    portfolio.priceForecast,
+                    portfolio.price_forecast,
                     self.parameters,
                 )
 
         # Thermal constraints
         if time in optimization_times.get("thermal_op_times", []):
-            GetVariablesAndConstraints_Thermics(
+            self._get_variables_and_constraints_thermics(
                 time,
                 portfolio.thermics,
-                obj_function,
-                constraint_list,
-                sum_power_level,
+                optimisation_model,
+                power_level_variables,
                 reserve_vars["up"],
                 reserve_vars["down"],
                 reserve_vars["automated_up"],
                 reserve_vars["automated_down"],
-                portfolio.priceForecast,
-                self.parameters,
             )
 
         # Hydraulic constraints
         if time in optimization_times.get("hydraulic_op_times", []):
-            GetVariablesAndConstraints_Hydraulics(
+            self._get_variables_and_constraints_hydraulics(
                 time,
                 portfolio.hydraulics,
-                obj_function,
-                constraint_list,
-                sum_power_level,
+                optimisation_model,
+                power_level_variables,
                 reserve_vars["up"],
                 reserve_vars["down"],
-                reserve_vars["automated_up"],
-                reserve_vars["automated_down"],
-                portfolio.priceForecast,
-                self.parameters,
             )
 
         # Storage constraints
         storage_times = ["battery_op_times", "phs_op_times", "ev_op_times"]
         if any(time in optimization_times.get(st, []) for st in storage_times):
-            GetVariablesAndConstraints_Storage(
+            self._get_variables_and_constraints_storage(
                 time,
                 portfolio.storage,
-                obj_function,
-                constraint_list,
-                sum_power_level,
-                reserve_vars["up"],
-                reserve_vars["down"],
-                reserve_vars["automated_up"],
-                reserve_vars["automated_down"],
-                portfolio.priceForecast,
-                self.parameters,
+                optimisation_model,
+                power_level_variables,
             )
 
         # Load constraints
         if time in optimization_times.get("op_times", []):
-            GetVariablesAndConstraints_load(
+            self._get_variables_and_constraints_load(
                 time,
                 portfolio.load,
-                obj_function,
-                constraint_list,
-                sum_power_level,
+                optimisation_model,
+                power_level_variables,
                 reserve_vars["up"],
                 reserve_vars["down"],
                 reserve_vars["automated_up"],
                 reserve_vars["automated_down"],
-                portfolio.priceForecast,
-                self.parameters,
             )
 
     def _add_global_constraints(
         self,
-        time,
+        time: DateTime,
         portfolio: Portfolio,
-        global_constraint_list: list,
-        sum_power_level: list,
+        optimisation_model: OptimisationModel,
+        power_level_variables: list,
         reserve_vars: dict[str, list],
     ):
         """Add global portfolio constraints."""
         # Power balance constraint
-        global_constraint_list.Add(
-            portfolio.Small_imbal_up[time]
-            + portfolio.Large_imbal_up[time]
-            - portfolio.Small_imbal_down[time]
-            - portfolio.Large_imbal_down[time]
-            == portfolio.residualEnergy[time] - API.Solver.OpSum(sum_power_level)
+        power_sum = sum(power_level_variables) if power_level_variables else 0
+
+        power_balance_constraint = (
+            portfolio.small_imbal_up[time]
+            + portfolio.large_imbal_up[time]
+            - portfolio.small_imbal_down[time]
+            - portfolio.large_imbal_down[time]
+            == portfolio.residual_energy[time] - power_sum
         )
+        optimisation_model.add_constraint(power_balance_constraint, name=f"power_balance_{time}")
 
         # Imbalance limits
-        global_constraint_list.Add(
-            portfolio.Small_imbal_up[time] + portfolio.Large_imbal_up[time] <= portfolio.max_overall_imbal[time]
+        up_imbalance_limit = (
+            portfolio.small_imbal_up[time] + portfolio.large_imbal_up[time] <= portfolio.max_overall_imbal[time]
         )
-        global_constraint_list.Add(
-            portfolio.Small_imbal_down[time] + portfolio.Large_imbal_down[time] <= portfolio.max_overall_imbal[time]
+        optimisation_model.add_constraint(up_imbalance_limit, name=f"up_imbalance_limit_{time}")
+
+        down_imbalance_limit = (
+            portfolio.small_imbal_down[time] + portfolio.large_imbal_down[time] <= portfolio.max_overall_imbal[time]
         )
+        optimisation_model.add_constraint(down_imbalance_limit, name=f"down_imbalance_limit_{time}")
+
+        # Reserve constraints (if applicable)
+        if reserve_vars["up"]:
+            total_reserves_up = sum(reserve_vars["up"])
+            reserve_up_constraint = total_reserves_up >= portfolio.reserve_up.get(time, 0)
+            optimisation_model.add_constraint(reserve_up_constraint, name=f"reserve_up_{time}")
+
+        if reserve_vars["down"]:
+            total_reserves_down = sum(reserve_vars["down"])
+            reserve_down_constraint = total_reserves_down >= portfolio.reserve_down.get(time, 0)
+            optimisation_model.add_constraint(reserve_down_constraint, name=f"reserve_down_{time}")
+
+        if reserve_vars["automated_up"]:
+            total_automated_reserves_up = sum(reserve_vars["automated_up"])
+            automated_reserve_up_constraint = total_automated_reserves_up >= portfolio.automated_reserve_up.get(time, 0)
+            optimisation_model.add_constraint(automated_reserve_up_constraint, name=f"automated_reserve_up_{time}")
+
+        if reserve_vars["automated_down"]:
+            total_automated_reserves_down = sum(reserve_vars["automated_down"])
+            automated_reserve_down_constraint = total_automated_reserves_down >= portfolio.automated_reserve_down.get(
+                time, 0
+            )
+            optimisation_model.add_constraint(automated_reserve_down_constraint, name=f"automated_reserve_down_{time}")
+
+    def _get_variables_and_constraints_wind_pv(
+        self,
+        time: DateTime,
+        equipment_dict,
+        optimisation_model: OptimisationModel,
+        power_level_variables: list,
+        reserve_up_vars: list,
+        reserve_down_vars: list,
+        automated_reserve_up_vars: list,
+        automated_reserve_down_vars: list,
+    ):
+        """Add wind and PV equipment constraints."""
+        for equipment_name, equipment in equipment_dict.items():
+            if time in equipment.power_level:
+                # Add power level variable to sum
+                power_level_variables.append(equipment.power_level[time])
+
+                # Add reserve variables if they exist
+                if time in equipment.reserves_up:
+                    reserve_up_vars.append(equipment.reserves_up[time])
+                if time in equipment.reserves_down:
+                    reserve_down_vars.append(equipment.reserves_down[time])
+                if time in equipment.automated_reserves_up:
+                    automated_reserve_up_vars.append(equipment.automated_reserves_up[time])
+                if time in equipment.automated_reserves_down:
+                    automated_reserve_down_vars.append(equipment.automated_reserves_down[time])
+
+                # Equipment-specific constraints
+                # Power limits
+                power_limit_constraint = (
+                    equipment.minimum_power[time] <= equipment.power_level[time] <= equipment.maximum_power[time]
+                )
+                optimisation_model.add_constraint(power_limit_constraint, name=f"{equipment_name}_power_limit_{time}")
+
+    def _get_variables_and_constraints_thermics(
+        self,
+        time,
+        thermics_dict,
+        power_level_variables: list,
+        reserve_up_vars: list,
+        reserve_down_vars: list,
+        automated_reserve_up_vars: list,
+        automated_reserve_down_vars: list,
+    ):
+        """Add thermal equipment constraints."""
+        for _, equipment in thermics_dict.items():
+            if time in equipment.power_level:
+                power_level_variables.append(equipment.power_level[time])
+
+                # Add reserve variables
+                if time in equipment.reserves_up:
+                    reserve_up_vars.append(equipment.reserves_up[time])
+                if time in equipment.reserves_down:
+                    reserve_down_vars.append(equipment.reserves_down[time])
+                if time in equipment.automated_reserves_up:
+                    automated_reserve_up_vars.append(equipment.automated_reserves_up[time])
+                if time in equipment.automated_reserves_down:
+                    automated_reserve_down_vars.append(equipment.automated_reserves_down[time])
+
+    def _get_variables_and_constraints_hydraulics(
+        self,
+        time,
+        hydraulics_dict,
+        optimisation_model: OptimisationModel,
+        power_level_variables: list,
+        reserve_up_vars: list,
+        reserve_down_vars: list,
+    ):
+        """Add hydraulic equipment constraints."""
+        for equipment_name, equipment in hydraulics_dict.items():
+            if time in equipment.power_level:
+                power_level_variables.append(equipment.power_level[time])
+
+                # Add reserve variables
+                if time in equipment.reserves_up:
+                    reserve_up_vars.append(equipment.reserves_up[time])
+                if time in equipment.reserves_down:
+                    reserve_down_vars.append(equipment.reserves_down[time])
+
+                # Energy storage constraints for hydraulic
+                if time in equipment.stored_energy:
+                    energy_limit_constraint = (
+                        equipment.minimum_energy[time]
+                        <= equipment.stored_energy[time]
+                        <= equipment.maximum_energy[time]
+                    )
+                    optimisation_model.add_constraint(
+                        energy_limit_constraint, name=f"{equipment_name}_energy_limit_{time}"
+                    )
+
+    def _get_variables_and_constraints_storage(
+        self,
+        time,
+        storage_dict,
+        optimisation_model: OptimisationModel,
+        power_level_variables: list,
+    ):
+        """Add storage equipment constraints."""
+        for equipment_name, equipment in storage_dict.items():
+            # Storage has both buy and sell power levels
+            if time in equipment.power_level_sell:
+                power_level_variables.append(equipment.power_level_sell[time])
+            if time in equipment.power_level_buy:
+                power_level_variables.append(equipment.power_level_buy[time])
+
+            # Energy storage constraints
+            if time in equipment.stored_energy:
+                energy_limit_constraint = (
+                    equipment.minimum_state_of_charge[time] * equipment.maximum_energy[time]
+                    <= equipment.stored_energy[time]
+                    <= equipment.maximum_energy[time]
+                )
+                optimisation_model.add_constraint(energy_limit_constraint, name=f"{equipment_name}_energy_limit_{time}")
+
+    def _get_variables_and_constraints_load(
+        self,
+        time,
+        load_dict,
+        optimisation_model: OptimisationModel,
+        power_level_variables: list,
+    ):
+        """Add load equipment constraints."""
+        for equipment_name, equipment in load_dict.items():
+            if time in equipment.power_level:
+                # Load power is typically negative (consumption)
+                power_level_variables.append(-equipment.power_level[time])
+
+                # Power limits for loads
+                power_limit_constraint = (
+                    equipment.minimum_power[time] <= equipment.power_level[time] <= equipment.maximum_power[time]
+                )
+                optimisation_model.add_constraint(power_limit_constraint, name=f"{equipment_name}_power_limit_{time}")
