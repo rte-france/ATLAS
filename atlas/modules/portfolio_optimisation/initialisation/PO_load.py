@@ -53,7 +53,7 @@ class POLoad:
 
         self.load_type: LoadType | None = None
 
-    def init_variables(self, load_object: Load, parameters: PortfolioOptimisationParameters):
+    def fill_model(self, load_object: Load, parameters: PortfolioOptimisationParameters):
         self.maximum_afrr = load_object.maximum_afrr
         self.maximum_fcr = load_object.maximum_fcr
         self.load_type = load_object.load_type

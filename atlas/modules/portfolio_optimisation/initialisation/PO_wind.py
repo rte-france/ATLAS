@@ -52,7 +52,7 @@ class POWind:
         self.maximum_power = {}
         self.minimum_power = {}
 
-    def init_variables(
+    def fill_model(
         self,
         wind_object: Wind,
         parameters: PortfolioOptimisationParameters,
@@ -67,7 +67,7 @@ class POWind:
         if power is None:
             power = wind_object.final_prog
 
-        for time_enum, time in enumerate(parameters.target_times):
+        for idx, time in enumerate(parameters.target_times):
             # Get min and max power
             max_power = wind_object.maximum_power_forecast.get_forecast(
                 parameters.execution_date, time, time
@@ -104,7 +104,7 @@ class POWind:
 
             # create optimization variables
             self.power_level[time] = optimisation_model.add_continuous_variable(
-                name=f"{self.name}_power_level_{time_enum}",
+                name=f"{self.name}_power_level_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
@@ -129,52 +129,52 @@ class POWind:
 
             # Optimisation Variables related to reserves
             self.reserves_up[time] = optimisation_model.add_continuous_variable(
-                name=f"res_up_e_{self.name}_at_{time_enum}",
+                name=f"res_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
             self.reserves_down[time] = optimisation_model.add_continuous_variable(
-                name=f"res_down_e_{self.name}_at_{time_enum}",
+                name=f"res_down_e_{self.name}_at_{idx}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
             self.unprovided_reserves_up[time] = optimisation_model.add_continuous_variable(
-                name=f"unp_res_up_e_{self.name}_at_{time_enum}",
+                name=f"unp_res_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
             self.unprovided_reserves_down[time] = optimisation_model.add_continuous_variable(
-                name=f"unp_res_down_e_{self.name}_at_{time_enum}",
+                name=f"unp_res_down_e_{self.name}_at_{idx}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
             self.automated_reserves_up[time] = optimisation_model.add_continuous_variable(
-                name=f"auto_res_up_e_{self.name}_at_{time_enum}",
+                name=f"auto_res_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=self.maximum_automated,
             )
             self.automated_reserves_down[time] = optimisation_model.add_continuous_variable(
-                name=f"auto_res_down_e_{self.name}_at_{time_enum}",
+                name=f"auto_res_down_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=self.maximum_automated,
             )
             self.contracted_difference_up[time] = optimisation_model.add_continuous_variable(
-                name=f"contracted_diff_up_e_{self.name}_at_{time_enum}",
+                name=f"contracted_diff_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
             self.contracted_difference_down[time] = optimisation_model.add_continuous_variable(
-                name=f"contracted_diff_down_e_{self.name}_at_{time_enum}",
+                name=f"contracted_diff_down_e_{self.name}_at_{idx}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
             self.automated_contracted_difference_up[time] = self.optimisation_model.add_continuous_variable(
-                name=f"auto_contracted_diff_up_e_{self.name}_at_{time_enum}",
+                name=f"auto_contracted_diff_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
             self.automated_contracted_difference_down[time] = self.optimisation_model.add_continuous_variable(
-                name=f"auto_contracted_diff_down_e_{self.name}_at_{time_enum}",
+                name=f"auto_contracted_diff_down_e_{self.name}_at_{idx}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )

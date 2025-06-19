@@ -3,6 +3,7 @@ import API
 from atlas.enum import StorageType
 from atlas.models.equipment.storage import Storage
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 
 class POStorage:
@@ -10,7 +11,7 @@ class POStorage:
     This class is used to feed a POStorage from a storage equipment
     """
 
-    def __init__(self, name, p):
+    def __init__(self, name, parameters):
         self.name = name
         self.storage_type: StorageType | None = None
         self.power_level_buy = {}
@@ -19,7 +20,14 @@ class POStorage:
         self.power_level_buy_n = {}
         self.power_level_sell_n = {}
 
-        for n in range(0, max(p.ev_nb_fragments, p.battery_nb_fragments, p.phs_nb_fragments)):
+        for n in range(
+            0,
+            max(
+                parameters.ev_nb_fragments,
+                parameters.battery_nb_fragments,
+                parameters.phs_nb_fragments,
+            ),
+        ):
             self.power_level_buy_n[n] = {}
             self.power_level_sell_n[n] = {}
 
@@ -77,18 +85,23 @@ class POStorage:
         self.maximum_fcr = 0
         self.maximum_automated = 0
 
-    def init_variables(self, storage_object: Storage, p: PortfolioOptimisationParameters):
+    def fill_model(
+        self,
+        storage_object: Storage,
+        parameters: PortfolioOptimisationParameters,
+        optimisation_model: OptimisationModel,
+    ):
         # Retrieve the optimization time frame
         if storage_object.storage_type == "Battery":
-            op_time_frame = p.battery_op_times
+            op_time_frame = parameters.battery_op_times
         elif storage_object.storage_type == "PumpedHydraulicStorage":
-            op_time_frame = p.phs_op_times
+            op_time_frame = parameters.phs_op_times
         elif storage_object.storage_type == "ElectricVehicle":
-            op_time_frame = p.ev_op_times
+            op_time_frame = parameters.ev_op_times
 
         # get data from optimate equipment
-        self.variable_cost = storage_object.variable_cost.get_value(p.start_date)
-        self.startup_cost = storage_object.startup_cost.get_value(p.start_date)
+        self.variable_cost = storage_object.variable_cost.get_value(parameters.start_date)
+        self.startup_cost = storage_object.startup_cost.get_value(parameters.start_date)
 
         self.maximum_afrr = storage_object.maximum_afrr
         self.maximum_fcr = storage_object.maximum_fcr
@@ -102,21 +115,25 @@ class POStorage:
         if (
             len(
                 storage_object.stored_energy.get_forecast(
-                    p.execution_date, p.init_battery_time.subtract(days=-2), p.init_battery_time
+                    parameters.execution_date,
+                    parameters.init_battery_time.subtract(days=-2),
+                    parameters.init_battery_time,
                 )
             )
             == 0
         ):
             self.initial_stock = storage_object.maximum_energy.get_value(
-                (p.start_date - p.time_step) * storage_object.storage_initial_level,
+                (parameters.start_date - parameters.time_step) * storage_object.storage_initial_level,
             )
 
         else:
             self.initial_stock = storage_object.stored_energy.get_forecast(
-                p.execution_date, p.init_battery_time, p.init_battery_time
+                parameters.execution_date,
+                parameters.init_battery_time,
+                parameters.init_battery_time,
             )[0]
 
-        if p.debug:
+        if parameters.debug:
             msg = f"The initial energy storage level is : {self.initial_stock} MWh"
             API.io.trace.log(msg, API.io.log_type_info)
 
@@ -124,7 +141,7 @@ class POStorage:
         self.charge_efficiency = storage_object.charge_efficiency
         self.discharge_efficiency = storage_object.discharge_efficiency
 
-        for time_enum, time in enumerate(op_time_frame):
+        for idx, time in enumerate(op_time_frame):
             max_power = storage_object.maximum_power.get_value(time)
             if storage_object.minimum_power.count == 0:
                 min_power = -max_power
@@ -135,29 +152,41 @@ class POStorage:
             min_soc = storage_object.minimum_state_of_charge.get_value(time)
             disp_en = storage_object.displacement_energy.get_value(time)
 
-            afrr_up = storage_object.afrr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            afrr_down = storage_object.afrr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            mfrr_up = storage_object.mfrr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            mfrr_down = storage_object.mfrr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            rr_up = storage_object.rr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            rr_down = storage_object.rr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            fcr_up = storage_object.fcr_up_procured.get_forecast(p.execution_date, time, time).get_value(time)
-            fcr_down = storage_object.fcr_down_procured.get_forecast(p.execution_date, time, time).get_value(time)
+            afrr_up = storage_object.afrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
+            afrr_down = storage_object.afrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
+            mfrr_up = storage_object.mfrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
+            mfrr_down = storage_object.mfrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
+            rr_up = storage_object.rr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            rr_down = storage_object.rr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
+            fcr_up = storage_object.fcr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            fcr_down = storage_object.fcr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
 
             self.maximum_power[time] = max_power
             self.minimum_power[time] = min_power
 
-            if time_enum == 0:
-                self.maximum_energy[time.add_minutes(-p.time_step)] = storage_object.maximum_energy.get_value(
-                    time - p.time_step
+            if idx == 0:
+                self.maximum_energy[time.add_minutes(-parameters.time_step)] = storage_object.maximum_energy.get_value(
+                    time - parameters.time_step
                 )
 
-                self.minimum_state_of_charge[time - p.time_step] = storage_object.minimum_state_of_charge.get_value(
-                    time - p.time_step
+                self.minimum_state_of_charge[time - parameters.time_step] = (
+                    storage_object.minimum_state_of_charge.get_value(time - parameters.time_step)
                 )
 
-                self.displacement_energy[time - p.time_step] = storage_object.displacement_energy.get_value(
-                    time - p.time_step
+                self.displacement_energy[time - parameters.time_step] = storage_object.displacement_energy.get_value(
+                    time - parameters.time_step
                 )
 
             self.maximum_energy[time] = max_stock
@@ -175,22 +204,20 @@ class POStorage:
 
             # Create variables at time
             self.power_level_sell[time] = API.solver.new_op_variable(
-                f"{self.name}_power_level_sell_{time_enum}",
+                f"{self.name}_power_level_sell_{idx}",
                 0,
                 max_power,
                 API.solver.op_category_real,
             )
             self.power_level_buy[time] = API.solver.new_op_variable(
-                f"{self.name}_power_level_buy_{time_enum}",
+                f"{self.name}_power_level_buy_{idx}",
                 min_power,
                 0,
                 API.solver.op_category_real,
             )
-            self.is_sell[time] = API.solver.new_op_variable(
-                f"{self.name}_is_sell_{time_enum}", API.solver.op_category_binary
-            )
+            self.is_sell[time] = API.solver.new_op_variable(f"{self.name}_is_sell_{idx}", API.solver.op_category_binary)
             self.stored_energy[time] = API.solver.new_op_variable(
-                f"{self.name}_stored_energy_{time_enum}",
+                f"{self.name}_stored_energy_{idx}",
                 min_soc * max_stock,
                 max_stock,
                 API.solver.op_category_real,
@@ -215,60 +242,52 @@ class POStorage:
             )
 
             if self.storage_type == StorageType.BATTERY:
-                nbr_fragment = p.battery_nb_fragments
+                nbr_fragment = parameters.battery_nb_fragments
             elif self.storage_type == StorageType.ELECTRIC_VEHICLE:
-                nbr_fragment = p.ev_nb_fragments
+                nbr_fragment = parameters.ev_nb_fragments
             elif self.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-                nbr_fragment = p.phs_nb_fragments
+                nbr_fragment = parameters.phs_nb_fragments
 
             for n in range(0, nbr_fragment):
-                self.power_level_sell_n[n][time] = API.solver.new_op_variable(
-                    f"{self.name}_power_level_sell_n_{n}_time_{time_enum}",
-                    0,
-                    max_power,
-                    API.solver.op_category_real,
+                self.power_level_sell_n[n][time] = optimisation_model.add_continuous_variable(
+                    name=f"{self.name}_power_level_sell_n_{n}_time_{idx}",
+                    lower_bound=0,
+                    upper_bound=max_power,
                 )
-                self.power_level_buy_n[n][time] = API.solver.new_op_variable(
-                    f"{self.name}_power_level_buy_n_{n}_time_{time_enum}",
-                    min_power,
-                    0,
-                    API.solver.op_category_real,
+                self.power_level_buy_n[n][time] = optimisation_model.add_continuous_variable(
+                    name=f"{self.name}_power_level_buy_n_{n}_time_{idx}",
+                    lower_bound=min_power,
+                    upper_bound=0,
                 )
 
-            # Optimisation Variables related tp,
-            self.reserves_up[time] = API.solver.new_op_variable(
-                f"res_up_e_{self.name}_at_{str(time)}",
-                0,
-                max_power,
-                API.solver.op_category_real,
+            # Optimisation Variables related to reserves
+            self.reserves_up[time] = optimisation_model.add_continuous_variable(
+                name=f"res_up_e_{self.name}_at_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.reserves_down[time] = API.solver.new_op_variable(
-                f"res_down_e_{self.name}_at_{str(time)}",
-                min_power,
-                max_power,
-                API.solver.op_category_real,
+            self.reserves_down[time] = optimisation_model.add_continuous_variable(
+                name=f"res_down_e_{self.name}_at_{time}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
-            self.unprovided_reserves_up[time] = API.solver.new_op_variable(
-                f"unpr_res_up_e_{self.name}_at_{str(time)}",
-                0,
-                max_power,
-                API.solver.op_category_real,
+            self.unprovided_reserves_up[time] = optimisation_model.add_continuous_variable(
+                name=f"unpr_res_up_e_{self.name}_at_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.unprovided_reserves_down[time] = API.solver.new_op_variable(
-                f"unpr_res_down_e_{self.name}_at_{str(time)}",
-                min_power,
-                max_power,
-                API.solver.op_category_real,
+            self.unprovided_reserves_down[time] = optimisation_model.add_continuous_variable(
+                name=f"unpr_res_down_e_{self.name}_at_{time}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
-            self.automated_reserves_up[time] = API.solver.new_op_variable(
-                f"auto_res_up_e_{self.name}_at_{str(time)}",
-                0,
-                self.maximum_automated,
-                API.solver.op_category_real,
+            self.automated_reserves_up[time] = optimisation_model.add_continuous_variable(
+                name=f"auto_res_up_e_{self.name}_at_{time}",
+                lower_bound=0,
+                upper_bound=self.maximum_automated,
             )
-            self.automated_reserves_down[time] = API.solver.new_op_variable(
-                f"auto_res_down_e_{self.name}_at_{str(time)}",
-                -self.maximum_automated,
-                self.maximum_automated,
-                API.solver.op_category_real,
+            self.automated_reserves_down[time] = optimisation_model.add_continuous_variable(
+                name=f"auto_res_down_e_{self.name}_at_{time}",
+                lower_bound=-self.maximum_automated,
+                upper_bound=self.maximum_automated,
             )

@@ -1,11 +1,11 @@
-# coding:utf-8
 import math
-from System import DateTime
+
 import API
 from PO_functions import get_date_to_clean_string
+from System import DateTime
 
 
-class PO_Thermic(object):
+class PO_Thermic:
     """
     This class is used to feed a PO_Thermic from a thermal equipment
     """
@@ -102,7 +102,7 @@ class PO_Thermic(object):
         self.tilde_D = {}
         self.DD = {}
 
-    def init_variables(self, opt_thermic, p):
+    def fill_model(self, opt_thermic, p):
         # get data from optimate equipment
         self.minimumTimeOn = opt_thermic.MinimumTimeOn
         self.minimumTimeOff = opt_thermic.MinimumTimeOff
@@ -123,12 +123,12 @@ class PO_Thermic(object):
         if self.minimumStablePowerDuration > self.minimumTimeOn:
             # Warn the user
             API.IO.Trace.Log(
-                """
+                f"""
                 *** WARNING *** \n
-                the MinimumStablePowerDuration of equipment {} is greater than
+                the MinimumStablePowerDuration of equipment {self.name} is greater than
                 its MinimumTimeOn.\n
                 MinimumStablePowerDuration has been modified and is now considered equal to MinimumTimeOn.
-                """.format(self.name)
+                """
             )
             self.minimumStablePowerDuration = self.minimumTimeOn
 
@@ -183,13 +183,17 @@ class PO_Thermic(object):
 
         # Free States TimeFrame:
         stableOptimTimeFrame = API.DatetimeIndex.NewIndex(
-            p.start_date.AddMinutes(-p.time_step), (p.thermal_optimization_period + self.T_traceback), p.time_step_str
+            p.start_date.AddMinutes(-p.time_step),
+            (p.thermal_optimization_period + self.T_traceback),
+            p.time_step_str,
         )  # Corresponds to [StartDate-1; EndDate + AddHours]
 
         # Exentend Time Frame:
         if self.T_traceback > 0:
             extendedTimeFrame = API.DatetimeIndex.NewIndex(
-                p.start_date.AddMinutes(-self.T_traceback * p.time_step), optimTimeFrame[-1], p.time_step_str
+                p.start_date.AddMinutes(-self.T_traceback * p.time_step),
+                optimTimeFrame[-1],
+                p.time_step_str,
             )
         else:
             extendedTimeFrame = API.DatetimeIndex.NewIndex(
@@ -292,10 +296,12 @@ class PO_Thermic(object):
                     "stable_at_%s_e_%s" % (str(time_enum), self.name), API.Solver.OpCategoryBinary
                 )
                 self.entered_up[time] = API.Solver.NewOpVariable(
-                    "entered_up_at_%s_e_%s" % (str(time_enum), self.name), API.Solver.OpCategoryBinary
+                    "entered_up_at_%s_e_%s" % (str(time_enum), self.name),
+                    API.Solver.OpCategoryBinary,
                 )
                 self.entered_down[time] = API.Solver.NewOpVariable(
-                    "entered_down_at_%s_e_%s" % (str(time_enum), self.name), API.Solver.OpCategoryBinary
+                    "entered_down_at_%s_e_%s" % (str(time_enum), self.name),
+                    API.Solver.OpCategoryBinary,
                 )
             # Extra optim TimeStep proper to T_STABLE >= 1:
             self.ON_UP[startDate_minus_one] = API.Solver.NewOpVariable(
@@ -325,13 +331,15 @@ class PO_Thermic(object):
         if self.T_stop >= 1 and self.T_start == 0 and self.T_stable == 0:
             for time_enum, time in enumerate(optimTimeFrame):
                 self.down_to_stop[time] = API.Solver.NewOpVariable(
-                    "down_to_stop_grad_at_%s_e_%s" % (str(time_enum), self.name), API.Solver.OpCategoryBinary
+                    "down_to_stop_grad_at_%s_e_%s" % (str(time_enum), self.name),
+                    API.Solver.OpCategoryBinary,
                 )
 
         if self.T_stop >= 1 and self.T_stable >= 1:
             for time_enum, time in enumerate(optimTimeFrame):
                 self.flat_down_stop[time] = API.Solver.NewOpVariable(
-                    "flat_down_stop_at_%s_e_%s" % (str(time_enum), self.name), API.Solver.OpCategoryBinary
+                    "flat_down_stop_at_%s_e_%s" % (str(time_enum), self.name),
+                    API.Solver.OpCategoryBinary,
                 )
 
         if self.T_stable >= 1 and (self.T_start >= 1 or self.T_stop >= 1):
@@ -348,7 +356,8 @@ class PO_Thermic(object):
         if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable == 0:
             for time_enum, time in enumerate(optimTimeFrame):
                 self.down_to_stop[time] = API.Solver.NewOpVariable(
-                    "down_to_stop_grad_at_%s_e_%s" % (str(time_enum), self.name), API.Solver.OpCategoryBinary
+                    "down_to_stop_grad_at_%s_e_%s" % (str(time_enum), self.name),
+                    API.Solver.OpCategoryBinary,
                 )
 
         # 2:Creation of Power Optim Variables:
@@ -357,19 +366,19 @@ class PO_Thermic(object):
             if time in p.thermal_op_times:
                 # Power levels (only in thermal_op_timeframe)
                 self.PowerLevel[time] = API.Solver.NewOpVariable(
-                    "{name}_p_lev_{val}".format(name=self.name, val=str(time_enum)),
+                    f"{self.name}_p_lev_{str(time_enum)}",
                     0,
                     self.q_upper[time],
                     API.Solver.OpCategoryReal,
                 )
                 self.Additionnal_power[time] = API.Solver.NewOpVariable(
-                    "{name}_p_lev_above_maxAvail_{val}".format(name=self.name, val=str(time_enum)),
+                    f"{self.name}_p_lev_above_maxAvail_{str(time_enum)}",
                     0,
                     self.q_upper[time],
                     API.Solver.OpCategoryReal,
                 )
                 self.Additionnal_power_below[time] = API.Solver.NewOpVariable(
-                    "{name}_p_lev_below_minAvail_{val}".format(name=self.name, val=str(time_enum)),
+                    f"{self.name}_p_lev_below_minAvail_{str(time_enum)}",
                     0,
                     self.q_upper[time],
                     API.Solver.OpCategoryReal,
@@ -393,20 +402,35 @@ class PO_Thermic(object):
 
             # Optimisation Variables related tp,
             self.reservesUp[time] = API.Solver.NewOpVariable(
-                "resUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, self.q_upper[time], API.Solver.OpCategoryReal
+                "resUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                self.q_upper[time],
+                API.Solver.OpCategoryReal,
             )
 
             self.reservesDown[time] = API.Solver.NewOpVariable(
-                "resDown_e_%s_at_%s" % (self.name, str(time_enum)), 0, self.q_upper[time], API.Solver.OpCategoryReal
+                "resDown_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                self.q_upper[time],
+                API.Solver.OpCategoryReal,
             )
             self.unprovidedReservesUp[time] = API.Solver.NewOpVariable(
-                "unpResUp_e_%s_at_%s" % (self.name, str(time_enum)), 0, self.q_upper[time], API.Solver.OpCategoryReal
+                "unpResUp_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                self.q_upper[time],
+                API.Solver.OpCategoryReal,
             )
             self.unprovidedReservesDown[time] = API.Solver.NewOpVariable(
-                "unpResDown_e_%s_at_%s" % (self.name, str(time_enum)), 0, self.q_upper[time], API.Solver.OpCategoryReal
+                "unpResDown_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                self.q_upper[time],
+                API.Solver.OpCategoryReal,
             )
             self.relaxedReserves[time] = API.Solver.NewOpVariable(
-                "relRes_e_%s_at_%s" % (self.name, str(time_enum)), 0, self.q_lower[time], API.Solver.OpCategoryReal
+                "relRes_e_%s_at_%s" % (self.name, str(time_enum)),
+                0,
+                self.q_lower[time],
+                API.Solver.OpCategoryReal,
             )
             self.automatedReservesUp[time] = API.Solver.NewOpVariable(
                 "autoResUp_e_%s_at_%s" % (self.name, str(time_enum)),

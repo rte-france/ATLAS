@@ -2,6 +2,7 @@ from pendulum import DateTime
 
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 
 class POHydraulic:
@@ -68,7 +69,12 @@ class POHydraulic:
 
         self.maximum_power_sum = 0
 
-    def init_variables(self, hydro_object: Hydro, parameters: PortfolioOptimisationParameters):
+    def fill_model(
+        self,
+        hydro_object: Hydro,
+        parameters: PortfolioOptimisationParameters,
+        optimisation_model: OptimisationModel,
+    ):
         self.storage_marginal_value = hydro_object.storage_marginal_value
 
         self.maximum_afrr = hydro_object.maximum_afrr
@@ -151,17 +157,15 @@ class POHydraulic:
             self.fcr_down_procured[time] = fcr_down
 
             # init variables
-            self.power_level[time] = API.Solver.NewOpVariable(
-                f"{self.name}_power_level_{idx}",
-                0,
-                max_power,
-                API.Solver.OpCategoryReal,
+            self.power_level[time] = optimisation_model.add_continuous_variable(
+                name=f"{self.name}_power_level_{idx}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.stored_energy[time] = API.Solver.NewOpVariable(
-                f"{self.name}_stored_energy_{idx}",
-                0,
-                self.maximum_energy[time],
-                API.Solver.OpCategoryReal,
+            self.stored_energy[time] = optimisation_model.add_continuous_variable(
+                name=f"{self.name}_stored_energy_{idx}",
+                lower_bound=0,
+                upper_bound=self.maximum_energy[time],
             )
             self._get_fragment_price_and_size(hydro_object, time, parameters)
 
@@ -183,72 +187,61 @@ class POHydraulic:
                 + max(fcr_down - self.maximum_fcr, 0)
             )
 
-            # Optimisation Variables related tp,
-            self.reserves_up[time] = API.Solver.NewOpVariable(
-                f"ress_up_e_{self.name}_at_{str(idx)}",
-                0,
-                max_power,
-                API.Solver.OpCategoryReal,
+            # Optimisation Variables related to reserves
+            self.reserves_up[time] = optimisation_model.add_continuous_variable(
+                name=f"ress_up_e_{self.name}_at_{str(idx)}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.reserves_down[time] = API.Solver.NewOpVariable(
-                f"res_down_e_{self.name}_at_{str(idx)}",
-                min_power,
-                max_power,
-                API.Solver.OpCategoryReal,
+            self.reserves_down[time] = optimisation_model.add_continuous_variable(
+                name=f"res_down_e_{self.name}_at_{str(idx)}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
-            self.unprovided_reserves_up[time] = API.Solver.NewOpVariable(
-                f"unp_res_up_e_{self.name}_at_{str(idx)}",
-                0,
-                max_power,
-                API.Solver.OpCategoryReal,
+            self.unprovided_reserves_up[time] = optimisation_model.add_continuous_variable(
+                name=f"unp_res_up_e_{self.name}_at_{str(idx)}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.unprovided_reserves_down[time] = API.Solver.NewOpVariable(
-                f"unp_res_down_e_{self.name}_at_{str(idx)}",
-                min_power,
-                max_power,
-                API.Solver.OpCategoryReal,
+            self.unprovided_reserves_down[time] = optimisation_model.add_continuous_variable(
+                name=f"unp_res_down_e_{self.name}_at_{str(idx)}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
-            self.relaxed_reserves[time] = API.Solver.NewOpVariable(
-                f"rel_res_e_{self.name}_at_{str(idx)}",
-                min_power,
-                0,
-                API.Solver.OpCategoryReal,
+            self.relaxed_reserves[time] = optimisation_model.add_continuous_variable(
+                name=f"rel_res_e_{self.name}_at_{str(idx)}",
+                lower_bound=min_power,
+                upper_bound=0,
             )
-            self.automated_reserves_up[time] = API.Solver.NewOpVariable(
-                f"auto_res_up_e_{self.name}_at_{str(idx)}",
-                0,
-                self.maximum_automated,
-                API.Solver.OpCategoryReal,
+            self.automated_reserves_up[time] = optimisation_model.add_continuous_variable(
+                name=f"auto_res_up_e_{self.name}_at_{str(idx)}",
+                lower_bound=0,
+                upper_bound=self.maximum_automated,
             )
-            self.automated_reserves_down[time] = API.Solver.NewOpVariable(
-                f"auto_res_down_e_{self.name}_at_{str(idx)}",
-                0,
-                self.maximum_automated,
-                API.Solver.OpCategoryReal,
+            self.automated_reserves_down[time] = optimisation_model.add_continuous_variable(
+                name=f"auto_res_down_e_{self.name}_at_{str(idx)}",
+                lower_bound=0,
+                upper_bound=self.maximum_automated,
             )
-            self.contracted_difference_up[time] = API.Solver.NewOpVariable(
-                f"contracted_diff_up_e_{self.name}_at_{str(idx)}",
-                0,
-                max_power,
-                API.Solver.OpCategoryReal,
+            self.contracted_difference_up[time] = optimisation_model.add_continuous_variable(
+                name=f"contracted_diff_up_e_{self.name}_at_{str(idx)}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.contracted_difference_down[time] = API.Solver.NewOpVariable(
-                f"contracted_diff_down_e_{self.name}_at_{str(idx)}",
-                min_power,
-                max_power,
-                API.Solver.OpCategoryReal,
+            self.contracted_difference_down[time] = optimisation_model.add_continuous_variable(
+                name=f"contracted_diff_down_e_{self.name}_at_{str(idx)}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
-            self.automated_contracted_difference_up[time] = API.Solver.NewOpVariable(
-                f"auto_contracted_diff_up_e_{self.name}_at_{str(idx)}",
-                0,
-                max_power,
-                API.Solver.OpCategoryReal,
+            self.automated_contracted_difference_up[time] = optimisation_model.add_continuous_variable(
+                name=f"auto_contracted_diff_up_e_{self.name}_at_{str(idx)}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
-            self.automated_contracted_difference_down[time] = API.Solver.NewOpVariable(
-                f"auto_contracted_diff_down_e_{self.name}_at_{str(idx)}",
-                min_power,
-                max_power,
-                API.Solver.OpCategoryReal,
+            self.automated_contracted_difference_down[time] = optimisation_model.add_continuous_variable(
+                name=f"auto_contracted_diff_down_e_{self.name}_at_{str(idx)}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
 
     def _get_fragment_price_and_size(
