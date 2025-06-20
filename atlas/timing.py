@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 
 import re
 from collections import Counter
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from datetime import datetime
 
 import pendulum
@@ -89,6 +91,13 @@ def pendulum_to_datetime(fmt: str) -> str:
     return fmt
 
 
+@contextmanager
+def timer() -> Generator[Callable[[], str], None, None]:
+    """Context manager to measure elapsed time in seconds."""
+    start = pendulum.now()
+    yield lambda: str((pendulum.now() - start).as_duration())
+
+
 def parse_frequency(freq: str) -> pendulum.Duration:
     """
     Parse a frequency string like '15m', '1h', or '1d30m' into a pendulum Duration object.
@@ -162,8 +171,14 @@ def generate_datetimes(
     """
     start_date: pendulum.DateTime = build_datetime(start, date_format).in_tz(timezone)
     end_date: pendulum.DateTime = build_datetime(end, date_format).in_tz(timezone)
-    step = get_duration(freq)
-    return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
+
+    if end_date < start_date:
+        raise ValueError("End date has to be after start date")
+    elif end_date == start_date:
+        return []
+    else:
+        step = get_duration(freq)
+        return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
 
 
 def get_duration(freq: str | pendulum.Duration) -> pendulum.Duration:

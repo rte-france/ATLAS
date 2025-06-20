@@ -662,6 +662,8 @@ class Timeseries:
             df = self.groupby(new_timestep, inplace=False)
         elif new_timestep < self.frequency:
             df = self.upsample(new_timestep, inplace=False)
+        else:
+            df = self
 
         return self._return_inplace(df.dataframe, inplace)
 
