@@ -19,14 +19,15 @@ class ObjectiveFunctionBuilder:
 
         for time in target_times:
             objective_terms.extend(self._get_imbalance_cost_terms(model, portfolio, time))
-
             objective_terms.extend(self._get_reserve_penalty_terms(model, portfolio, time))
+            objective_terms.extend(self._get_hydro_terms())
+            objective_terms.extend(self._get_load_terms())
+            objective_terms.extend(self._get_solar_wind_terms())
+            objective_terms.extend(self._get_thermal_terms())
+            objective_terms.extend(self._get_storage_terms())
 
         if objective_terms:
             return sum(objective_terms)
-        else:
-            dummy_var = model.add_continuous_variable("dummy_objective", 0, 0)
-            return dummy_var
 
     def _get_imbalance_cost_terms(self, model: OptimisationModel, portfolio: Portfolio, time) -> list[Any]:
         """Get imbalance cost terms as OR-Tools expressions."""
@@ -34,10 +35,10 @@ class ObjectiveFunctionBuilder:
         terms = []
 
         # Get variables from portfolio (these would need to be OR-Tools variables)
-        small_imbal_up = self._get_or_create_variable(model, f"small_imbal_up_{time}")
-        small_imbal_down = self._get_or_create_variable(model, f"small_imbal_down_{time}")
-        large_imbal_up = self._get_or_create_variable(model, f"large_imbal_up_{time}")
-        large_imbal_down = self._get_or_create_variable(model, f"large_imbal_down_{time}")
+        small_imbal_up = model.get_variable(f"small_imbal_up_{time}")
+        small_imbal_down = model.get_variable(f"small_imbal_down_{time}")
+        large_imbal_up = model.get_variable(f"large_imbal_up_{time}")
+        large_imbal_down = model.get_variable(f"large_imbal_down_{time}")
 
         # Small imbalance costs
         if hasattr(portfolio, "imbal_price_up") and time in portfolio.imbal_price_up:
