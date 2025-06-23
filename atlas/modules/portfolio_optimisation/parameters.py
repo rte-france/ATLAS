@@ -216,37 +216,30 @@ class PortfolioOptimisationParameters(AbstractParameters):
 
     @property
     def thermal_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date.add(minutes=self.thermal_additional_hours * 60)
+        end = self.adjusted_end_date + self.thermal_additional_hours
         return generate_datetimes(self.start_date, end, self.time_step)
 
     @property
     def hydraulic_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date.add(minutes=self.hydraulic_additional_hours * 60)
+        end = self.adjusted_end_date + self.hydraulic_additional_hours
         return generate_datetimes(self.start_date, end, self.time_step)
 
     @property
     def battery_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date.add(minutes=self.battery_additional_hours * 60)
+        end = self.adjusted_end_date + self.battery_additional_hours
         return generate_datetimes(self.start_date, end, self.time_step)
 
     @property
     def phs_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date.add(minutes=self.pumped_hydraulic_storage_additional_hours * 60)
+        end = self.adjusted_end_date + self.pumped_hydraulic_storage_additional_hours
         return generate_datetimes(self.start_date, end, self.time_step)
 
     @property
     def ev_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date.add(minutes=self.electric_vehicle_additional_hours * 60)
+        end = self.adjusted_end_date + self.electric_vehicle_additional_hours
         return generate_datetimes(self.start_date, end, self.time_step)
 
     @property
     def init_battery_time(self) -> DateTime:
         """Datetime for the initial battery state (start_date - time_step)."""
         return self.start_date.subtract(minutes=self.time_step)
-
-    @property
-    def output_folder_path(self) -> str:
-        """Final output folder path for LP exports."""
-
-        folder = self.output_folder or "PO"
-        return f"{folder}/{self.market}/{self.execution_date.to_date_string()}"

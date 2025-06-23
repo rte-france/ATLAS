@@ -89,7 +89,7 @@ class POHydraulic:
             ).Length
             == 0
         ):
-            self.initial_level = hydro_object.initial_level.Slice(
+            self.initial_level = hydro_object.initial_level.filter(
                 parameters.start_date - parameters.time_step, parameters.end_date
             )
         else:
@@ -108,7 +108,7 @@ class POHydraulic:
                 )
 
             else:
-                self.initial_level = hydro_object.initial_level.Slice(
+                self.initial_level = hydro_object.initial_level.filter(
                     parameters.start_date - parameters.time_step, parameters.end_date
                 )
 

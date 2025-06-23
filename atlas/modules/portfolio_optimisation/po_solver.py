@@ -9,6 +9,7 @@ from atlas.enum import SolverStatus
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.enum import EquipmentType
+from atlas.modules.portfolio_optimisation.initialisation.PO_portfolio import POPortfolio
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.constraint_builder import ConstraintBuilder
 from atlas.modules.portfolio_optimisation.utils.equipment import EquipmentClassifier, EquipmentCollector
@@ -257,7 +258,7 @@ class OptimalPlacementOptimizer:
 
     def _create_Portfolio(self, portfolio: Portfolio, equipment_dict: dict[EquipmentType, list]) -> Portfolio:
         """Create and initialize Portfolio object."""
-        Portfolio = Portfolio(portfolio.name)
+        Portfolio = POPortfolio(portfolio.name)
 
         # Get longest optimization period
         optimization_times = self._get_optimization_times()

@@ -339,9 +339,7 @@ class ConstraintBuilder:
     def build_and_add_constraints(self, model: OptimisationModel, Portfolio: Portfolio, optimization_times: dict):
         """Build and add all constraints to the model."""
         # Get constraints from original constraint builder
-        constraint_list, global_constraint_list = self.constraint_builder.build_constraints(
-            Portfolio, optimization_times
-        )
+        constraint_list, global_constraint_list = self.build_constraints(Portfolio, optimization_times)
 
         # Convert and add constraints to OptimisationModel
         self._add_constraints(model, constraint_list, "constraint")
