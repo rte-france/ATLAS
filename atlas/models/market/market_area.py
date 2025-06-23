@@ -24,16 +24,13 @@ class MarketArea(BusinessModel):
     :param id_price_forecast: Sum of volume of sell offers on the Day Ahead market
     :type id_price_forecast: ForecastingMatrix
     :param price_forecast_high: High price scenario of energy price forecasts for the various markets (ID, DA and
-    Balancing) for different forecasting horizons
-    over the different deadlines
+    Balancing) for different forecasting horizons over the different deadlines
     :type price_forecast_high: ForecastingMatrix
     :param price_forecast_low: Low price scenario of energy price forecasts for the various markets (ID, DA and
-    Balancing) for different forecasting horizons
-    over the different deadlines
+    Balancing) for different forecasting horizons over the different deadlines
     :type price_forecast_low: ForecastingMatrix
     :param price_forecast_medium: Medium price scenario of energy price forecasts for the various markets (ID, DA and
-    Balancing) for different forecasting horizons
-    (ID, DA and Balancing) over the different deadlines
+    Balancing) for different forecasting horizons (ID, DA and Balancing) over the different deadlines
     :type price_forecast_medium: ForecastingMatrix
     :param afrr_activation_price: Activation price of aFRR (from MARI Clearing)
     :type afrr_activation_price: Timeseries

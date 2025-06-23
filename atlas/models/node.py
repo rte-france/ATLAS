@@ -20,9 +20,7 @@ class Node(BusinessModel):
     :type market_area: MarketArea
     :param balance_forecast: Physical balance forecasts on the node for each execution date
     :type balance_forecast: ForecastingMatrix | LazyForecastingMatrix
-    :param id_power_injection: Injection (production - consumption) on the node after Intraday Clearing.
-    May be negative, and thus represent demand
-    May be negative, and thus represent withdrawal
+    :param id_power_injection: Injection (production - consumption) on the node after Intraday Clearing. May be positive, and thus represent demand May be negative, and thus represent withdrawal
     :type id_power_injection: ForecastingMatrix | LazyForecastingMatrix
     :param da_power_injection: Injection (production - consumption) on the node after Day Ahead Clearing.
     May be negative, and thus represent demand
