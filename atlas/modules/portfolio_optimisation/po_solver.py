@@ -4,10 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any
-
-from pendulum import DateTime
-
 import atlas.config as cfg
 from atlas.enum import SolverStatus
 from atlas.models.equipment.equipment import Equipment
@@ -15,139 +11,11 @@ from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.enum import EquipmentType
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.constraint_builder import ConstraintBuilder
-from atlas.modules.portfolio_optimisation.utils.equipment import (
-    EquipmentClassifier,
-    EquipmentCollector,
-)
+from atlas.modules.portfolio_optimisation.utils.equipment import EquipmentClassifier, EquipmentCollector
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
+from atlas.modules.portfolio_optimisation.utils.objective_builder import ObjectiveFunctionBuilder
 from atlas.modules.portfolio_optimisation.utils.output_manager import OutputManager
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
-
-
-class ObjectiveFunctionBuilder:
-    """Builds the optimization objective function using OptimisationModel."""
-
-    def __init__(self, parameters: PortfolioOptimisationParameters):
-        self.parameters = parameters
-
-    def build_objective(self, model: OptimisationModel, portfolio: Portfolio, target_times: list) -> Any:
-        """Build the complete objective function as OR-Tools expression."""
-        objective_terms = []
-
-        for time in target_times:
-            # Add imbalance costs
-            objective_terms.extend(self._get_imbalance_cost_terms(model, portfolio, time))
-
-            # Add reserve penalties
-            objective_terms.extend(self._get_reserve_penalty_terms(model, portfolio, time))
-
-        # Sum all terms into a single expression
-        if objective_terms:
-            return sum(objective_terms)
-        else:
-            # Return zero expression if no terms
-            dummy_var = model.add_continuous_variable("dummy_objective", 0, 0)
-            return dummy_var
-
-    def _get_imbalance_cost_terms(self, model: OptimisationModel, portfolio: Portfolio, time) -> list[Any]:
-        """Get imbalance cost terms as OR-Tools expressions."""
-        time_factor = self.parameters.time_step / 60.0
-        terms = []
-
-        # Get variables from portfolio (these would need to be OR-Tools variables)
-        small_imbal_up = self._get_or_create_variable(model, f"small_imbal_up_{time}")
-        small_imbal_down = self._get_or_create_variable(model, f"small_imbal_down_{time}")
-        large_imbal_up = self._get_or_create_variable(model, f"large_imbal_up_{time}")
-        large_imbal_down = self._get_or_create_variable(model, f"large_imbal_down_{time}")
-
-        # Small imbalance costs
-        if hasattr(portfolio, "imbal_price_up") and time in portfolio.imbal_price_up:
-            terms.append(portfolio.imbal_price_up[time] * small_imbal_up * time_factor)
-
-        if hasattr(portfolio, "imbal_price_down") and time in portfolio.imbal_price_down:
-            terms.append(-portfolio.imbal_price_down[time] * small_imbal_down * time_factor)
-
-        # Large imbalance costs
-        if hasattr(portfolio, "large_imbal_price_up") and time in portfolio.large_imbal_price_up:
-            terms.append(portfolio.large_imbal_price_up[time] * large_imbal_up * time_factor)
-
-        if hasattr(portfolio, "large_imbal_price_down") and time in portfolio.large_imbal_price_down:
-            terms.append(-portfolio.large_imbal_price_down[time] * large_imbal_down * time_factor)
-
-        return terms
-
-    def _get_reserve_penalty_terms(self, model: OptimisationModel, portfolio: Portfolio, time: DateTime) -> list[Any]:
-        """Get reserve penalty terms as OR-Tools expressions."""
-        time_factor = self.parameters.time_step / 60.0
-        terms = []
-
-        # Get or create reserve variables
-        contracted_diff_up = self._get_or_create_variable(model, f"contracted_diff_up_{time}")
-        contracted_diff_down = self._get_or_create_variable(model, f"contracted_diff_down_{time}")
-        auto_contracted_diff_up = self._get_or_create_variable(model, f"auto_contracted_diff_up_{time}")
-        auto_contracted_diff_down = self._get_or_create_variable(model, f"auto_contracted_diff_down_{time}")
-
-        # Manual reserve penalties
-        manual_penalty = getattr(self.parameters, "manual_unprocured_reserves_penalty", 1000)
-        terms.append(manual_penalty * time_factor * contracted_diff_up)
-        terms.append(manual_penalty * time_factor * contracted_diff_down)
-
-        # Automated reserve penalties
-        auto_penalty = getattr(self.parameters, "automated_unprocured_reserves_penalty", 1000)
-        terms.append(auto_penalty * time_factor * auto_contracted_diff_up)
-        terms.append(auto_penalty * time_factor * auto_contracted_diff_down)
-
-        return terms
-
-    def _get_or_create_variable(self, model: OptimisationModel, var_name: str) -> Any:
-        """Get existing variable or create new one."""
-        try:
-            return model.get_variable(var_name)
-        except ValueError:
-            # Create new continuous variable if it doesn't exist
-            return model.add_continuous_variable(var_name, lower_bound=0.0)
-
-
-class ConstraintAdapter:
-    """Adapts constraint building for OptimisationModel."""
-
-    def __init__(self, parameters: PortfolioOptimisationParameters):
-        self.parameters = parameters
-        self.constraint_builder = ConstraintBuilder(parameters)
-
-    def build_and_add_constraints(self, model: OptimisationModel, Portfolio: Portfolio, optimization_times: dict):
-        """Build and add all constraints to the model."""
-        # Get constraints from original constraint builder
-        constraint_list, global_constraint_list = self.constraint_builder.build_constraints(
-            Portfolio, optimization_times
-        )
-
-        # Convert and add constraints to OptimisationModel
-        self._add_converted_constraints(model, constraint_list, "constraint")
-        self._add_converted_constraints(model, global_constraint_list, "global_constraint")
-
-    def _add_converted_constraints(self, model: OptimisationModel, constraint_list: list, prefix: str):
-        """Convert API constraints to OR-Tools constraints and add to model."""
-        for i, constraint in enumerate(constraint_list):
-            constraint_name = f"{prefix}_{i}"
-
-            # This is a placeholder - you'll need to implement the actual conversion
-            # based on how your original constraints are structured
-            try:
-                # Convert API constraint to OR-Tools constraint
-                or_tools_constraint = self._convert_constraint(constraint)
-                model.add_constraint(or_tools_constraint, constraint_name)
-            except Exception as e:
-                cfg.logger.warning(f"Could not convert constraint {constraint_name}: {e}")
-
-    def _convert_constraint(self, api_constraint) -> Any:
-        """Convert API constraint to OR-Tools constraint."""
-        # This is a placeholder implementation
-        # You'll need to implement the actual conversion logic based on your API constraint format
-
-        # For now, return a dummy constraint
-        # In practice, you'd parse the API constraint and create equivalent OR-Tools expressions
-        raise NotImplementedError("Constraint conversion needs to be implemented based on your API constraint format")
 
 
 class OptimalPlacementOptimizer:
@@ -160,7 +28,7 @@ class OptimalPlacementOptimizer:
         self.equipment_classifier = EquipmentClassifier(parameters)
         self.equipment_collector = EquipmentCollector()
         self.objective_builder = ObjectiveFunctionBuilder(parameters)
-        self.constraint_adapter = ConstraintAdapter(parameters)
+        self.constraint_builder = ConstraintBuilder(parameters)
         self.output_manager = OutputManager(parameters)
 
     def _get_solver_name(self) -> str:
@@ -327,12 +195,11 @@ class OptimalPlacementOptimizer:
             # Build objective function
             objective_expr = self.objective_builder.build_objective(model, Portfolio, self.parameters.target_times)
 
-            # Set objective
-            model.set_objective(objective_expr, direction="minimize")  # or "maximize" based on your problem
+            model.set_objective(objective_expr, direction="minimize")
 
             # Build and add constraints
             optimization_times = self._get_optimization_times()
-            self.constraint_adapter.build_and_add_constraints(model, Portfolio, optimization_times)
+            self.constraint_builder.build_and_add_constraints(model, Portfolio, optimization_times)
 
             # Solve problem
             time_limit = getattr(self.parameters, "time_out", 3600)
@@ -447,121 +314,3 @@ class OptimalPlacementOptimizer:
                 f"Equipment {single_equipment.name} is in excluded market area and will not be optimized"
             )
             set_manual_activation([single_equipment], self.parameters)
-
-
-# Main functions for backward compatibility and ease of use
-def OptimalPlacement(output_marker, parameters):
-    """
-    Main entry point for optimal placement optimization.
-
-    This function maintains backward compatibility with the original interface
-    while using your OptimisationModel directly.
-
-    Args:
-        output_marker: The output marker containing all equipment data
-        parameters: Optimization parameters object
-
-    Returns:
-        List of status messages from optimization
-    """
-
-    try:
-        # Create optimizer and run optimization
-        optimizer = OptimalPlacementOptimizer(parameters)
-        status_messages = optimizer.optimize(output_marker)
-
-        # Log final status messages
-        for message in status_messages:
-            cfg.logger.info(message)
-
-        return status_messages
-
-    except Exception as e:
-        cfg.logger.error(f"Optimization failed: {str(e)}")
-        raise
-
-
-def OptimalPlacement_compute(
-    output_marker,
-    opt_portfolios,
-    equipments_DT,
-    equipments_DH,
-    equipments_DS,
-    equipments_NDL,
-    equipments_DL,
-    equipments_Wind,
-    equipments_PV,
-    equipments_NDP,
-    equipment,
-    parameters,
-):
-    """
-    Legacy function for backward compatibility.
-
-    This function is maintained for compatibility with existing code
-    but internally uses your OptimisationModel directly.
-    """
-    # Convert legacy parameters to new format
-    equipment_dict = {
-        EquipmentType.THERMIC: equipments_DT,
-        EquipmentType.HYDRAULIC: equipments_DH,
-        EquipmentType.STORAGE: equipments_DS,
-        EquipmentType.NON_DISPATCHABLE_LOAD: equipments_NDL,
-        EquipmentType.DISPATCHABLE_LOAD: equipments_DL,
-        EquipmentType.WIND: equipments_Wind,
-        EquipmentType.PHOTOVOLTAIC: equipments_PV,
-        EquipmentType.NON_DISPATCHABLE_PRODUCTION: equipments_NDP,
-    }
-
-    # Create optimizer
-    optimizer = OptimalPlacementOptimizer(parameters)
-
-    # Run optimization
-    status_messages = optimizer._optimize_portfolio(
-        output_marker, opt_portfolios, equipment_dict, single_equipment=equipment
-    )
-
-    return status_messages
-
-
-# Additional utility functions
-def create_default_parameters():
-    """Create a parameters object with default values for testing."""
-    from types import SimpleNamespace
-
-    return SimpleNamespace(
-        excluded_technologies=[],
-        excluded_thermal_strategies=[],
-        excluded_market_areas=[],
-        is_portfolio_bidding=True,
-        use_forecast=False,
-        target_times=[],
-        op_times=[],
-        thermal_op_times=[],
-        hydraulic_op_times=[],
-        battery_op_times=[],
-        phs_op_times=[],
-        ev_op_times=[],
-        time_step=60,
-        solver="SCIP",  # Changed default to SCIP since it's open source
-        presolve=True,
-        duality_gap=0.01,
-        time_out=3600,
-        debug=False,
-        verbose=True,
-        execution_date=None,
-        output_folder="./output",
-        manual_unprocured_reserves_penalty=1000,
-        automated_unprocured_reserves_penalty=1000,
-    )
-
-
-if __name__ == "__main__":
-    # Example usage and testing
-    print("Energy Portfolio Optimization Module with OptimisationModel")
-    print("This module provides optimal placement and unit commitment functionality")
-    print("using OR-Tools through the OptimisationModel interface.")
-
-    # Create default parameters for testing
-    default_params = create_default_parameters()
-    print(f"Default parameters created with solver: {default_params.solver}")

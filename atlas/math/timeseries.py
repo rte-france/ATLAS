@@ -22,13 +22,7 @@ import plotly.graph_objects
 import polars as pl
 
 from atlas.io.utils import get_metadata_from_frame, read_data_file
-from atlas.timing import (
-    build_datetime,
-    check_timezone,
-    generate_datetimes,
-    get_duration,
-    infer_frequency,
-)
+from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
 
 
 class Timeseries:
@@ -738,7 +732,7 @@ class Timeseries:
 
         :param item: Datetime to filter the Timeseries
         :type item: list[datetime] or datetime or pendulum.DateTime or str
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional

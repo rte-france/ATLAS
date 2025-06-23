@@ -14,10 +14,7 @@ from atlas.modules.portfolio_optimisation.initialisation.PO_load import POLoad
 from atlas.modules.portfolio_optimisation.initialisation.PO_pv import POPV
 from atlas.modules.portfolio_optimisation.initialisation.PO_storage import POStorage
 from atlas.modules.portfolio_optimisation.initialisation.PO_wind import POWind
-from atlas.modules.portfolio_optimisation.parameters import (
-    MarketEnum,
-    PortfolioOptimisationParameters,
-)
+from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -191,7 +188,6 @@ class POPortfolio:
                     )
                     has_imbal_price = 1
 
-                # compute residual energy
                 inflex_qty_ti = last_forecast_ti
 
                 if parameters.market == MarketEnum.rr_activation:

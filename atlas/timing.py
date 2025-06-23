@@ -150,7 +150,7 @@ def generate_datetimes(
     end: str | datetime,
     freq: str | pendulum.Duration,
     timezone: str = "UTC",
-    date_format: str = "YYYY-MM-DD HH:mm:ss z",
+    date_format: str = "YYYY-MM-DD HH:mm:ss",
 ) -> list[pendulum.DateTime]:
     """
     Generate a list of datetimes using pendulum.
@@ -163,7 +163,7 @@ def generate_datetimes(
     :type freq: str
     :param timezone: Timezone string, defaults to "UTC"
     :type timezone: str, optional
-    :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+    :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
     :type date_format: str, optional
     :return: List of datetime objects
     :rtype: List[pendulum.DateTime]
