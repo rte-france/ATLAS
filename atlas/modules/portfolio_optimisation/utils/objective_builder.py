@@ -18,17 +18,13 @@ class ObjectiveFunctionBuilder:
         objective_terms = []
 
         for time in target_times:
-            # Add imbalance costs
             objective_terms.extend(self._get_imbalance_cost_terms(model, portfolio, time))
 
-            # Add reserve penalties
             objective_terms.extend(self._get_reserve_penalty_terms(model, portfolio, time))
 
-        # Sum all terms into a single expression
         if objective_terms:
             return sum(objective_terms)
         else:
-            # Return zero expression if no terms
             dummy_var = model.add_continuous_variable("dummy_objective", 0, 0)
             return dummy_var
 
@@ -65,10 +61,10 @@ class ObjectiveFunctionBuilder:
         terms = []
 
         # Get or create reserve variables
-        contracted_diff_up = self._get_or_create_variable(model, f"contracted_diff_up_{time}")
-        contracted_diff_down = self._get_or_create_variable(model, f"contracted_diff_down_{time}")
-        auto_contracted_diff_up = self._get_or_create_variable(model, f"auto_contracted_diff_up_{time}")
-        auto_contracted_diff_down = self._get_or_create_variable(model, f"auto_contracted_diff_down_{time}")
+        contracted_diff_up = model.get_variable(f"contracted_diff_up_{time}")
+        contracted_diff_down = model.get_variable(f"contracted_diff_down_{time}")
+        auto_contracted_diff_up = model.get_variable(f"auto_contracted_diff_up_{time}")
+        auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{time}")
 
         # Manual reserve penalties
         manual_penalty = getattr(self.parameters, "manual_unprocured_reserves_penalty", 1000)
@@ -82,10 +78,17 @@ class ObjectiveFunctionBuilder:
 
         return terms
 
-    def _get_or_create_variable(self, model: OptimisationModel, var_name: str) -> Any:
-        """Get existing variable or create new one."""
-        try:
-            return model.get_variable(var_name)
-        except ValueError:
-            # Create new continuous variable if it doesn't exist
-            return model.add_continuous_variable(var_name, lower_bound=0.0)
+    def _get_hydro_terms(self):
+        pass
+
+    def _get_load_terms(self):
+        pass
+
+    def _get_solar_wind_terms(self):
+        pass
+
+    def _get_thermal_terms(self):
+        pass
+
+    def _get_storage_terms(self):
+        pass
