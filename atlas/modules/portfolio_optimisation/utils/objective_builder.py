@@ -41,17 +41,17 @@ class ObjectiveFunctionBuilder:
         large_imbal_down = model.get_variable(f"large_imbal_down_{time}")
 
         # Small imbalance costs
-        if hasattr(portfolio, "imbal_price_up") and time in portfolio.imbal_price_up:
+        if portfolio.imbal_price_up and time in portfolio.imbal_price_up:
             terms.append(portfolio.imbal_price_up[time] * small_imbal_up * time_factor)
 
-        if hasattr(portfolio, "imbal_price_down") and time in portfolio.imbal_price_down:
+        if portfolio.imbal_price_down and time in portfolio.imbal_price_down:
             terms.append(-portfolio.imbal_price_down[time] * small_imbal_down * time_factor)
 
         # Large imbalance costs
-        if hasattr(portfolio, "large_imbal_price_up") and time in portfolio.large_imbal_price_up:
+        if portfolio.large_imbal_price_up and time in portfolio.large_imbal_price_up:
             terms.append(portfolio.large_imbal_price_up[time] * large_imbal_up * time_factor)
 
-        if hasattr(portfolio, "large_imbal_price_down") and time in portfolio.large_imbal_price_down:
+        if portfolio.large_imbal_price_down and time in portfolio.large_imbal_price_down:
             terms.append(-portfolio.large_imbal_price_down[time] * large_imbal_down * time_factor)
 
         return terms
@@ -61,7 +61,6 @@ class ObjectiveFunctionBuilder:
         time_factor = self.parameters.time_step / 60.0
         terms = []
 
-        # Get or create reserve variables
         contracted_diff_up = model.get_variable(f"contracted_diff_up_{time}")
         contracted_diff_down = model.get_variable(f"contracted_diff_down_{time}")
         auto_contracted_diff_up = model.get_variable(f"auto_contracted_diff_up_{time}")
