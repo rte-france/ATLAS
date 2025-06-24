@@ -188,7 +188,7 @@ def _get_initial_stored_energy(equipment: Hydro | Storage, parameters: Portfolio
         )
 
         target_time = parameters.start_date - parameters.time_step
-        if local_stored_energy.FirstDate <= target_time:
+        if local_stored_energy.first_date() <= target_time:
             return local_stored_energy.get_value(target_time)
 
     # Fallback to initial level calculations

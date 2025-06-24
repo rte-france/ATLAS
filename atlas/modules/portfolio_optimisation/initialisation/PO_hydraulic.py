@@ -85,7 +85,7 @@ class POHydraulic:
                     parameters.execution_date,
                     parameters.start_date - parameters.time_step,
                     parameters.end_date,
-                ).FirstDate
+                ).first_date()
                 < parameters.start_date
             ):
                 self.initial_level = self.stored_energy_matrix.get_forecast(
@@ -100,7 +100,7 @@ class POHydraulic:
                 )
 
         # get global matrix power
-        t0_minus_delta_t = API.DatetimeIndex.Shift(parameters.hydraulic_op_times, "-" + parameters.time_step_str)[0]
+        t0_minus_delta_t = parameters.hydraulic_op_times[0] - parameters.time_step_str
         power = hydro_object.power.get_forecast(parameters.execution_date, t0_minus_delta_t, parameters.start_date)
         if power is None:
             power = hydro_object.FinalProg

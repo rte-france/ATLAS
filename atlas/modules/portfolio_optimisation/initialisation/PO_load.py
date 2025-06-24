@@ -43,8 +43,7 @@ class POLoad:
         self.maximum_fcr = load_object.maximum_fcr
         self.load_type = load_object.load_type
 
-        # get global matrix power
-        t0_minus_delta_t = API.DatetimeIndex.Shift(parameters.target_times, "-" + parameters.time_step_str)[0]
+        t0_minus_delta_t = parameters.target_times[0] - parameters.time_step_str
         power = load_object.power.get_forecast(parameters.execution_date, t0_minus_delta_t, parameters.start_date)
         if power is None:
             power = load_object.FinalProg

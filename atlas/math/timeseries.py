@@ -904,3 +904,13 @@ class Timeseries:
             self.frequency = infer_frequency(self.timeseries)
             return self
         return Timeseries(df, self.timezone)
+
+    def first_date(self) -> pendulum.DateTime | None:
+        """Return the first date in the Timeseries index.
+
+        :return: The first date in the Timeseries index
+        :rtype: DateTime or None
+        """
+        if len(self.timeseries) > 0:
+            return self.timeseries.select("time").to_series().to_list()[0]
+        return None
