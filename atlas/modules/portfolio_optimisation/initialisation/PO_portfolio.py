@@ -77,7 +77,7 @@ class POPortfolio:
         dl: list[Load],
         time_index,
         parameters: PortfolioOptimisationParameters,
-        optimisation_model: OptimisationModel,
+        model: OptimisationModel,
     ):
         max_energy_tot = 0
 
@@ -209,7 +209,7 @@ class POPortfolio:
             for opt_load in dl:
                 if idx == 0:
                     po_loadj = POLoad(opt_load.name)
-                    po_loadj.fill_model(opt_load, parameters, optimisation_model)
+                    po_loadj.fill_model(opt_load, parameters, model)
                     self.load[opt_load.name] = po_loadj
 
                 if has_imbal_price == 0:
@@ -266,7 +266,7 @@ class POPortfolio:
                 # get last forecast
                 if idx == 0:
                     po_windj = POWind(opt_wind.name)
-                    po_windj.init_variables(opt_wind, parameters, optimisation_model)
+                    po_windj.init_variables(opt_wind, parameters, model)
                     self.wind[opt_wind.name] = po_windj
 
                 if has_imbal_price == 0:
@@ -323,7 +323,7 @@ class POPortfolio:
                 # get last forecast
                 if idx == 0:
                     po_pvj = POPV(opt_pv.name)
-                    po_pvj.init_variables(opt_pv, parameters, optimisation_model)
+                    po_pvj.init_variables(opt_pv, parameters, model)
                     self.pv[opt_pv.name] = po_pvj
 
                 if has_imbal_price == 0:
@@ -383,7 +383,7 @@ class POPortfolio:
                         API.io.trace.log(f"{opt_thermic.name} = th_{opt_index}")
 
                     po_dtj = POThermic(opt_thermic.name, opt_index)
-                    po_dtj.fill_model(opt_thermic, parameters, optimisation_model)
+                    po_dtj.fill_model(opt_thermic, parameters, model)
                     self.thermics[opt_thermic.name] = po_dtj
                 if has_imbal_price == 0:
                     estimate_imbalance_prices(
@@ -436,7 +436,7 @@ class POPortfolio:
             for opt_hydrau in hydraulics:
                 if idx == 0:
                     po_dhj = POHydraulic(opt_hydrau, opt_hydrau.name)
-                    po_dhj.fill_model(opt_hydrau, parameters, optimisation_model)
+                    po_dhj.fill_model(opt_hydrau, parameters, model)
                     self.hydraulics[opt_hydrau.name] = po_dhj
                 if has_imbal_price == 0:
                     estimate_imbalance_prices(
@@ -487,7 +487,7 @@ class POPortfolio:
             for opt_storage in storage:
                 if idx == 0:
                     po_dsj = POStorage(opt_storage.name, parameters)
-                    po_dsj.init_variables(opt_storage, parameters, optimisation_model)
+                    po_dsj.init_variables(opt_storage, parameters, model)
                     self.storage[opt_storage.name] = po_dsj
 
                 if has_imbal_price == 0:
@@ -555,43 +555,43 @@ class POPortfolio:
 
         for idx, time in enumerate(time_index):
             # create variables at ti
-            self.small_imbal_up[time] = optimisation_model.add_continuous_variable(
+            self.small_imbal_up[time] = model.add_continuous_variable(
                 name=f"{self.name}_small_imbal_up{idx}",
                 lower_bound=0,
                 upper_bound=self.small_imbal_up_limit,
             )
-            self.large_imbal_up[time] = optimisation_model.add_continuous_variable(
+            self.large_imbal_up[time] = model.add_continuous_variable(
                 name=f"{self.name}_large_imbal_up{idx}",
                 lower_bound=0,
                 upper_bound=self.max_overall_imbal[time],
             )
-            self.small_imbal_down[time] = optimisation_model.add_continuous_variable(
+            self.small_imbal_down[time] = model.add_continuous_variable(
                 name=f"{self.name}_small_imbal_down{idx}",
                 lower_bound=0,
                 upper_bound=self.small_imbal_down_limit,
             )
-            self.large_imbal_down[time] = optimisation_model.add_continuous_variable(
+            self.large_imbal_down[time] = model.add_continuous_variable(
                 name=f"{self.name}_large_imbal_down{idx}",
                 lower_bound=0,
                 upper_bound=self.max_overall_imbal[time],
             )
 
-            self.contracted_difference_up[time] = optimisation_model.add_continuous_variable(
+            self.contracted_difference_up[time] = model.add_continuous_variable(
                 name=f"contracted_diff_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=self.max_power[time],
             )
-            self.contracted_difference_down[time] = optimisation_model.add_continuous_variable(
+            self.contracted_difference_down[time] = model.add_continuous_variable(
                 name=f"contracted_diff_down_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=self.max_power[time],
             )
-            self.automated_contracted_difference_up[time] = optimisation_model.add_continuous_variable(
+            self.automated_contracted_difference_up[time] = model.add_continuous_variable(
                 name=f"auto_contracted_diff_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=self.max_power[time],
             )
-            self.automated_contracted_difference_down[time] = optimisation_model.add_continuous_variable(
+            self.automated_contracted_difference_down[time] = model.add_continuous_variable(
                 name=f"auto_contracted_diff_down_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=self.max_power[time],

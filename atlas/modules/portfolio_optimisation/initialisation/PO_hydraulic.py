@@ -73,7 +73,7 @@ class POHydraulic:
         self,
         hydro_object: Hydro,
         parameters: PortfolioOptimisationParameters,
-        optimisation_model: OptimisationModel,
+        model: OptimisationModel,
     ):
         self.storage_marginal_value = hydro_object.storage_marginal_value
 
@@ -157,12 +157,12 @@ class POHydraulic:
             self.fcr_down_procured[time] = fcr_down
 
             # init variables
-            self.power_level[time] = optimisation_model.add_continuous_variable(
+            self.power_level[time] = model.add_continuous_variable(
                 name=f"{self.name}_power_level_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.stored_energy[time] = optimisation_model.add_continuous_variable(
+            self.stored_energy[time] = model.add_continuous_variable(
                 name=f"{self.name}_stored_energy_{idx}",
                 lower_bound=0,
                 upper_bound=self.maximum_energy[time],
@@ -188,57 +188,57 @@ class POHydraulic:
             )
 
             # Optimisation Variables related to reserves
-            self.reserves_up[time] = optimisation_model.add_continuous_variable(
+            self.reserves_up[time] = model.add_continuous_variable(
                 name=f"ress_up_e_{self.name}_at_{str(idx)}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.reserves_down[time] = optimisation_model.add_continuous_variable(
+            self.reserves_down[time] = model.add_continuous_variable(
                 name=f"res_down_e_{self.name}_at_{str(idx)}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
-            self.unprovided_reserves_up[time] = optimisation_model.add_continuous_variable(
+            self.unprovided_reserves_up[time] = model.add_continuous_variable(
                 name=f"unp_res_up_e_{self.name}_at_{str(idx)}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.unprovided_reserves_down[time] = optimisation_model.add_continuous_variable(
+            self.unprovided_reserves_down[time] = model.add_continuous_variable(
                 name=f"unp_res_down_e_{self.name}_at_{str(idx)}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
-            self.relaxed_reserves[time] = optimisation_model.add_continuous_variable(
+            self.relaxed_reserves[time] = model.add_continuous_variable(
                 name=f"rel_res_e_{self.name}_at_{str(idx)}",
                 lower_bound=min_power,
                 upper_bound=0,
             )
-            self.automated_reserves_up[time] = optimisation_model.add_continuous_variable(
+            self.automated_reserves_up[time] = model.add_continuous_variable(
                 name=f"auto_res_up_e_{self.name}_at_{str(idx)}",
                 lower_bound=0,
                 upper_bound=self.maximum_automated,
             )
-            self.automated_reserves_down[time] = optimisation_model.add_continuous_variable(
+            self.automated_reserves_down[time] = model.add_continuous_variable(
                 name=f"auto_res_down_e_{self.name}_at_{str(idx)}",
                 lower_bound=0,
                 upper_bound=self.maximum_automated,
             )
-            self.contracted_difference_up[time] = optimisation_model.add_continuous_variable(
+            self.contracted_difference_up[time] = model.add_continuous_variable(
                 name=f"contracted_diff_up_e_{self.name}_at_{str(idx)}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.contracted_difference_down[time] = optimisation_model.add_continuous_variable(
+            self.contracted_difference_down[time] = model.add_continuous_variable(
                 name=f"contracted_diff_down_e_{self.name}_at_{str(idx)}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
-            self.automated_contracted_difference_up[time] = optimisation_model.add_continuous_variable(
+            self.automated_contracted_difference_up[time] = model.add_continuous_variable(
                 name=f"auto_contracted_diff_up_e_{self.name}_at_{str(idx)}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.automated_contracted_difference_down[time] = optimisation_model.add_continuous_variable(
+            self.automated_contracted_difference_down[time] = model.add_continuous_variable(
                 name=f"auto_contracted_diff_down_e_{self.name}_at_{str(idx)}",
                 lower_bound=min_power,
                 upper_bound=max_power,

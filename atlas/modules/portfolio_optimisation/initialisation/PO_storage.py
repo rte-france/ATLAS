@@ -89,7 +89,7 @@ class POStorage:
         self,
         storage_object: Storage,
         parameters: PortfolioOptimisationParameters,
-        optimisation_model: OptimisationModel,
+        model: OptimisationModel,
     ):
         # Retrieve the optimization time frame
         if storage_object.storage_type == "Battery":
@@ -249,44 +249,44 @@ class POStorage:
                 nbr_fragment = parameters.phs_nb_fragments
 
             for n in range(0, nbr_fragment):
-                self.power_level_sell_n[n][time] = optimisation_model.add_continuous_variable(
+                self.power_level_sell_n[n][time] = model.add_continuous_variable(
                     name=f"{self.name}_power_level_sell_n_{n}_time_{idx}",
                     lower_bound=0,
                     upper_bound=max_power,
                 )
-                self.power_level_buy_n[n][time] = optimisation_model.add_continuous_variable(
+                self.power_level_buy_n[n][time] = model.add_continuous_variable(
                     name=f"{self.name}_power_level_buy_n_{n}_time_{idx}",
                     lower_bound=min_power,
                     upper_bound=0,
                 )
 
             # Optimisation Variables related to reserves
-            self.reserves_up[time] = optimisation_model.add_continuous_variable(
+            self.reserves_up[time] = model.add_continuous_variable(
                 name=f"res_up_e_{self.name}_at_{time}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.reserves_down[time] = optimisation_model.add_continuous_variable(
+            self.reserves_down[time] = model.add_continuous_variable(
                 name=f"res_down_e_{self.name}_at_{time}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
-            self.unprovided_reserves_up[time] = optimisation_model.add_continuous_variable(
+            self.unprovided_reserves_up[time] = model.add_continuous_variable(
                 name=f"unpr_res_up_e_{self.name}_at_{time}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.unprovided_reserves_down[time] = optimisation_model.add_continuous_variable(
+            self.unprovided_reserves_down[time] = model.add_continuous_variable(
                 name=f"unpr_res_down_e_{self.name}_at_{time}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
-            self.automated_reserves_up[time] = optimisation_model.add_continuous_variable(
+            self.automated_reserves_up[time] = model.add_continuous_variable(
                 name=f"auto_res_up_e_{self.name}_at_{time}",
                 lower_bound=0,
                 upper_bound=self.maximum_automated,
             )
-            self.automated_reserves_down[time] = optimisation_model.add_continuous_variable(
+            self.automated_reserves_down[time] = model.add_continuous_variable(
                 name=f"auto_res_down_e_{self.name}_at_{time}",
                 lower_bound=-self.maximum_automated,
                 upper_bound=self.maximum_automated,

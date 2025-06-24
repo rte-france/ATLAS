@@ -56,7 +56,7 @@ class POWind:
         self,
         wind_object: Wind,
         parameters: PortfolioOptimisationParameters,
-        optimisation_model: OptimisationModel,
+        model: OptimisationModel,
     ):
         self.maximum_afrr = wind_object.maximum_afrr
         self.maximum_fcr = wind_object.maximum_fcr
@@ -103,7 +103,7 @@ class POWind:
             self.fcr_down_procured[time] = fcr_down
 
             # create optimization variables
-            self.power_level[time] = optimisation_model.add_continuous_variable(
+            self.power_level[time] = model.add_continuous_variable(
                 name=f"{self.name}_power_level_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
@@ -128,52 +128,52 @@ class POWind:
             )
 
             # Optimisation Variables related to reserves
-            self.reserves_up[time] = optimisation_model.add_continuous_variable(
+            self.reserves_up[time] = model.add_continuous_variable(
                 name=f"res_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.reserves_down[time] = optimisation_model.add_continuous_variable(
+            self.reserves_down[time] = model.add_continuous_variable(
                 name=f"res_down_e_{self.name}_at_{idx}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
-            self.unprovided_reserves_up[time] = optimisation_model.add_continuous_variable(
+            self.unprovided_reserves_up[time] = model.add_continuous_variable(
                 name=f"unp_res_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.unprovided_reserves_down[time] = optimisation_model.add_continuous_variable(
+            self.unprovided_reserves_down[time] = model.add_continuous_variable(
                 name=f"unp_res_down_e_{self.name}_at_{idx}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
-            self.automated_reserves_up[time] = optimisation_model.add_continuous_variable(
+            self.automated_reserves_up[time] = model.add_continuous_variable(
                 name=f"auto_res_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=self.maximum_automated,
             )
-            self.automated_reserves_down[time] = optimisation_model.add_continuous_variable(
+            self.automated_reserves_down[time] = model.add_continuous_variable(
                 name=f"auto_res_down_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=self.maximum_automated,
             )
-            self.contracted_difference_up[time] = optimisation_model.add_continuous_variable(
+            self.contracted_difference_up[time] = model.add_continuous_variable(
                 name=f"contracted_diff_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.contracted_difference_down[time] = optimisation_model.add_continuous_variable(
+            self.contracted_difference_down[time] = model.add_continuous_variable(
                 name=f"contracted_diff_down_e_{self.name}_at_{idx}",
                 lower_bound=min_power,
                 upper_bound=max_power,
             )
-            self.automated_contracted_difference_up[time] = self.optimisation_model.add_continuous_variable(
+            self.automated_contracted_difference_up[time] = self.model.add_continuous_variable(
                 name=f"auto_contracted_diff_up_e_{self.name}_at_{idx}",
                 lower_bound=0,
                 upper_bound=max_power,
             )
-            self.automated_contracted_difference_down[time] = self.optimisation_model.add_continuous_variable(
+            self.automated_contracted_difference_down[time] = self.model.add_continuous_variable(
                 name=f"auto_contracted_diff_down_e_{self.name}_at_{idx}",
                 lower_bound=min_power,
                 upper_bound=max_power,
