@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas.enum import SolverStatus
+from atlas.enum import LoadType, SolverStatus
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.enum import EquipmentType
@@ -13,7 +13,7 @@ from atlas.modules.portfolio_optimisation.initialisation.PO_portfolio import POP
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.constraint_builder import ConstraintBuilder
-from atlas.modules.portfolio_optimisation.utils.equipment import EquipmentClassifier, EquipmentCollector
+from atlas.modules.portfolio_optimisation.utils.equipment import should_manually_activate
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.modules.portfolio_optimisation.utils.objective_builder import ObjectiveFunctionBuilder
 from atlas.modules.portfolio_optimisation.utils.output_manager import OutputManager
@@ -27,24 +27,11 @@ class OptimalPlacementOptimizer:
         self.parameters = parameters
 
         # Initialize components
-        self.equipment_classifier = EquipmentClassifier(parameters)
-        self.equipment_collector = EquipmentCollector()
+
+        self.equipments: dict[str, list[type[Equipment]]] = {}
         self.objective_builder = ObjectiveFunctionBuilder(parameters)
         self.constraint_builder = ConstraintBuilder(parameters)
         self.output_manager = OutputManager(parameters)
-
-    def _get_solver_name(self) -> str:
-        """Map solver names from parameters to OR-Tools solver names."""
-        solver_mapping = {
-            "CPLEX": "CPLEX_MIXED_INTEGER_PROGRAMMING",
-            "GUROBI": "GUROBI_MIXED_INTEGER_PROGRAMMING",
-            "SCIP": "SCIP_MIXED_INTEGER_PROGRAMMING",
-            "GLOP": "GLOP_LINEAR_PROGRAMMING",
-            "CBC": "CBC_MIXED_INTEGER_PROGRAMMING",
-        }
-
-        solver_name = getattr(self.parameters, "solver", "SCIP")
-        return solver_mapping.get(solver_name, "SCIP_MIXED_INTEGER_PROGRAMMING")
 
     def optimize(self, input_dataset) -> list[str]:
         """
@@ -69,14 +56,12 @@ class OptimalPlacementOptimizer:
 
     def _collect_equipment(self, input_dataset: PortfolioOptimisationInputDataset):
         """Collect and classify all equipment."""
-        self.equipment_collector.clear()
-
         # Collect thermic equipment
-        for equipment in input_dataset.thermal.GetAllInstances():
+        for equipment in input_dataset.thermal:
             if self.equipment_classifier.should_manually_activate(equipment):
                 set_manual_activation([equipment], self.parameters)
             elif self.parameters.is_portfolio_bidding:
-                self.equipment_collector.add_equipment(EquipmentType.THERMIC, equipment)
+                self.equipments["thermal"].append(equipment)
             else:
                 self._optimize_single_equipment(input_dataset, equipment, EquipmentType.THERMIC)
 
@@ -91,36 +76,35 @@ class OptimalPlacementOptimizer:
         )
 
     def _collect_equipment_by_type(
-        self, input_dataset: PortfolioOptimisationInputDataset, marker_attr: str, equipment_type: EquipmentType
+        self, input_dataset: PortfolioOptimisationInputDataset, marker_attr: str, equipment_type: str
     ):
         """Generic method to collect equipment by type."""
         marker_collection = getattr(input_dataset, marker_attr)
 
         for equipment in marker_collection.GetAllInstances():
-            if self.equipment_classifier.should_manually_activate(equipment):
+            if should_manually_activate(equipment):
                 set_manual_activation([equipment], self.parameters)
             elif self.parameters.is_portfolio_bidding:
-                self.equipment_collector.add_equipment(equipment_type, equipment)
+                self.equipments[equipment_type].append(equipment)
             else:
                 self._optimize_single_equipment(input_dataset, equipment, equipment_type)
 
     def _collect_load_equipment(self, input_dataset: PortfolioOptimisationInputDataset):
-        """Collect load equipment with special handling for PowerToGas."""
-        for equipment in input_dataset.Load.GetAllInstances():
-            if self.equipment_classifier.should_manually_activate(equipment):
+        for equipment in input_dataset.load:
+            if should_manually_activate(equipment):
                 set_manual_activation([equipment], self.parameters)
             elif self.parameters.is_portfolio_bidding:
-                if equipment.LoadType == "PowerToGas":
-                    self.equipment_collector.add_equipment(EquipmentType.DISPATCHABLE_LOAD, equipment)
+                if equipment.load_type in [LoadType.POWER_TO_GAS, LoadType.BASE_LOAD]:
+                    self.equipments["dispatchable_load"].append(equipment)
                 else:
-                    self.equipment_collector.add_equipment(EquipmentType.NON_DISPATCHABLE_LOAD, equipment)
+                    self.equipments["non_dispatchable_load"].append(equipment)
             else:
-                load_type = (
-                    EquipmentType.DISPATCHABLE_LOAD
-                    if equipment.LoadType == "PowerToGas"
-                    else EquipmentType.NON_DISPATCHABLE_LOAD
+                equipment_type = (
+                    "dispatchable_load"
+                    if equipment.LoadType in [LoadType.POWER_TO_GAS, LoadType.BASE_LOAD]
+                    else "non_dispatchable_load"
                 )
-                self._optimize_single_equipment(input_dataset, equipment, load_type)
+                self._optimize_single_equipment(input_dataset, equipment, equipment_type)
 
     def _optimize_portfolio_mode(self, input_dataset: PortfolioOptimisationInputDataset) -> list[str]:
         """Optimize in portfolio bidding mode."""
@@ -128,8 +112,8 @@ class OptimalPlacementOptimizer:
 
         return self._optimize_portfolio(
             input_dataset,
-            input_dataset.Portfolio.AllInstances,
-            self.equipment_collector.equipment_by_type,
+            input_dataset.portfolio,
+            self.equipments,
         )
 
     def _optimize_unit_mode(self, input_dataset: PortfolioOptimisationInputDataset) -> list[str]:
@@ -141,51 +125,40 @@ class OptimalPlacementOptimizer:
         self,
         input_dataset: PortfolioOptimisationInputDataset,
         equipment: type[Equipment],
-        equipment_type: EquipmentType,
+        equipment_type: str,
     ):
         """Optimize a single equipment unit."""
-        equipment_dict = {et: [] for et in EquipmentType}
-        equipment_dict[equipment_type] = [equipment]
+        equipments = {equipment_type: [equipment]}
 
-        self._optimize_portfolio(input_dataset, [equipment.Portfolio], equipment_dict, single_equipment=equipment)
+        self._optimize_portfolio(input_dataset, [equipment.portfolio], equipments, single_equipment=equipment)
 
     def _optimize_portfolio(
         self,
         input_dataset: PortfolioOptimisationInputDataset,
-        portfolios: list,
-        equipment_dict: dict[EquipmentType, list[type[Equipment]]],
+        portfolios: list[Portfolio],
+        equipments: dict[str, list[type[Equipment]]],
         single_equipment=None,
     ) -> list[str]:
         """Optimize a portfolio or single equipment."""
-        status_messages = []
 
         for portfolio in portfolios:
-            # Skip excluded market areas
             if self.equipment_classifier.is_excluded_market_area(portfolio):
                 self._handle_excluded_market_area(portfolio, single_equipment)
                 continue
 
-            # Filter equipment for this portfolio
-            portfolio_equipment = self._filter_equipment_by_portfolio(equipment_dict, portfolio.name)
+            portfolio_equipment = self._filter_equipment_by_portfolio(equipments, portfolio.name)
 
-            # Skip if no equipment
             if not any(equipment_list for equipment_list in portfolio_equipment.values()):
                 continue
 
-            # Perform optimization
-            solution_info = self._optimize_single_portfolio(
-                input_dataset, portfolio, portfolio_equipment, single_equipment
-            )
-
-            status_messages.append(f"{portfolio.name} ended with status {solution_info.status.value}")
-
-        return status_messages
+            self._optimize_single_portfolio(input_dataset, portfolio, portfolio_equipment, single_equipment)
 
     def _optimize_single_portfolio(
         self,
         input_dataset: PortfolioOptimisationInputDataset,
         portfolio: Portfolio,
-        equipment_dict: dict[EquipmentType, list],
+        equipments: dict[str, list[type[Equipment]]],
+        solver_name: str,
         single_equipment=None,
     ) -> SolutionInfo:
         """Optimize a single portfolio using OptimisationModel."""
@@ -194,12 +167,11 @@ class OptimalPlacementOptimizer:
         cfg.logger.info(f"Optimizing portfolio: {portfolio_name}")
 
         # Create optimization model
-        solver_name = self._get_solver_name()
         model = OptimisationModel(solver_name=solver_name, name=portfolio_name)
 
         try:
             # Create portfolio object
-            Portfolio = self._create_Portfolio(portfolio, equipment_dict)
+            Portfolio = self._create_portfolio(portfolio, equipments)
 
             # Build objective function
             objective_expr = self.objective_builder.build_objective(model, Portfolio, self.parameters.target_times)
@@ -264,7 +236,7 @@ class OptimalPlacementOptimizer:
         except Exception as e:
             cfg.logger.error(f"Failed to export results: {e}")
 
-    def _create_Portfolio(self, portfolio: Portfolio, equipment_dict: dict[EquipmentType, list]) -> Portfolio:
+    def _create_portfolio(self, portfolio: Portfolio, equipments: dict[str, list[type[Equipment]]]) -> Portfolio:
         """Create and initialize Portfolio object."""
         Portfolio = POPortfolio(portfolio.name)
 
@@ -275,14 +247,14 @@ class OptimalPlacementOptimizer:
         # Initialize portfolio
         Portfolio.InitVariablesAndPreComputations(
             portfolio,
-            equipment_dict[EquipmentType.THERMIC],
-            equipment_dict[EquipmentType.HYDRAULIC],
-            equipment_dict[EquipmentType.STORAGE],
-            equipment_dict[EquipmentType.WIND],
-            equipment_dict[EquipmentType.PHOTOVOLTAIC],
-            equipment_dict[EquipmentType.NON_DISPATCHABLE_PRODUCTION],
-            equipment_dict[EquipmentType.NON_DISPATCHABLE_LOAD],
-            equipment_dict[EquipmentType.DISPATCHABLE_LOAD],
+            equipments[EquipmentType.THERMIC],
+            equipments[EquipmentType.HYDRAULIC],
+            equipments[EquipmentType.STORAGE],
+            equipments[EquipmentType.WIND],
+            equipments[EquipmentType.PHOTOVOLTAIC],
+            equipments[EquipmentType.NON_DISPATCHABLE_PRODUCTION],
+            equipments[EquipmentType.NON_DISPATCHABLE_LOAD],
+            equipments[EquipmentType.DISPATCHABLE_LOAD],
             max_op_time,
             self.parameters,
         )
@@ -301,12 +273,12 @@ class OptimalPlacementOptimizer:
         }
 
     def _filter_equipment_by_portfolio(
-        self, equipment_dict: dict[EquipmentType, list[type[Equipment]]], portfolio: Portfolio
+        self, equipments: dict[str, list[type[Equipment]]], portfolio: Portfolio
     ) -> dict[EquipmentType, list]:
         """Filter equipment dictionary to only include equipment from specified portfolio."""
-        filtered_dict = {equipment_type: [] for equipment_type in EquipmentType}
-
-        for equipment_type, equipment_list in equipment_dict.items():
+        filtered_dict = {}
+        for equipment_type, equipment_list in equipments.items():
+            filtered_dict[equipment_type] = []
             for equipment in equipment_list:
                 if equipment.portfolio == portfolio:
                     filtered_dict[equipment_type].append(equipment)

@@ -7,19 +7,6 @@ This file is part of the ATLAS project.
 from enum import Enum
 
 
-class EquipmentType(Enum):
-    """Enumeration of equipment types for energy optimization."""
-
-    THERMIC = "DT"
-    HYDRAULIC = "DH"
-    STORAGE = "DS"
-    NON_DISPATCHABLE_LOAD = "NDL"
-    DISPATCHABLE_LOAD = "DL"
-    WIND = "Wind"
-    PHOTOVOLTAIC = "PV"
-    NON_DISPATCHABLE_PRODUCTION = "NDP"
-
-
 class OptimizationMode(Enum):
     """Optimization modes for the portfolio."""
 

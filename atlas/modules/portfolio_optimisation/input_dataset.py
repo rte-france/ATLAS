@@ -36,20 +36,19 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        self.control_block = input_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]
-        self.market_area = input_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]]
-        self.market_border = input_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]]
-        self.node = input_data[INVERSE_MODEL_MAPPING_NAME[Node]]
-        self.portfolio = input_data[INVERSE_MODEL_MAPPING_NAME[Portfolio]]
-        self.wind = input_data[INVERSE_MODEL_MAPPING_NAME[Wind]]
-        self.storage = input_data[INVERSE_MODEL_MAPPING_NAME[Storage]]
-        self.hydro = input_data[INVERSE_MODEL_MAPPING_NAME[Hydro]]
-        self.solar = input_data[INVERSE_MODEL_MAPPING_NAME[Solar]]
-        self.thermal = input_data[INVERSE_MODEL_MAPPING_NAME[Thermal]]
-        self.other_non_dispatchable = input_data[INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable]]
-        self.order = input_data[INVERSE_MODEL_MAPPING_NAME[Order]]
-        self.order_coupling = input_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]]
-        self.load = input_data[INVERSE_MODEL_MAPPING_NAME[Load]]
-
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        return []
+        self.control_block: list[ControlBlock] = input_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]
+        self.market_area: list[MarketArea] = input_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]]
+        self.market_border: list[MarketBorder] = input_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]]
+        self.node: list[Node] = input_data[INVERSE_MODEL_MAPPING_NAME[Node]]
+        self.portfolio: list[Portfolio] = input_data[INVERSE_MODEL_MAPPING_NAME[Portfolio]]
+        self.wind: list[Wind] = input_data[INVERSE_MODEL_MAPPING_NAME[Wind]]
+        self.storage: list[Storage] = input_data[INVERSE_MODEL_MAPPING_NAME[Storage]]
+        self.hydro: list[Hydro] = input_data[INVERSE_MODEL_MAPPING_NAME[Hydro]]
+        self.solar: list[Solar] = input_data[INVERSE_MODEL_MAPPING_NAME[Solar]]
+        self.thermal: list[Thermal] = input_data[INVERSE_MODEL_MAPPING_NAME[Thermal]]
+        self.other_non_dispatchable: list[OtherNonDispatchable] = input_data[
+            INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable]
+        ]
+        self.order: list[Order] = input_data[INVERSE_MODEL_MAPPING_NAME[Order]]
+        self.order_coupling: list[OrderCoupling] = input_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]]
+        self.load: list[Load] = input_data[INVERSE_MODEL_MAPPING_NAME[Load]]
