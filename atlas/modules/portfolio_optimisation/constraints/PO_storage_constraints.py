@@ -69,7 +69,7 @@ def get_variables_and_constraints_storage(
         # However, these values are not computed in ATLAS. To avoid weird arbitrages in the optim,
         # the variable cost of the unit is then set to the price of the studied market
         model.add_objective(
-            price_forecast[time] * (obj.power_level_buy[time] + obj.power_level_sell[time]) * parameters.timestep / 60.0
+            price_forecast[time] * (obj.power_level_buy[time] + obj.power_level_sell[time]) * parameters.timestep
         )
 
         # For additional period
@@ -138,11 +138,11 @@ def get_variables_and_constraints_storage(
 
         if obj.storage_type == StorageType.BATTERY or obj.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
             reserve_stored_energy_down_ti = obj.reserves_down[time] * (
-                parameters.battery_reserve_duration / 60.0
-            ) + obj.automated_reserves_down[time] * (parameters.automated_battery_reserve_duration / 60.0)
+                parameters.battery_reserve_duration
+            ) + obj.automated_reserves_down[time] * (parameters.automated_battery_reserve_duration)
             reserve_stored_energy_up_ti = obj.reserves_up[time] * (
-                parameters.battery_reserve_duration / 60.0
-            ) + obj.automated_reserves_up[time] * (parameters.automated_battery_reserve_duration / 60.0)
+                parameters.battery_reserve_duration
+            ) + obj.automated_reserves_up[time] * (parameters.automated_battery_reserve_duration)
 
             model.add_constraint(
                 obj.power_level_sell[time]
@@ -168,11 +168,11 @@ def get_variables_and_constraints_storage(
 
         if obj.storage_type == StorageType.ELECTRIC_VEHICLE:
             reserve_stored_energy_down_ti = obj.reserves_down[time] * (
-                parameters.battery_reserve_duration / 60.0
-            ) + obj.automated_reserves_down[time] * (parameters.automated_battery_reserve_duration / 60.0)
+                parameters.battery_reserve_duration
+            ) + obj.automated_reserves_down[time] * (parameters.automated_battery_reserve_duration)
             reserve_stored_energy_up_ti = obj.reserves_up[time] * (
-                parameters.battery_reserve_duration / 60.0
-            ) + obj.automated_reserves_up[time] * (parameters.automated_battery_reserve_duration / 60.0)
+                parameters.battery_reserve_duration
+            ) + obj.automated_reserves_up[time] * (parameters.automated_battery_reserve_duration)
 
             model.add_constraint(
                 (
@@ -199,7 +199,7 @@ def get_variables_and_constraints_storage(
             model.add_constraint(
                 obj.stored_energy[time]
                 == obj.initial_stock * (obj.maximum_energy[time] / obj.maximum_energy[prev_time])
-                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.timestep / 60.0
+                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.timestep
                 - obj.power_level_sell[time] * parameters.timestep / (60.0 * obj.discharge_efficiency)
                 + (obj.displacement_energy[time] - obj.displacement_energy[prev_time])
             )
@@ -212,7 +212,7 @@ def get_variables_and_constraints_storage(
             model.add_constraint(
                 obj.stored_energy[time]
                 == obj.stored_energy[prev_time] * (obj.maximum_energy[time] / obj.maximum_energy[prev_time])
-                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.timestep / 60.0
+                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.timestep
                 - obj.power_level_sell[time] * parameters.timestep / (60.0 * obj.discharge_efficiency)
                 + (obj.displacement_energy[time] - obj.displacement_energy[prev_time])
             )

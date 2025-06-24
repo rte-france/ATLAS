@@ -129,7 +129,7 @@ class POHydraulic:
                 lower_bound=0,
                 upper_bound=self.maximum_energy[time],
             )
-            self._get_fragment_price_and_size(hydro_object, time, parameters)
+            self._get_fragment_price_and_size(hydro_object, time, parameters, model)
 
             self.maximum_automated = self.maximum_afrr + self.maximum_fcr
 
@@ -191,7 +191,7 @@ class POHydraulic:
             )
 
     def _get_fragment_price_and_size(
-        self, hydro_object: Hydro, time: DateTime, parameters: PortfolioOptimisationParameters
+        self, hydro_object: Hydro, time: DateTime, parameters: PortfolioOptimisationParameters, model: OptimisationModel
     ):
         """
         This function formulates the hydraulic reservoir offers.
@@ -220,15 +220,15 @@ class POHydraulic:
         else:
             energy_level = self.initial_level.get_value(parameters.start_date - parameters.timestep)
 
-        x_min = filter(lambda x: int(x) <= energy_level, self.storage_marginal_value.Index)
-        x_max = filter(lambda x: int(x) > energy_level, self.storage_marginal_value.Index)
+        x_min = filter(lambda x: int(x) <= energy_level, self.storage_marginal_value.index)
+        x_max = filter(lambda x: int(x) > energy_level, self.storage_marginal_value.index)
 
         if x_min:
             xp_min = max(x_min, key=lambda x: int(x))
-            level_inf = self.storage_marginal_value.GetTimeSeriesByName(xp_min)
+            level_inf = self.storage_marginal_value.select(xp_min)
         if x_max:
             xp_max = min(x_max, key=lambda x: int(x))
-            level_sup = self.storage_marginal_value.GetTimeSeriesByName(xp_max)
+            level_sup = self.storage_marginal_value.select(xp_max)
         if x_min and x_max:
             weight_inf = (int(xp_max) - energy_level) / (int(xp_max) - int(xp_min))
             weight_sup = (energy_level - int(xp_min)) / (int(xp_max) - int(xp_min))
@@ -246,22 +246,21 @@ class POHydraulic:
             # create an offer for each element in volumes
             for k, v in volumes.items():
                 if not x_min and x_max:
-                    price = level_sup.get_value(time, API.TimeSeries.Linear) + delta_wu[k][1]
+                    price = level_sup.get_value(time) + delta_wu[k][1]
                 elif not x_max and x_min:
-                    price = level_inf.get_value(time, API.TimeSeries.Linear) + delta_wu[k][1]
+                    price = level_inf.get_value(time) + delta_wu[k][1]
                 elif not x_max and not x_min:
                     price = delta_wu[k][1]
                 else:
                     # This AREA DEAL WITH THE PRICE
-                    p_min = level_inf.get_value(time, API.TimeSeries.Linear)
-                    p_max = level_sup.get_value(time, API.TimeSeries.Linear)
+                    p_min = level_inf.get_value(time)
+                    p_max = level_sup.get_value(time)
                     price = weight_inf * p_min + weight_sup * p_max + delta_wu[k][1]
 
-                self.power_level_fragment[k][time] = API.Solver.NewOpVariable(
-                    f"{self.name}_power_level_frag_{k}_at_{str(time)}",
-                    0,
-                    v,
-                    API.Solver.OpCategoryReal,
+                model.add_continuous_variable(
+                    name=f"{self.name}_power_level_frag_{k}_at_{str(time)}",
+                    lower_bound=0,
+                    upper_bound=v,
                 )
                 self.price_fragment[k][time] = price
 

@@ -208,7 +208,7 @@ def _calculate_new_energy_value(
 ):
     """Calculate new energy value based on power and efficiency."""
     power_value = new_power.get_value(time)
-    time_factor = parameters.timestep / 60.0
+    time_factor = parameters.timestep
 
     if isinstance(equipment, Storage):
         if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
@@ -246,10 +246,10 @@ def _apply_energy_bounds(energy_value, bounds, time, parameters):
     min_energy, max_energy = bounds
 
     if energy_value > max_energy:
-        correction = (max_energy - energy_value) * parameters.timestep / 60.0
+        correction = (max_energy - energy_value) * parameters.timestep
         return max_energy, correction
     elif energy_value < min_energy:
-        correction = (min_energy - energy_value) * parameters.timestep / 60.0
+        correction = (min_energy - energy_value) * parameters.timestep
         return min_energy, correction
     else:
         return energy_value, 0

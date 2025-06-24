@@ -39,11 +39,11 @@ def get_variables_and_constraints_load(
             if obj.load_type == "power_to_gas":
                 # Objective function
                 model.add_objective(
-                    (obj.price[time] - price_forecast[time]) * obj.power_level[time] * parameters.timestep / 60.0
+                    (obj.price[time] - price_forecast[time]) * obj.power_level[time] * parameters.timestep
                 )
             else:
                 # Objective function
-                model.add_objective(obj.price[time] * -obj.power_level[time] * parameters.timestep / 60.0)
+                model.add_objective(obj.price[time] * -obj.power_level[time] * parameters.timestep)
 
             # Maximum and Minimum Power (opposite direction compared to generation units)
             model.add_constraint(obj.power_level[time] >= max_power_ti)

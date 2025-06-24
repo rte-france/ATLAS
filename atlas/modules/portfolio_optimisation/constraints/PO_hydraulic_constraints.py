@@ -49,7 +49,7 @@ def get_variables_and_constraints_hydraulics(
                 # Create an offer for each element in volumes
                 # Add objective function for the specific fragment
                 model.add_objective(
-                    obj.price_fragment[k][time] * obj.power_level_fragment[k][time] * parameters.timestep / 60.0
+                    obj.price_fragment[k][time] * obj.power_level_fragment[k][time] * parameters.timestep
                 )
                 sum_power_level.add(obj.power_level_fragment[k][time])
 
@@ -58,7 +58,6 @@ def get_variables_and_constraints_hydraulics(
                     -(price_forecast[time] - obj.price_fragment[k][time])
                     * obj.power_level_fragment[k][time]
                     * parameters.timestep
-                    / 60.0
                 )
 
                 # FC: Is the following part necessary?
@@ -83,14 +82,14 @@ def get_variables_and_constraints_hydraulics(
             model.add_constraint(
                 obj.stored_energy[time]
                 == obj.initial_level.get_value(parameters.start_date.add_minutes(-parameters.timestep))
-                - obj.power_level_fragment_sum[time] * parameters.timestep / 60.0
+                - obj.power_level_fragment_sum[time] * parameters.timestep
             )
 
         elif time in parameters.target_times:
             model.add_constraint(
                 obj.stored_energy[time]
-                == obj.stored_energy[time.add_minutes(-parameters.timestep)]
-                - obj.power_level_fragment_sum[time] * parameters.timestep / 60.0
+                == obj.stored_energy[time - parameters.timestep]
+                - obj.power_level_fragment_sum[time] * parameters.timestep
             )
 
         # For any time steps:

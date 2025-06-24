@@ -48,7 +48,7 @@ def get_variables_and_constraints_wind_pv(
             min_power_ti = obj.minimum_power[time]
 
             # Objective function
-            model.add_objective(obj.price[time] * obj.power_level[time] * parameters.timestep / 60.0)
+            model.add_objective(obj.price[time] * obj.power_level[time] * parameters.timestep)
 
             # Maximum and Minimum Power
             model.add_constraint(obj.power_level[time] <= max_power_ti)
