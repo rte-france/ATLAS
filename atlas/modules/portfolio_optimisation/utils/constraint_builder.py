@@ -2,6 +2,7 @@ from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.models.portfolio import Portfolio
+from atlas.modules.portfolio_optimisation.initialisation.PO_portfolio import POPortfolio
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -67,7 +68,7 @@ class ConstraintBuilder:
     def _add_equipment_constraints(
         self,
         time: DateTime,
-        portfolio: Portfolio,
+        portfolio: POPortfolio,
         model: OptimisationModel,
         power_level_variables: list,
         reserve_vars: dict[str, list],

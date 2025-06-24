@@ -15,7 +15,7 @@ from atlas.modules.portfolio_optimisation.initialisation.PO_portfolio import POP
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.constraint_builder import ConstraintBuilder
-from atlas.modules.portfolio_optimisation.utils.equipment import should_manually_activate
+from atlas.modules.portfolio_optimisation.utils.equipment import is_excluded_market_area, should_manually_activate
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.modules.portfolio_optimisation.utils.objective_builder import ObjectiveFunctionBuilder
 from atlas.modules.portfolio_optimisation.utils.output_manager import OutputManager
@@ -132,12 +132,12 @@ class OptimalPlacementOptimizer:
         input_dataset: PortfolioOptimisationInputDataset,
         portfolios: list[Portfolio],
         equipments: dict[str, list[type[Equipment]]],
-        single_equipment=None,
+        single_equipment: type[Equipment] | None = None,
     ) -> list[str]:
         """Optimize a portfolio or single equipment."""
 
         for portfolio in portfolios:
-            if self.equipment_classifier.is_excluded_market_area(portfolio):
+            if is_excluded_market_area(portfolio):
                 self._handle_excluded_market_area(portfolio, single_equipment)
                 continue
 
@@ -240,7 +240,7 @@ class OptimalPlacementOptimizer:
         max_op_time = max(optimization_times.values(), key=len)
 
         # Initialize portfolio
-        Portfolio.InitVariablesAndPreComputations(
+        Portfolio.init_variables_and_pre_computations(
             portfolio,
             equipments[EquipmentType.THERMIC],
             equipments[EquipmentType.HYDRAULIC],
