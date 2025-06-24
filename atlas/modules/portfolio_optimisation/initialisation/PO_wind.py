@@ -16,22 +16,6 @@ class POWind:
         self.power_level = {}
         self.price = {}
 
-        # reserve requirements
-        self.afrr_up_procured = {}
-        self.afrr_down_procured = {}
-        self.mfrr_up_procured = {}
-        self.mfrr_down_procured = {}
-        self.rr_up_procured = {}
-        self.rr_down_procured = {}
-        self.fcr_up_procured = {}
-        self.fcr_down_procured = {}
-        self.reserves_up_procured = {}
-        self.reserves_down_procured = {}
-
-        self.feasible_automated_reserves_up_procured = {}
-        self.feasible_automated_reserves_down_procured = {}
-        self.automated_unsupplied_reserves = 0
-
         # reserve variables
         self.reserves_up = {}
         self.reserves_down = {}
@@ -93,15 +77,6 @@ class POWind:
             self.minimum_power[time] = min_power
             self.price[time] = price
 
-            self.afrr_up_procured[time] = afrr_up
-            self.afrr_down_procured[time] = afrr_down
-            self.mfrr_up_procured[time] = mfrr_up
-            self.mfrr_down_procured[time] = mfrr_down
-            self.rr_up_procured[time] = rr_up
-            self.rr_down_procured[time] = rr_down
-            self.fcr_up_procured[time] = fcr_up
-            self.fcr_down_procured[time] = fcr_down
-
             # create optimization variables
             self.power_level[time] = model.add_continuous_variable(
                 name=f"{self.name}_power_level_{idx}",
@@ -109,23 +84,7 @@ class POWind:
                 upper_bound=max_power,
             )
 
-            # Set-up the reserve requirements
-            self.reserves_up_procured[time] = rr_up + mfrr_up
-            self.reserves_down_procured[time] = rr_down + mfrr_down
             self.maximum_automated = self.maximum_afrr + self.maximum_fcr
-
-            self.feasible_automated_reserves_up_procured[time] = min(afrr_up, self.maximum_afrr) + min(
-                fcr_up, self.maximum_fcr
-            )
-            self.feasible_automated_reserves_down_procured[time] = min(afrr_down, self.maximum_afrr) + min(
-                fcr_down, self.maximum_fcr
-            )
-            self.automated_unsupplied_reserves += (
-                max(afrr_up - self.maximum_afrr, 0)
-                + max(fcr_up - self.maximum_fcr, 0)
-                + max(afrr_down - self.maximum_afrr, 0)
-                + max(fcr_down - self.maximum_fcr, 0)
-            )
 
             # Optimisation Variables related to reserves
             self.reserves_up[time] = model.add_continuous_variable(
