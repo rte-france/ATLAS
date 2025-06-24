@@ -178,14 +178,14 @@ class PO_Thermic:
 
         # Free Power Values TimeFrame:
         optimTimeFrame = API.DatetimeIndex.NewIndex(
-            p.start_date, (p.thermal_optimization_period + self.T_traceback), p.time_step_str
+            p.start_date, (p.thermal_optimization_period + self.T_traceback), p.time_step
         )  # Corresponds to [StartDate; EndDate + AddHours]
 
         # Free States TimeFrame:
         stableOptimTimeFrame = API.DatetimeIndex.NewIndex(
             p.start_date.AddMinutes(-p.time_step),
             (p.thermal_optimization_period + self.T_traceback),
-            p.time_step_str,
+            p.time_step,
         )  # Corresponds to [StartDate-1; EndDate + AddHours]
 
         # Exentend Time Frame:
@@ -193,11 +193,11 @@ class PO_Thermic:
             extendedTimeFrame = API.DatetimeIndex.NewIndex(
                 p.start_date.AddMinutes(-self.T_traceback * p.time_step),
                 optimTimeFrame[-1],
-                p.time_step_str,
+                p.time_step,
             )
         else:
             extendedTimeFrame = API.DatetimeIndex.NewIndex(
-                p.start_date.AddMinutes(-p.time_step), optimTimeFrame[-1], p.time_step_str
+                p.start_date.AddMinutes(-p.time_step), optimTimeFrame[-1], p.time_step
             )
         extendedStartDate = extendedTimeFrame[0]
 

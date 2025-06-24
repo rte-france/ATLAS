@@ -74,7 +74,7 @@ class POPortfolio:
         other_non_dispatchable: list[OtherNonDispatchable],
         non_dispatchable_load: list[Load],
         dispatchable_load: list[Load],
-        time_index,
+        idx,
         parameters: PortfolioOptimisationParameters,
         model: OptimisationModel,
     ):
@@ -83,7 +83,7 @@ class POPortfolio:
         global_series_ndp = {}
         global_series_ndl = {}
 
-        for idx, time in enumerate(time_index):
+        for idx, time in enumerate(idx):
             residual_energy_ti = 0
             reserve_up_ti = 0
             reserve_down_ti = 0
@@ -548,7 +548,7 @@ class POPortfolio:
         self.small_imbal_up_limit = max_energy_tot * parameters.small_imbalance_size
         self.small_imbal_down_limit = self.small_imbal_up_limit
 
-        for idx, time in enumerate(time_index):
+        for idx, time in enumerate(idx):
             # create variables at ti
             self.small_imbal_up[time] = model.add_continuous_variable(
                 name=f"{self.name}_small_imbal_up{idx}",

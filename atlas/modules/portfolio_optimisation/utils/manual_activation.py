@@ -138,7 +138,7 @@ def _update_stored_energy(
     """Update stored energy for storage and hydraulic equipment."""
 
     new_stored_energy = Timeseries.from_index(
-        parameters.start_date, parameters.time_step, parameters.end_date, default_value=0
+        parameters.start_date, parameters.timestep, parameters.end_date, default_value=0
     )
 
     initial_stored_energy = _get_initial_stored_energy(equipment, parameters)
@@ -146,7 +146,7 @@ def _update_stored_energy(
 
     for index, time in enumerate(parameters.target_times):
         previous_energy = (
-            initial_stored_energy if index == 0 else new_stored_energy.get_value(time - parameters.time_step)
+            initial_stored_energy if index == 0 else new_stored_energy.get_value(time - parameters.timestep)
         )
 
         new_energy_value = _calculate_new_energy_value(equipment, time, previous_energy, new_power, parameters)
@@ -164,7 +164,7 @@ def _update_stored_energy(
 
     # Add extra timestep for interpolation
     new_stored_energy.set_value(
-        parameters.end_date + parameters.time_step,
+        parameters.end_date + parameters.timestep,
         new_stored_energy.get_value(parameters.end_date),
     )
 
@@ -183,19 +183,19 @@ def _get_initial_stored_energy(equipment: Hydro | Storage, parameters: Portfolio
     if stored_energy_matrix.Index:
         local_stored_energy = stored_energy_matrix.get_forecast(
             parameters.execution_date,
-            parameters.start_date - parameters.time_step,
+            parameters.start_date - parameters.timestep,
             parameters.start_date,
         )
 
-        target_time = parameters.start_date - parameters.time_step
+        target_time = parameters.start_date - parameters.timestep
         if local_stored_energy.first_date() <= target_time:
             return local_stored_energy.get_value(target_time)
 
     # Fallback to initial level calculations
     if isinstance(equipment, Hydro):
-        return equipment.initial_level.get_value(parameters.start_date - parameters.time_step)
+        return equipment.initial_level.get_value(parameters.start_date - parameters.timestep)
     else:
-        max_energy = equipment.maximum_energy.get_value(parameters.start_date - parameters.time_step)
+        max_energy = equipment.maximum_energy.get_value(parameters.start_date - parameters.timestep)
         return equipment.storage_initial_level * max_energy
 
 
@@ -208,13 +208,13 @@ def _calculate_new_energy_value(
 ):
     """Calculate new energy value based on power and efficiency."""
     power_value = new_power.get_value(time)
-    time_factor = parameters.time_step / 60.0
+    time_factor = parameters.timestep / 60.0
 
     if isinstance(equipment, Storage):
         if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
             # Handle capacity scaling for electric vehicles
             capacity_ratio = equipment.maximum_energy.get_value(time) / equipment.maximum_energy.get_value(
-                time - parameters.time_step
+                time - parameters.timestep
             )
             previous_energy *= capacity_ratio
 
@@ -246,10 +246,10 @@ def _apply_energy_bounds(energy_value, bounds, time, parameters):
     min_energy, max_energy = bounds
 
     if energy_value > max_energy:
-        correction = (max_energy - energy_value) * parameters.time_step / 60.0
+        correction = (max_energy - energy_value) * parameters.timestep / 60.0
         return max_energy, correction
     elif energy_value < min_energy:
-        correction = (min_energy - energy_value) * parameters.time_step / 60.0
+        correction = (min_energy - energy_value) * parameters.timestep / 60.0
         return min_energy, correction
     else:
         return energy_value, 0
@@ -276,7 +276,7 @@ def _finalize_power_update(
 ):
     """Finalize power update by adding extra timestep and updating equipment."""
     # Add extra timestep for interpolation
-    next_time = parameters.end_date + parameters.time_step
+    next_time = parameters.end_date + parameters.timestep
     next_power_value = equipment.power.get_forecast(parameters.execution_date, next_time, next_time).get_value(
         next_time
     )

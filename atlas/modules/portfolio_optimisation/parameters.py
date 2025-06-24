@@ -130,7 +130,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
     )
     solver_timeout: int = Field(240, description="Timeout (in seconds) of the optimization.")
     thermal_additional_hours: int = Field(12, description="Optimization period in hours for thermal group.")
-    time_step: Duration = Field("H", description="Time step (in minutes) of the simulated market.")
+    timestep: Duration = Field("H", description="Time step (in minutes) of the simulated market.")
     _excluded_market_areas: str | None = Field(
         None,
         description='list of market areas (separated by ";") excluded from classic optimization. None and "all" are possible values.',
@@ -162,12 +162,12 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def target_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period."""
-        return generate_datetimes(self.start_date, self.end_date, self.time_step)
+        return generate_datetimes(self.start_date, self.end_date, self.timestep)
 
     @property
     def original_end_date(self) -> DateTime:
         """Original end date before time step adjustment."""
-        return self.end_date + self.time_step
+        return self.end_date + self.timestep
 
     @property
     def excluded_market_areas(self) -> list[str]:
@@ -202,44 +202,44 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def adjusted_end_date(self) -> DateTime:
         """End date adjusted by subtracting one time step."""
-        return self.end_date.subtract(minutes=self.time_step)
+        return self.end_date.subtract(minutes=self.timestep)
 
     @property
     def op_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period (with additional hours)."""
         end = self.adjusted_end_date.add(minutes=self.additional_hours * 60)
-        return generate_datetimes(self.start_date, end, self.time_step)
+        return generate_datetimes(self.start_date, end, self.timestep)
 
     @property
     def thermal_optimization_period(self) -> int:
-        return len(self.target_times) + int(self.thermal_additional_hours * 60.0 / self.time_step)
+        return len(self.target_times) + int(self.thermal_additional_hours * 60.0 / self.timestep)
 
     @property
     def thermal_op_times(self) -> list[DateTime]:
         end = self.adjusted_end_date + self.thermal_additional_hours
-        return generate_datetimes(self.start_date, end, self.time_step)
+        return generate_datetimes(self.start_date, end, self.timestep)
 
     @property
     def hydraulic_op_times(self) -> list[DateTime]:
         end = self.adjusted_end_date + self.hydraulic_additional_hours
-        return generate_datetimes(self.start_date, end, self.time_step)
+        return generate_datetimes(self.start_date, end, self.timestep)
 
     @property
     def battery_op_times(self) -> list[DateTime]:
         end = self.adjusted_end_date + self.battery_additional_hours
-        return generate_datetimes(self.start_date, end, self.time_step)
+        return generate_datetimes(self.start_date, end, self.timestep)
 
     @property
     def phs_op_times(self) -> list[DateTime]:
         end = self.adjusted_end_date + self.pumped_hydraulic_storage_additional_hours
-        return generate_datetimes(self.start_date, end, self.time_step)
+        return generate_datetimes(self.start_date, end, self.timestep)
 
     @property
     def ev_op_times(self) -> list[DateTime]:
         end = self.adjusted_end_date + self.electric_vehicle_additional_hours
-        return generate_datetimes(self.start_date, end, self.time_step)
+        return generate_datetimes(self.start_date, end, self.timestep)
 
     @property
     def init_battery_time(self) -> DateTime:
-        """Datetime for the initial battery state (start_date - time_step)."""
-        return self.start_date.subtract(minutes=self.time_step)
+        """Datetime for the initial battery state (start_date - timestep)."""
+        return self.start_date.subtract(minutes=self.timestep)

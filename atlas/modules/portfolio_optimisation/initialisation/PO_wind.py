@@ -1,5 +1,3 @@
-import API
-
 from atlas.models.equipment.wind import Wind
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
@@ -46,7 +44,7 @@ class POWind:
         self.maximum_fcr = wind_object.maximum_fcr
 
         # get global matrix power
-        t0_minus_delta_t = API.datetime_index.shift(parameters.target_times, "-" + parameters.time_step_str)[0]
+        t0_minus_delta_t = parameters.target_times - parameters.timestep
         power = wind_object.power.get_forecast(parameters.execution_date, t0_minus_delta_t, parameters.start_date)
         if power is None:
             power = wind_object.final_prog

@@ -912,5 +912,5 @@ class Timeseries:
         :rtype: DateTime or None
         """
         if len(self.timeseries) > 0:
-            return self.timeseries.select("time").to_series().to_list()[0]
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").to_series().to_list()[0]))
         return None

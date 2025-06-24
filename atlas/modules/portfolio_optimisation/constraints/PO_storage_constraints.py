@@ -35,7 +35,7 @@ def get_variables_and_constraints_storage(
     - parameters: parameters object
     """
     # Preload useful variables to avoid excessive call to functions or method
-    prev_time = time - parameters.time_step
+    prev_time = time - parameters.timestep
 
     for obj in storage_equipments:
         # Avoid equipments that have a maximum_energy of 0 (meaning that they are offline)
@@ -69,10 +69,7 @@ def get_variables_and_constraints_storage(
         # However, these values are not computed in ATLAS. To avoid weird arbitrages in the optim,
         # the variable cost of the unit is then set to the price of the studied market
         model.add_objective(
-            price_forecast[time]
-            * (obj.power_level_buy[time] + obj.power_level_sell[time])
-            * parameters.time_step
-            / 60.0
+            price_forecast[time] * (obj.power_level_buy[time] + obj.power_level_sell[time]) * parameters.timestep / 60.0
         )
 
         # For additional period
@@ -202,8 +199,8 @@ def get_variables_and_constraints_storage(
             model.add_constraint(
                 obj.stored_energy[time]
                 == obj.initial_stock * (obj.maximum_energy[time] / obj.maximum_energy[prev_time])
-                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.time_step / 60.0
-                - obj.power_level_sell[time] * parameters.time_step / (60.0 * obj.discharge_efficiency)
+                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.timestep / 60.0
+                - obj.power_level_sell[time] * parameters.timestep / (60.0 * obj.discharge_efficiency)
                 + (obj.displacement_energy[time] - obj.displacement_energy[prev_time])
             )
 
@@ -215,8 +212,8 @@ def get_variables_and_constraints_storage(
             model.add_constraint(
                 obj.stored_energy[time]
                 == obj.stored_energy[prev_time] * (obj.maximum_energy[time] / obj.maximum_energy[prev_time])
-                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.time_step / 60.0
-                - obj.power_level_sell[time] * parameters.time_step / (60.0 * obj.discharge_efficiency)
+                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.timestep / 60.0
+                - obj.power_level_sell[time] * parameters.timestep / (60.0 * obj.discharge_efficiency)
                 + (obj.displacement_energy[time] - obj.displacement_energy[prev_time])
             )
 

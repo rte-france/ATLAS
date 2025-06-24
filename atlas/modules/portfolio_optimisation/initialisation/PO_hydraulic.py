@@ -70,37 +70,37 @@ class POHydraulic:
             (
                 self.stored_energy_matrix.get_forecast(
                     parameters.execution_date,
-                    parameters.start_date - parameters.time_step,
+                    parameters.start_date - parameters.timestep,
                     parameters.end_date,
                 )
             )
             == 0
         ):
             self.initial_level = hydro_object.initial_level.filter(
-                parameters.start_date - parameters.time_step, parameters.end_date
+                parameters.start_date - parameters.timestep, parameters.end_date
             )
         else:
             if (
                 self.stored_energy_matrix.get_forecast(
                     parameters.execution_date,
-                    parameters.start_date - parameters.time_step,
+                    parameters.start_date - parameters.timestep,
                     parameters.end_date,
                 ).first_date()
                 < parameters.start_date
             ):
                 self.initial_level = self.stored_energy_matrix.get_forecast(
                     parameters.execution_date,
-                    parameters.start_date - parameters.time_step,
+                    parameters.start_date - parameters.timestep,
                     parameters.end_date,
                 )
 
             else:
                 self.initial_level = hydro_object.initial_level.filter(
-                    parameters.start_date - parameters.time_step, parameters.end_date
+                    parameters.start_date - parameters.timestep, parameters.end_date
                 )
 
         # get global matrix power
-        t0_minus_delta_t = parameters.hydraulic_op_times[0] - parameters.time_step_str
+        t0_minus_delta_t = parameters.hydraulic_op_times[0] - parameters.timestep
         power = hydro_object.power.get_forecast(parameters.execution_date, t0_minus_delta_t, parameters.start_date)
         if power is None:
             power = hydro_object.FinalProg
@@ -211,14 +211,14 @@ class POHydraulic:
 
         energy_forecast = self.stored_energy_matrix.get_forecast(
             parameters.execution_date,
-            parameters.start_date - parameters.time_step,
-            parameters.start_date - parameters.time_step,
+            parameters.start_date - parameters.timestep,
+            parameters.start_date - parameters.timestep,
         )
 
         if len(energy_forecast) > 0:
-            energy_level = energy_forecast.get_value(parameters.start_date - parameters.time_step)
+            energy_level = energy_forecast.get_value(parameters.start_date - parameters.timestep)
         else:
-            energy_level = self.initial_level.get_value(parameters.start_date - parameters.time_step)
+            energy_level = self.initial_level.get_value(parameters.start_date - parameters.timestep)
 
         x_min = filter(lambda x: int(x) <= energy_level, self.storage_marginal_value.Index)
         x_max = filter(lambda x: int(x) > energy_level, self.storage_marginal_value.Index)

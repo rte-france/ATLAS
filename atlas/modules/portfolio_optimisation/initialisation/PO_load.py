@@ -1,8 +1,7 @@
-import API
-
 from atlas.enum import LoadType
 from atlas.models.equipment.load import Load
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 
 class POLoad:
@@ -38,20 +37,17 @@ class POLoad:
 
         self.load_type: LoadType | None = None
 
-    def fill_model(self, load_object: Load, parameters: PortfolioOptimisationParameters):
+    def fill_model(self, load_object: Load, parameters: PortfolioOptimisationParameters, model: OptimisationModel):
         self.maximum_afrr = load_object.maximum_afrr
         self.maximum_fcr = load_object.maximum_fcr
         self.load_type = load_object.load_type
 
-        t0_minus_delta_t = parameters.target_times[0] - parameters.time_step_str
+        t0_minus_delta_t = parameters.target_times[0] - parameters.timestep
         power = load_object.power.get_forecast(parameters.execution_date, t0_minus_delta_t, parameters.start_date)
         if power is None:
             power = load_object.FinalProg
 
-        # The following power level should be from last forecast of power matrix, it is final prog for test
-        # self.power_level_prev = get_time_series_value(power, t0_minus_delta_t)
-
-        for time_index, time in enumerate(parameters.target_times):
+        for idx, time in enumerate(parameters.target_times):
             max_power = load_object.maximum_power_forecast.get_forecast(
                 parameters.execution_date, time, time
             ).get_value(time)
@@ -65,11 +61,10 @@ class POLoad:
             self.minimum_power[time] = min_power
             self.price[time] = price
 
-            self.power_level[time] = API.Solver.NewOpVariable(
-                f"{self.name}_power_level_{time_index}",
-                max_power,
-                min_power,
-                API.Solver.OpCategoryReal,
+            model.add_continuous_variable(
+                f"{self.name}_power_level_{idx}",
+                lower_bound=min_power,
+                upper_bound=max_power,
             )
 
             self.maximum_automated = self.maximum_afrr + self.maximum_fcr

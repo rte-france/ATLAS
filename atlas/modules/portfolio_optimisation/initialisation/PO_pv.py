@@ -1,5 +1,3 @@
-import API
-
 from atlas.models.equipment.solar import Solar
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
@@ -46,7 +44,7 @@ class POPV:
         self.maximum_fcr = solar_object.maximum_fcr
 
         # get global matrix power
-        t0_minus_delta_t = API.datetime_index.shift(parameters.target_times, "-" + parameters.time_step_str)[0]
+        t0_minus_delta_t = parameters.target_times - parameters.timestep
         power = solar_object.power.get_forecast(parameters.execution_date, t0_minus_delta_t, parameters.start_date)
         if power is None:
             power = solar_object.final_prog

@@ -105,7 +105,7 @@ class POStorage:
             == 0
         ):
             self.initial_stock = storage_object.maximum_energy.get_value(
-                (parameters.start_date - parameters.time_step) * storage_object.storage_initial_level,
+                (parameters.start_date - parameters.timestep) * storage_object.storage_initial_level,
             )
 
         else:
@@ -134,16 +134,16 @@ class POStorage:
             self.minimum_power[time] = min_power
 
             if idx == 0:
-                self.maximum_energy[time.add_minutes(-parameters.time_step)] = storage_object.maximum_energy.get_value(
-                    time - parameters.time_step
+                self.maximum_energy[time.add_minutes(-parameters.timestep)] = storage_object.maximum_energy.get_value(
+                    time - parameters.timestep
                 )
 
-                self.minimum_state_of_charge[time - parameters.time_step] = (
-                    storage_object.minimum_state_of_charge.get_value(time - parameters.time_step)
+                self.minimum_state_of_charge[time - parameters.timestep] = (
+                    storage_object.minimum_state_of_charge.get_value(time - parameters.timestep)
                 )
 
-                self.displacement_energy[time - parameters.time_step] = storage_object.displacement_energy.get_value(
-                    time - parameters.time_step
+                self.displacement_energy[time - parameters.timestep] = storage_object.displacement_energy.get_value(
+                    time - parameters.timestep
                 )
 
             self.maximum_energy[time] = max_stock

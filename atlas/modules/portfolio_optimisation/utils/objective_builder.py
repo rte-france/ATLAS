@@ -31,7 +31,7 @@ class ObjectiveFunctionBuilder:
 
     def _get_imbalance_cost_terms(self, model: OptimisationModel, portfolio: Portfolio, time) -> list[Any]:
         """Get imbalance cost terms as OR-Tools expressions."""
-        time_factor = self.parameters.time_step / 60.0
+        time_factor = self.parameters.timestep / 60.0
         terms = []
 
         # Get variables from portfolio (these would need to be OR-Tools variables)
@@ -58,7 +58,7 @@ class ObjectiveFunctionBuilder:
 
     def _get_reserve_penalty_terms(self, model: OptimisationModel, portfolio: Portfolio, time: DateTime) -> list[Any]:
         """Get reserve penalty terms as OR-Tools expressions."""
-        time_factor = self.parameters.time_step / 60.0
+        time_factor = self.parameters.timestep / 60.0
         terms = []
 
         contracted_diff_up = model.get_variable(f"contracted_diff_up_{time}")
