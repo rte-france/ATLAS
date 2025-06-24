@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import cast
+
 import atlas.config as cfg
 from atlas.enum import LoadType, SolverStatus
 from atlas.models.equipment.equipment import Equipment
@@ -56,32 +58,27 @@ class OptimalPlacementOptimizer:
 
     def _collect_equipment(self, input_dataset: PortfolioOptimisationInputDataset):
         """Collect and classify all equipment."""
-        # Collect thermic equipment
+        self._collect_equipment_thermal(input_dataset)
+        self._collect_equipment_by_type(input_dataset, "hydro")
+        self._collect_equipment_by_type(input_dataset, "storage")
+        self._collect_load_equipment(input_dataset)
+        self._collect_equipment_by_type(input_dataset, "wind")
+        self._collect_equipment_by_type(input_dataset, "solar")
+        self._collect_equipment_by_type(input_dataset, "other_non_dispatchable")
+
+    def _collect_equipment_thermal(self, input_dataset: PortfolioOptimisationInputDataset):
         for equipment in input_dataset.thermal:
-            if self.equipment_classifier.should_manually_activate(equipment):
+            if should_manually_activate(equipment):
                 set_manual_activation([equipment], self.parameters)
             elif self.parameters.is_portfolio_bidding:
                 self.equipments["thermal"].append(equipment)
             else:
-                self._optimize_single_equipment(input_dataset, equipment, EquipmentType.THERMIC)
+                self._optimize_single_equipment(input_dataset, equipment, "thermal")
 
-        # Collect other equipment types
-        self._collect_equipment_by_type(input_dataset, "Hydraulic", EquipmentType.HYDRAULIC)
-        self._collect_equipment_by_type(input_dataset, "Storage", EquipmentType.STORAGE)
-        self._collect_load_equipment(input_dataset)
-        self._collect_equipment_by_type(input_dataset, "Wind", EquipmentType.WIND)
-        self._collect_equipment_by_type(input_dataset, "Photovoltaic", EquipmentType.PHOTOVOLTAIC)
-        self._collect_equipment_by_type(
-            input_dataset, "OtherNonDispatchable", EquipmentType.NON_DISPATCHABLE_PRODUCTION
-        )
-
-    def _collect_equipment_by_type(
-        self, input_dataset: PortfolioOptimisationInputDataset, marker_attr: str, equipment_type: str
-    ):
+    def _collect_equipment_by_type(self, input_dataset: PortfolioOptimisationInputDataset, equipment_type: str):
         """Generic method to collect equipment by type."""
-        marker_collection = getattr(input_dataset, marker_attr)
 
-        for equipment in marker_collection.GetAllInstances():
+        for equipment in cast(list[type[Equipment]], getattr(input_dataset, equipment_type)):
             if should_manually_activate(equipment):
                 set_manual_activation([equipment], self.parameters)
             elif self.parameters.is_portfolio_bidding:
@@ -94,15 +91,13 @@ class OptimalPlacementOptimizer:
             if should_manually_activate(equipment):
                 set_manual_activation([equipment], self.parameters)
             elif self.parameters.is_portfolio_bidding:
-                if equipment.load_type in [LoadType.POWER_TO_GAS, LoadType.BASE_LOAD]:
+                if equipment.load_type == LoadType.POWER_TO_GAS:
                     self.equipments["dispatchable_load"].append(equipment)
                 else:
                     self.equipments["non_dispatchable_load"].append(equipment)
             else:
                 equipment_type = (
-                    "dispatchable_load"
-                    if equipment.LoadType in [LoadType.POWER_TO_GAS, LoadType.BASE_LOAD]
-                    else "non_dispatchable_load"
+                    "dispatchable_load" if equipment.LoadType == LoadType.POWER_TO_GAS else "non_dispatchable_load"
                 )
                 self._optimize_single_equipment(input_dataset, equipment, equipment_type)
 
