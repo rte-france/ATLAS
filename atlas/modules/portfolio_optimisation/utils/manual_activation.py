@@ -88,7 +88,7 @@ def _apply_power_constraints(
             parameters.execution_date, parameters.start_date, parameters.end_date
         )
 
-    for time in new_power.Index:
+    for time in new_power.index:
         power_value = new_power.get_value(time)
 
         max_power = _get_max_power(equipment, time, max_power_forecast)
@@ -170,17 +170,17 @@ def _update_stored_energy(
 
     # Update equipment stored energy
     if not parameters.use_forecast:
-        stored_energy_matrix = equipment.StoredEnergy
-        if parameters.execution_date in stored_energy_matrix.Index:
-            equipment.StoredEnergy.DeleteTimeSeries(parameters.execution_date)
-        equipment.StoredEnergy.AddTimeSeries(parameters.execution_date, new_stored_energy)
+        stored_energy_matrix = equipment.stored_energy
+        if parameters.execution_date in stored_energy_matrix.index:
+            equipment.stored_energy.delete(parameters.execution_date)
+        equipment.stored_energy.add(parameters.execution_date, new_stored_energy)
 
 
 def _get_initial_stored_energy(equipment: Hydro | Storage, parameters: PortfolioOptimisationParameters):
     """Get initial stored energy level for equipment."""
     stored_energy_matrix = equipment.stored_energy
 
-    if stored_energy_matrix.Index:
+    if stored_energy_matrix.index:
         local_stored_energy = stored_energy_matrix.get_forecast(
             parameters.execution_date,
             parameters.start_date - parameters.timestep,
@@ -262,9 +262,9 @@ def _apply_power_corrections(equipment: type[Equipment], new_power: Timeseries, 
 
         if isinstance(equipment, Storage):
             if current_power > 0:  # Discharging
-                corrected_power = current_power - correction * equipment.DischargeEfficiency
+                corrected_power = current_power - correction * equipment.discharge_efficiency
             else:  # Charging
-                corrected_power = current_power - correction / equipment.ChargeEfficiency
+                corrected_power = current_power - correction / equipment.charge_efficiency
         else:  # Hydraulic
             corrected_power = current_power - correction
 
