@@ -42,11 +42,11 @@ def get_variables_and_constraints_storage(
         if max(obj.maximum_energy.values()) <= 0:
             continue
 
-        if obj.storage_type == "battery":
+        if obj.storage_type == StorageType.BATTERY:
             local_op_times = parameters.battery_op_times
-        elif obj.storage_type == "pumped_hydraulic_storage":
+        elif obj.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
             local_op_times = parameters.phs_op_times
-        elif obj.storage_type == "electric_vehicle":
+        elif obj.storage_type == StorageType.ELECTRIC_VEHICLE:
             local_op_times = parameters.ev_op_times
         if time not in local_op_times:
             continue
@@ -139,7 +139,7 @@ def get_variables_and_constraints_storage(
         # The power delivered by the equipment is between its maximum power and its minimum power
         # FC: I modify the following, it seems to me that there are confusions between power and energy in some constraints
 
-        if obj.storage_type == "battery" or obj.storage_type == "pumped_hydraulic_storage":
+        if obj.storage_type == StorageType.BATTERY or obj.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
             reserve_stored_energy_down_ti = obj.reserves_down[time] * (
                 parameters.battery_reserve_duration / 60.0
             ) + obj.automated_reserves_down[time] * (parameters.automated_battery_reserve_duration / 60.0)
@@ -169,7 +169,7 @@ def get_variables_and_constraints_storage(
                 obj.power_level_buy[time] >= min_power_ti * 1 / obj.charge_efficiency * (1 - obj.is_sell[time])
             )
 
-        if obj.storage_type == "electric_vehicle":
+        if obj.storage_type == StorageType.ELECTRIC_VEHICLE:
             reserve_stored_energy_down_ti = obj.reserves_down[time] * (
                 parameters.battery_reserve_duration / 60.0
             ) + obj.automated_reserves_down[time] * (parameters.automated_battery_reserve_duration / 60.0)

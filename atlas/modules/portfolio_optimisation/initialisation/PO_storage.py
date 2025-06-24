@@ -74,11 +74,11 @@ class POStorage:
         model: OptimisationModel,
     ):
         # Retrieve the optimization time frame
-        if storage_object.storage_type == "Battery":
+        if storage_object.storage_type == StorageType.BATTERY:
             op_time_frame = parameters.battery_op_times
-        elif storage_object.storage_type == "PumpedHydraulicStorage":
+        elif storage_object.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
             op_time_frame = parameters.phs_op_times
-        elif storage_object.storage_type == "ElectricVehicle":
+        elif storage_object.storage_type == StorageType.ELECTRIC_VEHICLE:
             op_time_frame = parameters.ev_op_times
 
         # get data from optimate equipment
@@ -171,6 +171,7 @@ class POStorage:
                 lower_bound=min_soc * max_stock,
                 upper_bound=max_stock,
             )
+
             self.maximum_automated = self.maximum_afrr + self.maximum_fcr
 
             if self.storage_type == StorageType.BATTERY:
