@@ -35,7 +35,7 @@ class OptimalPlacementOptimizer:
         self.constraint_builder = ConstraintBuilder(parameters)
         self.output_manager = OutputManager(parameters)
 
-    def optimize(self, input_dataset) -> list[str]:
+    def optimize(self, input_dataset: PortfolioOptimisationInputDataset) -> list[str]:
         """
         Main optimization method.
 
@@ -47,7 +47,6 @@ class OptimalPlacementOptimizer:
         """
         cfg.logger.info("Starting optimal placement optimization")
 
-        # Collect equipment by type
         self._collect_equipment(input_dataset)
 
         # Perform optimization based on mode

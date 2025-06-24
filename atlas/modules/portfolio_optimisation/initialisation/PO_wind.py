@@ -60,19 +60,6 @@ class POWind:
 
             price = wind_object.variable_cost.get_value(time)
 
-            afrr_up = wind_object.afrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            afrr_down = wind_object.afrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            mfrr_up = wind_object.mfrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            mfrr_down = wind_object.mfrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            rr_up = wind_object.rr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            rr_down = wind_object.rr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            fcr_up = wind_object.fcr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            fcr_down = wind_object.fcr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-
             self.maximum_power[time] = max_power
             self.minimum_power[time] = min_power
             self.price[time] = price

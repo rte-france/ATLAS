@@ -1,5 +1,3 @@
-import API
-
 from atlas.enum import StorageType
 from atlas.models.equipment.storage import Storage
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -100,7 +98,7 @@ class POStorage:
             len(
                 storage_object.stored_energy.get_forecast(
                     parameters.execution_date,
-                    parameters.init_battery_time.subtract(days=-2),
+                    parameters.init_battery_time.subtract(days=2),
                     parameters.init_battery_time,
                 )
             )
@@ -117,10 +115,6 @@ class POStorage:
                 parameters.init_battery_time,
             )[0]
 
-        if parameters.debug:
-            msg = f"The initial energy storage level is : {self.initial_stock} MWh"
-            API.io.trace.log(msg, API.io.log_type_info)
-
         self.is_v2g = storage_object.is_v2g
         self.charge_efficiency = storage_object.charge_efficiency
         self.discharge_efficiency = storage_object.discharge_efficiency
@@ -135,27 +129,6 @@ class POStorage:
             max_stock = storage_object.maximum_energy.get_value(time)
             min_soc = storage_object.minimum_state_of_charge.get_value(time)
             disp_en = storage_object.displacement_energy.get_value(time)
-
-            afrr_up = storage_object.afrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            afrr_down = storage_object.afrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            mfrr_up = storage_object.mfrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            mfrr_down = storage_object.mfrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            rr_up = storage_object.rr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            rr_down = storage_object.rr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            fcr_up = storage_object.fcr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            fcr_down = storage_object.fcr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
 
             self.maximum_power[time] = max_power
             self.minimum_power[time] = min_power
@@ -177,27 +150,27 @@ class POStorage:
             self.minimum_state_of_charge[time] = min_soc
             self.displacement_energy[time] = disp_en
 
-            # Create variables at time
-            self.power_level_sell[time] = API.solver.new_op_variable(
-                f"{self.name}_power_level_sell_{idx}",
-                0,
-                max_power,
-                API.solver.op_category_real,
-            )
-            self.power_level_buy[time] = API.solver.new_op_variable(
-                f"{self.name}_power_level_buy_{idx}",
-                min_power,
-                0,
-                API.solver.op_category_real,
-            )
-            self.is_sell[time] = API.solver.new_op_variable(f"{self.name}_is_sell_{idx}", API.solver.op_category_binary)
-            self.stored_energy[time] = API.solver.new_op_variable(
-                f"{self.name}_stored_energy_{idx}",
-                min_soc * max_stock,
-                max_stock,
-                API.solver.op_category_real,
+            model.add_continuous_variable(
+                name=f"{self.name}_power_level_sell_{idx}",
+                lower_bound=0,
+                upper_bound=max_power,
             )
 
+            model.add_continuous_variable(
+                name=f"{self.name}_power_level_buy_{idx}",
+                lower_bound=min_power,
+                upper_bound=0,
+            )
+
+            model.add_boolean_variable(
+                name=f"{self.name}_is_sell_{idx}",
+            )
+
+            model.add_continuous_variable(
+                name=f"{self.name}_stored_energy_{idx}",
+                lower_bound=min_soc * max_stock,
+                upper_bound=max_stock,
+            )
             self.maximum_automated = self.maximum_afrr + self.maximum_fcr
 
             if self.storage_type == StorageType.BATTERY:

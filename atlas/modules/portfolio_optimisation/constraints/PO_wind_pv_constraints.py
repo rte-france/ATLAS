@@ -1,56 +1,66 @@
-# coding: utf-8
+from pendulum import DateTime
+
+from atlas.models.equipment.solar import Solar
+from atlas.models.equipment.wind import Wind
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 
-def GetVariablesAndConstraints_wind_pv(
-    time,
-    equipments_wind_pv,
-    objFunction,
-    constraintList,
+def get_variables_and_constraints_wind_pv(
+    time: DateTime,
+    equipments: list[Wind | Solar],
+    model: OptimisationModel,
     sum_power_level,
-    reserveUpti,
-    reserveDownti,
-    automatedReserveUpti,
-    automatedReserveDownti,
-    priceForecast,
-    p,
+    reserve_up_ti,
+    reserve_down_ti,
+    automated_reserve_up_ti,
+    automated_reserve_down_ti,
+    parameters: PortfolioOptimisationParameters,
 ):
     """
     This function formulates the wind and photovoltaic equipments orders.
 
     Arguments:
-    - 'equipments_wind_pv': a list of wind or photovoltaic equipments
-    - `InputMarker`: an input marker
-    - `outputMarker`: an output marker
-    - `orders_time`: a list of dates at which orders must be formulated.
+    - time: current time step
+    - equipments: dictionary of wind or photovoltaic equipments
+    - obj_function: objective function to optimize
+    - constraint_list: list of constraints
+    - sum_power_level: sum of power levels
+    - reserve_up_ti: upward reserves at time t
+    - reserve_down_ti: downward reserves at time t
+    - automated_reserve_up_ti: automated upward reserves at time t
+    - automated_reserve_down_ti: automated downward reserves at time t
+    - price_forecast: price forecast data
+    - parameters: parameters object
     """
 
-    for equipment_name, equipment_wind_pvj in equipments_wind_pv.items():
-        if time in p.target_times:
-            # That part chek if those opti variable are usefull
+    for obj in equipments:
+        if time in parameters.target_times:
+            # Check if those optimization variables are useful
 
-            reserveUpti.Add(equipment_wind_pvj.reservesUp[time])
-            reserveDownti.Add(equipment_wind_pvj.reservesDown[time])
-            # automatedContractedDifference
-            automatedReserveUpti.Add(equipment_wind_pvj.automatedReservesUp[time])
-            automatedReserveDownti.Add(equipment_wind_pvj.automatedReservesDown[time])
+            reserve_up_ti.add(obj.reserves_up[time])
+            reserve_down_ti.add(obj.reserves_down[time])
+            # automated_contracted_difference
+            automated_reserve_up_ti.add(obj.automated_reserves_up[time])
+            automated_reserve_down_ti.add(obj.automated_reserves_down[time])
 
-            maxPowerti = equipment_wind_pvj.MaximumPower[time]
-            minPowerti = equipment_wind_pvj.MinimumPower[time]
+            max_power_ti = obj.maximum_power[time]
+            min_power_ti = obj.minimum_power[time]
 
             # Objective function
-            objFunction.Add(equipment_wind_pvj.Price[time] * equipment_wind_pvj.PowerLevel[time] * p.time_step / 60.0)
+            model.add_objective(obj.price[time] * obj.power_level[time] * parameters.time_step / 60.0)
 
             # Maximum and Minimum Power
-            constraintList.Add(equipment_wind_pvj.PowerLevel[time] <= maxPowerti)
-            constraintList.Add(equipment_wind_pvj.PowerLevel[time] >= minPowerti)
+            model.add_constraint(obj.power_level[time] <= max_power_ti)
+            model.add_constraint(obj.power_level[time] >= min_power_ti)
 
-            # relaxedReserve disabling condition (eq. (43))
-            # constraintList.Add(equipment_wind_pvj.relaxedReserves[time] <= minPowerti)
+            # relaxed_reserve disabling condition (eq. (43))
+            # model.add_constraint(obj.relaxed_reserves[time] <= min_power_ti)
 
-            # impossible commitment and stable reserves constraints (eq. (44))
-            constraintList.Add(equipment_wind_pvj.automatedReservesUp[time] <= equipment_wind_pvj.maximumAutomated)
-            constraintList.Add(equipment_wind_pvj.automatedReservesDown[time] <= equipment_wind_pvj.maximumAutomated)
-            constraintList.Add(equipment_wind_pvj.reservesUp[time] <= maxPowerti)
-            constraintList.Add(equipment_wind_pvj.reservesDown[time] <= maxPowerti)
+            # Impossible commitment and stable reserves constraints (eq. (44))
+            model.add_constraint(obj.automated_reserves_up[time] <= obj.maximum_automated)
+            model.add_constraint(obj.automated_reserves_down[time] <= obj.maximum_automated)
+            model.add_constraint(obj.reserves_up[time] <= max_power_ti)
+            model.add_constraint(obj.reserves_down[time] <= max_power_ti)
 
-            sum_power_level.Add(equipment_wind_pvj.PowerLevel[time])
+            sum_power_level.add(obj.power_level[time])

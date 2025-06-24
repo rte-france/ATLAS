@@ -61,21 +61,6 @@ class POPV:
 
             price = solar_object.variable_cost.get_value(time)
 
-            afrr_up = solar_object.afrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            afrr_down = solar_object.afrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            mfrr_up = solar_object.mfrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            mfrr_down = solar_object.mfrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            rr_up = solar_object.rr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            rr_down = solar_object.rr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            fcr_up = solar_object.fcr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            fcr_down = solar_object.fcr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-
             self.maximum_power[time] = max_power
             self.minimum_power[time] = min_power
             self.price[time] = price

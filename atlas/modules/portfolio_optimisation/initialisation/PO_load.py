@@ -62,20 +62,6 @@ class POLoad:
             # Get variable cost
             price = load_object.variable_cost.get_value(time)
 
-            # Get procured reserves
-            afrr_up = load_object.afrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            afrr_down = load_object.afrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            mfrr_up = load_object.mfrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            mfrr_down = load_object.mfrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            rr_up = load_object.rr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            rr_down = load_object.rr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            fcr_up = load_object.fcr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            fcr_down = load_object.fcr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-
             self.maximum_power[time] = max_power
             self.minimum_power[time] = min_power
             self.price[time] = price

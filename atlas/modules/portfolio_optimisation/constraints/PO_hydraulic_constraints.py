@@ -1,98 +1,103 @@
-# coding: utf-8
+from pendulum import DateTime
 
-import API
+from atlas.models.equipment.hydro import Hydro
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 
-def GetVariablesAndConstraints_Hydraulics(
-    time,
-    equipments_DH,
-    objFunction,
-    constraintList,
+def get_variables_and_constraints_hydraulics(
+    time: DateTime,
+    hydro_equipments: list[Hydro],
+    model: OptimisationModel,
     sum_power_level,
-    reserveUpti,
-    reserveDownti,
-    automatedReserveUpti,
-    automatedReserveDownti,
-    priceForecast,
-    p,
+    reserve_up_ti,
+    reserve_down_ti,
+    automated_reserve_up_ti,
+    automated_reserve_down_ti,
+    price_forecast,
+    parameters: PortfolioOptimisationParameters,
 ):
     """
     This function formulates the hydraulic reservoir offers.
 
     Arguments:
-    - `InputMarker`: an input marker
-    - `outputMarker`: an output marker
-    - `orders_time`: a list of dates at which orders must be formulated.
+    - time: current time step
+    - hydro_equipments: dictionary of hydraulic equipment
+    - obj_function: objective function to optimize
+    - constraint_list: list of constraints
+    - sum_power_level: sum of power levels
+    - reserve_up_ti: upward reserves at time t
+    - reserve_down_ti: downward reserves at time t
+    - automated_reserve_up_ti: automated upward reserves at time t
+    - automated_reserve_down_ti: automated downward reserves at time t
+    - price_forecast: price forecast data
+    - parameters: parameters object
     """
 
-    for equipment_name, PO_DHj in equipments_DH.items():
-        # That part chek if those opti variable are usefull
-        # contractedDifference
-        reserveUpti.Add(PO_DHj.reservesUp[time])
-        reserveDownti.Add(PO_DHj.reservesDown[time])
-        # automatedContractedDifference
-        automatedReserveUpti.Add(PO_DHj.automatedReservesUp[time])
-        automatedReserveDownti.Add(PO_DHj.automatedReservesDown[time])
+    for obj in hydro_equipments:
+        # Check if those optimization variables are useful
+        # contracted_difference
+        reserve_up_ti.add(obj.reserves_up[time])
+        reserve_down_ti.add(obj.reserves_down[time])
+        # automated_contracted_difference
+        automated_reserve_up_ti.add(obj.automated_reserves_up[time])
+        automated_reserve_down_ti.add(obj.automated_reserves_down[time])
 
         # --- Objective function
-        for k in range(0, len(PO_DHj.PowerLevelFragment.keys())):
-            if time in p.target_times:
-                # create an offer for each element in volumes
-                # Add objective function for the specif fragment
-                objFunction.Add(PO_DHj.PriceFragment[k][time] * PO_DHj.PowerLevelFragment[k][time] * p.time_step / 60.0)
-                sum_power_level.Add(PO_DHj.PowerLevelFragment[k][time])
+        for k in range(0, len(obj.power_level_fragment.keys())):
+            if time in parameters.target_times:
+                # Create an offer for each element in volumes
+                # Add objective function for the specific fragment
+                model.add_objective(
+                    obj.price_fragment[k][time] * obj.power_level_fragment[k][time] * parameters.time_step / 60.0
+                )
+                sum_power_level.add(obj.power_level_fragment[k][time])
 
             else:
-                objFunction.Add(
-                    -(priceForecast[time] - PO_DHj.PriceFragment[k][time])
-                    * PO_DHj.PowerLevelFragment[k][time]
-                    * p.time_step
+                model.add_objective(
+                    -(price_forecast[time] - obj.price_fragment[k][time])
+                    * obj.power_level_fragment[k][time]
+                    * parameters.time_step
                     / 60.0
                 )
 
-                # FC : La suite est pas necessaire ?
-                sum_power_level.Add(PO_DHj.PowerLevelFragment[k][time])
+                # FC: Is the following part necessary?
+                sum_power_level.add(obj.power_level_fragment[k][time])
 
         # --- Reserves constraints
 
-        # relaxedReserve disabling condition (eq. (43))
-        if time in p.hydraulic_op_times:
-            constraintList.Add(PO_DHj.relaxedReserves[time] <= PO_DHj.MinimumPower[time])
+        # relaxed_reserve disabling condition (eq. (43))
+        if time in parameters.hydraulic_op_times:
+            model.add_constraint(obj.relaxed_reserves[time] <= obj.minimum_power[time])
 
-            # impossible commitment and stable reserves constraints (eq. (44))
-            constraintList.Add(PO_DHj.automatedReservesUp[time] <= PO_DHj.maximumAutomated)
-            constraintList.Add(PO_DHj.automatedReservesDown[time] <= PO_DHj.maximumAutomated)
-            constraintList.Add(PO_DHj.reservesUp[time] <= PO_DHj.MaximumPower[time])
-            constraintList.Add(PO_DHj.reservesDown[time] <= PO_DHj.MaximumPower[time])
+            # Impossible commitment and stable reserves constraints (eq. (44))
+            model.add_constraint(obj.automated_reserves_up[time] <= obj.maximum_automated)
+            model.add_constraint(obj.automated_reserves_down[time] <= obj.maximum_automated)
+            model.add_constraint(obj.reserves_up[time] <= obj.maximum_power[time])
+            model.add_constraint(obj.reserves_down[time] <= obj.maximum_power[time])
 
         # --- Reservoir constraints
 
-        # Ca serait beaucoup plus clair si il n'y avait pas d'index mais simplement des TS.
-        if time == p.start_date:
-            constraintList.Add(
-                PO_DHj.StoredEnergy[time]
-                == PO_DHj.InitialLevel.GetValue(p.start_date.AddMinutes(-p.time_step))
-                - PO_DHj.PowerLevelFragmentSum[time] * p.time_step / 60.0
+        # It would be much clearer if there were no indexes but simply time series.
+        if time == parameters.start_date:
+            model.add_constraint(
+                obj.stored_energy[time]
+                == obj.initial_level.get_value(parameters.start_date.add_minutes(-parameters.time_step))
+                - obj.power_level_fragment_sum[time] * parameters.time_step / 60.0
             )
 
-            if p.debug:
-                msg = "The energy stock at StartDate: {} MWh".format(
-                    PO_DHj.InitialLevel.GetValue(p.start_date.AddMinutes(-p.time_step))
-                )
-                API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
-
-        elif time in p.target_times:
-            constraintList.Add(
-                PO_DHj.StoredEnergy[time]
-                == PO_DHj.StoredEnergy[time.AddMinutes(-p.time_step)]
-                - PO_DHj.PowerLevelFragmentSum[time] * p.time_step / 60.0
+        elif time in parameters.target_times:
+            model.add_constraint(
+                obj.stored_energy[time]
+                == obj.stored_energy[time.add_minutes(-parameters.time_step)]
+                - obj.power_level_fragment_sum[time] * parameters.time_step / 60.0
             )
 
         # For any time steps:
-        # Respect of minimum and maximum stock constraints-
-        if time in p.target_times:
-            ReserveStoredEnergyUp_ti = PO_DHj.automatedReservesUp[time] + PO_DHj.reservesUp[time]
-            ReserveStoredEnergyDown_ti = PO_DHj.automatedReservesDown[time] + PO_DHj.reservesDown[time]
+        # Respect of minimum and maximum stock constraints
+        if time in parameters.target_times:
+            reserve_stored_energy_up_ti = obj.automated_reserves_up[time] + obj.reserves_up[time]
+            reserve_stored_energy_down_ti = obj.automated_reserves_down[time] + obj.reserves_down[time]
 
-            constraintList.Add(PO_DHj.StoredEnergy[time] >= PO_DHj.MinimumEnergy[time] + ReserveStoredEnergyUp_ti)
-            constraintList.Add(PO_DHj.StoredEnergy[time] <= PO_DHj.MaximumEnergy[time] - ReserveStoredEnergyDown_ti)
+            model.add_constraint(obj.stored_energy[time] >= obj.minimum_energy[time] + reserve_stored_energy_up_ti)
+            model.add_constraint(obj.stored_energy[time] <= obj.maximum_energy[time] - reserve_stored_energy_down_ti)

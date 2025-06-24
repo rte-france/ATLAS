@@ -1,6 +1,5 @@
 from pendulum import DateTime
 
-import atlas.config as cfg
 from atlas.enum import StorageType
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
@@ -11,10 +10,7 @@ from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
-from atlas.modules.portfolio_optimisation.parameters import (
-    MarketEnum,
-    PortfolioOptimisationParameters,
-)
+from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 
 
 def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOptimisationParameters):
@@ -162,9 +158,6 @@ def _update_stored_energy(
 
         if correction != 0:
             out_of_bounds_corrections[time] = correction
-            if parameters.debug:
-                bound_type = "high" if correction < 0 else "low"
-                cfg.logger.debug(f"Stored energy {bound_type} bound corrected for {equipment.Name} at {time}")
 
     # Apply power corrections based on energy bound violations
     _apply_power_corrections(equipment, new_power, out_of_bounds_corrections)

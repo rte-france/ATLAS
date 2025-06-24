@@ -1,116 +1,126 @@
-# coding: utf-8
+from pendulum import DateTime
 
-import API
-import sys
+from atlas.enum import StorageType
+from atlas.models.equipment.storage import Storage
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 
-def GetVariablesAndConstraints_Storage(
-    time,
-    equipments_DS,
-    objFunction,
-    constraintList,
+def get_variables_and_constraints_storage(
+    time: DateTime,
+    storage_equipments: list[Storage],
+    model: OptimisationModel,
     sum_power_level,
-    reserveUpti,
-    reserveDownti,
-    automatedReserveUpti,
-    automatedReserveDownti,
-    priceForecast,
-    p,
+    reserve_up_ti,
+    reserve_down_ti,
+    automated_reserve_up_ti,
+    automated_reserve_down_ti,
+    price_forecast,
+    parameters: PortfolioOptimisationParameters,
 ):
-    # Preload useful variables to avoid excessive call to functions or method
-    prev_time = time.AddMinutes(-p.time_step)
+    """
+    This function adds constraints and elements in the objective function related to storage equipments.
 
-    for equipment_name, PO_DSj in equipments_DS.items():
-        # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
-        if max(PO_DSj.MaximumEnergy.values()) <= 0:
-            if p.debug:
-                API.IO.Trace.Log("Equipment {} avoided, as its MaximumEnergy is 0".format(equipment_name))
+    Arguments:
+    - time: current time step
+    - storage_equipments: dictionary of storage equipments
+    - obj_function: objective function to optimize
+    - constraint_list: list of constraints
+    - sum_power_level: sum of power levels
+    - reserve_up_ti: upward reserves at time t
+    - reserve_down_ti: downward reserves at time t
+    - automated_reserve_up_ti: automated upward reserves at time t
+    - automated_reserve_down_ti: automated downward reserves at time t
+    - price_forecast: price forecast data
+    - parameters: parameters object
+    """
+    # Preload useful variables to avoid excessive call to functions or method
+    prev_time = time - parameters.time_step
+
+    for obj in storage_equipments:
+        # Avoid equipments that have a maximum_energy of 0 (meaning that they are offline)
+        if max(obj.maximum_energy.values()) <= 0:
             continue
 
-        if PO_DSj.StorageType == "Battery":
-            local_op_times = p.battery_op_times
-        elif PO_DSj.StorageType == "PumpedHydraulicStorage":
-            local_op_times = p.phs_op_times
-        elif PO_DSj.StorageType == "ElectricVehicle":
-            local_op_times = p.ev_op_times
+        if obj.storage_type == "battery":
+            local_op_times = parameters.battery_op_times
+        elif obj.storage_type == "pumped_hydraulic_storage":
+            local_op_times = parameters.phs_op_times
+        elif obj.storage_type == "electric_vehicle":
+            local_op_times = parameters.ev_op_times
         if time not in local_op_times:
             continue
 
         # Get max and min power
-        maxPowerti = PO_DSj.MaximumPower[time]
-        minPowerti = PO_DSj.MinimumPower[time]
+        max_power_ti = obj.maximum_power[time]
+        min_power_ti = obj.minimum_power[time]
 
-        # That part chek if those opti variable are usefull
-        # contractedDifference
-        reserveUpti.Add(PO_DSj.reservesUp[time])
-        reserveDownti.Add(PO_DSj.reservesDown[time])
+        # Check if those optimization variables are useful
+        # contracted_difference
+        reserve_up_ti.add(obj.reserves_up[time])
+        reserve_down_ti.add(obj.reserves_down[time])
 
-        # automatedContractedDifference
-        automatedReserveUpti.Add(PO_DSj.automatedReservesUp[time])
-        automatedReserveDownti.Add(PO_DSj.automatedReservesDown[time])
+        # automated_contracted_difference
+        automated_reserve_up_ti.add(obj.automated_reserves_up[time])
+        automated_reserve_down_ti.add(obj.automated_reserves_down[time])
 
         # Add generation or consumption costs to objective function
         # FC: for storage units, the notion of costs should theoretically be managed by water values.
         # However, these values are not computed in ATLAS. To avoid weird arbitrages in the optim,
         # the variable cost of the unit is then set to the price of the studied market
-        objFunction.Add(
-            priceForecast[time] * (PO_DSj.PowerLevelBuy[time] + PO_DSj.PowerLevelSell[time]) * p.time_step / 60.0
+        model.add_objective(
+            price_forecast[time]
+            * (obj.power_level_buy[time] + obj.power_level_sell[time])
+            * parameters.time_step
+            / 60.0
         )
 
         # For additional period
-        if time not in p.target_times:
-            if PO_DSj.StorageType == "Battery":
-                nbr_fragment = p.battery_nb_fragments
-                smoothing_factor = p.battery_smoothing_factor
+        if time not in parameters.target_times:
+            if obj.storage_type == StorageType.BATTERY:
+                nbr_fragment = parameters.battery_nb_fragments
+                smoothing_factor = parameters.battery_smoothing_factor
 
-            elif PO_DSj.StorageType == "ElectricVehicle":
-                nbr_fragment = p.ev_nb_fragments
-                smoothing_factor = p.ev_smoothing_factor
-
-            elif PO_DSj.StorageType == "PumpedHydraulicStorage":
-                nbr_fragment = p.phs_nb_fragments
-                smoothing_factor = p.phs_smoothing_factor
+            elif obj.storage_type == StorageType.ELECTRIC_VEHICLE:
+                nbr_fragment = parameters.ev_nb_fragments
+                smoothing_factor = parameters.ev_smoothing_factor
 
             else:
-                try:
-                    msg = "The storage type: {} don't exist".format(PO_DSj.StorageType)
-                    API.IO.Trace.Log(msg, API.IO.LogTypeError)
-                    sys.exit()
-                except:
-                    pass
+                nbr_fragment = parameters.phs_nb_fragments
+                smoothing_factor = parameters.phs_smoothing_factor
 
             for n in range(0, nbr_fragment):
                 # The objective function is the total profit over the optimisation period
                 if nbr_fragment == 1 and n == 0:
-                    objFunction.Add(
-                        -PO_DSj.PowerLevelSell_n[n][time] * priceForecast[time]
-                        - PO_DSj.PowerLevelBuy_n[n][time] * priceForecast[time]
+                    model.add_objective(
+                        -obj.power_level_sell_n[n][time] * price_forecast[time]
+                        - obj.power_level_buy_n[n][time] * price_forecast[time]
                     )
                 else:
-                    objFunction.Add(
-                        -PO_DSj.PowerLevelSell_n[n][time]
-                        * priceForecast[time]
+                    model.add_objective(
+                        -obj.power_level_sell_n[n][time]
+                        * price_forecast[time]
                         * (1 - n * smoothing_factor / (nbr_fragment - 1))
-                        - PO_DSj.PowerLevelBuy_n[n][time]
-                        * priceForecast[time]
+                        - obj.power_level_buy_n[n][time]
+                        * price_forecast[time]
                         * (1 + n * smoothing_factor / (nbr_fragment - 1))
                     )
 
-                # Add constrain related to power fragment
-                constraintList.Add(PO_DSj.PowerLevelBuy_n[n][time] >= minPowerti / nbr_fragment)
-                constraintList.Add(PO_DSj.PowerLevelSell_n[n][time] <= maxPowerti / nbr_fragment)
+                # Add constraint related to power fragment
+                model.add_constraint(obj.power_level_buy_n[n][time] >= min_power_ti / nbr_fragment)
+                model.add_constraint(obj.power_level_sell_n[n][time] <= max_power_ti / nbr_fragment)
 
             if nbr_fragment > 0:
-                constraintList.Add(
-                    PO_DSj.PowerLevelSell[time] == sum(PO_DSj.PowerLevelSell_n[n][time] for n in range(0, nbr_fragment))
+                model.add_constraint(
+                    obj.power_level_sell[time] == sum(obj.power_level_sell_n[n][time] for n in range(0, nbr_fragment))
                 )
-                constraintList.Add(
-                    PO_DSj.PowerLevelBuy[time] == sum(PO_DSj.PowerLevelBuy_n[n][time] for n in range(0, nbr_fragment))
+                model.add_constraint(
+                    obj.power_level_buy[time] == sum(obj.power_level_buy_n[n][time] for n in range(0, nbr_fragment))
                 )
 
-        # get global constraints
-        sum_power_level.Add(PO_DSj.PowerLevelBuy[time])
-        sum_power_level.Add(PO_DSj.PowerLevelSell[time])
+        # Get global constraints
+        sum_power_level.add(obj.power_level_buy[time])
+        sum_power_level.add(obj.power_level_sell[time])
 
         # C. CONSTRAINTS ON THE CONTROL VARIABLE
 
@@ -118,112 +128,110 @@ def GetVariablesAndConstraints_Storage(
         # We are in a case where there is no FLAT state, so manual reserves can be provided
         # as long as the unit is online.
 
-        # relaxedReserve disabling condition (eq. (43))
+        # relaxed_reserve disabling condition (eq. (43))
 
-        # impossible commitment and stable reserves constraints (eq. (44))
-        constraintList.Add(PO_DSj.automatedReservesUp[time] <= PO_DSj.maximumAutomated)
-        constraintList.Add(PO_DSj.automatedReservesDown[time] <= PO_DSj.maximumAutomated)
-        constraintList.Add(PO_DSj.reservesUp[time] <= maxPowerti)
-        constraintList.Add(PO_DSj.reservesDown[time] <= maxPowerti)
+        # Impossible commitment and stable reserves constraints (eq. (44))
+        model.add_constraint(obj.automated_reserves_up[time] <= obj.maximum_automated)
+        model.add_constraint(obj.automated_reserves_down[time] <= obj.maximum_automated)
+        model.add_constraint(obj.reserves_up[time] <= max_power_ti)
+        model.add_constraint(obj.reserves_down[time] <= max_power_ti)
 
-        # -- The power delivered by the equipment is between its maximum power and its minimum power
-        # FC je modifie la suite, il me semble qu'il y a des confusions entre puissance et energie dans certains contraintes
+        # The power delivered by the equipment is between its maximum power and its minimum power
+        # FC: I modify the following, it seems to me that there are confusions between power and energy in some constraints
 
-        if PO_DSj.StorageType == "Battery" or PO_DSj.StorageType == "PumpedHydraulicStorage":
-            ReserveStoredEnergyDown_ti = PO_DSj.reservesDown[time] * (
-                p.battery_reserve_duration / 60.0
-            ) + PO_DSj.automatedReservesDown[time] * (p.automated_battery_reserve_duration / 60.0)
-            ReserveStoredEnergyUp_ti = PO_DSj.reservesUp[time] * (
-                p.battery_reserve_duration / 60.0
-            ) + PO_DSj.automatedReservesUp[time] * (p.automated_battery_reserve_duration / 60.0)
+        if obj.storage_type == "battery" or obj.storage_type == "pumped_hydraulic_storage":
+            reserve_stored_energy_down_ti = obj.reserves_down[time] * (
+                parameters.battery_reserve_duration / 60.0
+            ) + obj.automated_reserves_down[time] * (parameters.automated_battery_reserve_duration / 60.0)
+            reserve_stored_energy_up_ti = obj.reserves_up[time] * (
+                parameters.battery_reserve_duration / 60.0
+            ) + obj.automated_reserves_up[time] * (parameters.automated_battery_reserve_duration / 60.0)
 
-            constraintList.Add(
-                PO_DSj.PowerLevelSell[time]
-                + PO_DSj.reservesUp[time]
-                + PO_DSj.automatedReservesUp[time]
-                + PO_DSj.unprovidedReservesUp[time]
-                <= maxPowerti * PO_DSj.DischargeEfficiency
+            model.add_constraint(
+                obj.power_level_sell[time]
+                + obj.reserves_up[time]
+                + obj.automated_reserves_up[time]
+                + obj.unprovided_reserves_up[time]
+                <= max_power_ti * obj.discharge_efficiency
             )
-            constraintList.Add(
-                PO_DSj.PowerLevelBuy[time]
-                - PO_DSj.reservesDown[time]
-                - PO_DSj.automatedReservesDown[time]
-                - PO_DSj.unprovidedReservesDown[time]
-                >= minPowerti * 1 / PO_DSj.ChargeEfficiency
-            )
-
-            constraintList.Add(
-                PO_DSj.PowerLevelSell[time] <= maxPowerti * PO_DSj.DischargeEfficiency * PO_DSj.Is_Sell[time]
-            )
-            constraintList.Add(
-                PO_DSj.PowerLevelBuy[time] >= minPowerti * 1 / PO_DSj.ChargeEfficiency * (1 - PO_DSj.Is_Sell[time])
+            model.add_constraint(
+                obj.power_level_buy[time]
+                - obj.reserves_down[time]
+                - obj.automated_reserves_down[time]
+                - obj.unprovided_reserves_down[time]
+                >= min_power_ti * 1 / obj.charge_efficiency
             )
 
-        if PO_DSj.StorageType == "ElectricVehicle":
-            ReserveStoredEnergyDown_ti = PO_DSj.reservesDown[time] * (
-                p.battery_reserve_duration / 60.0
-            ) + PO_DSj.automatedReservesDown[time] * (p.automated_battery_reserve_duration / 60.0)
-            ReserveStoredEnergyUp_ti = PO_DSj.reservesUp[time] * (
-                p.battery_reserve_duration / 60.0
-            ) + PO_DSj.automatedReservesUp[time] * (p.automated_battery_reserve_duration / 60.0)
+            model.add_constraint(
+                obj.power_level_sell[time] <= max_power_ti * obj.discharge_efficiency * obj.is_sell[time]
+            )
+            model.add_constraint(
+                obj.power_level_buy[time] >= min_power_ti * 1 / obj.charge_efficiency * (1 - obj.is_sell[time])
+            )
 
-            constraintList.Add(
+        if obj.storage_type == "electric_vehicle":
+            reserve_stored_energy_down_ti = obj.reserves_down[time] * (
+                parameters.battery_reserve_duration / 60.0
+            ) + obj.automated_reserves_down[time] * (parameters.automated_battery_reserve_duration / 60.0)
+            reserve_stored_energy_up_ti = obj.reserves_up[time] * (
+                parameters.battery_reserve_duration / 60.0
+            ) + obj.automated_reserves_up[time] * (parameters.automated_battery_reserve_duration / 60.0)
+
+            model.add_constraint(
                 (
-                    PO_DSj.PowerLevelSell[time]
-                    + PO_DSj.reservesUp[time]
-                    + PO_DSj.automatedReservesUp[time]
-                    + PO_DSj.unprovidedReservesUp[time]
+                    obj.power_level_sell[time]
+                    + obj.reserves_up[time]
+                    + obj.automated_reserves_up[time]
+                    + obj.unprovided_reserves_up[time]
                 )
-                <= (PO_DSj.isV2G * maxPowerti * PO_DSj.DischargeEfficiency)
+                <= (obj.is_v2g * max_power_ti * obj.discharge_efficiency)
             )
-            constraintList.Add(
+            model.add_constraint(
                 (
-                    PO_DSj.PowerLevelBuy[time]
-                    - PO_DSj.reservesDown[time]
-                    - PO_DSj.automatedReservesDown[time]
-                    - PO_DSj.unprovidedReservesDown[time]
+                    obj.power_level_buy[time]
+                    - obj.reserves_down[time]
+                    - obj.automated_reserves_down[time]
+                    - obj.unprovided_reserves_down[time]
                 )
-                >= minPowerti * 1 / PO_DSj.ChargeEfficiency
+                >= min_power_ti * 1 / obj.charge_efficiency
             )
 
-        # FC : Ici on utilise les deltas entre t et t+1 pour DisplacementEnergy et MaximumEnergy parce qu'il y a un décalage dans les indexations,
-        # Ca serait beaucoup plus clair si il n'y avait pas d'index mais simplement des TS.
-        if time == p.start_date:
-            constraintList.Add(
-                PO_DSj.StoredEnergy[time]
-                == PO_DSj.InitialStock * (PO_DSj.MaximumEnergy[time] / PO_DSj.MaximumEnergy[prev_time])
-                - PO_DSj.PowerLevelBuy[time] * PO_DSj.ChargeEfficiency * p.time_step / 60.0
-                - PO_DSj.PowerLevelSell[time] * p.time_step / (60.0 * PO_DSj.DischargeEfficiency)
-                + (PO_DSj.DisplacementEnergy[time] - PO_DSj.DisplacementEnergy[prev_time])
+        # FC: Here we use the deltas between t and t+1 for displacement_energy and maximum_energy because there is a shift in indexing,
+        # It would be much clearer if there were no indexes but simply time series.
+        if time == parameters.start_date:
+            model.add_constraint(
+                obj.stored_energy[time]
+                == obj.initial_stock * (obj.maximum_energy[time] / obj.maximum_energy[prev_time])
+                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.time_step / 60.0
+                - obj.power_level_sell[time] * parameters.time_step / (60.0 * obj.discharge_efficiency)
+                + (obj.displacement_energy[time] - obj.displacement_energy[prev_time])
             )
 
-            if p.verbose:
-                msg = "The energy stock at t1: {} MWh".format(
-                    PO_DSj.InitialStock + (PO_DSj.MaximumEnergy[time] - PO_DSj.MaximumEnergy[prev_time])
-                )
-                API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
+            if parameters.verbose:
+                msg = f"The energy stock at t1: {obj.initial_stock + (obj.maximum_energy[time] - obj.maximum_energy[prev_time])} MWh"
+                api.io.trace.log(msg, api.io.log_type_info)
 
         elif time in local_op_times:
-            constraintList.Add(
-                PO_DSj.StoredEnergy[time]
-                == PO_DSj.StoredEnergy[prev_time] * (PO_DSj.MaximumEnergy[time] / PO_DSj.MaximumEnergy[prev_time])
-                - PO_DSj.PowerLevelBuy[time] * PO_DSj.ChargeEfficiency * p.time_step / 60.0
-                - PO_DSj.PowerLevelSell[time] * p.time_step / (60.0 * PO_DSj.DischargeEfficiency)
-                + (PO_DSj.DisplacementEnergy[time] - PO_DSj.DisplacementEnergy[prev_time])
+            model.add_constraint(
+                obj.stored_energy[time]
+                == obj.stored_energy[prev_time] * (obj.maximum_energy[time] / obj.maximum_energy[prev_time])
+                - obj.power_level_buy[time] * obj.charge_efficiency * parameters.time_step / 60.0
+                - obj.power_level_sell[time] * parameters.time_step / (60.0 * obj.discharge_efficiency)
+                + (obj.displacement_energy[time] - obj.displacement_energy[prev_time])
             )
 
         # For any time steps:
         # Respect of minimum and maximum stock constraints
-        constraintList.Add(
-            PO_DSj.StoredEnergy[time]
-            >= PO_DSj.MaximumEnergy[time] * PO_DSj.MinimumStateOfCharge[time] + ReserveStoredEnergyUp_ti
+        model.add_constraint(
+            obj.stored_energy[time]
+            >= obj.maximum_energy[time] * obj.minimum_state_of_charge[time] + reserve_stored_energy_up_ti
         )
-        constraintList.Add(PO_DSj.StoredEnergy[time] <= PO_DSj.MaximumEnergy[time] - ReserveStoredEnergyDown_ti)
+        model.add_constraint(obj.stored_energy[time] <= obj.maximum_energy[time] - reserve_stored_energy_down_ti)
 
         # Global cycle balance (the reservoir level of the equipment remains
         # identical between the first and last dates of the optimization period)
-        if time == p.start_date:
-            constraintList.Add(
-                sum(-PO_DSj.PowerLevelBuy[time] for time in local_op_times) * PO_DSj.ChargeEfficiency
-                == sum(PO_DSj.PowerLevelSell[time] for time in local_op_times) / PO_DSj.DischargeEfficiency
+        if time == parameters.start_date:
+            model.add_constraint(
+                sum(-obj.power_level_buy[time] for time in local_op_times) * obj.charge_efficiency
+                == sum(obj.power_level_sell[time] for time in local_op_times) / obj.discharge_efficiency
             )

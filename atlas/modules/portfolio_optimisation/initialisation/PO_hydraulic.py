@@ -114,27 +114,11 @@ class POHydraulic:
             min_power = hydro_object.minimum_power.get_value(time)
             max_power = hydro_object.maximum_power.get_value(time)
 
-            afrr_up = hydro_object.afrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            afrr_down = hydro_object.afrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            mfrr_up = hydro_object.mfrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            mfrr_down = hydro_object.mfrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-            rr_up = hydro_object.rr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            rr_down = hydro_object.rr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            fcr_up = hydro_object.fcr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
-            fcr_down = hydro_object.fcr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
-                time
-            )
-
             self.maximum_power[time] = max_power
             self.minimum_power[time] = min_power
             self.maximum_energy[time] = hydro_object.maximum_energy.get_value(time)
             self.minimum_energy[time] = hydro_object.minimum_energy.get_value(time)
 
-            # init variables
             self.power_level[time] = model.add_continuous_variable(
                 name=f"{self.name}_power_level_{idx}",
                 lower_bound=0,
