@@ -1,8 +1,8 @@
 import atlas.config as cfg
+from atlas.enum import SolverStatus
 from atlas.models.portfolio import Portfolio
-from atlas.modules.portfolio_optimisation.enum import SolverStatus
-from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.main import OptimizationResults
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
 class OutputManager:
