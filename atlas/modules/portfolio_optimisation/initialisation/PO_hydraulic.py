@@ -81,12 +81,14 @@ class POHydraulic:
         self.maximum_fcr = hydro_object.maximum_fcr
 
         self.stored_energy_matrix = hydro_object.stored_energy
-        if (
-            self.stored_energy_matrix.get_forecast(
-                parameters.execution_date,
-                parameters.start_date - parameters.time_step,
-                parameters.end_date,
-            ).Length
+        if len(
+            (
+                self.stored_energy_matrix.get_forecast(
+                    parameters.execution_date,
+                    parameters.start_date - parameters.time_step,
+                    parameters.end_date,
+                )
+            )
             == 0
         ):
             self.initial_level = hydro_object.initial_level.filter(

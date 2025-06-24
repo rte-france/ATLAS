@@ -26,20 +26,19 @@ class POPortfolio:
 
     def __init__(self, name):
         self.name = name
-        # variable of perimeter P in MW (and not MWh)
+
         self.small_imbal_up = {}
         self.large_imbal_up = {}
         self.small_imbal_down = {}
         self.large_imbal_down = {}
 
-        # Variable relate to the reserve
         self.reserve_up = {}
         self.reserve_down = {}
         self.automated_reserve_up = {}
         self.automated_reserve_down = {}
         self.max_power = {}
         self.min_power = {}
-        # computed parameters of the perimerter
+
         self.max_overall_imbal = {}
         self.residual_energy = {}
         self.small_imbal_up_limit = 0
