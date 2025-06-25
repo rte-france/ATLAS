@@ -8,7 +8,7 @@ from types import UnionType
 from typing import get_args, get_origin
 
 import atlas.config as cfg
-from atlas.io.utils import to_snake_case
+from atlas.io_utils.utils import to_snake_case
 from atlas.models.business_model import BusinessModel
 
 
