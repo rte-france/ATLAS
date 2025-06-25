@@ -10,7 +10,7 @@ import polars as pl
 import yaml
 
 from atlas.config import DEFAULT_VALUE_IO, logger
-from atlas.io.utils import to_snake_case
+from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.typing import get_class_inheritance_chain
 

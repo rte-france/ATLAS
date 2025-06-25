@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, cast
 import pendulum
 import polars as pl
 
-from atlas.io.utils import read_data_file
+from atlas.io_utils.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
