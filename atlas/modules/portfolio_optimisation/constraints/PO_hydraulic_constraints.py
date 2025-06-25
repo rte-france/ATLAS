@@ -10,10 +10,6 @@ def get_variables_and_constraints_hydraulics(
     hydro_equipments: list[Hydro],
     model: OptimisationModel,
     sum_power_level,
-    reserve_up_ti,
-    reserve_down_ti,
-    automated_reserve_up_ti,
-    automated_reserve_down_ti,
     price_forecast,
     parameters: PortfolioOptimisationParameters,
 ):
@@ -35,19 +31,15 @@ def get_variables_and_constraints_hydraulics(
     """
 
     for obj in hydro_equipments:
-        # Check if those optimization variables are useful
-        # contracted_difference
         reserve_up_ti.add(obj.reserves_up[time])
         reserve_down_ti.add(obj.reserves_down[time])
-        # automated_contracted_difference
+
         automated_reserve_up_ti.add(obj.automated_reserves_up[time])
         automated_reserve_down_ti.add(obj.automated_reserves_down[time])
 
         # --- Objective function
         for k in range(0, len(obj.power_level_fragment.keys())):
             if time in parameters.target_times:
-                # Create an offer for each element in volumes
-                # Add objective function for the specific fragment
                 model.add_objective(
                     obj.price_fragment[k][time] * obj.power_level_fragment[k][time] * parameters.timestep
                 )

@@ -11,10 +11,6 @@ def get_variables_and_constraints_storage(
     storage_equipments: list[Storage],
     model: OptimisationModel,
     sum_power_level,
-    reserve_up_ti,
-    reserve_down_ti,
-    automated_reserve_up_ti,
-    automated_reserve_down_ti,
     price_forecast,
     parameters: PortfolioOptimisationParameters,
 ):

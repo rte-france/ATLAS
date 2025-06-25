@@ -1,6 +1,5 @@
 from pendulum import DateTime
 
-import atlas.config as cfg
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.initialisation.PO_portfolio import POPortfolio
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -324,25 +323,3 @@ class ConstraintBuilder:
                     equipment.minimum_power[time] <= equipment.power_level[time] <= equipment.maximum_power[time]
                 )
                 model.add_constraint(power_limit_constraint, name=f"{equipment_name}_power_limit_{time}")
-
-    def build_and_add_constraints(self, model: OptimisationModel, Portfolio: Portfolio, optimization_times: dict):
-        """Build and add all constraints to the model."""
-        # Get constraints from original constraint builder
-        constraint_list, global_constraint_list = self.build_constraints(Portfolio, optimization_times, model)
-
-        # Convert and add constraints to OptimisationModel
-        self._add_constraints(model, constraint_list, "constraint")
-        self._add_constraints(model, global_constraint_list, "global_constraint")
-
-    def _add_constraints(self, model: OptimisationModel, constraint_list: list, prefix: str | None = None):
-        """Convert API constraints to OR-Tools constraints and add to model."""
-        for i, constraint in enumerate(constraint_list):
-            if prefix is None:
-                prefix = "constraint"
-            constraint_name = f"{prefix}_{i}"
-
-            try:
-                model.add_constraint(constraint, constraint_name)
-            except Exception as e:
-                cfg.logger.error(f"Failed to add {prefix} '{constraint_name}': {e}")
-                continue

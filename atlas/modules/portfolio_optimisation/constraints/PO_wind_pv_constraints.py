@@ -11,10 +11,6 @@ def get_variables_and_constraints_wind_pv(
     equipments: list[Wind | Solar],
     model: OptimisationModel,
     sum_power_level,
-    reserve_up_ti,
-    reserve_down_ti,
-    automated_reserve_up_ti,
-    automated_reserve_down_ti,
     parameters: PortfolioOptimisationParameters,
 ):
     """

@@ -167,29 +167,24 @@ class OptimalPlacementOptimizer:
             # Create portfolio object
             Portfolio = self._create_portfolio(portfolio, equipments)
 
-            # Build objective function
-            objective_expr = self.objective_builder.build_objective(model, Portfolio, self.parameters.target_times)
-
-            model.set_objective(objective_expr, direction="minimize")
-
             # Build and add constraints
             optimization_times = self._get_optimization_times()
-            self.constraint_builder.build_and_add_constraints(model, Portfolio, optimization_times)
+            self.constraint_builder.build_constraints(model, Portfolio, optimization_times)
 
-            # Solve problem
-            time_limit = getattr(self.parameters, "time_out", 3600)
-            solution_info = model.solve(time_limit=time_limit)
+            # Build objective function
+            objective_expr = self.objective_builder.build_objective(model, Portfolio, self.parameters.target_times)
+            model.set_objective(objective_expr, direction="minimize")
+
+            solution_info = model.solve(time_limit=self.parameters.time_out)
 
             cfg.logger.info(
                 f"Portfolio {portfolio_name} optimization completed with status: {solution_info.status.name}"
             )
 
-            # Export results
             if solution_info.status == SolverStatus.OPTIMAL:
                 self._export_optimization_results(input_dataset, model, Portfolio, solution_info)
             else:
-                # Fallback to manual activation
-                equipment_list = [single_equipment] if single_equipment else portfolio.GetChildren("Equipment")
+                equipment_list = [single_equipment] if single_equipment else equipments
                 set_manual_activation(equipment_list, self.parameters)
 
             return solution_info
@@ -198,10 +193,9 @@ class OptimalPlacementOptimizer:
             cfg.logger.error(f"Optimization failed for portfolio {portfolio_name}: {e}")
 
             # Fallback to manual activation
-            equipment_list = [single_equipment] if single_equipment else portfolio.GetChildren("Equipment")
+            equipment_list = [single_equipment] if single_equipment else equipments
             set_manual_activation(equipment_list, self.parameters)
 
-            # Return a failed solution info
             return SolutionInfo(
                 status=SolverStatus.NOT_SOLVED,
                 objective_value=None,
