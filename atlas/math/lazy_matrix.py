@@ -13,7 +13,7 @@ from pathlib import Path
 
 import polars as pl
 
-from atlas.io.utils import scan_data_file
+from atlas.io_utils.utils import scan_data_file
 from atlas.math.matrix import Matrix
 from atlas.timing import check_timezone
 

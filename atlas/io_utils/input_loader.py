@@ -14,7 +14,7 @@ import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas.io.utils import read_data_file
+from atlas.io_utils.utils import read_data_file
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries

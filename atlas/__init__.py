@@ -1,6 +1,6 @@
-from atlas.io.input_loader import InputLoader
-from atlas.io.parameters import Parameters, ParametersParser
-from atlas.io.utils import get_metadata_from_file, get_metadata_from_frame
+from atlas.io_utils.input_loader import InputLoader
+from atlas.io_utils.parameters import Parameters, ParametersParser
+from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
 from atlas.logging import Logger
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
