@@ -116,8 +116,18 @@ class POPortfolio:
                 ).get_value(time)  # Need some change
                 self.price_forecast[time] = price
 
+            estimate_imbalance_prices(
+                time,
+                opt_ndp.node.market_area,
+                opt_ndp.node.control_block,
+                self.imbal_price_up,
+                self.large_imbal_price_up,
+                self.imbal_price_down,
+                self.large_imbal_price_down,
+                parameters,
+            )
+
             # --- non_dispatchable productions ---
-            has_imbal_price = 0
             for opt_ndp in other_non_dispatchable:
                 # Initialization
                 if idx == 0:
@@ -129,19 +139,6 @@ class POPortfolio:
 
                 if global_series_ndp[opt_ndp] is not None:
                     last_forecast_ti = global_series_ndp[opt_ndp].get_value(time)
-                if has_imbal_price == 0:
-                    # get da_price (first equipment in list set the da_price)
-                    estimate_imbalance_prices(
-                        time,
-                        opt_ndp.node.market_area,
-                        opt_ndp.node.control_block,
-                        self.imbal_price_up,
-                        self.large_imbal_price_up,
-                        self.imbal_price_down,
-                        self.large_imbal_price_down,
-                        parameters,
-                    )
-                    has_imbal_price = 1
 
                 if parameters.market == MarketEnum.rr_activation:
                     upstream_sold_energy_ti = opt_ndp.rr_activated.get_value(time)
@@ -171,19 +168,6 @@ class POPortfolio:
                 last_forecast_ti = 0
                 if global_series_ndl[obj] is not None:
                     last_forecast_ti = global_series_ndl[obj].get_value(time)
-                if has_imbal_price == 0:
-                    # get da_price (first equipment in list set the da_price)
-                    estimate_imbalance_prices(
-                        time,
-                        obj.node.market_area,
-                        obj.node.control_block,
-                        self.imbal_price_up,
-                        self.large_imbal_price_up,
-                        self.imbal_price_down,
-                        self.large_imbal_price_down,
-                        parameters,
-                    )
-                    has_imbal_price = 1
 
                 inflex_qty_ti = last_forecast_ti
 
@@ -208,20 +192,6 @@ class POPortfolio:
                     po_loadj = POLoad(obj.name)
                     po_loadj.fill_model(obj, parameters, model)
                     self.load[obj.name] = po_loadj
-
-                if has_imbal_price == 0:
-                    # get da_price (first equipment in list set the da_price)
-                    estimate_imbalance_prices(
-                        time,
-                        obj.node.market_area,
-                        obj.node.control_block,
-                        self.imbal_price_up,
-                        self.large_imbal_price_up,
-                        self.imbal_price_down,
-                        self.large_imbal_price_down,
-                        parameters,
-                    )
-                    has_imbal_price = 1
 
                 # compute residual energy
                 if parameters.market == MarketEnum.rr_activation:
@@ -265,20 +235,6 @@ class POPortfolio:
                     po_windj.fill_model(obj, parameters, model)
                     self.wind[obj.name] = po_windj
 
-                if has_imbal_price == 0:
-                    # get da_price (first equipment in list set the da_price)
-                    estimate_imbalance_prices(
-                        time,
-                        obj.node.market_area,
-                        obj.node.control_block,
-                        self.imbal_price_up,
-                        self.large_imbal_price_up,
-                        self.imbal_price_down,
-                        self.large_imbal_price_down,
-                        parameters,
-                    )
-                    has_imbal_price = 1
-
                 # compute residual energy
                 if parameters.market == MarketEnum.rr_activation:
                     upstream_sold_energy_ti = obj.rr_activated.get_value(time)
@@ -321,20 +277,6 @@ class POPortfolio:
                     po_pvj.fill_model(obj, parameters, model)
                     self.solar[obj.name] = po_pvj
 
-                if has_imbal_price == 0:
-                    # get da_price (first equipment in list set the da_price)
-                    estimate_imbalance_prices(
-                        time,
-                        obj.node.market_area,
-                        obj.node.control_block,
-                        self.imbal_price_up,
-                        self.large_imbal_price_up,
-                        self.imbal_price_down,
-                        self.large_imbal_price_down,
-                        parameters,
-                    )
-                    has_imbal_price = 1
-
                 # compute residual energy
                 if parameters.market == MarketEnum.rr_activation:
                     upstream_sold_energy_ti = obj.rr_activated.get_value(time)
@@ -370,23 +312,11 @@ class POPortfolio:
                     max_energy_tot = max_energy_tot + po_pvj.maximum_power[time]
 
             # --- thermic ---
-            for opt_index, opt_thermic in enumerate(thermal):
+            for _, opt_thermic in enumerate(thermal):
                 if idx == 0:
-                    po_dtj = POThermic(opt_thermic.name, opt_index)
+                    po_dtj = POThermic(opt_thermic.name, _)
                     po_dtj.fill_model(opt_thermic, parameters, model)
                     self.thermal[opt_thermic.name] = po_dtj
-                if has_imbal_price == 0:
-                    estimate_imbalance_prices(
-                        time,
-                        opt_thermic.node.market_area,
-                        opt_thermic.node.control_block,
-                        self.imbal_price_up,
-                        self.large_imbal_price_up,
-                        self.imbal_price_down,
-                        self.large_imbal_price_down,
-                        parameters,
-                    )
-                    has_imbal_price = 1
 
                 if parameters.market == MarketEnum.rr_activation:
                     upstream_sold_energy_ti = opt_thermic.rr_activated.get_value(time)

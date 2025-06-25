@@ -4,6 +4,7 @@ from atlas.enum import StorageType
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
+from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.wind import Wind
@@ -354,6 +355,7 @@ def add_variables_portfolio(
     equipments: dict[str, list[type[Equipment]]],
     times: list[DateTime],
     parameters: PortfolioOptimisationParameters,
+    model: OptimisationModel,
 ):
     max_energy_tot = 0
 
@@ -393,8 +395,18 @@ def add_variables_portfolio(
             ).get_value(time)  # Need some change
             self.price_forecast[time] = price
 
+        estimate_imbalance_prices(
+            time,
+            market_area,
+            control_block,
+            imbal_price_up,
+            large_imbal_price_up,
+            imbal_price_down,
+            large_imbal_price_down,
+            parameters,
+        )
+
         # --- non_dispatchable productions ---
-        has_imbal_price = 0
         for obj in equipments["non_dispatchable_production"]:
             # Initialization
             if idx == 0:
@@ -406,19 +418,6 @@ def add_variables_portfolio(
 
             if global_series_ndp[obj] is not None:
                 last_forecast_ti = global_series_ndp[obj].get_value(time)
-            if has_imbal_price == 0:
-                # get da_price (first equipment in list set the da_price)
-                estimate_imbalance_prices(
-                    time,
-                    obj.node.market_area,
-                    obj.node.control_block,
-                    self.imbal_price_up,
-                    self.large_imbal_price_up,
-                    self.imbal_price_down,
-                    self.large_imbal_price_down,
-                    parameters,
-                )
-                has_imbal_price = 1
 
             if parameters.market == MarketEnum.rr_activation:
                 upstream_sold_energy_ti = obj.rr_activated.get_value(time)
@@ -447,19 +446,6 @@ def add_variables_portfolio(
             last_forecast_ti = 0
             if global_series_ndl[obj] is not None:
                 last_forecast_ti = global_series_ndl[obj].get_value(time)
-            if has_imbal_price == 0:
-                # get da_price (first equipment in list set the da_price)
-                estimate_imbalance_prices(
-                    time,
-                    obj.node.market_area,
-                    obj.node.control_block,
-                    self.imbal_price_up,
-                    self.large_imbal_price_up,
-                    self.imbal_price_down,
-                    self.large_imbal_price_down,
-                    parameters,
-                )
-                has_imbal_price = 1
 
             inflex_qty_ti = last_forecast_ti
 
@@ -478,25 +464,6 @@ def add_variables_portfolio(
 
         # --- dispatchable loads ---
         for obj in equipments["dispatchable_load"]:
-            if idx == 0:
-                po_loadj = POLoad(obj.name)
-                po_loadj.fill_model(obj, parameters, model)
-                self.load[obj.name] = po_loadj
-
-            if has_imbal_price == 0:
-                # get da_price (first equipment in list set the da_price)
-                estimate_imbalance_prices(
-                    time,
-                    obj.node.market_area,
-                    obj.node.control_block,
-                    self.imbal_price_up,
-                    self.large_imbal_price_up,
-                    self.imbal_price_down,
-                    self.large_imbal_price_down,
-                    parameters,
-                )
-                has_imbal_price = 1
-
             # compute residual energy
             if parameters.market == MarketEnum.rr_activation:
                 upstream_bought_energy_ti = obj.rr_activated.get_value(time)
@@ -516,7 +483,7 @@ def add_variables_portfolio(
                 automated_reserve_up_ti,
                 automated_reserve_down_ti,
                 max_power_ti,
-            ) = self._get_reserve(
+            ) = _get_reserve(
                 obj,
                 reserve_up_ti,
                 reserve_down_ti,
@@ -529,30 +496,10 @@ def add_variables_portfolio(
 
             # get max power
             if idx == 0:
-                max_energy_tot = max_energy_tot + abs(po_loadj.maximum_power[time])
+                max_energy_tot = max_energy_tot + abs(obj.maximum_power[time])
 
         # --- wind ---
-        for obj in wind:
-            # get last forecast
-            if idx == 0:
-                po_windj = POWind(obj.name)
-                po_windj.fill_model(obj, parameters, model)
-                self.wind[obj.name] = po_windj
-
-            if has_imbal_price == 0:
-                # get da_price (first equipment in list set the da_price)
-                estimate_imbalance_prices(
-                    time,
-                    obj.node.market_area,
-                    obj.node.control_block,
-                    self.imbal_price_up,
-                    self.large_imbal_price_up,
-                    self.imbal_price_down,
-                    self.large_imbal_price_down,
-                    parameters,
-                )
-                has_imbal_price = 1
-
+        for obj in equipments["wind"]:
             # compute residual energy
             if parameters.market == MarketEnum.rr_activation:
                 upstream_sold_energy_ti = obj.rr_activated.get_value(time)
@@ -572,7 +519,7 @@ def add_variables_portfolio(
                 automated_reserve_up_ti,
                 automated_reserve_down_ti,
                 max_power_ti,
-            ) = self._get_reserve(
+            ) = _get_reserve(
                 obj,
                 reserve_up_ti,
                 reserve_down_ti,
@@ -585,30 +532,10 @@ def add_variables_portfolio(
 
             # get max power
             if idx == 0:
-                max_energy_tot = max_energy_tot + po_windj.maximum_power[time]
+                max_energy_tot = max_energy_tot + obj.maximum_power[time]
 
         # --- photovoltaic ---
-        for obj in solar:
-            # get last forecast
-            if idx == 0:
-                po_pvj = POPV(obj.name)
-                po_pvj.fill_model(obj, parameters, model)
-                self.solar[obj.name] = po_pvj
-
-            if has_imbal_price == 0:
-                # get da_price (first equipment in list set the da_price)
-                estimate_imbalance_prices(
-                    time,
-                    obj.node.market_area,
-                    obj.node.control_block,
-                    self.imbal_price_up,
-                    self.large_imbal_price_up,
-                    self.imbal_price_down,
-                    self.large_imbal_price_down,
-                    parameters,
-                )
-                has_imbal_price = 1
-
+        for obj in equipments["solar"]:
             # compute residual energy
             if parameters.market == MarketEnum.rr_activation:
                 upstream_sold_energy_ti = obj.rr_activated.get_value(time)
@@ -628,7 +555,7 @@ def add_variables_portfolio(
                 automated_reserve_up_ti,
                 automated_reserve_down_ti,
                 max_power_ti,
-            ) = self._get_reserve(
+            ) = _get_reserve(
                 obj,
                 reserve_up_ti,
                 reserve_down_ti,
@@ -641,35 +568,18 @@ def add_variables_portfolio(
 
             # get max power
             if idx == 0:
-                max_energy_tot = max_energy_tot + po_pvj.maximum_power[time]
+                max_energy_tot = max_energy_tot + obj.maximum_power[time]
 
         # --- thermic ---
-        for opt_index, opt_thermic in enumerate(thermal):
-            if idx == 0:
-                po_dtj = POThermic(opt_thermic.name, opt_index)
-                po_dtj.fill_model(opt_thermic, parameters, model)
-                self.thermal[opt_thermic.name] = po_dtj
-            if has_imbal_price == 0:
-                estimate_imbalance_prices(
-                    time,
-                    opt_thermic.node.market_area,
-                    opt_thermic.node.control_block,
-                    self.imbal_price_up,
-                    self.large_imbal_price_up,
-                    self.imbal_price_down,
-                    self.large_imbal_price_down,
-                    parameters,
-                )
-                has_imbal_price = 1
-
+        for obj in equipments["thermal"]:
             if parameters.market == MarketEnum.rr_activation:
-                upstream_sold_energy_ti = opt_thermic.rr_activated.get_value(time)
+                upstream_sold_energy_ti = obj.rr_activated.get_value(time)
             elif parameters.market == MarketEnum.mfrr_activation:
-                upstream_sold_energy_ti = opt_thermic.mfrr_activated.get_value(time)
+                upstream_sold_energy_ti = obj.mfrr_activated.get_value(time)
             else:
-                upstream_sold_energy_ti = opt_thermic.total_id_cleared_quantity.get_value(
+                upstream_sold_energy_ti = obj.total_id_cleared_quantity.get_value(
                     time
-                ) + opt_thermic.da_cleared_quantity.get_value(time)
+                ) + obj.da_cleared_quantity.get_value(time)
 
             residual_energy_ti += upstream_sold_energy_ti
 
@@ -680,8 +590,8 @@ def add_variables_portfolio(
                 automated_reserve_up_ti,
                 automated_reserve_down_ti,
                 max_power_ti,
-            ) = self._get_reserve(
-                opt_thermic,
+            ) = _get_reserve(
+                obj,
                 reserve_up_ti,
                 reserve_down_ti,
                 automated_reserve_up_ti,
@@ -693,27 +603,10 @@ def add_variables_portfolio(
 
             # get max power
             if idx == 0:
-                max_energy_tot = max_energy_tot + po_dtj.maximum_power[time]
+                max_energy_tot = max_energy_tot + obj.maximum_power[time]
 
         # --- hydraulic ---
-        for obj in hydro:
-            if idx == 0:
-                po_dhj = POHydraulic(obj, obj.name)
-                po_dhj.fill_model(obj, parameters, model)
-                self.hydro[obj.name] = po_dhj
-            if has_imbal_price == 0:
-                estimate_imbalance_prices(
-                    time,
-                    obj.node.market_area,
-                    obj.node.control_block,
-                    self.imbal_price_up,
-                    self.large_imbal_price_up,
-                    self.imbal_price_down,
-                    self.large_imbal_price_down,
-                    parameters,
-                )
-                has_imbal_price = 1
-
+        for obj in equipments["hydro"]:
             if parameters.market == MarketEnum.rr_activation:
                 upstream_sold_energy_ti = obj.rr_activated.get_value(time)
             elif parameters.market == MarketEnum.mfrr_activation:
@@ -731,7 +624,7 @@ def add_variables_portfolio(
                 automated_reserve_up_ti,
                 automated_reserve_down_ti,
                 max_power_ti,
-            ) = self._get_reserve(
+            ) = _get_reserve(
                 obj,
                 reserve_up_ti,
                 reserve_down_ti,
@@ -743,29 +636,10 @@ def add_variables_portfolio(
             )
             # get max power
             if idx == 0:
-                max_energy_tot = max_energy_tot + po_dhj.maximum_power[time]
+                max_energy_tot = max_energy_tot + obj.maximum_power[time]
 
         # --- storage ---
-        for obj in storage:
-            if idx == 0:
-                po_dsj = POStorage(obj.name, parameters)
-                po_dsj.fill_model(obj, parameters, model)
-                self.storage[obj.name] = po_dsj
-
-            if has_imbal_price == 0:
-                # get da_price (first equipment in list set the da_price)
-                estimate_imbalance_prices(
-                    time,
-                    obj.node.market_area,
-                    obj.node.control_block,
-                    self.imbal_price_up,
-                    self.large_imbal_price_up,
-                    self.imbal_price_down,
-                    self.large_imbal_price_down,
-                    parameters,
-                )
-                has_imbal_price = 1
-
+        for obj in equipments["storage"]:
             # compute residual energy
             if parameters.market == MarketEnum.rr_activation:
                 upstream_sold_energy_ti = obj.rr_activated.get_value(time)
@@ -784,7 +658,7 @@ def add_variables_portfolio(
                 automated_reserve_up_ti,
                 automated_reserve_down_ti,
                 max_power_ti,
-            ) = self._get_reserve(
+            ) = _get_reserve(
                 obj,
                 reserve_up_ti,
                 reserve_down_ti,
@@ -796,71 +670,70 @@ def add_variables_portfolio(
             )
             # get max power
             if idx == 0:
-                max_energy_tot = max_energy_tot + po_dsj.maximum_power[time]
+                max_energy_tot = max_energy_tot + obj.maximum_power[time]
 
         # save values at ti
-        self.residual_energy[time] = residual_energy_ti
+        residual_energy[time] = residual_energy_ti
 
-        self.reserve_up[time] = reserve_up_ti
-        self.reserve_down[time] = reserve_down_ti
-        self.automated_reserve_up[time] = automated_reserve_up_ti
-        self.automated_reserve_down[time] = automated_reserve_down_ti
-        self.max_power[time] = max_power_ti
+        reserve_up[time] = reserve_up_ti
+        reserve_down[time] = reserve_down_ti
+        automated_reserve_up[time] = automated_reserve_up_ti
+        automated_reserve_down[time] = automated_reserve_down_ti
+        max_power[time] = max_power_ti
 
         # should be min in specifications but in tests it is max
-        self.max_overall_imbal[time] = max(residual_energy_ti, parameters.max_overall_imbalance)
+        max_overall_imbal[time] = max(residual_energy_ti, parameters.max_overall_imbalance)
 
     # compute imbal limits and compute reserve
-    self.small_imbal_up_limit = max_energy_tot * parameters.small_imbalance_size
-    self.small_imbal_down_limit = self.small_imbal_up_limit
+    small_imbal_up_limit = max_energy_tot * parameters.small_imbalance_size
+    small_imbal_down_limit = small_imbal_up_limit
 
     for _, time in enumerate(idx):
         # create variables at ti
-        self.small_imbal_up[time] = model.add_continuous_variable(
-            name=f"{self.name}_small_imbal_up_{time}",
+        model.add_continuous_variable(
+            name=f"{portfolio.name}_small_imbal_up_{time}",
             lower_bound=0,
-            upper_bound=self.small_imbal_up_limit,
+            upper_bound=small_imbal_up_limit,
         )
-        self.large_imbal_up[time] = model.add_continuous_variable(
-            name=f"{self.name}_large_imbal_up_{time}",
+        model.add_continuous_variable(
+            name=f"{portfolio.name}_large_imbal_up_{time}",
             lower_bound=0,
-            upper_bound=self.max_overall_imbal[time],
+            upper_bound=max_overall_imbal[time],
         )
-        self.small_imbal_down[time] = model.add_continuous_variable(
-            name=f"{self.name}_small_imbal_down_{time}",
+        model.add_continuous_variable(
+            name=f"{portfolio.name}_small_imbal_down_{time}",
             lower_bound=0,
-            upper_bound=self.small_imbal_down_limit,
+            upper_bound=small_imbal_down_limit,
         )
-        self.large_imbal_down[time] = model.add_continuous_variable(
-            name=f"{self.name}_large_imbal_down_{time}",
+        model.add_continuous_variable(
+            name=f"{portfolio.name}_large_imbal_down_{time}",
             lower_bound=0,
-            upper_bound=self.max_overall_imbal[time],
+            upper_bound=max_overall_imbal[time],
         )
 
-        self.contracted_difference_up[time] = model.add_continuous_variable(
+        model.add_continuous_variable(
             name=f"contracted_diff_up_e_{self.name}_at__{time}",
             lower_bound=0,
-            upper_bound=self.max_power[time],
+            upper_bound=max_power[time],
         )
-        self.contracted_difference_down[time] = model.add_continuous_variable(
+        model.add_continuous_variable(
             name=f"contracted_diff_down_e_{self.name}_at__{time}",
             lower_bound=0,
-            upper_bound=self.max_power[time],
+            upper_bound=max_power[time],
         )
-        self.automated_contracted_difference_up[time] = model.add_continuous_variable(
+        model.add_continuous_variable(
             name=f"auto_contracted_diff_up_e_{self.name}_at__{time}",
             lower_bound=0,
-            upper_bound=self.max_power[time],
+            upper_bound=max_power[time],
         )
-        self.automated_contracted_difference_down[time] = model.add_continuous_variable(
+        model.add_continuous_variable(
             name=f"auto_contracted_diff_down_e_{self.name}_at__{time}",
             lower_bound=0,
-            upper_bound=self.max_power[time],
+            upper_bound=max_power[time],
         )
 
 
 def _get_reserve(
-    self,
     opt,
     reserve_up_ti,
     reserve_down_ti,

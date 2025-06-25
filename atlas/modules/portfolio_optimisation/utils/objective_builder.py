@@ -13,6 +13,14 @@ class ObjectiveFunctionBuilder:
     def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
 
+    def set_objective(self, model: OptimisationModel, portfolio: Portfolio, target_times: list) -> None:
+        """Set the objective function in the optimization model."""
+        objective = self.build_objective(model, portfolio, target_times)
+        if objective:
+            model.set_objective(objective)
+        else:
+            raise ValueError("No valid objective function could be built.")
+
     def build_objective(self, model: OptimisationModel, portfolio: Portfolio, target_times: list) -> Any:
         """Build the complete objective function as OR-Tools expression."""
         objective_terms = []
