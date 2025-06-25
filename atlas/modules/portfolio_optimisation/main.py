@@ -51,7 +51,7 @@ class OptimalPlacementOptimizer:
 
         # Perform optimization based on mode
         if self.parameters.is_portfolio_bidding:
-            return self._optimize_portfolio_mode(input_dataset)
+            return self._optimize_portfolio(input_dataset, input_dataset.portfolio, self.equipments)
         else:
             return self._optimize_unit_mode(input_dataset)
 
@@ -99,16 +99,6 @@ class OptimalPlacementOptimizer:
                     "dispatchable_load" if equipment.LoadType == LoadType.POWER_TO_GAS else "non_dispatchable_load"
                 )
                 self._optimize_single_equipment(input_dataset, equipment, equipment_type)
-
-    def _optimize_portfolio_mode(self, input_dataset: PortfolioOptimisationInputDataset) -> list[str]:
-        """Optimize in portfolio bidding mode."""
-        cfg.logger.info("Optimizing in portfolio bidding mode")
-
-        return self._optimize_portfolio(
-            input_dataset,
-            input_dataset.portfolio,
-            self.equipments,
-        )
 
     def _optimize_unit_mode(self, input_dataset: PortfolioOptimisationInputDataset) -> list[str]:
         """Optimize in unit-based mode."""

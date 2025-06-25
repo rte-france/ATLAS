@@ -63,7 +63,7 @@ class POPortfolio:
         self.load = {}
         self.optimal_dispatch_ndl = {}
 
-    def init_variables_and_pre_computations(
+    def fill_model_and_pre_computations(
         self,
         portfolio_object: Portfolio,
         thermal: list[Thermal],
@@ -265,7 +265,7 @@ class POPortfolio:
                 # get last forecast
                 if idx == 0:
                     po_windj = POWind(obj.name)
-                    po_windj.init_variables(obj, parameters, model)
+                    po_windj.fill_model(obj, parameters, model)
                     self.wind[obj.name] = po_windj
 
                 if has_imbal_price == 0:
@@ -322,7 +322,7 @@ class POPortfolio:
                 # get last forecast
                 if idx == 0:
                     po_pvj = POPV(obj.name)
-                    po_pvj.init_variables(obj, parameters, model)
+                    po_pvj.fill_model(obj, parameters, model)
                     self.solar[obj.name] = po_pvj
 
                 if has_imbal_price == 0:
@@ -482,7 +482,7 @@ class POPortfolio:
             for obj in storage:
                 if idx == 0:
                     po_dsj = POStorage(obj.name, parameters)
-                    po_dsj.init_variables(obj, parameters, model)
+                    po_dsj.fill_model(obj, parameters, model)
                     self.storage[obj.name] = po_dsj
 
                 if has_imbal_price == 0:
