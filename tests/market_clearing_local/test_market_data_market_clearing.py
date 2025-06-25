@@ -5,6 +5,7 @@ import pytest
 import pickle
 from pathlib import Path
 from collections import OrderedDict
+from atlas.io.utils import to_snake_case
 import re
 
 import pandas as pd
@@ -62,24 +63,69 @@ def read_market_area_csv(path):
         market_area["orders"] = parse_orders(market_area["orders"])
     return market_areas
 
+def read_control_block_csv(path):
+    control_blocks_df = pd.read_csv(Path(path) / "control_blocks.csv", sep=";")
+    control_blocks = transform_dataframe_to_dict(control_blocks_df)
+    for control_block in control_blocks.values():
+        control_block["market_areas"] = re.findall(r"\('([^']+)',", control_block["market_areas"])
+        control_block["max_tso_power_sold"] = eval(control_block["max_tso_power_sold"])
+        control_block["max_tso_power_bought"] = eval(control_block["max_tso_power_bought"])
+    return control_blocks
+
+def read_market_borders_csv(path):
+    market_borders_df = pd.read_csv(Path(path) / "market_borders.csv", sep=";")
+    market_borders = transform_dataframe_to_dict(market_borders_df)
+    for market_borders in market_borders.values():
+        market_borders["max_flow"] = eval(market_borders["max_flow"])
+        market_borders["min_flow"] = eval(market_borders["min_flow"])
+    return market_borders
+
+def read_market_data_csv(path):
+    market_data_df = pd.read_csv(Path(path) / "market_data.csv", sep=";")
+    # Convert to dictionary with Attribute as key and Value as value
+    market_data = dict(zip(market_data_df['Attribute'], market_data_df['Value']))
+    market_data["control_blocks"] = re.findall(r"\('([^']+)',", market_data["control_blocks"])
+    market_data["coupling_groups"] = market_data["coupling_groups"].count("<OrderCoupling object at")
+    market_data["market_borders"] = market_data["market_borders"].count("<MarketBorder object at")
+    return market_data
+
 def read_expected_data(path):
     coupling_groups_df = pd.read_csv(Path(path) / "coupling_groups.csv", sep=";")
     coupling_groups = transform_dataframe_to_dict(coupling_groups_df)
     market_areas = read_market_area_csv(path)
-    return coupling_groups, market_areas
+    control_blocks = read_control_block_csv(path)
+    market_borders = read_market_borders_csv(path)
+    market_data = read_market_data_csv(path)
+    # Price group is empty before the phases
+    return coupling_groups, market_areas, control_blocks, market_borders, market_data
 
 def compare_market_area(market_areas_expected, input_dataset):
     for market_area_name, market_area_expected in market_areas_expected.items():
-        # TODO test
+        market_area_mc: object = input_dataset.mc_market_areas[to_snake_case(market_area_name)]
+        assert market_area_mc.market_area.control_block.name == to_snake_case(market_area_expected["control_block"])
+        for order_name_expected, order_expected in market_area_expected["orders"].items():
+            assert to_snake_case(order_name_expected) in market_area_mc.orders
+        # TODO Compare TS
+        # ref_balance
+        # min_balance
+        # max balance
 
+def compare_control_block(control_blocks_expected, input_dataset):
+    pass
+
+def compare_market_borders(market_borders_expected, input_dataset):
+    pass
+
+def compare_market_data(market_borders_expected, input_dataset):
+    pass
 
 def compare_orders_couplings(order_couplings_expected, order_couplings_dict):
     for name, order_coupling_expected in order_couplings_expected.items():
         # Sometimes there is an _ at the end after with_price
-        if name.lower() not in  order_couplings_dict:
+        if to_snake_case(name) not in  order_couplings_dict:
             name = name[:-1]
-        order_coupling = order_couplings_dict[name.lower()]
-        assert order_coupling.name.lower() == name.lower()
+        order_coupling = order_couplings_dict[to_snake_case(name)]
+        assert to_snake_case(order_coupling.name) == to_snake_case(name)
         assert order_coupling.coupling_type.value == order_coupling_expected["coupling_type"]
         expected_complement_energy = float(order_coupling_expected["complement_energy"])
         # If there are no value we are None instead of default value 0.0
@@ -114,8 +160,11 @@ def test_market_data():
 
     input_dataset = mc_module.import_data(raw_data, parameters)
 
-    coupling_groups_expected, market_areas_expected = read_expected_data(expected_data_path)
+    coupling_groups_expected, market_areas_expected, control_blocks_expected, market_borders_expected, market_data_expected = read_expected_data(expected_data_path)
     compare_orders_couplings(coupling_groups_expected, input_dataset.order_couplings)
     compare_market_area(market_areas_expected, input_dataset)
+    compare_control_block(control_blocks_expected, input_dataset)
+    compare_market_borders(market_borders_expected, input_dataset)
+    compare_market_data(market_data_expected, input_dataset)
 
 
