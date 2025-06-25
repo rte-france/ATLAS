@@ -68,8 +68,8 @@ class ControlBlock(BusinessModel):
 
     alternative_type: ReservesTypes | None = None
     volume_uncertainty: bool | None = None
-    affr_down_required: ForecastingMatrix | LazyForecastingMatrix | None = None
-    affr_up_required: ForecastingMatrix | LazyForecastingMatrix | None = None
+    afrr_down_required: ForecastingMatrix | LazyForecastingMatrix | None = None
+    afrr_up_required: ForecastingMatrix | LazyForecastingMatrix | None = None
     balancing_mechanism_needs: ForecastingMatrix | LazyForecastingMatrix | None = None
     mfrr_down_required: ForecastingMatrix | LazyForecastingMatrix | None = None
     mfrr_needs: ForecastingMatrix | LazyForecastingMatrix | None = None
