@@ -1,3 +1,5 @@
+from typing import cast
+
 from pendulum import DateTime
 
 from atlas.enum import StorageType
@@ -373,22 +375,22 @@ def add_variables_portfolio(
         if time in parameters.target_times:
             if parameters.use_forecast:
                 if parameters.market == MarketEnum.dayahead:
-                    self.price_forecast[time] = portfolio.market_area.price_forecast_medium.get_value(time)
+                    price_forecast[time] = portfolio.market_area.price_forecast_medium.get_value(time)
                 elif parameters.market == MarketEnum.intraday:
-                    self.price_forecast[time] = portfolio.market_area.id_price_forecast.get_forecast(
+                    price_forecast[time] = portfolio.market_area.id_price_forecast.get_forecast(
                         parameters.execution_date, time, time
                     ).get_value(time)
             else:
                 if parameters.market == MarketEnum.dayahead:
-                    self.price_forecast[time] = portfolio.market_area.da_price.get_value(time)
+                    price_forecast[time] = portfolio.market_area.da_price.get_value(time)
                 elif parameters.market == MarketEnum.intraday:
-                    self.price_forecast[time] = portfolio.market_area.id_price.get_forecast(
+                    price_forecast[time] = portfolio.market_area.id_price.get_forecast(
                         parameters.execution_date, time, time
                     ).get_value(time)
                 elif parameters.market == MarketEnum.rr_activation:
-                    self.price_forecast[time] = portfolio.market_area.rr_activation_price.get_value(time)
+                    price_forecast[time] = portfolio.market_area.rr_activation_price.get_value(time)
                 elif parameters.market == MarketEnum.mfrr_activation:
-                    self.price_forecast[time] = portfolio.market_area.mfrr_activation_price.get_value(time)
+                    price_forecast[time] = portfolio.market_area.mfrr_activation_price.get_value(time)
         else:
             price = portfolio.market_area.price_forecast_medium.get_forecast(
                 parameters.execution_date, time, time
@@ -432,16 +434,16 @@ def add_variables_portfolio(
             residual_energy_ti += upstream_sold_energy_ti - optimal_dispatch_ti
 
             # save optimal dispatch
-            self.optimal_dispatch_ndp[obj.name][time] = optimal_dispatch_ti
+            optimal_dispatch_ndp[obj.name][time] = optimal_dispatch_ti
 
         # --- non dispatchable loads ---
-        for obj in equipments["non_dispacthable_load"]:
+        for obj in cast(Load, equipments["non_dispacthable_load"]):
             # Initialization
             if idx == 0:
                 global_series_ndl[obj] = obj.maximum_power_forecast.get_forecast(
                     parameters.execution_date, parameters.start_date, parameters.end_date
                 )
-                self.optimal_dispatch_ndl[obj.name] = {}
+                optimal_dispatch_ndl[obj.name] = {}
 
             last_forecast_ti = 0
             if global_series_ndl[obj] is not None:
@@ -460,7 +462,7 @@ def add_variables_portfolio(
 
             optimal_dispatch_ti = min(inflex_qty_ti, upstream_bought_energy_ti)
             residual_energy_ti += upstream_bought_energy_ti - optimal_dispatch_ti
-            self.optimal_dispatch_ndl[obj.name][time] = optimal_dispatch_ti
+            optimal_dispatch_ndl[obj.name][time] = optimal_dispatch_ti
 
         # --- dispatchable loads ---
         for obj in equipments["dispatchable_load"]:
@@ -712,22 +714,22 @@ def add_variables_portfolio(
         )
 
         model.add_continuous_variable(
-            name=f"contracted_diff_up_e_{self.name}_at__{time}",
+            name=f"contracted_diff_up_e_{portfolio.name}_at__{time}",
             lower_bound=0,
             upper_bound=max_power[time],
         )
         model.add_continuous_variable(
-            name=f"contracted_diff_down_e_{self.name}_at__{time}",
+            name=f"contracted_diff_down_e_{portfolio.name}_at__{time}",
             lower_bound=0,
             upper_bound=max_power[time],
         )
         model.add_continuous_variable(
-            name=f"auto_contracted_diff_up_e_{self.name}_at__{time}",
+            name=f"auto_contracted_diff_up_e_{portfolio.name}_at__{time}",
             lower_bound=0,
             upper_bound=max_power[time],
         )
         model.add_continuous_variable(
-            name=f"auto_contracted_diff_down_e_{self.name}_at__{time}",
+            name=f"auto_contracted_diff_down_e_{portfolio.name}_at__{time}",
             lower_bound=0,
             upper_bound=max_power[time],
         )
