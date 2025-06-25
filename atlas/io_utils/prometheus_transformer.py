@@ -112,17 +112,7 @@ class PrometheusToAtlasDataParser:
                                     pl.Datetime(), pendulum_to_datetime(self.date_format_timestep)
                                 )
                             )
-                            if matrix_type == "timeseries":
-                                try:
-                                    infer_frequency(df.rename({"TimeStep": "time"}))
-                                except ValueError:
-                                    timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
-                                    df = (
-                                        df.upsample(time_column="TimeStep", every=timestep)
-                                        .fill_null(strategy="forward")
-                                        .sort("TimeStep")
-                                    )
-                            elif matrix_type == "forecasting_matrix":
+                            if matrix_type == "forecasting_matrix":
                                 duplicated_columns = [e for e in df.columns if "duplicated" in e]
                                 old_indexes = df.drop(*duplicated_columns).select(pl.selectors.numeric()).columns
                                 if len(old_indexes) > 0:
@@ -168,7 +158,16 @@ class PrometheusToAtlasDataParser:
 
                                     renaming_mapping = dict(zip(indexes_sorted, new_indexes, strict=False))
                                     df = df.rename(renaming_mapping)
-
+                            try:
+                                infer_frequency(df.rename({"TimeStep": "time"}))
+                            except ValueError:
+                                timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
+                                df = df.sort("TimeStep")
+                                df = (
+                                    df.upsample(time_column="TimeStep", every=timestep)
+                                    .fill_null(strategy="forward")
+                                    .sort("TimeStep")
+                                )
                             df = df.with_columns(
                                 pl.lit(attr_name_snake).alias("attribute"),
                             ).select(
