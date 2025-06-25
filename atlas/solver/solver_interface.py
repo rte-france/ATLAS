@@ -60,7 +60,6 @@ class OptimisationModel:
         self.solver_name = solver_name
         self._solver = None
         self._variables_name: set[str] = set()
-        self._variables_objects: dict[str, Any] = {}
         self._constraints_name: set[str] = set()
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
@@ -123,7 +122,6 @@ class OptimisationModel:
 
         var = self._solver.NumVar(lower_bound, upper_bound, name)
         self._variables_name.add(name)
-        self._variables_objects[name] = var
         return var
 
     def add_integer_variable(
@@ -150,7 +148,6 @@ class OptimisationModel:
 
         var = self._solver.IntVar(lower_bound, upper_bound, name)
         self._variables_name.add(name)
-        self._variables_objects[name] = var
         return var
 
     def add_boolean_variable(self, name: str) -> Any:
@@ -168,7 +165,6 @@ class OptimisationModel:
 
         var = self._solver.BoolVar(name)
         self._variables_name.add(name)
-        self._variables_objects[name] = var
         return var
 
     def get_variable(self, name: str) -> Any:
@@ -181,9 +177,9 @@ class OptimisationModel:
         :rtype: pywraplp.Variable
         :raises ValueError: If variable doesn't exist
         """
-        if name not in self._variables_objects:
+        if name not in self._variables_name:
             raise ValueError(f"Variable '{name}' not found")
-        return self._variables_objects[name]
+        return self._solver.LookupVariable(name)
 
     def add_constraint(self, constraint_expr: Any, name: str | None = None) -> None:
         """
@@ -372,7 +368,6 @@ class OptimisationModel:
     def clear(self) -> None:
         """Clear the model and reset all variables and constraints."""
         self._variables_name.clear()
-        self._variables_objects.clear()
         self._constraints_name.clear()
         self._solution_info = None
         self._objective = None
