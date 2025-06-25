@@ -18,10 +18,10 @@ class ControlBlock(BusinessModel):
     :param volume_uncertainty: True if uncertainty about the volume of the TSO's balancing requirement must be taken
     into account when formulating bids on a balancing market
     :type volume_uncertainty: bool
-    :param affr_down_required: Procurement need of downward aFRR for this Control Block
-    :type affr_down_required: ForecastingMatrix
-    :param affr_up_required: Procurement Need of upward aFRR for this Control Block
-    :type affr_up_required: ForecastingMatrix
+    :param afrr_down_required: Procurement need of downward aFRR for this Control Block
+    :type afrr_down_required: ForecastingMatrix
+    :param afrr_up_required: Procurement Need of upward aFRR for this Control Block
+    :type afrr_up_required: ForecastingMatrix
     :param balancing_mechanism_needs: Balancing needs for the Balancing Mechanism
     :type balancing_mechanism_needs: ForecastingMatrix
     :param mfrr_down_required: Procurement need of downward mFRR for this Control Block
