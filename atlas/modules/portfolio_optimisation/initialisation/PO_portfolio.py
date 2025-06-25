@@ -74,7 +74,7 @@ class POPortfolio:
         other_non_dispatchable: list[OtherNonDispatchable],
         non_dispatchable_load: list[Load],
         dispatchable_load: list[Load],
-        idx,
+        time_index: list[DateTime],
         parameters: PortfolioOptimisationParameters,
         model: OptimisationModel,
     ):
@@ -83,7 +83,7 @@ class POPortfolio:
         global_series_ndp = {}
         global_series_ndl = {}
 
-        for idx, time in enumerate(idx):
+        for idx, time in enumerate(time_index):
             residual_energy_ti = 0
             reserve_up_ti = 0
             reserve_down_ti = 0
@@ -133,7 +133,6 @@ class POPortfolio:
                     # get da_price (first equipment in list set the da_price)
                     estimate_imbalance_prices(
                         time,
-                        portfolio_object,
                         opt_ndp.node.market_area,
                         opt_ndp.node.control_block,
                         self.imbal_price_up,
@@ -176,7 +175,6 @@ class POPortfolio:
                     # get da_price (first equipment in list set the da_price)
                     estimate_imbalance_prices(
                         time,
-                        portfolio_object,
                         obj.node.market_area,
                         obj.node.control_block,
                         self.imbal_price_up,
@@ -215,7 +213,6 @@ class POPortfolio:
                     # get da_price (first equipment in list set the da_price)
                     estimate_imbalance_prices(
                         time,
-                        portfolio_object,
                         obj.node.market_area,
                         obj.node.control_block,
                         self.imbal_price_up,
@@ -272,7 +269,6 @@ class POPortfolio:
                     # get da_price (first equipment in list set the da_price)
                     estimate_imbalance_prices(
                         time,
-                        portfolio_object,
                         obj.node.market_area,
                         obj.node.control_block,
                         self.imbal_price_up,
@@ -329,7 +325,6 @@ class POPortfolio:
                     # get da_price (first equipment in list set the da_price)
                     estimate_imbalance_prices(
                         time,
-                        portfolio_object,
                         obj.node.market_area,
                         obj.node.control_block,
                         self.imbal_price_up,
@@ -383,7 +378,6 @@ class POPortfolio:
                 if has_imbal_price == 0:
                     estimate_imbalance_prices(
                         time,
-                        portfolio_object,
                         opt_thermic.node.market_area,
                         opt_thermic.node.control_block,
                         self.imbal_price_up,
@@ -436,7 +430,6 @@ class POPortfolio:
                 if has_imbal_price == 0:
                     estimate_imbalance_prices(
                         time,
-                        portfolio_object,
                         obj.node.market_area,
                         obj.node.control_block,
                         self.imbal_price_up,
@@ -489,7 +482,6 @@ class POPortfolio:
                     # get da_price (first equipment in list set the da_price)
                     estimate_imbalance_prices(
                         time,
-                        portfolio_object,
                         obj.node.market_area,
                         obj.node.control_block,
                         self.imbal_price_up,
@@ -548,46 +540,46 @@ class POPortfolio:
         self.small_imbal_up_limit = max_energy_tot * parameters.small_imbalance_size
         self.small_imbal_down_limit = self.small_imbal_up_limit
 
-        for idx, time in enumerate(idx):
+        for _, time in enumerate(idx):
             # create variables at ti
             self.small_imbal_up[time] = model.add_continuous_variable(
-                name=f"{self.name}_small_imbal_up{idx}",
+                name=f"{self.name}_small_imbal_up_{time}",
                 lower_bound=0,
                 upper_bound=self.small_imbal_up_limit,
             )
             self.large_imbal_up[time] = model.add_continuous_variable(
-                name=f"{self.name}_large_imbal_up{idx}",
+                name=f"{self.name}_large_imbal_up_{time}",
                 lower_bound=0,
                 upper_bound=self.max_overall_imbal[time],
             )
             self.small_imbal_down[time] = model.add_continuous_variable(
-                name=f"{self.name}_small_imbal_down{idx}",
+                name=f"{self.name}_small_imbal_down_{time}",
                 lower_bound=0,
                 upper_bound=self.small_imbal_down_limit,
             )
             self.large_imbal_down[time] = model.add_continuous_variable(
-                name=f"{self.name}_large_imbal_down{idx}",
+                name=f"{self.name}_large_imbal_down_{time}",
                 lower_bound=0,
                 upper_bound=self.max_overall_imbal[time],
             )
 
             self.contracted_difference_up[time] = model.add_continuous_variable(
-                name=f"contracted_diff_up_e_{self.name}_at_{idx}",
+                name=f"contracted_diff_up_e_{self.name}_at__{time}",
                 lower_bound=0,
                 upper_bound=self.max_power[time],
             )
             self.contracted_difference_down[time] = model.add_continuous_variable(
-                name=f"contracted_diff_down_e_{self.name}_at_{idx}",
+                name=f"contracted_diff_down_e_{self.name}_at__{time}",
                 lower_bound=0,
                 upper_bound=self.max_power[time],
             )
             self.automated_contracted_difference_up[time] = model.add_continuous_variable(
-                name=f"auto_contracted_diff_up_e_{self.name}_at_{idx}",
+                name=f"auto_contracted_diff_up_e_{self.name}_at__{time}",
                 lower_bound=0,
                 upper_bound=self.max_power[time],
             )
             self.automated_contracted_difference_down[time] = model.add_continuous_variable(
-                name=f"auto_contracted_diff_down_e_{self.name}_at_{idx}",
+                name=f"auto_contracted_diff_down_e_{self.name}_at__{time}",
                 lower_bound=0,
                 upper_bound=self.max_power[time],
             )

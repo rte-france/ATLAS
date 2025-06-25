@@ -4,16 +4,11 @@ from pendulum import DateTime
 
 from atlas.models.control_block import ControlBlock
 from atlas.models.market.market_area import MarketArea
-from atlas.models.portfolio import Portfolio
-from atlas.modules.portfolio_optimisation.parameters import (
-    MarketEnum,
-    PortfolioOptimisationParameters,
-)
+from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 
 
 def estimate_imbalance_prices(
     time: DateTime,
-    portfolio: Portfolio,
     market_area: MarketArea,
     control_block: ControlBlock,
     imbalance_price_up: Mapping[DateTime, float],
@@ -103,3 +98,5 @@ def estimate_imbalance_prices(
             else:
                 imbalance_price_down[time] = (1 + parameters.small_imbalance_penalty) * price
                 large_imbalance_price_down[time] = (1 + parameters.large_imbalance_penalty) * price
+
+    return imbalance_price_down, imbalance_price_up, large_imbalance_price_down, large_imbalance_price_up
