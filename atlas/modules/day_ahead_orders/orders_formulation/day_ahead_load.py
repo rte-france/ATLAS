@@ -12,6 +12,7 @@ from atlas.enum import Product, OrderType, LoadType
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
+import atlas.config as cfg
 
 
 class DayAheadLoad:
@@ -40,7 +41,6 @@ class DayAheadLoad:
                 parameters.end_date.subtract(minutes=parameters.time_step),
             )
 
-            # TODO : load.da_buy_submitted_volume = consumption_forecast.abs() ?
             if load.da_buy_submitted_volume is None:
                 load.da_buy_submitted_volume = Timeseries(consumption_forecast.abs())
             else:
@@ -50,29 +50,32 @@ class DayAheadLoad:
             # We formulate as many offers as there are time stamps in orders_time.
             for t in orders_time:
                 # Extract the desired consumption level.
-                max_consumption_value = abs(consumption_forecast.get_value(t))
+                if len(consumption_forecast) == 0:
+                    cfg.logger.debug("consumption_forecast is empty for load " + load.name + ", " + str(load.load_type))
+                else:
+                    max_consumption_value = abs(consumption_forecast.get_value(t))
 
-                # Formulate an order if max_consumption_value is strictly positive
-                if max_consumption_value > 0:
-                    # Initialize the order object.
-                    bid_output = Order(
-                        name="load_order_at_{}_for_unit_{}".format(Utilities.get_date_to_clean_string(t), load.name)
-                    )
+                    # Formulate an order if max_consumption_value is strictly positive
+                    if max_consumption_value > 0:
+                        # Initialize the order object.
+                        bid_output = Order(
+                            name="load_order_at_{}_for_unit_{}".format(Utilities.get_date_to_clean_string(t), load.name)
+                        )
 
-                    # Fill the offer with the desired parameters.
-                    bid_output.market_area = load.portfolio.market_area
-                    bid_output.portfolio = load.portfolio
-                    bid_output.equipment = load
-                    bid_output.qmax = max_consumption_value
-                    bid_output.qmin = 0
-                    if load.load_type == LoadType.POWER_TO_GAS:
-                        bid_output.price = load.variable_cost.get_value(t)
-                    else:
-                        bid_output.price = parameters.load_price
-                    bid_output.product = Product.DayAhead
-                    bid_output.order_type = OrderType.Buy
-                    bid_output.is_agent_tso = False
-                    bid_output.execution_date = parameters.execution_date
-                    bid_output.start_date = t
-                    bid_output.end_date = t.add(minutes=parameters.time_step)
-                    dataset.order.append(bid_output)
+                        # Fill the offer with the desired parameters.
+                        bid_output.market_area = load.portfolio.market_area
+                        bid_output.portfolio = load.portfolio
+                        bid_output.equipment = load
+                        bid_output.qmax = max_consumption_value
+                        bid_output.qmin = 0
+                        if load.load_type == LoadType.POWER_TO_GAS:
+                            bid_output.price = load.variable_cost.get_value(t)
+                        else:
+                            bid_output.price = parameters.load_price
+                        bid_output.product = Product.DayAhead
+                        bid_output.order_type = OrderType.Buy
+                        bid_output.is_agent_tso = False
+                        bid_output.execution_date = parameters.execution_date
+                        bid_output.start_date = t
+                        bid_output.end_date = t.add(minutes=parameters.time_step)
+                        dataset.order.append(bid_output)
