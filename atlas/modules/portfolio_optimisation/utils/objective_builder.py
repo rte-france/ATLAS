@@ -4,6 +4,7 @@ from pendulum import DateTime
 
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -21,12 +22,25 @@ class ObjectiveFunctionBuilder:
         else:
             raise ValueError("No valid objective function could be built.")
 
-    def build_objective(self, model: OptimisationModel, portfolio: Portfolio, target_times: list) -> Any:
+    def build_objective(self, model: OptimisationModel, portfolio: Portfolio, target_times: list[DateTime]) -> Any:
         """Build the complete objective function as OR-Tools expression."""
         objective_terms = []
 
         for time in target_times:
-            objective_terms.extend(self._get_imbalance_cost_terms(model, portfolio, time))
+            imbalance_price_down, imbalance_price_up, large_imbalance_price_down, large_imbalance_price_up = (
+                estimate_imbalance_prices(time, portfolio.market_area, portfolio.control_block, self.parameters)
+            )
+            objective_terms.extend(
+                self._get_imbalance_cost_terms(
+                    model,
+                    portfolio,
+                    time,
+                    imbalance_price_down,
+                    imbalance_price_up,
+                    large_imbalance_price_down,
+                    large_imbalance_price_up,
+                )
+            )
             objective_terms.extend(self._get_reserve_penalty_terms(model, portfolio, time))
             objective_terms.extend(self._get_hydro_terms())
             objective_terms.extend(self._get_load_terms())
@@ -37,30 +51,38 @@ class ObjectiveFunctionBuilder:
         if objective_terms:
             return sum(objective_terms)
 
-    def _get_imbalance_cost_terms(self, model: OptimisationModel, portfolio: Portfolio, time) -> list[Any]:
+    def _get_imbalance_cost_terms(
+        self,
+        model: OptimisationModel,
+        portfolio: Portfolio,
+        time: DateTime,
+        imbalance_price_down,
+        imbalance_price_up,
+        large_imbalance_price_down,
+        large_imbalance_price_up,
+    ) -> list[Any]:
         """Get imbalance cost terms as OR-Tools expressions."""
         time_factor = self.parameters.timestep
         terms = []
 
-        # Get variables from portfolio (these would need to be OR-Tools variables)
-        small_imbal_up = model.get_variable(f"small_imbal_up_{time}")
-        small_imbal_down = model.get_variable(f"small_imbal_down_{time}")
-        large_imbal_up = model.get_variable(f"large_imbal_up_{time}")
-        large_imbal_down = model.get_variable(f"large_imbal_down_{time}")
+        small_imbalance_up = model.get_variable(f"{portfolio.name}_small_imbalance_up_{time}")
+        small_imbalance_down = model.get_variable(f"{portfolio.name}_small_imbalance_down_{time}")
+        large_imbalance_up = model.get_variable(f"{portfolio.name}_large_imbalance_up_{time}")
+        large_imbalance_down = model.get_variable(f"{portfolio.name}_large_imbalance_down_{time}")
 
         # Small imbalance costs
-        if portfolio.imbal_price_up and time in portfolio.imbal_price_up:
-            terms.append(portfolio.imbal_price_up[time] * small_imbal_up * time_factor)
+        if imbalance_price_up:
+            terms.append(imbalance_price_up * small_imbalance_up * time_factor)
 
-        if portfolio.imbal_price_down and time in portfolio.imbal_price_down:
-            terms.append(-portfolio.imbal_price_down[time] * small_imbal_down * time_factor)
+        if imbalance_price_down:
+            terms.append(-imbalance_price_down * small_imbalance_down * time_factor)
 
         # Large imbalance costs
-        if portfolio.large_imbal_price_up and time in portfolio.large_imbal_price_up:
-            terms.append(portfolio.large_imbal_price_up[time] * large_imbal_up * time_factor)
+        if large_imbalance_price_up:
+            terms.append(large_imbalance_price_up * large_imbalance_up * time_factor)
 
-        if portfolio.large_imbal_price_down and time in portfolio.large_imbal_price_down:
-            terms.append(-portfolio.large_imbal_price_down[time] * large_imbal_down * time_factor)
+        if large_imbalance_price_down:
+            terms.append(-large_imbalance_price_down * large_imbalance_down * time_factor)
 
         return terms
 
@@ -69,10 +91,10 @@ class ObjectiveFunctionBuilder:
         time_factor = self.parameters.timestep
         terms = []
 
-        contracted_diff_up = model.get_variable(f"contracted_diff_up_{time}")
-        contracted_diff_down = model.get_variable(f"contracted_diff_down_{time}")
-        auto_contracted_diff_up = model.get_variable(f"auto_contracted_diff_up_{time}")
-        auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{time}")
+        contracted_diff_up = model.get_variable(f"contracted_diff_up_{portfolio.name}_{time}")
+        contracted_diff_down = model.get_variable(f"contracted_diff_down_{portfolio.name}_{time}")
+        auto_contracted_diff_up = model.get_variable(f"auto_contracted_diff_up_{portfolio.name}_{time}")
+        auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{portfolio.name}_{time}")
 
         # Manual reserve penalties
         manual_penalty = getattr(self.parameters, "manual_unprocured_reserves_penalty", 1000)

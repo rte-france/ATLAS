@@ -1,5 +1,3 @@
-from collections.abc import Mapping
-
 from pendulum import DateTime
 
 from atlas.models.control_block import ControlBlock
@@ -11,12 +9,8 @@ def estimate_imbalance_prices(
     time: DateTime,
     market_area: MarketArea,
     control_block: ControlBlock,
-    imbalance_price_up: Mapping[DateTime, float],
-    large_imbalance_price_up: Mapping[DateTime, float],
-    imbalance_price_down: Mapping[DateTime, float],
-    large_imbalance_price_down: Mapping[DateTime, float],
     parameters: PortfolioOptimisationParameters,
-) -> None:
+) -> tuple[dict, dict, dict, dict]:
     """
     Estimate imbalance settlement prices (ISP) at a given time and store them in the provided dictionaries.
 
@@ -30,6 +24,11 @@ def estimate_imbalance_prices(
     and applies either provided imbalance price markers or calculates them using
     French regulation method with penalties and lower bounds.
     """
+    imbalance_price_up: float
+    large_imbalance_price_up: float
+    imbalance_price_down: float
+    large_imbalance_price_down: float
+
     # 1. Get reference price
     if parameters.use_forecast:
         if parameters.market == MarketEnum.dayahead:
@@ -55,48 +54,48 @@ def estimate_imbalance_prices(
     # 2. Upward imbalance prices
     if len(control_block.negative_imbalance_price) > 0:
         base = control_block.negative_imbalance_price.get_value(time)
-        imbalance_price_up[time] = base * (1 + parameters.small_imbalance_penalty)
-        large_imbalance_price_up[time] = base * (1 + parameters.large_imbalance_penalty)
+        imbalance_price_up = base * (1 + parameters.small_imbalance_penalty)
+        large_imbalance_price_up = base * (1 + parameters.large_imbalance_penalty)
     else:
         # French rule estimation
         ref = parameters.isp_forecast_lower_bound
         abs_price = abs(price)
         if abs_price < ref:
             if price >= 0:
-                imbalance_price_up[time] = (1 + parameters.small_imbalance_penalty) * ref
-                large_imbalance_price_up[time] = (1 + parameters.large_imbalance_penalty) * ref
+                imbalance_price_up = (1 + parameters.small_imbalance_penalty) * ref
+                large_imbalance_price_up = (1 + parameters.large_imbalance_penalty) * ref
             else:
-                imbalance_price_up[time] = (1 - parameters.small_imbalance_penalty) * -ref
-                large_imbalance_price_up[time] = (1 - parameters.large_imbalance_penalty) * -ref
+                imbalance_price_up = (1 - parameters.small_imbalance_penalty) * -ref
+                large_imbalance_price_up = (1 - parameters.large_imbalance_penalty) * -ref
         else:
             if price >= 0:
-                imbalance_price_up[time] = (1 + parameters.small_imbalance_penalty) * price
-                large_imbalance_price_up[time] = (1 + parameters.large_imbalance_penalty) * price
+                imbalance_price_up = (1 + parameters.small_imbalance_penalty) * price
+                large_imbalance_price_up = (1 + parameters.large_imbalance_penalty) * price
             else:
-                imbalance_price_up[time] = (1 - parameters.small_imbalance_penalty) * price
-                large_imbalance_price_up[time] = (1 - parameters.large_imbalance_penalty) * price
+                imbalance_price_up = (1 - parameters.small_imbalance_penalty) * price
+                large_imbalance_price_up = (1 - parameters.large_imbalance_penalty) * price
 
     # 3. Downward imbalance prices
     if len(control_block.positive_imbalance_price) > 0:
         base = control_block.positive_imbalance_price.get_value(time)
-        imbalance_price_down[time] = base * (1 - parameters.small_imbalance_penalty)
-        large_imbalance_price_down[time] = base * (1 - parameters.large_imbalance_penalty)
+        imbalance_price_down = base * (1 - parameters.small_imbalance_penalty)
+        large_imbalance_price_down = base * (1 - parameters.large_imbalance_penalty)
     else:
         ref = parameters.isp_forecast_lower_bound
         abs_price = abs(price)
         if abs_price < ref:
             if price >= 0:
-                imbalance_price_down[time] = (1 - parameters.small_imbalance_penalty) * ref
-                large_imbalance_price_down[time] = (1 - parameters.large_imbalance_penalty) * ref
+                imbalance_price_down = (1 - parameters.small_imbalance_penalty) * ref
+                large_imbalance_price_down = (1 - parameters.large_imbalance_penalty) * ref
             else:
-                imbalance_price_down[time] = (1 + parameters.small_imbalance_penalty) * -ref
-                large_imbalance_price_down[time] = (1 + parameters.large_imbalance_penalty) * -ref
+                imbalance_price_down = (1 + parameters.small_imbalance_penalty) * -ref
+                large_imbalance_price_down = (1 + parameters.large_imbalance_penalty) * -ref
         else:
             if price >= 0:
-                imbalance_price_down[time] = (1 - parameters.small_imbalance_penalty) * price
-                large_imbalance_price_down[time] = (1 - parameters.large_imbalance_penalty) * price
+                imbalance_price_down = (1 - parameters.small_imbalance_penalty) * price
+                large_imbalance_price_down = (1 - parameters.large_imbalance_penalty) * price
             else:
-                imbalance_price_down[time] = (1 + parameters.small_imbalance_penalty) * price
-                large_imbalance_price_down[time] = (1 + parameters.large_imbalance_penalty) * price
+                imbalance_price_down = (1 + parameters.small_imbalance_penalty) * price
+                large_imbalance_price_down = (1 + parameters.large_imbalance_penalty) * price
 
     return imbalance_price_down, imbalance_price_up, large_imbalance_price_down, large_imbalance_price_up

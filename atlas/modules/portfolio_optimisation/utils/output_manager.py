@@ -39,10 +39,10 @@ class OutputManager:
 
         for time in self.parameters.target_times:
             imbalance_value = (
-                portfolio.Large_imbal_down[time].VarValue
-                + portfolio.Small_imbal_down[time].VarValue
-                - portfolio.Large_imbal_up[time].VarValue
-                - portfolio.Small_imbal_up[time].VarValue
+                portfolio.large_imbalance_down[time].VarValue
+                + portfolio.small_imbalance_down[time].VarValue
+                - portfolio.large_imbalance_up[time].VarValue
+                - portfolio.small_imbalance_up[time].VarValue
             )
             imbalance_ts.SetValue(time, imbalance_value)
 

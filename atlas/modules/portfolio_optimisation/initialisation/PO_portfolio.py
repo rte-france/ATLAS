@@ -27,10 +27,10 @@ class POPortfolio:
     def __init__(self, name):
         self.name = name
 
-        self.small_imbal_up = {}
-        self.large_imbal_up = {}
-        self.small_imbal_down = {}
-        self.large_imbal_down = {}
+        self.small_imbalance_up = {}
+        self.large_imbalance_up = {}
+        self.small_imbalance_down = {}
+        self.large_imbalance_down = {}
 
         self.reserve_up = {}
         self.reserve_down = {}
@@ -41,12 +41,12 @@ class POPortfolio:
 
         self.max_overall_imbal = {}
         self.residual_energy = {}
-        self.small_imbal_up_limit = 0
-        self.small_imbal_down_limit = 0
-        self.imbal_price_up = {}
-        self.large_imbal_price_up = {}
-        self.imbal_price_down = {}
-        self.large_imbal_price_down = {}
+        self.small_imbalance_up_limit = 0
+        self.small_imbalance_down_limit = 0
+        self.imbalance_price_up = {}
+        self.large_imbalance_price_up = {}
+        self.imbalance_price_down = {}
+        self.large_imbalance_price_down = {}
         self.price_forecast = {}
 
         self.contracted_difference_up = {}
@@ -120,10 +120,10 @@ class POPortfolio:
                 time,
                 opt_ndp.node.market_area,
                 opt_ndp.node.control_block,
-                self.imbal_price_up,
-                self.large_imbal_price_up,
-                self.imbal_price_down,
-                self.large_imbal_price_down,
+                self.imbalance_price_up,
+                self.large_imbalance_price_up,
+                self.imbalance_price_down,
+                self.large_imbalance_price_down,
                 parameters,
             )
 
@@ -362,10 +362,10 @@ class POPortfolio:
                         time,
                         obj.node.market_area,
                         obj.node.control_block,
-                        self.imbal_price_up,
-                        self.large_imbal_price_up,
-                        self.imbal_price_down,
-                        self.large_imbal_price_down,
+                        self.imbalance_price_up,
+                        self.large_imbalance_price_up,
+                        self.imbalance_price_down,
+                        self.large_imbalance_price_down,
                         parameters,
                     )
                     has_imbal_price = 1
@@ -414,10 +414,10 @@ class POPortfolio:
                         time,
                         obj.node.market_area,
                         obj.node.control_block,
-                        self.imbal_price_up,
-                        self.large_imbal_price_up,
-                        self.imbal_price_down,
-                        self.large_imbal_price_down,
+                        self.imbalance_price_up,
+                        self.large_imbalance_price_up,
+                        self.imbalance_price_down,
+                        self.large_imbalance_price_down,
                         parameters,
                     )
                     has_imbal_price = 1
@@ -467,28 +467,28 @@ class POPortfolio:
             self.max_overall_imbal[time] = max(residual_energy_ti, parameters.max_overall_imbalance)
 
         # compute imbal limits and compute reserve
-        self.small_imbal_up_limit = max_energy_tot * parameters.small_imbalance_size
-        self.small_imbal_down_limit = self.small_imbal_up_limit
+        self.small_imbalance_up_limit = max_energy_tot * parameters.small_imbalance_size
+        self.small_imbalance_down_limit = self.small_imbalance_up_limit
 
         for _, time in enumerate(idx):
             # create variables at ti
-            self.small_imbal_up[time] = model.add_continuous_variable(
-                name=f"{self.name}_small_imbal_up_{time}",
+            self.small_imbalance_up[time] = model.add_continuous_variable(
+                name=f"{self.name}_small_imbalance_up_{time}",
                 lower_bound=0,
-                upper_bound=self.small_imbal_up_limit,
+                upper_bound=self.small_imbalance_up_limit,
             )
-            self.large_imbal_up[time] = model.add_continuous_variable(
-                name=f"{self.name}_large_imbal_up_{time}",
+            self.large_imbalance_up[time] = model.add_continuous_variable(
+                name=f"{self.name}_large_imbalance_up_{time}",
                 lower_bound=0,
                 upper_bound=self.max_overall_imbal[time],
             )
-            self.small_imbal_down[time] = model.add_continuous_variable(
-                name=f"{self.name}_small_imbal_down_{time}",
+            self.small_imbalance_down[time] = model.add_continuous_variable(
+                name=f"{self.name}_small_imbalance_down_{time}",
                 lower_bound=0,
-                upper_bound=self.small_imbal_down_limit,
+                upper_bound=self.small_imbalance_down_limit,
             )
-            self.large_imbal_down[time] = model.add_continuous_variable(
-                name=f"{self.name}_large_imbal_down_{time}",
+            self.large_imbalance_down[time] = model.add_continuous_variable(
+                name=f"{self.name}_large_imbalance_down_{time}",
                 lower_bound=0,
                 upper_bound=self.max_overall_imbal[time],
             )
