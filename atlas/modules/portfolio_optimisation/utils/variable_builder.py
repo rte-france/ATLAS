@@ -10,7 +10,7 @@ from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.wind import Wind
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.get_fragment_price import get_fragment_price_and_size
+from atlas.modules.portfolio_optimisation.utils.get_fragment_price import add_variable_fragment
 from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
     get_maximum_energy,
@@ -43,7 +43,7 @@ def add_variables_hydro(
                 lower_bound=0,
                 upper_bound=max_energy,
             )
-            get_fragment_price_and_size(obj, time, parameters, model)
+            add_variable_fragment(obj, time, parameters, model)
 
             maximum_automated = get_maximum_automated(obj)
 

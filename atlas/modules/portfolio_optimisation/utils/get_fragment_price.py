@@ -3,70 +3,62 @@ from pydantic import BaseModel
 
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power
 from atlas.solver.solver_interface import OptimisationModel
 
 
-def get_fragment_price_and_size(
+def add_variable_fragment(
     obj: Hydro, time: DateTime, parameters: PortfolioOptimisationParameters, model: OptimisationModel
 ) -> tuple[dict, dict]:
     """
     Formulates hydraulic reservoir offers by calculating fragment prices and volumes.
 
-    Returns:
-        tuple: (power_level_fragment, power_level_fragment_sum)
     """
     # Create fragment data structure combining volumes and prices
-    fragment_data = {
+    fragment_data = _get_fragment_data(obj)
+
+    if time not in parameters.hydraulic_op_times:
+        return
+
+    for category, fragment in fragment_data.items():
+        # Calculate volume based on capacity and fragment ratio
+        volume = get_maximum_power(obj, time) * fragment.volume
+
+        model.add_continuous_variable(
+            name=f"{obj.name}_power_level_frag_{category}_at_{time}",
+            lower_bound=0,
+            upper_bound=volume,
+        )
+
+
+def compute_fragment_prices(
+    obj: Hydro,
+    time: DateTime,
+    category,
+    parameters: PortfolioOptimisationParameters,
+):
+    if time not in parameters.hydraulic_op_times:
+        return
+
+    fragment_data = _get_fragment_data(obj)
+    energy_level = _get_current_energy_level(obj, parameters)
+
+    marginal_weights = _calculate_marginal_weights(obj, energy_level)
+
+    return _calculate_fragment_price(fragment_data[category].price, marginal_weights, time)
+
+
+def _get_fragment_data(obj: Hydro):
+    return {
         category: FragmentData(volume=obj.fragment_volumes[category], price=obj.fragment_prices[category])
         for category in range(len(obj.fragment_volumes))
     }
 
-    # Get current energy level
-    energy_level = _get_current_energy_level(obj, parameters)
 
-    # Calculate marginal value weights based on energy level
-    marginal_weights = _calculate_marginal_weights(obj, energy_level)
-
-    # Skip processing if time is not in hydraulic operation times
-    if time not in parameters.hydraulic_op_times:
-        return {}, {}
-
-    # Calculate fragment offers
-    power_level_fragment = {}
-    power_level_fragment_sum = {}
-
-    capacity = obj.maximum_power[time]
-
-    for category, fragment in fragment_data.items():
-        # Calculate volume based on capacity and fragment ratio
-        volume = capacity * fragment.volume
-
-        # Calculate price using marginal values and fragment price
-        price = _calculate_fragment_price(fragment.price, marginal_weights, time)
-
-        # Create optimization variable
-        power_level_fragment[category] = {
-            time: model.add_continuous_variable(
-                name=f"{obj.name}_power_level_frag_{category}_at_{time}",
-                lower_bound=0,
-                upper_bound=volume,
-            )
-        }
-
-        # Store the calculated price
-        if not hasattr(obj, "price_fragment"):
-            obj.price_fragment = {}
-        if category not in obj.price_fragment:
-            obj.price_fragment[category] = {}
-        obj.price_fragment[category][time] = price
-
-        # Sum all fragment variables for this time
-        if category == 0:
-            power_level_fragment_sum[time] = power_level_fragment[category][time]
-        else:
-            power_level_fragment_sum[time] += power_level_fragment[category][time]
-
-    return power_level_fragment, power_level_fragment_sum
+def _get_fragment_length(obj):
+    if not len(obj.fragment_volumes) == len(obj.fragment_prices):
+        raise ValueError("Fragment volumes and prices has to be same length")
+    return len(obj.fragment_volumes)
 
 
 def _get_current_energy_level(obj: Hydro, parameters: PortfolioOptimisationParameters) -> float:

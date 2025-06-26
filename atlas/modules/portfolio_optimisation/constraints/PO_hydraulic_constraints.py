@@ -2,6 +2,7 @@ from pendulum import DateTime
 
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_length, compute_fragment_prices
 from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
     get_maximum_energy,
@@ -22,16 +23,18 @@ def get_variables_and_constraints_hydraulics(
     """
 
     for obj in hydro_equipments:
-        for k in range(0, len(obj.power_level_fragment.keys())):
+        for k in range(_get_fragment_length(obj)):
             if time in parameters.target_times:
                 model.add_objective(
-                    obj.price_fragment[k][time] * obj.power_level_fragment[k][time] * parameters.timestep
+                    compute_fragment_prices(obj, time, k, parameters)
+                    * model.get_variable(f"{obj.name}_power_level_frag_{k}_at_{time}")
+                    * parameters.timestep
                 )
 
             else:
                 model.add_objective(
-                    -(price_forecast - obj.price_fragment[k][time])
-                    * obj.power_level_fragment[k][time]
+                    -(price_forecast - compute_fragment_prices(obj, time, k, parameters))
+                    * model.get_variable(f"{obj.name}_power_level_frag_{k}_at_{time}")
                     * parameters.timestep
                 )
 

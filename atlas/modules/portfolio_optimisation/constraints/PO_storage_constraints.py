@@ -35,6 +35,7 @@ def get_variables_and_constraints_storage(
         power_level_sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
         power_level_buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
         stored_energy_var = model.get_variable(f"{obj.name}_stored_energy_{time}")
+        is_sell_var = model.get_variable(f"{obj.name}_is_sell_{time}")
 
         # Avoid equipments that have a maximum_energy of 0 (meaning that they are offline)
         if max(obj.maximum_energy.values()) <= 0:
@@ -119,8 +120,8 @@ def get_variables_and_constraints_storage(
                 >= min_power * 1 / obj.charge_efficiency
             )
 
-            model.add_constraint(power_level_sell_var <= max_power * obj.discharge_efficiency * obj.is_sell[time])
-            model.add_constraint(power_level_buy_var >= min_power * 1 / obj.charge_efficiency * (1 - obj.is_sell[time]))
+            model.add_constraint(power_level_sell_var <= max_power * obj.discharge_efficiency * is_sell_var)
+            model.add_constraint(power_level_buy_var >= min_power * 1 / obj.charge_efficiency * (1 - is_sell_var))
 
         if obj.storage_type == StorageType.ELECTRIC_VEHICLE:
             reserve_stored_energy_down_ti = reserves_down_var * (
@@ -171,6 +172,6 @@ def get_variables_and_constraints_storage(
         # identical between the first and last dates of the optimization period)
         if time == parameters.start_date:
             model.add_constraint(
-                sum(-power_level_buy_var for time in local_op_times) * obj.charge_efficiency
-                == sum(power_level_sell_var for time in local_op_times) / obj.discharge_efficiency
+                sum(-power_level_buy_var for _ in local_op_times) * obj.charge_efficiency
+                == sum(power_level_sell_var for _ in local_op_times) / obj.discharge_efficiency
             )

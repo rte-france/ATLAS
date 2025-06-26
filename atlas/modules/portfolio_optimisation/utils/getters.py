@@ -10,6 +10,7 @@ from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.wind import Wind
+from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 
 
