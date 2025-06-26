@@ -9,7 +9,7 @@ import argparse
 import yaml
 
 from atlas.modules.day_ahead_orders.day_ahead_orders_module import DayAheadOrdersModule
-from atlas.io.input_loader import InputLoader
+from atlas.io_utils.input_loader import InputLoader
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
