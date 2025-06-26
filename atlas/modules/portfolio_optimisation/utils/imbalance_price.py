@@ -10,7 +10,7 @@ def estimate_imbalance_prices(
     market_area: MarketArea,
     control_block: ControlBlock,
     parameters: PortfolioOptimisationParameters,
-) -> tuple[dict, dict, dict, dict]:
+) -> tuple[float, float, float, float]:
     """
     Estimate imbalance settlement prices (ISP) at a given time and store them in the provided dictionaries.
 

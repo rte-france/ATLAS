@@ -2,6 +2,11 @@ from pendulum import DateTime
 
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.utils.getters import (
+    get_maximum_automated,
+    get_maximum_energy,
+    get_minimum_energy,
+)
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -9,77 +14,50 @@ def get_variables_and_constraints_hydraulics(
     time: DateTime,
     hydro_equipments: list[Hydro],
     model: OptimisationModel,
-    sum_power_level,
-    price_forecast,
+    price_forecast: float,
     parameters: PortfolioOptimisationParameters,
 ):
     """
     This function formulates the hydraulic reservoir offers.
-
-    Arguments:
-    - time: current time step
-    - hydro_equipments: dictionary of hydraulic equipment
-    - obj_function: objective function to optimize
-    - constraint_list: list of constraints
-    - sum_power_level: sum of power levels
-    - reserve_up_ti: upward reserves at time t
-    - reserve_down_ti: downward reserves at time t
-    - automated_reserve_up_ti: automated upward reserves at time t
-    - automated_reserve_down_ti: automated downward reserves at time t
-    - price_forecast: price forecast data
-    - parameters: parameters object
     """
 
     for obj in hydro_equipments:
-        reserve_up_ti.add(obj.reserves_up[time])
-        reserve_down_ti.add(obj.reserves_down[time])
-
-        automated_reserve_up_ti.add(obj.automated_reserves_up[time])
-        automated_reserve_down_ti.add(obj.automated_reserves_down[time])
-
-        # --- Objective function
         for k in range(0, len(obj.power_level_fragment.keys())):
             if time in parameters.target_times:
                 model.add_objective(
                     obj.price_fragment[k][time] * obj.power_level_fragment[k][time] * parameters.timestep
                 )
-                sum_power_level.add(obj.power_level_fragment[k][time])
 
             else:
                 model.add_objective(
-                    -(price_forecast[time] - obj.price_fragment[k][time])
+                    -(price_forecast - obj.price_fragment[k][time])
                     * obj.power_level_fragment[k][time]
                     * parameters.timestep
                 )
-
-                # FC: Is the following part necessary?
-                sum_power_level.add(obj.power_level_fragment[k][time])
-
-        # --- Reserves constraints
 
         # relaxed_reserve disabling condition (eq. (43))
         if time in parameters.hydraulic_op_times:
             model.add_constraint(obj.relaxed_reserves[time] <= obj.minimum_power[time])
 
             # Impossible commitment and stable reserves constraints (eq. (44))
-            model.add_constraint(obj.automated_reserves_up[time] <= obj.maximum_automated)
-            model.add_constraint(obj.automated_reserves_down[time] <= obj.maximum_automated)
+            model.add_constraint(obj.automated_reserves_up[time] <= get_maximum_automated(obj))
+            model.add_constraint(obj.automated_reserves_down[time] <= get_maximum_automated(obj))
             model.add_constraint(obj.reserves_up[time] <= obj.maximum_power[time])
             model.add_constraint(obj.reserves_down[time] <= obj.maximum_power[time])
 
         # --- Reservoir constraints
-
+        stored_energy_var = model.get_variable(f"{obj.name}_stored_energy_{time}")
         # It would be much clearer if there were no indexes but simply time series.
         if time == parameters.start_date:
             model.add_constraint(
-                obj.stored_energy[time]
-                == obj.initial_level.get_value(parameters.start_date.add_minutes(-parameters.timestep))
+                stored_energy_var
+                == obj.initial_level.get_value(parameters.start_date - parameters.timestep)
                 - obj.power_level_fragment_sum[time] * parameters.timestep
             )
 
         elif time in parameters.target_times:
             model.add_constraint(
-                obj.stored_energy[time]
+                stored_energy_var
                 == obj.stored_energy[time - parameters.timestep]
                 - obj.power_level_fragment_sum[time] * parameters.timestep
             )
@@ -87,8 +65,12 @@ def get_variables_and_constraints_hydraulics(
         # For any time steps:
         # Respect of minimum and maximum stock constraints
         if time in parameters.target_times:
-            reserve_stored_energy_up_ti = obj.automated_reserves_up[time] + obj.reserves_up[time]
-            reserve_stored_energy_down_ti = obj.automated_reserves_down[time] + obj.reserves_down[time]
+            reserve_stored_energy_up_var = model.get_variable(f"reserves_up_e_{obj.name}_{time}") + model.get_variable(
+                f"automated_res_up_e_{obj.name}_{time}"
+            )
+            reserve_stored_energy_down_var = model.get_variable(
+                f"reserves_down_e_{obj.name}_{time}"
+            ) + model.get_variable(f"automated_res_down_e_{obj.name}_{time}")
 
-            model.add_constraint(obj.stored_energy[time] >= obj.minimum_energy[time] + reserve_stored_energy_up_ti)
-            model.add_constraint(obj.stored_energy[time] <= obj.maximum_energy[time] - reserve_stored_energy_down_ti)
+            model.add_constraint(stored_energy_var >= get_minimum_energy(obj, time) + reserve_stored_energy_up_var)
+            model.add_constraint(stored_energy_var <= get_maximum_energy(time) - reserve_stored_energy_down_var)
