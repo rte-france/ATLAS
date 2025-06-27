@@ -21,7 +21,7 @@ import plotly.express as px
 import plotly.graph_objects
 import polars as pl
 
-from atlas.io.utils import get_metadata_from_frame, read_data_file
+from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
 
 

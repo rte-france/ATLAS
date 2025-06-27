@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas.io.input_loader import InputLoader
+from atlas.io_utils.input_loader import InputLoader
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
@@ -135,8 +135,8 @@ def complex_input_dir(tmp_path, mock_model_mapping):
 
 
 @patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
-@patch("atlas.io.input_loader.InputLoader._load_timeseries", return_value=Timeseries())
-@patch("atlas.io.input_loader.InputLoader._load_matrix")
+@patch("atlas.io_utils.input_loader.InputLoader._load_timeseries", return_value=Timeseries())
+@patch("atlas.io_utils.input_loader.InputLoader._load_matrix")
 def test_from_directory_success(mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
     mock_matrix.side_effect = [ScenarioMatrix(), ForecastingMatrix()]
 

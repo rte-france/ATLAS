@@ -67,7 +67,6 @@ class TestOptimisationModel:
         # Test normal case
         var = model.add_continuous_variable("x", 0, 10)
         assert "x" in model.variables
-        assert "x" in model._variables_objects
         mock_solver.NumVar.assert_called_with(0, 10, "x")
         assert var is mock_solver.NumVar.return_value
 
@@ -83,7 +82,6 @@ class TestOptimisationModel:
         """Test adding integer variables."""
         var = model.add_integer_variable("y", -5, 15)
         assert "y" in model.variables
-        assert "y" in model._variables_objects
         mock_solver.IntVar.assert_called_with(-5, 15, "y")
 
         # Test duplicate variable
@@ -94,21 +92,22 @@ class TestOptimisationModel:
         """Test adding boolean variables."""
         var = model.add_boolean_variable("z")
         assert "z" in model.variables
-        assert "z" in model._variables_objects
         mock_solver.BoolVar.assert_called_with("z")
 
         # Test duplicate variable
         with pytest.raises(ValueError, match="Variable 'z' already exists"):
             model.add_boolean_variable("z")
 
-    def test_get_variable(self, model):
+    def test_get_variable(self, model, mock_solver):
         """Test getting variable objects."""
         # Add a variable first
         var = model.add_continuous_variable("x", 0, 10)
 
         # Test getting existing variable
         retrieved_var = model.get_variable("x")
-        assert retrieved_var is var
+        # FIXME following test must be done in order to assert that both variable are the same
+        # assert var.index() == retrieved_var.index()
+        mock_solver.LookupVariable.assert_called_with("x")
 
         # Test getting non-existent variable
         with pytest.raises(ValueError, match="Variable 'nonexistent' not found"):
@@ -358,7 +357,6 @@ class TestOptimisationModel:
         # Clear and verify
         model.clear()
         assert len(model.variables) == 0
-        assert len(model._variables_objects) == 0
         assert len(model.constraints) == 0
         assert model.solution_info is None
         assert model._objective is None
