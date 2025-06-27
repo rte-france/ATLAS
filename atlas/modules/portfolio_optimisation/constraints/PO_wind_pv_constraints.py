@@ -20,7 +20,6 @@ def get_variables_and_constraints_wind_pv(
 ):
     """
     This function formulates the wind and photovoltaic equipments orders.
-
     """
 
     for obj in equipments:

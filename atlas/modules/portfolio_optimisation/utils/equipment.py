@@ -6,7 +6,7 @@ from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisatio
 
 def is_excluded_technology(parameters: PortfolioOptimisationParameters, equipment: type[Equipment]) -> bool:
     """Check if equipment technology is excluded."""
-    return equipment.Class in parameters.excluded_technologies
+    return equipment.__class__ in parameters.excluded_technologies
 
 
 def is_excluded_thermal_strategy(parameters: PortfolioOptimisationParameters, equipment: Thermal) -> bool:
