@@ -1,3 +1,5 @@
+from importlib.metadata import version
+
 from atlas.io_utils.input_loader import InputLoader
 from atlas.io_utils.parameters import Parameters, ParametersParser
 from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
