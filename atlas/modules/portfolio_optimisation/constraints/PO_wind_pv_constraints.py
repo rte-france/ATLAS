@@ -12,7 +12,7 @@ from atlas.modules.portfolio_optimisation.utils.getters import (
 from atlas.solver.solver_interface import OptimisationModel
 
 
-def get_variables_and_constraints_wind_pv(
+def add_constraints_wind_solar(
     time: DateTime,
     equipments: list[Wind | Solar],
     model: OptimisationModel,

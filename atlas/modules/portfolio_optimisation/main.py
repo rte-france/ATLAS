@@ -82,7 +82,6 @@ class OptimalPlacementOptimizer:
         model = OptimisationModel(solver_name=solver_name, name=portfolio_name)
 
         try:
-            # Build and add constraints
             optimization_times = self._get_optimization_times()
             self.constraint_builder.build_constraints(portfolio, portfolio_name, optimization_times, model)
 

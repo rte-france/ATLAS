@@ -17,7 +17,7 @@ from atlas.modules.portfolio_optimisation.utils.getters import (
 from atlas.solver.solver_interface import OptimisationModel
 
 
-def get_variables_and_constraints_hydraulics(
+def add_constraints_hydro(
     time: DateTime,
     hydro_equipments: list[Hydro],
     model: OptimisationModel,

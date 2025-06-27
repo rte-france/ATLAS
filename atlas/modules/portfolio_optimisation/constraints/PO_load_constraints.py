@@ -7,7 +7,7 @@ from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power
 from atlas.solver.solver_interface import OptimisationModel
 
 
-def get_variables_and_constraints_load(
+def add_constraints_load(
     time: DateTime,
     load_equipments: list[Load],
     model: OptimisationModel,

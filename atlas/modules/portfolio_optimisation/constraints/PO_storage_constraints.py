@@ -12,7 +12,7 @@ from atlas.modules.portfolio_optimisation.utils.getters import (
 from atlas.solver.solver_interface import OptimisationModel
 
 
-def get_variables_and_constraints_storage(
+def add_contraints_storage(
     time: DateTime,
     storage_equipments: list[Storage],
     model: OptimisationModel,

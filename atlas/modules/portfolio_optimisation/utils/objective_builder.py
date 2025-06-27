@@ -33,7 +33,7 @@ class ObjectiveFunctionBuilder:
             objective_terms.extend(
                 self._get_imbalance_cost_terms(
                     model,
-                    portfolio,
+                    portfolio.name,
                     time,
                     imbalance_price_down,
                     imbalance_price_up,
@@ -41,7 +41,7 @@ class ObjectiveFunctionBuilder:
                     large_imbalance_price_up,
                 )
             )
-            objective_terms.extend(self._get_reserve_penalty_terms(model, portfolio, time))
+            objective_terms.extend(self._get_reserve_penalty_terms(model, portfolio.name, time))
             objective_terms.extend(self._get_hydro_terms())
             objective_terms.extend(self._get_load_terms())
             objective_terms.extend(self._get_solar_wind_terms())
@@ -54,57 +54,57 @@ class ObjectiveFunctionBuilder:
     def _get_imbalance_cost_terms(
         self,
         model: OptimisationModel,
-        portfolio: Portfolio,
+        portfolio_name: str,
         time: DateTime,
-        imbalance_price_down,
-        imbalance_price_up,
-        large_imbalance_price_down,
-        large_imbalance_price_up,
+        imbalance_price_down: float,
+        imbalance_price_up: float,
+        large_imbalance_price_down: float,
+        large_imbalance_price_up: float,
     ) -> list[Any]:
         """Get imbalance cost terms as OR-Tools expressions."""
-        time_factor = self.parameters.timestep
+
         terms = []
 
-        small_imbalance_up = model.get_variable(f"{portfolio.name}_small_imbalance_up_{time}")
-        small_imbalance_down = model.get_variable(f"{portfolio.name}_small_imbalance_down_{time}")
-        large_imbalance_up = model.get_variable(f"{portfolio.name}_large_imbalance_up_{time}")
-        large_imbalance_down = model.get_variable(f"{portfolio.name}_large_imbalance_down_{time}")
+        small_imbalance_up_var = model.get_variable(f"{portfolio_name}_small_imbalance_up_{time}")
+        small_imbalance_down_var = model.get_variable(f"{portfolio_name}_small_imbalance_down_{time}")
+        large_imbalance_up_var = model.get_variable(f"{portfolio_name}_large_imbalance_up_{time}")
+        large_imbalance_down_var = model.get_variable(f"{portfolio_name}_large_imbalance_down_{time}")
 
         # Small imbalance costs
         if imbalance_price_up:
-            terms.append(imbalance_price_up * small_imbalance_up * time_factor)
+            terms.append(imbalance_price_up * small_imbalance_up_var * self.parameters.timestep)
 
         if imbalance_price_down:
-            terms.append(-imbalance_price_down * small_imbalance_down * time_factor)
+            terms.append(-imbalance_price_down * small_imbalance_down_var * self.parameters.timestep)
 
         # Large imbalance costs
         if large_imbalance_price_up:
-            terms.append(large_imbalance_price_up * large_imbalance_up * time_factor)
+            terms.append(large_imbalance_price_up * large_imbalance_up_var * self.parameters.timestep)
 
         if large_imbalance_price_down:
-            terms.append(-large_imbalance_price_down * large_imbalance_down * time_factor)
+            terms.append(-large_imbalance_price_down * large_imbalance_down_var * self.parameters.timestep)
 
         return terms
 
-    def _get_reserve_penalty_terms(self, model: OptimisationModel, portfolio: Portfolio, time: DateTime) -> list[Any]:
+    def _get_reserve_penalty_terms(self, model: OptimisationModel, portfolio_name: str, time: DateTime) -> list[Any]:
         """Get reserve penalty terms as OR-Tools expressions."""
-        time_factor = self.parameters.timestep
+
         terms = []
 
-        contracted_diff_up = model.get_variable(f"contracted_diff_up_{portfolio.name}_{time}")
-        contracted_diff_down = model.get_variable(f"contracted_diff_down_{portfolio.name}_{time}")
-        auto_contracted_diff_up = model.get_variable(f"auto_contracted_diff_up_{portfolio.name}_{time}")
-        auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{portfolio.name}_{time}")
+        contracted_diff_up = model.get_variable(f"contracted_diff_up_{portfolio_name}_{time}")
+        contracted_diff_down = model.get_variable(f"contracted_diff_down_{portfolio_name}_{time}")
+        auto_contracted_diff_up = model.get_variable(f"auto_contracted_diff_up_{portfolio_name}_{time}")
+        auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{portfolio_name}_{time}")
 
         # Manual reserve penalties
         manual_penalty = getattr(self.parameters, "manual_unprocured_reserves_penalty", 1000)
-        terms.append(manual_penalty * time_factor * contracted_diff_up)
-        terms.append(manual_penalty * time_factor * contracted_diff_down)
+        terms.append(manual_penalty * self.parameters.timestep * contracted_diff_up)
+        terms.append(manual_penalty * self.parameters.timestep * contracted_diff_down)
 
         # Automated reserve penalties
         auto_penalty = getattr(self.parameters, "automated_unprocured_reserves_penalty", 1000)
-        terms.append(auto_penalty * time_factor * auto_contracted_diff_up)
-        terms.append(auto_penalty * time_factor * auto_contracted_diff_down)
+        terms.append(auto_penalty * self.parameters.timestep * auto_contracted_diff_up)
+        terms.append(auto_penalty * self.parameters.timestep * auto_contracted_diff_down)
 
         return terms
 
