@@ -8,7 +8,6 @@ from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.wind import Wind
-from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.get_fragment_price import add_variable_fragment
 from atlas.modules.portfolio_optimisation.utils.getters import (
@@ -279,7 +278,7 @@ def add_variables_load(
 ):
     for obj in equipments:
         for _, time in enumerate(parameters.target_times):
-            max_power = obj.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
+            max_power = get_maximum_power(obj, time, parameters.execution_date)
 
             model.add_continuous_variable(
                 f"{obj.name}_power_level_{time}",
@@ -289,7 +288,7 @@ def add_variables_load(
 
 
 def add_variables_portfolio(
-    portfolio: Portfolio,
+    portfolio_name: str,
     equipments: dict[str, list[type[Equipment]]],
     times: list[DateTime],
     parameters: PortfolioOptimisationParameters,
@@ -356,7 +355,7 @@ def add_variables_portfolio(
         automated_reserve_down[time] = sum_automated_reserves_down
 
         _add_optimization_variables(
-            portfolio, times, sum_maximum_energy, sum_residual_energy, sum_maximum_power, parameters, model
+            portfolio_name, times, sum_maximum_energy, sum_residual_energy, sum_maximum_power, parameters, model
         )
 
 
@@ -462,7 +461,7 @@ def _process_equipment_with_reserves(
 
 
 def _add_optimization_variables(
-    portfolio: Portfolio,
+    portfolio_name: str,
     time: DateTime,
     sum_maximum_energy: float,
     sum_residual_enery: dict,
@@ -477,22 +476,22 @@ def _add_optimization_variables(
 
     # Imbalance variables
     model.add_continuous_variable(
-        name=f"{portfolio.name}_small_imbalance_up_{time}",
+        name=f"{portfolio_name}_small_imbalance_up_{time}",
         lower_bound=0,
         upper_bound=small_imbalance_limit,
     )
     model.add_continuous_variable(
-        name=f"{portfolio.name}_large_imbalance_up_{time}",
+        name=f"{portfolio_name}_large_imbalance_up_{time}",
         lower_bound=0,
         upper_bound=max_overall_imbal,
     )
     model.add_continuous_variable(
-        name=f"{portfolio.name}_small_imbalance_down_{time}",
+        name=f"{portfolio_name}_small_imbalance_down_{time}",
         lower_bound=0,
         upper_bound=small_imbalance_limit,
     )
     model.add_continuous_variable(
-        name=f"{portfolio.name}_large_imbalance_down_{time}",
+        name=f"{portfolio_name}_large_imbalance_down_{time}",
         lower_bound=0,
         upper_bound=max_overall_imbal,
     )
@@ -507,7 +506,7 @@ def _add_optimization_variables(
 
     for var_type in contract_vars:
         model.add_continuous_variable(
-            name=f"{var_type}_{portfolio.name}_{time}",
+            name=f"{var_type}_{portfolio_name}_{time}",
             lower_bound=0,
             upper_bound=max_power[time],
         )
