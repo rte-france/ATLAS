@@ -7,14 +7,11 @@ This file is part of the ATLAS project.
 
 from atlas import (
     BusinessModel,
-    ControlBlock,
     Hydro,
     Load,
     MarketArea,
     MarketBorder,
     Node,
-    Order,
-    OrderCoupling,
     OtherNonDispatchable,
     Portfolio,
     Solar,
@@ -24,6 +21,8 @@ from atlas import (
 )
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME
+from atlas.enum import LoadType
+from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
@@ -36,7 +35,6 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        self.control_block: list[ControlBlock] = input_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]
         self.market_area: list[MarketArea] = input_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]]
         self.market_border: list[MarketBorder] = input_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]]
         self.node: list[Node] = input_data[INVERSE_MODEL_MAPPING_NAME[Node]]
@@ -49,6 +47,16 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.other_non_dispatchable: list[OtherNonDispatchable] = input_data[
             INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable]
         ]
-        self.order: list[Order] = input_data[INVERSE_MODEL_MAPPING_NAME[Order]]
-        self.order_coupling: list[OrderCoupling] = input_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]]
+
         self.load: list[Load] = input_data[INVERSE_MODEL_MAPPING_NAME[Load]]
+
+        self.equipments: dict[str, list[type[Equipment]]] = {
+            "wind": self.wind,
+            "storage": self.storage,
+            "hydro": self.hydro,
+            "solar": self.solar,
+            "thermal": self.thermal,
+            "other_non_dispatchable": self.other_non_dispatchable,
+            "dispatchable_load": [load for load in self.load if load.load_type == LoadType.POWER_TO_GAS],
+            "non_dispatchable_load": [load for load in self.load if load.load_type != LoadType.POWER_TO_GAS],
+        }

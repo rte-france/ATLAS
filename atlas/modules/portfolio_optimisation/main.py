@@ -4,17 +4,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import cast
+from itertools import groupby
 
 import atlas.config as cfg
-from atlas.enum import LoadType, SolverStatus
+from atlas.enum import SolverStatus
 from atlas.models.equipment.equipment import Equipment
-from atlas.models.equipment.load import Load
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.constraint_builder import ConstraintBuilder
-from atlas.modules.portfolio_optimisation.utils.equipment import should_manually_activate
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.modules.portfolio_optimisation.utils.objective_builder import ObjectiveFunctionBuilder
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
@@ -38,34 +36,36 @@ class OptimalPlacementOptimizer:
         """
         cfg.logger.info("Starting optimal placement optimization")
 
-        self._create_portfolios(input_dataset)
+        portfolios = self._create_portfolios(input_dataset)
 
         for portfolio in input_dataset.portfolio:
-            self._optimize_portfolio(input_dataset, self.portfolios[portfolio.name], portfolio.name)
+            self._optimize_portfolio(input_dataset, portfolios[portfolio.name], portfolio.name)
 
     def _create_portfolios(self, input_dataset: PortfolioOptimisationInputDataset):
-        """Collect and classify all equipment."""
-        for portfolio in input_dataset.portfolio:
-            for equipment_type in cfg.EQUIPMENT_MODELS:
-                self._create_single_portfolio(input_dataset, equipment_type, portfolio.name)
+        """Collect and classify all equipment into portfolios"""
 
-    def _create_single_portfolio(
-        self, input_dataset: PortfolioOptimisationInputDataset, equipment_type: str, portfolio_name: str
-    ):
-        """Generic method to collect equipment by type."""
+        # Aplatir avec le type d'équipement
+        all_equipments_with_type = [
+            (equipment, equipment_type)
+            for equipment_type, equipment_list in input_dataset.equipments.items()
+            for equipment in equipment_list
+        ]
 
-        for equipment in cast(list[type[Equipment]], getattr(input_dataset, equipment_type)):
-            if equipment.portfolio == portfolio_name:
-                if should_manually_activate(equipment):
-                    set_manual_activation([equipment], self.parameters)
-                else:
-                    if isinstance(equipment, Load):
-                        if equipment.load_type == LoadType.POWER_TO_GAS:
-                            self.portfolios[portfolio_name]["dispatchable_load"].append(equipment)
-                        else:
-                            self.portfolios[portfolio_name]["non_dispatchable_load"].append(equipment)
-                    else:
-                        self.portfolios[portfolio_name][equipment_type].append(equipment)
+        # Trier par portfolio puis par type
+        all_equipments_with_type.sort(key=lambda x: (x[0].portfolio.name, x[1]))
+
+        # Double groupby : portfolio puis type
+        portfolios = {}
+        for portfolio_name, portfolio_items in groupby(all_equipments_with_type, key=lambda x: x[0].portfolio.name):
+            portfolio_list = list(portfolio_items)
+
+            equipment_by_type = {}
+            for equipment_type, type_items in groupby(portfolio_list, key=lambda x: x[1]):
+                equipment_by_type[equipment_type] = [equipment for equipment, _ in type_items]
+
+            portfolios[portfolio_name] = equipment_by_type
+
+        return portfolios
 
     def _optimize_portfolio(
         self,
@@ -85,7 +85,6 @@ class OptimalPlacementOptimizer:
             optimization_times = self._get_optimization_times()
             self.constraint_builder.build_constraints(portfolio, portfolio_name, optimization_times, model)
 
-            # Build objective function
             objective_expr = self.objective_builder.build_objective(model, portfolio, self.parameters.target_times)
             model.set_objective(objective_expr, direction="minimize")
 
