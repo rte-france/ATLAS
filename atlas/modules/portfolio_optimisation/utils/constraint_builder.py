@@ -2,10 +2,10 @@ from typing import Any
 
 from pendulum import DateTime
 
+from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
-from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -18,7 +18,8 @@ class ConstraintBuilder:
 
     def build_constraints(
         self,
-        portfolio: Portfolio,
+        portfolio: dict[str, list[type[Equipment]]],
+        portfolio_name: str,
         optimization_times: dict[str, list],
         model: OptimisationModel,
     ) -> None:
@@ -27,7 +28,7 @@ class ConstraintBuilder:
         max_op_time = self._get_longest_optimization_period(optimization_times)
 
         for time in max_op_time:
-            self._build_time_constraints(time, portfolio, model, optimization_times)
+            self._build_time_constraints(time, portfolio, portfolio_name, model, optimization_times)
 
     def _get_longest_optimization_period(self, optimization_times: dict[str, list]) -> list:
         """Get the longest optimization time period."""
@@ -36,7 +37,8 @@ class ConstraintBuilder:
     def _build_time_constraints(
         self,
         time: DateTime,
-        portfolio: Portfolio,
+        portfolio: dict[str, list[type[Equipment]]],
+        portfolio_name: str,
         model: OptimisationModel,
         optimization_times: dict[str, list],
     ):
@@ -54,12 +56,12 @@ class ConstraintBuilder:
 
         # Add global portfolio constraints
         if time in self.parameters.target_times:
-            self._add_global_constraints(time, portfolio, model, power_level_variables)
+            self._add_global_constraints(time, portfolio_name, model, power_level_variables)
 
     def _add_equipment_constraints(
         self,
         time: DateTime,
-        portfolio: Portfolio,
+        portfolio: dict[str, list[type[Equipment]]],
         model: OptimisationModel,
         power_level_variables: list,
         reserve_vars: dict[str, list],
@@ -69,7 +71,7 @@ class ConstraintBuilder:
 
         # Wind and PV constraints
         if time in optimization_times.get("op_times", []):
-            for equipment_dict in [portfolio.wind, portfolio.pv]:
+            for equipment_dict in [portfolio["wind"], portfolio["solar"]]:
                 self._add_constraint_solar_wind(
                     time,
                     equipment_dict,
@@ -87,7 +89,7 @@ class ConstraintBuilder:
         if time in optimization_times.get("thermal_op_times", []):
             self._add_constraint_thermal(
                 time,
-                portfolio.thermics,
+                portfolio["thermal"],
                 model,
                 power_level_variables,
                 reserve_vars["up"],
@@ -100,7 +102,7 @@ class ConstraintBuilder:
         if time in optimization_times.get("hydraulic_op_times", []):
             self._add_constraint_hydro(
                 time,
-                portfolio.hydraulics,
+                portfolio["hydro"],
                 model,
                 power_level_variables,
                 reserve_vars["up"],
@@ -112,7 +114,7 @@ class ConstraintBuilder:
         if any(time in optimization_times.get(st, []) for st in storage_times):
             self._add_constraint_storage(
                 time,
-                portfolio.storage,
+                portfolio["storage"],
                 model,
                 power_level_variables,
             )
@@ -121,7 +123,7 @@ class ConstraintBuilder:
         if time in optimization_times.get("op_times", []):
             self._add_constraint_load(
                 time,
-                portfolio.load,
+                portfolio["load"],
                 model,
                 power_level_variables,
                 reserve_vars["up"],
@@ -133,7 +135,7 @@ class ConstraintBuilder:
     def _add_global_constraints(
         self,
         time: DateTime,
-        portfolio: Portfolio,
+        portfolio_name: str,
         model: OptimisationModel,
         power_level_variables: list[Any],
         reserve_vars: dict[str, list],
@@ -143,22 +145,25 @@ class ConstraintBuilder:
         power_sum = sum(power_level_variables) if power_level_variables else 0
 
         power_balance_constraint = (
-            model.get_variable(f"{portfolio.name}_small_imbalance_up_{time}")
-            + model.get_variable(f"{portfolio.name}_large_imbalance_up_{time}")
-            - model.get_variable(f"{portfolio.name}_small_imbalance_down_{time}")
-            - model.get_variable(f"{portfolio.name}_large_imbalance_down_{time}")
+            model.get_variable(f"{portfolio_name}_small_imbalance_up_{time}")
+            + model.get_variable(f"{portfolio_name}_large_imbalance_up_{time}")
+            - model.get_variable(f"{portfolio_name}_small_imbalance_down_{time}")
+            - model.get_variable(f"{portfolio_name}_large_imbalance_down_{time}")
             == portfolio.residual_energy[time] - power_sum
         )
         model.add_constraint(power_balance_constraint, name=f"power_balance_{time}")
 
         # Imbalance limits
         up_imbalance_limit = (
-            portfolio.small_imbalance_up[time] + portfolio.large_imbalance_up[time] <= portfolio.max_overall_imbal[time]
+            model.get_variable(f"{portfolio_name}_small_imbalance_up_{time}")
+            + model.get_variable(f"{portfolio_name}_large_imbalance_up_{time}")
+            <= portfolio.max_overall_imbal[time]
         )
         model.add_constraint(up_imbalance_limit, name=f"up_imbalance_limit_{time}")
 
         down_imbalance_limit = (
-            portfolio.small_imbalance_down[time] + portfolio.large_imbalance_down[time]
+            model.get_variable(f"{portfolio_name}_small_imbalance_down_{time}")
+            + model.get_variable(f"{portfolio_name}_large_imbalance_down_{time}")
             <= portfolio.max_overall_imbal[time]
         )
         model.add_constraint(down_imbalance_limit, name=f"down_imbalance_limit_{time}")
