@@ -3,12 +3,12 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements Input Loader with enhanced error handling
+Module that implements Input Loader
 """
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, get_args, get_origin
+from typing import Any, Literal, cast, get_args, get_origin
 
 import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
@@ -304,7 +304,7 @@ class InputLoader:
 
         for i, obj in enumerate(object_list):
             try:
-                object_name = obj.get("name", f"object_{i}")
+                object_name = cast(str, obj["name"])
                 cfg.logger.debug(f"Processing math objects for '{object_name}' (type: {object_type})")
 
                 object_instantiated: dict[str, Any] = {}
@@ -369,7 +369,7 @@ class InputLoader:
     def _parse_datetime(cls, value: Any, date_format: str) -> str:
         """Parse datetime values with proper error handling."""
         try:
-            if isinstance(value, (datetime, DateTime)):
+            if isinstance(value, (datetime | DateTime)):
                 return pendulum.instance(value).to_datetime_string()
             else:
                 return pendulum.from_format(value, date_format).to_datetime_string()
@@ -377,7 +377,9 @@ class InputLoader:
             raise DataValidationError(f"Invalid datetime value '{value}' with format '{date_format}': {str(e)}") from e
 
     @classmethod
-    def _parse_list_attribute(cls, value: str, attribute_type: type, object_name: str, key: str) -> list:
+    def _parse_list_attribute(
+        cls, value: str, attribute_type: type[BusinessModel] | float | str | int | None, object_name: str, key: str
+    ) -> list:
         """Parse list attributes with proper error handling."""
         try:
             inside_type = get_args(attribute_type)[0]
@@ -401,12 +403,12 @@ class InputLoader:
         """Instantiate final BusinessModel objects from intermediate math object dictionaries."""
         business_models = []
 
-        for i, obj in enumerate(object_list):
+        for _, obj in enumerate(object_list):
             try:
                 business_model = cls._build_single_business_model(obj, object_type, objects_instantiated)
                 business_models.append(business_model)
             except Exception as e:
-                object_name = obj.get("name", f"object_{i}")
+                object_name: str = obj["name"]
                 raise ObjectInstantiationError(
                     f"Failed to instantiate business model '{object_name}' of type '{object_type}': {str(e)}"
                 ) from e
@@ -427,7 +429,6 @@ class InputLoader:
                 f"Instantiating business model '{object_name}' - type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
             )
 
-            # Process nested object references
             for attribute in object_dict:
                 try:
                     attribute_type = get_type_attribute(object_type, attribute)
@@ -437,7 +438,10 @@ class InputLoader:
                             InputLoader._resolve_equipment_reference(object_dict, objects_instantiated)
                         else:
                             InputLoader._resolve_single_object_reference(
-                                object_dict, attribute, attribute_type, objects_instantiated
+                                object_dict,
+                                attribute,
+                                attribute_type,  # type: ignore[arg-type]
+                                objects_instantiated,
                             )
                     elif get_origin(attribute_type) is list:
                         if get_args(attribute_type)[0] in cfg.INVERSE_MODEL_MAPPING_NAME:
@@ -450,7 +454,7 @@ class InputLoader:
                         f"Error resolving attribute '{attribute}' for object '{object_name}': {str(e)}"
                     ) from e
 
-            return cfg.MODEL_MAPPING_NAME[object_type](**object_dict)
+            return cast(type[BusinessModel], cfg.MODEL_MAPPING_NAME[object_type](**object_dict))
 
         except Exception as e:
             if isinstance(e, ObjectInstantiationError):
@@ -492,12 +496,12 @@ class InputLoader:
     def _resolve_single_object_reference(
         object_dict: dict[str, Any],
         attribute: str,
-        attribute_type: type,
+        attribute_type: type[BusinessModel],
         objects_instantiated: dict[str, list[type[BusinessModel]]],
     ) -> None:
         """Resolve single object references with error handling."""
-        object_name = object_dict[attribute]
-        object_type_key = cfg.INVERSE_MODEL_MAPPING_NAME[attribute_type]
+        object_name: str = object_dict[attribute]
+        object_type_key: str = cfg.INVERSE_MODEL_MAPPING_NAME[attribute_type]
 
         if object_type_key not in objects_instantiated:
             raise DataValidationError(
@@ -518,7 +522,7 @@ class InputLoader:
     def _resolve_list_object_reference(
         object_dict: dict[str, Any],
         attribute: str,
-        attribute_type: type,
+        attribute_type: type[BusinessModel] | float | str | int | None,
         objects_instantiated: dict[str, list[type[BusinessModel]]],
     ) -> None:
         """Resolve list object references with error handling."""
