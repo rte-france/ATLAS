@@ -3,10 +3,10 @@ from typing import Any
 from pendulum import DateTime
 
 from atlas.models.equipment.equipment import Equipment
-from atlas.modules.portfolio_optimisation.constraints.PO_hydraulic_constraints import add_constraints_hydro
-from atlas.modules.portfolio_optimisation.constraints.PO_load_constraints import add_constraints_load
-from atlas.modules.portfolio_optimisation.constraints.PO_storage_constraints import add_contraints_storage
-from atlas.modules.portfolio_optimisation.constraints.PO_wind_pv_constraints import add_constraints_wind_solar
+from atlas.modules.portfolio_optimisation.constraints.hydro import add_constraints_hydro
+from atlas.modules.portfolio_optimisation.constraints.load import add_constraints_load
+from atlas.modules.portfolio_optimisation.constraints.storage import add_contraints_storage
+from atlas.modules.portfolio_optimisation.constraints.wind_and_solar import add_constraints_wind_solar
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
 

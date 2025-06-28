@@ -4,8 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from itertools import groupby
-
 import atlas.config as cfg
 from atlas.enum import SolverStatus
 from atlas.models.equipment.equipment import Equipment
@@ -36,36 +34,10 @@ class OptimalPlacementOptimizer:
         """
         cfg.logger.info("Starting optimal placement optimization")
 
-        portfolios = self._create_portfolios(input_dataset)
+        portfolios = input_dataset.portfolios
 
         for portfolio in input_dataset.portfolio:
             self._optimize_portfolio(input_dataset, portfolios[portfolio.name], portfolio.name)
-
-    def _create_portfolios(self, input_dataset: PortfolioOptimisationInputDataset):
-        """Collect and classify all equipment into portfolios"""
-
-        # Aplatir avec le type d'équipement
-        all_equipments_with_type = [
-            (equipment, equipment_type)
-            for equipment_type, equipment_list in input_dataset.equipments.items()
-            for equipment in equipment_list
-        ]
-
-        # Trier par portfolio puis par type
-        all_equipments_with_type.sort(key=lambda x: (x[0].portfolio.name, x[1]))
-
-        # Double groupby : portfolio puis type
-        portfolios = {}
-        for portfolio_name, portfolio_items in groupby(all_equipments_with_type, key=lambda x: x[0].portfolio.name):
-            portfolio_list = list(portfolio_items)
-
-            equipment_by_type = {}
-            for equipment_type, type_items in groupby(portfolio_list, key=lambda x: x[1]):
-                equipment_by_type[equipment_type] = [equipment for equipment, _ in type_items]
-
-            portfolios[portfolio_name] = equipment_by_type
-
-        return portfolios
 
     def _optimize_portfolio(
         self,

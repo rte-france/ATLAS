@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from itertools import groupby
+
 from atlas import (
     BusinessModel,
     Hydro,
@@ -20,7 +22,6 @@ from atlas import (
     Wind,
 )
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.config import INVERSE_MODEL_MAPPING_NAME
 from atlas.enum import LoadType
 from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -35,20 +36,18 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        self.market_area: list[MarketArea] = input_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]]
-        self.market_border: list[MarketBorder] = input_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]]
-        self.node: list[Node] = input_data[INVERSE_MODEL_MAPPING_NAME[Node]]
-        self.portfolio: list[Portfolio] = input_data[INVERSE_MODEL_MAPPING_NAME[Portfolio]]
-        self.wind: list[Wind] = input_data[INVERSE_MODEL_MAPPING_NAME[Wind]]
-        self.storage: list[Storage] = input_data[INVERSE_MODEL_MAPPING_NAME[Storage]]
-        self.hydro: list[Hydro] = input_data[INVERSE_MODEL_MAPPING_NAME[Hydro]]
-        self.solar: list[Solar] = input_data[INVERSE_MODEL_MAPPING_NAME[Solar]]
-        self.thermal: list[Thermal] = input_data[INVERSE_MODEL_MAPPING_NAME[Thermal]]
-        self.other_non_dispatchable: list[OtherNonDispatchable] = input_data[
-            INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable]
-        ]
+        self.market_area: list[MarketArea] = input_data.get("market_area", [])
+        self.market_border: list[MarketBorder] = input_data.get("market_border", [])
+        self.node: list[Node] = input_data.get("node", [])
+        self.portfolio: list[Portfolio] = input_data.get("portfolio", [])
+        self.wind: list[Wind] = input_data.get("wind", [])
+        self.storage: list[Storage] = input_data.get("storage", [])
+        self.hydro: list[Hydro] = input_data.get("hydro", [])
+        self.solar: list[Solar] = input_data.get("solar", [])
+        self.thermal: list[Thermal] = input_data.get("thermal", [])
+        self.other_non_dispatchable: list[OtherNonDispatchable] = input_data.get("other_non_dispatchable", [])
 
-        self.load: list[Load] = input_data[INVERSE_MODEL_MAPPING_NAME[Load]]
+        self.load: list[Load] = input_data.get("load", [])
 
         self.equipments: dict[str, list[type[Equipment]]] = {
             "wind": self.wind,
@@ -60,3 +59,27 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
             "dispatchable_load": [load for load in self.load if load.load_type == LoadType.POWER_TO_GAS],
             "non_dispatchable_load": [load for load in self.load if load.load_type != LoadType.POWER_TO_GAS],
         }
+
+        self.portfolios: dict[str, dict[str, list[type[Equipment]]]] = {}
+
+        self._create_portfolios()
+
+    def _create_portfolios(self):
+        """Collect and classify all equipment into portfolios"""
+
+        all_equipments_with_type = [
+            (equipment, equipment_type)
+            for equipment_type, equipment_list in self.equipments.items()
+            for equipment in equipment_list
+        ]
+
+        all_equipments_with_type.sort(key=lambda x: (x[0].portfolio.name, x[1]))
+
+        for portfolio_name, portfolio_items in groupby(all_equipments_with_type, key=lambda x: x[0].portfolio.name):
+            portfolio_list = list(portfolio_items)
+
+            equipment_by_type = {}
+            for equipment_type, type_items in groupby(portfolio_list, key=lambda x: x[1]):
+                equipment_by_type[equipment_type] = [equipment for equipment, _ in type_items]
+
+            self.portfolios[portfolio_name] = equipment_by_type

@@ -14,39 +14,33 @@ from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 
 
-def get_price_forecast(
-    portfolio: Portfolio, times: list[DateTime], parameters: PortfolioOptimisationParameters
-) -> float:
+def get_price_forecast(portfolio: Portfolio, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
     """Get price forecast for given time based on market type and forecast settings."""
-    price_forecast: dict[str | DateTime, float] = {}
 
-    for time in times:
-        if time in parameters.target_times:
-            if parameters.use_forecast:
-                if parameters.market == MarketEnum.dayahead:
-                    price_forecast[time] = portfolio.market_area.price_forecast_medium.get_value(time)
-                elif parameters.market == MarketEnum.intraday:
-                    price_forecast[time] = portfolio.market_area.id_price_forecast.get_forecast(
-                        parameters.execution_date, time, time
-                    ).get_value(time)
+    if time in parameters.target_times:
+        if parameters.use_forecast:
+            if parameters.market == MarketEnum.dayahead:
+                return portfolio.market_area.price_forecast_medium.get_value(time)
+            elif parameters.market == MarketEnum.intraday:
+                return portfolio.market_area.id_price_forecast.get_forecast(
+                    parameters.execution_date, time, time
+                ).get_value(time)
 
-            else:
-                if parameters.market == MarketEnum.dayahead:
-                    price_forecast[time] = portfolio.market_area.da_price.get_value(time)
-                elif parameters.market == MarketEnum.intraday:
-                    price_forecast[time] = portfolio.market_area.id_price.get_forecast(
-                        parameters.execution_date, time, time
-                    ).get_value(time)
-                elif parameters.market == MarketEnum.rr_activation:
-                    price_forecast[time] = portfolio.market_area.rr_activation_price.get_value(time)
-                elif parameters.market == MarketEnum.mfrr_activation:
-                    price_forecast[time] = portfolio.market_area.mfrr_activation_price.get_value(time)
         else:
-            price_forecast[time] = portfolio.market_area.price_forecast_medium.get_forecast(
-                parameters.execution_date, time, time
-            ).get_value(time)
-
-    return price_forecast
+            if parameters.market == MarketEnum.dayahead:
+                return portfolio.market_area.da_price.get_value(time)
+            elif parameters.market == MarketEnum.intraday:
+                return portfolio.market_area.id_price.get_forecast(parameters.execution_date, time, time).get_value(
+                    time
+                )
+            elif parameters.market == MarketEnum.rr_activation:
+                return portfolio.market_area.rr_activation_price.get_value(time)
+            elif parameters.market == MarketEnum.mfrr_activation:
+                return portfolio.market_area.mfrr_activation_price.get_value(time)
+    else:
+        return portfolio.market_area.price_forecast_medium.get_forecast(
+            parameters.execution_date, time, time
+        ).get_value(time)
 
 
 def get_reserve(
