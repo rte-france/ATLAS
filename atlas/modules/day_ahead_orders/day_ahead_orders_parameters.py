@@ -34,6 +34,14 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Optional parameter to choose an output folder in the SAMBA folder where the LPs will be exported. "
         "If None, a folder will be created named 'DAO/{ExecutionDate}'.",
     )
+    verbose: bool = Field(
+        True,
+        description="A boolean indicating whether or not the program shall return detailed logs.",
+    )
+    debug: bool = Field(
+        True,
+        description="A boolean indicating if the script will run in debug mode.",
+    )
     proportional_reserves_penalty: bool = Field(
         True,
         description="A boolean indicating whether the amount of reserves offered is flexible, resulting in a "
