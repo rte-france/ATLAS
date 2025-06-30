@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 import pendulum
-from pendulum import DateTime
+from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters

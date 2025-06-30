@@ -14,6 +14,7 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAhe
 from atlas.modules.day_ahead_orders.day_ahead_orders_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.day_ahead_load import DayAheadLoad
+from atlas.modules.day_ahead_orders.orders_formulation.day_ahead_storage import DayAheadStorage
 from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable import NonDispatchable
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
@@ -82,9 +83,9 @@ class DayAheadOrdersModule(
             cfg.logger.info("Non-dispatchable orders formulated.")
 
             #### STEP 3 - STORAGE UNITS ####
-            # cfg.logger.info("Formulation of the storage orders...")
-            # DayAheadStorage.formulate_storage_orders(dataset, parameters)
-            # cfg.logger.info("Storage orders formulated.")
+            cfg.logger.info("Formulation of the storage orders...")
+            DayAheadStorage.formulate_storage_orders(dataset, parameters)
+            cfg.logger.info("Storage orders formulated.")
 
             """
             #### STEP 4 - LAKES UNITS ####
