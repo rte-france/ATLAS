@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 import pendulum
 
 from atlas.models.market.critical_branch import CriticalBranch
@@ -17,7 +18,9 @@ class MCCriticalBranch:
         else:
             self.max_flow = None
         if critical_branch.flow_reliability_margin:
-            self.flow_reliability_margin = critical_branch.flow_reliability_margin.set_frequency(minute_time_step, False).filter(times)
+            self.flow_reliability_margin = critical_branch.flow_reliability_margin.set_frequency(
+                minute_time_step, False
+            ).filter(times)
         else:
             self.flow_reliability_margin = None
         if critical_branch.reference_flow:

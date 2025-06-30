@@ -6,16 +6,16 @@ This file is part of the ATLAS project.
 
 from ortools.linear_solver import pywraplp
 
-from atlas.models.control_block import ControlBlock
-from atlas.modules.market_clearing.market_clearing_data.marcket_clearing_market_area import MCMarketArea
-from atlas.solver.solver_interface import OptimisationModel
 import atlas.modules.market_clearing.market_clearing_constants as constants
-from atlas.models.market.order_coupling import OrderCoupling
 from atlas.config import logger
 from atlas.enum import ComplementDirection, CouplingType, OrderType
+from atlas.models.control_block import ControlBlock
+from atlas.models.market.order_coupling import OrderCoupling
+from atlas.modules.market_clearing.market_clearing_data.marcket_clearing_market_area import MCMarketArea
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters, ExchangeConstraintsType
+from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 # Static definition of default bounds on exchanges (can be changed at will):
 DEFAULT_MAX_FLOW = 10000.0
@@ -102,7 +102,7 @@ class Clearing(OptimisationModel):
                 self.add_continuous_variable(
                     constants.border_exchange_variable_name(border_name, time_index),
                     relative_min_flow,
-                    relative_max_flow
+                    relative_max_flow,
                 )
 
     def create_border_pos_exchanges_variables(self, is_atc: bool):
@@ -122,28 +122,28 @@ class Clearing(OptimisationModel):
                 )
 
     def create_border_imports_variables(self):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
+        for border_name in self.input_dataset.mc_market_borders.keys():
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.add_continuous_variable(
                     constants.border_import_variable_name(border_name, time_index), -float("inf"), float("inf")
                 )
 
     def create_border_exports_variables(self):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
+        for border_name in self.input_dataset.mc_market_borders.keys():
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.add_continuous_variable(
                     constants.border_export_variable_name(border_name, time_index), -float("inf"), float("inf")
                 )
 
     def create_border_xsis_variables(self):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
+        for border_name in self.input_dataset.mc_market_borders.keys():
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.add_continuous_variable(
                     constants.border_xsis_variable_name(border_name, time_index), -float("inf"), float("inf")
                 )
 
     def create_border_nus_variables(self):
-        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
+        for border_name in self.input_dataset.mc_market_borders.keys():
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.add_continuous_variable(
                     constants.border_nus_variable_name(border_name, time_index), -float("inf"), float("inf")
@@ -186,9 +186,7 @@ class Clearing(OptimisationModel):
                 for mc_order in market_area.orders.values():
                     # Focus on orders comprising the current time in their duration:
                     if mc_order.order.start_date <= time < mc_order.end_date_processed:
-                        accepted_power = self.get_variable(
-                            constants.accepted_power_variable_name(mc_order.order.name)
-                        )
+                        accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.order.name))
                         accepted_powers.append(mc_order.production_sign * accepted_power)
                 local_balance = self.get_variable(
                     constants.local_balance_variable_name(market_area.market_area.name, time_index)
@@ -199,31 +197,54 @@ class Clearing(OptimisationModel):
                 )
 
     def create_exchanges_and_local_balances_equality_constraints(self, is_atc):
-        for time_index, time in enumerate(self.input_dataset.times):
+        for time_index, _ in enumerate(self.input_dataset.times):
             for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
                 exchanges_sum = 0.0
                 for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-                    if mc_market_area.market_area not in [mc_border.border.uphill_market_area, mc_border.border.downhill_market_area]:
+                    if mc_market_area.market_area not in [
+                        mc_border.border.uphill_market_area,
+                        mc_border.border.downhill_market_area,
+                    ]:
                         continue
                     if is_atc and mc_border.border.loss_factor > 0.0:
                         if mc_border.border.uphill_market_area == mc_market_area.market_area:
-                            exchanges_sum += self.get_variable(constants.border_export_variable_name(border_name, time_index))
+                            exchanges_sum += self.get_variable(
+                                constants.border_export_variable_name(border_name, time_index)
+                            )
                         elif mc_border.border.downhill_market_area == mc_market_area.market_area:
-                            exchanges_sum -= self.get_variable(constants.border_import_variable_name(border_name, time_index))
+                            exchanges_sum -= self.get_variable(
+                                constants.border_import_variable_name(border_name, time_index)
+                            )
                     else:
                         border_sign = 1 if mc_market_area.market_area == mc_border.border.uphill_market_area else -1
-                        exchanges_sum += border_sign * self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
-                self.add_constraint(self.get_variable(constants.local_balance_variable_name(market_area_name, time_index)) == exchanges_sum, constants.constraint_3_2_2_constraint_name(market_area_name, time_index))
+                        exchanges_sum += border_sign * self.get_variable(
+                            constants.border_exchange_variable_name(border_name, time_index)
+                        )
+                self.add_constraint(
+                    self.get_variable(constants.local_balance_variable_name(market_area_name, time_index))
+                    == exchanges_sum,
+                    constants.constraint_3_2_2_constraint_name(market_area_name, time_index),
+                )
 
     def create_control_blocks_constraints(self):
         for time_index, time in enumerate(self.input_dataset.times):
             for control_block_name, control_block in self.input_dataset.control_blocks.items():
                 tso_sold_power = self.get_tso_sold_power(time, control_block)
                 tso_bought_power = self.get_tso_bought_power(time, control_block)
-                max_tso_sold_power = Clearing.get_max_tso_power_sold(time, control_block, self.input_dataset.mc_market_areas)
-                max_tso_bought_power = Clearing.get_max_tso_power_bought(time, control_block, self.input_dataset.mc_market_areas)
-                self.add_constraint(tso_sold_power <= max_tso_sold_power, constants.constraint_3_5_sold_constraint_name(control_block_name, time_index))
-                self.add_constraint(tso_bought_power <= max_tso_bought_power, constants.constraint_3_5_bought_constraint_name(control_block_name, time_index))
+                max_tso_sold_power = Clearing.get_max_tso_power_sold(
+                    time, control_block, self.input_dataset.mc_market_areas
+                )
+                max_tso_bought_power = Clearing.get_max_tso_power_bought(
+                    time, control_block, self.input_dataset.mc_market_areas
+                )
+                self.add_constraint(
+                    tso_sold_power <= max_tso_sold_power,
+                    constants.constraint_3_5_sold_constraint_name(control_block_name, time_index),
+                )
+                self.add_constraint(
+                    tso_bought_power <= max_tso_bought_power,
+                    constants.constraint_3_5_bought_constraint_name(control_block_name, time_index),
+                )
 
     def create_exchange_across_border_constraints(self):
         for time_index, time in enumerate(self.input_dataset.times):
@@ -234,54 +255,90 @@ class Clearing(OptimisationModel):
                     res_offset = time_elapsed.TotalMinutes % mc_border.time_resolution / self.parameters.time_step
                     if res_offset != 0:
                         precedent_time_index = res_offset * self.parameters.time_step
-                        self.add_constraint(self.get_variable(constants.border_exchange_variable_name(border_name, time_index)) == self.get_variable(constants.border_exchange_variable_name(border_name, precedent_time_index)))
+                        self.add_constraint(
+                            self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
+                            == self.get_variable(
+                                constants.border_exchange_variable_name(border_name, precedent_time_index)
+                            )
+                        )
 
     def create_import_export_constraints(self):
-        for time_index, time in enumerate(self.input_dataset.times):
+        for time_index, _ in enumerate(self.input_dataset.times):
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
                 if not mc_border.border.loss_factor or mc_border.border.loss_factor <= 0:
                     continue
-                exchange = self.get_variable(
-                    constants.border_exchange_variable_name(border_name, time_index))
+                exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                 _import = self.get_variable(constants.border_import_variable_name(border_name, time_index))
                 _export = self.get_variable(constants.border_export_variable_name(border_name, time_index))
                 xsis = self.get_variable(constants.border_xsis_variable_name(border_name, time_index))
                 nus = self.get_variable(constants.border_nus_variable_name(border_name, time_index))
 
-                self.add_constraint(exchange == 0.5 * (_import + _export),
-                                    constants.constraint_3_6_1b_constraint_name(border_name, time_index))
+                self.add_constraint(
+                    exchange == 0.5 * (_import + _export),
+                    constants.constraint_3_6_1b_constraint_name(border_name, time_index),
+                )
 
-                tmp_rhs = (((1.0 - mc_border.border.loss_factor) - 1.0 / (1.0 - mc_border.border.loss_factor)) * xsis +
-                           _export / (1.0 - mc_border.border.loss_factor))
-                self.add_constraint(_import == tmp_rhs, constants.constraint_3_6_1c_constraint_name(border_name, time_index))
-                self.add_constraint(xsis >= 0.5 * _export, constants.constraint_3_6_1d_constraint_name(border_name, time_index))
+                tmp_rhs = (
+                    (1.0 - mc_border.border.loss_factor) - 1.0 / (1.0 - mc_border.border.loss_factor)
+                ) * xsis + _export / (1.0 - mc_border.border.loss_factor)
+                self.add_constraint(
+                    _import == tmp_rhs, constants.constraint_3_6_1c_constraint_name(border_name, time_index)
+                )
+                self.add_constraint(
+                    xsis >= 0.5 * _export, constants.constraint_3_6_1d_constraint_name(border_name, time_index)
+                )
 
                 if exchange.Lb():
-                    self.add_constraint(nus * exchange.Lb() <= xsis, constants.constraint_3_6_1f_min_constraint_name(border_name, time_index))
-                    self.add_constraint((1 - nus) * exchange.Lb() >= _export - xsis, constants.constraint_3_6_1g_min_constraint_name(border_name, time_index))
+                    self.add_constraint(
+                        nus * exchange.Lb() <= xsis,
+                        constants.constraint_3_6_1f_min_constraint_name(border_name, time_index),
+                    )
+                    self.add_constraint(
+                        (1 - nus) * exchange.Lb() >= _export - xsis,
+                        constants.constraint_3_6_1g_min_constraint_name(border_name, time_index),
+                    )
 
                 if exchange.Ub():
-                    self.add_constraint(nus * exchange.Ub() <= xsis, constants.constraint_3_6_1f_min_constraint_name(border_name, time_index))
-                    self.add_constraint((1 - nus) * exchange.Ub() >= _export - xsis, constants.constraint_3_6_1g_min_constraint_name(border_name, time_index))
+                    self.add_constraint(
+                        nus * exchange.Ub() <= xsis,
+                        constants.constraint_3_6_1f_min_constraint_name(border_name, time_index),
+                    )
+                    self.add_constraint(
+                        (1 - nus) * exchange.Ub() >= _export - xsis,
+                        constants.constraint_3_6_1g_min_constraint_name(border_name, time_index),
+                    )
 
     def create_absolute_exchange_constraints(self):
-        for time_index, time in enumerate(self.input_dataset.times):
-            for border_name, mc_border in self.input_dataset.mc_market_borders.items():
+        for time_index, _ in enumerate(self.input_dataset.times):
+            for border_name in self.input_dataset.mc_market_borders.keys():
                 border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
-                border_pos_exchange = self.get_variable(constants.border_pos_exchange_variable_name(border_name, time_index))
-                border_neg_exchange = self.get_variable(constants.border_neg_exchange_variable_name(border_name, time_index))
+                border_pos_exchange = self.get_variable(
+                    constants.border_pos_exchange_variable_name(border_name, time_index)
+                )
+                border_neg_exchange = self.get_variable(
+                    constants.border_neg_exchange_variable_name(border_name, time_index)
+                )
                 absolute_exchange_constraint_name = constants.absolute_exchange_constraint_name(border_name, time_index)
-                self.add_constraint(border_pos_exchange + border_neg_exchange == border_exchange, absolute_exchange_constraint_name)
-
+                self.add_constraint(
+                    border_pos_exchange + border_neg_exchange == border_exchange, absolute_exchange_constraint_name
+                )
 
     def create_constraint_3_6_2_constraints(self):
         for time_index, time in enumerate(self.input_dataset.times):
             for critical_branch_name, mc_critical_branch in self.input_dataset.mc_critical_branches.items():
                 branch_load = []
-                mc_market_area = self.input_dataset.mc_market_areas[mc_critical_branch.critical_branch.market_area_ptdf.market_area.name]
-                relative_balance = self.get_variable(constants.local_balance_variable_name(mc_market_area.market_area.name, time_index) - mc_market_area.ref_balance.get_value(time))
+                mc_market_area = self.input_dataset.mc_market_areas[
+                    mc_critical_branch.critical_branch.market_area_ptdf.market_area.name
+                ]
+                relative_balance = self.get_variable(
+                    constants.local_balance_variable_name(mc_market_area.market_area.name, time_index)
+                    - mc_market_area.ref_balance.get_value(time)
+                )
                 branch_load.append(mc_critical_branch.ptdf.get_value(time) * relative_balance)
-                self.add_constraint(relative_balance <= mc_critical_branch.max_flow.get_value(time), constants.constraint_3_6_2_constraint_name(critical_branch_name, time_index))
+                self.add_constraint(
+                    relative_balance <= mc_critical_branch.max_flow.get_value(time),
+                    constants.constraint_3_6_2_constraint_name(critical_branch_name, time_index),
+                )
 
     def create_limited_accepted_power_constraints(self):
         for market_area in self.input_dataset.mc_market_areas.values():
@@ -290,9 +347,7 @@ class Clearing(OptimisationModel):
                 # indivisible and/or mutually excluding orders and linked orders (3.4):
                 if mc_order.id_with_status is not None:
                     order_status = self.get_variable(constants.order_status_variable_name(mc_order.order.name))
-                    accepted_power = self.get_variable(
-                        constants.accepted_power_variable_name(mc_order.order.name)
-                    )
+                    accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.order.name))
                     self.create_min_accepted_power_constraint(
                         market_area.market_area.name,
                         mc_order.order.name,
@@ -367,11 +422,17 @@ class Clearing(OptimisationModel):
         aggregated_proportion_accepted_power = sum(aggregated_accepted_power) * self.parameters.time_step / 60
         constraint_name = constants.constraint_3_9_constraint_name(order_coupling.name)
         if order_coupling.complement_direction == ComplementDirection.EqualTo:
-            self.add_constraint(aggregated_proportion_accepted_power == order_coupling.complement_energy, constraint_name)
+            self.add_constraint(
+                aggregated_proportion_accepted_power == order_coupling.complement_energy, constraint_name
+            )
         elif order_coupling.complement_direction == ComplementDirection.GreaterThan:
-            self.add_constraint(aggregated_proportion_accepted_power >= order_coupling.complement_energy, constraint_name)
+            self.add_constraint(
+                aggregated_proportion_accepted_power >= order_coupling.complement_energy, constraint_name
+            )
         elif order_coupling.complement_direction == ComplementDirection.LesserThan:
-            self.add_constraint(aggregated_proportion_accepted_power <= order_coupling.complement_energy, constraint_name)
+            self.add_constraint(
+                aggregated_proportion_accepted_power <= order_coupling.complement_energy, constraint_name
+            )
         else:
             logger.info(
                 f"Can't create constraint complement order coupling ('{order_coupling.name}') because complement"
@@ -428,30 +489,34 @@ class Clearing(OptimisationModel):
             for order in market_area.orders.values():
                 accepted_power = self.get_variable(constants.accepted_power_variable_name(order.order.name))
                 altered_price = order.order.price - order.production_sign * lambda1
-                objective.append(- order.production_sign * altered_price * order.duration * accepted_power / 60)
+                objective.append(-order.production_sign * altered_price * order.duration * accepted_power / 60)
         return sum(objective)
 
     def add_global_exchanges(self):
         objective = []
-        for time_index, time in enumerate(self.input_dataset.times):
-            for border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
-                border_pos_exchanges = self.get_variable(constants.border_pos_exchange_variable_name(border_name, time_index))
-                border_neg_exchanges = self.get_variable(constants.border_neg_exchange_variable_name(border_name, time_index))
+        for time_index, _ in enumerate(self.input_dataset.times):
+            for border_name in self.input_dataset.mc_market_borders.keys():
+                border_pos_exchanges = self.get_variable(
+                    constants.border_pos_exchange_variable_name(border_name, time_index)
+                )
+                border_neg_exchanges = self.get_variable(
+                    constants.border_neg_exchange_variable_name(border_name, time_index)
+                )
                 objective.append(border_pos_exchanges - border_neg_exchanges)
         return sum(objective)
 
     def add_max_exchanges(self):
         objective = []
-        for time_index, time in enumerate(self.input_dataset.times):
-            for border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+        for time_index, _ in enumerate(self.input_dataset.times):
+            for border_name in self.input_dataset.mc_market_borders.keys():
                 border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                 objective.append(border_exchange.Ub() - border_exchange)
         return sum(objective)
 
     def add_min_exchanges(self):
         objective = []
-        for time_index, time in enumerate(self.input_dataset.times):
-            for border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+        for time_index, _ in enumerate(self.input_dataset.times):
+            for border_name in self.input_dataset.mc_market_borders.keys():
                 border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                 objective.append(border_exchange - border_exchange.Lb())
         return sum(objective)
@@ -586,4 +651,3 @@ class Clearing(OptimisationModel):
         :rtype: dict[str, list[float]]
         """
         pass
-

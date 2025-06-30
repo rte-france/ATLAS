@@ -3,18 +3,21 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 import pendulum
 
 from atlas.math.timeseries import Timeseries
 from atlas.models.market.market_area import MarketArea
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 
-
 INITIAL_MAX_PRICE = 1.0e8
 INITIAL_MIN_PRICE = -1.0e8
 
+
 class MCMarketArea:
-    def __init__(self, market_area: MarketArea, orders: dict[str, MCOrder], times: list[pendulum.DateTime], time_step: int):
+    def __init__(
+        self, market_area: MarketArea, orders: dict[str, MCOrder], times: list[pendulum.DateTime], time_step: int
+    ):
         self.market_area = market_area
         self.orders = orders
         minute_time_step = pendulum.Duration(minutes=time_step)

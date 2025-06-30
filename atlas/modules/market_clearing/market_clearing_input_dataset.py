@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 import pendulum
 
-from atlas import MarketBorder, ControlBlock, CriticalBranch
+from atlas import ControlBlock, CriticalBranch, MarketBorder
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME
 from atlas.models.business_model import BusinessModel
@@ -17,7 +17,7 @@ from atlas.modules.market_clearing.market_clearing_data.marcket_clearing_market_
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_border import MCBorder
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_critical_branch import MCCriticalBranch
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
-from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters, ExchangeConstraintsType
+from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
 
 
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
@@ -40,14 +40,19 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.control_blocks = self.get_control_blocks(raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]])
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
             if INVERSE_MODEL_MAPPING_NAME[CriticalBranch] in raw_data:
-                self.mc_critical_branches = self.get_critical_branches(raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]])
+                self.mc_critical_branches = self.get_critical_branches(
+                    raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]]
+                )
             else:
                 self.mc_critical_branches = {}
         else:
             self.mc_critical_branches = None
 
     def get_critical_branches(self, critical_branches: list[CriticalBranch]) -> dict[str, MCCriticalBranch]:
-        return {critical_branche.name: MCCriticalBranch(critical_branche, self.times, self.parameters.time_step) for critical_branche in critical_branches}
+        return {
+            critical_branche.name: MCCriticalBranch(critical_branche, self.times, self.parameters.time_step)
+            for critical_branche in critical_branches
+        }
 
     def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlock]:
         control_blocks_to_keep = {}
@@ -73,7 +78,9 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 for order_name, mc_order in mc_orders.items()
                 if mc_order.order.market_area == market_area
             }
-            mc_market_areas[market_area.name] = MCMarketArea(market_area, market_area_orders, self.times, self.parameters.time_step)
+            mc_market_areas[market_area.name] = MCMarketArea(
+                market_area, market_area_orders, self.times, self.parameters.time_step
+            )
         return mc_market_areas
 
     def get_orders(self, mc_orders: list[Order], order_couplings: dict[str:OrderCoupling]) -> dict[str, MCOrder]:
@@ -125,7 +132,10 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             return True
 
     def get_market_borders(self, market_borders: list[MarketBorder]) -> dict[str, MCBorder]:
-        return {market_border.name: MCBorder(market_border, self.times, self.parameters.time_step) for market_border in market_borders}
+        return {
+            market_border.name: MCBorder(market_border, self.times, self.parameters.time_step)
+            for market_border in market_borders
+        }
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
         return []
