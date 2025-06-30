@@ -14,6 +14,13 @@ import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
+from atlas.custom_errors import (
+    DataValidationError,
+    DirectoryStructureError,
+    FileParsingError,
+    InputLoaderError,
+    ObjectInstantiationError,
+)
 from atlas.io_utils.utils import read_data_file
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
@@ -23,36 +30,6 @@ from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.typing import get_type_attribute
-
-
-class InputLoaderError(Exception):
-    """Base exception for InputLoader errors."""
-
-    pass
-
-
-class DirectoryStructureError(InputLoaderError):
-    """Raised when the input directory structure is invalid."""
-
-    pass
-
-
-class FileParsingError(InputLoaderError):
-    """Raised when a file cannot be parsed correctly."""
-
-    pass
-
-
-class ObjectInstantiationError(InputLoaderError):
-    """Raised when an object cannot be instantiated."""
-
-    pass
-
-
-class DataValidationError(InputLoaderError):
-    """Raised when data validation fails."""
-
-    pass
 
 
 class InputLoader:
