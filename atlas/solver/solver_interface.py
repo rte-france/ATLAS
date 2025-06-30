@@ -365,6 +365,15 @@ class OptimisationModel:
         with open(filename, "w") as f:
             f.write(lp)
 
+    def set_solver_specific_parameters_as_string(self, params: str) -> bool:
+        """
+        Pass solver specific parameters in text format.
+
+        :param params: Specific parameters
+        :return: Returns true if the operation was successful.
+        """
+        return self._solver.SetSolverSpecificParametersAsString(params)
+
     def clear(self) -> None:
         """Clear the model and reset all variables and constraints."""
         self._variables_name.clear()
