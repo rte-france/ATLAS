@@ -432,22 +432,38 @@ class ClearingModel(OptimisationModel):
     # Objective
     ##################################
     def add_accepted_powers(self, lambda1: float):
-        objective = 0.0
+        objective = []
         for market_area in self.input_dataset.mc_market_areas.values():
             for order in market_area.orders.values():
                 accepted_power = self.get_variable(constants.accepted_power_variable_name(order.order.name))
                 altered_price = order.order.price - order.production_sign * lambda1
-                objective -= order.production_sign * altered_price * order.duration * accepted_power / 60
-        return objective
+                objective.append(- order.production_sign * altered_price * order.duration * accepted_power / 60)
+        return sum(objective)
 
     def add_global_exchanges(self):
-        pass
+        objective = []
+        for time_index, time in enumerate(self.input_dataset.times):
+            for border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+                border_pos_exchanges = self.get_variable(constants.border_pos_exchange_variable_name(border_name, time_index))
+                border_neg_exchanges = self.get_variable(constants.border_neg_exchange_variable_name(border_name, time_index))
+                objective.append(border_pos_exchanges - border_neg_exchanges)
+        return sum(objective)
 
     def add_max_exchanges(self):
-        pass
+        objective = []
+        for time_index, time in enumerate(self.input_dataset.times):
+            for border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+                border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
+                objective.append(border_exchange.Ub() - border_exchange)
+        return sum(objective)
 
     def add_min_exchanges(self):
-        pass
+        objective = []
+        for time_index, time in enumerate(self.input_dataset.times):
+            for border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+                border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
+                objective.append(border_exchange - border_exchange.Lb())
+        return sum(objective)
 
     def get_tso_sold_power(self, time, control_block):
         tso_sold_power = 0.0
