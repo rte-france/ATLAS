@@ -107,7 +107,7 @@ class ClearingModel:
     # Variables
     ##################################
     def create_border_exchange_variables(self, is_atc: bool):
-        for border in self.input_dataset.market_borders:
+        for border in self.input_dataset.mc_market_borders:
             for time_index, _time in enumerate(self.input_dataset.times):
                 relative_max_flow = border.max_flow.get_value(_time).sum() if is_atc else DEFAULT_MAX_FLOW
                 relative_min_flow = border.min_flow.get_value(_time).sum() if is_atc else DEFAULT_MIN_FLOW
@@ -118,7 +118,7 @@ class ClearingModel:
                 )
 
     def create_border_pos_exchanges_variables(self, is_atc: bool):
-        for border in self.input_dataset.market_borders:
+        for border in self.input_dataset.mc_market_borders:
             for time_index, _time in enumerate(self.input_dataset.times):
                 relative_max_flow = border.max_flow.get_value(_time).sum() if is_atc else DEFAULT_MAX_FLOW
                 self.solver.NumVar(
@@ -126,7 +126,7 @@ class ClearingModel:
                 )
 
     def create_border_neg_exchange_variables(self, is_atc: bool):
-        for border in self.input_dataset.market_borders:
+        for border in self.input_dataset.mc_market_borders:
             for time_index, _time in enumerate(self.input_dataset.times):
                 relative_min_flow = border.min_flow.get_value(_time).sum() if is_atc else DEFAULT_MIN_FLOW
                 self.solver.NumVar(
@@ -134,28 +134,28 @@ class ClearingModel:
                 )
 
     def create_border_imports_variables(self):
-        for border in self.input_dataset.market_borders:
+        for border in self.input_dataset.mc_market_borders:
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.solver.NumVar(
                     -float("inf"), float("inf"), constants.border_import_variable_name(border.name, time_index)
                 )
 
     def create_border_exports_variables(self):
-        for border in self.input_dataset.market_borders:
+        for border in self.input_dataset.mc_market_borders:
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.solver.NumVar(
                     -float("inf"), float("inf"), constants.border_export_variable_name(border.name, time_index)
                 )
 
     def create_border_xsis_variables(self):
-        for border in self.input_dataset.market_borders:
+        for border in self.input_dataset.mc_market_borders:
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.solver.NumVar(
                     -float("inf"), float("inf"), constants.border_xsis_variable_name(border.name, time_index)
                 )
 
     def create_border_nus_variables(self):
-        for border in self.input_dataset.market_borders:
+        for border in self.input_dataset.mc_market_borders:
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.solver.NumVar(
                     -float("inf"), float("inf"), constants.border_nus_variable_name(border.name, time_index)
@@ -197,7 +197,7 @@ class ClearingModel:
                 accepted_powers = []
                 for mc_order in market_area.orders.values():
                     # Focus on orders comprising the current time in their duration:
-                    if mc_order.order.start_date <= time < mc_order.end_datetime:
+                    if mc_order.order.start_date <= time < mc_order.end_date_processed:
                         accepted_power = self.solver.LookupVariable(
                             constants.accepted_power_variable_name(mc_order.order.name)
                         )
