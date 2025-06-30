@@ -159,7 +159,7 @@ class Clearing(OptimisationModel):
     def create_accepted_powers(self):
         for market_area in self.input_dataset.mc_market_areas.values():
             for mc_order in market_area.orders.values():
-                if mc_order.order.qmin:
+                if not mc_order.order.qmin:
                     min_power = 0.0
                     max_power = mc_order.order.qmax
                     self.add_continuous_variable(
