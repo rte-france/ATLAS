@@ -5,7 +5,6 @@ import pendulum
 import pytest
 import pickle
 from pathlib import Path
-from collections import OrderedDict
 
 from atlas.math.timeseries import Timeseries
 from atlas.io_utils.utils import to_snake_case
@@ -15,7 +14,7 @@ import pandas as pd
 import yaml
 
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
-from atlas.modules.market_clearing.phases.clearing.clearing import Clearing
+from atlas.modules.market_clearing.phases.clearing import Clearing
 
 
 def transform_dataframe_to_dict(df: pd.DataFrame):

@@ -11,7 +11,7 @@ from atlas.models.business_model import BusinessModel
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
-from atlas.modules.market_clearing.phases.clearing.clearing import Clearing
+from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 
 
