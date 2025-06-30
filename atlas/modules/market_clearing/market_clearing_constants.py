@@ -110,12 +110,20 @@ def constraint_3_6_1d_constraint_name(border_name: str, time_index: int) -> str:
     return f"Constraint_3_6_1d_t_{time_index}_mkt_border_{border_name}"
 
 
-def constraint_3_6_1f_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint_3_6_1f_t_{time_index}_mkt_border_{border_name}"
+def constraint_3_6_1f_min_constraint_name(border_name: str, time_index: int) -> str:
+    return f"Constraint_3_6_1f_min_t_{time_index}_mkt_border_{border_name}"
 
 
-def constraint_3_6_1g_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint_3_6_1g_t_{time_index}_mkt_border_{border_name}"
+def constraint_3_6_1f_max_constraint_name(border_name: str, time_index: int) -> str:
+    return f"Constraint_3_6_1f_max_t_{time_index}_mkt_border_{border_name}"
+
+
+def constraint_3_6_1g_min_constraint_name(border_name: str, time_index: int) -> str:
+    return f"Constraint_3_6_1g_min_t_{time_index}_mkt_border_{border_name}"
+
+
+def constraint_3_6_1g_max_constraint_name(border_name: str, time_index: int) -> str:
+    return f"Constraint_3_6_1g_max_t_{time_index}_mkt_border_{border_name}"
 
 
 def constraint_3_6_2_constraint_name(branch_name: str, time_index: int) -> str:
@@ -127,7 +135,7 @@ def absolute_exchange_constraint_name(border_name: str, time_index: int) -> str:
 
 
 def exchange_across_border_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Pos_neg_def_t_{time_index}_mkt_border_{border_name}"
+    return f"Constraint_3_7_t_{time_index}_mkt_border_{border_name}"
 
 
 ##################################

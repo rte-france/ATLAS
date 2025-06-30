@@ -13,14 +13,6 @@ from atlas.modules.market_clearing.market_clearing_parameters import MarketClear
 
 
 class MCOrder:
-    instance_with_status_count = 0
-
-    @staticmethod
-    def generate_instance_with_status_id():
-        instance_id = MCOrder.instance_with_status_count
-        MCOrder.instance_with_status_count += 1
-        return instance_id
-
     def __init__(self, order: Order, parameters: MarketClearingParameters):
         self.order = order
         # Deduce duration from list of DataTime and the parameter time step (the end datetime may have to be modified so that

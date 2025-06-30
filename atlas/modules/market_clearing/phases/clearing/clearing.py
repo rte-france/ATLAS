@@ -30,32 +30,6 @@ class Clearing:
         self.model.export_lp(self.model.solver)
         self.model.export_solver_variables(self.model.solver)
 
-    @staticmethod
-    def get_max_tso_power_sold(time, control_block: ControlBlock, mc_market_areas: dict[str, MCMarketArea]) -> float:
-        max_tso_power_sold = 0.0
-        for mc_market_area in mc_market_areas.values():
-            if control_block == mc_market_area.market_area.control_block:
-                for mc_order in mc_market_area.orders.values():
-                    is_available = mc_order.order.start_date <= time <= mc_order.end_date_processed
-                    not_tso = not mc_order.order.is_agent_tso
-                    not_sale = mc_order.order.order_type == OrderType.Buy
-                    if is_available and not_tso and not_sale:
-                        max_tso_power_sold += mc_order.order.qmax
-        return max_tso_power_sold
-
-    @staticmethod
-    def get_max_tso_power_bought(time, control_block: ControlBlock, mc_market_areas: dict[str, MCMarketArea]) -> float:
-        max_tso_power_bought = 0.0
-        for mc_market_area in mc_market_areas.values():
-            if control_block == mc_market_area.market_area.control_block:
-                for mc_order in mc_market_area.orders.values():
-                    is_available = mc_order.order.start_date <= time <= mc_order.end_date_processed
-                    not_tso = not mc_order.order.is_agent_tso
-                    is_sale = mc_order.order.order_type == OrderType.Sell
-                    if is_available and not_tso and is_sale:
-                        max_tso_power_bought += mc_order.order.qmax
-        return max_tso_power_bought
-
     # Retrieve information after optimization
     # REMIND : nb_saturations may be retrieved with retrieve_critical_branches_saturation_value and allowed_round_off_error
     def retrieve_critical_branches_saturation_value(self) -> dict[str : list[float]]:

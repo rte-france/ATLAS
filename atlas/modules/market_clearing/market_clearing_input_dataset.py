@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 import pendulum
 
-from atlas import MarketBorder, ControlBlock
+from atlas import MarketBorder, ControlBlock, CriticalBranch
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME
 from atlas.models.business_model import BusinessModel
@@ -15,8 +15,9 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.modules.market_clearing.market_clearing_data.marcket_clearing_market_area import MCMarketArea
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_border import MCBorder
+from atlas.modules.market_clearing.market_clearing_data.market_clearing_critical_branch import MCCriticalBranch
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
-from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
+from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters, ExchangeConstraintsType
 
 
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
@@ -37,6 +38,16 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.mc_market_areas = self.get_market_areas(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]], self.mc_orders)
         self.mc_market_borders = self.get_market_borders(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]])
         self.control_blocks = self.get_control_blocks(raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]])
+        if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
+            if INVERSE_MODEL_MAPPING_NAME[CriticalBranch] in raw_data:
+                self.mc_critical_branches = self.get_critical_branches(raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]])
+            else:
+                self.mc_critical_branches = {}
+        else:
+            self.mc_critical_branches = None
+
+    def get_critical_branches(self, critical_branches: list[CriticalBranch]) -> dict[str, MCCriticalBranch]:
+        return {critical_branche.name: MCCriticalBranch(critical_branche, self.times, self.parameters.time_step) for critical_branche in critical_branches}
 
     def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlock]:
         control_blocks_to_keep = {}
