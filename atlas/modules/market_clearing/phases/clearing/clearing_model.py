@@ -107,58 +107,58 @@ class ClearingModel:
     # Variables
     ##################################
     def create_border_exchange_variables(self, is_atc: bool):
-        for border in self.input_dataset.mc_market_borders:
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _time in enumerate(self.input_dataset.times):
-                relative_max_flow = border.max_flow.get_value(_time).sum() if is_atc else DEFAULT_MAX_FLOW
-                relative_min_flow = border.min_flow.get_value(_time).sum() if is_atc else DEFAULT_MIN_FLOW
+                relative_max_flow = mc_border.max_flow.get_value(_time).sum() if is_atc else DEFAULT_MAX_FLOW
+                relative_min_flow = mc_border.min_flow.get_value(_time).sum() if is_atc else DEFAULT_MIN_FLOW
                 self.solver.NumVar(
                     relative_min_flow,
                     relative_max_flow,
-                    constants.border_exchange_variable_name(border.name, time_index),
+                    constants.border_exchange_variable_name(border_name, time_index)
                 )
 
     def create_border_pos_exchanges_variables(self, is_atc: bool):
-        for border in self.input_dataset.mc_market_borders:
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _time in enumerate(self.input_dataset.times):
-                relative_max_flow = border.max_flow.get_value(_time).sum() if is_atc else DEFAULT_MAX_FLOW
+                relative_max_flow = mc_border.max_flow.get_value(_time).sum() if is_atc else DEFAULT_MAX_FLOW
                 self.solver.NumVar(
-                    0.0, relative_max_flow, constants.border_pos_exchange_variable_name(border.name, time_index)
+                    0.0, relative_max_flow, constants.border_pos_exchange_variable_name(border_name, time_index)
                 )
 
     def create_border_neg_exchange_variables(self, is_atc: bool):
-        for border in self.input_dataset.mc_market_borders:
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _time in enumerate(self.input_dataset.times):
-                relative_min_flow = border.min_flow.get_value(_time).sum() if is_atc else DEFAULT_MIN_FLOW
+                relative_min_flow = mc_border.min_flow.get_value(_time).sum() if is_atc else DEFAULT_MIN_FLOW
                 self.solver.NumVar(
-                    relative_min_flow, 0.0, constants.border_pos_exchange_variable_name(border.name, time_index)
+                    relative_min_flow, 0.0, constants.border_pos_exchange_variable_name(border_name, time_index)
                 )
 
     def create_border_imports_variables(self):
-        for border in self.input_dataset.mc_market_borders:
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.solver.NumVar(
-                    -float("inf"), float("inf"), constants.border_import_variable_name(border.name, time_index)
+                    -float("inf"), float("inf"), constants.border_import_variable_name(border_name, time_index)
                 )
 
     def create_border_exports_variables(self):
-        for border in self.input_dataset.mc_market_borders:
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.solver.NumVar(
-                    -float("inf"), float("inf"), constants.border_export_variable_name(border.name, time_index)
+                    -float("inf"), float("inf"), constants.border_export_variable_name(border_name, time_index)
                 )
 
     def create_border_xsis_variables(self):
-        for border in self.input_dataset.mc_market_borders:
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.solver.NumVar(
-                    -float("inf"), float("inf"), constants.border_xsis_variable_name(border.name, time_index)
+                    -float("inf"), float("inf"), constants.border_xsis_variable_name(border_name, time_index)
                 )
 
     def create_border_nus_variables(self):
-        for border in self.input_dataset.mc_market_borders:
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _time in enumerate(self.input_dataset.times):
                 self.solver.NumVar(
-                    -float("inf"), float("inf"), constants.border_nus_variable_name(border.name, time_index)
+                    -float("inf"), float("inf"), constants.border_nus_variable_name(border_name, time_index)
                 )
 
     def create_local_balances_variables(self):

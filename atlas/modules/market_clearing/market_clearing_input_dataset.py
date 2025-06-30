@@ -29,7 +29,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         step = pendulum.duration(minutes=self.parameters.time_step)
         total_minutes = (self.parameters.end_date - self.parameters.start_date).in_minutes()
         self.times = [
-            self.parameters.start_date + step * i for i in range(0, total_minutes // self.parameters.time_step + 1)
+            self.parameters.start_date + step * i for i in range(0, total_minutes // self.parameters.time_step)
         ]
 
         self.order_couplings = self.get_order_couplings(raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]])

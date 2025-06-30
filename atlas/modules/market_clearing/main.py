@@ -10,7 +10,7 @@ import pickle
 
 import yaml
 
-from atlas.io.input_loader import InputLoader
+from atlas.io_utils.input_loader import InputLoader
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 
 if __name__ == "__main__":

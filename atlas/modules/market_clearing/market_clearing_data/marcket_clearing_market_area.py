@@ -19,14 +19,14 @@ class MCMarketArea:
         self.orders = orders
         minute_time_step = pendulum.Duration(minutes=time_step)
         if market_area.reference_balance:
-            self.ref_balance = market_area.reference_balance
+            self.ref_balance = market_area.reference_balance.set_frequency(minute_time_step, False).filter(times)
         else:
             self.ref_balance = Timeseries.from_index(times[0], minute_time_step, times[-1], 0.0)
         if market_area.maximum_price:
-            self.max_price = market_area.maximum_price
+            self.max_price = market_area.maximum_price.set_frequency(minute_time_step, False).filter(times)
         else:
             self.max_price = Timeseries.from_index(times[0], minute_time_step, times[-1], INITIAL_MAX_PRICE)
         if market_area.minimum_price:
-            self.min_price = market_area.minimum_price
+            self.min_price = market_area.minimum_price.set_frequency(minute_time_step, False).filter(times)
         else:
             self.min_price = Timeseries.from_index(times[0], minute_time_step, times[-1], INITIAL_MIN_PRICE)

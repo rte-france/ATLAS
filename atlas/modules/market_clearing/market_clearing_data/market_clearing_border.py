@@ -19,17 +19,18 @@ class MCBorder:
         self.border = border
         minute_time_step = pendulum.Duration(minutes=time_step)
         if border.maximum_flow:
-            self.max_flow = border.maximum_flow
+            self.max_flow = border.maximum_flow.set_frequency(minute_time_step, False).filter(times)
         else:
             self.max_flow = Timeseries.from_index(times[0], minute_time_step, times[-1], DEFAULT_MAX_FLOW)
         if border.minimum_flow:
-            self.min_flow = border.minimum_flow
+            self.min_flow = border.minimum_flow.set_frequency(minute_time_step, False).filter(times)
         else:
             self.min_flow = Timeseries.from_index(times[0], minute_time_step, times[-1], DEFAULT_MIN_FLOW)
 
         if border.reference_flow:
-            self.max_flow -= border.reference_flow
-            self.min_flow -= border.reference_flow
+            reference_flow = border.reference_flow.set_frequency(minute_time_step, False).filter(times)
+            self.max_flow -= reference_flow
+            self.min_flow -= reference_flow
 
 
         self.has_loss_factor = True if self.border.loss_factor > 0 else False
