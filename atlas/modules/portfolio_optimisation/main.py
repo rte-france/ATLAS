@@ -7,12 +7,11 @@ This file is part of the ATLAS project.
 import atlas.config as cfg
 from atlas.enum import SolverStatus
 from atlas.models.equipment.equipment import Equipment
-from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
+from atlas.modules.portfolio_optimisation.model.constraint_builder import ConstraintBuilder
+from atlas.modules.portfolio_optimisation.model.objective_builder import ObjectiveFunctionBuilder
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.constraint_builder import ConstraintBuilder
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
-from atlas.modules.portfolio_optimisation.utils.objective_builder import ObjectiveFunctionBuilder
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
 
@@ -121,27 +120,6 @@ class PortfolioOptimisationModel:
     ):
         pass
 
-    def _export_optimization_results(
-        self,
-        input_dataset: PortfolioOptimisationInputDataset,
-        model: OptimisationModel,
-        Portfolio: Portfolio,
-        solution_info: SolutionInfo,
-    ):
-        """Export optimization results using the model's variable values."""
-        try:
-            # Extract variable values from the solved model
-            variable_values = {}
-            for var_name in model.variables_name:
-                variable_values[var_name] = model.get_variable_value(var_name)
-
-            # Use output manager to export results
-            # You may need to adapt this based on how OutputManager expects the data
-            self.output_manager.export_results(input_dataset, Portfolio, solution_info, variable_values)
-
-        except Exception as e:
-            cfg.logger.error(f"Failed to export results: {e}")
-
     def _get_optimization_times(self) -> dict[str, list]:
         """Get all optimization time periods."""
         return {
@@ -152,14 +130,3 @@ class PortfolioOptimisationModel:
             "phs_op_times": self.parameters.phs_op_times,
             "ev_op_times": self.parameters.ev_op_times,
         }
-
-    def _handle_excluded_market_area(self, portfolio: Portfolio, single_equipment=None):
-        """Handle portfolios in excluded market areas."""
-        if self.parameters.is_portfolio_bidding:
-            cfg.logger.warning(f"Portfolio {portfolio.name} is in excluded market area and will not be optimized")
-            set_manual_activation(portfolio.GetChildren("Equipment"), self.parameters)
-        else:
-            cfg.logger.warning(
-                f"Equipment {single_equipment.name} is in excluded market area and will not be optimized"
-            )
-            set_manual_activation([single_equipment], self.parameters)

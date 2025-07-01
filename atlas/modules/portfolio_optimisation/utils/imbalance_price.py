@@ -24,10 +24,6 @@ def estimate_imbalance_prices(
     and applies either provided imbalance price markers or calculates them using
     French regulation method with penalties and lower bounds.
     """
-    imbalance_price_up: float
-    large_imbalance_price_up: float
-    imbalance_price_down: float
-    large_imbalance_price_down: float
 
     # 1. Get reference price
     if parameters.use_forecast:

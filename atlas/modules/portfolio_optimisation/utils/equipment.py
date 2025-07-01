@@ -1,6 +1,5 @@
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.thermal import Thermal
-from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
@@ -16,9 +15,9 @@ def is_excluded_thermal_strategy(parameters: PortfolioOptimisationParameters, eq
     return False
 
 
-def is_excluded_market_area(parameters: PortfolioOptimisationParameters, portfolio: Portfolio) -> bool:
+def is_excluded_market_area(use_forecast: bool, excluded_market_areas: list[str], market_area: str) -> bool:
     """Check if portfolio market area is excluded."""
-    return not parameters.use_forecast and portfolio.market_area.name in parameters.excluded_market_areas
+    return not use_forecast and market_area in excluded_market_areas
 
 
 def should_manually_activate(equipment: type[Equipment]) -> bool:

@@ -73,10 +73,11 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
         for equipment_type, equipment_list in self.equipments.items():
             for equipment in equipment_list:
-                if is_excluded_market_area(self.parameters, equipment.portfolio):
-                    continue
-
-                is_manual = should_manually_activate(self.parameters, equipment)
+                is_manual = should_manually_activate(self.parameters, equipment) or is_excluded_market_area(
+                    use_forecast=self.parameters.use_forecast,
+                    excluded_market_areas=self.parameters.excluded_market_areas,
+                    market_area=equipment.portfolio.market_area.name,
+                )
                 status = "manual" if is_manual else "included"
 
                 all_equipments_with_type_and_status.append((equipment, equipment_type, status))
@@ -89,7 +90,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
             portfolio_list = list(portfolio_items)
 
             equipment_by_type_included = {}
-            equipment_by_type_manual = {}
+            equipment_by_type_manual: dict[str, dict[str, list[type[Equipment]]]] = {}
 
             for equipment_type, type_items in groupby(portfolio_list, key=lambda x: x[1]):
                 type_list = list(type_items)
