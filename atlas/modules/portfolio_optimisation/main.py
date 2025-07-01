@@ -16,7 +16,7 @@ from atlas.modules.portfolio_optimisation.utils.objective_builder import Objecti
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
 
-class OptimalPlacementOptimizer:
+class PortfolioOptimisationModel:
     """Main class for optimal placement optimization using OptimisationModel."""
 
     def __init__(self, parameters: PortfolioOptimisationParameters):
@@ -36,8 +36,21 @@ class OptimalPlacementOptimizer:
 
         portfolios = input_dataset.portfolios
 
-        for portfolio in input_dataset.portfolio:
-            self._optimize_portfolio(input_dataset, portfolios[portfolio.name], portfolio.name)
+        if self.parameters.is_portfolio_bidding:
+            for portfolio in input_dataset.portfolios:
+                self._optimize_portfolio(
+                    input_dataset, portfolios[portfolio.name], portfolio.name, self.parameters.solver_name
+                )
+        else:
+            for portfolio in input_dataset.portfolios.values():
+                for equipment_type, list_equipment in portfolio.items():
+                    for equipment in list_equipment:
+                        equipment_portfolio = {equipment_type: [equipment]}
+                        equipment_portfolio_name = f"{equipment_type}_{equipment.name}"
+
+                self._optimize_portfolio(
+                    input_dataset, equipment_portfolio, equipment_portfolio_name, self.parameters.solver_name
+                )
 
     def _optimize_portfolio(
         self,
@@ -60,7 +73,7 @@ class OptimalPlacementOptimizer:
             objective_expr = self.objective_builder.build_objective(model, portfolio, self.parameters.target_times)
             model.set_objective(objective_expr, direction="minimize")
 
-            solution_info = model.solve(time_limit=self.parameters.timeout)
+            solution_info = model.solve()
 
             cfg.logger.info(
                 f"Portfolio {portfolio_name} optimization completed with status: {solution_info.status.name}"

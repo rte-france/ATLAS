@@ -36,6 +36,7 @@ class AbstractParameters(BaseModel):
     execution_date: DateTime | None = None
     export_result: bool = True
     export_output_dataset: bool = False
+    solver_name: str = "xpress"
 
     @model_validator(mode="after")
     def check_dates(self) -> Self:
