@@ -66,46 +66,43 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
         self._create_portfolios()
 
+    def _create_portfolios(self):
+        """Collect and classify all equipment into portfolios with manual activation handling"""
 
-def _create_portfolios(self):
-    """Collect and classify all equipment into portfolios with manual activation handling"""
+        all_equipments_with_type_and_status = []
 
-    all_equipments_with_type_and_status = []
+        for equipment_type, equipment_list in self.equipments.items():
+            for equipment in equipment_list:
+                if is_excluded_market_area(self.parameters, equipment.portfolio):
+                    continue
 
-    for equipment_type, equipment_list in self.equipments.items():
-        for equipment in equipment_list:
-            if is_excluded_market_area(self.parameters, equipment.portfolio):
-                continue
+                is_manual = should_manually_activate(self.parameters, equipment)
+                status = "manual" if is_manual else "included"
 
-            is_manual = should_manually_activate(self.parameters, equipment)
-            status = "manual" if is_manual else "included"
+                all_equipments_with_type_and_status.append((equipment, equipment_type, status))
 
-            all_equipments_with_type_and_status.append((equipment, equipment_type, status))
+        all_equipments_with_type_and_status.sort(key=lambda x: (x[0].portfolio.name, x[1], x[2]))
 
-    # Votre tri original avec le statut ajouté
-    all_equipments_with_type_and_status.sort(key=lambda x: (x[0].portfolio.name, x[1], x[2]))
+        for portfolio_name, portfolio_items in groupby(
+            all_equipments_with_type_and_status, key=lambda x: x[0].portfolio.name
+        ):
+            portfolio_list = list(portfolio_items)
 
-    # Votre groupby original adapté
-    for portfolio_name, portfolio_items in groupby(
-        all_equipments_with_type_and_status, key=lambda x: x[0].portfolio.name
-    ):
-        portfolio_list = list(portfolio_items)
+            equipment_by_type_included = {}
+            equipment_by_type_manual = {}
 
-        equipment_by_type_included = {}
-        equipment_by_type_manual = {}
+            for equipment_type, type_items in groupby(portfolio_list, key=lambda x: x[1]):
+                type_list = list(type_items)
 
-        for equipment_type, type_items in groupby(portfolio_list, key=lambda x: x[1]):
-            type_list = list(type_items)
+                for status, status_items in groupby(type_list, key=lambda x: x[2]):
+                    equipments = [equipment for equipment, _, _ in status_items]
 
-            for status, status_items in groupby(type_list, key=lambda x: x[2]):
-                equipments = [equipment for equipment, _, _ in status_items]
+                    if status == "included":
+                        equipment_by_type_included[equipment_type] = equipments
+                    elif status == "manual":
+                        equipment_by_type_manual[equipment_type] = equipments
 
-                if status == "included":
-                    equipment_by_type_included[equipment_type] = equipments
-                elif status == "manual":
-                    equipment_by_type_manual[equipment_type] = equipments
-
-        if equipment_by_type_included:
-            self.portfolios[portfolio_name] = equipment_by_type_included
-        if equipment_by_type_manual:
-            self.portfolios_manual_activation[portfolio_name] = equipment_by_type_manual
+            if equipment_by_type_included:
+                self.portfolios[portfolio_name] = equipment_by_type_included
+            if equipment_by_type_manual:
+                self.portfolios_manual_activation[portfolio_name] = equipment_by_type_manual
