@@ -34,27 +34,44 @@ class PortfolioOptimisationModel:
         """
         cfg.logger.info("Starting optimal placement optimization")
 
-        portfolios = input_dataset.portfolios
-
         if self.parameters.is_portfolio_bidding:
             for portfolio in input_dataset.portfolios:
                 self._optimize_portfolio(
-                    input_dataset, portfolios[portfolio.name], portfolio.name, self.parameters.solver_name
+                    portfolio=input_dataset.portfolios[portfolio.name],
+                    portfolio_name=portfolio.name,
+                    solver_name=self.parameters.solver_name,
                 )
+                if portfolio.name in input_dataset.portfolios_manual_activation:
+                    self._optimize_portfolio_manual_activated(
+                        portfolio_name=portfolio.name,
+                        portfolio_manual_activation=input_dataset.portfolios_manual_activation[portfolio.name],
+                    )
         else:
-            for portfolio in input_dataset.portfolios.values():
+            for _, portfolio in input_dataset.portfolios.items():
                 for equipment_type, list_equipment in portfolio.items():
                     for equipment in list_equipment:
                         equipment_portfolio = {equipment_type: [equipment]}
                         equipment_portfolio_name = f"{equipment_type}_{equipment.name}"
 
-                self._optimize_portfolio(
-                    input_dataset, equipment_portfolio, equipment_portfolio_name, self.parameters.solver_name
-                )
+                        self._optimize_portfolio(
+                            portfolio=equipment_portfolio,
+                            portfolio_name=equipment_portfolio_name,
+                            solver_name=self.parameters.solver_name,
+                        )
+
+            for _, portfolio_manual in input_dataset.portfolios_manual_activation.items():
+                for equipment_type, list_equipment in portfolio_manual.items():
+                    for equipment in list_equipment:
+                        equipment_portfolio = {equipment_type: [equipment]}
+                        equipment_portfolio_name = f"{equipment_type}_{equipment.name}_manual"
+
+                        self._optimize_portfolio_manual_activated(
+                            portfolio_name=equipment_portfolio_name,
+                            portfolio_manual_activation=equipment_portfolio,
+                        )
 
     def _optimize_portfolio(
         self,
-        input_dataset: PortfolioOptimisationInputDataset,
         portfolio: dict[str, list[type[Equipment]]],
         portfolio_name: str,
         solver_name: str,
@@ -79,10 +96,10 @@ class PortfolioOptimisationModel:
                 f"Portfolio {portfolio_name} optimization completed with status: {solution_info.status.name}"
             )
 
-            if solution_info.status == SolverStatus.OPTIMAL:
-                self._export_optimization_results(input_dataset, model, portfolio, solution_info)
-            else:
-                pass
+            # if solution_info.status == SolverStatus.OPTIMAL:
+            #     self._export_optimization_results(input_dataset, model, portfolio, solution_info)
+            # else:
+            #     pass
 
             return solution_info
 
@@ -98,6 +115,11 @@ class PortfolioOptimisationModel:
                 solve_time=None,
                 num_iterations=None,
             )
+
+    def _optimize_portfolio_manual_activated(
+        self, portfolio_manual_activation: dict[str, list[type[Equipment]]], portfolio_name: str
+    ):
+        pass
 
     def _export_optimization_results(
         self,
