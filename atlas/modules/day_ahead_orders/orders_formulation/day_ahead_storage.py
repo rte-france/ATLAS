@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 import os
 from datetime import timedelta
+from typing import Any
 
 import pendulum
 
@@ -24,41 +25,37 @@ class DayAheadStorage:
     # ------ Main optimization functions ------
     # Optimization function for ElectricVehicle units
     @staticmethod
-    def optimize_ev(equipment: Equipment, InitialStock: float | None, parameters: DayAheadOrdersParameters) -> [{}, {}]:
+    def optimize_ev(
+        equipment: Equipment, InitialStock: float | None, parameters: DayAheadOrdersParameters
+    ) -> tuple[dict[Any, Any], dict[Any, Any]]:
         # Creation of optimization problem
         # --------------------------------
-        OPPROB = ElectricVehicleModel(
-            "Optimization of the storage unit " + equipment.name, "CBC", parameters, equipment
+        model = ElectricVehicleModel(
+            "Optimization of the storage unit " + equipment.name, parameters.solver.upper(), parameters, equipment
         )
-        OPPROB.create_decision_variables()
-        OPPROB.create_objective_function()
-        OPPROB.create_constraints(InitialStock)
-
-        # --- TODO ---
+        model.create_decision_variables()
+        model.create_objective_function()
+        model.create_constraints(InitialStock)
 
         ##  PROBLEM SOLVING  ##
         if parameters.solver.upper() == "XPRESS":
-            optim_solver = OPPROB.NewOpSolver("xpress")
-
-            optim_solver.SetSolverSpecificParameters(
+            model.set_solver_specific_parameters_as_string(
                 "MIPRELSTOP {} PRESOLVE {} MAXTIME {}".format(
-                    parameters.duality_gap, int(parameters.presolve), parameters.time_out
+                    parameters.solver_duality_gap, int(parameters.use_presolve), parameters.solver_time_out
                 )
             )
 
             if parameters.debug:
-                lp_file_name = os.path.join(parameters.output_folder, "storage_{}.lp".format(equipment.Name))
-                OPPROB.WriteLP(lp_file_name, True)
+                lp_file_name = os.path.join(parameters.output_folder, "storage_{}.lp".format(equipment.name))
+                model.export_model(lp_file_name)
 
-            OPPROB.SolveORTools(optim_solver)
+            model.solve(float(parameters.solver_time_out))
 
             if parameters.verbose:
-                API.IO.Trace.Log("Solver status: {}".format(OPPROB.Status), API.IO.LogTypeInfo)
-                API.IO.Trace.Log(
-                    "Objective function value: {}".format(API.Solver.Value(OPPROB.Objective)), API.IO.LogTypeInfo
-                )
+                cfg.logger.info("Solver status: {}".format(model.solution_info.status))
+                cfg.logger.info("Objective function value: {}".format(model.objective))
         else:
-            # If another solver is being used, consider setting the NoOverlap parameter to False as it previsously raised errors otherwise with GLPK
+            # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
             raise ValueError(
                 "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
             )
@@ -67,11 +64,11 @@ class DayAheadStorage:
         # Note that the time domain of the output variables is [StartDate, EndDate]
         Qvv = {}
         Qaa = {}
-        for t in time_frame:
+        for t in model.time_frame:
             if t >= parameters.end_date:
                 break
-            Qvv[t] = round(Qv[t].VarValue, 2)
-            Qaa[t] = round(Qa[t].VarValue, 2)
+            Qvv[t] = round(model.Qv[t].VarValue, 2)
+            Qaa[t] = round(model.Qa[t].VarValue, 2)
 
         return Qvv, Qaa
 

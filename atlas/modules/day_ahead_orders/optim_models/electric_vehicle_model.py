@@ -100,34 +100,34 @@ class ElectricVehicleModel(OptimisationModel):
 
         for t in self.time_frame:
             for i in range(self.parameters.ev_nb_fragments):
-                OPPROB += (
+                self.add_constraint(
                     self.Qvf[t][i] * self.parameters.ev_nb_fragments <= self.equipment.MaximumPower.GetValue(t),
                     "Respect_of_sale_power_fragment_{}_limit_at_{}".format(i, t),
                 )
-                OPPROB += (
+                self.add_constraint(
                     self.Qaf[t][i] * self.parameters.ev_nb_fragments <= abs(self.equipment.MinimumPower.GetValue(t)),
                     "Respect_of_purchase_power_fragment_{}_limit_at_{}".format(i, t),
                 )
 
             # Total bought/sold energy at each tome step is the sum of the fragments at time step
-            OPPROB += (
+            self.add_constraint(
                 self.Qv[t] == sum(self.Qvf[t][i] for i in range(self.parameters.ev_nb_fragments)),
                 "Evaluation_of_quantity_sold_at_{}".format(t),
             )
-            OPPROB += (
+            self.add_constraint(
                 self.Qa[t] == sum(self.Qaf[t][i] for i in range(self.parameters.ev_nb_fragments)),
                 "Evaluation_of_quantity_purchased_at_{}".format(t),
             )
 
             # StoredEnergy tracking constraint, evaluates the stock at each time step
             if t == self.parameters.start_date:
-                OPPROB += (
+                self.add_constraint(
                     self.StoredEnergy[t]
                     == (
                         InitialStock
                         * (
                             self.equipment.MaximumEnergy.GetValue(t)
-                            / self.equipment.MaximumEnergy.GetValue(t.AddMinutes(-self.parameters.time_step))
+                            / self.equipment.MaximumEnergy.GetValue(t.subtract(minutes=self.parameters.time_step))
                         )
                         + self.parameters.time_step
                         / 60.0
@@ -137,19 +137,19 @@ class ElectricVehicleModel(OptimisationModel):
                         )
                         + (
                             self.equipment.DisplacementEnergy.GetValue(t)
-                            - self.equipment.DisplacementEnergy.GetValue(t.AddMinutes(-self.parameters.time_step))
+                            - self.equipment.DisplacementEnergy.GetValue(t.subtract(minutes=self.parameters.time_step))
                         )
                     ),
                     "Stock_tracking_at_{}".format(t),
                 )
             else:
-                OPPROB += (
+                self.add_constraint(
                     self.StoredEnergy[t]
                     == (
-                        self.StoredEnergy[t.AddMinutes(-self.parameters.time_step)]
+                        self.StoredEnergy[t.subtract(minutes=self.parameters.time_step)]
                         * (
                             self.equipment.MaximumEnergy.GetValue(t)
-                            / self.equipment.MaximumEnergy.GetValue(t.AddMinutes(-self.parameters.time_step))
+                            / self.equipment.MaximumEnergy.GetValue(t.subtract(minutes=self.parameters.time_step))
                         )
                         + self.parameters.time_step
                         / 60.0
@@ -159,32 +159,32 @@ class ElectricVehicleModel(OptimisationModel):
                         )
                         + (
                             self.equipment.DisplacementEnergy.GetValue(t)
-                            - self.equipment.DisplacementEnergy.GetValue(t.AddMinutes(-self.parameters.time_step))
+                            - self.equipment.DisplacementEnergy.GetValue(t.subtract(minutes=self.parameters.time_step))
                         )
                     ),
                     "Stock_tracking_at_{}".format(t),
                 )
 
             # Respect of system states constraints (isSell and isV2G)
-            OPPROB += (
+            self.add_constraint(
                 self.Qv[t] <= self.equipment.isV2G * self.isSell[t] * self.equipment.MaximumPower.GetValue(t),
                 "Respect_Pmax_sale_at_{}".format(t),
             )
-            OPPROB += (
+            self.add_constraint(
                 self.Qa[t]
                 <= (1 - self.isSell[t] * self.equipment.isV2G) * abs(self.equipment.MinimumPower.GetValue(t)),
                 "Respect_Pmax_purchase_at_{}".format(t),
             )
-            OPPROB += self.Qv[t] >= 0, "Respect_Pmin_sale_at_{}".format(t)
-            OPPROB += self.Qa[t] >= 0, "Respect_Pmin_purchase_at_{}".format(t)
+            self.add_constraint(self.Qv[t] >= 0, "Respect_Pmin_sale_at_{}".format(t))
+            self.add_constraint(self.Qa[t] >= 0, "Respect_Pmin_purchase_at_{}".format(t))
 
             # Respect of minimum and maximum stoage level constraints
-            OPPROB += (
+            self.add_constraint(
                 self.StoredEnergy[t]
                 >= self.equipment.MinimumStateOfCharge.GetValue(t) * self.equipment.MaximumEnergy.GetValue(t),
                 "Minimum_storage_level_constraint_at_{}".format(t),
             )
-            OPPROB += (
+            self.add_constraint(
                 self.StoredEnergy[t] <= self.equipment.MaximumEnergy.GetValue(t),
                 "Maximum_storage_level_constraint_at_{}".format(t),
             )
@@ -219,14 +219,16 @@ class ElectricVehicleModel(OptimisationModel):
             """
 
         # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
-        OPPROB.AddConstraint(
+        self.add_constraint(
             sum(self.Qa[t] for t in self.time_frame) * self.equipment.ChargeEfficiency
             >= (
                 self.equipment.DisplacementEnergy.GetValue(
-                    self.parameters.end_date.AddHours(self.optimizationPeriod).AddMinutes(-self.parameters.time_step)
+                    self.parameters.end_date.add(hours=self.optimizationPeriod).subtract(
+                        minutes=self.parameters.time_step
+                    )
                 )
                 - self.equipment.DisplacementEnergy.GetValue(
-                    self.parameters.start_date.AddMinutes(-self.parameters.time_step)
+                    self.parameters.start_date.subtract(minutes=self.parameters.time_step)
                 )
             )
             * self.parameters.ev_energy_coef,
