@@ -53,7 +53,6 @@ class ConstraintBuilder:
             optimization_times,
         )
 
-        # Add global portfolio constraints
         if time in self.parameters.target_times:
             self._add_global_constraints(time, portfolio_name, model, power_level_variables)
 

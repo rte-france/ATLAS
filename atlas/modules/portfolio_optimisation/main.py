@@ -10,6 +10,7 @@ from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.model.constraint_builder import ConstraintBuilder
 from atlas.modules.portfolio_optimisation.model.objective_builder import ObjectiveFunctionBuilder
+from atlas.modules.portfolio_optimisation.model.variable_builder import VariableBuilder
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
@@ -21,11 +22,10 @@ class PortfolioOptimisationModel:
     def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
 
-        # Initialize components
-
         self.portfolios: dict[str, dict[str, list[type[Equipment]]]] = {}
         self.objective_builder = ObjectiveFunctionBuilder(parameters)
         self.constraint_builder = ConstraintBuilder(parameters)
+        self.variable_builder = VariableBuilder(parameters)
 
     def optimize(self, input_dataset: PortfolioOptimisationInputDataset) -> list[str]:
         """

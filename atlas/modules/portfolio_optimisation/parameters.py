@@ -90,20 +90,20 @@ class PortfolioOptimisationParameters(AbstractParameters):
         description="Quantity (%) of imbalance qualified as small, relative to max portfolio energy.",
     )
     solver_duality_gap: float = Field(0.0001, description="Duality gap used for the optimization.")
-    additional_hours: int = Field(
-        12,
+    additional_hours: Duration = Field(
+        Duration(hours=12),
         description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
     )
-    battery_additional_hours: int = Field(
-        48, description="Optimization period in hours for Storage Equipments of type Battery."
+    battery_additional_hours: Duration = Field(
+        Duration(hours=48), description="Optimization period in hours for Storage Equipments of type Battery."
     )
     battery_automated_reserve_duration: int = Field(60, description="Automated reserve duration for battery equipment.")
     battery_number_of_fragments: int = Field(
         3, description="Number of power fragments for battery; last fragments are more expensive."
     )
     battery_reserve_duration: int = Field(60, description="Manual reserve duration for battery equipment.")
-    electric_vehicle_additional_hours: int = Field(
-        144,
+    electric_vehicle_additional_hours: Duration = Field(
+        Duration(),
         description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",
     )
     electric_vehicle_automated_reserve_duration: int = Field(
@@ -113,7 +113,9 @@ class PortfolioOptimisationParameters(AbstractParameters):
     electric_vehicle_reserve_duration: int = Field(
         0, description="Manual reserve duration for electric vehicle equipment."
     )
-    hydraulic_additional_hours: int = Field(12, description="Optimization period in hours for hydraulic group.")
+    hydraulic_additional_hours: Duration = Field(
+        Duration(hours=12), description="Optimization period in hours for hydraulic group."
+    )
     hydraulic_minimal_fragment_size: int = Field(
         100, description="Minimal amount of power for an offer to be formulated for hydraulic."
     )
@@ -124,13 +126,18 @@ class PortfolioOptimisationParameters(AbstractParameters):
     pumped_hydraulic_reserve_duration: int = Field(
         60, description="Manual reserve duration for pumped hydraulic equipment."
     )
-    pumped_hydraulic_storage_additional_hours: int = Field(
-        144,
+    pumped_hydraulic_storage_additional_hours: Duration = Field(
+        Duration(hours=144),
         description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",
     )
     solver_timeout: int = Field(240, description="Timeout (in seconds) of the optimization.")
-    thermal_additional_hours: int = Field(12, description="Optimization period in hours for thermal group.")
-    timestep: Duration = Field("H", description="Time step (in minutes) of the simulated market.")
+    thermal_additional_hours: Duration = Field(
+        Duration(hours=12), description="Optimization period in hours for thermal group."
+    )
+    timestep: Duration = Field(
+        Duration(hours=1),
+        description="Time step (in minutes) of the simulated market.",  # type:ignore [assignment]
+    )
     _excluded_market_areas: str | None = Field(
         None,
         description='list of market areas (separated by ";") excluded from classic optimization. None and "all" are possible values.',
@@ -202,12 +209,12 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def adjusted_end_date(self) -> DateTime:
         """End date adjusted by subtracting one time step."""
-        return self.end_date.subtract(minutes=self.timestep)
+        return self.end_date - self.timestep
 
     @property
     def op_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period (with additional hours)."""
-        end = self.adjusted_end_date.add(minutes=self.additional_hours * 60)
+        end = self.adjusted_end_date + self.additional_hours
         return generate_datetimes(self.start_date, end, self.timestep)
 
     @property
@@ -242,4 +249,4 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def init_battery_time(self) -> DateTime:
         """Datetime for the initial battery state (start_date - timestep)."""
-        return self.start_date.subtract(minutes=self.timestep)
+        return self.start_date - self.timestep

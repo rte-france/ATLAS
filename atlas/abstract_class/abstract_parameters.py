@@ -31,9 +31,9 @@ class AbstractParameters(BaseModel):
     :type export_output_dataset: bool
     """
 
-    start_date: DateTime | None = None
-    end_date: DateTime | None = None
-    execution_date: DateTime | None = None
+    start_date: DateTime
+    end_date: DateTime
+    execution_date: DateTime
     export_result: bool = True
     export_output_dataset: bool = False
     solver_name: str = "xpress"
