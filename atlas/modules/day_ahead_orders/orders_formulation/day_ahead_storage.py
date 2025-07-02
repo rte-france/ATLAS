@@ -6,14 +6,14 @@ This file is part of the ATLAS project.
 """
 
 import os
-from datetime import timedelta
+from pydantic_extra_types.pendulum_dt import DateTime
 from typing import Any
 
 import pendulum
 
 import atlas.config as cfg
-from atlas import Timeseries, Equipment, Order
-from atlas.enum import StorageType, Product
+from atlas import Timeseries, Equipment, Order, OrderCoupling
+from atlas.enum import StorageType, Product, CouplingType, ComplementDirection, OrderType
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
@@ -49,7 +49,7 @@ class DayAheadStorage:
         model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor)
         model.create_constraints(initial_stock)
 
-        ##  PROBLEM SOLVING  ##
+        # Solving the problem
         if parameters.solver.upper() == "XPRESS":
             DayAheadStorage.solve_with_xpress(model, parameters, equipment.name)
         else:
@@ -71,7 +71,9 @@ class DayAheadStorage:
         return Qvv, Qaa
 
     @staticmethod
-    def optimize_battery(equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters):
+    def optimize_battery(
+        equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters
+    ) -> tuple[dict[Any, Any], dict[Any, Any]]:
         """
         Optimization function for Battery and PHS units
         :param equipment: equipment
@@ -88,9 +90,7 @@ class DayAheadStorage:
             smoothing_factor = parameters.phs_smoothing_factor
             power_fragments = parameters.phs_nb_fragments
 
-        # ##  CREATION OF PROBLEM  ##
         # Creation of optimization problem
-        # --------------------------------
         model = BatteryModel(
             parameters.solver.upper(),
             "Optimization of the storage unit " + equipment.name,
@@ -141,15 +141,18 @@ class DayAheadStorage:
             cfg.logger.info("Solver status: {}".format(model.solution_info.status))
             cfg.logger.info("Objective function value: {}".format(model.objective))
 
-    # ------ Price computation ------
-    def priceCalculation(Equipment, Qv, Qa, p):
+    @staticmethod
+    def price_calculation(
+        equipment: Equipment, Qv: dict, Qa: dict, parameters: DayAheadOrdersParameters
+    ) -> tuple[Any, Any]:
+        """------ Price computation ------"""
         P_a_max = 0
         P_v_min = 0
         # Get the price forecast from the input marker: estimations are at ActionHour, from StartDate to EndDate
         # The price forecast is relative to the equipment's market area
         # it is the estimation the actor has of the energy prices at the given date
-        PriceForecast = Equipment.Portfolio.MarketArea.PriceForecastMedium.GetForecast(
-            p.execution_date, p.start_date, p.end_date
+        price_forecast = equipment.portfolio.market_area.price_forecast_medium.get_forecast(
+            parameters.execution_date, parameters.start_date, parameters.end_date
         )
 
         # Check if either Qv or Qa is empty (i.e. contains only 0)
@@ -165,12 +168,14 @@ class DayAheadStorage:
 
         # Evaluate the minimum of sale prices
         if [i for i, e in Qv.items() if e != 0]:
-            P_v_min = min([PriceForecast.GetValue(t) for t in [i for i, e in Qv.items() if e != 0]])
+            P_v_min = min([price_forecast.get_value(t) for t in [i for i, e in Qv.items() if e != 0]])
         # Evaluate the maximum of purchase prices
         if [i for i, e in Qa.items() if e != 0]:
-            P_a_max = max([PriceForecast.GetValue(t) for t in [i for i, e in Qa.items() if e != 0]])
+            P_a_max = max([price_forecast.get_value(t) for t in [i for i, e in Qa.items() if e != 0]])
 
-        if (Equipment.StorageType in ["Battery", "PumpedHydraulicStorage"]) or (Equipment.isV2G):
+        if (equipment.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]) or (
+            equipment.is_v2g
+        ):
             # if negative prices, Psale and Ppurchase are set to zero
             # Else they are evaluated in a manner that makes profit =  0
 
@@ -189,8 +194,8 @@ class DayAheadStorage:
                 Psale = 0
                 Ppurchase = 0
             else:
-                a = (Equipment.DischargeEfficiency * Equipment.ChargeEfficiency * P_v_min - P_a_max) / (
-                    Equipment.DischargeEfficiency * Equipment.ChargeEfficiency * P_v_min + P_a_max
+                a = (equipment.discharge_efficiency * equipment.charge_efficiency * P_v_min - P_a_max) / (
+                    equipment.discharge_efficiency * equipment.charge_efficiency * P_v_min + P_a_max
                 )
                 Psale = P_v_min * (1 - a)
                 Ppurchase = P_a_max * (1 + a)
@@ -252,97 +257,116 @@ class DayAheadStorage:
                 Qv, Qa = DayAheadStorage.optimize_battery(equipment, initial_stock, parameters)
 
             # Determine sale and purchase prices
-            Psale, Ppurchase = priceCalculation(equipment, Qv, Qa, parameters)
+            Psale, Ppurchase = DayAheadStorage.price_calculation(equipment, Qv, Qa, parameters)
 
             # Store Ppurchase as price reference in VariableCost, in the outputMarker.
             # Psale can then be deduced from Ppurchase, Charge and and Discharge efficiency
             if Ppurchase != 0:
-                equipment.VariableCost.SetValue(parameters.start_date, round(Ppurchase, 2))
-                equipment.VariableCost.SetValue(
-                    parameters.end_date.AddMinutes(-parameters.time_step), round(Ppurchase, 2)
+                equipment.variable_cost.set_value(parameters.start_date, round(Ppurchase, 2))
+                equipment.VariableCost.set_value(
+                    parameters.end_date.subtract(parameters.time_step), round(Ppurchase, 2)
                 )
-            elif equipment.DischargeEfficiency != 0 and equipment.ChargeEfficiency != 0:
-                equipment.VariableCost.SetValue(
-                    parameters.start_date, round(Psale * equipment.DischargeEfficiency * equipment.ChargeEfficiency, 2)
+            elif equipment.discharge_efficiency != 0 and equipment.charge_efficiency != 0:
+                equipment.variable_cost.set_value(
+                    parameters.start_date,
+                    round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
                 )
-                equipment.VariableCost.SetValue(
-                    parameters.end_date.AddMinutes(-parameters.time_step),
-                    round(Psale * equipment.DischargeEfficiency * equipment.ChargeEfficiency, 2),
+                equipment.variable_cost.set_value(
+                    parameters.end_date.subtract(parameters.time_step),
+                    round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
                 )
             else:
-                equipment.VariableCost.SetValue(parameters.start_date, round(Psale, 2))
-                equipment.VariableCost.SetValue(parameters.end_date.AddMinutes(-parameters.time_step), round(Psale, 2))
-                API.IO.Trace.Log(
+                equipment.variable_cost.set_value(parameters.start_date, round(Psale, 2))
+                equipment.variable_cost.set_value(parameters.end_date.subtract(parameters.time_step), round(Psale, 2))
+                cfg.logger.warning(
                     "WARNING: ChargeEfficiency or DischargeEfficiency is null for equipment {}. "
                     "This is not supposed to be the case, as the default value for these is 1 and not 0".format(
-                        equipment.Name
-                    ),
-                    API.IO.LogTypeWarn,
+                        equipment.name
+                    )
                 )
 
             # --- Formulate orders, possibly with associated coupling instances
             # First, orders that are included in a COMPLEMENT coupling
             daily_buy_volume = sum(buy_volume * parameters.time_step / 60.0 for buy_volume in Qa.values())
-            if equipment.StorageType == "ElectricVehicle" and daily_buy_volume > 0:
+            if equipment.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
                 # Create the order coupling instance
-                coupling_instance = dataset.Market.OrderCoupling.CreateInstance(
-                    "COMPLEMENT_DA_{}_{}".format(
-                        equipment.Name, functions.get_date_to_clean_string(parameters.execution_date)
+                coupling_instance = OrderCoupling(
+                    name="COMPLEMENT_DA_{}_{}".format(
+                        equipment.Name, Utilities.get_date_to_clean_string(parameters.execution_date)
                     )
                 )
-                coupling_instance.CouplingType = "COMPLEMENT"
-                coupling_instance.ComplementDirection = "EqualTo"
+                coupling_instance.coupling_type = CouplingType.COMPLEMENT
+                coupling_instance.complement_direction = ComplementDirection.EqualTo
 
                 # Compute the ComplementEnergy according to the evolution DisplacementEnergy over the day,
                 # if it is feasible given all orders generated for this equipment.
                 # If not, the energy requirement is capped to the feasible limit
-                energy_requirement = equipment.DisplacementEnergy.GetValue(
-                    parameters.end_date.AddMinutes(-parameters.time_step)
-                ) - equipment.DisplacementEnergy.GetValue(parameters.start_date.AddMinutes(-parameters.time_step))
+                energy_requirement = equipment.displacement_energy.get_value(
+                    parameters.end_date.subtract(parameters.time_step)
+                ) - equipment.displacement_energy.get_value(parameters.start_date.subtract(parameters.time_step))
 
                 if energy_requirement > daily_buy_volume:
-                    coupling_instance.ComplementEnergy = daily_buy_volume
+                    coupling_instance.complement_energy = daily_buy_volume
                 else:
-                    coupling_instance.ComplementEnergy = energy_requirement
+                    coupling_instance.complement_energy = energy_requirement
 
                 for t in [i for i, e in Qa.items() if e != 0]:
-                    AddSpotOrderWithCoupling(
-                        "Buy", equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
+                    DayAheadStorage.add_spot_order_with_coupling(
+                        OrderType.Buy, equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
                     )
                     buy_submitted_volumes[t] += Qa[t]
                 for t in [i for i, e in Qv.items() if e != 0]:
-                    AddSpotOrderWithCoupling("Sell", equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance)
+                    DayAheadStorage.add_spot_order_with_coupling(
+                        OrderType.Sell, equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance
+                    )
                     sell_submitted_volumes[t] += Qv[t]
+
+                dataset.market.order_coupling.append(coupling_instance)
 
             # All other orders
             else:
                 # Create a COMPLEMENT order coupling
-                coupling_instance = dataset.Market.OrderCoupling.CreateInstance(
-                    "COMPLEMENT_DA_{}_{}".format(
-                        equipment.Name, functions.get_date_to_clean_string(parameters.execution_date)
+                coupling_instance = OrderCoupling(
+                    name="COMPLEMENT_DA_{}_{}".format(
+                        equipment.Name, Utilities.get_date_to_clean_string(parameters.execution_date)
                     )
                 )
 
                 for t in [i for i, e in Qa.items() if e != 0]:
-                    AddSpotOrderWithCoupling(
-                        "Buy", equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
+                    DayAheadStorage.add_spot_order_with_coupling(
+                        OrderType.Buy, equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
                     )
                     buy_submitted_volumes[t] += Qa[t]
                 for t in [i for i, e in Qv.items() if e != 0]:
-                    AddSpotOrderWithCoupling("Sell", equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance)
+                    DayAheadStorage.add_spot_order_with_coupling(
+                        OrderType.Sell, equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance
+                    )
                     sell_submitted_volumes[t] += Qv[t]
 
                 # Fill the COMPLEMENT order coupling
-                coupling_instance.CouplingType = "COMPLEMENT"
-                coupling_instance.ComplementDirection = "EqualTo"
-                coupling_instance.ComplementEnergy = buy_submitted_volumes.Sum() - sell_submitted_volumes.Sum()
+                coupling_instance.coupling_type = CouplingType.COMPLEMENT
+                coupling_instance.complement_direction = ComplementDirection.EqualTo
+                coupling_instance.complement_energy = buy_submitted_volumes.sum() - sell_submitted_volumes.sum()
+                dataset.market.order_coupling.append(coupling_instance)
 
-            equipment.DABuySubmittedVolume += buy_submitted_volumes
-            equipment.DASellSubmittedVolume += sell_submitted_volumes
+            if equipment.da_buy_submitted_volume is None:
+                equipment.da_buy_submitted_volume = buy_submitted_volumes
+            else:
+                equipment.da_buy_submitted_volume.__add__(buy_submitted_volumes)
+
+            if equipment.da_sell_submitted_volume is None:
+                equipment.da_sell_submitted_volume = sell_submitted_volumes
+            else:
+                equipment.da_sell_submitted_volume.__add__(sell_submitted_volumes)
 
     @staticmethod
     def create_spot_order(
-        order_type, equipment, start_date, qmax, price, parameters: DayAheadOrdersParameters
+        order_type: OrderType,
+        equipment: Equipment,
+        start_date: DateTime,
+        qmax: float,
+        price: float,
+        parameters: DayAheadOrdersParameters,
     ) -> Order:
         order_name = "storage_order_type_{}_at_{}_for_unit_{}".format(
             order_type, Utilities.get_date_to_clean_string(start_date), equipment.name
@@ -353,7 +377,7 @@ class DayAheadStorage:
         order.market_area = equipment.portfolio.market_area
         order.execution_date = parameters.execution_date
         order.start_date = start_date
-        order.end_date = start_date + timedelta(minutes=parameters.time_step)
+        order.end_date = start_date.add(minutes=parameters.time_step)
         order.order_type = order_type
         order.product = Product.DayAhead
         order.qmax = qmax
@@ -362,13 +386,28 @@ class DayAheadStorage:
         return order
 
     @staticmethod
-    def AddSpotOrder(order_type, equipment, start_date, qmax, price, parameters: DayAheadOrdersParameters, dataset):
+    def add_spot_order(
+        order_type: OrderType,
+        equipment: Equipment,
+        start_date: DateTime,
+        qmax: float,
+        price: float,
+        parameters: DayAheadOrdersParameters,
+        dataset,
+    ):
         order = DayAheadStorage.create_spot_order(order_type, equipment, start_date, qmax, price, parameters)
         dataset.order.append(order)
 
     @staticmethod
-    def AddSpotOrderWithCoupling(
-        order_type, equipment, start_date, qmax, price, parameters, dataset, coupling_instance
+    def add_spot_order_with_coupling(
+        order_type: OrderType,
+        equipment: Equipment,
+        start_date: DateTime,
+        qmax: float,
+        price: float,
+        parameters: DayAheadOrdersParameters,
+        dataset,
+        coupling_instance: OrderCoupling,
     ):
         order = DayAheadStorage.create_spot_order(order_type, equipment, start_date, qmax, price, parameters)
         dataset.order.append(order)
