@@ -3,32 +3,6 @@ from pydantic import BaseModel
 
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power
-from atlas.solver.solver_interface import OptimisationModel
-
-
-def add_variable_fragment(
-    obj: Hydro, time: DateTime, parameters: PortfolioOptimisationParameters, model: OptimisationModel
-) -> tuple[dict, dict]:
-    """
-    Formulates hydraulic reservoir offers by calculating fragment prices and volumes.
-
-    """
-    # Create fragment data structure combining volumes and prices
-    fragment_data = _get_fragment_data(obj)
-
-    if time not in parameters.hydraulic_op_times:
-        return
-
-    for category, fragment in fragment_data.items():
-        # Calculate volume based on capacity and fragment ratio
-        volume = get_maximum_power(obj, time) * fragment.volume
-
-        model.add_continuous_variable(
-            name=f"{obj.name}_power_level_frag_{category}_at_{time}",
-            lower_bound=0,
-            upper_bound=volume,
-        )
 
 
 def compute_fragment_prices(

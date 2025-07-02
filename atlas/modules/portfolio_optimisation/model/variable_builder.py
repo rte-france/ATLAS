@@ -9,7 +9,7 @@ from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.wind import Wind
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.get_fragment_price import add_variable_fragment
+from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_data
 from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
     get_maximum_energy,
@@ -31,14 +31,69 @@ class VariableBuilder:
         model: OptimisationModel,
         portfolio_name: str,
         equipments: dict[str, list[type[Equipment]]],
-        times: list[DateTime],
     ):
         """Build all variables for the optimization model."""
-        # Build equipment-specific variables
+
         self._build_equipment_variables(model, equipments)
 
-        # Build portfolio-level variables
-        self._build_portfolio_variables(model, portfolio_name, equipments, times)
+        self._build_portfolio_variables(model, portfolio_name, equipments, self.parameters.target_times)
+
+    def get_sum_power_level_variables(
+        self,
+        model: OptimisationModel,
+        equipments: dict[str, list[type[Equipment]]],
+        time: DateTime,
+    ) -> float:
+        """Get the sum of all power level variables for a specific time."""
+        total_power = 0
+
+        # Hydro equipment - uses hydraulic_op_times and fragment variables
+        if "hydro" in equipments and time in self.parameters.hydraulic_op_times:
+            for obj in equipments["hydro"]:
+                # Sum all fragment variables for this hydro equipment
+                fragment_data = _get_fragment_data(obj)
+                for category in fragment_data.keys():
+                    var = model.get_variable(f"{obj.name}_power_level_frag_{category}_at_{time}")
+                    if var is not None:
+                        total_power += var
+
+        # Solar and Wind equipment - uses target_times
+        if time in self.parameters.target_times:
+            for equipment_type in ["solar", "wind"]:
+                if equipment_type in equipments:
+                    for obj in equipments[equipment_type]:
+                        var = model.get_variable(f"{obj.name}_power_level_{time}")
+                        if var is not None:
+                            total_power += var
+
+            # Load equipment - uses target_times
+            if "load" in equipments:
+                for obj in equipments["load"]:
+                    var = model.get_variable(f"{obj.name}_power_level_{time}")
+                    if var is not None:
+                        total_power += var
+
+        # Storage equipment - uses different op_time_frames and has buy/sell variables
+        if "storage" in equipments:
+            storage_mapping = {
+                StorageType.BATTERY: self.parameters.battery_op_times,
+                StorageType.PUMPED_HYDRAULIC_STORAGE: self.parameters.phs_op_times,
+                StorageType.ELECTRIC_VEHICLE: self.parameters.ev_op_times,
+            }
+
+            for obj in equipments["storage"]:
+                op_time_frame = storage_mapping.get(obj.storage_type, [])
+                if time in op_time_frame:
+                    # Storage has both sell and buy power levels
+                    sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
+                    buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
+
+                    if sell_var is not None:
+                        total_power += sell_var
+                    if buy_var is not None:
+                        total_power += buy_var  # buy_var is negative, so this subtracts
+
+        return total_power
 
     def _build_equipment_variables(
         self,
@@ -87,21 +142,15 @@ class VariableBuilder:
 
                 # Basic variables
                 model.add_continuous_variable(
-                    name=f"{obj.name}_power_level_{time}",
-                    lower_bound=0,
-                    upper_bound=max_power,
-                )
-                model.add_continuous_variable(
                     name=f"{obj.name}_stored_energy_{time}",
                     lower_bound=0,
                     upper_bound=max_energy,
                 )
 
-                add_variable_fragment(obj, time, self.parameters, model)
+                self._add_variable_fragment(model, obj, time, self.parameters)
 
-                # Reserve variables
                 self._add_reserve_variables(
-                    obj.name, time, min_power, max_power, maximum_automated, relaxed_reserves=True
+                    model, obj.name, time, min_power, max_power, maximum_automated, relaxed_reserves=True
                 )
 
     def _build_solar_wind_variables(self, model: OptimisationModel, equipments: list[Solar | Wind]):
@@ -119,7 +168,7 @@ class VariableBuilder:
                 )
 
                 self._add_reserve_variables(
-                    obj.name, time, min_power, max_power, maximum_automated, relaxed_reserves=False
+                    model, obj.name, time, min_power, max_power, maximum_automated, relaxed_reserves=False
                 )
 
     def _build_storage_variables(self, model: OptimisationModel, equipments: list[Storage]):
@@ -277,39 +326,60 @@ class VariableBuilder:
     ):
         """Add reserve variables for storage equipment."""
         model.add_continuous_variable(
-            name=f"reserves_up_e_{name}_at_{time}",
+            name=f"reserves_up_{name}_{time}",
             lower_bound=0,
             upper_bound=max_power,
         )
         model.add_continuous_variable(
-            name=f"reserves_down_e_{name}_at_{time}",
+            name=f"reserves_down_{name}_{time}",
             lower_bound=min_power,
             upper_bound=max_power,
         )
         model.add_continuous_variable(
-            name=f"unprovided_reserves_up_e_{name}_at_{time}",
+            name=f"unprovided_reserves_up_{name}_{time}",
             lower_bound=0,
             upper_bound=max_power,
         )
         model.add_continuous_variable(
-            name=f"unprovided_reserves_down_e_{name}_at_{time}",
+            name=f"unprovided_reserves_down_{name}_{time}",
             lower_bound=min_power,
             upper_bound=max_power,
         )
         model.add_continuous_variable(
-            name=f"automated_reserves_up_e_{name}_at_{time}",
+            name=f"automated_reserves_up_{name}_{time}",
             lower_bound=0,
             upper_bound=maximum_automated,
         )
         model.add_continuous_variable(
-            name=f"automated_reserves_down_e_{name}_at_{time}",
+            name=f"automated_reserves_down_{name}_{time}",
             lower_bound=-maximum_automated,
             upper_bound=maximum_automated,
         )
 
-    def _compute_residual_energy(
-        self, equipments: dict[str, list[type[Equipment]]], time: DateTime
-    ) -> dict[DateTime, float]:
+    def _add_variable_fragment(
+        self,
+        model: OptimisationModel,
+        obj: Hydro,
+        time: DateTime,
+        parameters: PortfolioOptimisationParameters,
+    ) -> tuple[dict, dict]:
+        """Formulates hydraulic reservoir offers by calculating fragment prices and volumes."""
+
+        fragment_data = _get_fragment_data(obj)
+
+        if time not in parameters.hydraulic_op_times:
+            return
+
+        for category, fragment in fragment_data.items():
+            volume = get_maximum_power(obj, time) * fragment.volume
+
+            model.add_continuous_variable(
+                name=f"{obj.name}_power_level_frag_{category}_at_{time}",
+                lower_bound=0,
+                upper_bound=volume,
+            )
+
+    def _compute_residual_energy(self, equipments: dict[str, list[type[Equipment]]], time: DateTime) -> float:
         """Compute residual energy metrics for all times."""
 
         residual_energy = self._compute_non_dispatchable_production_residual_energy(
@@ -319,7 +389,6 @@ class VariableBuilder:
             equipments.get("non_dispatchable_load", []), time
         )
         residual_energy += self._compute_dispatchable_residual_energy(equipments, time)
-        residual_energy[time] = residual_energy
 
         return residual_energy
 
