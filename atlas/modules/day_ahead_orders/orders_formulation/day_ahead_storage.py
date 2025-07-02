@@ -150,7 +150,10 @@ class DayAheadStorage:
         # The price forecast is relative to the equipment's market area
         # it is the estimation the actor has of the energy prices at the given date
         price_forecast = equipment.portfolio.market_area.price_forecast_medium.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
+            parameters.execution_date,
+            parameters.start_date,
+            parameters.end_date,
+            pendulum.Duration(minutes=parameters.time_step),
         )
 
         # Check if either Qv or Qa is empty (i.e. contains only 0)
@@ -423,6 +426,7 @@ class DayAheadStorage:
                 parameters.execution_date,
                 parameters.start_date.subtract(days=2),
                 parameters.start_date.subtract(minutes=parameters.time_step),
+                pendulum.Duration(minutes=parameters.time_step),
             )
             if len(energy_forecast) == 0:
                 initial_stock = equipment.storage_initial_level * equipment.maximum_energy.get_value(

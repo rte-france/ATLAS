@@ -5,6 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import Order
@@ -44,6 +45,7 @@ class NonDispatchable:
                 parameters.execution_date,
                 parameters.start_date,
                 parameters.end_date.subtract(minutes=parameters.time_step),
+                pendulum.Duration(minutes=parameters.time_step),
             )
 
             if unit.da_sell_submitted_volume is None:

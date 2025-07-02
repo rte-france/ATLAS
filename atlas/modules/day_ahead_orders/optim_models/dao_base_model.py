@@ -28,7 +28,10 @@ class DAOBaseModel(OptimisationModel):
         # Get the price forecast from the input marker: estimations are at ActionHour, over the optimisation period
         # The price forecast is relative to the equipment's market area
         self.price_forecast = self.equipment.portfolio.market_area.price_forecast_medium.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date.add(hours=self.optimizationPeriod)
+            parameters.execution_date,
+            parameters.start_date,
+            parameters.end_date.add(hours=self.optimizationPeriod),
+            pendulum.Duration(minutes=parameters.time_step),
         )
         # Set-up the time frames
         # Definition of the time_frame time frame: the time frame on which
