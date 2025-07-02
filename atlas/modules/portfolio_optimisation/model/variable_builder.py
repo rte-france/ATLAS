@@ -99,7 +99,9 @@ class VariableBuilder:
                 add_variable_fragment(obj, time, self.parameters, self.model)
 
                 # Reserve variables
-                self._add_reserve_variables(obj.name, time, min_power, max_power, maximum_automated)
+                self._add_reserve_variables(
+                    obj.name, time, min_power, max_power, maximum_automated, relaxed_reserves=True
+                )
 
     def _build_solar_wind_variables(self, equipments: list[Solar | Wind]):
         """Build variables for solar and wind equipment."""
@@ -115,7 +117,9 @@ class VariableBuilder:
                     upper_bound=max_power,
                 )
 
-                self._add_reserve_variables(obj.name, time, min_power, max_power, maximum_automated)
+                self._add_reserve_variables(
+                    obj.name, time, min_power, max_power, maximum_automated, relaxed_reserves=False
+                )
 
     def _build_storage_variables(self, equipments: list[Storage]):
         """Build variables for storage equipment."""
@@ -193,7 +197,13 @@ class VariableBuilder:
                 )
 
     def _add_reserve_variables(
-        self, name: str, time: DateTime, min_power: float, max_power: float, maximum_automated: float
+        self,
+        name: str,
+        time: DateTime,
+        min_power: float,
+        max_power: float,
+        maximum_automated: float,
+        relaxed_reserves: bool,
     ):
         """Add reserve variables for solar/wind equipment (with 'at' in name)."""
         self.model.add_continuous_variable(
@@ -247,11 +257,12 @@ class VariableBuilder:
             upper_bound=max_power,
         )
 
-        self.model.add_continuous_variable(
-            name=f"relaxed_reserves_{name}_{time}",
-            lower_bound=min_power,
-            upper_bound=0,
-        )
+        if relaxed_reserves:
+            self.model.add_continuous_variable(
+                name=f"relaxed_reserves_{name}_{time}",
+                lower_bound=min_power,
+                upper_bound=0,
+            )
 
     def _add_storage_reserve_variables(
         self, name: str, time: DateTime, min_power: float, max_power: float, maximum_automated: float
