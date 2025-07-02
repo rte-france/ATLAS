@@ -61,12 +61,12 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Coefficient used to determine the extra cost of each power fragment in the optimization problem "
         "related to the Storage instances with the type Battery.",
     )
-    electric_vehicle_energy_coeff: float = Field(
+    ev_energy_coef: float = Field(
         1.5,
         description="Coefficient multiplied to the delta of DisplacementEnergy to compensate for over the entire EV "
         "optimization time frame, used to generate enough Buy offers.",
     )
-    electric_vehicle_smoothing_factor: float = Field(
+    ev_smoothing_factor: float = Field(
         0.1,
         description="Coefficient used to determine the extra cost of each power fragment in the optimization problem "
         "related to the Storage instances with the type ElectricVehicle.",
@@ -90,7 +90,7 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="A penalty expressed in euros/MW per hour corresponding to the price of not providing the manual "
         "reserves procurement.",
     )
-    pumped_hydraulic_storage_smoothing_factor: float = Field(
+    phs_smoothing_factor: float = Field(
         0.2,
         description="Coefficient used to determine the extra cost of each power fragment in the optimization problem "
         "related to the Storage instances with the type PumpedHydraulicStorage.",
@@ -105,27 +105,27 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Number of extra hours after EndDate for the optimization programs applied to Storage instances "
         "with the type Battery.",
     )
-    battery_number_of_fragments: int = Field(
+    battery_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one time-step for the optimization problem related to "
         "the Storage instances with the type Battery.",
     )
-    electric_vehicle_additional_hours: int = Field(
+    ev_additional_hours: int = Field(
         144,
         description="Number of extra hours after EndDate for the optimization programs applied to Storage instances "
         "with the type ElectricVehicle.",
     )
-    electric_vehicle_number_of_fragments: int = Field(
+    ev_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one time-step for the optimization problem related to "
         "the Storage instances with the type ElectricVehicle.",
     )
-    pumped_hydraulic_storage_additional_hours: int = Field(
+    phs_additional_hours: int = Field(
         144,
         description="Number of extra hours after EndDate for the optimization programs applied to Storage instances "
         "with the type PumpedHydraulicStorage.",
     )
-    pumped_hydraulic_storage_number_of_fragments: int = Field(
+    phs_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one time-step for the optimization problem related to "
         "the Storage instances with the type PumpedHydraulicStorage.",
