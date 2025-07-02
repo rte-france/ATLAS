@@ -150,7 +150,14 @@ class VariableBuilder:
                 self._add_variable_fragment(model, obj, time, self.parameters)
 
                 self._add_reserve_variables(
-                    model, obj.name, time, min_power, max_power, maximum_automated, relaxed_reserves=True
+                    model,
+                    obj.name,
+                    time,
+                    min_power,
+                    max_power,
+                    maximum_automated,
+                    relaxed_reserves=True,
+                    storage_equipment=False,
                 )
 
     def _build_solar_wind_variables(self, model: OptimisationModel, equipments: list[Solar | Wind]):
@@ -168,7 +175,14 @@ class VariableBuilder:
                 )
 
                 self._add_reserve_variables(
-                    model, obj.name, time, min_power, max_power, maximum_automated, relaxed_reserves=False
+                    model,
+                    obj.name,
+                    time,
+                    min_power,
+                    max_power,
+                    maximum_automated,
+                    relaxed_reserves=False,
+                    storage_equipment=False,
                 )
 
     def _build_storage_variables(self, model: OptimisationModel, equipments: list[Storage]):
@@ -232,7 +246,16 @@ class VariableBuilder:
                     )
 
                 # Reserve variables for storage
-                self._add_storage_reserve_variables(model, obj.name, time, min_power, max_power, maximum_automated)
+                self._add_reserve_variables(
+                    model,
+                    obj.name,
+                    time,
+                    min_power,
+                    max_power,
+                    maximum_automated,
+                    relaxed_reserves=False,
+                    storage_equipment=True,
+                )
 
     def _build_load_variables(self, model: OptimisationModel, equipments: list[Load]):
         """Build variables for load equipment."""
@@ -255,8 +278,9 @@ class VariableBuilder:
         max_power: float,
         maximum_automated: float,
         relaxed_reserves: bool,
+        storage_equipment: bool,
     ):
-        """Add reserve variables for solar/wind equipment (with 'at' in name)."""
+        """Add reserve variables for solar/wind equipment"""
         model.add_continuous_variable(
             name=f"reserves_up_{name}_{time}",
             lower_bound=0,
@@ -282,31 +306,39 @@ class VariableBuilder:
             lower_bound=0,
             upper_bound=maximum_automated,
         )
-        model.add_continuous_variable(
-            name=f"automated_reserves_down_{name}_{time}",
-            lower_bound=0,
-            upper_bound=maximum_automated,
-        )
-        model.add_continuous_variable(
-            name=f"contracted_diff_up_{name}_{time}",
-            lower_bound=0,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"contracted_diff_down_{name}_{time}",
-            lower_bound=min_power,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"automated_contracted_diff_up_{name}_{time}",
-            lower_bound=0,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"automated_contracted_diff_down_{name}_{time}",
-            lower_bound=min_power,
-            upper_bound=max_power,
-        )
+        if not storage_equipment:
+            model.add_continuous_variable(
+                name=f"automated_reserves_down_{name}_{time}",
+                lower_bound=0,
+                upper_bound=maximum_automated,
+            )
+        else:
+            model.add_continuous_variable(
+                name=f"automated_reserves_down_{name}_{time}",
+                lower_bound=-maximum_automated,
+                upper_bound=maximum_automated,
+            )
+        if not storage_equipment:
+            model.add_continuous_variable(
+                name=f"contracted_diff_up_{name}_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
+            )
+            model.add_continuous_variable(
+                name=f"contracted_diff_down_{name}_{time}",
+                lower_bound=min_power,
+                upper_bound=max_power,
+            )
+            model.add_continuous_variable(
+                name=f"automated_contracted_diff_up_{name}_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
+            )
+            model.add_continuous_variable(
+                name=f"automated_contracted_diff_down_{name}_{time}",
+                lower_bound=min_power,
+                upper_bound=max_power,
+            )
 
         if relaxed_reserves:
             model.add_continuous_variable(
@@ -314,47 +346,6 @@ class VariableBuilder:
                 lower_bound=min_power,
                 upper_bound=0,
             )
-
-    def _add_storage_reserve_variables(
-        self,
-        model: OptimisationModel,
-        name: str,
-        time: DateTime,
-        min_power: float,
-        max_power: float,
-        maximum_automated: float,
-    ):
-        """Add reserve variables for storage equipment."""
-        model.add_continuous_variable(
-            name=f"reserves_up_{name}_{time}",
-            lower_bound=0,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"reserves_down_{name}_{time}",
-            lower_bound=min_power,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"unprovided_reserves_up_{name}_{time}",
-            lower_bound=0,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"unprovided_reserves_down_{name}_{time}",
-            lower_bound=min_power,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"automated_reserves_up_{name}_{time}",
-            lower_bound=0,
-            upper_bound=maximum_automated,
-        )
-        model.add_continuous_variable(
-            name=f"automated_reserves_down_{name}_{time}",
-            lower_bound=-maximum_automated,
-            upper_bound=maximum_automated,
-        )
 
     def _add_variable_fragment(
         self,
