@@ -782,6 +782,16 @@ class Timeseries:
             return cast("float", self.timeseries["value"].min())
         return None
 
+    def sum(self) -> float | None:
+        """Return the sum of the 'value' column.
+
+        :return: The Timeseries sum value
+        :rtype: float or None
+        """
+        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+            return cast("float", self.timeseries["value"].sum())
+        return None
+
     def abs(self, inplace=True) -> Timeseries:
         """Compute the absolute value of each timestamp
 
