@@ -62,13 +62,13 @@ class BatteryModel(DAOBaseModel):
                             - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                     ),
-                    "Stock_tracking_at_{}".format(t.add(self.parameters.time_step)),
+                    "Stock_tracking_at_{}".format(t.add(minutes=self.parameters.time_step)),
                 )
             else:
-                self.add_constraint(
-                    (
+                (
+                    self.add_constraint(
                         self.stored_energy[t]
-                        == self.stored_energy[t.subtract(self.parameters.time_step)]
+                        == self.stored_energy[t.subtract(minutes=self.parameters.time_step)]
                         + self.parameters.time_step
                         / 60.0
                         * (
@@ -76,7 +76,7 @@ class BatteryModel(DAOBaseModel):
                             - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                     ),
-                    "Stock_tracking_at_{}".format(t.add(self.parameters.time_step)),
+                    "Stock_tracking_at_{}".format(t.add(minutes=self.parameters.time_step)),
                 )
 
             # Respect of system states constraints (isSell and isV2G)

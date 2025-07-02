@@ -264,7 +264,7 @@ class DayAheadStorage:
             if Ppurchase != 0:
                 equipment.variable_cost.set_value(parameters.start_date, round(Ppurchase, 2))
                 equipment.VariableCost.set_value(
-                    parameters.end_date.subtract(parameters.time_step), round(Ppurchase, 2)
+                    parameters.end_date.subtract(minutes=parameters.time_step), round(Ppurchase, 2)
                 )
             elif equipment.discharge_efficiency != 0 and equipment.charge_efficiency != 0:
                 equipment.variable_cost.set_value(
@@ -272,12 +272,14 @@ class DayAheadStorage:
                     round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
                 )
                 equipment.variable_cost.set_value(
-                    parameters.end_date.subtract(parameters.time_step),
+                    parameters.end_date.subtract(minutes=parameters.time_step),
                     round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
                 )
             else:
                 equipment.variable_cost.set_value(parameters.start_date, round(Psale, 2))
-                equipment.variable_cost.set_value(parameters.end_date.subtract(parameters.time_step), round(Psale, 2))
+                equipment.variable_cost.set_value(
+                    parameters.end_date.subtract(minutes=parameters.time_step), round(Psale, 2)
+                )
                 cfg.logger.warning(
                     "WARNING: ChargeEfficiency or DischargeEfficiency is null for equipment {}. "
                     "This is not supposed to be the case, as the default value for these is 1 and not 0".format(
@@ -302,8 +304,10 @@ class DayAheadStorage:
                 # if it is feasible given all orders generated for this equipment.
                 # If not, the energy requirement is capped to the feasible limit
                 energy_requirement = equipment.displacement_energy.get_value(
-                    parameters.end_date.subtract(parameters.time_step)
-                ) - equipment.displacement_energy.get_value(parameters.start_date.subtract(parameters.time_step))
+                    parameters.end_date.subtract(minutes=parameters.time_step)
+                ) - equipment.displacement_energy.get_value(
+                    parameters.start_date.subtract(minutes=parameters.time_step)
+                )
 
                 if energy_requirement > daily_buy_volume:
                     coupling_instance.complement_energy = daily_buy_volume
@@ -433,5 +437,5 @@ class DayAheadStorage:
                     parameters.start_date
                 )
             else:
-                initial_stock = energy_forecast.get_value(parameters.start_date.subtract(parameters.time_step))
+                initial_stock = energy_forecast.get_value(parameters.start_date.subtract(minutes=parameters.time_step))
         return initial_stock
