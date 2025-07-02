@@ -5,107 +5,33 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import pendulum
-
-from atlas import OptimisationModel, generate_datetimes, Equipment
+from atlas import Equipment
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseModel
 
 
-class ElectricVehicleModel(OptimisationModel):
-    def __init__(self, name: str, solver_name: str, parameters: DayAheadOrdersParameters, equipment: Equipment):
-        super().__init__(solver_name, name)
-        self._objective_direction = "maximize"
-        self.parameters = parameters
-        self.equipment = equipment
-        self.optimizationPeriod = parameters.ev_additional_hours
-        # Get the price forecast from the input marker: estimations are at ActionHour, over the optimisation period
-        # The price forecast is relative to the equipment's market area
-        self.price_forecast = self.equipment.portfolio.market_area.price_forecast_medium.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date.add(hours=self.optimizationPeriod)
-        )
-        # Set-up the time frames
-        # Definition of the time_frame time frame: the time frame on which
-        # the optimization program will be solved.
-        # Remark: we define the time series until end_date - time_step because
-        # we want all time steps to lie in the [start_date, endOptimizationDate] range.
-        self.time_frame = generate_datetimes(
-            parameters.start_date,
-            parameters.end_date.add(hours=self.optimizationPeriod).subtract(minutes=parameters.time_step),
-            pendulum.duration(minutes=parameters.time_step),
-        )
-        # Total quantities bought and purchased in the market at each time step
-        self.Qv = {}
-        self.Qa = {}
-        # Quantities bought and purchased in each fragment of power i at each time step
-        self.Qvf = {}
-        self.Qaf = {}
-        # Energy stored in battery at each time step
-        # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
-        self.StoredEnergy = {}
-        # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
-        self.isSell = {}
-        self.objective = None
+class ElectricVehicleModel(DAOBaseModel):
+    def __init__(
+        self,
+        solver_name: str,
+        name: str,
+        parameters: DayAheadOrdersParameters,
+        equipment: Equipment,
+        optimization_period: int,
+    ):
+        super().__init__(solver_name, name, parameters, equipment, optimization_period)
 
-    def create_decision_variables(self):
-        """Creation of decision variables"""
-
-        for t in self.time_frame:
-            self.Qv[t] = self.add_continuous_variable("Amount_sold_at_{}".format(t), 0)
-            self.Qa[t] = self.add_continuous_variable("Amount_purchased_at_{}".format(t), 0)
-            self.isSell[t] = self.add_boolean_variable("isSell_at_{}".format(t))
-            self.StoredEnergy[t] = self.add_continuous_variable("StoredEnergy_at_{}".format(t), 0)
-            self.Qvf[t] = {}
-            self.Qaf[t] = {}
-            for i in range(self.parameters.ev_nb_fragments):
-                self.Qvf[t][i] = self.add_continuous_variable("Amount_sold_in_fragment_{}_at_{}".format(i, t), 0)
-                self.Qaf[t][i] = self.add_continuous_variable("Amount_purchased_in_fragment_{}_at_{}".format(i, t), 0)
-
-    def create_objective_function(self):
-        """Creation of objective function"""
-
-        # The objective function is the total profit over the optimisation period
-        if self.parameters.ev_nb_fragments == 1:
-            self.objective = (
-                sum(
-                    self.price_forecast.GetValue(t) * self.Qvf[t][0] * self.parameters.time_step / 60.0
-                    - self.price_forecast.GetValue(t) * self.Qaf[t][0] * self.parameters.time_step / 60.0
-                    for t in self.time_frame
-                ),
-                "Profit",
-            )
-        else:
-            self.objective = (
-                sum(
-                    sum(
-                        self.price_forecast.GetValue(t)
-                        * (1 - i * self.parameters.ev_smoothing_factor / (self.parameters.ev_nb_fragments - 1))
-                        * self.Qvf[t][i]
-                        * self.parameters.time_step
-                        / 60.0
-                        - self.price_forecast.GetValue(t)
-                        * (1 + i * self.parameters.ev_smoothing_factor / (self.parameters.ev_nb_fragments - 1))
-                        * self.Qaf[t][i]
-                        * self.parameters.time_step
-                        / 60.0
-                        for i in range(self.parameters.ev_nb_fragments)
-                    )
-                    for t in self.time_frame
-                ),
-                "Profit",
-            )
-            self.solver.Maximize(self.objective[0])
-
-    def create_constraints(self, InitialStock: float | None):
+    def create_constraints(self, initial_stock: float | None):
         # Creation of constraints
 
         for t in self.time_frame:
             for i in range(self.parameters.ev_nb_fragments):
                 self.add_constraint(
-                    self.Qvf[t][i] * self.parameters.ev_nb_fragments <= self.equipment.MaximumPower.GetValue(t),
+                    self.Qvf[t][i] * self.parameters.ev_nb_fragments <= self.equipment.maximum_power.get_value(t),
                     "Respect_of_sale_power_fragment_{}_limit_at_{}".format(i, t),
                 )
                 self.add_constraint(
-                    self.Qaf[t][i] * self.parameters.ev_nb_fragments <= abs(self.equipment.MinimumPower.GetValue(t)),
+                    self.Qaf[t][i] * self.parameters.ev_nb_fragments <= abs(self.equipment.minimum_power.get_value(t)),
                     "Respect_of_purchase_power_fragment_{}_limit_at_{}".format(i, t),
                 )
 
@@ -122,57 +48,61 @@ class ElectricVehicleModel(OptimisationModel):
             # StoredEnergy tracking constraint, evaluates the stock at each time step
             if t == self.parameters.start_date:
                 self.add_constraint(
-                    self.StoredEnergy[t]
+                    self.stored_energy[t]
                     == (
-                        InitialStock
+                        initial_stock
                         * (
-                            self.equipment.MaximumEnergy.GetValue(t)
-                            / self.equipment.MaximumEnergy.GetValue(t.subtract(minutes=self.parameters.time_step))
+                            self.equipment.maximum_energy.get_value(t)
+                            / self.equipment.maximum_energy.get_value(t.subtract(minutes=self.parameters.time_step))
                         )
                         + self.parameters.time_step
                         / 60.0
                         * (
-                            self.Qa[t] * self.equipment.ChargeEfficiency
-                            - self.Qv[t] / self.equipment.DischargeEfficiency
+                            self.Qa[t] * self.equipment.charge_efficiency
+                            - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                         + (
-                            self.equipment.DisplacementEnergy.GetValue(t)
-                            - self.equipment.DisplacementEnergy.GetValue(t.subtract(minutes=self.parameters.time_step))
+                            self.equipment.displacement_energy.get_value(t)
+                            - self.equipment.displacement_energy.get_value(
+                                t.subtract(minutes=self.parameters.time_step)
+                            )
                         )
                     ),
                     "Stock_tracking_at_{}".format(t),
                 )
             else:
                 self.add_constraint(
-                    self.StoredEnergy[t]
+                    self.stored_energy[t]
                     == (
-                        self.StoredEnergy[t.subtract(minutes=self.parameters.time_step)]
+                        self.stored_energy[t.subtract(minutes=self.parameters.time_step)]
                         * (
-                            self.equipment.MaximumEnergy.GetValue(t)
-                            / self.equipment.MaximumEnergy.GetValue(t.subtract(minutes=self.parameters.time_step))
+                            self.equipment.maximum_energy.get_value(t)
+                            / self.equipment.maximum_energy.get_value(t.subtract(minutes=self.parameters.time_step))
                         )
                         + self.parameters.time_step
                         / 60.0
                         * (
-                            self.Qa[t] * self.equipment.ChargeEfficiency
-                            - self.Qv[t] / self.equipment.DischargeEfficiency
+                            self.Qa[t] * self.equipment.charge_efficiency
+                            - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                         + (
-                            self.equipment.DisplacementEnergy.GetValue(t)
-                            - self.equipment.DisplacementEnergy.GetValue(t.subtract(minutes=self.parameters.time_step))
+                            self.equipment.displacement_energy.get_value(t)
+                            - self.equipment.displacement_energy.get_value(
+                                t.subtract(minutes=self.parameters.time_step)
+                            )
                         )
                     ),
                     "Stock_tracking_at_{}".format(t),
                 )
 
-            # Respect of system states constraints (isSell and isV2G)
+            # Respect of system states constraints (isSell and is_v2g)
             self.add_constraint(
-                self.Qv[t] <= self.equipment.isV2G * self.isSell[t] * self.equipment.MaximumPower.GetValue(t),
+                self.Qv[t] <= self.equipment.is_v2g * self.is_sell[t] * self.equipment.maximum_power.get_value(t),
                 "Respect_Pmax_sale_at_{}".format(t),
             )
             self.add_constraint(
                 self.Qa[t]
-                <= (1 - self.isSell[t] * self.equipment.isV2G) * abs(self.equipment.MinimumPower.GetValue(t)),
+                <= (1 - self.is_sell[t] * self.equipment.is_v2g) * abs(self.equipment.maximum_power.get_value(t)),
                 "Respect_Pmax_purchase_at_{}".format(t),
             )
             self.add_constraint(self.Qv[t] >= 0, "Respect_Pmin_sale_at_{}".format(t))
@@ -180,12 +110,12 @@ class ElectricVehicleModel(OptimisationModel):
 
             # Respect of minimum and maximum stoage level constraints
             self.add_constraint(
-                self.StoredEnergy[t]
-                >= self.equipment.MinimumStateOfCharge.GetValue(t) * self.equipment.MaximumEnergy.GetValue(t),
+                self.stored_energy[t]
+                >= self.equipment.minimum_state_of_charge.get_value(t) * self.equipment.maximum_energy.get_value(t),
                 "Minimum_storage_level_constraint_at_{}".format(t),
             )
             self.add_constraint(
-                self.StoredEnergy[t] <= self.equipment.MaximumEnergy.GetValue(t),
+                self.stored_energy[t] <= self.equipment.maximum_energy.get_value(t),
                 "Maximum_storage_level_constraint_at_{}".format(t),
             )
 
@@ -199,7 +129,7 @@ class ElectricVehicleModel(OptimisationModel):
             # becomes exponentially longer with each additional hour. And currently impossible to solve for 7 days.
             """
             if t == p.start_date:
-                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.isV2G * Equipment.MaximumPower.GetValue(t) *
+                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
                                                                                   (InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step)) -
                                                                                    Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.time_step))) *
                                                                                   Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
@@ -207,7 +137,7 @@ class ElectricVehicleModel(OptimisationModel):
                                                                                   (1 - InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step))) /
                                                                                   Equipment.ChargeEfficiency) , "Adjustment_of_Pmax_purchase_at_{}".format(t)
             else:
-                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.isV2G * Equipment.MaximumPower.GetValue(t) *
+                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
                                                                                   (StoredEnergy[t.AddMinutes(-p.time_step)]/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step)) -
                                                                                    Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.time_step))) *
                                                                                   Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
@@ -220,14 +150,14 @@ class ElectricVehicleModel(OptimisationModel):
 
         # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
         self.add_constraint(
-            sum(self.Qa[t] for t in self.time_frame) * self.equipment.ChargeEfficiency
+            sum(self.Qa[t] for t in self.time_frame) * self.equipment.charge_efficiency
             >= (
-                self.equipment.DisplacementEnergy.GetValue(
+                self.equipment.displacement_energy.get_value(
                     self.parameters.end_date.add(hours=self.optimizationPeriod).subtract(
                         minutes=self.parameters.time_step
                     )
                 )
-                - self.equipment.DisplacementEnergy.GetValue(
+                - self.equipment.displacement_energy.get_value(
                     self.parameters.start_date.subtract(minutes=self.parameters.time_step)
                 )
             )

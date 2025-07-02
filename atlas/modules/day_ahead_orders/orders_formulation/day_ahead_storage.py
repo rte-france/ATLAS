@@ -16,44 +16,42 @@ from atlas import Timeseries, Equipment, Order
 from atlas.enum import StorageType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
+from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseModel
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 from atlas.timing import generate_datetimes
 
 
 class DayAheadStorage:
-    # ------ Main optimization functions ------
-    # Optimization function for ElectricVehicle units
+    """------ Main optimization functions ------"""
+
     @staticmethod
     def optimize_ev(
-        equipment: Equipment, InitialStock: float | None, parameters: DayAheadOrdersParameters
+        equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters
     ) -> tuple[dict[Any, Any], dict[Any, Any]]:
+        """
+        Optimization function for ElectricVehicle units
+        :param equipment: equipment
+        :param initial_stock: InitialStock
+        :param parameters: parameters
+        :return: output variables
+        """
         # Creation of optimization problem
-        # --------------------------------
         model = ElectricVehicleModel(
-            "Optimization of the storage unit " + equipment.name, parameters.solver.upper(), parameters, equipment
+            parameters.solver.upper(),
+            "Optimization of the storage unit " + equipment.name,
+            parameters,
+            equipment,
+            parameters.ev_additional_hours,
         )
-        model.create_decision_variables()
-        model.create_objective_function()
-        model.create_constraints(InitialStock)
+        model.create_decision_variables(parameters.ev_nb_fragments)
+        model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor)
+        model.create_constraints(initial_stock)
 
         ##  PROBLEM SOLVING  ##
         if parameters.solver.upper() == "XPRESS":
-            model.set_solver_specific_parameters_as_string(
-                "MIPRELSTOP {} PRESOLVE {} MAXTIME {}".format(
-                    parameters.solver_duality_gap, int(parameters.use_presolve), parameters.solver_time_out
-                )
-            )
-
-            if parameters.debug:
-                lp_file_name = os.path.join(parameters.output_folder, "storage_{}.lp".format(equipment.name))
-                model.export_model(lp_file_name)
-
-            model.solve(float(parameters.solver_time_out))
-
-            if parameters.verbose:
-                cfg.logger.info("Solver status: {}".format(model.solution_info.status))
-                cfg.logger.info("Objective function value: {}".format(model.objective))
+            DayAheadStorage.solve_with_xpress(model, parameters, equipment.name)
         else:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
             raise ValueError(
@@ -72,192 +70,41 @@ class DayAheadStorage:
 
         return Qvv, Qaa
 
-    # Optimization function for Battery and PHS units
-    def optimize_battery(Equipment, InitialStock, p):
-        if Equipment.StorageType == "Battery":
-            optimizationPeriod = p.battery_additional_hours
-            smoothingFactor = p.battery_smoothing_factor
-            powerFragments = p.battery_nb_fragments
-        elif Equipment.StorageType == "PumpedHydraulicStorage":
-            optimizationPeriod = p.phs_additional_hours
-            smoothingFactor = p.phs_smoothing_factor
-            powerFragments = p.phs_nb_fragments
+    @staticmethod
+    def optimize_battery(equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters):
+        """
+        Optimization function for Battery and PHS units
+        :param equipment: equipment
+        :param initial_stock: initial_stock
+        :param parameters: parameters
+        :return:
+        """
+        if equipment.storage_type == StorageType.BATTERY:
+            optimization_period = parameters.battery_additional_hours
+            smoothing_factor = parameters.battery_smoothing_factor
+            power_fragments = parameters.battery_nb_fragments
+        elif equipment.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
+            optimization_period = parameters.phs_additional_hours
+            smoothing_factor = parameters.phs_smoothing_factor
+            power_fragments = parameters.phs_nb_fragments
 
-        ##  CREATION OF PROBLEM  ##
-        # Get the price forecast from the input marker: estimations are at ActionHour, over the optimisation period
-        # The price forecast is relative to the equipment's market area
-        PriceForecast = Equipment.Portfolio.MarketArea.PriceForecastMedium.GetForecast(
-            p.execution_date, p.start_date, p.end_date.AddHours(optimizationPeriod)
-        )
-
-        # Set-up the time frames
-        # Definition of the timeFrame time frame: the time frame on which
-        # the optimization program will be solved.
-        # Remark: we define the time series until end_date - time_step because
-        # we want all time steps to lie in the [start_date, endOptimizationDate] range.
-        timeFrame = API.DatetimeIndex.NewIndex(
-            p.start_date, p.end_date.AddHours(optimizationPeriod).AddMinutes(-p.time_step), str(p.time_step) + "m"
-        )
+        # ##  CREATION OF PROBLEM  ##
         # Creation of optimization problem
         # --------------------------------
-
-        OPPROB = API.Solver.NewOpProblem(
-            "Optimization of the storage unit " + Equipment.Name,
-            API.Solver.OpCategoryBinary,
-            API.Solver.OpSenseMaximize,
+        model = BatteryModel(
+            parameters.solver.upper(),
+            "Optimization of the storage unit " + equipment.name,
+            parameters,
+            equipment,
+            optimization_period,
         )
-
-        # Creation of decision variables
-        # ------------------------------
-
-        # Total quantities bought and purchased in the market at each time step
-        Qv = {}
-        Qa = {}
-        # Quantities bought and purchased in each fragment of power i at each time step
-        Qvf = {}
-        Qaf = {}
-        # Energy stored in battery at each time step
-        # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
-        StoredEnergy = {}
-        # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
-        isSell = {}
-        for t in timeFrame:
-            Qv[t] = API.Solver.NewOpVariable("Amount_sold_at_{}".format(t), 0, None)
-            Qa[t] = API.Solver.NewOpVariable("Amount_purchased_at_{}".format(t), 0, None)
-            isSell[t] = API.Solver.NewOpVariable("isSell_at_{}".format(t), API.Solver.OpCategoryBinary)
-            StoredEnergy[t] = API.Solver.NewOpVariable("StoredEnergy_at_{}".format(t), 0, None)
-            Qvf[t] = {}
-            Qaf[t] = {}
-            for i in range(powerFragments):
-                Qvf[t][i] = API.Solver.NewOpVariable("Amount_sold_in_fragment_{}_at_{}".format(i, t), 0, None)
-                Qaf[t][i] = API.Solver.NewOpVariable("Amount_purchased_in_fragment_{}_at_{}".format(i, t), 0, None)
-
-        # Creation of objective function
-        # ------------------------------
-
-        # The objective function is the total profit over the optimisation period
-        if powerFragments == 1:
-            OPPROB += (
-                sum(
-                    PriceForecast.GetValue(t) * Qvf[t][0] * p.time_step / 60.0
-                    - PriceForecast.GetValue(t) * Qaf[t][0] * p.time_step / 60.0
-                    for t in timeFrame
-                ),
-                "Profit",
-            )
-        else:
-            OPPROB += (
-                sum(
-                    sum(
-                        PriceForecast.GetValue(t)
-                        * (1 - i * smoothingFactor / (powerFragments - 1))
-                        * Qvf[t][i]
-                        * p.time_step
-                        / 60.0
-                        - PriceForecast.GetValue(t)
-                        * (1 + i * smoothingFactor / (powerFragments - 1))
-                        * Qaf[t][i]
-                        * p.time_step
-                        / 60.0
-                        for i in range(powerFragments)
-                    )
-                    for t in timeFrame
-                ),
-                "Profit",
-            )
-
-        # Creation of constraints
-        # -----------------------
-        for t in timeFrame:
-            for i in range(powerFragments):
-                OPPROB += (
-                    Qvf[t][i] * powerFragments <= Equipment.MaximumPower.GetValue(t),
-                    "Respect_of_sale_power_fragment_{}_limit_at_{}".format(i, t),
-                )
-                OPPROB += (
-                    Qaf[t][i] * powerFragments <= abs(Equipment.MinimumPower.GetValue(t)),
-                    "Respect_of_purchase_power_fragment_{}_limit_at_{}".format(i, t),
-                )
-
-            # Total bought/sold energy at each time step is the sum of the fragments at time step
-            OPPROB += (
-                Qv[t] == sum(Qvf[t][i] for i in range(powerFragments)),
-                "Evaluation_of_quantity_sold_at_{}".format(t),
-            )
-            OPPROB += (
-                Qa[t] == sum(Qaf[t][i] for i in range(powerFragments)),
-                "Evaluation_of_quantity_purchased_at_{}".format(t),
-            )
-
-            # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == p.start_date:
-                OPPROB += (
-                    StoredEnergy[t]
-                    == (
-                        InitialStock
-                        + p.time_step
-                        / 60.0
-                        * (Qa[t] * Equipment.ChargeEfficiency - Qv[t] / Equipment.DischargeEfficiency)
-                    ),
-                    "Stock_tracking_at_{}".format(t.AddMinutes(p.time_step)),
-                )
-            else:
-                OPPROB += (
-                    (
-                        StoredEnergy[t]
-                        == StoredEnergy[t.AddMinutes(-p.time_step)]
-                        + p.time_step
-                        / 60.0
-                        * (Qa[t] * Equipment.ChargeEfficiency - Qv[t] / Equipment.DischargeEfficiency)
-                    ),
-                    "Stock_tracking_at_{}".format(t.AddMinutes(p.time_step)),
-                )
-
-            # Respect of system states constraints (isSell and isV2G)
-            OPPROB += Qv[t] <= isSell[t] * Equipment.MaximumPower.GetValue(t), "Respect_Pmax_sale_at_{}".format(t)
-            OPPROB += (
-                Qa[t] <= (1 - isSell[t]) * abs(Equipment.MinimumPower.GetValue(t)),
-                "Respect_Pmax_purchase_at_{}".format(t),
-            )
-            OPPROB += Qv[t] >= 0, "Respect_Pmin_sale_at_{}".format(t)
-            OPPROB += Qa[t] >= 0, "Respect_Pmin_purchase_at_{}".format(t)
-
-            # Respect of minimum and maximum storage levels constraints
-            OPPROB += (
-                StoredEnergy[t] >= (Equipment.MinimumStateOfCharge.GetValue(t) * Equipment.MaximumEnergy.GetValue(t)),
-                "Minimum_storage_level_constraint_at_{}".format(t),
-            )
-            OPPROB += (
-                StoredEnergy[t] <= Equipment.MaximumEnergy.GetValue(t),
-                "Maximum_storage_level_constraint_at_{}".format(t),
-            )
-
-        # Respect of the balance between sales and purchases
-        OPPROB += (
-            sum(Qa[t] for t in timeFrame) * Equipment.ChargeEfficiency
-            == sum(Qv[t] for t in timeFrame) / Equipment.DischargeEfficiency,
-            "Respect_of_cycle_balance",
-        )
+        model.create_decision_variables(power_fragments)
+        model.create_objective_function(power_fragments, smoothing_factor)
+        model.create_constraints(initial_stock, power_fragments)
 
         # Solving the problem
-        if p.solver.upper() == "XPRESS":
-            optim_solver = OPPROB.NewOpSolver("xpress")
-
-            optim_solver.SetSolverSpecificParameters(
-                "MIPRELSTOP {} PRESOLVE {} MAXTIME {}".format(p.duality_gap, int(p.presolve), p.time_out)
-            )
-
-            if p.debug:
-                lp_file_name = os.path.join(p.output_folder, "storage_{}.lp".format(Equipment.Name))
-                OPPROB.WriteLP(lp_file_name, True)
-
-            OPPROB.SolveORTools(optim_solver)
-
-            if p.verbose:
-                API.IO.Trace.Log("Solver status: {}".format(OPPROB.Status), API.IO.LogTypeInfo)
-                API.IO.Trace.Log(
-                    "Objective function value: {}".format(API.Solver.Value(OPPROB.Objective)), API.IO.LogTypeInfo
-                )
+        if parameters.solver.upper() == "XPRESS":
+            DayAheadStorage.solve_with_xpress(model, parameters, equipment.name)
         else:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previsously raised errors otherwise with GLPK
             raise ValueError(
@@ -268,13 +115,31 @@ class DayAheadStorage:
         # Note that the time domain of the output variables is [StartDate, EndDate]
         Qvv = {}
         Qaa = {}
-        for t in timeFrame:
-            if t >= p.end_date:
+        for t in model.time_frame:
+            if t >= parameters.end_date:
                 break
-            Qvv[t] = round(Qv[t].VarValue, 2)
-            Qaa[t] = round(Qa[t].VarValue, 2)
+            Qvv[t] = round(model.Qv[t].VarValue, 2)
+            Qaa[t] = round(model.Qa[t].VarValue, 2)
 
         return Qvv, Qaa
+
+    @staticmethod
+    def solve_with_xpress(model: DAOBaseModel, parameters: DayAheadOrdersParameters, equipment_name: str) -> None:
+        model.set_solver_specific_parameters_as_string(
+            "MIPRELSTOP {} PRESOLVE {} MAXTIME {}".format(
+                parameters.solver_duality_gap, int(parameters.use_presolve), parameters.solver_time_out
+            )
+        )
+
+        if parameters.debug:
+            lp_file_name = os.path.join(parameters.output_folder, "storage_{}.lp".format(equipment_name))
+            model.export_model(lp_file_name)
+
+        model.solve(float(parameters.solver_time_out))
+
+        if parameters.verbose:
+            cfg.logger.info("Solver status: {}".format(model.solution_info.status))
+            cfg.logger.info("Objective function value: {}".format(model.objective))
 
     # ------ Price computation ------
     def priceCalculation(Equipment, Qv, Qa, p):
@@ -378,16 +243,13 @@ class DayAheadStorage:
             # sell_submitted_volumes = API.TimeSeries.NewTimeSeries("", API.TimeSeries.Constant, "MW", local_index, 0)
 
             # if the stock of the equipment at start date is not defined, initiate it
-            OPPROB = ElectricVehicleModel(
-                "Optimization of the storage unit " + equipment.name, "CBC", parameters, equipment
-            )
             initial_stock = DayAheadStorage.initiate_stock(equipment, parameters)
 
             # Determine offers times and quantities through an optimisation algorithm under a price forecast
             if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
                 Qv, Qa = DayAheadStorage.optimize_ev(equipment, initial_stock, parameters)
             else:
-                Qv, Qa = optimize_battery(equipment, initial_stock, parameters)
+                Qv, Qa = DayAheadStorage.optimize_battery(equipment, initial_stock, parameters)
 
             # Determine sale and purchase prices
             Psale, Ppurchase = priceCalculation(equipment, Qv, Qa, parameters)
