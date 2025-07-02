@@ -24,8 +24,6 @@ from atlas.timing import generate_datetimes
 
 
 class DayAheadStorage:
-    """------ Main optimization functions ------"""
-
     @staticmethod
     def optimize_ev(
         equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters
@@ -206,7 +204,6 @@ class DayAheadStorage:
 
         return Psale, Ppurchase
 
-    # ------ Order formulation functions ------
     @staticmethod
     def formulate_storage_orders(dataset: DayAheadOrdersInputDataset, parameters: DayAheadOrdersParameters) -> None:
         """
@@ -292,7 +289,7 @@ class DayAheadStorage:
                 # Create the order coupling instance
                 coupling_instance = OrderCoupling(
                     name="COMPLEMENT_DA_{}_{}".format(
-                        equipment.Name, Utilities.get_date_to_clean_string(parameters.execution_date)
+                        equipment.name, Utilities.get_date_to_clean_string(parameters.execution_date)
                     )
                 )
                 coupling_instance.coupling_type = CouplingType.COMPLEMENT
@@ -328,7 +325,7 @@ class DayAheadStorage:
                 # Create a COMPLEMENT order coupling
                 coupling_instance = OrderCoupling(
                     name="COMPLEMENT_DA_{}_{}".format(
-                        equipment.Name, Utilities.get_date_to_clean_string(parameters.execution_date)
+                        equipment.name, Utilities.get_date_to_clean_string(parameters.execution_date)
                     )
                 )
 
@@ -411,9 +408,8 @@ class DayAheadStorage:
     ):
         order = DayAheadStorage.create_spot_order(order_type, equipment, start_date, qmax, price, parameters)
         dataset.order.append(order)
-        coupling_instance.orders.append(Order)
+        coupling_instance.orders.append(order)
 
-    # ------ Other functions ------
     @staticmethod
     def initiate_stock(equipment: Equipment, parameters: DayAheadOrdersParameters) -> float | None:
         # FC: The first step is to evaluate if the equipment is in an "Initial" situation or not
