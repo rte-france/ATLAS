@@ -458,6 +458,14 @@ class TestTimeseriesBasicOperations:
         empty_ts = Timeseries()
         assert empty_ts.max() is None
 
+    def test_sum_methods(self, sample_ts):
+        """Test sum methods."""
+        assert sample_ts.sum() == 100.0
+
+        # Test with empty Timeseries
+        empty_ts = Timeseries()
+        assert empty_ts.sum() is None
+
     def test_interpolate_method(self, sample_df_with_nulls):
         """Test interpolation methods."""
         # Create a Timeseries with null values
