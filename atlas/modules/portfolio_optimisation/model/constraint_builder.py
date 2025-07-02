@@ -3,10 +3,10 @@ from typing import Any
 from pendulum import DateTime
 
 from atlas.models.equipment.equipment import Equipment
-from atlas.modules.portfolio_optimisation.constraints.hydro import add_constraints_hydro
-from atlas.modules.portfolio_optimisation.constraints.load import add_constraints_load
-from atlas.modules.portfolio_optimisation.constraints.storage import add_contraints_storage
-from atlas.modules.portfolio_optimisation.constraints.wind_and_solar import add_constraints_wind_solar
+from atlas.modules.portfolio_optimisation.model.hydro import add_constraints_hydro
+from atlas.modules.portfolio_optimisation.model.load import add_constraints_load
+from atlas.modules.portfolio_optimisation.model.storage import add_contraints_storage
+from atlas.modules.portfolio_optimisation.model.wind_and_solar import add_constraints_wind_solar
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -21,7 +21,7 @@ class ConstraintBuilder:
         self,
         portfolio: dict[str, list[type[Equipment]]],
         portfolio_name: str,
-        optimization_times: dict[str, list],
+        optimization_times: dict[str, list[DateTime]],
         model: OptimisationModel,
     ) -> None:
         """Build all constraints for the optimization problem."""
@@ -31,7 +31,7 @@ class ConstraintBuilder:
         for time in max_op_time:
             self._build_time_constraints(time, portfolio, portfolio_name, model, optimization_times)
 
-    def _get_longest_optimization_period(self, optimization_times: dict[str, list]) -> list:
+    def _get_longest_optimization_period(self, optimization_times: dict[str, list[DateTime]]) -> list[DateTime]:
         """Get the longest optimization time period."""
         return max(optimization_times.values(), key=len)
 

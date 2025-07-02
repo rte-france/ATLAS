@@ -20,322 +20,374 @@ from atlas.modules.portfolio_optimisation.utils.getters import (
 from atlas.solver.solver_interface import OptimisationModel
 
 
-def add_variables_hydro(
-    time: DateTime,
-    equipments: list[Hydro],
-    model: OptimisationModel,
-    parameters: PortfolioOptimisationParameters,
-):
-    for obj in equipments:
-        for _, time in enumerate(parameters.hydraulic_op_times):
-            min_power = get_minimum_power(obj, time)
-            max_power = get_maximum_power(obj, time)
-            max_energy = get_maximum_energy(obj, time)
+class VariableBuilder:
+    """Builds all optimization variables for the portfolio optimization model."""
 
-            model.add_continuous_variable(
-                name=f"{obj.name}_power_level_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"{obj.name}_stored_energy_{time}",
-                lower_bound=0,
-                upper_bound=max_energy,
-            )
-            add_variable_fragment(obj, time, parameters, model)
+    def __init__(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+        self.model = model
+        self.parameters = parameters
 
-            maximum_automated = get_maximum_automated(obj)
+    def build_all_variables(
+        self,
+        portfolio_name: str,
+        equipments: dict[str, list[type[Equipment]]],
+        times: list[DateTime],
+    ):
+        """Build all variables for the optimization model."""
+        # Build equipment-specific variables
+        self._build_equipment_variables(equipments, times)
 
-            # Optimisation Variables related to reserves
-            model.add_continuous_variable(
-                name=f"reserves_up_e_{obj.name}_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"reserves_down_e_{obj.name}_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"unprovided_reserves_up_e_{obj.name}_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"unprovided_reserves_down_e_{obj.name}_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"relaxed_reserves_{obj.name}_{time}",
-                lower_bound=min_power,
-                upper_bound=0,
-            )
-            model.add_continuous_variable(
-                name=f"automated_res_up_e_{obj.name}_{time}",
-                lower_bound=0,
-                upper_bound=maximum_automated,
-            )
-            model.add_continuous_variable(
-                name=f"automated_res_down_e_{obj.name}_{time}",
-                lower_bound=0,
-                upper_bound=maximum_automated,
-            )
-            model.add_continuous_variable(
-                name=f"contracted_diff_up_e_{obj.name}_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"contracted_diff_down_e_{obj.name}_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"automated_contracted_diff_up_e_{obj.name}_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"automated_contracted_diff_down_e_{obj.name}_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
+        # Build portfolio-level variables
+        self._build_portfolio_variables(portfolio_name, equipments, times)
 
+    def _build_equipment_variables(
+        self,
+        equipments: dict[str, list[type[Equipment]]],
+        times: list[DateTime],
+    ):
+        """Build variables for all equipment types."""
+        if "hydro" in equipments:
+            self._build_hydro_variables(equipments["hydro"])
 
-def add_variables_solar_wind(
-    time: DateTime,
-    equipments: list[Solar | Wind],
-    model: OptimisationModel,
-    parameters: PortfolioOptimisationParameters,
-):
-    for obj in equipments:
-        for time in parameters.target_times:
-            max_power = get_maximum_power(obj, time)
-            min_power = get_minimum_power(obj, time)
-            maximum_automated = obj.maximum_afrr + obj.maximum_fcr
+        if "solar" in equipments:
+            self._build_solar_wind_variables(equipments["solar"])
 
-            model.add_continuous_variable(
-                name=f"{obj.name}_power_level_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
+        if "wind" in equipments:
+            self._build_solar_wind_variables(equipments["wind"])
 
-            model.add_continuous_variable(
-                name=f"reserves_up_e_{obj.name}_at_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"reserves_down_e_{obj.name}_at_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"unprovided_reserves_up_e_{obj.name}_at_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"unprovided_reserves_down_e_{obj.name}_at_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"automated_reserves_up_e_{obj.name}_at_{time}",
-                lower_bound=0,
-                upper_bound=maximum_automated,
-            )
-            model.add_continuous_variable(
-                name=f"automated_reserves_down_e_{obj.name}_at_{time}",
-                lower_bound=0,
-                upper_bound=maximum_automated,
-            )
-            model.add_continuous_variable(
-                name=f"contracted_diff_up_e_{obj.name}_at_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"contracted_diff_down_e_{obj.name}_at_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"automated_contracted_diff_up_e_{obj.name}_at_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"automated_contracted_diff_down_e_{obj.name}_at_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
+        if "storage" in equipments:
+            self._build_storage_variables(equipments["storage"])
 
+        if "load" in equipments:
+            self._build_load_variables(equipments["load"])
 
-def add_variables_storage(
-    time: DateTime,
-    equipments: list[Storage],
-    model: OptimisationModel,
-    parameters: PortfolioOptimisationParameters,
-):
-    MAPPING_STORAGE_TYPE_OPTIMISATION_TIMES = {
-        StorageType.BATTERY: {
-            "op_time_frame": parameters.battery_op_times,
-            "fragment": parameters.battery_number_of_fragments,
-        },
-        StorageType.PUMPED_HYDRAULIC_STORAGE: {
-            "op_time_frame": parameters.phs_op_times,
-            "fragment": parameters.pumped_hydraulic_number_of_fragments,
-        },
-        StorageType.ELECTRIC_VEHICLE: {
-            "op_time_frame": parameters.ev_op_times,
-            "fragment": parameters.electric_vehicle_number_of_fragments,
-        },
-    }
+    def _build_portfolio_variables(
+        self,
+        portfolio_name: str,
+        equipments: dict[str, list[type[Equipment]]],
+        times: list[DateTime],
+    ):
+        """Build portfolio-level optimization variables."""
 
-    for obj in equipments:
-        op_time_frame = MAPPING_STORAGE_TYPE_OPTIMISATION_TIMES[obj.storage_type]["op_time_frame"]
-        for _, time in enumerate(op_time_frame):
-            min_power = get_minimum_power(obj, time)
-            max_power = get_maximum_power(obj, time)
-            maximum_energy = get_maximum_energy(time)
-            maximum_automated = obj.maximum_afrr + obj.maximum_fcr
-            nbr_fragment = MAPPING_STORAGE_TYPE_OPTIMISATION_TIMES[obj.storage_type]["fragment"]
+        for time in times:
+            residual_energy = self._compute_residual_energy(equipments, time)
+            maximum_power, maximum_energy = self._compute_power_and_energy(equipments, time)
+            self._add_imbalance_variables(portfolio_name, time, residual_energy, maximum_energy)
+            self._add_contract_difference_variables(portfolio_name, time, maximum_power)
 
-            model.add_continuous_variable(
-                name=f"{obj.name}_power_level_sell_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
+    def _build_hydro_variables(self, equipments: list[Hydro]):
+        """Build variables for hydro equipment."""
+        for obj in equipments:
+            for time in self.parameters.hydraulic_op_times:
+                min_power = get_minimum_power(obj, time)
+                max_power = get_maximum_power(obj, time)
+                max_energy = get_maximum_energy(obj, time)
+                maximum_automated = get_maximum_automated(obj)
 
-            model.add_continuous_variable(
-                name=f"{obj.name}_power_level_buy_{time}",
-                lower_bound=min_power,
-                upper_bound=0,
-            )
-
-            model.add_boolean_variable(
-                name=f"{obj.name}_is_sell_{time}",
-            )
-
-            model.add_continuous_variable(
-                name=f"{obj.name}_stored_energy_{time}",
-                lower_bound=obj.minimum_state_of_charge.get_value(time) * maximum_energy,
-                upper_bound=maximum_energy,
-            )
-
-            for n in range(0, nbr_fragment):
-                model.add_continuous_variable(
-                    name=f"{obj.name}_power_level_sell_n_{n}_time_{time}",
+                # Basic variables
+                self.model.add_continuous_variable(
+                    name=f"{obj.name}_power_level_{time}",
                     lower_bound=0,
                     upper_bound=max_power,
                 )
-                model.add_continuous_variable(
-                    name=f"{obj.name}_power_level_buy_n_{n}_time_{time}",
+                self.model.add_continuous_variable(
+                    name=f"{obj.name}_stored_energy_{time}",
+                    lower_bound=0,
+                    upper_bound=max_energy,
+                )
+
+                add_variable_fragment(obj, time, self.parameters, self.model)
+
+                # Reserve variables
+                self._add_reserve_variables(obj.name, time, min_power, max_power, maximum_automated)
+
+    def _build_solar_wind_variables(self, equipments: list[Solar | Wind]):
+        """Build variables for solar and wind equipment."""
+        for obj in equipments:
+            for time in self.parameters.target_times:
+                max_power = get_maximum_power(obj, time)
+                min_power = get_minimum_power(obj, time)
+                maximum_automated = obj.maximum_afrr + obj.maximum_fcr
+
+                self.model.add_continuous_variable(
+                    name=f"{obj.name}_power_level_{time}",
+                    lower_bound=0,
+                    upper_bound=max_power,
+                )
+
+                self._add_reserve_variables(obj.name, time, min_power, max_power, maximum_automated)
+
+    def _build_storage_variables(self, equipments: list[Storage]):
+        """Build variables for storage equipment."""
+        storage_mapping = {
+            StorageType.BATTERY: {
+                "op_time_frame": self.parameters.battery_op_times,
+                "fragment": self.parameters.battery_number_of_fragments,
+            },
+            StorageType.PUMPED_HYDRAULIC_STORAGE: {
+                "op_time_frame": self.parameters.phs_op_times,
+                "fragment": self.parameters.pumped_hydraulic_number_of_fragments,
+            },
+            StorageType.ELECTRIC_VEHICLE: {
+                "op_time_frame": self.parameters.ev_op_times,
+                "fragment": self.parameters.electric_vehicle_number_of_fragments,
+            },
+        }
+
+        for obj in equipments:
+            op_time_frame = storage_mapping[obj.storage_type]["op_time_frame"]
+            nbr_fragment = storage_mapping[obj.storage_type]["fragment"]
+
+            for time in op_time_frame:
+                min_power = get_minimum_power(obj, time)
+                max_power = get_maximum_power(obj, time)
+                maximum_energy = get_maximum_energy(time)
+                maximum_automated = obj.maximum_afrr + obj.maximum_fcr
+
+                # Basic storage variables
+                self.model.add_continuous_variable(
+                    name=f"{obj.name}_power_level_sell_{time}",
+                    lower_bound=0,
+                    upper_bound=max_power,
+                )
+                self.model.add_continuous_variable(
+                    name=f"{obj.name}_power_level_buy_{time}",
                     lower_bound=min_power,
                     upper_bound=0,
                 )
+                self.model.add_boolean_variable(
+                    name=f"{obj.name}_is_sell_{time}",
+                )
+                self.model.add_continuous_variable(
+                    name=f"{obj.name}_stored_energy_{time}",
+                    lower_bound=obj.minimum_state_of_charge.get_value(time) * maximum_energy,
+                    upper_bound=maximum_energy,
+                )
 
-            model.add_continuous_variable(
-                name=f"reserves_up_e_{obj.name}_at_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"reserves_down_e_{obj.name}_at_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"unprovided_reserves_up_e_{obj.name}_at_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"unprovided_reserves_down_e_{obj.name}_at_{time}",
-                lower_bound=min_power,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"automated_reserves_up_e_{obj.name}_at_{time}",
-                lower_bound=0,
-                upper_bound=maximum_automated,
-            )
-            model.add_continuous_variable(
-                name=f"automated_reserves_down_e_{obj.name}_at_{time}",
-                lower_bound=-maximum_automated,
-                upper_bound=maximum_automated,
-            )
+                # Fragment variables
+                for n in range(nbr_fragment):
+                    self.model.add_continuous_variable(
+                        name=f"{obj.name}_power_level_sell_n_{n}_time_{time}",
+                        lower_bound=0,
+                        upper_bound=max_power,
+                    )
+                    self.model.add_continuous_variable(
+                        name=f"{obj.name}_power_level_buy_n_{n}_time_{time}",
+                        lower_bound=min_power,
+                        upper_bound=0,
+                    )
 
+                # Reserve variables for storage
+                self._add_storage_reserve_variables(obj.name, time, min_power, max_power, maximum_automated)
 
-def add_variables_load(
-    time: DateTime,
-    equipments: list[Load],
-    model: OptimisationModel,
-    parameters: PortfolioOptimisationParameters,
-):
-    for obj in equipments:
-        for _, time in enumerate(parameters.target_times):
-            max_power = get_maximum_power(obj, time, parameters.execution_date)
+    def _build_load_variables(self, equipments: list[Load]):
+        """Build variables for load equipment."""
+        for obj in equipments:
+            for time in self.parameters.target_times:
+                max_power = get_maximum_power(obj, time, self.parameters.execution_date)
 
-            model.add_continuous_variable(
-                f"{obj.name}_power_level_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
+                self.model.add_continuous_variable(
+                    f"{obj.name}_power_level_{time}",
+                    lower_bound=0,
+                    upper_bound=max_power,
+                )
 
+    def _add_reserve_variables(
+        self, name: str, time: DateTime, min_power: float, max_power: float, maximum_automated: float
+    ):
+        """Add reserve variables for solar/wind equipment (with 'at' in name)."""
+        self.model.add_continuous_variable(
+            name=f"reserves_up_{name}_{time}",
+            lower_bound=0,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"reserves_down_{name}_{time}",
+            lower_bound=min_power,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"unprovided_reserves_up_{name}_{time}",
+            lower_bound=0,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"unprovided_reserves_down_{name}_{time}",
+            lower_bound=min_power,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"automated_reserves_up_{name}_{time}",
+            lower_bound=0,
+            upper_bound=maximum_automated,
+        )
+        self.model.add_continuous_variable(
+            name=f"automated_reserves_down_{name}_{time}",
+            lower_bound=0,
+            upper_bound=maximum_automated,
+        )
+        self.model.add_continuous_variable(
+            name=f"contracted_diff_up_{name}_{time}",
+            lower_bound=0,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"contracted_diff_down_{name}_{time}",
+            lower_bound=min_power,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"automated_contracted_diff_up_{name}_{time}",
+            lower_bound=0,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"automated_contracted_diff_down_{name}_{time}",
+            lower_bound=min_power,
+            upper_bound=max_power,
+        )
 
-def add_variables_portfolio(
-    portfolio_name: str,
-    equipments: dict[str, list[type[Equipment]]],
-    times: list[DateTime],
-    parameters: PortfolioOptimisationParameters,
-    model: OptimisationModel,
-):
-    """Add optimization variables for portfolio management."""
-    sum_maximum_energy = 0
+        self.model.add_continuous_variable(
+            name=f"relaxed_reserves_{name}_{time}",
+            lower_bound=min_power,
+            upper_bound=0,
+        )
 
-    residual_energy = {}
-    reserve_up = {}
-    reserve_down = {}
-    automated_reserve_up = {}
-    automated_reserve_down = {}
+    def _add_storage_reserve_variables(
+        self, name: str, time: DateTime, min_power: float, max_power: float, maximum_automated: float
+    ):
+        """Add reserve variables for storage equipment."""
+        self.model.add_continuous_variable(
+            name=f"reserves_up_e_{name}_at_{time}",
+            lower_bound=0,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"reserves_down_e_{name}_at_{time}",
+            lower_bound=min_power,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"unprovided_reserves_up_e_{name}_at_{time}",
+            lower_bound=0,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"unprovided_reserves_down_e_{name}_at_{time}",
+            lower_bound=min_power,
+            upper_bound=max_power,
+        )
+        self.model.add_continuous_variable(
+            name=f"automated_reserves_up_e_{name}_at_{time}",
+            lower_bound=0,
+            upper_bound=maximum_automated,
+        )
+        self.model.add_continuous_variable(
+            name=f"automated_reserves_down_e_{name}_at_{time}",
+            lower_bound=-maximum_automated,
+            upper_bound=maximum_automated,
+        )
 
-    for idx, time in enumerate(times):
-        sum_residual_energy = 0
+    def _compute_residual_energy(
+        self, equipments: dict[str, list[type[Equipment]]], time: DateTime
+    ) -> dict[DateTime, float]:
+        """Compute residual energy metrics for all times."""
+
+        residual_energy = self._compute_non_dispatchable_production_residual_energy(
+            equipments.get("non_dispatchable_production", []), time
+        )
+        residual_energy += self._compute_non_dispatchable_load_residual_energy(
+            equipments.get("non_dispatchable_load", []), time
+        )
+        residual_energy += self._compute_dispatchable_residual_energy(equipments, time)
+        residual_energy[time] = residual_energy
+
+        return residual_energy
+
+    def _compute_power_and_energy(
+        self,
+        equipments: dict[str, list[type[Equipment]]],
+        time: DateTime,
+    ) -> tuple[float, float]:
+        """Compute maximum power and energy metrics for all times."""
+        sum_maximum_power = 0
+        sum_max_energy = 0
+        equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
+
+        for equipment_type in equipment_types:
+            for obj in equipments.get(equipment_type, []):
+                power = get_maximum_power(obj, time, self.parameters.execution_date)
+                sum_maximum_power += power
+                sum_max_energy += abs(power)
+
+        return sum_maximum_power, sum_max_energy
+
+    def _compute_reserves_metrics(
+        self,
+        equipments: dict[str, list[type[Equipment]]],
+        times: list[DateTime],
+    ) -> tuple[dict, dict, dict, dict]:
+        """Compute reserve metrics for all times (if needed elsewhere)."""
+        reserve_up = {}
+        reserve_down = {}
+        automated_reserve_up = {}
+        automated_reserve_down = {}
+
+        for time in times:
+            (
+                sum_reserves_up,
+                sum_reserves_down,
+                sum_automated_reserves_up,
+                sum_automated_reserves_down,
+                _,  # maximum_power not needed here
+                _,  # maximum_energy not needed here
+            ) = self._compute_reserves_and_power_for_time(equipments, time)
+
+            reserve_up[time] = sum_reserves_up
+            reserve_down[time] = sum_reserves_down
+            automated_reserve_up[time] = sum_automated_reserves_up
+            automated_reserve_down[time] = sum_automated_reserves_down
+
+        return reserve_up, reserve_down, automated_reserve_up, automated_reserve_down
+
+    def _compute_reserves_and_power_for_time(
+        self,
+        equipments: dict[str, list[type[Equipment]]],
+        time: DateTime,
+    ) -> tuple[float, float, float, float, float, float]:
+        """Compute reserves and power metrics for a specific time."""
         sum_reserves_up = 0
         sum_reserves_down = 0
         sum_automated_reserves_up = 0
         sum_automated_reserves_down = 0
         sum_maximum_power = 0
+        sum_maximum_energy = 0
 
-        # Process non-dispatchable productions
-        sum_residual_energy = _process_non_dispatchable_production(
-            equipments["non_dispatchable_production"],
-            idx,
-            time,
-            parameters,
-            sum_residual_energy,
-        )
+        equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
 
-        # Process non-dispatchable loads
-        sum_residual_energy = _process_non_dispatchable_loads(
-            equipments["non_dispatchable_load"],
-            idx,
-            time,
-            parameters,
-            sum_residual_energy,
-        )
+        for equipment_type in equipment_types:
+            for obj in equipments.get(equipment_type, []):
+                sum_maximum_power += get_maximum_power(obj, time, self.parameters.execution_date)
+                sum_maximum_energy += abs(get_maximum_power(obj, time, self.parameters.execution_date))
 
-        # Process all equipment types that need reserve calculations
-        reserve_data, sum_maximum_energy = _process_equipment_with_reserves(
-            equipments,
-            idx,
-            time,
-            parameters,
-            sum_residual_energy,
+                (
+                    sum_reserves_up,
+                    sum_reserves_down,
+                    sum_automated_reserves_up,
+                    sum_automated_reserves_down,
+                    sum_maximum_power,
+                ) = get_reserve(
+                    obj,
+                    sum_reserves_up,
+                    sum_reserves_down,
+                    sum_automated_reserves_up,
+                    sum_automated_reserves_down,
+                    sum_maximum_power,
+                    time,
+                    self.parameters,
+                )
+
+        return (
             sum_reserves_up,
             sum_reserves_down,
             sum_automated_reserves_up,
@@ -344,169 +396,118 @@ def add_variables_portfolio(
             sum_maximum_energy,
         )
 
-        sum_residual_energy, sum_reserves_up, sum_reserves_down = reserve_data[:3]
-        sum_automated_reserves_up, sum_automated_reserves_down, sum_maximum_power = reserve_data[3:]
+    def _compute_dispatchable_residual_energy(
+        self,
+        equipments: dict[str, list[type[Equipment]]],
+        time: DateTime,
+    ) -> float:
+        """Compute residual energy for dispatchable equipment."""
+        residual_energy = 0
+        equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
 
-        # Store values for current time
-        residual_energy[time] = sum_residual_energy
-        reserve_up[time] = sum_reserves_up
-        reserve_down[time] = sum_reserves_down
-        automated_reserve_up[time] = sum_automated_reserves_up
-        automated_reserve_down[time] = sum_automated_reserves_down
+        for equipment_type in equipment_types:
+            for obj in equipments.get(equipment_type, []):
+                upstream_energy = self._get_upstream_energy(obj, time)
+                residual_energy += upstream_energy
 
-        _add_optimization_variables(
-            portfolio_name, times, sum_maximum_energy, sum_residual_energy, sum_maximum_power, parameters, model
-        )
+        return residual_energy
 
+    def _compute_non_dispatchable_production_residual_energy(
+        self,
+        equipments: list[OtherNonDispatchable],
+        time: DateTime,
+    ) -> float:
+        """Compute non-dispatchable production equipment residual energy"""
+        residual_energy = 0
 
-def _process_non_dispatchable_production(
-    equipments: list[OtherNonDispatchable],
-    time: DateTime,
-    parameters: PortfolioOptimisationParameters,
-    sum_residual_energy: float,
-) -> float:
-    """Process non-dispatchable production equipment."""
-    for obj in equipments:
-        last_forecast_ti = obj.maximum_power_forecast.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
-        ).get_value(time)
+        for obj in equipments:
+            last_forecast_ti = obj.maximum_power_forecast.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+            ).get_value(time)
 
-        upstream_sold_energy = _get_upstream_energy(obj, time, parameters)
-        optimal_dispatch = min(last_forecast_ti, upstream_sold_energy)
-        sum_residual_energy += upstream_sold_energy - optimal_dispatch
+            upstream_sold_energy = self._get_upstream_energy(obj, time)
+            optimal_dispatch = min(last_forecast_ti, upstream_sold_energy)
+            residual_energy += upstream_sold_energy - optimal_dispatch
 
-    return sum_residual_energy
+        return residual_energy
 
+    def _compute_non_dispatchable_load_residual_energy(
+        self,
+        equipments: list[Load],
+        time: DateTime,
+    ) -> float:
+        """Compute non-dispatchable load equipment residual energy"""
+        residual_energy = 0
 
-def _process_non_dispatchable_loads(
-    equipments: list[Load],
-    time: DateTime,
-    parameters: PortfolioOptimisationParameters,
-    sum_residual_energy: float,
-) -> float:
-    """Process non-dispatchable load equipment."""
-    for obj in equipments:
-        last_forecast_ti = obj.maximum_power_forecast.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
-        ).get_value(time)
+        for obj in equipments:
+            last_forecast_ti = obj.maximum_power_forecast.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+            ).get_value(time)
 
-        upstream_bought_energy = _get_upstream_energy(obj, time, parameters)
-        optimal_dispatch = min(last_forecast_ti, upstream_bought_energy)
-        sum_residual_energy += upstream_bought_energy - optimal_dispatch
+            upstream_bought_energy = self._get_upstream_energy(obj, time)
+            optimal_dispatch = min(last_forecast_ti, upstream_bought_energy)
+            residual_energy += upstream_bought_energy - optimal_dispatch
 
-    return sum_residual_energy
+        return residual_energy
 
+    def _get_upstream_energy(self, obj: type[Equipment], time: DateTime) -> float:
+        """Get upstream energy (bought or sold) based on market type."""
+        if self.parameters.market == MarketEnum.rr_activation:
+            return obj.rr_activated.get_value(time)
+        elif self.parameters.market == MarketEnum.mfrr_activation:
+            return obj.mfrr_activated.get_value(time)
+        else:
+            return obj.total_id_cleared_quantity.get_value(time) + obj.da_cleared_quantity.get_value(time)
 
-def _get_upstream_energy(obj: type[Equipment], time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
-    """Get upstream energy (bought or sold) based on market type."""
-    if parameters.market == MarketEnum.rr_activation:
-        return obj.rr_activated.get_value(time)
-    elif parameters.market == MarketEnum.mfrr_activation:
-        return obj.mfrr_activated.get_value(time)
-    else:
-        return obj.total_id_cleared_quantity.get_value(time) + obj.da_cleared_quantity.get_value(time)
+    def _add_imbalance_variables(
+        self,
+        portfolio_name: str,
+        time: DateTime,
+        residual_energy: float,
+        maximum_energy: float,
+    ):
+        """Add imbalance variables to the optimization model."""
+        small_imbalance_limit = maximum_energy * self.parameters.small_imbalance_size
+        max_overall_imbal = max(residual_energy * self.parameters.maximum_imbalance)
 
-
-def _process_equipment_with_reserves(
-    equipments: dict[str, list[type[Equipment]]],
-    idx: int,
-    time: DateTime,
-    parameters: PortfolioOptimisationParameters,
-    sum_residual_energy: float,
-    sum_reserves_up: float,
-    sum_reserves_down: float,
-    sum_automated_reserves_up: float,
-    sum_automated_reserves_down: float,
-    sum_maximum_power: float,
-    sum_maximum_energy: float,
-) -> tuple:
-    """Process equipment types that require reserve calculations."""
-    equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
-
-    for equipment_type in equipment_types:
-        for obj in equipments[equipment_type]:
-            # Add upstream energy to residual
-            upstream_energy = _get_upstream_energy(obj, time, parameters)
-            sum_residual_energy += upstream_energy
-            sum_maximum_power += get_maximum_power(obj, time, parameters.execution_date)
-
-            (
-                sum_reserves_up,
-                sum_reserves_down,
-                sum_automated_reserves_up,
-                sum_automated_reserves_down,
-                sum_maximum_power,
-            ) = get_reserve(
-                obj,
-                sum_reserves_up,
-                sum_reserves_down,
-                sum_automated_reserves_up,
-                sum_automated_reserves_down,
-                sum_maximum_power,
-                time,
-                parameters,
-            )
-            # Update max energy total on first iteration
-            if idx == 0:
-                sum_maximum_energy += abs(get_maximum_power(obj, time))
-
-    return (
-        sum_residual_energy,
-        sum_reserves_up,
-        sum_reserves_down,
-        sum_automated_reserves_up,
-        sum_automated_reserves_down,
-        sum_maximum_power,
-    ), sum_maximum_energy
-
-
-def _add_optimization_variables(
-    portfolio_name: str,
-    time: DateTime,
-    sum_maximum_energy: float,
-    sum_residual_enery: dict,
-    max_power: dict,
-    parameters: PortfolioOptimisationParameters,
-    model: OptimisationModel,
-):
-    """Add optimization variables to the model."""
-
-    small_imbalance_limit = sum_maximum_energy * parameters.small_imbalance_size
-    max_overall_imbal = max(sum_residual_enery * parameters.maximum_imbalance)
-
-    # Imbalance variables
-    model.add_continuous_variable(
-        name=f"{portfolio_name}_small_imbalance_up_{time}",
-        lower_bound=0,
-        upper_bound=small_imbalance_limit,
-    )
-    model.add_continuous_variable(
-        name=f"{portfolio_name}_large_imbalance_up_{time}",
-        lower_bound=0,
-        upper_bound=max_overall_imbal,
-    )
-    model.add_continuous_variable(
-        name=f"{portfolio_name}_small_imbalance_down_{time}",
-        lower_bound=0,
-        upper_bound=small_imbalance_limit,
-    )
-    model.add_continuous_variable(
-        name=f"{portfolio_name}_large_imbalance_down_{time}",
-        lower_bound=0,
-        upper_bound=max_overall_imbal,
-    )
-
-    # Contract difference variables
-    contract_vars = [
-        "contracted_diff_up",
-        "contracted_diff_down",
-        "auto_contracted_diff_up",
-        "auto_contracted_diff_down",
-    ]
-
-    for var_type in contract_vars:
-        model.add_continuous_variable(
-            name=f"{var_type}_{portfolio_name}_{time}",
+        self.model.add_continuous_variable(
+            name=f"{portfolio_name}_small_imbalance_up_{time}",
             lower_bound=0,
-            upper_bound=max_power[time],
+            upper_bound=small_imbalance_limit,
         )
+        self.model.add_continuous_variable(
+            name=f"{portfolio_name}_small_imbalance_down_{time}",
+            lower_bound=0,
+            upper_bound=small_imbalance_limit,
+        )
+        self.model.add_continuous_variable(
+            name=f"{portfolio_name}_large_imbalance_up_{time}",
+            lower_bound=0,
+            upper_bound=max_overall_imbal,
+        )
+        self.model.add_continuous_variable(
+            name=f"{portfolio_name}_large_imbalance_down_{time}",
+            lower_bound=0,
+            upper_bound=max_overall_imbal,
+        )
+
+    def _add_contract_difference_variables(
+        self,
+        portfolio_name: str,
+        time: DateTime,
+        maximum_power: float,
+    ):
+        """Add contract difference variables to the optimization model."""
+        contract_vars = [
+            "contracted_diff_up",
+            "contracted_diff_down",
+            "auto_contracted_diff_up",
+            "auto_contracted_diff_down",
+        ]
+
+        for var_type in contract_vars:
+            self.model.add_continuous_variable(
+                name=f"{var_type}_{portfolio_name}_{time}",
+                lower_bound=0,
+                upper_bound=maximum_power,
+            )
