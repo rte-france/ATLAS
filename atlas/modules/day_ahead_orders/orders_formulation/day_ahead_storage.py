@@ -420,13 +420,18 @@ class DayAheadStorage:
         # This is indicated by StoredEnergy, but one should be careful here
         # The idea is to verify that there is a value in StoredEnergy "not too long" before start_date,
         # and we arbitrarily choose to look as far as two days before to verify this. Assumption could be discussed.
-        energy_forecast = equipment.stored_energy.get_forecast(
-            parameters.execution_date,
-            parameters.start_date.subtract(days=2),
-            parameters.start_date.subtract(minutes=parameters.time_step),
-        )
-        if len(energy_forecast) == 0:
+        if equipment.stored_energy is None:
             initial_stock = equipment.storage_initial_level * equipment.maximum_energy.get_value(parameters.start_date)
         else:
-            initial_stock = energy_forecast.get_value(parameters.start_date.subtract(parameters.time_step))
+            energy_forecast = equipment.stored_energy.get_forecast(
+                parameters.execution_date,
+                parameters.start_date.subtract(days=2),
+                parameters.start_date.subtract(minutes=parameters.time_step),
+            )
+            if len(energy_forecast) == 0:
+                initial_stock = equipment.storage_initial_level * equipment.maximum_energy.get_value(
+                    parameters.start_date
+                )
+            else:
+                initial_stock = energy_forecast.get_value(parameters.start_date.subtract(parameters.time_step))
         return initial_stock
