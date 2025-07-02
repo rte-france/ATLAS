@@ -788,7 +788,7 @@ class Timeseries:
         :return: The Timeseries sum value
         :rtype: float or None
         """
-        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+        if len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].sum())
         return None
 
