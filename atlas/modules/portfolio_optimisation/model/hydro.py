@@ -49,11 +49,16 @@ def add_constraints_hydro(
             max_power = get_maximum_power(obj, time)
             min_power = get_minimum_power(obj, time)
 
-            model.add_constraint(obj.relaxed_reserves[time] <= min_power)
-            model.add_constraint(obj.automated_reserves_up[time] <= get_maximum_automated(obj))
-            model.add_constraint(obj.automated_reserves_down[time] <= get_maximum_automated(obj))
-            model.add_constraint(obj.reserves_up[time] <= max_power)
-            model.add_constraint(obj.reserves_down[time] <= max_power)
+            # model.add_constraint(obj.relaxed_reserves[time] <= min_power)
+            model.add_constraint(model.get_variable(f"relaxed_reserves_{obj.name}_{time}") <= min_power)
+            model.add_constraint(
+                model.get_variable(f"automated_reserves_up_{obj.name}_{time}") <= get_maximum_automated(obj)
+            )
+            model.add_constraint(
+                model.get_variable(f"automated_reserves_up_{obj.name}_{time}") <= get_maximum_automated(obj)
+            )
+            model.add_constraint(model.get_variable(f"reserves_up_{obj.name}_{time}") <= max_power)
+            model.add_constraint(model.get_variable(f"reserves_up_{obj.name}_{time}") <= max_power)
 
         # --- Reservoir constraints
         stored_energy_var = model.get_variable(f"{obj.name}_stored_energy_{time}")

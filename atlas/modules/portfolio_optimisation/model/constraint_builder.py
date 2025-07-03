@@ -77,12 +77,12 @@ class ConstraintBuilder:
                 )
 
         # Thermal constraints
-        if time in optimization_times.get("thermal_op_times", []):
-            add_constraints_thermal(
-                time,
-                portfolio["thermal"],
-                model,
-            )
+        # if time in optimization_times.get("thermal_op_times", []):
+        #     add_constraints_thermal(
+        #         time,
+        #         portfolio["thermal"],
+        #         model,
+        #     )
 
         # Hydraulic constraints
         if time in optimization_times.get("hydraulic_op_times", []):
