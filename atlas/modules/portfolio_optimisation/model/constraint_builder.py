@@ -56,7 +56,7 @@ class ConstraintBuilder:
         )
 
         if time in self.parameters.target_times:
-            self._add_global_constraints(time, portfolio_name, model, power_level_variables)
+            self._add_global_constraints(time, portfolio_name, portfolio, model)
 
     def _add_equipment_constraints(
         self,
