@@ -254,7 +254,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
 
     @property
     def storage_mapping(self):
-        storage_mapping: dict[StorageType, dict[str, list[DateTime | int]]] = {
+        storage_mapping: dict[StorageType, dict[str, list[DateTime] | int | float]] = {
             StorageType.BATTERY: {
                 "optimisation_times": self.battery_op_times,
                 "nb_fragment": self.battery_number_of_fragments,

@@ -46,25 +46,27 @@ def get_variable_cost_forecast(
 
 
 def get_reserve(
-    obj,
+    obj: type[Equipment],
     sum_reserves_up: float,
     sum_reserves_down: float,
     sum_automated_reserves_up: float,
     sum_automated_reserves_down: float,
     sum_maximum_power: float,
+    time: DateTime,
+    parameters: PortfolioOptimisationParameters,
 ) -> tuple[float, float, float, float, float]:
     """Calculate reserve values for equipment object."""
     maximum_afrr = obj.maximum_afrr
     maximum_fcr = obj.maximum_fcr
 
-    afrr_up = get_reserve_value("afrr_up")
-    afrr_down = get_reserve_value("afrr_down")
-    mfrr_up = get_reserve_value("mfrr_up")
-    mfrr_down = get_reserve_value("mfrr_down")
-    rr_up = get_reserve_value("rr_up")
-    rr_down = get_reserve_value("rr_down")
-    fcr_up = get_reserve_value("fcr_up")
-    fcr_down = get_reserve_value("fcr_down")
+    afrr_up = get_reserve_value(obj, time, "afrr_up", parameters)
+    afrr_down = get_reserve_value(obj, time, "afrr_down", parameters)
+    mfrr_up = get_reserve_value(obj, time, "mfrr_up", parameters)
+    mfrr_down = get_reserve_value(obj, time, "mfrr_down", parameters)
+    rr_up = get_reserve_value(obj, time, "rr_up", parameters)
+    rr_down = get_reserve_value(obj, time, "rr_down", parameters)
+    fcr_up = get_reserve_value(obj, time, "fcr_up", parameters)
+    fcr_down = get_reserve_value(obj, time, "fcr_down", parameters)
 
     # Calculate reserve totals
     sum_reserves_up += rr_up + mfrr_up
