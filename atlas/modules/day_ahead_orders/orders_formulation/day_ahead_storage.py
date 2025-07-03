@@ -63,8 +63,8 @@ class DayAheadStorage:
         for t in model.time_frame:
             if t >= parameters.end_date:
                 break
-            Qvv[t] = round(model.Qv[t].VarValue, 2)
-            Qaa[t] = round(model.Qa[t].VarValue, 2)
+            Qvv[t] = round(model.Qv[t].solution_value(), 2)
+            Qaa[t] = round(model.Qa[t].solution_value(), 2)
 
         return Qvv, Qaa
 
@@ -116,8 +116,8 @@ class DayAheadStorage:
         for t in model.time_frame:
             if t >= parameters.end_date:
                 break
-            Qvv[t] = round(model.Qv[t].VarValue, 2)
-            Qaa[t] = round(model.Qa[t].VarValue, 2)
+            Qvv[t] = round(model.Qv[t].solution_value(), 2)
+            Qaa[t] = round(model.Qa[t].solution_value(), 2)
 
         return Qvv, Qaa
 
@@ -259,11 +259,13 @@ class DayAheadStorage:
             # Determine sale and purchase prices
             Psale, Ppurchase = DayAheadStorage.price_calculation(equipment, Qv, Qa, parameters)
 
-            # Store Ppurchase as price reference in VariableCost, in the outputMarker.
+            # Store Ppurchase as price reference in variable_cost, in the dataset.
             # Psale can then be deduced from Ppurchase, Charge and and Discharge efficiency
+            if equipment.variable_cost is None:
+                equipment.variable_cost = Timeseries(None)
             if Ppurchase != 0:
                 equipment.variable_cost.set_value(parameters.start_date, round(Ppurchase, 2))
-                equipment.VariableCost.set_value(
+                equipment.variable_cost.set_value(
                     parameters.end_date.subtract(minutes=parameters.time_step), round(Ppurchase, 2)
                 )
             elif equipment.discharge_efficiency != 0 and equipment.charge_efficiency != 0:
@@ -295,7 +297,8 @@ class DayAheadStorage:
                 coupling_instance = OrderCoupling(
                     name="COMPLEMENT_DA_{}_{}".format(
                         equipment.name, Utilities.get_date_to_clean_string(parameters.execution_date)
-                    )
+                    ),
+                    orders=[],
                 )
                 coupling_instance.coupling_type = CouplingType.COMPLEMENT
                 coupling_instance.complement_direction = ComplementDirection.EqualTo
@@ -333,7 +336,8 @@ class DayAheadStorage:
                 coupling_instance = OrderCoupling(
                     name="COMPLEMENT_DA_{}_{}".format(
                         equipment.name, Utilities.get_date_to_clean_string(parameters.execution_date)
-                    )
+                    ),
+                    orders=[],
                 )
 
                 for t in [i for i, e in Qa.items() if e != 0]:
