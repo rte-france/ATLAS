@@ -13,6 +13,7 @@ from pydantic import Field
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.enum import StorageType
 from atlas.timing import generate_datetimes
 
 
@@ -250,3 +251,24 @@ class PortfolioOptimisationParameters(AbstractParameters):
     def init_battery_time(self) -> DateTime:
         """Datetime for the initial battery state (start_date - timestep)."""
         return self.start_date - self.timestep
+
+    @property
+    def storage_mapping(self):
+        storage_mapping: dict[StorageType, dict[str, list[DateTime | int]]] = {
+            StorageType.BATTERY: {
+                "optimisation_times": self.battery_op_times,
+                "nb_fragment": self.battery_number_of_fragments,
+                "smoothing_factor": self.battery_smoothing_factor,
+            },
+            StorageType.PUMPED_HYDRAULIC_STORAGE: {
+                "optimisation_times": self.phs_op_times,
+                "nb_fragment": self.pumped_hydraulic_number_of_fragments,
+                "smoothing_factor": self.pumped_hydraulic_smoothing_factor,
+            },
+            StorageType.ELECTRIC_VEHICLE: {
+                "optimisation_times": self.ev_op_times,
+                "nb_fragment": self.electric_vehicle_number_of_fragments,
+                "smoothing_factor": self.electric_vehicle_smoothing_factor,
+            },
+        }
+        return storage_mapping

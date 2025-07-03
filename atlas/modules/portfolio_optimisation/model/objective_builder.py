@@ -2,7 +2,7 @@ from typing import Any
 
 from pendulum import DateTime
 
-from atlas.enum import LoadType, StorageType
+from atlas.enum import LoadType
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.solar import Solar
@@ -170,7 +170,7 @@ class ObjectiveFunctionBuilder:
         self,
         model: OptimisationModel,
         time: DateTime,
-        storage_equipments: dict[str, list[Storage]],
+        storage_equipments: list[Storage],
         price_forecast: float,
     ):
         for obj in storage_equipments:
@@ -179,12 +179,7 @@ class ObjectiveFunctionBuilder:
 
             if max(obj.maximum_energy.values()) <= 0:
                 continue
-            if obj.storage_type == StorageType.BATTERY:
-                local_op_times = self.parameters.battery_op_times
-            elif obj.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-                local_op_times = self.parameters.phs_op_times
-            elif obj.storage_type == StorageType.ELECTRIC_VEHICLE:
-                local_op_times = self.parameters.ev_op_times
+            local_op_times = self.parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
 
             if time not in local_op_times:
                 continue
@@ -193,28 +188,19 @@ class ObjectiveFunctionBuilder:
                 price_forecast * (power_level_buy_var + power_level_sell_var) * self.parameters.timestep
             )
             if time not in self.parameters.target_times:
-                if obj.storage_type == StorageType.BATTERY:
-                    nbr_fragment = self.parameters.battery_nb_fragments
-                    smoothing_factor = self.parameters.battery_smoothing_factor
+                smoothing_factor = self.parameters.storage_mapping[obj.storage_type]["smoothing_factor"]
+                nb_fragment = self.parameters.storage_mapping[obj.storage_type]["nb_fragment"]
+                for n in range(0, nb_fragment):
+                    power_level_sell_n_var = model.get_variable(f"{obj.name}_power_level_sell_n_{n}_time_{time}")
+                    power_level_buy_n_var = model.get_variable(f"{obj.name}_power_level_buy_n_{n}_time_{time}")
 
-                elif obj.storage_type == StorageType.ELECTRIC_VEHICLE:
-                    nbr_fragment = self.parameters.ev_nb_fragments
-                    smoothing_factor = self.parameters.ev_smoothing_factor
-
-                else:
-                    nbr_fragment = self.parameters.phs_nb_fragments
-                    smoothing_factor = self.parameters.phs_smoothing_factor
-            for n in range(0, nbr_fragment):
-                power_level_sell_n_var = model.get_variable(f"{obj.name}_power_level_sell_n_{n}_time_{time}")
-                power_level_buy_n_var = model.get_variable(f"{obj.name}_power_level_buy_n_{n}_time_{time}")
-
-                # The objective function is the total profit over the optimisation period
-                if nbr_fragment == 1 and n == 0:
-                    model.add_objective(
-                        -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast
-                    )
-                else:
-                    model.add_objective(
-                        -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nbr_fragment - 1))
-                        - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nbr_fragment - 1))
-                    )
+                    # The objective function is the total profit over the optimisation period
+                    if nb_fragment == 1 and n == 0:
+                        model.add_objective(
+                            -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast
+                        )
+                    else:
+                        model.add_objective(
+                            -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
+                            - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1))
+                        )

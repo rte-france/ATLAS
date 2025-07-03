@@ -41,13 +41,8 @@ def add_contraints_storage(
         if max(obj.maximum_energy.values()) <= 0:
             continue
 
-        if obj.storage_type == StorageType.BATTERY:
-            local_op_times = parameters.battery_op_times
-        elif obj.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-            local_op_times = parameters.phs_op_times
-        elif obj.storage_type == StorageType.ELECTRIC_VEHICLE:
-            local_op_times = parameters.ev_op_times
-        if time not in local_op_times:
+        optimisation_times = parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
+        if time not in optimisation_times:
             continue
 
         # Get max and min power
@@ -56,28 +51,18 @@ def add_contraints_storage(
 
         # For additional period
         if time not in parameters.target_times:
-            if obj.storage_type == StorageType.BATTERY:
-                nbr_fragment = parameters.battery_nb_fragments
-
-            elif obj.storage_type == StorageType.ELECTRIC_VEHICLE:
-                nbr_fragment = parameters.ev_nb_fragments
-
-            else:
-                nbr_fragment = parameters.phs_nb_fragments
-
-            for n in range(0, nbr_fragment):
+            nb_fragment = parameters.storage_mapping[obj.storage_type]["nb_fragment"]
+            for n in range(0, nb_fragment):
                 power_level_sell_n_var = model.get_variable(f"{obj.name}_power_level_sell_n_{n}_time_{time}")
                 power_level_buy_n_var = model.get_variable(f"{obj.name}_power_level_buy_n_{n}_time_{time}")
 
                 # Add constraint related to power fragment
-                model.add_constraint(power_level_buy_n_var >= min_power / nbr_fragment)
-                model.add_constraint(power_level_sell_n_var <= max_power / nbr_fragment)
+                model.add_constraint(power_level_buy_n_var >= min_power / nb_fragment)
+                model.add_constraint(power_level_sell_n_var <= max_power / nb_fragment)
 
-            if nbr_fragment > 0:
-                model.add_constraint(
-                    power_level_sell_var == sum(power_level_sell_n_var for n in range(0, nbr_fragment))
-                )
-                model.add_constraint(power_level_buy_var == sum(power_level_buy_n_var for n in range(0, nbr_fragment)))
+            if nb_fragment > 0:
+                model.add_constraint(power_level_sell_var == sum(power_level_sell_n_var for n in range(0, nb_fragment)))
+                model.add_constraint(power_level_buy_var == sum(power_level_buy_n_var for n in range(0, nb_fragment)))
 
         model.add_constraint(automated_reserves_up_var <= get_maximum_automated(obj))
         model.add_constraint(automated_reserves_down_var <= get_maximum_automated(obj))
@@ -135,7 +120,7 @@ def add_contraints_storage(
                 + (obj.displacement_energy[time] - obj.displacement_energy[prev_time])
             )
 
-        elif time in local_op_times:
+        elif time in optimisation_times:
             model.add_constraint(
                 stored_energy_var
                 == obj.stored_energy[prev_time] * (get_maximum_energy(obj, time) / get_maximum_energy(obj, prev_time))
@@ -156,6 +141,6 @@ def add_contraints_storage(
         # identical between the first and last dates of the optimization period)
         if time == parameters.start_date:
             model.add_constraint(
-                sum(-power_level_buy_var for _ in local_op_times) * obj.charge_efficiency
-                == sum(power_level_sell_var for _ in local_op_times) / obj.discharge_efficiency
+                sum(-power_level_buy_var for _ in optimisation_times) * obj.charge_efficiency
+                == sum(power_level_sell_var for _ in optimisation_times) / obj.discharge_efficiency
             )

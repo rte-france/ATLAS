@@ -1,6 +1,5 @@
 from pendulum import DateTime
 
-from atlas.enum import StorageType
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
@@ -73,16 +72,9 @@ class VariableBuilder:
                     if var is not None:
                         total_power += var
 
-        # Storage equipment - uses different op_time_frames and has buy/sell variables
         if "storage" in equipments:
-            storage_mapping = {
-                StorageType.BATTERY: self.parameters.battery_op_times,
-                StorageType.PUMPED_HYDRAULIC_STORAGE: self.parameters.phs_op_times,
-                StorageType.ELECTRIC_VEHICLE: self.parameters.ev_op_times,
-            }
-
             for obj in equipments["storage"]:
-                op_time_frame = storage_mapping.get(obj.storage_type, [])
+                op_time_frame = self.parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
                 if time in op_time_frame:
                     # Storage has both sell and buy power levels
                     sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
@@ -91,7 +83,7 @@ class VariableBuilder:
                     if sell_var is not None:
                         total_power += sell_var
                     if buy_var is not None:
-                        total_power += buy_var  # buy_var is negative, so this subtracts
+                        total_power += buy_var
 
         return total_power
 
@@ -187,20 +179,6 @@ class VariableBuilder:
 
     def _build_storage_variables(self, model: OptimisationModel, equipments: list[Storage]):
         """Build variables for storage equipment."""
-        storage_mapping: dict[StorageType, dict[str, list[DateTime | int]]] = {
-            StorageType.BATTERY: {
-                "op_time_frame": self.parameters.battery_op_times,
-                "fragment": self.parameters.battery_number_of_fragments,
-            },
-            StorageType.PUMPED_HYDRAULIC_STORAGE: {
-                "op_time_frame": self.parameters.phs_op_times,
-                "fragment": self.parameters.pumped_hydraulic_number_of_fragments,
-            },
-            StorageType.ELECTRIC_VEHICLE: {
-                "op_time_frame": self.parameters.ev_op_times,
-                "fragment": self.parameters.electric_vehicle_number_of_fragments,
-            },
-        }
 
         for obj in equipments:
             op_time_frame: list[DateTime] = storage_mapping[obj.storage_type]["op_time_frame"]
