@@ -23,19 +23,14 @@ class ConstraintBuilder:
         self,
         portfolio: dict[str, list[type[Equipment]]],
         portfolio_name: str,
-        optimization_times: dict[str, list[DateTime]],
+        max_optimisation_times: list[DateTime],
+        optimisation_times: dict[str, list[DateTime]],
         model: OptimisationModel,
     ) -> None:
         """Build all constraints for the optimization problem."""
 
-        max_op_time = self._get_longest_optimization_period(optimization_times)
-
-        for time in max_op_time:
-            self._build_time_constraints(time, portfolio, portfolio_name, model, optimization_times)
-
-    def _get_longest_optimization_period(self, optimization_times: dict[str, list[DateTime]]) -> list[DateTime]:
-        """Get the longest optimization time period."""
-        return max(optimization_times.values(), key=len)
+        for time in max_optimisation_times:
+            self._build_time_constraints(time, portfolio, portfolio_name, model, optimisation_times)
 
     def _build_time_constraints(
         self,
@@ -43,7 +38,7 @@ class ConstraintBuilder:
         portfolio: dict[str, list[type[Equipment]]],
         portfolio_name: str,
         model: OptimisationModel,
-        optimization_times: dict[str, list],
+        optimisation_times: dict[str, list[DateTime]],
     ):
         """Build constraints for a specific time period."""
 
@@ -52,7 +47,7 @@ class ConstraintBuilder:
             time,
             portfolio,
             model,
-            optimization_times,
+            optimisation_times,
         )
 
         if time in self.parameters.target_times:
@@ -70,12 +65,12 @@ class ConstraintBuilder:
         time: DateTime,
         portfolio: dict[str, list[type[Equipment]]],
         model: OptimisationModel,
-        optimization_times: dict[str, list],
+        optimisation_times: dict[str, list[DateTime]],
     ):
         """Add constraints for different equipment types."""
 
         # Wind and PV constraints
-        if time in optimization_times.get("op_times", []):
+        if time in optimisation_times.get("op_times", []):
             for equipments in [portfolio["wind"], portfolio["solar"]]:
                 add_constraints_wind_solar(
                     time,
@@ -84,7 +79,7 @@ class ConstraintBuilder:
                 )
 
         # Thermal constraints
-        # if time in optimization_times.get("thermal_op_times", []):
+        # if time in optimisation_times.get("thermal_op_times", []):
         #     add_constraints_thermal(
         #         time,
         #         portfolio["thermal"],
@@ -92,7 +87,7 @@ class ConstraintBuilder:
         #     )
 
         # Hydraulic constraints
-        if time in optimization_times.get("hydraulic_op_times", []):
+        if time in optimisation_times.get("hydraulic_op_times", []):
             add_constraints_hydro(
                 time,
                 portfolio["hydro"],
@@ -101,7 +96,7 @@ class ConstraintBuilder:
 
         # Storage constraints
         storage_times = ["battery_op_times", "phs_op_times", "ev_op_times"]
-        if any(time in optimization_times.get(st, []) for st in storage_times):
+        if any(time in optimisation_times.get(st, []) for st in storage_times):
             add_contraints_storage(
                 time,
                 portfolio["storage"],
@@ -109,7 +104,7 @@ class ConstraintBuilder:
             )
 
         # Load constraints
-        if time in optimization_times.get("op_times", []):
+        if time in optimisation_times.get("op_times", []):
             add_constraints_load(
                 time,
                 portfolio["load"],
@@ -141,14 +136,10 @@ class ConstraintBuilder:
             maximum_energy,
         ) = self.variable_builder._compute_reserves_and_power_for_time(time=time, equipments=portfolio)
         model.add_constraint(
-            model.get_variable(
-                f"contracted_diff_up_{portfolio_name}_{time}" >= reserves_up - sum_automated_reserves_up_var
-            )
+            model.get_variable(f"contracted_diff_up_{portfolio_name}_{time}" >= reserves_up - sum_reserves_up_var)
         )
         model.add_constraint(
-            model.get_variable(
-                f"contracted_diff_down_{portfolio_name}_{time}" >= reserves_down - sum_automated_reserves_down_var
-            )
+            model.get_variable(f"contracted_diff_down_{portfolio_name}_{time}" >= reserves_down - sum_reserves_down_var)
         )
         model.add_constraint(
             model.get_variable(

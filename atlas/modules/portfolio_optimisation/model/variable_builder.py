@@ -25,7 +25,7 @@ class VariableBuilder:
     def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
 
-    def build_all_variables(
+    def build_variables(
         self,
         model: OptimisationModel,
         portfolio_name: str,
@@ -74,8 +74,8 @@ class VariableBuilder:
 
         if "storage" in equipments:
             for obj in equipments["storage"]:
-                op_time_frame = self.parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
-                if time in op_time_frame:
+                optimisation_times = self.parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
+                if time in optimisation_times:
                     # Storage has both sell and buy power levels
                     sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
                     buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
@@ -181,10 +181,10 @@ class VariableBuilder:
         """Build variables for storage equipment."""
 
         for obj in equipments:
-            op_time_frame: list[DateTime] = self.parameters.storage_mapping[obj.storage_type]["op_time_frame"]
+            optimisation_times: list[DateTime] = self.parameters.storage_mapping[obj.storage_type]["optimisation_times"]
             nbr_fragment: int = self.parameters.storage_mapping[obj.storage_type]["fragment"]
 
-            for time in op_time_frame:
+            for time in optimisation_times:
                 min_power = get_minimum_power(obj, time)
                 max_power = get_maximum_power(obj, time)
                 maximum_energy = get_maximum_energy(time)

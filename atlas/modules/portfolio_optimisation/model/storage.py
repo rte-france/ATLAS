@@ -26,6 +26,7 @@ def add_contraints_storage(
     prev_time = time - parameters.timestep
 
     for obj in storage_equipments:
+        optimisation_times = parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
         automated_reserves_up_var = model.get_variable(f"automated_res_up_e_{obj.name}_{time}")
         automated_reserves_down_var = model.get_variable(f"automated_res_down_e_{obj.name}_{time}")
         reserves_up_var = model.get_variable(f"reserves_up_e_{obj.name}_{time}")
@@ -39,10 +40,6 @@ def add_contraints_storage(
 
         # Avoid equipments that have a maximum_energy of 0 (meaning that they are offline)
         if max(obj.maximum_energy.values()) <= 0:
-            continue
-
-        optimisation_times = parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
-        if time not in optimisation_times:
             continue
 
         # Get max and min power

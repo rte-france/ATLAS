@@ -18,7 +18,6 @@ def add_constraints_load(
     """
 
     for obj in load_equipments:
-        if time in parameters.target_times:
-            power_level_var = model.get_variable(f"{obj.name}_power_level_{time}")
-            model.add_constraint(power_level_var >= get_maximum_power(obj, time))
-            model.add_constraint(power_level_var <= get_minimum_power(obj, time))
+        power_level_var = model.get_variable(f"{obj.name}_power_level_{time}")
+        model.add_constraint(power_level_var >= get_maximum_power(obj, time))
+        model.add_constraint(power_level_var <= get_minimum_power(obj, time))

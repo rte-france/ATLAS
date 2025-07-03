@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pendulum import DateTime
+
 import atlas.config as cfg
 from atlas.enum import SolverStatus
 from atlas.models.equipment.equipment import Equipment
@@ -39,6 +41,8 @@ class PortfolioOptimisationModel:
                     portfolio=input_dataset.portfolios[portfolio.name],
                     portfolio_name=portfolio.name,
                     solver_name=self.parameters.solver_name,
+                    max_optimisation_times=input_dataset.max_optimisation_times,
+                    optimisation_times=input_dataset.optimisation_times,
                 )
                 if portfolio.name in input_dataset.portfolios_manual_activation:
                     self._optimize_portfolio_manual_activated(
@@ -56,6 +60,8 @@ class PortfolioOptimisationModel:
                             portfolio=equipment_portfolio,
                             portfolio_name=equipment_portfolio_name,
                             solver_name=self.parameters.solver_name,
+                            max_optimisation_times=input_dataset.max_optimisation_times,
+                            optimisation_times=input_dataset.optimisation_times,
                         )
 
             for _, portfolio_manual in input_dataset.portfolios_manual_activation.items():
@@ -74,6 +80,8 @@ class PortfolioOptimisationModel:
         portfolio: dict[str, list[type[Equipment]]],
         portfolio_name: str,
         solver_name: str,
+        max_optimisation_times: list[DateTime],
+        optimisation_times: dict[str, list[DateTime]],
     ) -> SolutionInfo:
         """Optimize a single portfolio using OptimisationModel."""
 
@@ -81,11 +89,12 @@ class PortfolioOptimisationModel:
 
         # Create optimization model
         model = OptimisationModel(solver_name=solver_name, name=portfolio_name)
+        self.variable_builder.build_variables(model, portfolio_name, portfolio)
 
         try:
-            optimization_times = self._get_optimization_times()
-            self.constraint_builder.build_constraints(portfolio, portfolio_name, optimization_times, model)
-
+            self.constraint_builder.build_constraints(
+                portfolio, portfolio_name, max_optimisation_times, optimisation_times, model
+            )
             objective_expr = self.objective_builder.build_objective(model, portfolio, self.parameters.target_times)
             model.set_objective(objective_expr, direction="minimize")
 
@@ -119,14 +128,3 @@ class PortfolioOptimisationModel:
         self, portfolio_manual_activation: dict[str, list[type[Equipment]]], portfolio_name: str
     ):
         pass
-
-    def _get_optimization_times(self) -> dict[str, list]:
-        """Get all optimization time periods."""
-        return {
-            "op_times": self.parameters.op_times,
-            "thermal_op_times": self.parameters.thermal_op_times,
-            "hydraulic_op_times": self.parameters.hydraulic_op_times,
-            "battery_op_times": self.parameters.battery_op_times,
-            "phs_op_times": self.parameters.phs_op_times,
-            "ev_op_times": self.parameters.ev_op_times,
-        }

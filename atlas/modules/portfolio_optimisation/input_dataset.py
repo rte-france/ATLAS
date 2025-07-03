@@ -7,6 +7,8 @@ This file is part of the ATLAS project.
 
 from itertools import groupby
 
+from pendulum import DateTime
+
 from atlas import (
     BusinessModel,
     Hydro,
@@ -65,6 +67,24 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.portfolios_manual_activation: dict[str, dict[str, list[type[Equipment]]]] = {}
 
         self._create_portfolios()
+
+        self.optimisation_times = self._get_optimization_times()
+        self.max_optimisation_times = self._get_longest_optimization_period()
+
+    def _get_optimization_times(self) -> dict[str, list[DateTime]]:
+        """Get all optimization time periods."""
+        return {
+            "op_times": self.parameters.op_times,
+            "thermal_op_times": self.parameters.thermal_op_times,
+            "hydraulic_op_times": self.parameters.hydraulic_op_times,
+            "battery_op_times": self.parameters.battery_op_times,
+            "phs_op_times": self.parameters.phs_op_times,
+            "ev_op_times": self.parameters.ev_op_times,
+        }
+
+    def _get_longest_optimization_period(self) -> list[DateTime]:
+        """Get the longest optimization time period."""
+        return max(self.optimisation_times.values(), key=len)
 
     def _create_portfolios(self):
         """Collect and classify all equipment into portfolios with manual activation handling"""

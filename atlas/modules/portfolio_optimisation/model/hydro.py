@@ -25,21 +25,18 @@ def add_constraints_hydro(
     """
 
     for obj in hydro_equipments:
-        # relaxed_reserve disabling condition (eq. (43))
-        if time in parameters.hydraulic_op_times:
-            max_power = get_maximum_power(obj, time)
-            min_power = get_minimum_power(obj, time)
+        max_power = get_maximum_power(obj, time)
+        min_power = get_minimum_power(obj, time)
 
-            # model.add_constraint(obj.relaxed_reserves[time] <= min_power)
-            model.add_constraint(model.get_variable(f"relaxed_reserves_{obj.name}_{time}") <= min_power)
-            model.add_constraint(
-                model.get_variable(f"automated_reserves_up_{obj.name}_{time}") <= get_maximum_automated(obj)
-            )
-            model.add_constraint(
-                model.get_variable(f"automated_reserves_up_{obj.name}_{time}") <= get_maximum_automated(obj)
-            )
-            model.add_constraint(model.get_variable(f"reserves_up_{obj.name}_{time}") <= max_power)
-            model.add_constraint(model.get_variable(f"reserves_up_{obj.name}_{time}") <= max_power)
+        model.add_constraint(model.get_variable(f"relaxed_reserves_{obj.name}_{time}") <= min_power)
+        model.add_constraint(
+            model.get_variable(f"automated_reserves_up_{obj.name}_{time}") <= get_maximum_automated(obj)
+        )
+        model.add_constraint(
+            model.get_variable(f"automated_reserves_up_{obj.name}_{time}") <= get_maximum_automated(obj)
+        )
+        model.add_constraint(model.get_variable(f"reserves_up_{obj.name}_{time}") <= max_power)
+        model.add_constraint(model.get_variable(f"reserves_up_{obj.name}_{time}") <= max_power)
 
         # --- Reservoir constraints
         stored_energy_var = model.get_variable(f"{obj.name}_stored_energy_{time}")

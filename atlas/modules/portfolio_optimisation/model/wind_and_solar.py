@@ -23,9 +23,7 @@ def add_constraints_wind_solar(
     """
 
     for obj in equipments:
-        if time in parameters.target_times:
-            # Check if those optimization variables are useful
-
+        if time in parameters.op_times:
             max_power = get_maximum_power(obj, time)
             min_power = get_minimum_power(obj, time)
 
