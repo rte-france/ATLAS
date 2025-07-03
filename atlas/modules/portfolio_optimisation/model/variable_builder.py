@@ -187,7 +187,7 @@ class VariableBuilder:
 
     def _build_storage_variables(self, model: OptimisationModel, equipments: list[Storage]):
         """Build variables for storage equipment."""
-        storage_mapping = {
+        storage_mapping: dict[StorageType, dict[str, list[DateTime | int]]] = {
             StorageType.BATTERY: {
                 "op_time_frame": self.parameters.battery_op_times,
                 "fragment": self.parameters.battery_number_of_fragments,
@@ -203,8 +203,8 @@ class VariableBuilder:
         }
 
         for obj in equipments:
-            op_time_frame = storage_mapping[obj.storage_type]["op_time_frame"]
-            nbr_fragment = storage_mapping[obj.storage_type]["fragment"]
+            op_time_frame: list[DateTime] = storage_mapping[obj.storage_type]["op_time_frame"]
+            nbr_fragment: int = storage_mapping[obj.storage_type]["fragment"]
 
             for time in op_time_frame:
                 min_power = get_minimum_power(obj, time)

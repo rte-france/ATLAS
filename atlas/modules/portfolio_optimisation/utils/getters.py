@@ -80,21 +80,21 @@ def get_reserve(
 
 
 def get_reserve_value(
-    obj: type[Equipment], time: DateTime, reserve_type: str, parameters: PortfolioOptimisationParameters
+    obj: Equipment, time: DateTime, reserve_type: str, parameters: PortfolioOptimisationParameters
 ) -> float:
     """Helper to get reserve value from forecast."""
     reserve_attr = cast(ForecastingMatrix, getattr(obj, f"{reserve_type}_procured"))
     return reserve_attr.get_forecast(parameters.execution_date, time, time).get_value(time)
 
 
-def get_maximum_power(obj: type[Equipment], time: DateTime, execution_date: DateTime | None = None) -> float:
+def get_maximum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float:
     if isinstance(obj, Hydro | Storage):
         return obj.maximum_power.get_value(time)
     elif isinstance(obj, Load | Wind | Solar | OtherNonDispatchable):
         return obj.maximum_power_forecast.get_forecast(execution_date, time, time).get_value(time)
 
 
-def get_minimum_power(obj: type[Equipment], time: DateTime, execution_date: DateTime | None = None) -> float:
+def get_minimum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float:
     if isinstance(obj, Hydro | Storage):
         if obj.minimum_power:
             return obj.minimum_power.get_value(time)
@@ -106,7 +106,7 @@ def get_minimum_power(obj: type[Equipment], time: DateTime, execution_date: Date
         return 0
 
 
-def get_price(obj: type[Equipment], time: DateTime):
+def get_price(obj: Equipment, time: DateTime):
     return obj.variable_cost.get_value(time)
 
 

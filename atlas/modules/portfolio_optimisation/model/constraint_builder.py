@@ -6,6 +6,7 @@ from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.model.hydro import add_constraints_hydro
 from atlas.modules.portfolio_optimisation.model.load import add_constraints_load
 from atlas.modules.portfolio_optimisation.model.storage import add_contraints_storage
+from atlas.modules.portfolio_optimisation.model.variable_builder import VariableBuilder
 from atlas.modules.portfolio_optimisation.model.wind_and_solar import add_constraints_wind_solar
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
@@ -16,6 +17,7 @@ class ConstraintBuilder:
 
     def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
+        self.variable_builder = VariableBuilder(self.parameters)
 
     def build_constraints(
         self,
@@ -111,19 +113,21 @@ class ConstraintBuilder:
         self,
         time: DateTime,
         portfolio_name: str,
+        equipments: dict[str, list[type[Equipment]]],
         model: OptimisationModel,
-        power_level_variables: list[Any],
     ):
         """Add global portfolio constraints."""
         # Power balance constraint
-        power_sum = sum(power_level_variables) if power_level_variables else 0
+        residual_energy = self.variable_builder._compute_residual_energy(equipments, time)
+        max_overall_imbal = max(residual_energy * self.parameters.maximum_imbalance)
+        sum_power_variables = self.variable_builder.get_sum_power_level_variables(model, equipments, time)
 
         power_balance_constraint = (
             model.get_variable(f"{portfolio_name}_small_imbalance_up_{time}")
             + model.get_variable(f"{portfolio_name}_large_imbalance_up_{time}")
             - model.get_variable(f"{portfolio_name}_small_imbalance_down_{time}")
             - model.get_variable(f"{portfolio_name}_large_imbalance_down_{time}")
-            == portfolio.residual_energy[time] - power_sum
+            == residual_energy - sum_power_variables
         )
         model.add_constraint(power_balance_constraint, name=f"power_balance_{time}")
 
@@ -131,14 +135,14 @@ class ConstraintBuilder:
         up_imbalance_limit = (
             model.get_variable(f"{portfolio_name}_small_imbalance_up_{time}")
             + model.get_variable(f"{portfolio_name}_large_imbalance_up_{time}")
-            <= portfolio.max_overall_imbal[time]
+            <= max_overall_imbal
         )
         model.add_constraint(up_imbalance_limit, name=f"up_imbalance_limit_{time}")
 
         down_imbalance_limit = (
             model.get_variable(f"{portfolio_name}_small_imbalance_down_{time}")
             + model.get_variable(f"{portfolio_name}_large_imbalance_down_{time}")
-            <= portfolio.max_overall_imbal[time]
+            <= max_overall_imbal
         )
         model.add_constraint(down_imbalance_limit, name=f"down_imbalance_limit_{time}")
 
