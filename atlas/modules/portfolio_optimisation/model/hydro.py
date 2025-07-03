@@ -2,11 +2,7 @@ from pendulum import DateTime
 
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.get_fragment_price import (
-    _get_fragment_data,
-    _get_fragment_length,
-    compute_fragment_prices,
-)
+from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_data
 from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
     get_maximum_energy,
@@ -29,21 +25,6 @@ def add_constraints_hydro(
     """
 
     for obj in hydro_equipments:
-        for k in range(_get_fragment_length(obj)):
-            if time in parameters.target_times:
-                model.add_objective(
-                    compute_fragment_prices(obj, time, k, parameters)
-                    * model.get_variable(f"{obj.name}_power_level_frag_{k}_at_{time}")
-                    * parameters.timestep
-                )
-
-            else:
-                model.add_objective(
-                    -(price_forecast - compute_fragment_prices(obj, time, k, parameters))
-                    * model.get_variable(f"{obj.name}_power_level_frag_{k}_at_{time}")
-                    * parameters.timestep
-                )
-
         # relaxed_reserve disabling condition (eq. (43))
         if time in parameters.hydraulic_op_times:
             max_power = get_maximum_power(obj, time)

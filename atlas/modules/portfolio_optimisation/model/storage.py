@@ -54,36 +54,20 @@ def add_contraints_storage(
         max_power = get_maximum_power(obj, time)
         min_power = get_minimum_power(obj, time)
 
-        model.add_objective(price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.timestep)
-
         # For additional period
         if time not in parameters.target_times:
             if obj.storage_type == StorageType.BATTERY:
                 nbr_fragment = parameters.battery_nb_fragments
-                smoothing_factor = parameters.battery_smoothing_factor
 
             elif obj.storage_type == StorageType.ELECTRIC_VEHICLE:
                 nbr_fragment = parameters.ev_nb_fragments
-                smoothing_factor = parameters.ev_smoothing_factor
 
             else:
                 nbr_fragment = parameters.phs_nb_fragments
-                smoothing_factor = parameters.phs_smoothing_factor
 
             for n in range(0, nbr_fragment):
                 power_level_sell_n_var = model.get_variable(f"{obj.name}_power_level_sell_n_{n}_time_{time}")
                 power_level_buy_n_var = model.get_variable(f"{obj.name}_power_level_buy_n_{n}_time_{time}")
-
-                # The objective function is the total profit over the optimisation period
-                if nbr_fragment == 1 and n == 0:
-                    model.add_objective(
-                        -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast
-                    )
-                else:
-                    model.add_objective(
-                        -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nbr_fragment - 1))
-                        - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nbr_fragment - 1))
-                    )
 
                 # Add constraint related to power fragment
                 model.add_constraint(power_level_buy_n_var >= min_power / nbr_fragment)

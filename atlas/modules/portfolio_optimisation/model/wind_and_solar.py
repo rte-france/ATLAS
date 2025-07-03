@@ -7,7 +7,7 @@ from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
     get_maximum_power,
     get_minimum_power,
-    get_price,
+    get_variable_cost,
 )
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -35,7 +35,7 @@ def add_constraints_wind_solar(
             reserves_up_var = model.get_variable(f"reserves_up_e_{obj.name}_{time}")
             reserves_down_var = model.get_variable(f"reserves_down_e_{obj.name}_{time}")
 
-            model.add_objective(get_price(obj, time) * power_level_var * parameters.timestep)
+            model.add_objective(get_variable_cost(obj, time) * power_level_var * parameters.timestep)
 
             model.add_constraint(power_level_var <= max_power)
             model.add_constraint(power_level_var >= min_power)

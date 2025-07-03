@@ -14,7 +14,9 @@ from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 
 
-def get_price_forecast(portfolio: Portfolio, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
+def get_variable_cost_forecast(
+    portfolio: Portfolio, time: DateTime, parameters: PortfolioOptimisationParameters
+) -> float:
     """Get price forecast for given time based on market type and forecast settings."""
 
     if time in parameters.target_times:
@@ -106,7 +108,7 @@ def get_minimum_power(obj: Equipment, time: DateTime, execution_date: DateTime |
         return 0
 
 
-def get_price(obj: Equipment, time: DateTime):
+def get_variable_cost(obj: Equipment, time: DateTime):
     return obj.variable_cost.get_value(time)
 
 
