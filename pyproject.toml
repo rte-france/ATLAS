@@ -29,12 +29,12 @@ dependencies = [
 atlas = "atlas.app:app"
 
 [build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
 
-[tool.setuptools]
-include-package-data = false
-packages.find.include = ['atlas*']
+[tool.uv.build-backend]
+module-name = "atlas"
+module-root = ""
 
 [tool.ruff]
 line-length = 120
@@ -90,8 +90,13 @@ docs = [
 url = "https://pypi.org/simple/"
 
 [tool.mypy]
+disable_error_code = ["operator"]
 [[tool.mypy.overrides]]
-module = "atlas.solver.solver_interface"
+module = [
+    "atlas.solver.solver_interface",
+    "atlas.modules.portfolio_optimisation.model.thermal",
+    "atlas.modules.portfolio_optimisation.initialisation.PO_thermic"
+]
 ignore_errors = true
 
 [tool.coverage.run]
