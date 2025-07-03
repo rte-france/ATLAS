@@ -39,9 +39,7 @@ module-root = ""
 [tool.ruff]
 line-length = 120
 extend-exclude = ["*.ipynb"]
-exclude = [
-    "atlas/io/transform_dataset.py",
-]
+
 
 [tool.ruff.lint]
 select = [

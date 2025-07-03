@@ -67,9 +67,7 @@ class Thermal(Equipment):
     shutdown_duration: float | None = Field(None, ge=0)
     startup_delay_probability: float | None = Field(None, ge=0, le=1)
     startup_duration: float | None = Field(None, ge=0)
-
     strategy: ThermalStrategy | None = None
-
     state_sequence: ScenarioMatrix | LazyScenarioMatrix | None = None
     da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
     maximum_power: Timeseries | LazyTimeseries | None = None

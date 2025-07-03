@@ -1,3 +1,4 @@
+import math
 from typing import cast
 
 from pendulum import DateTime
@@ -8,6 +9,7 @@ from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
+from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_data
@@ -60,6 +62,9 @@ class VariableBuilder:
         if "load" in equipments:
             self._build_load_variables(model, cast(list[Load], equipments["load"]))
 
+        if "thermal" in equipments:
+            self._build_thermal_variables(model, cast(list[Thermal], equipments["thermal"]))
+
     def _build_portfolio_variables(
         self,
         model: OptimisationModel,
@@ -74,6 +79,165 @@ class VariableBuilder:
             maximum_power, maximum_energy = self._compute_power_and_energy(equipments, time)
             self._add_imbalance_variables(model, portfolio_name, time, residual_energy, maximum_energy)
             self._add_contract_difference_variables(model, portfolio_name, time, maximum_power)
+
+    def _build_thermal_variables(self, model: OptimisationModel, equipments: list[Thermal]):
+        """Build variables for thermal equipment."""
+        for obj in equipments:
+            # Calculate timing parameters
+            timing_params = self._calculate_thermal_timing_params(obj)
+
+            # Get optimization times for this thermal equipment
+            thermal_times = self._get_thermal_optimization_times(obj, timing_params)
+
+            for time in thermal_times:
+                min_power = get_minimum_power(obj, time)
+                max_power = get_maximum_power(obj, time)
+                maximum_automated = obj.maximum_afrr + obj.maximum_fcr
+
+                # Power level variables (only for thermal_op_times)
+                if time in self.parameters.thermal_op_times:
+                    model.add_continuous_variable(
+                        name=f"{obj.name}_power_level_{time}",
+                        lower_bound=0,
+                        upper_bound=max_power,
+                    )
+                    model.add_continuous_variable(
+                        name=f"{obj.name}_additional_power_{time}",
+                        lower_bound=0,
+                        upper_bound=max_power,
+                    )
+                    model.add_continuous_variable(
+                        name=f"{obj.name}_additional_power_below_{time}",
+                        lower_bound=0,
+                        upper_bound=max_power,
+                    )
+
+                # State variables - always defined
+                model.add_boolean_variable(name=f"{obj.name}_off_{time}")
+                model.add_boolean_variable(name=f"{obj.name}_on_up_{time}")
+                model.add_boolean_variable(name=f"{obj.name}_on_down_{time}")
+                model.add_boolean_variable(name=f"{obj.name}_turned_on_{time}")
+                model.add_boolean_variable(name=f"{obj.name}_turned_off_{time}")
+
+                # Conditional state variables based on timing parameters
+                if timing_params["T_start"] >= 1:
+                    model.add_boolean_variable(name=f"{obj.name}_start_{time}")
+
+                if timing_params["T_stop"] >= 1:
+                    model.add_boolean_variable(name=f"{obj.name}_stop_{time}")
+
+                if timing_params["T_stable"] >= 1:
+                    model.add_boolean_variable(name=f"{obj.name}_on_flat_{time}")
+                    model.add_boolean_variable(name=f"{obj.name}_stable_{time}")
+                    model.add_boolean_variable(name=f"{obj.name}_entered_up_{time}")
+                    model.add_boolean_variable(name=f"{obj.name}_entered_down_{time}")
+
+                    # Gradient auxiliary variables
+                    q_max = max_power
+                    q_min = -q_max
+
+                    model.add_continuous_variable(
+                        name=f"{obj.name}_u_{time}",
+                        lower_bound=q_min,
+                        upper_bound=q_max,
+                    )
+                    model.add_continuous_variable(
+                        name=f"{obj.name}_tilde_u_{time}",
+                        lower_bound=q_min,
+                        upper_bound=q_max,
+                    )
+                    model.add_continuous_variable(
+                        name=f"{obj.name}_d_{time}",
+                        lower_bound=q_min,
+                        upper_bound=q_max,
+                    )
+                    model.add_continuous_variable(
+                        name=f"{obj.name}_tilde_d_{time}",
+                        lower_bound=q_min,
+                        upper_bound=q_max,
+                    )
+
+                # Additional conditional variables
+                if timing_params["T_stop"] >= 1 and timing_params["T_start"] == 0 and timing_params["T_stable"] == 0:
+                    model.add_boolean_variable(name=f"{obj.name}_down_to_stop_{time}")
+
+                if timing_params["T_stop"] >= 1 and timing_params["T_stable"] >= 1:
+                    model.add_boolean_variable(name=f"{obj.name}_flat_down_stop_{time}")
+
+                if timing_params["T_stable"] >= 1 and (timing_params["T_start"] >= 1 or timing_params["T_stop"] >= 1):
+                    q_max = max_power
+                    q_min = -q_max
+                    model.add_continuous_variable(
+                        name=f"{obj.name}_dd_{time}",
+                        lower_bound=q_min,
+                        upper_bound=q_max,
+                    )
+
+                if timing_params["T_stop"] >= 1 and timing_params["T_start"] >= 1 and timing_params["T_stable"] == 0:
+                    model.add_boolean_variable(name=f"{obj.name}_down_to_stop_{time}")
+
+                # Reserve variables
+                self._add_reserve_variables(
+                    model,
+                    obj.name,
+                    time,
+                    min_power,
+                    max_power,
+                    maximum_automated,
+                    relaxed_reserves=True,
+                    storage_equipment=False,
+                    thermal_equipment=True,
+                )
+
+    def _calculate_thermal_timing_params(self, obj: Thermal) -> dict:
+        """Calculate timing parameters for thermal equipment."""
+        # Convert time constraints to time steps
+
+        # Calculate T_on
+        if obj.minimum_time_on != 0:
+            T_on = int(max(1, math.ceil(obj.minimum_time_on * 60.0 / self.parameters.timestep))) + 1
+        else:
+            T_on = 0
+
+        # Calculate T_off
+        if obj.minimum_time_off != 0:
+            T_off = int(max(1, math.ceil(obj.minimum_time_off * 60.0 / self.parameters.timestep))) + 1
+        else:
+            T_off = 0
+
+        # Calculate other timing parameters
+        T_start = int(math.floor(obj.startup_duration * 60.0 / self.parameters.timestep))
+        T_stop = int(math.floor(obj.shutdown_duration * 60.0 / self.parameters.timestep))
+
+        # Calculate T_stable
+        if obj.minimum_stable_power_duration * 60.0 < self.parameters.timestep:
+            T_stable = 0
+        else:
+            T_stable = int(math.ceil(obj.minimum_stable_power_duration * 60.0 / self.parameters.timestep)) + 1
+
+        # Rescale T_stable so that it is either equal to 0 or >= 2
+        T_stable = T_stable if T_stable >= 2 else 0
+
+        # Calculate T_traceback
+        T_traceback = int(max(T_on + T_start, T_off + T_stop))
+
+        return {
+            "T_on": T_on,
+            "T_off": T_off,
+            "T_start": T_start,
+            "T_stop": T_stop,
+            "T_stable": T_stable,
+            "T_traceback": T_traceback,
+        }
+
+    def _get_thermal_optimization_times(self, obj: Thermal, timing_params: dict) -> list[DateTime]:
+        """Get the optimization time frame for thermal equipment."""
+        # Create extended time frame similar to the legacy code
+        T_traceback = timing_params["T_traceback"]
+
+        # This would need to be adapted based on your actual time frame creation logic
+        # For now, returning the thermal_op_times from parameters
+        return self.parameters.thermal_op_times
 
     def _build_hydro_variables(self, model: OptimisationModel, equipments: list[Hydro]):
         """Build variables for hydro equipment."""
@@ -102,6 +266,7 @@ class VariableBuilder:
                     maximum_automated,
                     relaxed_reserves=True,
                     storage_equipment=False,
+                    thermal_equipment=False,
                 )
 
     def _build_solar_wind_variables(self, model: OptimisationModel, equipments: list[Solar | Wind]):
@@ -127,6 +292,7 @@ class VariableBuilder:
                     maximum_automated,
                     relaxed_reserves=False,
                     storage_equipment=False,
+                    thermal_equipment=False,
                 )
 
     def _build_storage_variables(self, model: OptimisationModel, equipments: list[Storage]):
@@ -185,6 +351,7 @@ class VariableBuilder:
                     maximum_automated,
                     relaxed_reserves=False,
                     storage_equipment=True,
+                    thermal_equipment=False,
                 )
 
     def _build_load_variables(self, model: OptimisationModel, equipments: list[Load]):
@@ -209,6 +376,7 @@ class VariableBuilder:
         maximum_automated: float,
         relaxed_reserves: bool,
         storage_equipment: bool,
+        thermal_equipment: bool,
     ):
         """Add reserve variables for solar/wind equipment"""
         model.add_continuous_variable(
@@ -248,7 +416,7 @@ class VariableBuilder:
                 lower_bound=-maximum_automated,
                 upper_bound=maximum_automated,
             )
-        if not storage_equipment:
+        if not storage_equipment and not thermal_equipment:
             model.add_continuous_variable(
                 name=f"contracted_diff_up_{name}_{time}",
                 lower_bound=0,
@@ -312,7 +480,6 @@ class VariableBuilder:
         # Hydro equipment - uses hydraulic_op_times and fragment variables
         if "hydro" in equipments and time in self.parameters.hydraulic_op_times:
             for obj in equipments["hydro"]:
-                # Sum all fragment variables for this hydro equipment
                 fragment_data = _get_fragment_data(obj)
                 for category in fragment_data.keys():
                     var = model.get_variable(f"{obj.name}_power_level_frag_{category}_at_{time}")
@@ -334,6 +501,13 @@ class VariableBuilder:
                     var = model.get_variable(f"{obj.name}_power_level_{time}")
                     if var is not None:
                         total_power += var
+
+        # Thermal equipment - uses thermal_op_times
+        if "thermal" in equipments and time in self.parameters.thermal_op_times:
+            for obj in equipments["thermal"]:
+                var = model.get_variable(f"{obj.name}_power_level_{time}")
+                if var is not None:
+                    total_power += var
 
         if "storage" in equipments:
             for obj in equipments["storage"]:
