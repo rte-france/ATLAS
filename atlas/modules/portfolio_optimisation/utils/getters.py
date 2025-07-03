@@ -46,7 +46,7 @@ def get_variable_cost_forecast(
 
 
 def get_reserve(
-    obj: type[Equipment],
+    obj: Equipment,
     sum_reserves_up: float,
     sum_reserves_down: float,
     sum_automated_reserves_up: float,

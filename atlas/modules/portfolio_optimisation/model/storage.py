@@ -134,8 +134,6 @@ def add_contraints_storage(
         )
         model.add_constraint(stored_energy_var <= get_maximum_energy(obj, time) - reserve_stored_energy_down_ti)
 
-        # Global cycle balance (the reservoir level of the equipment remains
-        # identical between the first and last dates of the optimization period)
         if time == parameters.start_date:
             model.add_constraint(
                 sum(-power_level_buy_var for _ in optimisation_times) * obj.charge_efficiency

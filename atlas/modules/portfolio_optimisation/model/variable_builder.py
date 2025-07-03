@@ -1,3 +1,5 @@
+from typing import cast
+
 from pendulum import DateTime
 
 from atlas.models.equipment.equipment import Equipment
@@ -37,56 +39,6 @@ class VariableBuilder:
 
         self._build_portfolio_variables(model, portfolio_name, equipments, self.parameters.target_times)
 
-    def get_sum_power_level_variables(
-        self,
-        model: OptimisationModel,
-        equipments: dict[str, list[type[Equipment]]],
-        time: DateTime,
-    ) -> float:
-        """Get the sum of all power level variables for a specific time."""
-        total_power = 0
-
-        # Hydro equipment - uses hydraulic_op_times and fragment variables
-        if "hydro" in equipments and time in self.parameters.hydraulic_op_times:
-            for obj in equipments["hydro"]:
-                # Sum all fragment variables for this hydro equipment
-                fragment_data = _get_fragment_data(obj)
-                for category in fragment_data.keys():
-                    var = model.get_variable(f"{obj.name}_power_level_frag_{category}_at_{time}")
-                    if var is not None:
-                        total_power += var
-
-        # Solar and Wind equipment - uses target_times
-        if time in self.parameters.target_times:
-            for equipment_type in ["solar", "wind"]:
-                if equipment_type in equipments:
-                    for obj in equipments[equipment_type]:
-                        var = model.get_variable(f"{obj.name}_power_level_{time}")
-                        if var is not None:
-                            total_power += var
-
-            # Load equipment - uses target_times
-            if "load" in equipments:
-                for obj in equipments["load"]:
-                    var = model.get_variable(f"{obj.name}_power_level_{time}")
-                    if var is not None:
-                        total_power += var
-
-        if "storage" in equipments:
-            for obj in equipments["storage"]:
-                optimisation_times = self.parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
-                if time in optimisation_times:
-                    # Storage has both sell and buy power levels
-                    sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
-                    buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
-
-                    if sell_var is not None:
-                        total_power += sell_var
-                    if buy_var is not None:
-                        total_power += buy_var
-
-        return total_power
-
     def _build_equipment_variables(
         self,
         model: OptimisationModel,
@@ -94,19 +46,19 @@ class VariableBuilder:
     ):
         """Build variables for all equipment types."""
         if "hydro" in equipments:
-            self._build_hydro_variables(model, equipments["hydro"])
+            self._build_hydro_variables(model, cast(list[Hydro], equipments["hydro"]))
 
         if "solar" in equipments:
-            self._build_solar_wind_variables(model, equipments["solar"])
+            self._build_solar_wind_variables(model, cast(list[Solar], equipments["solar"]))
 
         if "wind" in equipments:
-            self._build_solar_wind_variables(model, equipments["wind"])
+            self._build_solar_wind_variables(model, cast(list[Wind], equipments["wind"]))
 
         if "storage" in equipments:
-            self._build_storage_variables(model, equipments["storage"])
+            self._build_storage_variables(model, cast(list[Storage], equipments["storage"]))
 
         if "load" in equipments:
-            self._build_load_variables(model, equipments["load"])
+            self._build_load_variables(model, cast(list[Load], equipments["load"]))
 
     def _build_portfolio_variables(
         self,
@@ -348,6 +300,56 @@ class VariableBuilder:
                 upper_bound=volume,
             )
 
+    def get_sum_power_level_variables(
+        self,
+        model: OptimisationModel,
+        equipments: dict[str, list[type[Equipment]]],
+        time: DateTime,
+    ) -> float:
+        """Get the sum of all power level variables for a specific time."""
+        total_power = 0
+
+        # Hydro equipment - uses hydraulic_op_times and fragment variables
+        if "hydro" in equipments and time in self.parameters.hydraulic_op_times:
+            for obj in equipments["hydro"]:
+                # Sum all fragment variables for this hydro equipment
+                fragment_data = _get_fragment_data(obj)
+                for category in fragment_data.keys():
+                    var = model.get_variable(f"{obj.name}_power_level_frag_{category}_at_{time}")
+                    if var is not None:
+                        total_power += var
+
+        # Solar and Wind equipment - uses target_times
+        if time in self.parameters.target_times:
+            for equipment_type in ["solar", "wind"]:
+                if equipment_type in equipments:
+                    for obj in equipments[equipment_type]:
+                        var = model.get_variable(f"{obj.name}_power_level_{time}")
+                        if var is not None:
+                            total_power += var
+
+            # Load equipment - uses target_times
+            if "load" in equipments:
+                for obj in equipments["load"]:
+                    var = model.get_variable(f"{obj.name}_power_level_{time}")
+                    if var is not None:
+                        total_power += var
+
+        if "storage" in equipments:
+            for obj in equipments["storage"]:
+                optimisation_times = self.parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
+                if time in optimisation_times:
+                    # Storage has both sell and buy power levels
+                    sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
+                    buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
+
+                    if sell_var is not None:
+                        total_power += sell_var
+                    if buy_var is not None:
+                        total_power += buy_var
+
+        return total_power
+
     def _compute_residual_energy(self, equipments: dict[str, list[type[Equipment]]], time: DateTime) -> float:
         """Compute residual energy metrics for all times."""
 
@@ -381,7 +383,7 @@ class VariableBuilder:
 
     def _compute_reserves_and_power_for_time(
         self,
-        equipments: dict[str, list[type[Equipment]]],
+        equipments: dict[str, list[Equipment]],
         time: DateTime,
     ) -> tuple[float, float, float, float, float, float]:
         """Compute reserves and power metrics for a specific time."""
