@@ -379,34 +379,6 @@ class VariableBuilder:
 
         return sum_maximum_power, sum_max_energy
 
-    def _compute_reserves_metrics(
-        self,
-        equipments: dict[str, list[type[Equipment]]],
-        times: list[DateTime],
-    ) -> tuple[dict, dict, dict, dict]:
-        """Compute reserve metrics for all times (if needed elsewhere)."""
-        reserve_up = {}
-        reserve_down = {}
-        automated_reserve_up = {}
-        automated_reserve_down = {}
-
-        for time in times:
-            (
-                sum_reserves_up,
-                sum_reserves_down,
-                sum_automated_reserves_up,
-                sum_automated_reserves_down,
-                _,  # maximum_power not needed here
-                _,  # maximum_energy not needed here
-            ) = self._compute_reserves_and_power_for_time(equipments, time)
-
-            reserve_up[time] = sum_reserves_up
-            reserve_down[time] = sum_reserves_down
-            automated_reserve_up[time] = sum_automated_reserves_up
-            automated_reserve_down[time] = sum_automated_reserves_down
-
-        return reserve_up, reserve_down, automated_reserve_up, automated_reserve_down
-
     def _compute_reserves_and_power_for_time(
         self,
         equipments: dict[str, list[type[Equipment]]],

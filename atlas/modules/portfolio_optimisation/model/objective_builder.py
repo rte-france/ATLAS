@@ -105,14 +105,18 @@ class ObjectiveFunctionBuilder:
         auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{portfolio_name}_{time}")
 
         # Manual reserve penalties
-        manual_penalty = getattr(self.parameters, "manual_unprocured_reserves_penalty", 1000)
-        terms.append(manual_penalty * self.parameters.timestep * contracted_diff_up)
-        terms.append(manual_penalty * self.parameters.timestep * contracted_diff_down)
+        terms.append(self.parameters.manual_unprocured_reserves_penalty, *self.parameters.timestep * contracted_diff_up)
+        terms.append(
+            self.parameters.manual_unprocured_reserves_penalty, *self.parameters.timestep * contracted_diff_down
+        )
 
         # Automated reserve penalties
-        auto_penalty = getattr(self.parameters, "automated_unprocured_reserves_penalty", 1000)
-        terms.append(auto_penalty * self.parameters.timestep * auto_contracted_diff_up)
-        terms.append(auto_penalty * self.parameters.timestep * auto_contracted_diff_down)
+        terms.append(
+            self.parameters.automated_unprocured_reserves_penalty * self.parameters.timestep * auto_contracted_diff_up
+        )
+        terms.append(
+            self.parameters.automated_unprocured_reserves_penalty * self.parameters.timestep * auto_contracted_diff_down
+        )
 
         return terms
 

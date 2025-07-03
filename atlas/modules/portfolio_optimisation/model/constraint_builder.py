@@ -57,6 +57,13 @@ class ConstraintBuilder:
 
         if time in self.parameters.target_times:
             self._add_global_constraints(time, portfolio_name, portfolio, model)
+            if (
+                len(portfolio.get("thermal", []))
+                + len(portfolio.get("hydro", []))
+                + len(portfolio.get("storage", []) + len(portfolio.get("wind", [])) + len(portfolio.get("solar", [])))
+                > 0
+            ):
+                self._add_reserves_constraints(time, portfolio_name, portfolio, model)
 
     def _add_equipment_constraints(
         self,
@@ -108,6 +115,53 @@ class ConstraintBuilder:
                 portfolio["load"],
                 model,
             )
+
+    def _add_reserves_constraints(
+        self, time: DateTime, portfolio_name: str, portfolio: dict[str, list[type[Equipment]]], model: OptimisationModel
+    ):
+        sum_reserves_up_var = sum(
+            model.get_variable(f"reserves_up_{obj.name}_{time}") for t in portfolio for obj in portfolio[t]
+        )
+        sum_reserves_down_var = sum(
+            model.get_variable(f"reserves_down_{obj.name}_{time}") for t in portfolio for obj in portfolio[t]
+        )
+        sum_automated_reserves_up_var = sum(
+            model.get_variable(f"automated_reserves_up_{obj.name}_{time}") for t in portfolio for obj in portfolio[t]
+        )
+        sum_automated_reserves_down_var = sum(
+            model.get_variable(f"automated_reserves_down_{obj.name}_{time}") for t in portfolio for obj in portfolio[t]
+        )
+
+        (
+            reserves_up,
+            reserves_down,
+            automated_reserves_up,
+            automated_reserves_down,
+            maximum_power,
+            maximum_energy,
+        ) = self.variable_builder._compute_reserves_and_power_for_time(time=time, equipments=portfolio)
+        model.add_constraint(
+            model.get_variable(
+                f"contracted_diff_up_{portfolio_name}_{time}" >= reserves_up - sum_automated_reserves_up_var
+            )
+        )
+        model.add_constraint(
+            model.get_variable(
+                f"contracted_diff_down_{portfolio_name}_{time}" >= reserves_down - sum_automated_reserves_down_var
+            )
+        )
+        model.add_constraint(
+            model.get_variable(
+                f"auto_contracted_diff_up_{portfolio_name}_{time}"
+                >= automated_reserves_up - sum_automated_reserves_up_var
+            )
+        )
+        model.add_constraint(
+            model.get_variable(
+                f"auto_contracted_diff_down_{portfolio_name}_{time}"
+                >= automated_reserves_down - sum_automated_reserves_down_var
+            )
+        )
 
     def _add_global_constraints(
         self,
