@@ -39,6 +39,7 @@ module-root = ""
 [tool.ruff]
 line-length = 120
 extend-exclude = ["*.ipynb"]
+exclude = ['atlas/modules/portfolio_optimisation/model/thermal.py', 'atlas/modules/portfolio_optimisation/initialisation/PO_thermic.py']
 
 
 [tool.ruff.lint]

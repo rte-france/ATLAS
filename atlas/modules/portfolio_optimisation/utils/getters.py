@@ -100,7 +100,7 @@ def get_maximum_power(obj: Equipment, time: DateTime, execution_date: DateTime |
 
 
 def get_minimum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float:
-    if isinstance(obj, Hydro | Storage):
+    if isinstance(obj, Hydro | Storage | Thermal):
         if obj.minimum_power:
             return obj.minimum_power.get_value(time)
         else:
