@@ -9,6 +9,7 @@ from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
+from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
@@ -92,7 +93,7 @@ def get_reserve_value(
 
 
 def get_maximum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float:
-    if isinstance(obj, Hydro | Storage):
+    if isinstance(obj, Hydro | Storage | Thermal):
         return obj.maximum_power.get_value(time)
     elif isinstance(obj, Load | Wind | Solar | OtherNonDispatchable):
         return obj.maximum_power_forecast.get_forecast(execution_date, time, time).get_value(time)
