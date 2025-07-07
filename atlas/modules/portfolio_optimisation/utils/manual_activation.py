@@ -11,6 +11,29 @@ from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.utils.getters import get_energy_bounds
+
+
+def is_excluded_technology(parameters: PortfolioOptimisationParameters, equipment: type[Equipment]) -> bool:
+    """Check if equipment technology is excluded."""
+    return equipment.__class__.__name__ in parameters.excluded_technologies
+
+
+def is_excluded_thermal_strategy(parameters: PortfolioOptimisationParameters, equipment: Thermal) -> bool:
+    """Check if thermal equipment strategy is excluded."""
+    if isinstance(equipment, Thermal):
+        return equipment.strategy in parameters.excluded_thermal_strategies
+    return False
+
+
+def is_excluded_market_area(use_forecast: bool, excluded_market_areas: list[str], market_area: str) -> bool:
+    """Check if portfolio market area is excluded."""
+    return not use_forecast and market_area in excluded_market_areas
+
+
+def should_manually_activate(equipment: type[Equipment]) -> bool:
+    """Determine if equipment should be manually activated."""
+    return is_excluded_technology(equipment) or is_excluded_thermal_strategy(equipment)
 
 
 def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOptimisationParameters):
@@ -151,7 +174,7 @@ def _update_stored_energy(
 
         new_energy_value = _calculate_new_energy_value(equipment, time, previous_energy, new_power, parameters)
 
-        energy_bounds = _get_energy_bounds(equipment, time)
+        energy_bounds = get_energy_bounds(equipment, time)
         corrected_energy, correction = _apply_energy_bounds(new_energy_value, energy_bounds, time, parameters)
 
         new_stored_energy.set_value(time, corrected_energy)
@@ -227,18 +250,6 @@ def _calculate_new_energy_value(
 
     else:
         return previous_energy - power_value * time_factor
-
-
-def _get_energy_bounds(equipment: Hydro | Storage, time: DateTime):
-    """Get energy bounds for equipment at given time."""
-    max_energy = equipment.maximum_energy.get_value(time)
-
-    if isinstance(equipment, Storage):
-        min_energy = max_energy * equipment.minimum_state_of_charge.get_value(time)
-    else:  # Hydraulic
-        min_energy = equipment.minimum_energy.get_value(time)
-
-    return min_energy, max_energy
 
 
 def _apply_energy_bounds(energy_value, bounds, time, parameters):

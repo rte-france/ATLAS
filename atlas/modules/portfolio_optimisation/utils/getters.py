@@ -184,3 +184,15 @@ def get_initial_level(obj: Hydro, parameters: PortfolioOptimisationParameters):
 
 def get_maximum_automated(obj: type[Equipment]) -> float:
     return obj.maximum_afrr + obj.maximum_fcr
+
+
+def get_energy_bounds(equipment: Hydro | Storage, time: DateTime):
+    """Get energy bounds for equipment at given time."""
+    max_energy = equipment.maximum_energy.get_value(time)
+
+    if isinstance(equipment, Storage):
+        min_energy = max_energy * equipment.minimum_state_of_charge.get_value(time)
+    else:  # Hydraulic
+        min_energy = equipment.minimum_energy.get_value(time)
+
+    return min_energy, max_energy

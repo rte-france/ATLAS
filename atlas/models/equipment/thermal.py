@@ -84,10 +84,10 @@ class Thermal(Equipment):
         if (
             self.minimum_stable_power_duration is not None
             and self.minimum_time_on is not None
-            and self.minimum_stable_power_duration >= self.minimum_time_on
+            and self.minimum_stable_power_duration > self.minimum_time_on
         ):
             raise ValueError(
-                f"minimum_stabe_power_duration ({self.minimum_stable_power_duration}) of equipment "
+                f"minimum_stable_power_duration ({self.minimum_stable_power_duration}) of equipment "
                 f"{self.name} cannot be greater than minimum_time_on ({self.minimum_time_on})"
             )
 

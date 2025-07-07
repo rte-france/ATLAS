@@ -25,7 +25,6 @@ def estimate_imbalance_prices(
     French regulation method with penalties and lower bounds.
     """
 
-    # 1. Get reference price
     if parameters.use_forecast:
         if parameters.market == MarketEnum.dayahead:
             ts = market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time)

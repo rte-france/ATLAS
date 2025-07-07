@@ -27,7 +27,10 @@ from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enum import LoadType
 from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.equipment import is_excluded_market_area, should_manually_activate
+from atlas.modules.portfolio_optimisation.utils.manual_activation import (
+    is_excluded_market_area,
+    should_manually_activate,
+)
 
 
 class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationParameters]):

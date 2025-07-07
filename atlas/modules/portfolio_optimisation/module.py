@@ -10,6 +10,7 @@ from typing import Any
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
+from atlas.modules.portfolio_optimisation.main import PortfolioOptimisationModel
 from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
@@ -65,4 +66,5 @@ class PortfolioOptimisationModule(
         dataset: PortfolioOptimisationInputDataset,
     ) -> PortfolioOptimisationOutputDataset:
         """Executes the module's main logic."""
-        pass
+        model = PortfolioOptimisationModel(parameters)
+        model.optimize(dataset)
