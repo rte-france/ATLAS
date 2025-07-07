@@ -563,7 +563,7 @@ class Timeseries:
 
         return self._return_inplace(df, inplace)
 
-    def set_or_add(
+    def add_value_at(
         self,
         time: datetime | str,
         value: float | None,
