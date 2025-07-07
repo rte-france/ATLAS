@@ -29,6 +29,7 @@ from atlas.timing import (
     get_duration,
     infer_frequency,
 )
+import atlas.config as cfg
 
 
 class Timeseries:
@@ -561,6 +562,35 @@ class Timeseries:
         df = pl.concat([df, new_row]).sort("time")
 
         return self._return_inplace(df, inplace)
+
+    def set_or_add(
+        self,
+        time: datetime | str,
+        value: float | None,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Set or add to an existing value at a specific datetime.
+
+        :param time: Datetime to set
+        :type time: datetime or str
+        :param value: Value to set
+        :type value: float or int
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Timeseries with the added value
+        :rtype: Timeseries
+        """
+        try:
+            return self.set_value(time, self.get_value(time) + value, date_format, inplace)
+        except (KeyError, ValueError):
+            return self.set_value(time, value, date_format, inplace)
+        except BaseException as e:
+            cfg.logger.error(e)
+            return self
 
     def upsample(
         self,
