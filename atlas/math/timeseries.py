@@ -566,7 +566,7 @@ class Timeseries:
     def add_value_at(
         self,
         time: datetime | str,
-        value: float | None,
+        value: float,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> Timeseries:
@@ -576,7 +576,7 @@ class Timeseries:
         :param time: Datetime to set
         :type time: datetime or str
         :param value: Value to set
-        :type value: float or int
+        :type value: float
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
@@ -585,7 +585,8 @@ class Timeseries:
         :rtype: Timeseries
         """
         try:
-            return self.set_value(time, self.get_value(time) + value, date_format, inplace)
+            current = self.get_value(time)
+            return self.set_value(time, value + (current if current is not None else 0), date_format, inplace)
         except (KeyError, ValueError):
             return self.set_value(time, value, date_format, inplace)
         except BaseException as e:
