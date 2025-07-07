@@ -21,6 +21,7 @@ import plotly.express as px
 import plotly.graph_objects
 import polars as pl
 
+import atlas.config as cfg
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.timing import (
     build_datetime,
@@ -29,7 +30,6 @@ from atlas.timing import (
     get_duration,
     infer_frequency,
 )
-import atlas.config as cfg
 
 
 class Timeseries:
