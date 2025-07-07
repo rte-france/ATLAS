@@ -139,17 +139,17 @@ class PortfolioOptimisationParameters(AbstractParameters):
         Duration(hours=1),
         description="Time step (in minutes) of the simulated market.",  # type:ignore [assignment]
     )
-    _excluded_market_areas: str | None = Field(
+    excluded_market_areas_: str | None = Field(
         None,
         description='list of market areas (separated by ";") excluded from classic optimization. None and "all" are possible values.',
         alias="excluded_market_areas",
     )
-    _excluded_technologies: str | None = Field(
+    excluded_technologies_: str | None = Field(
         None,
         description='list of equipment types (separated by ";") excluded from classic optimization. None and "all" are possible values.',
         alias="excluded_technologies",
     )
-    _excluded_thermal_strategies: str | None = Field(
+    excluded_thermal_strategies_: str | None = Field(
         None,
         description='list of thermal strategies (separated by ";") for which manual activation is always used. "Peak", "Intermediate", "Base", "all", None.',
         alias="excluded_thermal_strategy",
@@ -157,10 +157,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
     market: MarketEnum = Field(
         MarketEnum.dayahead,
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
-    )
-    output_folder: str = Field(
-        "PO",
-        description='Optional output folder in the SAMBA folder for LP exports. If None, a folder "PO_{Market}_{ExecutionDate}" is created.',
     )
     solver: SolverEnum = Field(
         SolverEnum.xpress,
@@ -180,7 +176,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def excluded_market_areas(self) -> list[str]:
         """list of market areas excluded from optimization."""
-        val = self._excluded_market_areas
+        val = self.excluded_market_areas_
         if val is None or val.lower() == "none":
             return []
         if val.lower() == "all":
@@ -190,7 +186,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def excluded_technologies(self) -> list[str]:
         """list of technologies excluded from optimization."""
-        val = self._excluded_technologies
+        val = self.excluded_technologies_
         if val is None or val.lower() == "none":
             return []
         if val.lower() == "all":
@@ -200,7 +196,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def excluded_thermal_strategies(self) -> list[str]:
         """list of thermal strategies excluded from optimization."""
-        val = self._excluded_thermal_strategies
+        val = self.excluded_thermal_strategies_
         if val is None or val.lower() == "none":
             return []
         if val.lower() == "all":

@@ -23,7 +23,6 @@ class PortfolioOptimisationModel:
 
     def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
-
         self.portfolios: dict[str, dict[str, list[type[Equipment]]]] = {}
         self.objective_builder = ObjectiveFunctionBuilder(parameters)
         self.constraint_builder = ConstraintBuilder(parameters)

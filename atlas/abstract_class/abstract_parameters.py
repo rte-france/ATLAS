@@ -57,7 +57,9 @@ class AbstractParameters(BaseModel):
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> Self:
-        """Load parameters from a YAML or JSON file.
+        """
+        Load parameters from a YAML or JSON file.
+
         :param file_path: Path to the parameters file.
         :type file_path: str or pathlib.Path
         :return: A Parameters object containing the parsed and validated parameters.
