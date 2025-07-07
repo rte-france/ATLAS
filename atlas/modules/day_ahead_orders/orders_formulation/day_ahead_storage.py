@@ -236,7 +236,7 @@ class DayAheadStorage:
             )
             if local_max_energy <= 0:
                 if parameters.verbose:
-                    cfg.logger.debug("Equipment {} avoided, as its MaximumEnergy is 0".format(str(equipment.Name)))
+                    cfg.logger.debug("Equipment {} avoided, as its MaximumEnergy is 0".format(str(equipment.name)))
                 continue
 
             cfg.logger.debug("Equipment {}".format(str(equipment.name)))
@@ -328,7 +328,7 @@ class DayAheadStorage:
                     )
                     sell_submitted_volumes[t] += Qv[t]
 
-                dataset.market.order_coupling.append(coupling_instance)
+                dataset.order_coupling.append(coupling_instance)
 
             # All other orders
             else:
@@ -355,7 +355,7 @@ class DayAheadStorage:
                 coupling_instance.coupling_type = CouplingType.COMPLEMENT
                 coupling_instance.complement_direction = ComplementDirection.EqualTo
                 coupling_instance.complement_energy = buy_submitted_volumes.sum() - sell_submitted_volumes.sum()
-                dataset.market.order_coupling.append(coupling_instance)
+                dataset.order_coupling.append(coupling_instance)
 
             if equipment.da_buy_submitted_volume is None:
                 equipment.da_buy_submitted_volume = buy_submitted_volumes

@@ -162,5 +162,5 @@ class ElectricVehicleModel(DAOBaseModel):
                 )
             )
             * self.parameters.ev_energy_coef,
-            "DisplacementEnergy_compensation_for_{}".format(str(self.equipment.Name)),
+            "DisplacementEnergy_compensation_for_{}".format(str(self.equipment.name)),
         )
