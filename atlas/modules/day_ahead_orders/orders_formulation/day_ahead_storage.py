@@ -317,16 +317,16 @@ class DayAheadStorage:
                 else:
                     coupling_instance.complement_energy = energy_requirement
 
-                for t in [i for i, e in Qa.items() if e != 0]:
+                for t in [i for i, e in Qa.items()]:
                     DayAheadStorage.add_spot_order_with_coupling(
                         OrderType.Buy, equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
                     )
-                    buy_submitted_volumes[t] += Qa[t]
-                for t in [i for i, e in Qv.items() if e != 0]:
+                    buy_submitted_volumes.add_value_at(t, Qa[t])
+                for t in [i for i, e in Qv.items()]:
                     DayAheadStorage.add_spot_order_with_coupling(
                         OrderType.Sell, equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance
                     )
-                    sell_submitted_volumes[t] += Qv[t]
+                    sell_submitted_volumes.add_value_at(t, Qv[t])
 
                 dataset.order_coupling.append(coupling_instance)
 
@@ -340,16 +340,16 @@ class DayAheadStorage:
                     orders=[],
                 )
 
-                for t in [i for i, e in Qa.items() if e != 0]:
+                for t in [i for i, e in Qa.items()]:
                     DayAheadStorage.add_spot_order_with_coupling(
                         OrderType.Buy, equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
                     )
-                    buy_submitted_volumes[t] += Qa[t]
-                for t in [i for i, e in Qv.items() if e != 0]:
+                    buy_submitted_volumes.add_value_at(t, Qa[t])
+                for t in [i for i, e in Qv.items()]:
                     DayAheadStorage.add_spot_order_with_coupling(
                         OrderType.Sell, equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance
                     )
-                    sell_submitted_volumes[t] += Qv[t]
+                    sell_submitted_volumes.add_value_at(t, Qv[t])
 
                 # Fill the COMPLEMENT order coupling
                 coupling_instance.coupling_type = CouplingType.COMPLEMENT
