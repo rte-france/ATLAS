@@ -100,19 +100,19 @@ class MarginalFixing:
         :return: A generator of MCOrder that may be updated
         :rtype: list[MCOrder]
         """
-        for order in self.input_dataset.orders_per_market_area[market_area.name]:
-            if not order.start_datetime <= current_time < order.end_date_processed:
+        for mc_order in self.input_dataset.mc_orders:
+            if not mc_order.order.start_datetime <= current_time < mc_order.order.end_date_processed:
                 continue
-            if order.duration > self.parameters.time_step:
+            if mc_order.order.duration > self.parameters.time_step:
                 continue
-            if order.price != spot_price:
+            if mc_order.order.price != spot_price:
                 continue
-            if order.name in self.get_order_names_in_order_couplings():
+            if mc_order.order.name in self.get_order_names_in_order_couplings():
                 continue
-            accepted_power = local_accepted_powers[order.id]
-            if order.qmin == 0.0 or (order.qmax != order.qmin and accepted_power != 0.0):
+            accepted_power = local_accepted_powers[mc_order.order.id]
+            if mc_order.order.qmin == 0.0 or (mc_order.order.qmax != mc_order.order.qmin and accepted_power != 0.0):
                 # TODO: return only order
-                yield order, accepted_power
+                yield mc_order.order, accepted_power
 
     def get_order_names_in_order_couplings(self):
         return [order.name for order_coupling in self.input_dataset.order_couplings for order in order_coupling.orders]
