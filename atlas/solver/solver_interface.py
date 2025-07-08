@@ -368,9 +368,7 @@ class OptimisationModel:
 
         constraint = self._solver.LookupConstraint(name)
         sum_coeff = sum([constraint.GetCoefficient(var) * var.solution_value() for var in self._solver.variables()])
-        slack_value = (
-            constraint.ub() - sum_coeff if constraint.ub() != float("inf") else constraint.lb() - sum_coeff
-        )
+        slack_value = constraint.ub() - sum_coeff if constraint.ub() != float("inf") else constraint.lb() - sum_coeff
         return slack_value
 
     def export_model(self, filename: str) -> None:

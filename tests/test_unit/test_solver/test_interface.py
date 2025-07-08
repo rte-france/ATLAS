@@ -80,7 +80,7 @@ class TestOptimisationModel:
 
     def test_add_integer_variable(self, model, mock_solver):
         """Test adding integer variables."""
-        var = model.add_integer_variable("y", -5, 15)
+        model.add_integer_variable("y", -5, 15)
         assert "y" in model.variables
         mock_solver.IntVar.assert_called_with(-5, 15, "y")
 
@@ -90,7 +90,7 @@ class TestOptimisationModel:
 
     def test_add_boolean_variable(self, model, mock_solver):
         """Test adding boolean variables."""
-        var = model.add_boolean_variable("z")
+        model.add_boolean_variable("z")
         assert "z" in model.variables
         mock_solver.BoolVar.assert_called_with("z")
 
@@ -101,10 +101,10 @@ class TestOptimisationModel:
     def test_get_variable(self, model, mock_solver):
         """Test getting variable objects."""
         # Add a variable first
-        var = model.add_continuous_variable("x", 0, 10)
+        model.add_continuous_variable("x", 0, 10)
 
         # Test getting existing variable
-        retrieved_var = model.get_variable("x")
+        model.get_variable("x")
         # FIXME following test must be done in order to assert that both variable are the same
         # assert var.index() == retrieved_var.index()
         mock_solver.LookupVariable.assert_called_with("x")
@@ -280,7 +280,7 @@ class TestOptimisationModel:
 
     def test_solve_with_time_limit(self, model, mock_solver):
         """Test solving with time limit."""
-        solution = model.solve(time_limit=30.0)
+        model.solve(time_limit=30.0)
 
         mock_solver.SetTimeLimit.assert_called_with(30000)  # 30.0 * 1000
         mock_solver.Solve.assert_called_once()
@@ -495,9 +495,9 @@ class TestIntegrationScenarios:
     def test_incremental_objective_building(self, integration_model):
         """Test building objective incrementally with add_objective."""
         # Variables
-        x = integration_model.add_continuous_variable("x", 0, 10)
-        y = integration_model.add_continuous_variable("y", 0, 10)
-        z = integration_model.add_continuous_variable("z", 0, 10)
+        integration_model.add_continuous_variable("x", 0, 10)
+        integration_model.add_continuous_variable("y", 0, 10)
+        integration_model.add_continuous_variable("z", 0, 10)
 
         # Mock expression addition
         mock_expr1 = MagicMock()
