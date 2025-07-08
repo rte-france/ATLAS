@@ -142,7 +142,7 @@ class ExchangesFixing(OptimisationModel):
                 mc_border.border.downhill_market_area.name,
             ]:
                 continue
-            if mc_border.border.loss_factor > 0.0:
+            if mc_border.border.loss_factor != 0.0:
                 if mc_border.border.uphill_market_area.name == market_area_name:
                     exchanges_sum.append(self.get_variable(
                         constants.border_export_variable_name(border_name, time_index)
@@ -180,7 +180,7 @@ class ExchangesFixing(OptimisationModel):
                 timed_pos_exchanges = self.get_variable(constants.border_pos_exchange_variable_name(border_name, time_index))
                 timed_neg_exchanges = self.get_variable(constants.border_neg_exchange_variable_name(border_name, time_index))
                 # Compute the sum of the absolute values of exchanges:
-                if is_atc and mc_border.border.loss_factor > 0.0:
+                if is_atc and mc_border.border.loss_factor != 0.0:
                     timed_exports = self.get_variable(constants.border_export_variable_name(border_name, time_index))
                     timed_imports = self.get_variable(constants.border_import_variable_name(border_name, time_index))
                     self.add_constraint(

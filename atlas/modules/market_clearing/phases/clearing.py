@@ -123,32 +123,36 @@ class Clearing(OptimisationModel):
                 )
 
     def create_border_imports_variables(self):
-        for border_name in self.input_dataset.mc_market_borders.keys():
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _ in enumerate(self.input_dataset.times):
-                self.add_continuous_variable(
-                    constants.border_import_variable_name(border_name, time_index), -float("inf"), float("inf")
-                )
+                if mc_border.border.loss_factor and mc_border.border.loss_factor != 0.0:
+                    self.add_continuous_variable(
+                        constants.border_import_variable_name(border_name, time_index), -float("inf"), float("inf")
+                    )
 
     def create_border_exports_variables(self):
-        for border_name in self.input_dataset.mc_market_borders.keys():
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _ in enumerate(self.input_dataset.times):
-                self.add_continuous_variable(
-                    constants.border_export_variable_name(border_name, time_index), -float("inf"), float("inf")
-                )
+                if mc_border.border.loss_factor and mc_border.border.loss_factor != 0.0:
+                    self.add_continuous_variable(
+                        constants.border_export_variable_name(border_name, time_index), -float("inf"), float("inf")
+                    )
 
     def create_border_xsis_variables(self):
-        for border_name in self.input_dataset.mc_market_borders.keys():
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _ in enumerate(self.input_dataset.times):
-                self.add_continuous_variable(
-                    constants.border_xsis_variable_name(border_name, time_index), -float("inf"), float("inf")
-                )
+                if mc_border.border.loss_factor and mc_border.border.loss_factor != 0.0:
+                    self.add_continuous_variable(
+                        constants.border_xsis_variable_name(border_name, time_index), -float("inf"), float("inf")
+                    )
 
     def create_border_nus_variables(self):
-        for border_name in self.input_dataset.mc_market_borders.keys():
+        for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _ in enumerate(self.input_dataset.times):
-                self.add_continuous_variable(
-                    constants.border_nus_variable_name(border_name, time_index), -float("inf"), float("inf")
-                )
+                if mc_border.border.loss_factor and mc_border.border.loss_factor != 0.0:
+                    self.add_continuous_variable(
+                        constants.border_nus_variable_name(border_name, time_index), -float("inf"), float("inf")
+                    )
 
     def create_local_balances_variables(self):
         for market_area_name in self.input_dataset.mc_market_areas:
@@ -206,7 +210,7 @@ class Clearing(OptimisationModel):
                         mc_border.border.downhill_market_area,
                     ]:
                         continue
-                    if is_atc and mc_border.border.loss_factor > 0.0:
+                    if is_atc and mc_border.border.loss_factor and mc_border.border.loss_factor != 0.0:
                         if mc_border.border.uphill_market_area == mc_market_area.market_area:
                             exchanges_sum.append(self.get_variable(
                                 constants.border_export_variable_name(border_name, time_index)
@@ -266,7 +270,7 @@ class Clearing(OptimisationModel):
     def create_import_export_constraints(self):
         for time_index, _ in enumerate(self.input_dataset.times):
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-                if not mc_border.border.loss_factor or mc_border.border.loss_factor <= 0:
+                if mc_border.border.loss_factor is None or mc_border.border.loss_factor == 0:
                     continue
                 exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                 _import = self.get_variable(constants.border_import_variable_name(border_name, time_index))
@@ -575,7 +579,7 @@ class Clearing(OptimisationModel):
     def get_n_borders_with_losses(self):
         n_borders_with_losses = 0
         for mc_market_border in self.input_dataset.mc_market_borders.values():
-            if mc_market_border.border.loss_factor and mc_market_border.border.loss_factor > 0.0:
+            if mc_market_border.border.loss_factor and mc_market_border.border.loss_factor != 0.0:
                 n_borders_with_losses += 1
         return n_borders_with_losses
 
@@ -589,7 +593,7 @@ class Clearing(OptimisationModel):
         """
         pass
 
-    def retrieve_accepted_powers(self) -> dict[str, float]:
+    def retrieve_accepted_powers(self) -> dict[str, pywraplp.Variable]:
         """
 
         :return: A dictionary containing the accepted amounts of power for each orders of each market area
@@ -602,7 +606,7 @@ class Clearing(OptimisationModel):
                 accepted_powers[mc_order.order.name] = self.get_variable(accepted_power_name)
         return accepted_powers
 
-    def retrieve_orders_status(self) -> dict[str, float]:
+    def retrieve_orders_status(self) -> dict[str, pywraplp.Variable]:
         """
 
         :return: A dictionary containing the acceptance status of all orders of each market area
@@ -616,7 +620,7 @@ class Clearing(OptimisationModel):
                     orders_status[mc_order.order.name] = self.get_variable(order_status_name)
         return orders_status
 
-    def retrieve_local_balances(self) -> dict[str, float]:
+    def retrieve_local_balances(self) -> dict[tuple[str, int], pywraplp.Variable]:
         """
 
         :return: A dictionary containing the local balances of each market area for each timestep
@@ -629,7 +633,7 @@ class Clearing(OptimisationModel):
                 local_balances[market_area_name, time_index] = self.get_variable(local_balance_name)
         return local_balances
 
-    def retrieve_borders_exchanges(self) -> dict[str, float]:
+    def retrieve_borders_exchanges(self) -> dict[tuple[str, int], pywraplp.Variable]:
         """
 
         :return: A dictionary containing the exchange of each border for each timestep
@@ -642,7 +646,7 @@ class Clearing(OptimisationModel):
                 borders_exchanges[border_name, time_index] = self.get_variable(border_exchange_name)
         return borders_exchanges
 
-    def retrieve_neg_borders_exchanges(self) -> dict[str, float]:
+    def retrieve_neg_borders_exchanges(self) -> dict[tuple[str, int], pywraplp.Variable]:
         """
 
         :return: A dictionary containing the exchange of each border for each timestep
@@ -655,7 +659,7 @@ class Clearing(OptimisationModel):
                 neg_borders_exchanges[border_name, time_index] = self.get_variable(neg_border_exchange_name)
         return neg_borders_exchanges
 
-    def retrieve_pos_borders_exchanges(self) -> dict[str, float]:
+    def retrieve_pos_borders_exchanges(self) -> dict[tuple[str, int], pywraplp.Variable]:
         """
 
         :return: A dictionary containing the exchange of each border for each timestep
@@ -668,7 +672,7 @@ class Clearing(OptimisationModel):
                 pos_borders_exchanges[border_name, time_index] = self.get_variable(pos_border_exchange_name)
         return pos_borders_exchanges
 
-    def retrieve_borders_imports(self) -> dict[str, float]:
+    def retrieve_borders_imports(self) -> dict[tuple[str, int], pywraplp.Variable]:
         """
 
         :return: A dictionary containing the import of each border for each timestep
@@ -681,7 +685,7 @@ class Clearing(OptimisationModel):
                 borders_imports[border_name, time_index] = self.get_variable(border_import_name)
         return borders_imports
 
-    def retrieve_borders_exports(self) -> dict[str, float]:
+    def retrieve_borders_exports(self) -> dict[tuple[str, int], pywraplp.Variable]:
         """
 
         :return: A dictionary containing the export of each border for each timestep
@@ -694,7 +698,7 @@ class Clearing(OptimisationModel):
                 borders_exports[border_name, time_index] = self.get_variable(border_export_name)
         return borders_exports
 
-    def retrieve_borders_xsis(self) -> dict[str, float]:
+    def retrieve_borders_xsis(self) -> dict[tuple[str, int], pywraplp.Variable]:
         """
 
         :return: A dictionary containing the xsis of each border for each timestep
@@ -707,9 +711,8 @@ class Clearing(OptimisationModel):
                 borders_xsis[border_name, time_index] = self.get_variable(border_xsis_name)
         return borders_xsis
 
-    def retrieve_borders_nus(self) -> dict[str, float]:
+    def retrieve_borders_nus(self) -> dict[tuple[str, int], pywraplp.Variable]:
         """
-
         :return: A dictionary containing the nus of each border for each timestep
         :rtype: dict[str, float]
         """
