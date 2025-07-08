@@ -320,6 +320,48 @@ class TestOptimisationModel:
         with pytest.raises(ValueError, match="Variable 'nonexistent' not found in solution"):
             model.get_variable_value("nonexistent")
 
+    def test_get_constraint_slack_value_not_solved(self, model):
+        model._constraints_name.add("c1")
+
+        with pytest.raises(RuntimeError):
+            model.get_constraint_slack_value("c1")
+
+    def test_get_constraint_slack_value_ub_only(self, model, mock_solver):
+        mock_constraint = MagicMock()
+        mock_constraint.ub.return_value = 11
+        mock_constraint.lb.return_value = -float("inf")
+        mock_constraint.GetCoefficient.side_effect = lambda var: 1.0
+
+        mock_var = MagicMock()
+        mock_var.solution_value.return_value = 5.0
+
+        mock_solver.variables.return_value = [mock_var]
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("c_upper")
+        model._solution_info = MagicMock()
+
+        slack = model.get_constraint_slack_value("c_upper")
+        assert pytest.approx(5.0 - 11.0 + slack, 1e-8) == 0.0
+
+    def test_get_constraint_slack_value_lb_only(self, model, mock_solver):
+        mock_constraint = MagicMock()
+        mock_constraint.ub.return_value = float("inf")
+        mock_constraint.lb.return_value = 2.0
+        mock_constraint.GetCoefficient.side_effect = lambda var: 1.0
+
+        mock_var = MagicMock()
+        mock_var.solution_value.return_value = 5.0
+
+        mock_solver.variables.return_value = [mock_var]
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("c_lower")
+        model._solution_info = MagicMock()
+
+        slack = model.get_constraint_slack_value("c_lower")
+        assert pytest.approx(5.0 - 2.0 + slack, 1e-8) == 0.0
+
     def test_export_model(self, model, mock_solver):
         """Test exporting model to file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".lp", delete=False) as f:
