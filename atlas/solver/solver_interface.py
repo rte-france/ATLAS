@@ -349,7 +349,7 @@ class OptimisationModel:
 
         return self._solver.LookupVariable(name).solution_value()
 
-    def get_constraint_value(self, name: str) -> float:
+    def get_constraint_slack_value(self, name: str) -> float:
         """
         Get the slack value of a constraint.
 
