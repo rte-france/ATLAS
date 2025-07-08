@@ -46,7 +46,7 @@ class MarketClearingModule(
         exchange_fixing = ExchangesFixing(input_dataset, parameters)
         exchange_fixing.run(clearing)
         # Launch Pricing phase
-        market_prices = {}  # retrieve from pricing
+        market_prices: dict[str, list[float]] = {}  # retrieve from pricing
         marginal_fixing = MarginalFixing(input_dataset, parameters)
         marginal_fixing.run(clearing.retrieve_accepted_powers(), market_prices)
         return MarketClearingOutputDataset()
@@ -57,7 +57,7 @@ class MarketClearingModule(
         input_dataset: MarketClearingInputDataset,
         output_dataset: MarketClearingOutputDataset,
     ) -> bool:
-        pass
+        return True
 
     def export_results(
         self,

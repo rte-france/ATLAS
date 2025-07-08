@@ -196,6 +196,7 @@ def border_exchanges_constraint_name(border_name: str, time_index: int) -> str:
 
 # First Pricing model
 # Variables
+"""
 def price_on_group(price_group: str) -> str:
     return f"price_on_group_{price_group.rank}_at_{price_group.time_index}"
 
@@ -305,3 +306,4 @@ def paradoxical_delta_p_pc_constraint_name(index_pc: int) -> str:
 
 def paradoxical_delta_p_order_constraint_name(order: MCOrder, market_area_name: str, time_index: int) -> str:
     return f"paradoxial_delta_p_order_{order.id}_area_{market_area_name}_eqpt_{order.eqpt_name}_t_{time_index}"
+"""

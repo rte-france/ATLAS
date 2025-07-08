@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from enum import Enum
+from atlas.enum import Enum
 
 from pydantic import Field
 
