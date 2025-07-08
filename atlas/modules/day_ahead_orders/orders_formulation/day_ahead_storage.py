@@ -39,9 +39,14 @@ class DayAheadStorage:
         model = ElectricVehicleModel(
             parameters.solver.upper(),
             "Optimization of the storage unit " + equipment.name,
-            parameters,
+            parameters.start_date,
+            parameters.end_date,
+            parameters.execution_date,
+            parameters.time_step,
             equipment,
             parameters.ev_additional_hours,
+            parameters.ev_nb_fragments,
+            parameters.ev_energy_coef,
         )
         model.create_decision_variables(parameters.ev_nb_fragments)
         model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor)
@@ -92,7 +97,10 @@ class DayAheadStorage:
         model = BatteryModel(
             parameters.solver.upper(),
             "Optimization of the storage unit " + equipment.name,
-            parameters,
+            parameters.start_date,
+            parameters.end_date,
+            parameters.execution_date,
+            parameters.time_step,
             equipment,
             optimization_period,
         )

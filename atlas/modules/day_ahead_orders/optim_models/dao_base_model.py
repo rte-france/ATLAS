@@ -6,9 +6,9 @@ This file is part of the ATLAS project.
 """
 
 import pendulum
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import OptimisationModel, Equipment, generate_datetimes
-from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
 
 class DAOBaseModel(OptimisationModel):
@@ -16,22 +16,28 @@ class DAOBaseModel(OptimisationModel):
         self,
         solver_name: str,
         name: str,
-        parameters: DayAheadOrdersParameters,
+        start_date: DateTime,
+        end_date: DateTime,
+        execution_date: DateTime,
+        time_step: int,
         equipment: Equipment,
         optimization_period: int,
     ):
         super().__init__(solver_name, name)
         self._objective_direction = "maximize"
-        self.parameters = parameters
+        self.start_date = start_date
+        self.end_date = end_date
+        self.execution_date = execution_date
+        self.time_step = time_step
         self.equipment = equipment
         self.optimizationPeriod = optimization_period
         # Get the price forecast from the input marker: estimations are at ActionHour, over the optimisation period
         # The price forecast is relative to the equipment's market area
         self.price_forecast = self.equipment.portfolio.market_area.price_forecast_medium.get_forecast(
-            parameters.execution_date,
-            parameters.start_date,
-            parameters.end_date.add(hours=self.optimizationPeriod),
-            pendulum.Duration(minutes=parameters.time_step),
+            self.execution_date,
+            self.start_date,
+            self.end_date.add(hours=self.optimizationPeriod),
+            pendulum.Duration(minutes=self.time_step),
         )
         # Set-up the time frames
         # Definition of the time_frame time frame: the time frame on which
@@ -39,9 +45,9 @@ class DAOBaseModel(OptimisationModel):
         # Remark: we define the time series until end_date - time_step because
         # we want all time steps to lie in the [start_date, endOptimizationDate] range.
         self.time_frame = generate_datetimes(
-            parameters.start_date,
-            parameters.end_date.add(hours=self.optimizationPeriod).subtract(minutes=parameters.time_step),
-            pendulum.duration(minutes=parameters.time_step),
+            self.start_date,
+            self.end_date.add(hours=self.optimizationPeriod).subtract(minutes=self.time_step),
+            pendulum.duration(minutes=self.time_step),
         )
         # Total quantities bought and purchased in the market at each time step
         self.Qv = {}
@@ -77,8 +83,8 @@ class DAOBaseModel(OptimisationModel):
         if nb_fragments == 1:
             self.objective = (
                 sum(
-                    self.price_forecast.get_value(t) * self.Qvf[t][0] * self.parameters.time_step / 60.0
-                    - self.price_forecast.get_value(t) * self.Qaf[t][0] * self.parameters.time_step / 60.0
+                    self.price_forecast.get_value(t) * self.Qvf[t][0] * self.time_step / 60.0
+                    - self.price_forecast.get_value(t) * self.Qaf[t][0] * self.time_step / 60.0
                     for t in self.time_frame
                 ),
                 "Profit",
@@ -90,12 +96,12 @@ class DAOBaseModel(OptimisationModel):
                         self.price_forecast.get_value(t)
                         * (1 - i * smoothing_factor / (nb_fragments - 1))
                         * self.Qvf[t][i]
-                        * self.parameters.time_step
+                        * self.time_step
                         / 60.0
                         - self.price_forecast.get_value(t)
                         * (1 + i * smoothing_factor / (nb_fragments - 1))
                         * self.Qaf[t][i]
-                        * self.parameters.time_step
+                        * self.time_step
                         / 60.0
                         for i in range(nb_fragments)
                     )
