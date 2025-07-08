@@ -212,18 +212,19 @@ class Clearing(OptimisationModel):
                         continue
                     if is_atc and mc_border.border.loss_factor and mc_border.border.loss_factor != 0.0:
                         if mc_border.border.uphill_market_area == mc_market_area.market_area:
-                            exchanges_sum.append(self.get_variable(
-                                constants.border_export_variable_name(border_name, time_index)
-                            ))
+                            exchanges_sum.append(
+                                self.get_variable(constants.border_export_variable_name(border_name, time_index))
+                            )
                         elif mc_border.border.downhill_market_area == mc_market_area.market_area:
-                            exchanges_sum.append(-self.get_variable(
-                                constants.border_import_variable_name(border_name, time_index)
-                            ))
+                            exchanges_sum.append(
+                                -self.get_variable(constants.border_import_variable_name(border_name, time_index))
+                            )
                     else:
                         border_sign = 1 if mc_market_area.market_area == mc_border.border.uphill_market_area else -1
-                        exchanges_sum.append(border_sign * self.get_variable(
-                            constants.border_exchange_variable_name(border_name, time_index)
-                        ))
+                        exchanges_sum.append(
+                            border_sign
+                            * self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
+                        )
                 self.add_constraint(
                     self.get_variable(constants.local_balance_variable_name(market_area_name, time_index))
                     == sum(exchanges_sum),
@@ -264,7 +265,7 @@ class Clearing(OptimisationModel):
                             == self.get_variable(
                                 constants.border_exchange_variable_name(border_name, precedent_time_index)
                             ),
-                            constants.exchange_across_border_constraint_name(border_name, time_index)
+                            constants.exchange_across_border_constraint_name(border_name, time_index),
                         )
 
     def create_import_export_constraints(self):
