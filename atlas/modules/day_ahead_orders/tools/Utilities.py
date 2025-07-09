@@ -5,12 +5,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import pendulum
-from pydantic_extra_types.pendulum_dt import DateTime
-
 import atlas.config as cfg
+import pendulum
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.timing import generate_datetimes
+from pydantic_extra_types.pendulum_dt import DateTime
 
 
 # Contains miscellaneous functions used in the various files.

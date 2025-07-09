@@ -23,7 +23,7 @@ from atlas.timing import generate_datetimes
 from pydantic_extra_types.pendulum_dt import DateTime
 
 
-class DayAheadStorage:
+class DAOStorage:
     @staticmethod
     def optimize_ev(
         equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters
@@ -54,7 +54,7 @@ class DayAheadStorage:
 
         # Solving the problem
         if parameters.solver.upper() == "XPRESS":
-            DayAheadStorage.solve_with_xpress(model, parameters, equipment.name)
+            DAOStorage.solve_with_xpress(model, parameters, equipment.name)
         else:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
             raise ValueError(
@@ -110,7 +110,7 @@ class DayAheadStorage:
 
         # Solving the problem
         if parameters.solver.upper() == "XPRESS":
-            DayAheadStorage.solve_with_xpress(model, parameters, equipment.name)
+            DAOStorage.solve_with_xpress(model, parameters, equipment.name)
         else:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previsously raised errors otherwise with GLPK
             raise ValueError(
@@ -253,16 +253,16 @@ class DayAheadStorage:
             sell_submitted_volumes = Timeseries(pd.DataFrame({"time": index, "value": [0] * len(local_index)}))
 
             # if the stock of the equipment at start date is not defined, initiate it
-            initial_stock = DayAheadStorage.initiate_stock(equipment, parameters)
+            initial_stock = DAOStorage.initiate_stock(equipment, parameters)
 
             # Determine offers times and quantities through an optimisation algorithm under a price forecast
             if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
-                Qv, Qa = DayAheadStorage.optimize_ev(equipment, initial_stock, parameters)
+                Qv, Qa = DAOStorage.optimize_ev(equipment, initial_stock, parameters)
             else:
-                Qv, Qa = DayAheadStorage.optimize_battery(equipment, initial_stock, parameters)
+                Qv, Qa = DAOStorage.optimize_battery(equipment, initial_stock, parameters)
 
             # Determine sale and purchase prices
-            Psale, Ppurchase = DayAheadStorage.price_calculation(equipment, Qv, Qa, parameters)
+            Psale, Ppurchase = DAOStorage.price_calculation(equipment, Qv, Qa, parameters)
 
             # Store Ppurchase as price reference in variable_cost, in the dataset.
             # Psale can then be deduced from Ppurchase, Charge and and Discharge efficiency
@@ -323,12 +323,12 @@ class DayAheadStorage:
                     coupling_instance.complement_energy = energy_requirement
 
                 for t in [i for i, e in Qa.items()]:
-                    DayAheadStorage.add_spot_order_with_coupling(
+                    DAOStorage.add_spot_order_with_coupling(
                         OrderType.Buy, equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
                     )
                     buy_submitted_volumes.add_value_at(t, Qa[t])
                 for t in [i for i, e in Qv.items()]:
-                    DayAheadStorage.add_spot_order_with_coupling(
+                    DAOStorage.add_spot_order_with_coupling(
                         OrderType.Sell, equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance
                     )
                     sell_submitted_volumes.add_value_at(t, Qv[t])
@@ -346,12 +346,12 @@ class DayAheadStorage:
                 )
 
                 for t in [i for i, e in Qa.items()]:
-                    DayAheadStorage.add_spot_order_with_coupling(
+                    DAOStorage.add_spot_order_with_coupling(
                         OrderType.Buy, equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
                     )
                     buy_submitted_volumes.add_value_at(t, Qa[t])
                 for t in [i for i, e in Qv.items()]:
-                    DayAheadStorage.add_spot_order_with_coupling(
+                    DAOStorage.add_spot_order_with_coupling(
                         OrderType.Sell, equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance
                     )
                     sell_submitted_volumes.add_value_at(t, Qv[t])
@@ -408,7 +408,7 @@ class DayAheadStorage:
         parameters: DayAheadOrdersParameters,
         dataset,
     ):
-        order = DayAheadStorage.create_spot_order(order_type, equipment, start_date, qmax, price, parameters)
+        order = DAOStorage.create_spot_order(order_type, equipment, start_date, qmax, price, parameters)
         dataset.order.append(order)
 
     @staticmethod
@@ -422,7 +422,7 @@ class DayAheadStorage:
         dataset,
         coupling_instance: OrderCoupling,
     ):
-        order = DayAheadStorage.create_spot_order(order_type, equipment, start_date, qmax, price, parameters)
+        order = DAOStorage.create_spot_order(order_type, equipment, start_date, qmax, price, parameters)
         dataset.order.append(order)
         coupling_instance.orders.append(order)
 

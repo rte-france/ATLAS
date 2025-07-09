@@ -16,7 +16,7 @@ from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 import atlas.config as cfg
 
 
-class DayAheadLoad:
+class DAOLoad:
     @staticmethod
     def formulate_load_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
