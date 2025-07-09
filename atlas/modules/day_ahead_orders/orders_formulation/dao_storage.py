@@ -249,8 +249,8 @@ class DAOStorage:
 
             cfg.logger.debug("Equipment {}".format(str(equipment.name)))
 
-            buy_submitted_volumes = Timeseries(pd.DataFrame({"time": index, "value": [0] * len(local_index)}))
-            sell_submitted_volumes = Timeseries(pd.DataFrame({"time": index, "value": [0] * len(local_index)}))
+            buy_submitted_volumes = Timeseries(pd.DataFrame({"time": local_index, "value": [0] * len(local_index)}))
+            sell_submitted_volumes = Timeseries(pd.DataFrame({"time": local_index, "value": [0] * len(local_index)}))
 
             # if the stock of the equipment at start date is not defined, initiate it
             initial_stock = DAOStorage.initiate_stock(equipment, parameters)
