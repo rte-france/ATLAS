@@ -63,8 +63,8 @@ class VariableBuilder:
         if "load" in equipments:
             self._build_load_variables(model, cast(list[Load], equipments["load"]))
 
-        if "thermal" in equipments:
-            self._build_thermal_variables(model, cast(list[Thermal], equipments["thermal"]))
+        # if "thermal" in equipments:
+        #     self._build_thermal_variables(model, cast(list[Thermal], equipments["thermal"]))
 
     def _build_portfolio_variables(
         self,
@@ -81,139 +81,139 @@ class VariableBuilder:
             self._add_imbalance_variables(model, portfolio_name, time, residual_energy, maximum_energy)
             self._add_contract_difference_variables(model, portfolio_name, time, maximum_power)
 
-    def _build_thermal_variables(self, model: OptimisationModel, equipments: list[Thermal]):
-        for obj in equipments:
-            timing_params = self._calculate_thermal_timing_params(obj)
+    # def _build_thermal_variables(self, model: OptimisationModel, equipments: list[Thermal]):
+    #     for obj in equipments:
+    #         timing_params = self._calculate_thermal_timing_params(obj)
 
-            optimisation_times, stable_optimisation_times = self._get_thermal_optimization_times(obj, timing_params)
+    #         optimisation_times, stable_optimisation_times = self._get_thermal_optimization_times(obj, timing_params)
 
-            if timing_params["T_stable"] >= 1:
-                model.add_boolean_variable(
-                    name=f"ON_UP_var_e_{obj.name}_at_{self.parameters.start_date - self.parameters.timestep}"
-                )
-                model.add_boolean_variable(
-                    name=f"ON_DOWN_var_e_{obj.name}_at_{self.parameters.start_date - self.parameters.timestep}"
-                )
+    #         if timing_params["T_stable"] >= 1:
+    #             model.add_boolean_variable(
+    #                 name=f"ON_UP_var_e_{obj.name}_at_{self.parameters.start_date - self.parameters.timestep}"
+    #             )
+    #             model.add_boolean_variable(
+    #                 name=f"ON_DOWN_var_e_{obj.name}_at_{self.parameters.start_date - self.parameters.timestep}"
+    #             )
 
-            for time in stable_optimisation_times:
-                min_power = get_minimum_power(obj, time)
-                max_power = get_maximum_power(obj, time)
-                maximum_automated = obj.maximum_afrr + obj.maximum_fcr
+    #         for time in stable_optimisation_times:
+    #             min_power = get_minimum_power(obj, time)
+    #             max_power = get_maximum_power(obj, time)
+    #             maximum_automated = obj.maximum_afrr + obj.maximum_fcr
 
-                if timing_params["T_stable"] >= 1:
-                    model.add_boolean_variable(name=f"ON_FLAT_e_{obj.name}_at_{time}")
-                    model.add_boolean_variable(name=f"stable_at_{time}_e_{obj.name}")
-                    model.add_boolean_variable(name=f"entered_up_at_{time}_e_{obj.name}")
-                    model.add_boolean_variable(name=f"entered_down_at_{time}_e_{obj.name}")
+    #             if timing_params["T_stable"] >= 1:
+    #                 model.add_boolean_variable(name=f"ON_FLAT_e_{obj.name}_at_{time}")
+    #                 model.add_boolean_variable(name=f"stable_at_{time}_e_{obj.name}")
+    #                 model.add_boolean_variable(name=f"entered_up_at_{time}_e_{obj.name}")
+    #                 model.add_boolean_variable(name=f"entered_down_at_{time}_e_{obj.name}")
 
-                # Power level variables (only for thermal_op_times)
-                if time in self.parameters.thermal_op_times:
-                    model.add_continuous_variable(
-                        name=f"{obj.name}_p_lev_{time}",
-                        lower_bound=0,
-                        upper_bound=max_power,
-                    )
-                    model.add_continuous_variable(
-                        name=f"{obj.name}_p_lev_above_maxAvail_{time}",
-                        lower_bound=0,
-                        upper_bound=max_power,
-                    )
-                    model.add_continuous_variable(
-                        name=f"{obj.name}_p_lev_below_minAvail_{time}",
-                        lower_bound=0,
-                        upper_bound=max_power,
-                    )
+    #             # Power level variables (only for thermal_op_times)
+    #             if time in self.parameters.thermal_op_times:
+    #                 model.add_continuous_variable(
+    #                     name=f"{obj.name}_p_lev_{time}",
+    #                     lower_bound=0,
+    #                     upper_bound=max_power,
+    #                 )
+    #                 model.add_continuous_variable(
+    #                     name=f"{obj.name}_p_lev_above_maxAvail_{time}",
+    #                     lower_bound=0,
+    #                     upper_bound=max_power,
+    #                 )
+    #                 model.add_continuous_variable(
+    #                     name=f"{obj.name}_p_lev_below_minAvail_{time}",
+    #                     lower_bound=0,
+    #                     upper_bound=max_power,
+    #                 )
 
-                if time in optimisation_times:
-                    model.add_boolean_variable(name=f"OFF_var_e_{obj.name}_at_{time}")
-                    model.add_boolean_variable(name=f"ON_UP_var_e_{obj.name}_at_{time}")
-                    model.add_boolean_variable(name=f"ON_DOWN_var_e_{obj.name}_at_{time}")
-                    model.add_boolean_variable(name=f"t_on_of_e_{obj.name}_at_{time}")
-                    model.add_boolean_variable(name=f"t_off_of_e_{obj.name}_at_{time}")
+    #             if time in optimisation_times:
+    #                 model.add_boolean_variable(name=f"OFF_var_e_{obj.name}_at_{time}")
+    #                 model.add_boolean_variable(name=f"ON_UP_var_e_{obj.name}_at_{time}")
+    #                 model.add_boolean_variable(name=f"ON_DOWN_var_e_{obj.name}_at_{time}")
+    #                 model.add_boolean_variable(name=f"t_on_of_e_{obj.name}_at_{time}")
+    #                 model.add_boolean_variable(name=f"t_off_of_e_{obj.name}_at_{time}")
 
-                    if timing_params["T_start"] >= 1:
-                        model.add_boolean_variable(name=f"ON_START_e_{obj.name}_at_{time}")
+    #                 if timing_params["T_start"] >= 1:
+    #                     model.add_boolean_variable(name=f"ON_START_e_{obj.name}_at_{time}")
 
-                    if timing_params["T_stop"] >= 1:
-                        model.add_boolean_variable(name=f"STOP_e_{obj.name}_at_{time}")
+    #                 if timing_params["T_stop"] >= 1:
+    #                     model.add_boolean_variable(name=f"STOP_e_{obj.name}_at_{time}")
 
-                    model.add_continuous_variable(
-                        name=f"UP_grad_at_{time}_for_e_{obj.name}",
-                        lower_bound=-inf,
-                        upper_bound=inf,
-                    )
-                    model.add_continuous_variable(
-                        name=f"aux_up_grad_at_{time}_e_{obj.name}",
-                        lower_bound=-inf,
-                        upper_bound=inf,
-                    )
-                    model.add_continuous_variable(
-                        name=f"DOWN_grad_at_{time}_e_{obj.name}",
-                        lower_bound=-inf,
-                        upper_bound=inf,
-                    )
-                    model.add_continuous_variable(
-                        name=f"aux_down_grad_at_{time}_e_{obj.name}",
-                        lower_bound=-inf,
-                        upper_bound=inf,
-                    )
+    #                 model.add_continuous_variable(
+    #                     name=f"UP_grad_at_{time}_for_e_{obj.name}",
+    #                     lower_bound=-inf,
+    #                     upper_bound=inf,
+    #                 )
+    #                 model.add_continuous_variable(
+    #                     name=f"aux_up_grad_at_{time}_e_{obj.name}",
+    #                     lower_bound=-inf,
+    #                     upper_bound=inf,
+    #                 )
+    #                 model.add_continuous_variable(
+    #                     name=f"DOWN_grad_at_{time}_e_{obj.name}",
+    #                     lower_bound=-inf,
+    #                     upper_bound=inf,
+    #                 )
+    #                 model.add_continuous_variable(
+    #                     name=f"aux_down_grad_at_{time}_e_{obj.name}",
+    #                     lower_bound=-inf,
+    #                     upper_bound=inf,
+    #                 )
 
-                    # Additional conditional variables
-                    if (
-                        timing_params["T_stop"] >= 1
-                        and timing_params["T_start"] == 0
-                        and timing_params["T_stable"] == 0
-                    ):
-                        model.add_boolean_variable(name=f"down_to_stop_grad_at_{time}_e_{obj.name}")
+    #                 # Additional conditional variables
+    #                 if (
+    #                     timing_params["T_stop"] >= 1
+    #                     and timing_params["T_start"] == 0
+    #                     and timing_params["T_stable"] == 0
+    #                 ):
+    #                     model.add_boolean_variable(name=f"down_to_stop_grad_at_{time}_e_{obj.name}")
 
-                    if timing_params["T_stop"] >= 1 and timing_params["T_stable"] >= 1:
-                        model.add_boolean_variable(name=f"flat_down_stop_at_{time}_e_{obj.name}")
+    #                 if timing_params["T_stop"] >= 1 and timing_params["T_stable"] >= 1:
+    #                     model.add_boolean_variable(name=f"flat_down_stop_at_{time}_e_{obj.name}")
 
-                    if timing_params["T_stable"] >= 1 and (
-                        timing_params["T_start"] >= 1 or timing_params["T_stop"] >= 1
-                    ):
-                        model.add_continuous_variable(
-                            name=f"DD_grad_at_{time}_e_{obj.name}",
-                            lower_bound=-inf,
-                            upper_bound=inf,
-                        )
+    #                 if timing_params["T_stable"] >= 1 and (
+    #                     timing_params["T_start"] >= 1 or timing_params["T_stop"] >= 1
+    #                 ):
+    #                     model.add_continuous_variable(
+    #                         name=f"DD_grad_at_{time}_e_{obj.name}",
+    #                         lower_bound=-inf,
+    #                         upper_bound=inf,
+    #                     )
 
-                    if (
-                        timing_params["T_stop"] >= 1
-                        and timing_params["T_start"] >= 1
-                        and timing_params["T_stable"] == 0
-                    ):
-                        model.add_boolean_variable(name=f"down_to_stop_grad_at_{time}_e_{obj.name}")
+    #                 if (
+    #                     timing_params["T_stop"] >= 1
+    #                     and timing_params["T_start"] >= 1
+    #                     and timing_params["T_stable"] == 0
+    #                 ):
+    #                     model.add_boolean_variable(name=f"down_to_stop_grad_at_{time}_e_{obj.name}")
 
-                    # Handle special case for T_stable >= 1: add extra time step variables
-                    if timing_params["T_stable"] >= 1:
-                        # Add variables for start_date - 1 time step
-                        startDate_minus_one_enum = -1  # or use appropriate indexing
-                        model.add_boolean_variable(name=f"ON_UP_var_e_{obj.name}_at_{startDate_minus_one_enum}")
-                        model.add_boolean_variable(name=f"ON_DOWN_var_e_{obj.name}_at_{startDate_minus_one_enum}")
+    #                 # Handle special case for T_stable >= 1: add extra time step variables
+    #                 if timing_params["T_stable"] >= 1:
+    #                     # Add variables for start_date - 1 time step
+    #                     startDate_minus_one_enum = -1  # or use appropriate indexing
+    #                     model.add_boolean_variable(name=f"ON_UP_var_e_{obj.name}_at_{startDate_minus_one_enum}")
+    #                     model.add_boolean_variable(name=f"ON_DOWN_var_e_{obj.name}_at_{startDate_minus_one_enum}")
 
-                    # Handle special case for DD variables: add time step before start_date
-                    if timing_params["T_stable"] >= 1 and (
-                        timing_params["T_start"] >= 1 or timing_params["T_stop"] >= 1
-                    ):
-                        model.add_continuous_variable(
-                            name=f"DD_grad_at_{-1}_e_{obj.name}",
-                            lower_bound=-inf,
-                            upper_bound=inf,
-                        )
+    #                 # Handle special case for DD variables: add time step before start_date
+    #                 if timing_params["T_stable"] >= 1 and (
+    #                     timing_params["T_start"] >= 1 or timing_params["T_stop"] >= 1
+    #                 ):
+    #                     model.add_continuous_variable(
+    #                         name=f"DD_grad_at_{-1}_e_{obj.name}",
+    #                         lower_bound=-inf,
+    #                         upper_bound=inf,
+    #                     )
 
-                        # Reserve variables
-                        self._add_reserve_variables(
-                            model,
-                            obj.name,
-                            time,
-                            min_power,
-                            max_power,
-                            maximum_automated,
-                            relaxed_reserves=True,
-                            storage_equipment=False,
-                            thermal_equipment=True,
-                        )
+    #                     # Reserve variables
+    #                     self._add_reserve_variables(
+    #                         model,
+    #                         obj.name,
+    #                         time,
+    #                         min_power,
+    #                         max_power,
+    #                         maximum_automated,
+    #                         relaxed_reserves=True,
+    #                         storage_equipment=False,
+    #                         thermal_equipment=True,
+    #                     )
 
     def _calculate_thermal_timing_params(self, obj: Thermal) -> dict:
         """Calculate timing parameters for thermal equipment."""
