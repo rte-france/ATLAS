@@ -6,12 +6,11 @@ This file is part of the ATLAS project.
 """
 
 import os
-from pydantic_extra_types.pendulum_dt import DateTime
 from typing import Any
 
-import pendulum
-
 import atlas.config as cfg
+import pandas as pd
+import pendulum
 from atlas import Timeseries, Equipment, Order, OrderCoupling
 from atlas.enum import StorageType, Product, CouplingType, ComplementDirection, OrderType
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
@@ -21,6 +20,7 @@ from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseMo
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 from atlas.timing import generate_datetimes
+from pydantic_extra_types.pendulum_dt import DateTime
 
 
 class DayAheadStorage:
@@ -249,11 +249,8 @@ class DayAheadStorage:
 
             cfg.logger.debug("Equipment {}".format(str(equipment.name)))
 
-            # TODO
-            buy_submitted_volumes = Timeseries(None)
-            sell_submitted_volumes = Timeseries(None)
-            # buy_submitted_volumes = API.TimeSeries.NewTimeSeries("", API.TimeSeries.Constant, "MW", local_index, 0)
-            # sell_submitted_volumes = API.TimeSeries.NewTimeSeries("", API.TimeSeries.Constant, "MW", local_index, 0)
+            buy_submitted_volumes = Timeseries(pd.DataFrame({"time": index, "value": [0] * len(local_index)}))
+            sell_submitted_volumes = Timeseries(pd.DataFrame({"time": index, "value": [0] * len(local_index)}))
 
             # if the stock of the equipment at start date is not defined, initiate it
             initial_stock = DayAheadStorage.initiate_stock(equipment, parameters)
