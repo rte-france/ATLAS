@@ -53,7 +53,7 @@ class DayAheadLoad:
             for t in orders_time:
                 # Extract the desired consumption level.
                 if len(consumption_forecast) == 0:
-                    cfg.logger.debug("consumption_forecast is empty for load " + load.name + ", " + str(load.load_type))
+                    cfg.logger.debug("consumption_forecast is empty for load {}, {}".format(load.name, load.load_type))
                 else:
                     max_consumption_value = abs(consumption_forecast.get_value(t))
 

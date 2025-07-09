@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import Any
+
 import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
@@ -50,16 +52,16 @@ class DAOBaseModel(OptimisationModel):
             pendulum.duration(minutes=self.time_step),
         )
         # Total quantities bought and purchased in the market at each time step
-        self.Qv = {}
-        self.Qa = {}
+        self.Qv: dict[DateTime, Any] = {}  # Qv: dict[Datetime, Any]
+        self.Qa: dict[DateTime, Any] = {}
         # Quantities bought and purchased in each fragment of power i at each time step
-        self.Qvf = {}
-        self.Qaf = {}
+        self.Qvf: dict[DateTime, Any] = {}
+        self.Qaf: dict[DateTime, Any] = {}
         # Energy stored in battery at each time step
         # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
-        self.stored_energy = {}
+        self.stored_energy: dict[DateTime, Any] = {}
         # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
-        self.is_sell = {}
+        self.is_sell: dict[DateTime, Any] = {}
         self.objective = None
 
     def create_decision_variables(self, nb_fragments: int):
