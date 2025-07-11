@@ -54,12 +54,7 @@ class ConstraintBuilder:
 
         if time in self.parameters.target_times:
             self._add_global_constraints(time, portfolio_name, portfolio, model)
-            if (
-                len(portfolio.get("thermal", []))
-                + len(portfolio.get("hydro", []))
-                + len(portfolio.get("storage", []) + len(portfolio.get("wind", [])) + len(portfolio.get("solar", [])))
-                > 0
-            ):
+            if any(portfolio.get(tech, []) for tech in ["thermal", "hydro", "storage", "wind", "solar"]):
                 self._add_reserves_constraints(time, portfolio_name, portfolio, model)
 
     def _add_equipment_constraints(

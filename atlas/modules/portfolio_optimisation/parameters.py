@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import Enum
 
 from pendulum import DateTime
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
@@ -91,31 +91,17 @@ class PortfolioOptimisationParameters(AbstractParameters):
         description="Quantity (%) of imbalance qualified as small, relative to max portfolio energy.",
     )
     solver_duality_gap: float = Field(0.0001, description="Duality gap used for the optimization.")
-    additional_hours: Duration = Field(
-        Duration(hours=12),
-        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
-    )
-    battery_additional_hours: Duration = Field(
-        Duration(hours=48), description="Optimization period in hours for Storage Equipments of type Battery."
-    )
     battery_automated_reserve_duration: int = Field(60, description="Automated reserve duration for battery equipment.")
     battery_number_of_fragments: int = Field(
         3, description="Number of power fragments for battery; last fragments are more expensive."
     )
     battery_reserve_duration: int = Field(60, description="Manual reserve duration for battery equipment.")
-    electric_vehicle_additional_hours: Duration = Field(
-        Duration(),
-        description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",
-    )
     electric_vehicle_automated_reserve_duration: int = Field(
         1, description="Automated reserve duration for electric vehicle equipment."
     )
     electric_vehicle_number_of_fragments: int = Field(3, description="Number of power fragments for electric vehicle.")
     electric_vehicle_reserve_duration: int = Field(
         0, description="Manual reserve duration for electric vehicle equipment."
-    )
-    hydraulic_additional_hours: Duration = Field(
-        Duration(hours=12), description="Optimization period in hours for hydraulic group."
     )
     hydraulic_minimal_fragment_size: int = Field(
         100, description="Minimal amount of power for an offer to be formulated for hydraulic."
@@ -127,18 +113,8 @@ class PortfolioOptimisationParameters(AbstractParameters):
     pumped_hydraulic_reserve_duration: int = Field(
         60, description="Manual reserve duration for pumped hydraulic equipment."
     )
-    pumped_hydraulic_storage_additional_hours: Duration = Field(
-        Duration(hours=144),
-        description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",
-    )
+
     solver_timeout: int = Field(240, description="Timeout (in seconds) of the optimization.")
-    thermal_additional_hours: Duration = Field(
-        Duration(hours=12), description="Optimization period in hours for thermal group."
-    )
-    timestep: Duration = Field(
-        Duration(hours=1),
-        description="Time step (in minutes) of the simulated market.",  # type:ignore [assignment]
-    )
     excluded_market_areas_: str | None = Field(
         None,
         description='list of market areas (separated by ";") excluded from classic optimization. None and "all" are possible values.',
@@ -162,6 +138,63 @@ class PortfolioOptimisationParameters(AbstractParameters):
         SolverEnum.xpress,
         description='Solver to use. Default: "XPRESS". Other options: "PNE", "GLOP", "SCIP", "CP-SAT".',
     )
+
+    additional_hours: Duration = Field(
+        default=12,  # 12 hours
+        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
+    )
+    battery_additional_hours: Duration = Field(
+        default=48,  # 48 hours
+        description="Optimization period in hours for Storage Equipments of type Battery.",
+    )
+    electric_vehicle_additional_hours: Duration = Field(
+        default=0,  # 0 hours
+        description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",
+    )
+    hydraulic_additional_hours: Duration = Field(
+        default=12,  # 12 hours
+        description="Optimization period in hours for hydraulic group.",
+    )
+    pumped_hydraulic_storage_additional_hours: Duration = Field(
+        default=144,  # 144 hours
+        description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",
+    )
+    thermal_additional_hours: Duration = Field(
+        default=12,  # 12 hours
+        description="Optimization period in hours for thermal group.",
+    )
+    timestep: Duration = Field(
+        default=1,  # 1 hour
+        description="Time step (in hours) of the simulated market.",
+    )
+
+    @field_validator(
+        "additional_hours",
+        "battery_additional_hours",
+        "electric_vehicle_additional_hours",
+        "hydraulic_additional_hours",
+        "pumped_hydraulic_storage_additional_hours",
+        "thermal_additional_hours",
+        "timestep",
+        mode="before",
+    )
+    @classmethod
+    def convert_hours_to_duration(cls, v):
+        if isinstance(v, int):
+            return Duration(hours=v)
+        return v
+
+    @field_validator(
+        "pumped_hydraulic_automated_reserve_duration",
+        "battery_automated_reserve_duration",
+        "electric_vehicle_automated_reserve_duration",
+        mode="before",
+    )
+    @classmethod
+    def convert_minutes_to_duration(cls, v):
+        if isinstance(v, int):
+            return Duration(minutes=v)
+        return v
 
     @property
     def target_times(self) -> list[DateTime]:

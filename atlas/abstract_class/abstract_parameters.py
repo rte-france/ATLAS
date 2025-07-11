@@ -46,8 +46,7 @@ class AbstractParameters(BaseModel):
         :return: The AbstractParameters if dates are validate
         :rtype: AbstractParameters
         """
-        if self.end_date is None or self.start_date is None:
-            return self
+
         if self.end_date < self.start_date:
             raise ValueError(
                 f"Start date '{self.start_date.to_datetime_string()}' must be inferior "

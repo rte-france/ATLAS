@@ -23,7 +23,6 @@ def add_constraints_hydro(
     time: DateTime,
     hydro_equipments: list[Hydro],
     model: OptimisationModel,
-    price_forecast: float,
     parameters: PortfolioOptimisationParameters,
 ):
     """
@@ -83,8 +82,6 @@ def add_constraints_load(
     time: DateTime,
     load_equipments: list[Load],
     model: OptimisationModel,
-    price_forecast: float,
-    parameters: PortfolioOptimisationParameters,
 ):
     """
     This function adds constraints and elements in the objective function related to load equipments.
@@ -131,7 +128,6 @@ def add_contraints_storage(
     time: DateTime,
     storage_equipments: list[Storage],
     model: OptimisationModel,
-    price_forecast: float,
     parameters: PortfolioOptimisationParameters,
 ):
     """
