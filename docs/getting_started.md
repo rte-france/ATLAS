@@ -10,7 +10,7 @@ Atlas project uses or-tools as modeller, you can use the solver of your choice. 
 
 Find below a quick installation guide, more information can be find directly on **FICO** website : [here](https://www.fico.com/fico-xpress-optimization/docs/dms2021-02/installguide/dhtml/chapinst1_sec_secunix.html)
 
-- Download [file]('')
+- Download [file]('https://www.artelys.com/fr/espace-client/telecharger-xpress/') (You will probably need to create an account)
 - Move the archive here : `/opt/xpressmp`
 - Enter the uncompressed archive : `cd <archive_uncompressed>`
 - Run the installer, select **static licensing** :
