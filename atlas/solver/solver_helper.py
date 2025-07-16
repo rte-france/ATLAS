@@ -3,15 +3,12 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
-
-Module that implements OR-Tools optimisation interface.
 """
 
-import os
 from collections import OrderedDict
 from pathlib import Path
 
-
+import dictdiffer
 from ortools.linear_solver import pywraplp
 
 
@@ -274,7 +271,7 @@ class SolverHelper:
         :return: dict
         """
         solution = {}
-        with open(solution_file, "r") as file:
+        with open(solution_file) as file:
             lines = file.readlines()
         for line in lines:
             line = line.strip()
@@ -328,7 +325,7 @@ class SolverHelper:
         binaries = []
         section = None
         prev_line = ""
-        with open(filepath, "r") as file:
+        with open(filepath) as file:
             lines = file.readlines()
         for id_line, line in enumerate(lines):
             line = line.strip()
@@ -424,7 +421,7 @@ class SolverHelper:
         binaries = []
         section = None
         prev_line = ""
-        with open(filepath, "r") as file:
+        with open(filepath) as file:
             lines = file.readlines()
         for line in lines:
             line = line.strip()
@@ -490,7 +487,7 @@ class SolverHelper:
                     # raise ValueError("Constraint line must contain >=, <=, or = sign")
                 line = line.split(" ")
 
-                if not SolverHelper.isfloat(line[0]) and not line[0] in ("+", "-"):
+                if not SolverHelper.isfloat(line[0]) and line[0] not in ("+", "-"):
                     line.insert(0, "+")
                 while "" in line:
                     line.remove("")
@@ -544,7 +541,7 @@ class SolverHelper:
         binaries = []
         section = None
         prev_line = ""
-        with open(filepath, "r") as file:
+        with open(filepath) as file:
             lines = file.readlines()
         for line in lines:
             line = line.strip()
@@ -593,7 +590,7 @@ class SolverHelper:
 
                     # raise ValueError("Constraint line must contain >=, <=, or = sign")
                 line = line.split(" ")
-                if not SolverHelper.isfloat(line[0]) and not line[0] in ("+", "-"):
+                if not SolverHelper.isfloat(line[0]) and line[0] not in ("+", "-"):
                     line.insert(0, "+")
                 while "" in line:
                     line.remove("")
@@ -716,17 +713,17 @@ class SolverHelper:
     def rebuild_lp_with_real_names(lp_file: str, csv_file: str, new_lp_file: str):
         names: dict[str, str] = {}
         new_lines = []
-        with open(csv_file, "r") as csv:
+        with open(csv_file) as csv:
             csv_lines = csv.readlines()
             for id_line, line in enumerate(csv_lines):
                 line = line.strip()
                 if id_line > 0 and len(line) > 0:  # skip first line and empty line
                     type, short_name, long_name = line.split(";")
                     names[short_name] = long_name
-        with open(lp_file, "r") as lp:
+        with open(lp_file) as lp:
             lp_lines = lp.readlines()
             is_binaries = False
-            for id_line, line in enumerate(lp_lines):
+            for line in enumerate(lp_lines):
                 words = line.split(" ")
                 new_words = []
                 first = True
