@@ -7,28 +7,26 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 from pydantic import BaseModel
 
-from atlas.models.equipment.hydro import Hydro
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
 def compute_fragment_prices(
-    obj: Hydro,
+    obj: HydroPO,
     time: DateTime,
     category,
     parameters: PortfolioOptimisationParameters,
 ):
-    if time not in parameters.hydraulic_op_times:
-        return
+    if time in parameters.hydraulic_op_times:
+        fragment_data = _get_fragment_data(obj)
+        energy_level = _get_current_energy_level(obj, parameters)
 
-    fragment_data = _get_fragment_data(obj)
-    energy_level = _get_current_energy_level(obj, parameters)
+        marginal_weights = _calculate_marginal_weights(obj, energy_level)
 
-    marginal_weights = _calculate_marginal_weights(obj, energy_level)
-
-    return _calculate_fragment_price(fragment_data[category].price, marginal_weights, time)
+        return _calculate_fragment_price(fragment_data[category].price, marginal_weights, time)
 
 
-def _get_fragment_data(obj: Hydro):
+def _get_fragment_data(obj: HydroPO):
     return {
         category: FragmentData(volume=obj.fragment_volumes[category], price=obj.fragment_prices[category])
         for category in range(len(obj.fragment_volumes))
@@ -41,7 +39,7 @@ def get_fragment_length(obj):
     return len(obj.fragment_volumes)
 
 
-def _get_current_energy_level(obj: Hydro, parameters: PortfolioOptimisationParameters) -> float:
+def _get_current_energy_level(obj: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
     """Get the current energy level from forecast or initial level."""
     energy_forecast = obj.stored_energy.get_forecast(
         parameters.execution_date,
@@ -55,7 +53,7 @@ def _get_current_energy_level(obj: Hydro, parameters: PortfolioOptimisationParam
         return obj.initial_level.get_value(parameters.start_date - parameters.timestep)
 
 
-def _calculate_marginal_weights(obj: Hydro, energy_level: float) -> dict:
+def _calculate_marginal_weights(obj: HydroPO, energy_level: float) -> dict:
     """Calculate marginal value weights based on current energy level."""
     storage_indices = obj.storage_marginal_value.index
 

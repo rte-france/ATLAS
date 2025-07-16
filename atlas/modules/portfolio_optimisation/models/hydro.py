@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pendulum import DateTime
 
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.hydro import Hydro
@@ -35,6 +36,8 @@ class HydroPO(Hydro):
     maximum_afrr: float
     minimum_power: Timeseries | LazyTimeseries
     maximum_power: Timeseries | LazyTimeseries
+    stored_energy: ForecastingMatrix | LazyForecastingMatrix
+    initial_level: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """Build variables for hydro equipment."""

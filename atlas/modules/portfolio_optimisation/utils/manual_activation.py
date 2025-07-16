@@ -3,12 +3,6 @@ from pendulum import DateTime
 from atlas.enum import StorageType
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
-from atlas.models.equipment.wind import Wind
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
@@ -25,9 +19,9 @@ def is_excluded_technology(parameters: PortfolioOptimisationParameters, equipmen
     return equipment.__class__.__name__ in parameters.excluded_technologies
 
 
-def is_excluded_thermal_strategy(parameters: PortfolioOptimisationParameters, equipment: Thermal) -> bool:
+def is_excluded_thermal_strategy(parameters: PortfolioOptimisationParameters, equipment: ThermalPO) -> bool:
     """Check if thermal equipment strategy is excluded."""
-    if isinstance(equipment, Thermal):
+    if isinstance(equipment, ThermalPO):
         return equipment.strategy in parameters.excluded_thermal_strategies
     return False
 
@@ -59,7 +53,7 @@ def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOpti
 
         _apply_power_constraints(equipment, new_power, parameters)
 
-        if isinstance(equipment, Hydro | Storage):
+        if isinstance(equipment, HydroPO | StoragePO):
             _update_stored_energy(equipment, new_power, parameters)
 
         _finalize_power_update(equipment, new_power, parameters)
@@ -97,7 +91,7 @@ def _should_skip_equipment(
         return False
 
     # Always process these equipment types
-    if isinstance(equipment, Wind | Solar | Thermal):
+    if isinstance(equipment, WindPO | SolarPO | ThermalPO):
         return False
 
     # Skip if power is effectively zero
@@ -155,7 +149,7 @@ def _get_min_power(equipment, time, max_power_forecast: Timeseries, max_power) -
         return max_power_forecast.get_value(time) * (1 - curtailment_ratio)
     elif isinstance(equipment, StoragePO | HydroPO):
         return equipment.minimum_power.get_value(time)
-    elif isinstance(equipment, OtherNonDispatchable):
+    elif isinstance(equipment, OtherNonDispatchablePO):
         return max_power
     else:
         return 0
@@ -221,7 +215,7 @@ def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: Portf
             return local_stored_energy.get_value(target_time)
 
     # Fallback to initial level calculations
-    if isinstance(equipment, Hydro):
+    if isinstance(equipment, HydroPO):
         return equipment.initial_level.get_value(parameters.start_date - parameters.timestep)
     else:
         max_energy = equipment.maximum_energy.get_value(parameters.start_date - parameters.timestep)
@@ -229,7 +223,7 @@ def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: Portf
 
 
 def _calculate_new_energy_value(
-    equipment: Storage | Hydro,
+    equipment: StoragePO | HydroPO,
     time: DateTime,
     previous_energy,
     new_power: Timeseries,
@@ -239,7 +233,7 @@ def _calculate_new_energy_value(
     power_value = new_power.get_value(time)
     time_factor = parameters.timestep
 
-    if isinstance(equipment, Storage):
+    if isinstance(equipment, StoragePO):
         if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
             # Handle capacity scaling for electric vehicles
             capacity_ratio = equipment.maximum_energy.get_value(time) / equipment.maximum_energy.get_value(
@@ -277,7 +271,7 @@ def _apply_power_corrections(equipment: type[Equipment], new_power: Timeseries, 
     for time, correction in corrections.items():
         current_power = new_power.get_value(time)
 
-        if isinstance(equipment, Storage):
+        if isinstance(equipment, StoragePO):
             if current_power > 0:  # Discharging
                 corrected_power = current_power - correction * equipment.discharge_efficiency
             else:  # Charging
