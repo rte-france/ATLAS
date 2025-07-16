@@ -70,6 +70,6 @@ class WindPO(Wind):
             model.add_constraint(reserves_down_var <= max_power)
 
     def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
-        if time in self.parameters.target_times:
+        if time in parameters.target_times:
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             model.add_objective(get_variable_cost(self, time) * power_level_var * parameters.timestep)

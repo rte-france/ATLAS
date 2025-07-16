@@ -140,16 +140,16 @@ class HydroPO(Hydro):
         parameters: PortfolioOptimisationParameters,
     ):
         for k in range(_get_fragment_length(self)):
-            if time in self.parameters.target_times:
+            if time in parameters.target_times:
                 model.add_objective(
                     compute_fragment_prices(self, time, k, parameters)
                     * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
-                    * self.parameters.timestep
+                    * parameters.timestep
                 )
 
             else:
                 model.add_objective(
                     -(price_forecast - compute_fragment_prices(self, time, k, parameters))
                     * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
-                    * self.parameters.timestep
+                    * parameters.timestep
                 )

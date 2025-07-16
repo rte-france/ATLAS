@@ -42,12 +42,13 @@ class LoadPO(Load):
         model: OptimisationModel,
         time: DateTime,
         price_forecast: float,
+        parameters: PortfolioOptimisationParameters,
     ):
         if time in self.parameters.target_times:
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             if self.load_type == LoadType.POWER_TO_GAS:
                 model.add_objective(
-                    (get_variable_cost(self, time) - price_forecast) * power_level_var * self.parameters.timestep
+                    (get_variable_cost(self, time) - price_forecast) * power_level_var * parameters.timestep
                 )
             else:
-                model.add_objective(get_variable_cost(self, time) * -power_level_var * self.parameters.timestep)
+                model.add_objective(get_variable_cost(self, time) * -power_level_var * parameters.timestep)
