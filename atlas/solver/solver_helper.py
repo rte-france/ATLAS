@@ -3,6 +3,8 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
+
+Module that implements OR-Tools optimisation interface.
 """
 
 from collections import OrderedDict
@@ -723,7 +725,7 @@ class SolverHelper:
         with open(lp_file) as lp:
             lp_lines = lp.readlines()
             is_binaries = False
-            for line in enumerate(lp_lines):
+            for line in lp_lines:
                 words = line.split(" ")
                 new_words = []
                 first = True
