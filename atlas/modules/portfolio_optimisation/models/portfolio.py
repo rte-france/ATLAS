@@ -1,6 +1,6 @@
 from typing import Any
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
@@ -35,10 +35,11 @@ class PortfolioPO(Portfolio):
                 model,
                 self.name,
                 time,
-                *estimate_imbalance_prices(time, self.market_area, self.control_block, self.parameters),
+                *estimate_imbalance_prices(time, self.market_area, self.control_block, parameters),
+                parameters.timestep,
             )
 
-            self.add_reserve_penalty_terms(model, self.name, time)
+            self.add_reserve_penalty_terms(model, self.name, time, parameters)
 
     def add_imbalance_cost_terms(
         self,
@@ -48,6 +49,7 @@ class PortfolioPO(Portfolio):
         imbalance_price_up: float,
         large_imbalance_price_down: float,
         large_imbalance_price_up: float,
+        timestep: Duration,
     ) -> list[Any]:
         """Get imbalance cost terms as OR-Tools expressions."""
 
@@ -60,21 +62,23 @@ class PortfolioPO(Portfolio):
 
         # Small imbalance costs
         if imbalance_price_up:
-            model.add_objective(imbalance_price_up * small_imbalance_up_var * self.parameters.timestep)
+            model.add_objective(imbalance_price_up * small_imbalance_up_var * timestep)
 
         if imbalance_price_down:
-            model.add_objective(-imbalance_price_down * small_imbalance_down_var * self.parameters.timestep)
+            model.add_objective(-imbalance_price_down * small_imbalance_down_var * timestep)
 
         # Large imbalance costs
         if large_imbalance_price_up:
-            model.add_objective(large_imbalance_price_up * large_imbalance_up_var * self.parameters.timestep)
+            model.add_objective(large_imbalance_price_up * large_imbalance_up_var * timestep)
 
         if large_imbalance_price_down:
-            model.add_objective(-large_imbalance_price_down * large_imbalance_down_var * self.parameters.timestep)
+            model.add_objective(-large_imbalance_price_down * large_imbalance_down_var * timestep)
 
         return terms
 
-    def add_reserve_penalty_terms(self, model: OptimisationModel, time: DateTime) -> list[Any]:
+    def add_reserve_penalty_terms(
+        self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters
+    ) -> list[Any]:
         """Get reserve penalty terms as OR-Tools expressions."""
 
         terms = []
@@ -85,17 +89,15 @@ class PortfolioPO(Portfolio):
         auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{self.name}_{time}")
 
         # Manual reserve penalties
-        terms.append(self.parameters.manual_unprocured_reserves_penalty, *self.parameters.timestep * contracted_diff_up)
-        terms.append(
-            self.parameters.manual_unprocured_reserves_penalty, *self.parameters.timestep * contracted_diff_down
-        )
+        model.add_objective(parameters.manual_unprocured_reserves_penalty * parameters.timestep * contracted_diff_up)
+        model.add_objective(parameters.manual_unprocured_reserves_penalty * parameters.timestep * contracted_diff_down)
 
         # Automated reserve penalties
-        terms.append(
-            self.parameters.automated_unprocured_reserves_penalty * self.parameters.timestep * auto_contracted_diff_up
+        model.add_objective(
+            parameters.automated_unprocured_reserves_penalty * parameters.timestep * auto_contracted_diff_up
         )
-        terms.append(
-            self.parameters.automated_unprocured_reserves_penalty * self.parameters.timestep * auto_contracted_diff_down
+        model.add_objective(
+            parameters.automated_unprocured_reserves_penalty * parameters.timestep * auto_contracted_diff_down
         )
 
         return terms
