@@ -1,12 +1,13 @@
+from typing import Any
+
 from pendulum import DateTime
 
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
-from atlas.modules.portfolio_optimisation.models.load import LoadPO
-from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_data
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_upstream_energy
+from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -22,11 +23,82 @@ class PortfolioPO(Portfolio):
         """Build portfolio-level optimization variables."""
 
         for time in times:
-            residual_energy = self.compute_residual_energy(self.equipments, time, parameters)
-            maximum_power, maximum_energy = self._compute_power_and_energy(self.equipments, time, parameters)
+            residual_energy = self.compute_residual_energy(time, parameters)
+            maximum_power, maximum_energy = self._compute_power_and_energy(time, parameters)
 
-            self.add_imbalance_variables(model, self.name, time, residual_energy, maximum_energy, parameters)
+            self.add_imbalance_variables(model, time, residual_energy, maximum_energy, parameters)
             self.add_contract_difference_variables(model, time, maximum_power)
+
+    def add_objective(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+        for time in parameters.target_times:
+            self.add_imbalance_cost_terms(
+                model,
+                self.name,
+                time,
+                *estimate_imbalance_prices(time, self.market_area, self.control_block, self.parameters),
+            )
+
+            self.add_reserve_penalty_terms(model, self.name, time)
+
+    def add_imbalance_cost_terms(
+        self,
+        model: OptimisationModel,
+        time: DateTime,
+        imbalance_price_down: float,
+        imbalance_price_up: float,
+        large_imbalance_price_down: float,
+        large_imbalance_price_up: float,
+    ) -> list[Any]:
+        """Get imbalance cost terms as OR-Tools expressions."""
+
+        terms = []
+
+        small_imbalance_up_var = model.get_variable(f"{self.name}_small_imbalance_up_{time}")
+        small_imbalance_down_var = model.get_variable(f"{self.name}_small_imbalance_down_{time}")
+        large_imbalance_up_var = model.get_variable(f"{self.name}_large_imbalance_up_{time}")
+        large_imbalance_down_var = model.get_variable(f"{self.name}_large_imbalance_down_{time}")
+
+        # Small imbalance costs
+        if imbalance_price_up:
+            model.add_objective(imbalance_price_up * small_imbalance_up_var * self.parameters.timestep)
+
+        if imbalance_price_down:
+            model.add_objective(-imbalance_price_down * small_imbalance_down_var * self.parameters.timestep)
+
+        # Large imbalance costs
+        if large_imbalance_price_up:
+            model.add_objective(large_imbalance_price_up * large_imbalance_up_var * self.parameters.timestep)
+
+        if large_imbalance_price_down:
+            model.add_objective(-large_imbalance_price_down * large_imbalance_down_var * self.parameters.timestep)
+
+        return terms
+
+    def add_reserve_penalty_terms(self, model: OptimisationModel, time: DateTime) -> list[Any]:
+        """Get reserve penalty terms as OR-Tools expressions."""
+
+        terms = []
+
+        contracted_diff_up = model.get_variable(f"contracted_diff_up_{self.name}_{time}")
+        contracted_diff_down = model.get_variable(f"contracted_diff_down_{self.name}_{time}")
+        auto_contracted_diff_up = model.get_variable(f"auto_contracted_diff_up_{self.name}_{time}")
+        auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{self.name}_{time}")
+
+        # Manual reserve penalties
+        terms.append(self.parameters.manual_unprocured_reserves_penalty, *self.parameters.timestep * contracted_diff_up)
+        terms.append(
+            self.parameters.manual_unprocured_reserves_penalty, *self.parameters.timestep * contracted_diff_down
+        )
+
+        # Automated reserve penalties
+        terms.append(
+            self.parameters.automated_unprocured_reserves_penalty * self.parameters.timestep * auto_contracted_diff_up
+        )
+        terms.append(
+            self.parameters.automated_unprocured_reserves_penalty * self.parameters.timestep * auto_contracted_diff_down
+        )
+
+        return terms
 
     def add_imbalance_variables(
         self,
@@ -138,24 +210,17 @@ class PortfolioPO(Portfolio):
 
         return total_power
 
-    def compute_residual_energy(
-        self, equipments: dict[str, list[type[Equipment]]], time: DateTime, parameters: PortfolioOptimisationParameters
-    ) -> float:
+    def compute_residual_energy(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
         """Compute residual energy metrics for all times."""
 
-        residual_energy = self._compute_non_dispatchable_production_residual_energy(
-            equipments.get("non_dispatchable_production", []), time, parameters
+        return (
+            self._compute_non_dispatchable_production_residual_energy(time, parameters)
+            + self._compute_non_dispatchable_load_residual_energy(time, parameters)
+            + self._compute_dispatchable_residual_energy(time)
         )
-        residual_energy += self._compute_non_dispatchable_load_residual_energy(
-            equipments.get("non_dispatchable_load", []), time, parameters
-        )
-        residual_energy += self._compute_dispatchable_residual_energy(equipments, time)
-
-        return residual_energy
 
     def _compute_power_and_energy(
         self,
-        equipments: dict[str, list[type[Equipment]]],
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ) -> tuple[float, float]:
@@ -165,7 +230,7 @@ class PortfolioPO(Portfolio):
         equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
 
         for equipment_type in equipment_types:
-            for obj in equipments.get(equipment_type, []):
+            for obj in self.equipments.get(equipment_type, []):
                 power = get_maximum_power(obj, time, parameters.execution_date)
                 sum_maximum_power += power
                 sum_max_energy += abs(power)
@@ -174,7 +239,6 @@ class PortfolioPO(Portfolio):
 
     def _compute_dispatchable_residual_energy(
         self,
-        equipments: dict[str, list[type[Equipment]]],
         time: DateTime,
     ) -> float:
         """Compute residual energy for dispatchable equipment."""
@@ -182,7 +246,7 @@ class PortfolioPO(Portfolio):
         equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
 
         for equipment_type in equipment_types:
-            for obj in equipments.get(equipment_type, []):
+            for obj in self.equipments.get(equipment_type, []):
                 upstream_energy = get_upstream_energy(obj, time)
                 residual_energy += upstream_energy
 
@@ -190,14 +254,13 @@ class PortfolioPO(Portfolio):
 
     def _compute_non_dispatchable_production_residual_energy(
         self,
-        equipments: list[OtherNonDispatchablePO],
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ) -> float:
         """Compute non-dispatchable production equipment residual energy"""
         residual_energy = 0
 
-        for obj in equipments:
+        for obj in self.equipments.get("non_dispatchable_production", []):
             last_forecast_ti = obj.maximum_power_forecast.get_forecast(
                 parameters.execution_date, parameters.start_date, parameters.end_date
             ).get_value(time)
@@ -210,14 +273,13 @@ class PortfolioPO(Portfolio):
 
     def _compute_non_dispatchable_load_residual_energy(
         self,
-        equipments: list[LoadPO],
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ) -> float:
         """Compute non-dispatchable load equipment residual energy"""
         residual_energy = 0
 
-        for obj in equipments:
+        for obj in self.equipments.get("non_dispatchable_load", []):
             last_forecast_ti = obj.maximum_power_forecast.get_forecast(
                 parameters.execution_date, parameters.start_date, parameters.end_date
             ).get_value(time)

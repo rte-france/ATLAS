@@ -94,7 +94,7 @@ class ConstraintBuilder:
         # Load constraints
         if time in optimisation_times.get("op_times", []):
             for load in cast(list[LoadPO], portfolio.equipments.get("load", [])):
-                load.add_constraints(time, model, self.parameters)
+                load.add_constraints(time, model)
 
     def _add_reserves_constraints(
         self,
@@ -158,7 +158,7 @@ class ConstraintBuilder:
     ):
         """Add global portfolio constraints."""
         # Power balance constraint
-        residual_energy = portfolio.compute_residual_energy(portfolio.equipments, time)
+        residual_energy = portfolio.compute_residual_energy(portfolio.equipments, time, self.parameters)
         max_overall_imbal = max(residual_energy * self.parameters.maximum_imbalance)
         sum_power_variables = get_sum_power_level_variables(model, portfolio.equipments, time)
 

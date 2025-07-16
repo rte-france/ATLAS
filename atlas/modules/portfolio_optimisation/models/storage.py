@@ -200,3 +200,38 @@ class StoragePO(Storage):
                 sum(-power_level_buy_var for _ in optimisation_times) * self.charge_efficiency
                 == sum(power_level_sell_var for _ in optimisation_times) / self.discharge_efficiency
             )
+
+    def add_objective(
+        self,
+        model: OptimisationModel,
+        time: DateTime,
+        price_forecast: float,
+    ):
+        power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
+        power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
+
+        if max(self.maximum_energy.values()) <= 0:
+            return None
+        local_op_times = self.parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
+
+        if time not in local_op_times:
+            return None
+
+        model.add_objective(price_forecast * (power_level_buy_var + power_level_sell_var) * self.parameters.timestep)
+        if time not in self.parameters.target_times:
+            smoothing_factor = self.parameters.storage_mapping[self.storage_type]["smoothing_factor"]
+            nb_fragment = self.parameters.storage_mapping[self.storage_type]["nb_fragment"]
+            for n in range(0, nb_fragment):
+                power_level_sell_n_var = model.get_variable(f"{self.name}_power_level_sell_n_{n}_time_{time}")
+                power_level_buy_n_var = model.get_variable(f"{self.name}_power_level_buy_n_{n}_time_{time}")
+
+                # The objective function is the total profit over the optimisation period
+                if nb_fragment == 1 and n == 0:
+                    model.add_objective(
+                        -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast
+                    )
+                else:
+                    model.add_objective(
+                        -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
+                        - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1))
+                    )

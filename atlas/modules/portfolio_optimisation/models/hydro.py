@@ -5,7 +5,11 @@ from pendulum import DateTime
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.optimisation.variable_builder import add_reserve_variables
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_data
+from atlas.modules.portfolio_optimisation.utils.get_fragment_price import (
+    _get_fragment_data,
+    _get_fragment_length,
+    compute_fragment_prices,
+)
 from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
     get_maximum_energy,
@@ -127,3 +131,25 @@ class HydroPO(Hydro):
 
             model.add_constraint(stored_energy_var >= get_minimum_energy(self, time) + reserve_stored_energy_up_var)
             model.add_constraint(stored_energy_var <= get_maximum_energy(self, time) - reserve_stored_energy_down_var)
+
+    def add_objective(
+        self,
+        model: OptimisationModel,
+        time: DateTime,
+        price_forecast: float,
+        parameters: PortfolioOptimisationParameters,
+    ):
+        for k in range(_get_fragment_length(self)):
+            if time in self.parameters.target_times:
+                model.add_objective(
+                    compute_fragment_prices(self, time, k, parameters)
+                    * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
+                    * self.parameters.timestep
+                )
+
+            else:
+                model.add_objective(
+                    -(price_forecast - compute_fragment_prices(self, time, k, parameters))
+                    * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
+                    * self.parameters.timestep
+                )
