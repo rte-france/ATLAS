@@ -6,7 +6,7 @@ from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_data
-from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_upstream_energy
+from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_reserve, get_upstream_energy
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -28,6 +28,93 @@ class PortfolioPO(Portfolio):
 
             self.add_imbalance_variables(model, time, residual_energy, maximum_energy, parameters)
             self.add_contract_difference_variables(model, time, maximum_power)
+
+    def add_constraints(self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+        if time in parameters.target_times:
+            self._add_global_constraints(time, model, parameters)
+            if any(self.equipments.get(tech, []) for tech in ["thermal", "hydro", "storage", "wind", "solar"]):
+                self._add_reserves_constraints(time, model, parameters)
+
+    def _add_reserves_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        sum_reserves_up_var = sum(
+            model.get_variable(f"reserves_up_{obj.name}_{time}") for t in self.equipments for obj in self.equipments[t]
+        )
+        sum_reserves_down_var = sum(
+            model.get_variable(f"reserves_down_{obj.name}_{time}")
+            for t in self.equipments
+            for obj in self.equipments[t]
+        )
+        sum_automated_reserves_up_var = sum(
+            model.get_variable(f"automated_reserves_up_{obj.name}_{time}")
+            for t in self.equipments
+            for obj in self.equipments[t]
+        )
+        sum_automated_reserves_down_var = sum(
+            model.get_variable(f"automated_reserves_down_{obj.name}_{time}")
+            for t in self.equipments
+            for obj in self.equipments[t]
+        )
+
+        (
+            reserves_up,
+            reserves_down,
+            automated_reserves_up,
+            automated_reserves_down,
+            maximum_power,
+            maximum_energy,
+        ) = self._compute_reserves_and_power_for_time(time, parameters)
+        model.add_constraint(
+            model.get_variable(f"contracted_diff_up_{self.name}_{time}" >= reserves_up - sum_reserves_up_var)
+        )
+        model.add_constraint(
+            model.get_variable(f"contracted_diff_down_{self.name}_{time}" >= reserves_down - sum_reserves_down_var)
+        )
+        model.add_constraint(
+            model.get_variable(
+                f"auto_contracted_diff_up_{self.name}_{time}" >= automated_reserves_up - sum_automated_reserves_up_var
+            )
+        )
+        model.add_constraint(
+            model.get_variable(
+                f"auto_contracted_diff_down_{self.name}_{time}"
+                >= automated_reserves_down - sum_automated_reserves_down_var
+            )
+        )
+
+    def _add_global_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Add global portfolio constraints."""
+        # Power balance constraint
+        residual_energy = self.compute_residual_energy(time, parameters)
+        max_overall_imbal = max(residual_energy * parameters.maximum_imbalance)
+        sum_power_variables = self.get_sum_power_level_variables(model, time, parameters)
+
+        power_balance_constraint = (
+            model.get_variable(f"{self.name}_small_imbalance_up_{time}")
+            + model.get_variable(f"{self.name}_large_imbalance_up_{time}")
+            - model.get_variable(f"{self.name}_small_imbalance_down_{time}")
+            - model.get_variable(f"{self.name}_large_imbalance_down_{time}")
+            == residual_energy - sum_power_variables
+        )
+        model.add_constraint(power_balance_constraint, name=f"power_balance_{time}")
+
+        # Imbalance limits
+        up_imbalance_limit = (
+            model.get_variable(f"{self.name}_small_imbalance_up_{time}")
+            + model.get_variable(f"{self.name}_large_imbalance_up_{time}")
+            <= max_overall_imbal
+        )
+        model.add_constraint(up_imbalance_limit, name=f"up_imbalance_limit_{time}")
+
+        down_imbalance_limit = (
+            model.get_variable(f"{self.name}_small_imbalance_down_{time}")
+            + model.get_variable(f"{self.name}_large_imbalance_down_{time}")
+            <= max_overall_imbal
+        )
+        model.add_constraint(down_imbalance_limit, name=f"down_imbalance_limit_{time}")
 
     def add_objective(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         for time in parameters.target_times:
@@ -291,3 +378,57 @@ class PortfolioPO(Portfolio):
             residual_energy += upstream_bought_energy - optimal_dispatch
 
         return residual_energy
+
+    def _get_power_level_variables(
+        self, time: DateTime, model: OptimisationModel, portfolio: dict[str, list[type[Equipment]]]
+    ) -> list[Any]:
+        power_level_variables: list[Any] = []
+
+        for obj in portfolio["load"] + portfolio["wind"] + portfolio["solar"]:
+            power_level_variables.append(model.get_variable(f"{obj.name}_power_level_{time}"))
+
+        return power_level_variables
+
+    def _compute_reserves_and_power_for_time(
+        self, time: DateTime, parameters: PortfolioOptimisationParameters
+    ) -> tuple[float, float, float, float, float, float]:
+        """Compute reserves and power metrics for a specific time."""
+        sum_reserves_up = 0
+        sum_reserves_down = 0
+        sum_automated_reserves_up = 0
+        sum_automated_reserves_down = 0
+        sum_maximum_power = 0
+        sum_maximum_energy = 0
+
+        equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
+
+        for equipment_type in equipment_types:
+            for obj in self.equipments.get(equipment_type, []):
+                sum_maximum_power += get_maximum_power(obj, time, parameters.execution_date)
+                sum_maximum_energy += abs(get_maximum_power(obj, time, parameters.execution_date))
+
+                (
+                    sum_reserves_up,
+                    sum_reserves_down,
+                    sum_automated_reserves_up,
+                    sum_automated_reserves_down,
+                    sum_maximum_power,
+                ) = get_reserve(
+                    obj,
+                    sum_reserves_up,
+                    sum_reserves_down,
+                    sum_automated_reserves_up,
+                    sum_automated_reserves_down,
+                    sum_maximum_power,
+                    time,
+                    parameters,
+                )
+
+        return (
+            sum_reserves_up,
+            sum_reserves_down,
+            sum_automated_reserves_up,
+            sum_automated_reserves_down,
+            sum_maximum_power,
+            sum_maximum_energy,
+        )
