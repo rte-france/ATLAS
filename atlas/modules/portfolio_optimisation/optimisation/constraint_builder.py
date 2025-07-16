@@ -40,19 +40,13 @@ class ConstraintBuilder:
         optimisation_times: dict[str, list[DateTime]],
     ):
         """Build constraints for a specific time period."""
-
-        # Add equipment-specific constraints
+        portfolio.add_constraints(time, model, self.parameters)
         self._add_equipment_constraints(
             time,
             portfolio,
             model,
             optimisation_times,
         )
-
-        if time in self.parameters.target_times:
-            self._add_global_constraints(time, portfolio.name, portfolio, model)
-            if any(portfolio.get(tech, []) for tech in ["thermal", "hydro", "storage", "wind", "solar"]):
-                self._add_reserves_constraints(time, portfolio.name, portfolio, model)
 
     def _add_equipment_constraints(
         self,

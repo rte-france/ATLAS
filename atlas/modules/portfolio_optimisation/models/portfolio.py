@@ -23,11 +23,11 @@ class PortfolioPO(Portfolio):
         """Build portfolio-level optimization variables."""
 
         for time in times:
-            residual_energy = self.compute_residual_energy(time, parameters)
+            residual_energy = self._compute_residual_energy(time, parameters)
             maximum_power, maximum_energy = self._compute_power_and_energy(time, parameters)
 
-            self.add_imbalance_variables(model, time, residual_energy, maximum_energy, parameters)
-            self.add_contract_difference_variables(model, time, maximum_power)
+            self._add_imbalance_variables(model, time, residual_energy, maximum_energy, parameters)
+            self._add_contract_difference_variables(model, time, maximum_power)
 
     def add_constraints(self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         if time in parameters.target_times:
@@ -88,9 +88,9 @@ class PortfolioPO(Portfolio):
     ):
         """Add global portfolio constraints."""
         # Power balance constraint
-        residual_energy = self.compute_residual_energy(time, parameters)
+        residual_energy = self._compute_residual_energy(time, parameters)
         max_overall_imbal = max(residual_energy * parameters.maximum_imbalance)
-        sum_power_variables = self.get_sum_power_level_variables(model, time, parameters)
+        sum_power_variables = self._get_sum_power_level_variables(model, time, parameters)
 
         power_balance_constraint = (
             model.get_variable(f"{self.name}_small_imbalance_up_{time}")
@@ -118,7 +118,7 @@ class PortfolioPO(Portfolio):
 
     def add_objective(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         for time in parameters.target_times:
-            self.add_imbalance_cost_terms(
+            self._add_imbalance_cost_terms(
                 model,
                 self.name,
                 time,
@@ -126,9 +126,9 @@ class PortfolioPO(Portfolio):
                 parameters.timestep,
             )
 
-            self.add_reserve_penalty_terms(model, self.name, time, parameters)
+            self._add_reserve_penalty_terms(model, self.name, time, parameters)
 
-    def add_imbalance_cost_terms(
+    def _add_imbalance_cost_terms(
         self,
         model: OptimisationModel,
         time: DateTime,
@@ -163,7 +163,7 @@ class PortfolioPO(Portfolio):
 
         return terms
 
-    def add_reserve_penalty_terms(
+    def _add_reserve_penalty_terms(
         self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters
     ) -> list[Any]:
         """Get reserve penalty terms as OR-Tools expressions."""
@@ -189,7 +189,7 @@ class PortfolioPO(Portfolio):
 
         return terms
 
-    def add_imbalance_variables(
+    def _add_imbalance_variables(
         self,
         model: OptimisationModel,
         time: DateTime,
@@ -222,7 +222,7 @@ class PortfolioPO(Portfolio):
             upper_bound=max_overall_imbal,
         )
 
-    def add_contract_difference_variables(
+    def _add_contract_difference_variables(
         self,
         model: OptimisationModel,
         time: DateTime,
@@ -243,7 +243,7 @@ class PortfolioPO(Portfolio):
                 upper_bound=maximum_power,
             )
 
-    def get_sum_power_level_variables(
+    def _get_sum_power_level_variables(
         self,
         model: OptimisationModel,
         time: DateTime,
@@ -299,7 +299,7 @@ class PortfolioPO(Portfolio):
 
         return total_power
 
-    def compute_residual_energy(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
+    def _compute_residual_energy(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
         """Compute residual energy metrics for all times."""
 
         return (
