@@ -1,8 +1,15 @@
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
 from pendulum import DateTime
 
 from atlas.enum import StorageType
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.storage import Storage
-from atlas.modules.portfolio_optimisation.optimisation.variable_builder import add_reserve_variables
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
@@ -10,11 +17,17 @@ from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_power,
     get_minimum_power,
 )
+from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
 
 
 class StoragePO(Storage):
     storage_type: StorageType
+    maximum_fcr: float
+    maximum_afrr: float
+    minimum_power: Timeseries | LazyTimeseries
+    maximum_power: Timeseries | LazyTimeseries
+    minimum_state_of_charge: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """Build variables for storage equipment."""
@@ -26,7 +39,7 @@ class StoragePO(Storage):
             min_power = get_minimum_power(self, time)
             max_power = get_maximum_power(self, time)
             maximum_energy = get_maximum_energy(time)
-            maximum_automated = self.maximum_afrr + self.maximum_fcr
+            maximum_automated = get_maximum_automated(self)
 
             # Basic storage variables
             model.add_continuous_variable(
@@ -61,7 +74,6 @@ class StoragePO(Storage):
                     upper_bound=0,
                 )
 
-            # Reserve variables for storage
             add_reserve_variables(
                 model,
                 self.name,

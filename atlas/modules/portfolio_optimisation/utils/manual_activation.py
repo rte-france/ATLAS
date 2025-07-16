@@ -4,12 +4,18 @@ from atlas.enum import StorageType
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.models.load import LoadPO
+from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
+from atlas.modules.portfolio_optimisation.models.solar import SolarPO
+from atlas.modules.portfolio_optimisation.models.storage import StoragePO
+from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_energy_bounds
 
@@ -106,7 +112,7 @@ def _apply_power_constraints(
     """Apply power constraints based on equipment type."""
     # Preload maximum power forecast for certain equipment types
     max_power_forecast = None
-    if isinstance(equipment, Load | Wind | Solar | OtherNonDispatchable):
+    if isinstance(equipment, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
         max_power_forecast = equipment.maximum_power_forecast.get_forecast(
             parameters.execution_date, parameters.start_date, parameters.end_date
         )
@@ -119,12 +125,12 @@ def _apply_power_constraints(
             new_power.set_value(time, max_power)
             power_value = max_power
 
-        if isinstance(equipment, Thermal | Hydro | Wind | Solar):
+        if isinstance(equipment, ThermalPO | HydroPO | WindPO | SolarPO):
             if power_value < 0:
                 new_power.set_value(time, 0)
                 power_value = 0
 
-        if not isinstance(equipment, Thermal):
+        if not isinstance(equipment, ThermalPO):
             min_power = _get_min_power(equipment, time, max_power_forecast, max_power)
             if power_value < min_power:
                 new_power.set_value(time, min_power)
@@ -132,9 +138,9 @@ def _apply_power_constraints(
 
 def _get_max_power(equipment: type[Equipment], time: DateTime, max_power_forecast: Timeseries):
     """Get maximum power limit for equipment at given time."""
-    if isinstance(equipment, Load):
+    if isinstance(equipment, LoadPO):
         return 0
-    elif isinstance(equipment, Wind | Solar | OtherNonDispatchable):
+    elif isinstance(equipment, WindPO | SolarPO | OtherNonDispatchablePO):
         return max_power_forecast.get_value(time)
     else:
         return equipment.maximum_power.get_value(time)
@@ -142,13 +148,13 @@ def _get_max_power(equipment: type[Equipment], time: DateTime, max_power_forecas
 
 def _get_min_power(equipment, time, max_power_forecast: Timeseries, max_power) -> float:
     """Get minimum power limit for equipment at given time."""
-    if isinstance(equipment, Load):
+    if isinstance(equipment, LoadPO):
         return max_power_forecast.get_value(time)
-    elif isinstance(equipment, Wind | Solar):
+    elif isinstance(equipment, WindPO | SolarPO):
         curtailment_ratio = equipment.maximum_curtailment_ratio.get_value(time)
         return max_power_forecast.get_value(time) * (1 - curtailment_ratio)
-    elif isinstance(equipment, Storage | Hydro):
-        return equipment.MinimumPower.get_value(time)
+    elif isinstance(equipment, StoragePO | HydroPO):
+        return equipment.minimum_power.get_value(time)
     elif isinstance(equipment, OtherNonDispatchable):
         return max_power
     else:
@@ -156,7 +162,7 @@ def _get_min_power(equipment, time, max_power_forecast: Timeseries, max_power) -
 
 
 def _update_stored_energy(
-    equipment: Hydro | Storage, new_power: Timeseries, parameters: PortfolioOptimisationParameters
+    equipment: HydroPO | StoragePO, new_power: Timeseries, parameters: PortfolioOptimisationParameters
 ):
     """Update stored energy for storage and hydraulic equipment."""
 
@@ -199,7 +205,7 @@ def _update_stored_energy(
         equipment.stored_energy.add(parameters.execution_date, new_stored_energy)
 
 
-def _get_initial_stored_energy(equipment: Hydro | Storage, parameters: PortfolioOptimisationParameters):
+def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: PortfolioOptimisationParameters):
     """Get initial stored energy level for equipment."""
     stored_energy_matrix = equipment.stored_energy
 

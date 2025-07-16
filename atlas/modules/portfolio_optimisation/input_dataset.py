@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from itertools import groupby
+from typing import cast
 
 from pendulum import DateTime
 
@@ -37,7 +38,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        self.portfolio: list[Portfolio] = input_data.get("portfolio", [])
+        self.portfolio = cast(list[Portfolio], input_data.get("portfolio", []))
 
         self.wind: list[WindPO] = [WindPO.model_validate(wind.model_dump()) for wind in input_data.get("wind", [])]
         self.storage: list[StoragePO] = [
@@ -58,7 +59,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         ]
         self.load: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in input_data.get("load", [])]
 
-        self.equipments: dict[str, list[type[Equipment]]] = {
+        self.equipments: dict[str, list[Equipment]] = {
             "wind": self.wind,
             "storage": self.storage,
             "hydro": self.hydro,

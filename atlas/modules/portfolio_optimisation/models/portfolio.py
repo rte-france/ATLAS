@@ -65,22 +65,23 @@ class PortfolioPO(Portfolio):
             maximum_power,
             maximum_energy,
         ) = self._compute_reserves_and_power_for_time(time, parameters)
+
         model.add_constraint(
-            model.get_variable(f"contracted_diff_up_{self.name}_{time}" >= reserves_up - sum_reserves_up_var)
+            model.get_variable(f"contracted_diff_up_{self.name}_{time}") >= reserves_up - sum_reserves_up_var
         )
+
         model.add_constraint(
-            model.get_variable(f"contracted_diff_down_{self.name}_{time}" >= reserves_down - sum_reserves_down_var)
+            model.get_variable(f"contracted_diff_down_{self.name}_{time}") >= reserves_down - sum_reserves_down_var
         )
+
         model.add_constraint(
-            model.get_variable(
-                f"auto_contracted_diff_up_{self.name}_{time}" >= automated_reserves_up - sum_automated_reserves_up_var
-            )
+            model.get_variable(f"auto_contracted_diff_up_{self.name}_{time}")
+            >= automated_reserves_up - sum_automated_reserves_up_var
         )
+
         model.add_constraint(
-            model.get_variable(
-                f"auto_contracted_diff_down_{self.name}_{time}"
-                >= automated_reserves_down - sum_automated_reserves_down_var
-            )
+            model.get_variable(f"auto_contracted_diff_down_{self.name}_{time}")
+            >= automated_reserves_down - sum_automated_reserves_down_var
         )
 
     def _add_global_constraints(
@@ -137,10 +138,8 @@ class PortfolioPO(Portfolio):
         large_imbalance_price_down: float,
         large_imbalance_price_up: float,
         timestep: Duration,
-    ) -> list[Any]:
+    ):
         """Get imbalance cost terms as OR-Tools expressions."""
-
-        terms = []
 
         small_imbalance_up_var = model.get_variable(f"{self.name}_small_imbalance_up_{time}")
         small_imbalance_down_var = model.get_variable(f"{self.name}_small_imbalance_down_{time}")
@@ -161,14 +160,10 @@ class PortfolioPO(Portfolio):
         if large_imbalance_price_down:
             model.add_objective(-large_imbalance_price_down * large_imbalance_down_var * timestep)
 
-        return terms
-
     def _add_reserve_penalty_terms(
         self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters
-    ) -> list[Any]:
+    ):
         """Get reserve penalty terms as OR-Tools expressions."""
-
-        terms = []
 
         contracted_diff_up = model.get_variable(f"contracted_diff_up_{self.name}_{time}")
         contracted_diff_down = model.get_variable(f"contracted_diff_down_{self.name}_{time}")
@@ -186,8 +181,6 @@ class PortfolioPO(Portfolio):
         model.add_objective(
             parameters.automated_unprocured_reserves_penalty * parameters.timestep * auto_contracted_diff_down
         )
-
-        return terms
 
     def _add_imbalance_variables(
         self,
@@ -305,7 +298,7 @@ class PortfolioPO(Portfolio):
         return (
             self._compute_non_dispatchable_production_residual_energy(time, parameters)
             + self._compute_non_dispatchable_load_residual_energy(time, parameters)
-            + self._compute_dispatchable_residual_energy(time)
+            + self._compute_dispatchable_residual_energy(time, parameters)
         )
 
     def _compute_power_and_energy(
@@ -327,8 +320,7 @@ class PortfolioPO(Portfolio):
         return sum_maximum_power, sum_max_energy
 
     def _compute_dispatchable_residual_energy(
-        self,
-        time: DateTime,
+        self, time: DateTime, parameters: PortfolioOptimisationParameters
     ) -> float:
         """Compute residual energy for dispatchable equipment."""
         residual_energy = 0
@@ -336,7 +328,7 @@ class PortfolioPO(Portfolio):
 
         for equipment_type in equipment_types:
             for obj in self.equipments.get(equipment_type, []):
-                upstream_energy = get_upstream_energy(obj, time)
+                upstream_energy = get_upstream_energy(obj, time, parameters)
                 residual_energy += upstream_energy
 
         return residual_energy

@@ -1,9 +1,17 @@
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
 from __future__ import annotations
 
 from pendulum import DateTime
 
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.solar import Solar
-from atlas.modules.portfolio_optimisation.optimisation.variable_builder import add_reserve_variables
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
@@ -11,18 +19,23 @@ from atlas.modules.portfolio_optimisation.utils.getters import (
     get_minimum_power,
     get_variable_cost,
 )
+from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
 
 
 class SolarPO(Solar):
-    pass
+    maximum_fcr: float
+    maximum_afrr: float
+    maximum_curtailment_ratio: Timeseries | LazyTimeseries
+    maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
+    variable_cost: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """Build variables for solar and wind equipment."""
         for time in parameters.target_times:
             max_power = get_maximum_power(self, time)
             min_power = get_minimum_power(self, time)
-            maximum_automated = self.maximum_afrr + self.maximum_fcr
+            maximum_automated = get_maximum_automated(self)
 
             model.add_continuous_variable(
                 name=f"{self.name}_power_level_{time}",
@@ -61,8 +74,6 @@ class SolarPO(Solar):
             automated_reserves_down_var = model.get_variable(f"automated_res_down_e_{self.name}_{time}")
             reserves_up_var = model.get_variable(f"reserves_up_e_{self.name}_{time}")
             reserves_down_var = model.get_variable(f"reserves_down_e_{self.name}_{time}")
-
-            model.add_selfective(get_variable_cost(self, time) * power_level_var * parameters.timestep)
 
             model.add_constraint(power_level_var <= max_power)
             model.add_constraint(power_level_var >= min_power)

@@ -1,14 +1,21 @@
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
 from __future__ import annotations
 
 from pendulum import DateTime
 
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.hydro import Hydro
-from atlas.modules.portfolio_optimisation.optimisation.variable_builder import add_reserve_variables
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.get_fragment_price import (
     _get_fragment_data,
-    _get_fragment_length,
     compute_fragment_prices,
+    get_fragment_length,
 )
 from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
@@ -17,11 +24,17 @@ from atlas.modules.portfolio_optimisation.utils.getters import (
     get_minimum_energy,
     get_minimum_power,
 )
+from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
 
 
 class HydroPO(Hydro):
-    pass
+    maximum_energy: Timeseries | LazyTimeseries
+    minimum_energy: Timeseries | LazyTimeseries
+    maximum_fcr: float
+    maximum_afrr: float
+    minimum_power: Timeseries | LazyTimeseries
+    maximum_power: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """Build variables for hydro equipment."""
@@ -38,7 +51,7 @@ class HydroPO(Hydro):
                 upper_bound=max_energy,
             )
 
-            self.add_variable_fragment(model=model, obj=self, time=time, parameters=self.parameters)
+            self.add_variable_fragment(model=model, obj=self, time=time, parameters=parameters)
 
             add_reserve_variables(
                 model,
@@ -58,22 +71,20 @@ class HydroPO(Hydro):
         obj: HydroPO,
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
-    ) -> tuple[dict, dict]:
+    ):
         """Formulates hydraulic reservoir offers by calculating fragment prices and volumes."""
 
         fragment_data = _get_fragment_data(obj)
 
-        if time not in parameters.hydraulic_op_times:
-            return
+        if time in parameters.hydraulic_op_times:
+            for category, fragment in fragment_data.items():
+                volume = get_maximum_power(obj, time) * fragment.volume
 
-        for category, fragment in fragment_data.items():
-            volume = get_maximum_power(obj, time) * fragment.volume
-
-            model.add_continuous_variable(
-                name=f"{obj.name}_power_level_frag_{category}_at_{time}",
-                lower_bound=0,
-                upper_bound=volume,
-            )
+                model.add_continuous_variable(
+                    name=f"{obj.name}_power_level_frag_{category}_at_{time}",
+                    lower_bound=0,
+                    upper_bound=volume,
+                )
 
     def add_constraints(
         self,
@@ -139,7 +150,7 @@ class HydroPO(Hydro):
         price_forecast: float,
         parameters: PortfolioOptimisationParameters,
     ):
-        for k in range(_get_fragment_length(self)):
+        for k in range(get_fragment_length(self)):
             if time in parameters.target_times:
                 model.add_objective(
                     compute_fragment_prices(self, time, k, parameters)

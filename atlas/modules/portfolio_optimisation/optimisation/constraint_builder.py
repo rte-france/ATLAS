@@ -8,7 +8,6 @@ from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.solar import SolarPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
-from atlas.modules.portfolio_optimisation.optimisation.variable_builder import VariableBuilder
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -18,7 +17,6 @@ class ConstraintBuilder:
 
     def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
-        self.variable_builder = VariableBuilder(self.parameters)
 
     def build_constraints(
         self,

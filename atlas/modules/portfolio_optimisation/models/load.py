@@ -3,6 +3,9 @@ from __future__ import annotations
 from pendulum import DateTime
 
 from atlas.enum import LoadType
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.load import Load
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_minimum_power, get_variable_cost
@@ -11,12 +14,14 @@ from atlas.solver.solver_interface import OptimisationModel
 
 class LoadPO(Load):
     load_type: LoadType
+    maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
+    variable_cost: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """Build variables for load equipment."""
 
         for time in parameters.target_times:
-            max_power = get_maximum_power(self, time, self.parameters.execution_date)
+            max_power = get_maximum_power(self, time, parameters.execution_date)
 
             model.add_continuous_variable(
                 f"{self.name}_power_level_{time}",
@@ -44,7 +49,7 @@ class LoadPO(Load):
         price_forecast: float,
         parameters: PortfolioOptimisationParameters,
     ):
-        if time in self.parameters.target_times:
+        if time in parameters.target_times:
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             if self.load_type == LoadType.POWER_TO_GAS:
                 model.add_objective(

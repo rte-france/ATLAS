@@ -1,3 +1,9 @@
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
 from pendulum import DateTime
 from pydantic import BaseModel
 
@@ -29,7 +35,7 @@ def _get_fragment_data(obj: Hydro):
     }
 
 
-def _get_fragment_length(obj):
+def get_fragment_length(obj):
     if not len(obj.fragment_volumes) == len(obj.fragment_prices):
         raise ValueError("Fragment volumes and prices has to be same length")
     return len(obj.fragment_volumes)

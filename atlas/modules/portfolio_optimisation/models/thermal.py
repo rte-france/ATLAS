@@ -1,10 +1,12 @@
 import math
 
 import API
+from pendulum import DateTime
 from PO_functions import get_date_to_clean_string
-from System import DateTime
 
 from atlas.models.equipment.thermal import Thermal
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.solver_interface import OptimisationModel
 
 
 class ThermalPO(Thermal):
@@ -103,6 +105,20 @@ class ThermalPO(Thermal):
         self.D = {}
         self.tilde_D = {}
         self.DD = {}
+
+    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+        pass
+
+    def add_constraints(
+        self,
+        time: DateTime,
+        model: OptimisationModel,
+        parameters: PortfolioOptimisationParameters,
+    ):
+        pass
+
+    def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+        pass
 
     def fill_model(self, opt_thermic, p):
         # get data from optimate equipment

@@ -5,18 +5,20 @@ from pendulum import DateTime
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
-from atlas.models.equipment.wind import Wind
-from atlas.models.portfolio import Portfolio
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.models.load import LoadPO
+from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
+from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.models.solar import SolarPO
+from atlas.modules.portfolio_optimisation.models.storage import StoragePO
+from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 
 
 def get_variable_cost_forecast(
-    portfolio: Portfolio, time: DateTime, parameters: PortfolioOptimisationParameters
+    portfolio: PortfolioPO, time: DateTime, parameters: PortfolioOptimisationParameters
 ) -> float:
     """Get price forecast for given time based on market type and forecast settings."""
 
@@ -93,21 +95,21 @@ def get_reserve_value(
 
 
 def get_maximum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float:
-    if isinstance(obj, Hydro | Storage | Thermal):
+    if isinstance(obj, HydroPO | StoragePO | ThermalPO):
         return obj.maximum_power.get_value(time)
-    elif isinstance(obj, Load | Wind | Solar | OtherNonDispatchable):
+    elif isinstance(obj, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
         return obj.maximum_power_forecast.get_forecast(execution_date, time, time).get_value(time)
 
 
 def get_minimum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float:
-    if isinstance(obj, Hydro | Storage | Thermal):
+    if isinstance(obj, HydroPO | StoragePO | ThermalPO):
         if obj.minimum_power:
             return obj.minimum_power.get_value(time)
         else:
             return -get_maximum_power(obj, time)
-    elif isinstance(obj, Wind | Solar):
+    elif isinstance(obj, WindPO | SolarPO):
         return (1 - obj.maximum_curtailment_ratio.get_value(time)) * get_maximum_power(obj, time, execution_date)
-    elif isinstance(obj, Load):
+    elif isinstance(obj, LoadPO):
         return 0
 
 
@@ -115,11 +117,11 @@ def get_variable_cost(obj: Equipment, time: DateTime):
     return obj.variable_cost.get_value(time)
 
 
-def get_maximum_energy(obj: Hydro | Storage, time: DateTime):
+def get_maximum_energy(obj: HydroPO | StoragePO, time: DateTime):
     return obj.maximum_energy.get_value(time)
 
 
-def get_minimum_energy(obj: Hydro | Storage, time: DateTime):
+def get_minimum_energy(obj: HydroPO | StoragePO, time: DateTime):
     return obj.minimum_energy.get_value(time)
 
 
@@ -182,15 +184,15 @@ def get_initial_level(obj: Hydro, parameters: PortfolioOptimisationParameters):
             return obj.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
 
 
-def get_maximum_automated(obj: type[Equipment]) -> float:
+def get_maximum_automated(obj: HydroPO | SolarPO | StoragePO | WindPO) -> float:
     return obj.maximum_afrr + obj.maximum_fcr
 
 
-def get_energy_bounds(equipment: Hydro | Storage, time: DateTime):
+def get_energy_bounds(equipment: HydroPO | StoragePO, time: DateTime):
     """Get energy bounds for equipment at given time."""
     max_energy = equipment.maximum_energy.get_value(time)
 
-    if isinstance(equipment, Storage):
+    if isinstance(equipment, StoragePO):
         min_energy = max_energy * equipment.minimum_state_of_charge.get_value(time)
     else:  # Hydraulic
         min_energy = equipment.minimum_energy.get_value(time)
