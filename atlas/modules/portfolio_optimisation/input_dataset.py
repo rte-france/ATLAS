@@ -9,23 +9,18 @@ from itertools import groupby
 
 from pendulum import DateTime
 
-from atlas import (
-    BusinessModel,
-    Hydro,
-    Load,
-    MarketArea,
-    MarketBorder,
-    Node,
-    OtherNonDispatchable,
-    Portfolio,
-    Solar,
-    Storage,
-    Thermal,
-    Wind,
-)
+from atlas import BusinessModel, Portfolio
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enum import LoadType
 from atlas.models.equipment.equipment import Equipment
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.models.load import LoadPO
+from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
+from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.models.solar import SolarPO
+from atlas.modules.portfolio_optimisation.models.storage import StoragePO
+from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     is_excluded_market_area,
@@ -42,18 +37,26 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        self.market_area: list[MarketArea] = input_data.get("market_area", [])
-        self.market_border: list[MarketBorder] = input_data.get("market_border", [])
-        self.node: list[Node] = input_data.get("node", [])
         self.portfolio: list[Portfolio] = input_data.get("portfolio", [])
-        self.wind: list[Wind] = input_data.get("wind", [])
-        self.storage: list[Storage] = input_data.get("storage", [])
-        self.hydro: list[Hydro] = input_data.get("hydro", [])
-        self.solar: list[Solar] = input_data.get("solar", [])
-        self.thermal: list[Thermal] = input_data.get("thermal", [])
-        self.other_non_dispatchable: list[OtherNonDispatchable] = input_data.get("other_non_dispatchable", [])
 
-        self.load: list[Load] = input_data.get("load", [])
+        self.wind: list[WindPO] = [WindPO.model_validate(wind.model_dump()) for wind in input_data.get("wind", [])]
+        self.storage: list[StoragePO] = [
+            StoragePO.model_validate(storage.model_dump()) for storage in input_data.get("storage", [])
+        ]
+        self.hydro: list[HydroPO] = [
+            HydroPO.model_validate(hydro.model_dump()) for hydro in input_data.get("hydro", [])
+        ]
+        self.solar: list[SolarPO] = [
+            SolarPO.model_validate(solar.model_dump()) for solar in input_data.get("solar", [])
+        ]
+        self.thermal: list[ThermalPO] = [
+            ThermalPO.model_validate(thermal.model_dump()) for thermal in input_data.get("thermal", [])
+        ]
+        self.other_non_dispatchable: list[OtherNonDispatchablePO] = [
+            OtherNonDispatchablePO.model_validate(other.model_dump())
+            for other in input_data.get("other_non_dispatchable", [])
+        ]
+        self.load: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in input_data.get("load", [])]
 
         self.equipments: dict[str, list[type[Equipment]]] = {
             "wind": self.wind,
@@ -66,8 +69,8 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
             "non_dispatchable_load": [load for load in self.load if load.load_type != LoadType.POWER_TO_GAS],
         }
 
-        self.portfolios: dict[str, dict[str, list[type[Equipment]]]] = {}
-        self.portfolios_manual_activation: dict[str, dict[str, list[type[Equipment]]]] = {}
+        self.portfolios: list[PortfolioPO] = []
+        self.portfolios_manual_activation: list[PortfolioPO] = []
 
         self._create_portfolios()
 
@@ -90,10 +93,11 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         return max(self.optimisation_times.values(), key=len)
 
     def _create_portfolios(self):
-        """Collect and classify all equipment into portfolios with manual activation handling"""
+        """Collect and classify all equipment into PortfolioPO objects with manual activation handling"""
 
         all_equipments_with_type_and_status = []
 
+        # Collecte de tous les équipements avec leur type et statut
         for equipment_type, equipment_list in self.equipments.items():
             for equipment in equipment_list:
                 is_manual = should_manually_activate(self.parameters, equipment) or is_excluded_market_area(
@@ -102,18 +106,20 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                     market_area=equipment.portfolio.market_area.name,
                 )
                 status = "manual" if is_manual else "included"
-
                 all_equipments_with_type_and_status.append((equipment, equipment_type, status))
 
+        # Tri par nom de portfolio, type d'équipement et statut
         all_equipments_with_type_and_status.sort(key=lambda x: (x[0].portfolio.name, x[1], x[2]))
 
-        for portfolio_name, portfolio_items in groupby(
-            all_equipments_with_type_and_status, key=lambda x: x[0].portfolio.name
-        ):
+        # Groupement par portfolio
+        for _, portfolio_items in groupby(all_equipments_with_type_and_status, key=lambda x: x[0].portfolio.name):
             portfolio_list = list(portfolio_items)
 
+            original_portfolio = portfolio_list[0][0].portfolio  # Tous les équipements du même portfolio
+
+            # Séparation des équipements par statut
             equipment_by_type_included = {}
-            equipment_by_type_manual: dict[str, dict[str, list[type[Equipment]]]] = {}
+            equipment_by_type_manual = {}
 
             for equipment_type, type_items in groupby(portfolio_list, key=lambda x: x[1]):
                 type_list = list(type_items)
@@ -126,7 +132,13 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                     elif status == "manual":
                         equipment_by_type_manual[equipment_type] = equipments
 
+            # Création des objets PortfolioPO
             if equipment_by_type_included:
-                self.portfolios[portfolio_name] = equipment_by_type_included
+                portfolio_po = PortfolioPO(**original_portfolio.__dict__)
+                portfolio_po.equipments = equipment_by_type_included
+                self.portfolios.append(portfolio_po)
+
             if equipment_by_type_manual:
-                self.portfolios_manual_activation[portfolio_name] = equipment_by_type_manual
+                portfolio_po_manual = PortfolioPO(**original_portfolio.__dict__)
+                portfolio_po_manual.equipments = equipment_by_type_manual
+                self.portfolios_manual_activation.append(portfolio_po_manual)

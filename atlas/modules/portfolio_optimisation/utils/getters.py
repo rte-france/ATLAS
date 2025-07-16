@@ -196,3 +196,17 @@ def get_energy_bounds(equipment: Hydro | Storage, time: DateTime):
         min_energy = equipment.minimum_energy.get_value(time)
 
     return min_energy, max_energy
+
+
+def get_upstream_energy(
+    obj: type[Equipment],
+    time: DateTime,
+    parameters: PortfolioOptimisationParameters,
+) -> float:
+    """Get upstream energy (bought or sold) based on market type."""
+    if parameters.market == MarketEnum.rr_activation:
+        return obj.rr_activated.get_value(time)
+    elif parameters.market == MarketEnum.mfrr_activation:
+        return obj.mfrr_activated.get_value(time)
+    else:
+        return obj.total_id_cleared_quantity.get_value(time) + obj.da_cleared_quantity.get_value(time)

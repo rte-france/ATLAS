@@ -4,8 +4,10 @@ import API
 from PO_functions import get_date_to_clean_string
 from System import DateTime
 
+from atlas.models.equipment.thermal import Thermal
 
-class PO_Thermic:
+
+class ThermalPO(Thermal):
     """
     This class is used to feed a PO_Thermic from a thermal equipment
     """

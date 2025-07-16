@@ -3,12 +3,8 @@ from typing import Any
 from pendulum import DateTime
 
 from atlas.enum import LoadType
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.wind import Wind
 from atlas.models.portfolio import Portfolio
+from atlas.modules.portfolio_optimisation.models import HydroPO, LoadPO, SolarPO, StoragePO, WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_length, compute_fragment_prices
 from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
@@ -121,7 +117,11 @@ class ObjectiveFunctionBuilder:
         return terms
 
     def _get_hydro_terms(
-        self, model: OptimisationModel, time: DateTime, hydro_equipments: dict[str, list[Hydro]], price_forecast: float
+        self,
+        model: OptimisationModel,
+        time: DateTime,
+        hydro_equipments: dict[str, list[HydroPO]],
+        price_forecast: float,
     ):
         for obj in hydro_equipments:
             for k in range(_get_fragment_length(obj)):
@@ -143,7 +143,7 @@ class ObjectiveFunctionBuilder:
         self,
         model: OptimisationModel,
         time: DateTime,
-        load_equipments: list[Load],
+        load_equipments: list[LoadPO],
         price_forecast: float,
     ):
         for obj in load_equipments:
@@ -160,7 +160,7 @@ class ObjectiveFunctionBuilder:
         self,
         model: OptimisationModel,
         time: DateTime,
-        equipments: list[Wind | Solar],
+        equipments: list[WindPO | SolarPO],
     ):
         for obj in equipments:
             if time in self.parameters.target_times:
@@ -174,7 +174,7 @@ class ObjectiveFunctionBuilder:
         self,
         model: OptimisationModel,
         time: DateTime,
-        storage_equipments: list[Storage],
+        storage_equipments: list[StoragePO],
         price_forecast: float,
     ):
         for obj in storage_equipments:

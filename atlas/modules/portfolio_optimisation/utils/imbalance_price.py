@@ -77,8 +77,7 @@ def estimate_imbalance_prices(
         large_imbalance_price_down = base * (1 - parameters.large_imbalance_penalty)
     else:
         ref = parameters.isp_forecast_lower_bound
-        abs_price = abs(price)
-        if abs_price < ref:
+        if abs(price) < ref:
             if price >= 0:
                 imbalance_price_down = (1 - parameters.small_imbalance_penalty) * ref
                 large_imbalance_price_down = (1 - parameters.large_imbalance_penalty) * ref
