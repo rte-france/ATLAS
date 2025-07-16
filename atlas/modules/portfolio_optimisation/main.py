@@ -46,10 +46,10 @@ class PortfolioOptimisationModel:
                     portfolio_manual_activation=input_dataset.portfolios_manual_activation[portfolio.name],
                 )
         else:
-            for _, portfolio in input_dataset.portfolios.items():
-                for equipment_type, list_equipment in portfolio.items():
+            for portfolio in input_dataset.portfolios:
+                for equipment_type, list_equipment in portfolio.equipments.items():
                     for equipment in list_equipment:
-                        equipment_portfolio = {equipment_type: [equipment]}
+                        equipment_portfolio = PortfolioPO(name=equipment.name, equipments={equipment_type: [equipment]})
 
                         self._optimize_portfolio(
                             portfolio=equipment_portfolio,
@@ -80,7 +80,7 @@ class PortfolioOptimisationModel:
 
         # Create optimization model
         model = OptimisationModel(solver_name=solver_name, name=portfolio.name)
-        self.variable_builder.build_variables(model, portfolio, portfolio)
+        self.variable_builder.build_variables(model, portfolio)
 
         try:
             self.constraint_builder.build_constraints(portfolio, max_optimisation_times, optimisation_times, model)
@@ -101,9 +101,13 @@ class PortfolioOptimisationModel:
             return solution_info
 
         except Exception as e:
-            cfg.logger.error(f"Optimization failed for portfolio {portfolio_name}: {e}")
+            cfg.logger.error(f"Optimization failed for portfolio {portfolio.name}: {e}")
 
-            equipment_list = [portfolio[t][equipment] for t in portfolio for equipment in portfolio[t]]
+            equipment_list = [
+                portfolio.equipments[t][equipment]
+                for t in portfolio.equipments
+                for equipment in portfolio.equipments[t]
+            ]
             set_manual_activation(equipment_list, self.parameters)
 
             return SolutionInfo(
