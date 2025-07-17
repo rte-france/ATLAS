@@ -158,3 +158,9 @@ def test_preserves_lazy_evaluation(simple_lazyframe):
 
     lm.delete("1")
     assert isinstance(lm.get_matrix(), pl.LazyFrame)
+
+
+def test_select(simple_lazyframe):
+    matrix = LazyMatrix(simple_lazyframe)
+    ts = matrix.select("1")
+    assert ts.to_frame().shape == (2, 2)
