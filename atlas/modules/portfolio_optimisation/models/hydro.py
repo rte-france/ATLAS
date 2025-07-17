@@ -263,7 +263,13 @@ class HydroPO(Hydro):
             )
             == 0
         ):
-            return self.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
+            return (
+                self.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
+                if isinstance(self.initial_level, Timeseries)
+                else self.initial_level.filter(
+                    [parameters.start_date - parameters.timestep, parameters.end_date]
+                ).collect()
+            )
         else:
             if (
                 self.stored_energy.get_forecast(
