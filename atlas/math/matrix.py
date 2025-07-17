@@ -219,7 +219,6 @@ class Matrix:
         :type index: str
         :param timeseries: Timeseries to add.
         :type timeseries: Timeseries
-        :raises TypeError: If types are invalid.
         """
         if index in self.indexes:
             raise KeyError(f"Index {index} already exists in the matrix.")
