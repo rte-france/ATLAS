@@ -345,3 +345,18 @@ class LazyForecastingMatrix(LazyMatrix):
             timezone,
             date_format,
         )
+
+    def get_forecast(
+        self,
+        execution_date: datetime | str | pendulum.DateTime,
+        start_date: datetime | str | pendulum.DateTime,
+        end_date: datetime | str | pendulum.DateTime,
+        timestep: str | pendulum.Duration | None = None,
+    ):
+        """
+        Returns the most up-to-date forecast available per time row in the given window.
+        Newer forecasts are prioritized. Gaps are filled from older forecasts.
+        """
+        return self.collect().get_forecast(
+            execution_date=execution_date, start_date=start_date, end_date=end_date, timestep=timestep
+        )
