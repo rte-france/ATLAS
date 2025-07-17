@@ -135,7 +135,7 @@ class LazyTimeseries:
         self,
         datetime: str | datetime | pendulum.DateTime,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
-    ) -> float | None:
+    ) -> float:
         """Return values at the given datetime. If exact match is not found, interpolate.
 
         :param datetime: Datetime to get value for
