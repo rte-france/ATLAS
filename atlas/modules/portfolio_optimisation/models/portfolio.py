@@ -10,8 +10,9 @@ from pendulum import DateTime, Duration
 
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
+from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO, _get_fragment_data
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
@@ -25,7 +26,7 @@ from atlas.solver.solver_interface import OptimisationModel
 class PortfolioPO(Portfolio):
     market_area: MarketAreaPO
     control_block: ControlBlockPO
-    equipments: dict[str, list[Equipment]]
+    equipments: dict[str, list[EquipmentPO]]
 
     def add_variables(
         self,
@@ -260,7 +261,7 @@ class PortfolioPO(Portfolio):
         # Hydro equipment - uses hydraulic_op_times and fragment variables
         if "hydro" in self.equipments and time in parameters.hydraulic_op_times:
             for obj in cast(list[HydroPO], self.equipments["hydro"]):
-                fragment_data = _get_fragment_data(obj)
+                fragment_data = obj._get_fragment_data(obj)
                 for category in fragment_data.keys():
                     var = model.get_variable(f"{obj.name}_power_level_frag_{category}_at_{time}")
                     if var is not None:

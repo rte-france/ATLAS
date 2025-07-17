@@ -5,6 +5,7 @@ from pendulum import DateTime
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.models.equipment.equipment import Equipment
+from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
@@ -54,14 +55,16 @@ def get_reserve(
 
 
 def get_reserve_value(
-    obj: Equipment, time: DateTime, reserve_type: str, parameters: PortfolioOptimisationParameters
+    obj: EquipmentPO, time: DateTime, reserve_type: str, parameters: PortfolioOptimisationParameters
 ) -> float:
     """Helper to get reserve value from forecast."""
     reserve_attr = cast(ForecastingMatrix, getattr(obj, f"{reserve_type}_procured"))
     return reserve_attr.get_forecast(parameters.execution_date, time, time).get_value(time)
 
 
-def get_maximum_power(obj: Equipment, time: DateTime, execution_date: datetime | DateTime | str | None = None) -> float:
+def get_maximum_power(
+    obj: EquipmentPO, time: DateTime, execution_date: datetime | DateTime | str | None = None
+) -> float:
     if isinstance(obj, HydroPO | StoragePO | ThermalPO):
         return obj.maximum_power.get_value(time)
     elif isinstance(obj, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
@@ -75,16 +78,16 @@ def get_maximum_power(obj: Equipment, time: DateTime, execution_date: datetime |
         raise RuntimeError("Unrecognized Equipment type")
 
 
-def get_variable_cost(obj: Equipment, time: DateTime):
+def get_variable_cost(obj: EquipmentPO, time: DateTime):
     return obj.variable_cost.get_value(time)
 
 
-def get_maximum_automated(obj: Equipment) -> float:
+def get_maximum_automated(obj: EquipmentPO) -> float:
     return obj.maximum_afrr + obj.maximum_fcr
 
 
 def get_upstream_energy(
-    obj: Equipment,
+    obj: EquipmentPO,
     time: DateTime,
     parameters: PortfolioOptimisationParameters,
 ) -> float:
