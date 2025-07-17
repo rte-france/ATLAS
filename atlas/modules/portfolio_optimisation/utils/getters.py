@@ -4,8 +4,6 @@ from pendulum import DateTime
 
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.models.equipment.equipment import Equipment
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.storage import Storage
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
@@ -25,7 +23,9 @@ def get_variable_cost_forecast(
     if time in parameters.target_times:
         if parameters.use_forecast:
             if parameters.market == MarketEnum.dayahead:
-                return portfolio.market_area.price_forecast_medium.get_value(time)
+                return portfolio.market_area.price_forecast_medium.get_forecast(
+                    parameters.execution_date, time, time
+                ).get_value(time)
             elif parameters.market == MarketEnum.intraday:
                 return portfolio.market_area.id_price_forecast.get_forecast(
                     parameters.execution_date, time, time
@@ -125,7 +125,7 @@ def get_minimum_energy(obj: HydroPO | StoragePO, time: DateTime):
     return obj.minimum_energy.get_value(time)
 
 
-def get_initial_stock(obj: Storage, parameters: PortfolioOptimisationParameters):
+def get_initial_stock(obj: StoragePO, parameters: PortfolioOptimisationParameters):
     if (
         len(
             obj.stored_energy.get_forecast(
@@ -153,7 +153,7 @@ def get_initial_stock(obj: Storage, parameters: PortfolioOptimisationParameters)
         )
 
 
-def get_initial_level(obj: Hydro, parameters: PortfolioOptimisationParameters):
+def get_initial_level(obj: HydroPO, parameters: PortfolioOptimisationParameters):
     if len(
         (
             obj.stored_energy.get_forecast(
@@ -201,7 +201,7 @@ def get_energy_bounds(equipment: HydroPO | StoragePO, time: DateTime):
 
 
 def get_upstream_energy(
-    obj: type[Equipment],
+    obj: Equipment,
     time: DateTime,
     parameters: PortfolioOptimisationParameters,
 ) -> float:

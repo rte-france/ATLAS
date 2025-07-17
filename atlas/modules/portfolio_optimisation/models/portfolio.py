@@ -1,9 +1,21 @@
-from typing import Any
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from typing import Any, cast
 
 from pendulum import DateTime, Duration
 
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
+from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.models.load import LoadPO
+from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
+from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
+from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_data
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_reserve, get_upstream_energy
@@ -12,7 +24,9 @@ from atlas.solver.solver_interface import OptimisationModel
 
 
 class PortfolioPO(Portfolio):
-    equipments: dict[str, list[type[Equipment]]]
+    market_area: MarketAreaPO
+    control_block: ControlBlockPO
+    equipments: dict[str, list[Equipment]]
 
     def add_variables(
         self,
@@ -121,13 +135,12 @@ class PortfolioPO(Portfolio):
         for time in parameters.target_times:
             self._add_imbalance_cost_terms(
                 model,
-                self.name,
                 time,
                 *estimate_imbalance_prices(time, self.market_area, self.control_block, parameters),
                 parameters.timestep,
             )
 
-            self._add_reserve_penalty_terms(model, self.name, time, parameters)
+            self._add_reserve_penalty_terms(model, time, parameters)
 
     def _add_imbalance_cost_terms(
         self,
@@ -247,7 +260,7 @@ class PortfolioPO(Portfolio):
 
         # Hydro equipment - uses hydraulic_op_times and fragment variables
         if "hydro" in self.equipments and time in parameters.hydraulic_op_times:
-            for obj in self.equipments["hydro"]:
+            for obj in cast(list[HydroPO], self.equipments["hydro"]):
                 fragment_data = _get_fragment_data(obj)
                 for category in fragment_data.keys():
                     var = model.get_variable(f"{obj.name}_power_level_frag_{category}_at_{time}")
@@ -278,7 +291,7 @@ class PortfolioPO(Portfolio):
                     total_power += var
 
         if "storage" in self.equipments:
-            for obj in self.equipments["storage"]:
+            for obj in cast(list[StoragePO], self.equipments["storage"]):
                 optimisation_times = parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
                 if time in optimisation_times:
                     # Storage has both sell and buy power levels
@@ -307,8 +320,8 @@ class PortfolioPO(Portfolio):
         parameters: PortfolioOptimisationParameters,
     ) -> tuple[float, float]:
         """Compute maximum power and energy metrics for all times."""
-        sum_maximum_power = 0
-        sum_max_energy = 0
+        sum_maximum_power: float = 0
+        sum_max_energy: float = 0
         equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
 
         for equipment_type in equipment_types:
@@ -341,12 +354,12 @@ class PortfolioPO(Portfolio):
         """Compute non-dispatchable production equipment residual energy"""
         residual_energy = 0
 
-        for obj in self.equipments.get("non_dispatchable_production", []):
+        for obj in cast(list[OtherNonDispatchablePO], self.equipments.get("non_dispatchable_production", [])):
             last_forecast_ti = obj.maximum_power_forecast.get_forecast(
                 parameters.execution_date, parameters.start_date, parameters.end_date
             ).get_value(time)
 
-            upstream_sold_energy = get_upstream_energy(obj, time)
+            upstream_sold_energy = get_upstream_energy(obj, time, parameters)
             optimal_dispatch = min(last_forecast_ti, upstream_sold_energy)
             residual_energy += upstream_sold_energy - optimal_dispatch
 
@@ -360,7 +373,7 @@ class PortfolioPO(Portfolio):
         """Compute non-dispatchable load equipment residual energy"""
         residual_energy = 0
 
-        for obj in self.equipments.get("non_dispatchable_load", []):
+        for obj in cast(list[LoadPO], self.equipments.get("non_dispatchable_load", [])):
             last_forecast_ti = obj.maximum_power_forecast.get_forecast(
                 parameters.execution_date, parameters.start_date, parameters.end_date
             ).get_value(time)
@@ -385,12 +398,12 @@ class PortfolioPO(Portfolio):
         self, time: DateTime, parameters: PortfolioOptimisationParameters
     ) -> tuple[float, float, float, float, float, float]:
         """Compute reserves and power metrics for a specific time."""
-        sum_reserves_up = 0
-        sum_reserves_down = 0
-        sum_automated_reserves_up = 0
-        sum_automated_reserves_down = 0
-        sum_maximum_power = 0
-        sum_maximum_energy = 0
+        sum_reserves_up: float = 0
+        sum_reserves_down: float = 0
+        sum_automated_reserves_up: float = 0
+        sum_automated_reserves_down: float = 0
+        sum_maximum_power: float = 0
+        sum_maximum_energy: float = 0
 
         equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
 

@@ -1,8 +1,16 @@
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from __future__ import annotations
+
 import math
 
 import API
 from pendulum import DateTime
-from PO_functions import get_date_to_clean_string
+from pydantic import model_validator
 
 from atlas.models.equipment.thermal import Thermal
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -119,6 +127,24 @@ class ThermalPO(Thermal):
 
     def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         pass
+
+    @model_validator(mode="after")
+    def validate_minimum_stable_power_duration(self) -> ThermalPO:
+        """
+        Validate that minimum_stable_power_duration is not greater than minimum_time_on.
+        Raises ValidationError if the condition is violated.
+        """
+        if (
+            self.minimum_stable_power_duration is not None
+            and self.minimum_time_on is not None
+            and self.minimum_stable_power_duration > self.minimum_time_on
+        ):
+            raise ValueError(
+                f"minimum_stable_power_duration ({self.minimum_stable_power_duration}) of equipment "
+                f"{self.name} cannot be greater than minimum_time_on ({self.minimum_time_on})"
+            )
+
+        return self
 
     def fill_model(self, opt_thermic, p):
         # get data from optimate equipment

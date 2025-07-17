@@ -28,6 +28,8 @@ class StoragePO(Storage):
     minimum_power: Timeseries | LazyTimeseries
     maximum_power: Timeseries | LazyTimeseries
     minimum_state_of_charge: Timeseries | LazyTimeseries
+    discharge_efficiency: float
+    charge_efficiency: float
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """Build variables for storage equipment."""

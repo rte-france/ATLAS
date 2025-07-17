@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from atlas.enum import ThermalStrategy
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -74,21 +74,3 @@ class Thermal(Equipment):
     da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
     maximum_power: Timeseries | LazyTimeseries | None = None
     minimum_power: Timeseries | LazyTimeseries | None = None
-
-    @model_validator(mode="after")
-    def validate_minimum_stable_power_duration(self) -> Thermal:
-        """
-        Validate that minimum_stable_power_duration is not greater than minimum_time_on.
-        Raises ValidationError if the condition is violated.
-        """
-        if (
-            self.minimum_stable_power_duration is not None
-            and self.minimum_time_on is not None
-            and self.minimum_stable_power_duration > self.minimum_time_on
-        ):
-            raise ValueError(
-                f"minimum_stable_power_duration ({self.minimum_stable_power_duration}) of equipment "
-                f"{self.name} cannot be greater than minimum_time_on ({self.minimum_time_on})"
-            )
-
-        return self

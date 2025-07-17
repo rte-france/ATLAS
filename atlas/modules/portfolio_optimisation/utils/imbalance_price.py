@@ -1,14 +1,14 @@
 from pendulum import DateTime
 
-from atlas.models.control_block import ControlBlock
-from atlas.models.market.market_area import MarketArea
+from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
+from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 
 
 def estimate_imbalance_prices(
     time: DateTime,
-    market_area: MarketArea,
-    control_block: ControlBlock,
+    market_area: MarketAreaPO,
+    control_block: ControlBlockPO,
     parameters: PortfolioOptimisationParameters,
 ) -> tuple[float, float, float, float]:
     """
@@ -27,11 +27,11 @@ def estimate_imbalance_prices(
 
     if parameters.use_forecast:
         if parameters.market == MarketEnum.dayahead:
-            ts = market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time)
-            price = ts.get_value(time)
+            price = market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )
         elif parameters.market == MarketEnum.intraday:
-            ts = market_area.id_price_forecast.get_forecast(parameters.execution_date, time, time)
-            price = ts.get_value(time)
+            price = market_area.id_price_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
         else:
             price = 0.0
     else:
