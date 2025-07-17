@@ -15,7 +15,6 @@ from atlas.models.equipment.storage import Storage
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import (
     get_maximum_automated,
-    get_maximum_energy,
     get_maximum_power,
     get_minimum_power,
 )
@@ -32,6 +31,8 @@ class StoragePO(Storage):
     minimum_state_of_charge: Timeseries | LazyTimeseries
     discharge_efficiency: float
     charge_efficiency: float
+    maximum_energy: Timeseries | LazyTimeseries
+    displacement_energy: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """Build variables for storage equipment."""
@@ -42,7 +43,7 @@ class StoragePO(Storage):
         for time in optimisation_times:
             min_power = cast(float, get_minimum_power(self, time))
             max_power = get_maximum_power(self, time)
-            maximum_energy = get_maximum_energy(self, time)
+            maximum_energy = self.maximum_energy.get_value(time)
             maximum_automated = get_maximum_automated(self)
 
             # Basic storage variables
@@ -111,6 +112,7 @@ class StoragePO(Storage):
         power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
         power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
         stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
+        stored_energy_var_previous_time = model.get_variable(f"{self.name}_stored_energy_{prev_time}")
         is_sell_var = model.get_variable(f"{self.name}_is_sell_{time}")
 
         # Avoid equipments that have a maximum_energy of 0 (meaning that they are offline)
@@ -120,6 +122,8 @@ class StoragePO(Storage):
         # Get max and min power
         max_power = get_maximum_power(self, time)
         min_power = get_minimum_power(self, time)
+        max_energy = self.maximum_energy.get_value(time)
+        max_energy_previous = self.maximum_energy.get_value(prev_time)
 
         # For additional period
         if time not in parameters.target_times:
@@ -147,10 +151,10 @@ class StoragePO(Storage):
         if self.storage_type == StorageType.BATTERY or self.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
             reserve_stored_energy_down_ti = reserves_down_var * (
                 parameters.battery_reserve_duration
-            ) + automated_reserves_down_var * (parameters.automated_battery_reserve_duration)
+            ) + automated_reserves_down_var * (parameters.battery_automated_reserve_duration)
             reserve_stored_energy_up_ti = reserves_up_var * (
                 parameters.battery_reserve_duration
-            ) + automated_reserves_up_var * (parameters.automated_battery_reserve_duration)
+            ) + automated_reserves_up_var * (parameters.battery_automated_reserve_duration)
 
             model.add_constraint(
                 power_level_sell_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
@@ -167,10 +171,10 @@ class StoragePO(Storage):
         if self.storage_type == StorageType.ELECTRIC_VEHICLE:
             reserve_stored_energy_down_ti = reserves_down_var * (
                 parameters.battery_reserve_duration
-            ) + automated_reserves_down_var * (parameters.automated_battery_reserve_duration)
+            ) + automated_reserves_down_var * (parameters.battery_automated_reserve_duration)
             reserve_stored_energy_up_ti = reserves_up_var * (
                 parameters.battery_reserve_duration
-            ) + automated_reserves_up_var * (parameters.automated_battery_reserve_duration)
+            ) + automated_reserves_up_var * (parameters.battery_automated_reserve_duration)
 
             model.add_constraint(
                 (power_level_sell_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var)
@@ -186,30 +190,27 @@ class StoragePO(Storage):
         if time == parameters.start_date:
             model.add_constraint(
                 stored_energy_var
-                == self.initial_stock * (get_maximum_energy(self, time) / get_maximum_energy(self, prev_time))
+                == self.get_initial_stock(self, parameters) * max_energy / max_energy_previous
                 - power_level_buy_var * self.charge_efficiency * parameters.timestep
                 - power_level_sell_var * parameters.timestep / (60.0 * self.discharge_efficiency)
-                + (self.displacement_energy[time] - self.displacement_energy[prev_time])
+                + (self.displacement_energy.get_value(time) - self.displacement_energy.get_value(prev_time))
             )
 
         elif time in optimisation_times:
             model.add_constraint(
                 stored_energy_var
-                == self.stored_energy[prev_time]
-                * (get_maximum_energy(self, time) / get_maximum_energy(self, prev_time))
+                == stored_energy_var_previous_time * max_energy / max_energy_previous
                 - power_level_buy_var * self.charge_efficiency * parameters.timestep
                 - power_level_sell_var * parameters.timestep / (60.0 * self.discharge_efficiency)
-                + (self.displacement_energy[time] - self.displacement_energy[prev_time])
+                + (self.displacement_energy.get_value(time) - self.displacement_energy.get_value(prev_time))
             )
 
         # For any time steps:
         # Respect of minimum and maximum stock constraints
         model.add_constraint(
-            stored_energy_var
-            >= get_maximum_energy(self, time) * self.minimum_state_of_charge.get_value(time)
-            + reserve_stored_energy_up_ti
+            stored_energy_var >= max_energy * self.minimum_state_of_charge.get_value(time) + reserve_stored_energy_up_ti
         )
-        model.add_constraint(stored_energy_var <= get_maximum_energy(self, time) - reserve_stored_energy_down_ti)
+        model.add_constraint(stored_energy_var <= max_energy - reserve_stored_energy_down_ti)
 
         if time == parameters.start_date:
             model.add_constraint(
@@ -227,7 +228,7 @@ class StoragePO(Storage):
         power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
         power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
 
-        if max(self.maximum_energy.values()) <= 0:
+        if self.maximum_energy.max() <= 0:
             return None
         local_op_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
 
@@ -252,3 +253,30 @@ class StoragePO(Storage):
                         -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
                         - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1))
                     )
+
+    def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
+        if (
+            len(
+                self.stored_energy.get_forecast(
+                    parameters.execution_date,
+                    parameters.init_battery_time.subtract(days=2),
+                    parameters.init_battery_time,
+                )
+            )
+            == 0
+        ):
+            return (
+                self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level,
+            )
+
+        else:
+            return (
+                self.stored_energy.get_forecast(
+                    parameters.execution_date,
+                    parameters.init_battery_time,
+                    parameters.init_battery_time,
+                )
+                .dataframe.select("time")
+                .to_series()
+                .to_list()[0]
+            )

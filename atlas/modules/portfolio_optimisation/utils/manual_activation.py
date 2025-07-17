@@ -12,7 +12,6 @@ from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.getters import get_energy_bounds
 
 
 def is_excluded_technology(parameters: PortfolioOptimisationParameters, equipment: type[Equipment]) -> bool:
@@ -156,6 +155,18 @@ def _get_min_power(equipment, time, max_power_forecast: Timeseries | LazyTimeser
         return 0
 
 
+def _get_energy_bounds(obj: HydroPO | StoragePO, time: DateTime):
+    """Get energy bounds for equipment at given time."""
+    max_energy = obj.maximum_energy.get_value(time)
+
+    if isinstance(obj, StoragePO):
+        min_energy = max_energy * obj.minimum_state_of_charge.get_value(time)
+    else:  # Hydraulic
+        min_energy = obj.minimum_energy.get_value(time)
+
+    return min_energy, max_energy
+
+
 def _update_stored_energy(
     equipment: HydroPO | StoragePO, new_power: Timeseries | LazyTimeseries, parameters: PortfolioOptimisationParameters
 ):
@@ -175,7 +186,7 @@ def _update_stored_energy(
 
         new_energy_value = _calculate_new_energy_value(equipment, time, previous_energy, new_power, parameters)
 
-        energy_bounds = get_energy_bounds(equipment, time)
+        energy_bounds = _get_energy_bounds(equipment, time)
         corrected_energy, correction = _apply_energy_bounds(new_energy_value, energy_bounds, time, parameters)
 
         new_stored_energy.set_value(time, corrected_energy)

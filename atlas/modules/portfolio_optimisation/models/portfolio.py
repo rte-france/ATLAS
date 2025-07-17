@@ -11,13 +11,12 @@ from pendulum import DateTime, Duration
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO, _get_fragment_data
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.get_fragment_price import _get_fragment_data
+from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_reserve, get_upstream_energy
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.solver.solver_interface import OptimisationModel
@@ -437,3 +436,31 @@ class PortfolioPO(Portfolio):
             sum_maximum_power,
             sum_maximum_energy,
         )
+
+    def _get_price_forecast(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float | None:
+        """Get price forecast for given time based on market type and forecast settings."""
+
+        if time in parameters.target_times:
+            if parameters.use_forecast:
+                if parameters.market == MarketEnum.dayahead:
+                    return self.market_area.price_forecast_medium.get_forecast(
+                        parameters.execution_date, time, time
+                    ).get_value(time)
+                elif parameters.market == MarketEnum.intraday:
+                    return self.market_area.id_price_forecast.get_forecast(
+                        parameters.execution_date, time, time
+                    ).get_value(time)
+
+            else:
+                if parameters.market == MarketEnum.dayahead:
+                    return self.market_area.da_price.get_value(time)
+                elif parameters.market == MarketEnum.intraday:
+                    return self.market_area.id_price.get_forecast(parameters.execution_date, time, time).get_value(time)
+                elif parameters.market == MarketEnum.rr_activation:
+                    return self.market_area.rr_activation_price.get_value(time)
+                elif parameters.market == MarketEnum.mfrr_activation:
+                    return self.market_area.mfrr_activation_price.get_value(time)
+        else:
+            return self.market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time).get_value(
+                time
+            )

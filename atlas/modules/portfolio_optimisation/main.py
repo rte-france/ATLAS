@@ -47,7 +47,7 @@ class PortfolioOptimisationModel:
                 )
             for portfolio in input_dataset.portfolios_manual_activation:
                 self._optimize_portfolio_manual_activated(
-                    portfolio_manual_activation=input_dataset.portfolios_manual_activation[portfolio.name],
+                    portfolio=input_dataset.portfolios_manual_activation[portfolio.name],
                 )
         else:
             for portfolio in input_dataset.portfolios:

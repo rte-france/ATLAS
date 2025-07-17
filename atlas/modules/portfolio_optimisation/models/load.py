@@ -14,7 +14,7 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.load import Load
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_minimum_power, get_variable_cost
+from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -27,7 +27,7 @@ class LoadPO(Load):
         """Build variables for load equipment."""
 
         for time in parameters.target_times:
-            max_power = get_maximum_power(self, time, parameters.execution_date)
+            max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
 
             model.add_continuous_variable(
                 f"{self.name}_power_level_{time}",
@@ -35,18 +35,15 @@ class LoadPO(Load):
                 upper_bound=max_power,
             )
 
-    def add_constraints(
-        self,
-        time: DateTime,
-        model: OptimisationModel,
-    ):
+    def add_constraints(self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """
-        This function adds constraints and elements in the objective function related to load equipments.
+        This function adds constraints related to load equipments.
         """
-
+        max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
         power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
-        model.add_constraint(power_level_var >= get_maximum_power(self, time))
-        model.add_constraint(power_level_var <= get_minimum_power(self, time))
+
+        model.add_constraint(power_level_var >= max_power)
+        model.add_constraint(power_level_var <= 0)
 
     def add_objective(
         self,

@@ -8,45 +8,11 @@ from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
-from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.solar import SolarPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
-
-
-def get_variable_cost_forecast(
-    portfolio: PortfolioPO, time: DateTime, parameters: PortfolioOptimisationParameters
-) -> float | None:
-    """Get price forecast for given time based on market type and forecast settings."""
-
-    if time in parameters.target_times:
-        if parameters.use_forecast:
-            if parameters.market == MarketEnum.dayahead:
-                return portfolio.market_area.price_forecast_medium.get_forecast(
-                    parameters.execution_date, time, time
-                ).get_value(time)
-            elif parameters.market == MarketEnum.intraday:
-                return portfolio.market_area.id_price_forecast.get_forecast(
-                    parameters.execution_date, time, time
-                ).get_value(time)
-
-        else:
-            if parameters.market == MarketEnum.dayahead:
-                return portfolio.market_area.da_price.get_value(time)
-            elif parameters.market == MarketEnum.intraday:
-                return portfolio.market_area.id_price.get_forecast(parameters.execution_date, time, time).get_value(
-                    time
-                )
-            elif parameters.market == MarketEnum.rr_activation:
-                return portfolio.market_area.rr_activation_price.get_value(time)
-            elif parameters.market == MarketEnum.mfrr_activation:
-                return portfolio.market_area.mfrr_activation_price.get_value(time)
-    else:
-        return portfolio.market_area.price_forecast_medium.get_forecast(
-            parameters.execution_date, time, time
-        ).get_value(time)
 
 
 def get_reserve(
@@ -127,91 +93,16 @@ def get_variable_cost(obj: Equipment, time: DateTime):
     return obj.variable_cost.get_value(time)
 
 
-def get_maximum_energy(obj: HydroPO | StoragePO, time: DateTime):
+def get_maximum_energy(obj: StoragePO, time: DateTime):
     return obj.maximum_energy.get_value(time)
 
 
-def get_minimum_energy(obj: HydroPO, time: DateTime):
-    return obj.minimum_energy.get_value(time)
-
-
-def get_initial_stock(obj: StoragePO, parameters: PortfolioOptimisationParameters):
-    if (
-        len(
-            obj.stored_energy.get_forecast(
-                parameters.execution_date,
-                parameters.init_battery_time.subtract(days=2),
-                parameters.init_battery_time,
-            )
-        )
-        == 0
-    ):
-        obj.initial_stock = get_maximum_energy(
-            obj,
-            (parameters.start_date - parameters.timestep) * obj.storage_initial_level,
-        )
-    else:
-        obj.initial_stock = (
-            obj.stored_energy.get_forecast(
-                parameters.execution_date,
-                parameters.init_battery_time,
-                parameters.init_battery_time,
-            )
-            .dataframe.select("time")
-            .to_series()
-            .to_list()[0]
-        )
-
-
-def get_initial_level(obj: HydroPO, parameters: PortfolioOptimisationParameters):
-    if len(
-        (
-            obj.stored_energy.get_forecast(
-                parameters.execution_date,
-                parameters.start_date - parameters.timestep,
-                parameters.end_date,
-            )
-        )
-        == 0
-    ):
-        return obj.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
-    else:
-        if (
-            obj.stored_energy.get_forecast(
-                parameters.execution_date,
-                parameters.start_date - parameters.timestep,
-                parameters.end_date,
-            ).first_date()
-            < parameters.start_date
-        ):
-            return obj.stored_energy.get_forecast(
-                parameters.execution_date,
-                parameters.start_date - parameters.timestep,
-                parameters.end_date,
-            )
-
-        else:
-            return obj.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
-
-
-def get_maximum_automated(obj: HydroPO | SolarPO | StoragePO | WindPO) -> float:
+def get_maximum_automated(obj: Equipment) -> float:
     return obj.maximum_afrr + obj.maximum_fcr
 
 
-def get_energy_bounds(equipment: HydroPO | StoragePO, time: DateTime):
-    """Get energy bounds for equipment at given time."""
-    max_energy = equipment.maximum_energy.get_value(time)
-
-    if isinstance(equipment, StoragePO):
-        min_energy = max_energy * equipment.minimum_state_of_charge.get_value(time)
-    else:  # Hydraulic
-        min_energy = equipment.minimum_energy.get_value(time)
-
-    return min_energy, max_energy
-
-
 def get_upstream_energy(
-    obj: LoadPO | OtherNonDispatchablePO | SolarPO | WindPO | StoragePO | HydroPO | ThermalPO,
+    obj: Equipment,
     time: DateTime,
     parameters: PortfolioOptimisationParameters,
 ) -> float:
