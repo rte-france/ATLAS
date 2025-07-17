@@ -796,7 +796,7 @@ class Timeseries:
 
         return self._return_inplace(df, inplace)
 
-    def max(self) -> float:
+    def max(self) -> float:  # type:ignore[return]
         """Return the max value in the 'value' column.
 
         :return: The Timeseries max value
@@ -807,7 +807,7 @@ class Timeseries:
         else:
             RuntimeError("Timeseries is empty, can't get the maximum value")
 
-    def min(self) -> float:
+    def min(self) -> float:  # type:ignore[return]
         """Return the min value in the 'value' column.
 
         :return: The Timeseries min value
@@ -818,7 +818,7 @@ class Timeseries:
         else:
             RuntimeError("Timeseries is empty, can't get the minimum value")
 
-    def sum(self) -> float:
+    def sum(self) -> float:  # type:ignore[return]
         """Return the sum of the 'value' column.
 
         :return: The Timeseries sum value
