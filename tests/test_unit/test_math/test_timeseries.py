@@ -419,6 +419,25 @@ class TestTimeseriesBasicOperations:
         with pytest.raises(ValueError):
             ts.set_value("2024-01-01 01:30:00", 30, "YYYY-MM-DD HH:mm:ss")
 
+    def test_add_value_at(self, sample_ts):
+        ts = Timeseries()
+
+        # Insert new values
+        ts.add_value_at("2024-01-01 00:00:00", 2, "YYYY-MM-DD HH:mm:ss")  # work if timeseries if empty
+        ts.add_value_at("2024-01-01 01:00:00", 4, "YYYY-MM-DD HH:mm:ss")  # work if index has no value
+
+        # Overwrite value
+        ts.set_value("2024-01-01 02:00:00", 5, "YYYY-MM-DD HH:mm:ss")
+        ts.add_value_at("2024-01-01 02:00:00", 1, "YYYY-MM-DD HH:mm:ss")
+
+        assert ts["time"] == [
+            datetime(2024, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
+            datetime(2024, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
+            datetime(2024, 1, 1, 2, 0, tzinfo=Timezone(key="UTC")),
+        ]
+        assert ts["value"] == [2, 4, 6]
+        assert ts.timestep == pendulum.duration(hours=1)
+
     def test_arithmetic_operations_with_invalid_types(self, sample_ts):
         """Test arithmetic operations with invalid types."""
         # Test multiplication

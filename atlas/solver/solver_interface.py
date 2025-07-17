@@ -349,6 +349,28 @@ class OptimisationModel:
 
         return self._solver.LookupVariable(name).solution_value()
 
+    def get_constraint_slack_value(self, name: str) -> float:
+        """
+        Get the slack value of a constraint.
+
+        :param name: constraint name
+        :type name: str
+        :return: Slack value of the constraint
+        :rtype: float
+        :raises RuntimeError: If model hasn't been solved
+        :raises ValueError: If constraint hasn't been added
+        """
+        if not self._solution_info:
+            raise RuntimeError("Optimisation model has not been solved yet")
+
+        if name not in self._constraints_name:
+            raise ValueError(f"Constraint '{name}' not found in model")
+
+        constraint = self._solver.LookupConstraint(name)
+        sum_coeff = sum([constraint.GetCoefficient(var) * var.solution_value() for var in self._solver.variables()])
+        slack_value = constraint.ub() - sum_coeff if constraint.ub() != float("inf") else constraint.lb() - sum_coeff
+        return slack_value
+
     def export_model(self, filename: str) -> None:
         """
         Export the model to a file.

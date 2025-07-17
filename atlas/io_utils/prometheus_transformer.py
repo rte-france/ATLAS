@@ -77,6 +77,8 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = to_snake_case(attr_name)
+                        if attr_name_snake == "comment":
+                            continue
 
                         if attr_name_snake in NAME_MAPPING:
                             attr_name_snake = NAME_MAPPING[attr_name_snake]
