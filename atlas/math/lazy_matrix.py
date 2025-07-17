@@ -160,3 +160,15 @@ class LazyMatrix:
 
         # Update indexes
         self.indexes = self._get_indexes()
+
+    def select(self, index: str) -> Timeseries:
+        """
+        Get a timeseries by index.
+
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If the index is not found.
+        :return: The Timeseries object.
+        :rtype: Timeseries
+        """
+        return self.collect().__getitem__(index)
