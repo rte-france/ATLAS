@@ -89,54 +89,54 @@ class HydroPO(Hydro):
         """
         This function formulates the hydraulic reservoir offers.
         """
+        if time in parameters.hydraulic_op_times:
+            max_power = self.maximum_power.get_value(time)
+            maximum_energy = self.maximum_energy.get_value(time)
+            minimum_energy = self.minimum_energy.get_value(time)
+            min_power = self.minimum_power.get_value(time)
 
-        max_power = self.maximum_power.get_value(time)
-        maximum_energy = self.maximum_energy.get_value(time)
-        minimum_energy = self.minimum_energy.get_value(time)
-        min_power = self.minimum_power.get_value(time)
-
-        model.add_constraint(model.get_variable(f"relaxed_reserves_{self.name}_{time}") <= min_power)
-        model.add_constraint(
-            model.get_variable(f"automated_reserves_up_{self.name}_{time}") <= get_maximum_automated(self)
-        )
-        model.add_constraint(
-            model.get_variable(f"automated_reserves_up_{self.name}_{time}") <= get_maximum_automated(self)
-        )
-        model.add_constraint(model.get_variable(f"reserves_up_{self.name}_{time}") <= max_power)
-        model.add_constraint(model.get_variable(f"reserves_up_{self.name}_{time}") <= max_power)
-
-        stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
-        previous_stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time - parameters.timestep}")
-
-        power_level_fragment_sum_var = sum(
-            model.get_variable(f"{self.name}_power_level_frag_{category}_at_{time}")
-            for category in self._get_fragment_data()
-        )
-
-        if time == parameters.start_date:
+            model.add_constraint(model.get_variable(f"relaxed_reserves_{self.name}_{time}") <= min_power)
             model.add_constraint(
-                stored_energy_var
-                == self.get_initial_level(parameters).get_value(parameters.start_date - parameters.timestep)
-                - power_level_fragment_sum_var * parameters.timestep
+                model.get_variable(f"automated_reserves_up_{self.name}_{time}") <= get_maximum_automated(self)
             )
-
-        elif time in parameters.target_times:
             model.add_constraint(
-                stored_energy_var == previous_stored_energy_var - power_level_fragment_sum_var * parameters.timestep
+                model.get_variable(f"automated_reserves_up_{self.name}_{time}") <= get_maximum_automated(self)
+            )
+            model.add_constraint(model.get_variable(f"reserves_up_{self.name}_{time}") <= max_power)
+            model.add_constraint(model.get_variable(f"reserves_up_{self.name}_{time}") <= max_power)
+
+            stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
+            previous_stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time - parameters.timestep}")
+
+            power_level_fragment_sum_var = sum(
+                model.get_variable(f"{self.name}_power_level_frag_{category}_at_{time}")
+                for category in self._get_fragment_data()
             )
 
-        # For any time steps:
-        # Respect of minimum and maximum stock constraints
-        if time in parameters.target_times:
-            reserve_stored_energy_up_var = model.get_variable(f"reserves_up_e_{self.name}_{time}") + model.get_variable(
-                f"automated_res_up_e_{self.name}_{time}"
-            )
-            reserve_stored_energy_down_var = model.get_variable(
-                f"reserves_down_e_{self.name}_{time}"
-            ) + model.get_variable(f"automated_res_down_e_{self.name}_{time}")
+            if time == parameters.start_date:
+                model.add_constraint(
+                    stored_energy_var
+                    == self.get_initial_level(parameters).get_value(parameters.start_date - parameters.timestep)
+                    - power_level_fragment_sum_var * parameters.timestep
+                )
 
-            model.add_constraint(stored_energy_var >= minimum_energy + reserve_stored_energy_up_var)
-            model.add_constraint(stored_energy_var <= maximum_energy - reserve_stored_energy_down_var)
+            elif time in parameters.target_times:
+                model.add_constraint(
+                    stored_energy_var == previous_stored_energy_var - power_level_fragment_sum_var * parameters.timestep
+                )
+
+            # For any time steps:
+            # Respect of minimum and maximum stock constraints
+            if time in parameters.target_times:
+                reserve_stored_energy_up_var = model.get_variable(
+                    f"reserves_up_e_{self.name}_{time}"
+                ) + model.get_variable(f"automated_res_up_e_{self.name}_{time}")
+                reserve_stored_energy_down_var = model.get_variable(
+                    f"reserves_down_e_{self.name}_{time}"
+                ) + model.get_variable(f"automated_res_down_e_{self.name}_{time}")
+
+                model.add_constraint(stored_energy_var >= minimum_energy + reserve_stored_energy_up_var)
+                model.add_constraint(stored_energy_var <= maximum_energy - reserve_stored_energy_down_var)
 
     def add_objective(
         self,

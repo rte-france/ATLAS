@@ -68,3 +68,4 @@ class PortfolioOptimisationModule(
         """Executes the module's main logic."""
         model = PortfolioOptimisationModel(parameters)
         model.optimize(dataset)
+        return PortfolioOptimisationOutputDataset(parameters)

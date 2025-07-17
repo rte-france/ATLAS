@@ -91,12 +91,11 @@ class PortfolioOptimisationModel:
             for time in max_optimisation_times:
                 portfolio.add_constraints(time, model, self.parameters)
                 # Wind and PV constraints
-                if time in optimisation_times.get("op_times", []):
-                    for obj in cast(
-                        list[WindPO | SolarPO],
-                        portfolio.equipments.get("wind", []) + portfolio.equipments.get("solar", []),
-                    ):
-                        obj.add_constraints(time, model, self.parameters)
+                for obj in cast(
+                    list[WindPO | SolarPO],
+                    portfolio.equipments.get("wind", []) + portfolio.equipments.get("solar", []),
+                ):
+                    obj.add_constraints(time, model, self.parameters)
 
                 # Thermal constraints
                 # if time in optimisation_times.get("thermal_op_times", []):
@@ -104,23 +103,23 @@ class PortfolioOptimisationModel:
                 #         thermal.add_constraints(time, model, self.parameters)
 
                 # Hydraulic constraints
-                if time in optimisation_times.get("hydraulic_op_times", []):
-                    for hydro in cast(list[HydroPO], portfolio.equipments.get("hydro", [])):
-                        hydro.add_constraints(time, model, self.parameters)
+                for hydro in cast(list[HydroPO], portfolio.equipments.get("hydro", [])):
+                    hydro.add_constraints(time, model, self.parameters)
 
                 # Storage constraints
-                storage_times = ["battery_op_times", "phs_op_times", "ev_op_times"]
-                if any(time in optimisation_times.get(st, []) for st in storage_times):
-                    for storage in cast(list[StoragePO], portfolio.equipments.get("storage", [])):
-                        storage.add_contraints(time, model, self.parameters)
+                for storage in cast(list[StoragePO], portfolio.equipments.get("storage", [])):
+                    storage.add_contraints(time, model, self.parameters)
 
                 # Load constraints
-                if time in optimisation_times.get("op_times", []):
-                    for load in cast(list[LoadPO], portfolio.equipments.get("load", [])):
-                        load.add_constraints(time, model)
+                for load in cast(list[LoadPO], portfolio.equipments.get("load", [])):
+                    load.add_constraints(time, model)
 
-            objective_expr = self.objective_builder.build_objective(model, portfolio, self.parameters.target_times)
-            model.set_objective(objective_expr, direction="minimize")
+            portfolio.add_objective(model, self.parameters)
+            for time in self.parameters.target_times:
+                price_forecast = portfolio._get_price_forecast(time, self.parameters)
+                for equipment_type in portfolio.equipments:
+                    for equipment in cast(list[EquipmentPO], portfolio.equipments.get(equipment_type, [])):
+                        equipment.add_objective(model, time, price_forecast, self.parameters)
 
             solution_info = model.solve()
 

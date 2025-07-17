@@ -39,11 +39,12 @@ class LoadPO(Load):
         """
         This function adds constraints related to load equipments.
         """
-        max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
-        power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
+        if time in parameters.op_times and time in parameters.target_times:
+            max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
+            power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
 
-        model.add_constraint(power_level_var >= max_power)
-        model.add_constraint(power_level_var <= 0)
+            model.add_constraint(power_level_var >= max_power)
+            model.add_constraint(power_level_var <= 0)
 
     def add_objective(
         self,
