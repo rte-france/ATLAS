@@ -818,7 +818,7 @@ class Timeseries:
         else:
             RuntimeError("Timeseries is empty, can't get the minimum value")
 
-    def sum(self) -> float | None:
+    def sum(self) -> float:
         """Return the sum of the 'value' column.
 
         :return: The Timeseries sum value
@@ -826,7 +826,8 @@ class Timeseries:
         """
         if len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].sum())
-        return None
+        else:
+            RuntimeError("Timeseries is empty, can't perform the sum")
 
     def abs(self, inplace=True) -> Timeseries:
         """Compute the absolute value of each timestamp
