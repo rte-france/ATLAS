@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -28,6 +29,7 @@ class HydroPO(Hydro):
     maximum_power: Timeseries | LazyTimeseries
     stored_energy: ForecastingMatrix | LazyForecastingMatrix
     initial_level: Timeseries | LazyTimeseries
+    storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """Build variables for hydro equipment."""
@@ -108,13 +110,13 @@ class HydroPO(Hydro):
 
         power_level_fragment_sum_var = sum(
             model.get_variable(f"{self.name}_power_level_frag_{category}_at_{time}")
-            for category in self._get_fragment_data(self)
+            for category in self._get_fragment_data()
         )
 
         if time == parameters.start_date:
             model.add_constraint(
                 stored_energy_var
-                == self.get_initial_level(self, parameters).get_value(parameters.start_date - parameters.timestep)
+                == self.get_initial_level(parameters).get_value(parameters.start_date - parameters.timestep)
                 - power_level_fragment_sum_var * parameters.timestep
             )
 
@@ -143,17 +145,17 @@ class HydroPO(Hydro):
         price_forecast: float,
         parameters: PortfolioOptimisationParameters,
     ):
-        for k in range(self.get_fragment_length(self)):
+        for k in range(self.get_fragment_length()):
             if time in parameters.target_times:
                 model.add_objective(
-                    self.compute_fragment_prices(self, time, k, parameters)
+                    self.compute_fragment_prices(time, k, parameters)
                     * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
                     * parameters.timestep
                 )
 
             else:
                 model.add_objective(
-                    -(price_forecast - self.compute_fragment_prices(self, time, k, parameters))
+                    -(price_forecast - self.compute_fragment_prices(time, k, parameters))
                     * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
                     * parameters.timestep
                 )
@@ -196,7 +198,7 @@ class HydroPO(Hydro):
         else:
             return self.initial_level.get_value(parameters.start_date - parameters.timestep)
 
-    def _calculate_marginal_weights(self: HydroPO, energy_level: float) -> dict:
+    def _calculate_marginal_weights(self, energy_level: float) -> dict:
         """Calculate marginal value weights based on current energy level."""
         storage_indices = self.storage_marginal_value.indexes
 
@@ -228,7 +230,7 @@ class HydroPO(Hydro):
 
         return weights
 
-    def _calculate_fragment_price(fragment_price: float, marginal_weights: dict, time: DateTime) -> float:
+    def _calculate_fragment_price(self, fragment_price: float, marginal_weights: dict, time: DateTime) -> float:
         """Calculate the final fragment price including marginal values."""
         base_price = fragment_price
 
