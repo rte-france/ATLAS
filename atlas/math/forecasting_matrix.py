@@ -191,6 +191,22 @@ class ForecastingMatrix(Matrix):
         """
         Returns the most up-to-date forecast available per time row in the given window.
         Newer forecasts are prioritized. Gaps are filled from older forecasts.
+
+        :param execution_date: The reference date for determining which forecasts are available.
+                              Only forecasts made on or before this date will be considered.
+        :type execution_date: datetime | str | pendulum.DateTime
+        :param start_date: Start date of the forecast window to retrieve.
+        :type start_date: datetime | str | pendulum.DateTime
+        :param end_date: End date of the forecast window to retrieve.
+        :type end_date: datetime | str | pendulum.DateTime
+        :param timestep: Target frequency for the output timeseries. If None, the lowest
+                        frequency found in the data will be used.
+        :type timestep: str | pendulum.Duration | None
+        :raises ValueError: If start_date is after end_date or if no forecasting dates
+                           are available before the execution date.
+        :return: A timeseries containing the most recent forecast values for each timestamp
+                in the specified window, with gaps filled using older forecasts.
+        :rtype: Timeseries
         """
 
         execution_date = build_datetime(execution_date, self.date_format)
@@ -352,10 +368,26 @@ class LazyForecastingMatrix(LazyMatrix):
         start_date: datetime | str | pendulum.DateTime,
         end_date: datetime | str | pendulum.DateTime,
         timestep: str | pendulum.Duration | None = None,
-    ):
+    ) -> Timeseries:
         """
         Returns the most up-to-date forecast available per time row in the given window.
         Newer forecasts are prioritized. Gaps are filled from older forecasts.
+
+        :param execution_date: The reference date for determining which forecasts are available.
+                              Only forecasts made on or before this date will be considered.
+        :type execution_date: datetime | str | pendulum.DateTime
+        :param start_date: Start date of the forecast window to retrieve.
+        :type start_date: datetime | str | pendulum.DateTime
+        :param end_date: End date of the forecast window to retrieve.
+        :type end_date: datetime | str | pendulum.DateTime
+        :param timestep: Target frequency for the output timeseries. If None, the lowest
+                        frequency found in the data will be used.
+        :type timestep: str | pendulum.Duration | None
+        :raises ValueError: If start_date is after end_date or if no forecasting dates
+                           are available before the execution date.
+        :return: A timeseries containing the most recent forecast values for each timestamp
+                in the specified window, with gaps filled using older forecasts.
+        :rtype: Timeseries
         """
         return self.collect().get_forecast(
             execution_date=execution_date, start_date=start_date, end_date=end_date, timestep=timestep
