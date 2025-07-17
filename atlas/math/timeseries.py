@@ -772,7 +772,16 @@ class Timeseries:
         :rtype: Timeseries
         """
         if isinstance(item, list):
-            item = [pendulum.instance(i).in_tz(self.timezone) if isinstance(i, datetime) else i for i in item]
+            item = [
+                pendulum.instance(i).in_tz(self.timezone)
+                if isinstance(i, datetime)
+                else pendulum.from_format(i, fmt=date_format).in_tz(self.timezone)
+                if isinstance(i, str)
+                else i.in_tz(self.timezone)
+                if isinstance(i, pendulum.DateTime)
+                else (_ for _ in ()).throw(NotImplementedError(f"Unsupported item in list: {type(i)}"))
+                for i in item
+            ]
             df = self.timeseries.filter(pl.col("time").is_in(item))
         elif isinstance(item, str):
             date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
@@ -787,27 +796,29 @@ class Timeseries:
 
         return self._return_inplace(df, inplace)
 
-    def max(self) -> float | None:
+    def max(self) -> float:  # type:ignore[return]
         """Return the max value in the 'value' column.
 
         :return: The Timeseries max value
         :rtype: float or None
         """
-        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+        if len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].max())
-        return None
+        else:
+            RuntimeError("Timeseries is empty, can't get the maximum value")
 
-    def min(self) -> float | None:
+    def min(self) -> float:  # type:ignore[return]
         """Return the min value in the 'value' column.
 
         :return: The Timeseries min value
         :rtype: float or None
         """
-        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+        if len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].min())
-        return None
+        else:
+            RuntimeError("Timeseries is empty, can't get the minimum value")
 
-    def sum(self) -> float | None:
+    def sum(self) -> float:  # type:ignore[return]
         """Return the sum of the 'value' column.
 
         :return: The Timeseries sum value
@@ -815,7 +826,8 @@ class Timeseries:
         """
         if len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].sum())
-        return None
+        else:
+            RuntimeError("Timeseries is empty, can't perform the sum")
 
     def abs(self, inplace=True) -> Timeseries:
         """Compute the absolute value of each timestamp
