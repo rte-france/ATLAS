@@ -23,13 +23,7 @@ import polars as pl
 
 import atlas.config as cfg
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
-from atlas.timing import (
-    build_datetime,
-    check_timezone,
-    generate_datetimes,
-    get_duration,
-    infer_frequency,
-)
+from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
 
 
 class Timeseries:
@@ -868,8 +862,8 @@ class Timeseries:
         :type datetime: str or datetime
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
-        :return: Dictionary with time and value
-        :rtype: dict
+        :return: The value at the timestamp requested
+        :rtype: float
         """
         if len(self.timeseries) == 0:
             raise ValueError("Can't get value on empty timeseries.")

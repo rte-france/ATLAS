@@ -9,8 +9,10 @@ This module provides LazyTimeseries.
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
+import pendulum
 import polars as pl
 
 from atlas.io_utils.utils import scan_data_file
@@ -128,3 +130,20 @@ class LazyTimeseries:
             self.timeseries.collect(),
             timezone=self.timezone,
         )
+
+    def get_value(
+        self,
+        datetime: str | datetime | pendulum.DateTime,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> float | None:
+        """Return values at the given datetime. If exact match is not found, interpolate.
+
+        :param datetime: Datetime to get value for
+        :type datetime: str or datetime
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :return: The value at the timestamp requested
+        :rtype: flaot
+        """
+
+        return self.collect().get_value(datetime=datetime, date_format=date_format)
