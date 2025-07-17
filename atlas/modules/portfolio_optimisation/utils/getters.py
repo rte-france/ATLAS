@@ -75,26 +75,8 @@ def get_maximum_power(obj: Equipment, time: DateTime, execution_date: datetime |
         raise RuntimeError("Unrecognized Equipment type")
 
 
-def get_minimum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float | None:
-    if isinstance(obj, HydroPO | StoragePO | ThermalPO):
-        if obj.minimum_power:
-            return obj.minimum_power.get_value(time)
-        else:
-            return -get_maximum_power(obj, time)
-    elif isinstance(obj, WindPO | SolarPO):
-        return (1 - obj.maximum_curtailment_ratio.get_value(time)) * get_maximum_power(obj, time, execution_date)
-    elif isinstance(obj, LoadPO):
-        return 0
-    else:
-        RuntimeError("Unrecognized Equipment type")
-
-
 def get_variable_cost(obj: Equipment, time: DateTime):
     return obj.variable_cost.get_value(time)
-
-
-def get_maximum_energy(obj: StoragePO, time: DateTime):
-    return obj.maximum_energy.get_value(time)
 
 
 def get_maximum_automated(obj: Equipment) -> float:

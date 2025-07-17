@@ -27,6 +27,7 @@ class HydroPO(Hydro):
     minimum_power: Timeseries | LazyTimeseries
     maximum_power: Timeseries | LazyTimeseries
     stored_energy: ForecastingMatrix | LazyForecastingMatrix
+    initial_level: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """Build variables for hydro equipment."""
@@ -197,9 +198,8 @@ class HydroPO(Hydro):
 
     def _calculate_marginal_weights(self: HydroPO, energy_level: float) -> dict:
         """Calculate marginal value weights based on current energy level."""
-        storage_indices = self.storage_marginal_value.index
+        storage_indices = self.storage_marginal_value.indexes
 
-        # Find bounds around current energy level
         x_min_candidates = [x for x in storage_indices if int(x) <= energy_level]
         x_max_candidates = [x for x in storage_indices if int(x) > energy_level]
 

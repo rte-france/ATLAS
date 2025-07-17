@@ -4,8 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import cast
-
 from pendulum import DateTime
 
 from atlas.enum import StorageType
@@ -13,11 +11,7 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.storage import Storage
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.getters import (
-    get_maximum_automated,
-    get_maximum_power,
-    get_minimum_power,
-)
+from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -41,8 +35,8 @@ class StoragePO(Storage):
         nbr_fragment: int = parameters.storage_mapping[self.storage_type]["fragment"]
 
         for time in optimisation_times:
-            min_power = cast(float, get_minimum_power(self, time))
-            max_power = get_maximum_power(self, time)
+            min_power = self.minimum_power.get_value(time)
+            max_power = self.maximum_power.get_value(time)
             maximum_energy = self.maximum_energy.get_value(time)
             maximum_automated = get_maximum_automated(self)
 
@@ -100,6 +94,9 @@ class StoragePO(Storage):
         """
         This function adds constraints and elements in the objective function related to storage equipments.
         """
+        if self.maximum_energy.max() <= 0:
+            return None
+
         prev_time = time - parameters.timestep
 
         optimisation_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
@@ -115,14 +112,10 @@ class StoragePO(Storage):
         stored_energy_var_previous_time = model.get_variable(f"{self.name}_stored_energy_{prev_time}")
         is_sell_var = model.get_variable(f"{self.name}_is_sell_{time}")
 
-        # Avoid equipments that have a maximum_energy of 0 (meaning that they are offline)
-        if self.maximum_energy.max() <= 0:
-            return None
-
-        # Get max and min power
-        max_power = get_maximum_power(self, time)
-        min_power = get_minimum_power(self, time)
+        min_power = self.minimum_power.get_value(time)
+        max_power = self.maximum_power.get_value(time)
         max_energy = self.maximum_energy.get_value(time)
+        maximum_automated = get_maximum_automated(self)
         max_energy_previous = self.maximum_energy.get_value(prev_time)
 
         # For additional period
@@ -140,8 +133,8 @@ class StoragePO(Storage):
                 model.add_constraint(power_level_sell_var == sum(power_level_sell_n_var for n in range(0, nb_fragment)))
                 model.add_constraint(power_level_buy_var == sum(power_level_buy_n_var for n in range(0, nb_fragment)))
 
-        model.add_constraint(automated_reserves_up_var <= get_maximum_automated(self))
-        model.add_constraint(automated_reserves_down_var <= get_maximum_automated(self))
+        model.add_constraint(automated_reserves_up_var <= maximum_automated)
+        model.add_constraint(automated_reserves_down_var <= maximum_automated)
         model.add_constraint(reserves_up_var <= max_power)
         model.add_constraint(reserves_down_var <= max_power)
 
