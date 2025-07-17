@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import cast
 
 from pendulum import DateTime
@@ -17,7 +18,7 @@ from atlas.modules.portfolio_optimisation.parameters import MarketEnum, Portfoli
 
 def get_variable_cost_forecast(
     portfolio: PortfolioPO, time: DateTime, parameters: PortfolioOptimisationParameters
-) -> float:
+) -> float | None:
     """Get price forecast for given time based on market type and forecast settings."""
 
     if time in parameters.target_times:
@@ -94,14 +95,21 @@ def get_reserve_value(
     return reserve_attr.get_forecast(parameters.execution_date, time, time).get_value(time)
 
 
-def get_maximum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float:
+def get_maximum_power(obj: Equipment, time: DateTime, execution_date: datetime | DateTime | str | None = None) -> float:
     if isinstance(obj, HydroPO | StoragePO | ThermalPO):
         return obj.maximum_power.get_value(time)
     elif isinstance(obj, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
-        return obj.maximum_power_forecast.get_forecast(execution_date, time, time).get_value(time)
+        if execution_date:
+            return obj.maximum_power_forecast.get_forecast(execution_date, time, time).get_value(time)
+        else:
+            raise RuntimeError(
+                "Missing execution date argument for a Load, Wind, Solar or OtherNonDispatchable equipment"
+            )
+    else:
+        raise RuntimeError("Unrecognized Equipment type")
 
 
-def get_minimum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float:
+def get_minimum_power(obj: Equipment, time: DateTime, execution_date: DateTime | None = None) -> float | None:
     if isinstance(obj, HydroPO | StoragePO | ThermalPO):
         if obj.minimum_power:
             return obj.minimum_power.get_value(time)
@@ -111,6 +119,8 @@ def get_minimum_power(obj: Equipment, time: DateTime, execution_date: DateTime |
         return (1 - obj.maximum_curtailment_ratio.get_value(time)) * get_maximum_power(obj, time, execution_date)
     elif isinstance(obj, LoadPO):
         return 0
+    else:
+        RuntimeError("Unrecognized Equipment type")
 
 
 def get_variable_cost(obj: Equipment, time: DateTime):
@@ -121,7 +131,7 @@ def get_maximum_energy(obj: HydroPO | StoragePO, time: DateTime):
     return obj.maximum_energy.get_value(time)
 
 
-def get_minimum_energy(obj: HydroPO | StoragePO, time: DateTime):
+def get_minimum_energy(obj: HydroPO, time: DateTime):
     return obj.minimum_energy.get_value(time)
 
 
@@ -201,7 +211,7 @@ def get_energy_bounds(equipment: HydroPO | StoragePO, time: DateTime):
 
 
 def get_upstream_energy(
-    obj: Equipment,
+    obj: LoadPO | OtherNonDispatchablePO | SolarPO | WindPO | StoragePO | HydroPO | ThermalPO,
     time: DateTime,
     parameters: PortfolioOptimisationParameters,
 ) -> float:

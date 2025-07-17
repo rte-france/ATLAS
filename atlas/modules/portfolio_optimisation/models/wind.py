@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import cast
+
 from pendulum import DateTime
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -32,7 +34,7 @@ class WindPO(Wind):
         """Build variables for solar and wind equipment."""
         for time in parameters.target_times:
             max_power = get_maximum_power(self, time)
-            min_power = get_minimum_power(self, time)
+            min_power = cast(float, get_minimum_power(self, time))
             maximum_automated = get_maximum_automated(self)
 
             model.add_continuous_variable(

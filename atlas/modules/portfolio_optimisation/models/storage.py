@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import cast
+
 from pendulum import DateTime
 
 from atlas.enum import StorageType
@@ -38,9 +40,9 @@ class StoragePO(Storage):
         nbr_fragment: int = parameters.storage_mapping[self.storage_type]["fragment"]
 
         for time in optimisation_times:
-            min_power = get_minimum_power(self, time)
+            min_power = cast(float, get_minimum_power(self, time))
             max_power = get_maximum_power(self, time)
-            maximum_energy = get_maximum_energy(time)
+            maximum_energy = get_maximum_energy(self, time)
             maximum_automated = get_maximum_automated(self)
 
             # Basic storage variables
@@ -112,7 +114,7 @@ class StoragePO(Storage):
         is_sell_var = model.get_variable(f"{self.name}_is_sell_{time}")
 
         # Avoid equipments that have a maximum_energy of 0 (meaning that they are offline)
-        if max(self.maximum_energy.values()) <= 0:
+        if self.maximum_energy.max() <= 0:
             return None
 
         # Get max and min power

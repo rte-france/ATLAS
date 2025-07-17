@@ -1,6 +1,7 @@
 from pendulum import DateTime
 
 from atlas.enum import StorageType
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
@@ -130,7 +131,7 @@ def _apply_power_constraints(
                 new_power.set_value(time, min_power)
 
 
-def _get_max_power(equipment: type[Equipment], time: DateTime, max_power_forecast: Timeseries):
+def _get_max_power(equipment: type[Equipment], time: DateTime, max_power_forecast: Timeseries | LazyTimeseries):
     """Get maximum power limit for equipment at given time."""
     if isinstance(equipment, LoadPO):
         return 0
@@ -140,7 +141,7 @@ def _get_max_power(equipment: type[Equipment], time: DateTime, max_power_forecas
         return equipment.maximum_power.get_value(time)
 
 
-def _get_min_power(equipment, time, max_power_forecast: Timeseries, max_power) -> float:
+def _get_min_power(equipment, time, max_power_forecast: Timeseries | LazyTimeseries, max_power) -> float:
     """Get minimum power limit for equipment at given time."""
     if isinstance(equipment, LoadPO):
         return max_power_forecast.get_value(time)
@@ -156,7 +157,7 @@ def _get_min_power(equipment, time, max_power_forecast: Timeseries, max_power) -
 
 
 def _update_stored_energy(
-    equipment: HydroPO | StoragePO, new_power: Timeseries, parameters: PortfolioOptimisationParameters
+    equipment: HydroPO | StoragePO, new_power: Timeseries | LazyTimeseries, parameters: PortfolioOptimisationParameters
 ):
     """Update stored energy for storage and hydraulic equipment."""
 
@@ -226,7 +227,7 @@ def _calculate_new_energy_value(
     equipment: StoragePO | HydroPO,
     time: DateTime,
     previous_energy,
-    new_power: Timeseries,
+    new_power: Timeseries | LazyTimeseries,
     parameters: PortfolioOptimisationParameters,
 ):
     """Calculate new energy value based on power and efficiency."""
