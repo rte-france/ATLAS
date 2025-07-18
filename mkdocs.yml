@@ -76,9 +76,6 @@ markdown_extensions:
   - attr_list
   - toc:
       permalink: true
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 extra_javascript:
   - custom/katex.js
@@ -117,6 +114,7 @@ nav:
       - Workflow step: api/workflow/workflow_step.md
       - Workflow parameters: api/workflow/workflow_parameters.md
     - Others:
+      - Solver Interace: api/optimisation.md
       - Enum: api/enum.md
       - Logging: api/logging.md
 

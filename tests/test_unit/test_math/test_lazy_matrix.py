@@ -94,3 +94,73 @@ def test_from_file_invalid_format(tmp_path):
     bad_path.write_text("some text")
     with pytest.raises(NotImplementedError, match="Atlas file should be a csv or parquet."):
         LazyMatrix.from_file(bad_path)
+
+
+def test_add_timeseries(simple_lazyframe):
+    """Test adding a timeseries."""
+    lm = LazyMatrix(simple_lazyframe)
+
+    ts_data = {"time": [datetime(2023, 1, 1), datetime(2023, 1, 2)], "value": [5.0, 6.0]}
+    lm.add(ts_data, "3")
+
+    assert "3" in lm.indexes
+    assert len(lm.indexes) == 3
+
+
+def test_add_existing_index_error(simple_lazyframe):
+    """Test adding existing index raises error."""
+    lm = LazyMatrix(simple_lazyframe)
+    ts_data = {"time": [datetime(2023, 1, 1), datetime(2023, 1, 2)], "value": [5.0, 6.0]}
+
+    with pytest.raises(KeyError, match="Index 1 already exists"):
+        lm.add(ts_data, "1")
+
+
+def test_delete_index(simple_lazyframe):
+    """Test deleting an index."""
+    lm = LazyMatrix(simple_lazyframe)
+
+    lm.delete("1")
+
+    assert "1" not in lm.indexes
+    assert "2" in lm.indexes
+    assert len(lm.indexes) == 1
+
+
+def test_delete_non_existing_error(simple_lazyframe):
+    """Test deleting non-existing index raises error."""
+    lm = LazyMatrix(simple_lazyframe)
+
+    with pytest.raises(KeyError, match="No timeseries to delete at index: missing"):
+        lm.delete("missing")
+
+
+def test_add_after_delete(simple_lazyframe):
+    """Test add after delete works."""
+    lm = LazyMatrix(simple_lazyframe)
+
+    lm.delete("1")
+    ts_data = {"time": [datetime(2023, 1, 1), datetime(2023, 1, 2)], "value": [10.0, 20.0]}
+    lm.add(ts_data, "1")
+
+    assert "1" in lm.indexes
+
+
+def test_preserves_lazy_evaluation(simple_lazyframe):
+    """Test that add and delete preserve lazy evaluation."""
+    lm = LazyMatrix(simple_lazyframe)
+
+    assert isinstance(lm.get_matrix(), pl.LazyFrame)
+
+    ts_data = {"time": [datetime(2023, 1, 1), datetime(2023, 1, 2)], "value": [5.0, 6.0]}
+    lm.add(ts_data, "3")
+    assert isinstance(lm.get_matrix(), pl.LazyFrame)
+
+    lm.delete("1")
+    assert isinstance(lm.get_matrix(), pl.LazyFrame)
+
+
+def test_select(simple_lazyframe):
+    matrix = LazyMatrix(simple_lazyframe)
+    ts = matrix.select("1")
+    assert ts.to_frame().shape == (2, 2)

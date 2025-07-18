@@ -1,6 +1,6 @@
-from atlas.io.input_loader import InputLoader
-from atlas.io.parameters import Parameters, ParametersParser
-from atlas.io.utils import get_metadata_from_file, get_metadata_from_frame
+from atlas.io_utils.input_loader import InputLoader
+from atlas.io_utils.parameters import Parameters, ParametersParser
+from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
 from atlas.logging import Logger
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
@@ -26,6 +26,7 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
+from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 from atlas.workflow.workflow import Workflow
 from atlas.workflow.workflow_parameters_parser import WorkflowParameters, WorkflowParametersParser
@@ -53,6 +54,7 @@ __all__ = [
     "MarketAreaPtdf",
     "LazyMatrix",
     "MarketBorder",
+    "OptimisationModel",
     "Node",
     "InputLoader",
     "Logger",

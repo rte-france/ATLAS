@@ -11,10 +11,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import polars as pl
 
-from atlas.io.utils import scan_data_file
+from atlas.io_utils.utils import scan_data_file
 from atlas.math.matrix import Matrix
+from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone
 
 
@@ -108,3 +110,65 @@ class LazyMatrix:
 
         time_column = time_columns[0]
         return [col for col in self.matrix.collect_schema() if col != time_column]
+
+    def add(
+        self,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        index: str,
+    ) -> None:
+        """
+        Add a timeseries to the lazy matrix.
+
+        :param timeseries: Timeseries to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Index to add into the matrix
+        :type index: str
+        :raises KeyError: If index already exists in the matrix.
+        """
+        if index in self.indexes:
+            raise KeyError(f"Index {index} already exists in the matrix.")
+
+        if not isinstance(timeseries, Timeseries):
+            timeseries = Timeseries(timeseries)
+
+        lazy_ts = timeseries.to_frame(engine="polars").rename({"value": index}).lazy()  # type: ignore [operator]
+
+        # Join with the existing matrix
+        self.matrix = self.matrix.join(
+            lazy_ts,
+            on="time",
+            how="full",
+            coalesce=True,
+        )
+
+        # Update indexes
+        self.indexes = self._get_indexes()
+
+    def delete(self, index: str) -> None:
+        """
+        Delete a timeseries by index from the lazy matrix.
+
+        :param index: Index key to delete from the matrix
+        :type index: str
+        :raises KeyError: If index is not found.
+        """
+        if index not in self.indexes:
+            raise KeyError(f"No timeseries to delete at index: {index}")
+
+        # Drop the specified column
+        self.matrix = self.matrix.drop(index)
+
+        # Update indexes
+        self.indexes = self._get_indexes()
+
+    def select(self, index: str) -> Timeseries:
+        """
+        Get a timeseries by index.
+
+        :param index: Index key.
+        :type index: Index
+        :raises KeyError: If the index is not found.
+        :return: The Timeseries object.
+        :rtype: Timeseries
+        """
+        return self.collect().__getitem__(index)

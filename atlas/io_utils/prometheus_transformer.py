@@ -10,7 +10,7 @@ import polars as pl
 import yaml
 
 from atlas.config import DEFAULT_VALUE_IO, logger
-from atlas.io.utils import to_snake_case
+from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.typing import get_class_inheritance_chain
 
@@ -77,6 +77,8 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = to_snake_case(attr_name)
+                        if attr_name_snake == "comment":
+                            continue
 
                         if attr_name_snake in NAME_MAPPING:
                             attr_name_snake = NAME_MAPPING[attr_name_snake]
@@ -112,17 +114,7 @@ class PrometheusToAtlasDataParser:
                                     pl.Datetime(), pendulum_to_datetime(self.date_format_timestep)
                                 )
                             )
-                            if matrix_type == "timeseries":
-                                try:
-                                    infer_frequency(df.rename({"TimeStep": "time"}))
-                                except ValueError:
-                                    timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
-                                    df = (
-                                        df.upsample(time_column="TimeStep", every=timestep)
-                                        .fill_null(strategy="forward")
-                                        .sort("TimeStep")
-                                    )
-                            elif matrix_type == "forecasting_matrix":
+                            if matrix_type == "forecasting_matrix":
                                 duplicated_columns = [e for e in df.columns if "duplicated" in e]
                                 old_indexes = df.drop(*duplicated_columns).select(pl.selectors.numeric()).columns
                                 if len(old_indexes) > 0:
@@ -168,7 +160,16 @@ class PrometheusToAtlasDataParser:
 
                                     renaming_mapping = dict(zip(indexes_sorted, new_indexes, strict=False))
                                     df = df.rename(renaming_mapping)
-
+                            try:
+                                infer_frequency(df.rename({"TimeStep": "time"}))
+                            except ValueError:
+                                timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
+                                df = df.sort("TimeStep")
+                                df = (
+                                    df.upsample(time_column="TimeStep", every=timestep)
+                                    .fill_null(strategy="forward")
+                                    .sort("TimeStep")
+                                )
                             df = df.with_columns(
                                 pl.lit(attr_name_snake).alias("attribute"),
                             ).select(

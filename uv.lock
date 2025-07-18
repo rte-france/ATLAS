@@ -147,6 +147,7 @@ dev = [
     { name = "ipython", version = "9.2.0", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version >= '3.11'" },
     { name = "jupyter" },
     { name = "mypy" },
+    { name = "ortools-stubs" },
     { name = "pandas-stubs" },
     { name = "plotly-stubs" },
     { name = "pre-commit" },
@@ -190,6 +191,7 @@ dev = [
     { name = "ipython", specifier = ">=8.35.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "mypy", specifier = ">=1.15.0" },
+    { name = "ortools-stubs", specifier = ">=8.0.0" },
     { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "plotly-stubs", specifier = ">=0.0.5" },
     { name = "pre-commit", specifier = ">=4.2.0" },
@@ -1869,6 +1871,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/15/bb/6fb53aac1391e00af2eef795309a7cefdcf10b25ac2b25ac45e846ce538e/ortools-9.12.4544-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0e8f6d8d465a6b9f6903b94e7a9e45cfa222dded0e7b814b7e5d40bb6bfb37ba", size = 24962623, upload-time = "2025-02-17T09:53:28.603Z" },
     { url = "https://files.pythonhosted.org/packages/4e/6e/18b47852028e421cefacfea53664dea694c55c14957583554c4cb6413a47/ortools-9.12.4544-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:50997eab76489cba017be6847c76d23ae78d5ca25d359517c51cd1973c4cce6e", size = 26702363, upload-time = "2025-02-17T09:53:34.615Z" },
 ]
+
+[[package]]
+name = "ortools-stubs"
+version = "8.0.0"
+source = { registry = "https://pypi.org/simple/" }
+sdist = { url = "https://files.pythonhosted.org/packages/bb/3a/93dd9bccfc41edb9187fccc68934442030039fb32dae5b91f7c73df76584/ortools-stubs-8.0.0.tar.gz", hash = "sha256:42a8e1b9a2ee39152439aab19a2d9a6ee693e2d936dd665cdbe194883c4d6de1", size = 21367, upload-time = "2020-11-17T12:35:31.051Z" }
 
 [[package]]
 name = "overrides"

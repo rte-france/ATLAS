@@ -144,6 +144,18 @@ class Product(str, Enum):
     FCRDownProcurement = "FCRDownProcurement"
 
 
+class SolverStatus(Enum):
+    """Enumeration of solver status codes."""
+
+    OPTIMAL = "optimal"
+    FEASIBLE = "feasible"
+    INFEASIBLE = "infeasible"
+    UNBOUNDED = "unbounded"
+    ABNORMAL = "abnormal"
+    NOT_SOLVED = "not_solved"
+    MODEL_INVALID = "model_invalid"
+
+
 class InflowFrequency(str, Enum):
     """
     Frequency of inflow data.
@@ -154,6 +166,23 @@ class InflowFrequency(str, Enum):
 
     Daily = "Daily"
     Monthly = "Monthly"
+
+
+class MarketType(str, Enum):
+    dayahead = "DayAhead"
+    intraday = "Intraday"
+    rr_activation = "RRActivation"
+    mfrr_activation = "MFRRActivation"
+
+
+class SolverEnum(str, Enum):
+    XPRESS = "XPRESS"
+    GLOP = "GLOP"
+    SCIP = "SCIP"
+    CPSAT = "CP-SAT"
+    GUROBI = "GUROBI"
+    CBC = "CBC"
+    HIGHS = "HIGHS"
 
 
 ENUM_TYPE_MAPPING = {

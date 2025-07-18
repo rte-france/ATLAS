@@ -17,7 +17,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import polars as pl
 
-from atlas.io.utils import get_metadata_from_frame, read_data_file
+from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone
 
@@ -219,7 +219,6 @@ class Matrix:
         :type index: str
         :param timeseries: Timeseries to add.
         :type timeseries: Timeseries
-        :raises TypeError: If types are invalid.
         """
         if index in self.indexes:
             raise KeyError(f"Index {index} already exists in the matrix.")
