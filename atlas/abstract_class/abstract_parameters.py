@@ -15,6 +15,8 @@ from pydantic import BaseModel, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
 
+from atlas.enum import SolverEnum
+
 
 class AbstractParameters(BaseModel):
     """Base class for parameters, to be extended by concrete implementations.
@@ -36,7 +38,7 @@ class AbstractParameters(BaseModel):
     execution_date: DateTime
     export_result: bool = True
     export_output_dataset: bool = False
-    solver_name: str = "xpress"
+    solver_name: SolverEnum = SolverEnum.xpress
 
     @model_validator(mode="after")
     def check_dates(self) -> Self:
