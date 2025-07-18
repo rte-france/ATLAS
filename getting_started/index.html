@@ -431,6 +431,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -442,6 +455,58 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#available-solver" class="md-nav__link">
+    <span class="md-ellipsis">
+      Available solver
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available solver">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#xpress-for-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      Xpress for windows
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#xpress-for-linux" class="md-nav__link">
+    <span class="md-ellipsis">
+      Xpress for linux
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1184,6 +1249,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../api/optimisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Solver Interace
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api/enum/" class="md-nav__link">
         
   
@@ -1258,6 +1346,47 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#available-solver" class="md-nav__link">
+    <span class="md-ellipsis">
+      Available solver
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available solver">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#xpress-for-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      Xpress for windows
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#xpress-for-linux" class="md-nav__link">
+    <span class="md-ellipsis">
+      Xpress for linux
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1276,6 +1405,46 @@
 
 
 <h1 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h1>
+<h2 id="available-solver">Available solver<a class="headerlink" href="#available-solver" title="Permanent link">&para;</a></h2>
+<p>Atlas project uses or-tools as modeller, you can use the solver of your choice. We provided a special support for the commercial Xpress solver. Here is a quick install guide :</p>
+<h3 id="xpress-for-windows">Xpress for windows<a class="headerlink" href="#xpress-for-windows" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Download <a href="" title="https://www.artelys.com/fr/espace-client/telecharger-xpress/">file</a> (You will probably need to create an account) and install the file</li>
+<li>Move your license  <code>xpauth.xpr</code> in <code>xpressmp/bin/</code></li>
+</ul>
+<h3 id="xpress-for-linux">Xpress for linux<a class="headerlink" href="#xpress-for-linux" title="Permanent link">&para;</a></h3>
+<p>Find below a quick installation guide, more information can be find directly on <strong>FICO</strong> website : <a href="https://www.fico.com/fico-xpress-optimization/docs/dms2021-02/installguide/dhtml/chapinst1_sec_secunix.html">here</a></p>
+<ul>
+<li>Download <a href="" title="https://www.artelys.com/fr/espace-client/telecharger-xpress/">file</a> (You will probably need to create an account)</li>
+<li>Move the archive here : <code>/opt/xpressmp</code></li>
+<li>Enter the uncompressed archive : <code>cd &lt;archive_uncompressed&gt;</code></li>
+<li>Run the installer, select <strong>static licensing</strong> :</li>
+</ul>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span>
+<span class="normal"><a href="#__codelineno-0-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>sudo<span class="w"> </span>chmod<span class="w"> </span>+x<span class="w"> </span>install.sh
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>sudo<span class="w"> </span>./install.sh
+</span></code></pre></div></td></tr></table></div>
+<ul>
+<li>
+<p>Copy your license <code>xpauth.xpr</code> in <code>/opt/xpressmp/</code></p>
+</li>
+<li>
+<p>In your <code>~/.bashrc</code> or <code>~/.zshrc</code> :</p>
+</li>
+</ul>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1">1</a></span>
+<span class="normal"><a href="#__codelineno-1-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">XPRESS_DIR</span><span class="o">=</span><span class="s2">&quot;/opt/xpressmp/y&quot;</span><span class="w"> </span><span class="c1"># if the installer has created a subfolder y/</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">XPAUTH_PATH</span><span class="o">=</span><span class="s2">&quot;/opt/xpressmp/xpauth.xpr&quot;</span>
+</span></code></pre></div></td></tr></table></div>
+<ul>
+<li>Now make sure everything is working running in python:</li>
+</ul>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-1">1</a></span>
+<span class="normal"><a href="#__codelineno-2-2">2</a></span>
+<span class="normal"><a href="#__codelineno-2-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">atlas</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimisationModel</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><span class="n">model</span> <span class="o">=</span> <span class="n">OptimisationModel</span><span class="p">(</span><span class="s1">&#39;xpress&#39;</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
 
 
 
