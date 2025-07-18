@@ -168,6 +168,21 @@ class InflowFrequency(str, Enum):
     Monthly = "Monthly"
 
 
+class MarketType(str, Enum):
+    dayahead = "DayAhead"
+    intraday = "Intraday"
+    rr_activation = "RRActivation"
+    mfrr_activation = "MFRRActivation"
+
+
+class SolverEnum(str, Enum):
+    xpress = "XPRESS"
+    pne = "PNE"
+    glop = "GLOP"
+    scip = "SCIP"
+    cpsat = "CP-SAT"
+
+
 ENUM_TYPE_MAPPING = {
     "LoadType": LoadType,
     "StorageType": StorageType,

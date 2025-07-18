@@ -6,11 +6,16 @@ This file is part of the ATLAS project.
 Module that implements AbstractParameters
 """
 
+import json
+from pathlib import Path
 from typing import TypeVar
 
+import yaml
 from pydantic import BaseModel, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
+
+from atlas.enum import SolverEnum
 
 
 class AbstractParameters(BaseModel):
@@ -28,11 +33,12 @@ class AbstractParameters(BaseModel):
     :type export_output_dataset: bool
     """
 
-    start_date: DateTime | None = None
-    end_date: DateTime | None = None
-    execution_date: DateTime | None = None
+    start_date: DateTime
+    end_date: DateTime
+    execution_date: DateTime
     export_result: bool = True
     export_output_dataset: bool = False
+    solver_name: SolverEnum = SolverEnum.xpress
 
     @model_validator(mode="after")
     def check_dates(self) -> Self:
@@ -42,14 +48,56 @@ class AbstractParameters(BaseModel):
         :return: The AbstractParameters if dates are validate
         :rtype: AbstractParameters
         """
-        if self.end_date is None or self.start_date is None:
-            return self
+
         if self.end_date < self.start_date:
             raise ValueError(
                 f"Start date '{self.start_date.to_datetime_string()}' must be inferior "
                 f"to end date '{self.end_date.to_datetime_string()}'"
             )
         return self
+
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> Self:
+        """
+        Load parameters from a YAML or JSON file.
+        :param file_path: Path to the parameters file.
+        :type file_path: str or pathlib.Path
+        :return: A Parameters object containing the parsed and validated parameters.
+        :rtype: Parameters
+        :raises ValueError: If the file extension is not supported.
+        """
+        file_extension = Path(file_path).suffix
+
+        if file_extension in (".yaml", ".yml"):
+            parameters = cls._parse_yaml(file_path)
+        elif file_extension == ".json":
+            parameters = cls._parse_json(file_path)
+        else:
+            raise ValueError(f"Unsupported file extension: {file_extension}")
+
+        return cls(**parameters)
+
+    @staticmethod
+    def _parse_yaml(file_path: str | Path) -> dict:
+        """Parse a YAML file and return its contents as a dictionary.
+        :param file_path: Path to the YAML file.
+        :type file_path: str or pathlib.Path
+        :return: Parsed parameters.
+        :rtype: dict
+        """
+        with open(Path(file_path)) as file:
+            return yaml.safe_load(file)
+
+    @staticmethod
+    def _parse_json(file_path: str | Path) -> dict:
+        """Parse a JSON file and return its contents as a dictionary.
+        :param file_path: Path to the JSON file.
+        :type file_path: str or pathlib.Path
+        :return: Parsed parameters.
+        :rtype: dict
+        """
+        with open(Path(file_path)) as file:
+            return json.load(file)
 
 
 module_parameters_type_var = TypeVar("module_parameters_type_var", bound=AbstractParameters)
