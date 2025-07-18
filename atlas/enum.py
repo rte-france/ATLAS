@@ -176,11 +176,13 @@ class MarketType(str, Enum):
 
 
 class SolverEnum(str, Enum):
-    xpress = "XPRESS"
-    pne = "PNE"
-    glop = "GLOP"
-    scip = "SCIP"
-    cpsat = "CP-SAT"
+    XPRESS = "XPRESS"
+    GLOP = "GLOP"
+    SCIP = "SCIP"
+    CPSAT = "CP-SAT"
+    GUROBI = "GUROBI"
+    CBC = "CBC"
+    HIGHS = "HIGHS"
 
 
 ENUM_TYPE_MAPPING = {
