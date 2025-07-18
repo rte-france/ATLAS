@@ -107,8 +107,10 @@ class PortfolioOptimisationModel:
                     hydro.add_constraints(time, model, self.parameters)
 
                 # Storage constraints
-                for storage in cast(list[StoragePO], portfolio.equipments.get("storage", [])):
-                    storage.add_contraints(time, model, self.parameters)
+                storage_times = ["battery_op_times", "phs_op_times", "ev_op_times"]
+                if any(time in optimisation_times.get(st, []) for st in storage_times):
+                    for storage in cast(list[StoragePO], portfolio.equipments.get("storage", [])):
+                        storage.add_contraints(time, model, self.parameters)
 
                 # Load constraints
                 for load in cast(list[LoadPO], portfolio.equipments.get("load", [])):

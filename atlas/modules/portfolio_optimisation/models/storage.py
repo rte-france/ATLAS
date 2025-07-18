@@ -97,9 +97,8 @@ class StoragePO(Storage):
         if self.maximum_energy.max() <= 0:
             return None
         optimisation_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
-        storage_times = ["battery_op_times", "phs_op_times", "ev_op_times"]
 
-        if any(time in optimisation_times.get(st, []) for st in storage_times):
+        if time in optimisation_times:
             prev_time = time - parameters.timestep
             automated_reserves_up_var = model.get_variable(f"automated_res_up_e_{self.name}_{time}")
             automated_reserves_down_var = model.get_variable(f"automated_res_down_e_{self.name}_{time}")
@@ -143,9 +142,6 @@ class StoragePO(Storage):
             model.add_constraint(reserves_up_var <= max_power)
             model.add_constraint(reserves_down_var <= max_power)
 
-            # The power delivered by the equipment is between its maximum power and its minimum power
-            # FC: I modify the following, it seems to me that there are confusions between power and energy in some constraints
-
             if self.storage_type == StorageType.BATTERY or self.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
                 reserve_stored_energy_down_ti = reserves_down_var * (
                     parameters.battery_reserve_duration
@@ -160,11 +156,11 @@ class StoragePO(Storage):
                 )
                 model.add_constraint(
                     power_level_buy_var - reserves_down_var - automated_reserves_down_var - unprovided_reserves_down_var
-                    >= min_power * 1 / self.charge_efficiency
+                    >= min_power / self.charge_efficiency
                 )
 
                 model.add_constraint(power_level_sell_var <= max_power * self.discharge_efficiency * is_sell_var)
-                model.add_constraint(power_level_buy_var >= min_power * 1 / self.charge_efficiency * (1 - is_sell_var))
+                model.add_constraint(power_level_buy_var >= min_power * self.charge_efficiency * (1 - is_sell_var))
 
             elif self.storage_type == StorageType.ELECTRIC_VEHICLE:
                 reserve_stored_energy_down_ti = reserves_down_var * (
@@ -185,7 +181,7 @@ class StoragePO(Storage):
                         - automated_reserves_down_var
                         - unprovided_reserves_down_var
                     )
-                    >= min_power * 1 / self.charge_efficiency
+                    >= min_power / self.charge_efficiency
                 )
 
             # FC: Here we use the deltas between t and t+1 for displacement_energy and maximum_energy because there is a shift in indexing,
@@ -195,7 +191,7 @@ class StoragePO(Storage):
                     stored_energy_var
                     == self.get_initial_stock(self, parameters) * max_energy / max_energy_previous
                     - power_level_buy_var * self.charge_efficiency * parameters.timestep
-                    - power_level_sell_var * parameters.timestep / (60.0 * self.discharge_efficiency)
+                    - power_level_sell_var * parameters.timestep / self.discharge_efficiency
                     + (self.displacement_energy.get_value(time) - self.displacement_energy.get_value(prev_time))
                 )
 
@@ -204,7 +200,7 @@ class StoragePO(Storage):
                     stored_energy_var
                     == stored_energy_var_previous_time * max_energy / max_energy_previous
                     - power_level_buy_var * self.charge_efficiency * parameters.timestep
-                    - power_level_sell_var * parameters.timestep / (60.0 * self.discharge_efficiency)
+                    - power_level_sell_var * parameters.timestep / self.discharge_efficiency
                     + (self.displacement_energy.get_value(time) - self.displacement_energy.get_value(prev_time))
                 )
 
