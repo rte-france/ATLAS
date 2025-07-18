@@ -13,7 +13,7 @@ from ortools.linear_solver import pywraplp
 from pydantic import BaseModel
 
 from atlas.config import logger
-from atlas.enum import SolverStatus
+from atlas.enum import SolverEnum, SolverStatus
 from atlas.timing import timer
 
 
@@ -47,7 +47,7 @@ class OptimisationModel:
 
     def __init__(
         self,
-        solver_name: str,
+        solver_name: SolverEnum | str,
         name: str | None = None,
     ):
         """
@@ -57,7 +57,6 @@ class OptimisationModel:
         :type solver_name: Optional[str]
         """
         self.name = name
-        self.solver_name = solver_name
         self._solver = None
         self._variables_name: set[str] = set()
         self._constraints_name: set[str] = set()
@@ -65,15 +64,18 @@ class OptimisationModel:
         self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._solution_info: SolutionInfo | None = None
 
-        self._initialize_solver()
+        self._initialize_solver(solver_name)
 
-    def _initialize_solver(self) -> None:
+    def _initialize_solver(self, solver_name: str | SolverEnum) -> None:
         """Initialize the appropriate solver based on solver type."""
+        if isinstance(solver_name, str):
+            solver_name = solver_name.upper()
+        self.solver_name = SolverEnum(solver_name)
         if self.name:
-            logger.debug(f"Initializing optimisation model '{self.name}' with solver :'{self.solver_name}'")
+            logger.debug(f"Initializing optimisation model '{self.name}' with solver :'{self.solver_name.value}'")
         else:
-            logger.debug(f"Initializing optimisation model with solver :'{self.solver_name}'")
-        self._solver = pywraplp.Solver.CreateSolver(self.solver_name)
+            logger.debug(f"Initializing optimisation model with solver :'{self.solver_name.value}'")
+        self._solver = pywraplp.Solver.CreateSolver(self.solver_name.value)
 
         if self._solver is None:
             raise RuntimeError("Failed to create solver. Check if the solver is available.")
@@ -403,8 +405,8 @@ class OptimisationModel:
         self._solution_info = None
         self._objective = None
         self._objective_direction = None
-        self._initialize_solver()
+        self._initialize_solver(self.solver_name)
 
     def __repr__(self) -> str:
         """String representation of the model."""
-        return f"OptimisationModel(name={self.name},solver={self.solver_name})"
+        return f"OptimisationModel(name={self.name},solver={self.solver_name.value})"

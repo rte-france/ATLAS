@@ -54,7 +54,7 @@ def test_from_yaml_file():
         params = AbstractParameters.from_file(temp_file_path)
         assert params.export_result is True
         assert params.export_output_dataset is False
-        assert params.solver_name == SolverEnum.xpress
+        assert params.solver_name == SolverEnum.XPRESS
     finally:
         Path(temp_file_path).unlink()
 
@@ -78,7 +78,7 @@ def test_from_json_file():
         params = AbstractParameters.from_file(temp_file_path)
         assert params.export_result is False
         assert params.export_output_dataset is True
-        assert params.solver_name == SolverEnum.xpress
+        assert params.solver_name == SolverEnum.XPRESS
     finally:
         Path(temp_file_path).unlink()
 
