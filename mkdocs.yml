@@ -77,7 +77,6 @@ markdown_extensions:
   - toc:
       permalink: true
 
-
 extra_javascript:
   - custom/katex.js
   - https://unpkg.com/katex@0/dist/katex.min.js
