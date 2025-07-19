@@ -7,115 +7,251 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import math
+from typing import Any
 
-import API
 from pendulum import DateTime
 from pydantic import model_validator
 
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated, get_variable_cost
 from atlas.solver.solver_interface import OptimisationModel
 
 
 class ThermalPO(Thermal):
     """
-    This class is used to feed a PO_Thermic from a thermal equipment
+    Sophisticated unit commitment model for thermal power equipment.
+
+    This implements a state-of-the-art thermal unit optimization with multiple
+    operational states, complex time constraints, and ramping limitations.
     """
 
-    def __init__(self, name, th_id):
-        self.name = name
-        self.id = "th_" + str(th_id)
-        self.PowerLevel = {}
-        self.Additionnal_power = {}
-        self.Additionnal_power_below = {}
+    maximum_fcr: float
+    maximum_afrr: float
+    minimum_power: Timeseries | LazyTimeseries
+    maximum_power: Timeseries | LazyTimeseries
+    variable_cost: Timeseries | LazyTimeseries
+    startup_cost: Timeseries | LazyTimeseries
+    maximum_gradient: float = 0.0  # MW/min ramping rate
+    has_daily_energy_constraint: bool = False
 
-        # time constraintes
-        self.minimumTimeOn = 0
-        self.minimumTimeOff = 0
-        self.minimumStablePowerDuration = 0
-        self.startupDuration = 0
-        self.shutdownDuration = 0
+    # Reserve procurement forecasts
+    afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    rr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    rr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    fcr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    fcr_down_procured: ForecastingMatrix | LazyForecastingMatrix
 
-        self.T_on = 0
-        self.T_off = 0
-        self.T_start = 0
-        self.T_stop = 0
-        self.T_stable = 0
-        self.T_traceback = 0
+    # Internal time step parameters (computed from time durations)
+    _T_on: int = 0
+    _T_off: int = 0
+    _T_start: int = 0
+    _T_stop: int = 0
+    _T_stable: int = 0
+    _Delta_Q: float = 0.0
+    _Delta_Q_unconstrained: float = 0.0
+    _combination: int = 1  # Which constraint combination to use (1-8)
 
-        # reserve requirements
-        self.aFRRUpProcured = {}
-        self.aFRRDownProcured = {}
-        self.mFRRUpProcured = {}
-        self.mFRRDownProcured = {}
-        self.rRUpProcured = {}
-        self.rRDownProcured = {}
-        self.fCRUpProcured = {}
-        self.fCRDownProcured = {}
-        self.automatedUnsuppliedReserves = 0
+    def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
+        """Compute time step parameters from duration constraints."""
+        timestep_minutes = parameters.timestep.total_minutes()
 
-        # technical features
-        self.VariableCost = {}
-        self.StartupCost = {}
-        self.MinimumPower = {}
-        self.MaximumPower = {}
-        self.hasDailyEnergyConstraint = 0
-        self.maximumDailyEnergy = 0
-        self.maximumAFRR = 0
-        self.maximumFCR = 0
-        self.maximumAutomated = 0
+        # Convert time durations to time steps
+        if self.minimum_time_on and self.minimum_time_on > 0:
+            self._T_on = int(max(1, math.ceil(self.minimum_time_on * 60.0 / timestep_minutes))) + 1
+        else:
+            self._T_on = 0
 
-        # modified max/min power
-        self.q_lower = {}
-        self.q_upper = {}
+        if self.minimum_time_off and self.minimum_time_off > 0:
+            self._T_off = int(max(1, math.ceil(self.minimum_time_off * 60.0 / timestep_minutes))) + 1
+        else:
+            self._T_off = 0
 
-        # total reserve requirements
-        self.rr_up = {}
-        self.rr_down = {}
+        if self.startup_duration:
+            self._T_start = int(math.floor(self.startup_duration * 60.0 / timestep_minutes))
+        else:
+            self._T_start = 0
 
-        # gradient
-        self.Delta_Q = 0
-        self.Delta_Q_unconstrained = 0
-        self.Q_max = 0
-        self.Q_min = 0
+        if self.shutdown_duration:
+            self._T_stop = int(math.floor(self.shutdown_duration * 60.0 / timestep_minutes))
+        else:
+            self._T_stop = 0
 
-        # state variables
-        self.OFF = {}
-        self.ON_DOWN = {}
-        self.ON_UP = {}
-        self.STOP = {}
-        self.ON_FLAT = {}
-        self.START = {}
+        if self.minimum_stable_power_duration:
+            if self.minimum_stable_power_duration * 60.0 < timestep_minutes:
+                self._T_stable = 0
+            else:
+                self._T_stable = int(math.ceil(self.minimum_stable_power_duration * 60.0 / timestep_minutes)) + 1
+                # Rescale T_stable so that it is either equal to 0 or >= 2
+                self._T_stable = self._T_stable if self._T_stable >= 2 else 0
+        else:
+            self._T_stable = 0
 
-        # auxiliary variables
-        self.turned_on = {}  # Corresponding to the variable defined in sec. 6.1.1
-        self.turned_off = {}  # Corresponding to the variable defined in sec. 6.1.2
-        self.stable = {}  # This auxiliary variable indicates when the unit enters the FLAT state
-        self.entered_up = {}  # This variable replaces ON_UP in the definition of the gradient and
-        # will bound the gradient for only one time step
-        self.entered_down = {}  # Same as single_on_up but for on down
-        self.down_to_stop = {}
-        self.flat_down_stop = {}
-        self.down_to_stop = {}
+        # Ramping parameters
+        self._Delta_Q = self.maximum_gradient * timestep_minutes
+        self._Delta_Q_unconstrained = max(self.maximum_power.max(), 1000.0)  # Large value for unconstrained ramping
 
-        # reserve variables
-        self.reservesUp = {}
-        self.reservesDown = {}
-        self.unprovidedReservesUp = {}
-        self.unprovidedReservesDown = {}
-        self.relaxedReserves = {}
-        self.automatedReservesUp = {}
-        self.automatedReservesDown = {}
+        # Determine which constraint combination to use
+        self._combination = self._determine_combination()
 
-        # binding the gradient in stable cases
-        self.U = {}
-        self.tilde_U = {}
-        self.D = {}
-        self.tilde_D = {}
-        self.DD = {}
+    def _determine_combination(self) -> int:
+        """Determine which of the 8 constraint combinations to use."""
+        if self._T_stop == 0 and self._T_start == 0 and self._T_stable == 0:
+            return 1
+        elif self._T_stop >= 1 and self._T_start == 0 and self._T_stable == 0:
+            return 2
+        elif self._T_stop == 0 and self._T_start == 0 and self._T_stable >= 1:
+            return 3
+        elif self._T_start >= 1 and self._T_stop == 0 and self._T_stable == 0:
+            return 4
+        elif self._T_stop >= 1 and self._T_start == 0 and self._T_stable >= 1:
+            return 5
+        elif self._T_stop == 0 and self._T_start >= 1 and self._T_stable >= 1:
+            return 6
+        elif self._T_stop >= 1 and self._T_start >= 1 and self._T_stable == 0:
+            return 7
+        elif self._T_stop >= 1 and self._T_start >= 1 and self._T_stable >= 1:
+            return 8
+        else:
+            return 1  # Default fallback
 
     def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
-        pass
+        """Build variables for complex thermal unit commitment."""
+        self._compute_time_parameters(parameters)
+
+        for time in parameters.thermal_op_times:
+            min_power = self.minimum_power.get_value(time)
+            max_power = self.maximum_power.get_value(time)
+            maximum_automated = get_maximum_automated(self)
+
+            # Core power and auxiliary variables
+            model.add_continuous_variable(
+                name=f"{self.name}_power_level_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
+            )
+
+            model.add_continuous_variable(
+                name=f"{self.name}_additional_power_above_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
+            )
+
+            model.add_continuous_variable(
+                name=f"{self.name}_additional_power_below_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
+            )
+
+            # Core state variables (always present)
+            model.add_boolean_variable(name=f"{self.name}_OFF_{time}")
+            model.add_boolean_variable(name=f"{self.name}_ON_UP_{time}")
+            model.add_boolean_variable(name=f"{self.name}_ON_DOWN_{time}")
+
+            # Core auxiliary variables
+            model.add_boolean_variable(name=f"{self.name}_turned_on_{time}")
+            model.add_boolean_variable(name=f"{self.name}_turned_off_{time}")
+
+            # Conditional state variables based on combination
+            if self._T_start >= 1:
+                model.add_boolean_variable(name=f"{self.name}_START_{time}")
+
+            if self._T_stop >= 1:
+                model.add_boolean_variable(name=f"{self.name}_STOP_{time}")
+
+            if self._T_stable >= 1:
+                model.add_boolean_variable(name=f"{self.name}_ON_FLAT_{time}")
+                model.add_boolean_variable(name=f"{self.name}_stable_{time}")
+                model.add_boolean_variable(name=f"{self.name}_entered_up_{time}")
+                model.add_boolean_variable(name=f"{self.name}_entered_down_{time}")
+
+            # Additional auxiliary variables for complex combinations
+            if self._T_stop >= 1 and self._T_start == 0 and self._T_stable == 0:
+                model.add_boolean_variable(name=f"{self.name}_down_to_stop_{time}")
+
+            if self._T_stop >= 1 and self._T_stable >= 1:
+                model.add_boolean_variable(name=f"{self.name}_flat_down_stop_{time}")
+
+            if self._T_stop >= 1 and self._T_start >= 1 and self._T_stable == 0:
+                model.add_boolean_variable(name=f"{self.name}_down_to_stop_{time}")
+
+            # Complete reserve variables (from legacy)
+            model.add_continuous_variable(
+                name=f"{self.name}_reserves_up_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
+            )
+            model.add_continuous_variable(
+                name=f"{self.name}_reserves_down_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
+            )
+            model.add_continuous_variable(
+                name=f"{self.name}_unprovided_reserves_up_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
+            )
+            model.add_continuous_variable(
+                name=f"{self.name}_unprovided_reserves_down_{time}",
+                lower_bound=0,
+                upper_bound=max_power,
+            )
+            model.add_continuous_variable(
+                name=f"{self.name}_relaxed_reserves_{time}",
+                lower_bound=0,
+                upper_bound=min_power,
+            )
+            model.add_continuous_variable(
+                name=f"{self.name}_automated_reserves_up_{time}",
+                lower_bound=0,
+                upper_bound=maximum_automated,
+            )
+            model.add_continuous_variable(
+                name=f"{self.name}_automated_reserves_down_{time}",
+                lower_bound=0,
+                upper_bound=maximum_automated,
+            )
+
+            # Gradient auxiliary variables for complex ramping
+            if self._T_stable >= 1:
+                Q_max = max_power
+                Q_min = -Q_max
+
+                # 2-stage gradient variables (U, tilde_U, D, tilde_D)
+                model.add_continuous_variable(
+                    name=f"{self.name}_U_{time}",
+                    lower_bound=Q_min,
+                    upper_bound=Q_max,
+                )
+                model.add_continuous_variable(
+                    name=f"{self.name}_tilde_U_{time}",
+                    lower_bound=Q_min,
+                    upper_bound=Q_max,
+                )
+                model.add_continuous_variable(
+                    name=f"{self.name}_D_{time}",
+                    lower_bound=Q_min,
+                    upper_bound=Q_max,
+                )
+                model.add_continuous_variable(
+                    name=f"{self.name}_tilde_D_{time}",
+                    lower_bound=Q_min,
+                    upper_bound=Q_max,
+                )
+
+                # DD variable for complex combinations
+                if self._T_start >= 1 or self._T_stop >= 1:
+                    model.add_continuous_variable(
+                        name=f"{self.name}_DD_{time}",
+                        lower_bound=Q_min,
+                        upper_bound=Q_max,
+                    )
 
     def add_constraints(
         self,
@@ -123,16 +259,496 @@ class ThermalPO(Thermal):
         model: OptimisationModel,
         parameters: PortfolioOptimisationParameters,
     ):
-        pass
+        """Add constraints based on the determined combination."""
+        if time not in parameters.thermal_op_times:
+            return
 
-    def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
-        pass
+        # Delegate to the appropriate combination method
+        combination_methods = {
+            1: self._add_combination_1_constraints,
+            2: self._add_combination_2_constraints,
+            3: self._add_combination_3_constraints,
+            4: self._add_combination_4_constraints,
+            5: self._add_combination_5_constraints,
+            6: self._add_combination_6_constraints,
+            7: self._add_combination_7_constraints,
+            8: self._add_combination_8_constraints,
+        }
+
+        method = combination_methods.get(self._combination, self._add_combination_1_constraints)
+        method(time, model, parameters)
+
+    def _add_combination_1_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Combination 1: T_stop = T_stable = T_start = 0 (Basic 3-state model)."""
+        min_power = self.minimum_power.get_value(time)
+        max_power = self.maximum_power.get_value(time)
+
+        # Get variables
+        power_level = model.get_variable(f"{self.name}_power_level_{time}")
+        OFF = model.get_variable(f"{self.name}_OFF_{time}")
+        ON_UP = model.get_variable(f"{self.name}_ON_UP_{time}")
+        ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{time}")
+        turned_on = model.get_variable(f"{self.name}_turned_on_{time}")
+        turned_off = model.get_variable(f"{self.name}_turned_off_{time}")
+
+        # Mutual exclusion constraint
+        model.add_constraint(OFF + ON_UP + ON_DOWN == 1)
+
+        # Power constraints
+        model.add_constraint(power_level >= min_power * (ON_UP + ON_DOWN))
+        model.add_constraint(power_level <= max_power * (ON_UP + ON_DOWN))
+
+        # Auxiliary variable definition constraints
+        time_idx = parameters.thermal_op_times.index(time)
+        if time_idx > 0:
+            prev_time = parameters.thermal_op_times[time_idx - 1]
+            prev_OFF = model.get_variable(f"{self.name}_OFF_{prev_time}")
+
+            # turned_on constraints
+            model.add_constraint(turned_on <= 1 - OFF)
+            model.add_constraint(turned_on <= prev_OFF)
+            model.add_constraint(turned_on >= prev_OFF - OFF)
+
+            # turned_off constraints
+            model.add_constraint(turned_off <= OFF)
+            model.add_constraint(turned_off <= 1 - prev_OFF)
+            model.add_constraint(turned_off >= OFF - prev_OFF)
+
+        # Reserve constraints
+        self._add_reserve_constraints(time, model, parameters)
+
+        # Minimum time constraints
+        self._add_minimum_time_constraints(time, model, parameters, "combination_1")
+
+        # Ramping constraints
+        self._add_ramping_constraints(time, model, parameters, "combination_1")
+
+        # Daily energy constraints
+        self._add_daily_energy_constraints(time, model, parameters)
+
+    def _add_combination_2_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Combination 2: T_stop >= 1, T_start = 0, T_stable = 0."""
+        min_power = self.minimum_power.get_value(time)
+        max_power = self.maximum_power.get_value(time)
+
+        # Get variables
+        power_level = model.get_variable(f"{self.name}_power_level_{time}")
+        OFF = model.get_variable(f"{self.name}_OFF_{time}")
+        ON_UP = model.get_variable(f"{self.name}_ON_UP_{time}")
+        ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{time}")
+        STOP = model.get_variable(f"{self.name}_STOP_{time}")
+        turned_off = model.get_variable(f"{self.name}_turned_off_{time}")
+        down_to_stop = model.get_variable(f"{self.name}_down_to_stop_{time}")
+
+        # Mutual exclusion constraint
+        model.add_constraint(OFF + ON_UP + ON_DOWN + STOP == 1)
+
+        # Power constraints
+        model.add_constraint(power_level >= min_power * (ON_UP + ON_DOWN))
+        model.add_constraint(power_level <= max_power * (ON_UP + ON_DOWN + STOP))
+
+        # Auxiliary variable constraints
+        time_idx = parameters.thermal_op_times.index(time)
+        if time_idx > 0:
+            prev_time = parameters.thermal_op_times[time_idx - 1]
+            prev_STOP = model.get_variable(f"{self.name}_STOP_{prev_time}")
+            prev_ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{prev_time}")
+
+            # Complex auxiliary variable definitions for STOP transitions
+            model.add_constraint(turned_off <= STOP)
+            model.add_constraint(turned_off <= 1 - prev_STOP)
+            model.add_constraint(turned_off >= STOP - prev_STOP)
+
+            # down_to_stop transition
+            model.add_constraint(down_to_stop <= STOP)
+            model.add_constraint(down_to_stop <= prev_ON_DOWN)
+            model.add_constraint(down_to_stop >= STOP + prev_ON_DOWN - 1)
+
+        # Eviction constraints for shutdown duration
+        self._add_eviction_constraints(time, model, parameters, "STOP", self._T_stop)
+
+        # Reserve constraints
+        self._add_reserve_constraints(time, model, parameters)
+
+        # Minimum time constraints
+        self._add_minimum_time_constraints(time, model, parameters, "combination_2")
+
+        # Ramping constraints
+        self._add_ramping_constraints(time, model, parameters, "combination_2")
+
+        # Shutdown gradient constraints
+        self._add_shutdown_gradient_constraints(time, model, parameters)
+
+        # Daily energy constraints
+        self._add_daily_energy_constraints(time, model, parameters)
+
+    def _add_combination_3_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Combination 3: T_stop = 0, T_start = 0, T_stable >= 1."""
+        min_power = self.minimum_power.get_value(time)
+        max_power = self.maximum_power.get_value(time)
+
+        # Get variables
+        power_level = model.get_variable(f"{self.name}_power_level_{time}")
+        OFF = model.get_variable(f"{self.name}_OFF_{time}")
+        ON_UP = model.get_variable(f"{self.name}_ON_UP_{time}")
+        ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{time}")
+        ON_FLAT = model.get_variable(f"{self.name}_ON_FLAT_{time}")
+        stable = model.get_variable(f"{self.name}_stable_{time}")
+        entered_up = model.get_variable(f"{self.name}_entered_up_{time}")
+        entered_down = model.get_variable(f"{self.name}_entered_down_{time}")
+
+        # Mutual exclusion constraint
+        model.add_constraint(OFF + ON_UP + ON_DOWN + ON_FLAT == 1)
+
+        # Power constraints
+        model.add_constraint(power_level >= min_power * (ON_UP + ON_DOWN + ON_FLAT))
+        model.add_constraint(power_level <= max_power * (ON_UP + ON_DOWN + ON_FLAT))
+
+        # Complex auxiliary variable definitions for stable operations
+        time_idx = parameters.thermal_op_times.index(time)
+        if time_idx > 0:
+            prev_time = parameters.thermal_op_times[time_idx - 1]
+            prev_ON_FLAT = model.get_variable(f"{self.name}_ON_FLAT_{prev_time}")
+            prev_ON_UP = model.get_variable(f"{self.name}_ON_UP_{prev_time}")
+            prev_ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{prev_time}")
+
+            # stable transition constraints
+            model.add_constraint(stable <= ON_FLAT)
+            model.add_constraint(stable <= 1 - prev_ON_FLAT)
+            model.add_constraint(stable >= ON_FLAT - prev_ON_FLAT)
+
+            # entered_up constraints
+            model.add_constraint(entered_up <= ON_UP)
+            model.add_constraint(entered_up <= 1 - prev_ON_UP)
+            model.add_constraint(entered_up >= ON_UP - prev_ON_UP)
+
+            # entered_down constraints
+            model.add_constraint(entered_down <= ON_DOWN)
+            model.add_constraint(entered_down <= 1 - prev_ON_DOWN)
+            model.add_constraint(entered_down >= ON_DOWN - prev_ON_DOWN)
+
+        # Reserve constraints
+        self._add_reserve_constraints(time, model, parameters)
+
+        # Complete 2-stage gradient constraints for stable operation
+        self._add_complete_gradient_constraints(time, model, parameters)
+
+        # Minimum stable duration constraints
+        self._add_minimum_stable_constraints(time, model, parameters)
+
+        # Daily energy constraints
+        self._add_daily_energy_constraints(time, model, parameters)
+
+    def _add_combination_4_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Combination 4: T_start >= 1, T_stop = 0, T_stable = 0."""
+        # Similar structure to combination 2 but with START instead of STOP
+        min_power = self.minimum_power.get_value(time)
+        max_power = self.maximum_power.get_value(time)
+
+        # Get variables
+        power_level = model.get_variable(f"{self.name}_power_level_{time}")
+        OFF = model.get_variable(f"{self.name}_OFF_{time}")
+        ON_UP = model.get_variable(f"{self.name}_ON_UP_{time}")
+        ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{time}")
+        START = model.get_variable(f"{self.name}_START_{time}")
+
+        # Mutual exclusion constraint
+        model.add_constraint(OFF + ON_UP + ON_DOWN + START == 1)
+
+        # Power constraints with startup considerations
+        model.add_constraint(power_level >= min_power * (ON_UP + ON_DOWN))
+        model.add_constraint(power_level <= max_power * (ON_UP + ON_DOWN + START))
+
+        # Eviction constraints for startup duration
+        self._add_eviction_constraints(time, model, parameters, "START", self._T_start)
+
+        # Reserve constraints
+        self._add_reserve_constraints(time, model, parameters)
+
+        # Complete gradient constraints
+        self._add_complete_gradient_constraints(time, model, parameters)
+
+        # Daily energy constraints
+        self._add_daily_energy_constraints(time, model, parameters)
+
+    def _add_combination_5_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Combination 5: T_stop >= 1, T_start = 0, T_stable >= 1."""
+        # Combines STOP and ON_FLAT states
+        self._add_combination_2_constraints(time, model, parameters)
+        self._add_combination_3_constraints(time, model, parameters)
+
+        # Additional constraints for STOP + FLAT interactions
+        flat_down_stop = model.get_variable(f"{self.name}_flat_down_stop_{time}")
+        STOP = model.get_variable(f"{self.name}_STOP_{time}")
+
+        # Complex flat_down_stop calculation
+        time_idx = parameters.thermal_op_times.index(time)
+        if time_idx >= 2:
+            prev_time = parameters.thermal_op_times[time_idx - 1]
+            prev2_time = parameters.thermal_op_times[time_idx - 2]
+            prev_ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{prev_time}")
+            prev2_ON_FLAT = model.get_variable(f"{self.name}_ON_FLAT_{prev2_time}")
+
+            # flat_down_stop = floor((STOP + ON_DOWN[t-1] + ON_FLAT[t-2]) / 3)
+            model.add_constraint(3 * flat_down_stop <= STOP + prev_ON_DOWN + prev2_ON_FLAT)
+            model.add_constraint(3 * flat_down_stop >= STOP + prev_ON_DOWN + prev2_ON_FLAT - 2)
+
+        # Specific flat_down_stop constraints
+        self._add_flat_down_stop_constraints(time, model, parameters)
+
+        # Reserve constraints (if not already added by component methods)
+        self._add_reserve_constraints(time, model, parameters)
+
+        # Shutdown gradient constraints
+        self._add_shutdown_gradient_constraints(time, model, parameters)
+
+    def _add_combination_6_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Combination 6: T_stop = 0, T_start >= 1, T_stable >= 1."""
+        # Combines START and ON_FLAT states
+        self._add_combination_3_constraints(time, model, parameters)
+        self._add_combination_4_constraints(time, model, parameters)
+
+        # Additional reserve and gradient constraints for this combination
+        self._add_reserve_constraints(time, model, parameters)
+        self._add_complete_gradient_constraints(time, model, parameters)
+        self._add_daily_energy_constraints(time, model, parameters)
+
+    def _add_combination_7_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Combination 7: T_stop >= 1, T_start >= 1, T_stable = 0."""
+        # Combines START and STOP states without FLAT
+
+        # Get variables
+        OFF = model.get_variable(f"{self.name}_OFF_{time}")
+        ON_UP = model.get_variable(f"{self.name}_ON_UP_{time}")
+        ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{time}")
+        START = model.get_variable(f"{self.name}_START_{time}")
+        STOP = model.get_variable(f"{self.name}_STOP_{time}")
+
+        # Five-state mutual exclusion
+        model.add_constraint(OFF + ON_UP + ON_DOWN + START + STOP == 1)
+
+        # Complex startup/shutdown sequencing constraints
+        self._add_eviction_constraints(time, model, parameters, "START", self._T_start)
+        self._add_eviction_constraints(time, model, parameters, "STOP", self._T_stop)
+
+        # Reserve constraints
+        self._add_reserve_constraints(time, model, parameters)
+
+        # Complete gradient constraints
+        self._add_complete_gradient_constraints(time, model, parameters)
+
+        # Daily energy constraints
+        self._add_daily_energy_constraints(time, model, parameters)
+
+        # Shutdown gradient constraints
+        self._add_shutdown_gradient_constraints(time, model, parameters)
+
+    def _add_combination_8_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Combination 8: T_stop >= 1, T_start >= 1, T_stable >= 1 (Most complex)."""
+        # All five states: OFF, ON_UP, ON_DOWN, ON_FLAT, START, STOP
+        OFF = model.get_variable(f"{self.name}_OFF_{time}")
+        ON_UP = model.get_variable(f"{self.name}_ON_UP_{time}")
+        ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{time}")
+        ON_FLAT = model.get_variable(f"{self.name}_ON_FLAT_{time}")
+        START = model.get_variable(f"{self.name}_START_{time}")
+        STOP = model.get_variable(f"{self.name}_STOP_{time}")
+
+        # Six-state mutual exclusion
+        model.add_constraint(OFF + ON_UP + ON_DOWN + ON_FLAT + START + STOP == 1)
+
+        # Combine all constraint types
+        self._add_eviction_constraints(time, model, parameters, "START", self._T_start)
+        self._add_eviction_constraints(time, model, parameters, "STOP", self._T_stop)
+        self._add_minimum_stable_constraints(time, model, parameters)
+        self._add_gradient_constraints(time, model, parameters, "combination_8")
+
+        # All advanced constraint systems for most complex combination
+        self._add_reserve_constraints(time, model, parameters)
+        self._add_complete_gradient_constraints(time, model, parameters)
+        self._add_flat_down_stop_constraints(time, model, parameters)
+        self._add_daily_energy_constraints(time, model, parameters)
+        self._add_shutdown_gradient_constraints(time, model, parameters)
+
+    def _add_minimum_time_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters, combination: str
+    ):
+        """Add minimum time on/off constraints."""
+        time_idx = parameters.thermal_op_times.index(time)
+
+        # Minimum time ON constraints
+        if self._T_on > 0:
+            turned_on = model.get_variable(f"{self.name}_turned_on_{time}")
+
+            for k in range(1, min(self._T_on, len(parameters.thermal_op_times) - time_idx)):
+                future_time = parameters.thermal_op_times[time_idx + k]
+                OFF_future = model.get_variable(f"{self.name}_OFF_{future_time}")
+                model.add_constraint(turned_on + OFF_future <= 1)
+
+        # Minimum time OFF constraints
+        if self._T_off > 0:
+            turned_off = model.get_variable(f"{self.name}_turned_off_{time}")
+
+            for k in range(1, min(self._T_off, len(parameters.thermal_op_times) - time_idx)):
+                future_time = parameters.thermal_op_times[time_idx + k]
+                OFF_future = model.get_variable(f"{self.name}_OFF_{future_time}")
+                model.add_constraint(turned_off <= OFF_future)
+
+    def _add_eviction_constraints(
+        self,
+        time: DateTime,
+        model: OptimisationModel,
+        parameters: PortfolioOptimisationParameters,
+        state_name: str,
+        duration: int,
+    ):
+        """Add eviction constraints for START/STOP states."""
+        time_idx = parameters.thermal_op_times.index(time)
+
+        if duration > 1 and time_idx >= duration - 1:
+            past_time = parameters.thermal_op_times[time_idx - (duration - 1)]
+            current_state = model.get_variable(f"{self.name}_{state_name}_{time}")
+
+            if state_name == "START":
+                past_turned_on = model.get_variable(f"{self.name}_turned_on_{past_time}")
+                model.add_constraint(past_turned_on + current_state <= 1)
+            elif state_name == "STOP":
+                past_turned_off = model.get_variable(f"{self.name}_turned_off_{past_time}")
+                model.add_constraint(past_turned_off + current_state <= 1)
+
+    def _add_minimum_stable_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Add minimum stable power duration constraints."""
+        if self._T_stable > 0:
+            time_idx = parameters.thermal_op_times.index(time)
+            stable = model.get_variable(f"{self.name}_stable_{time}")
+
+            for k in range(1, min(self._T_stable, len(parameters.thermal_op_times) - time_idx)):
+                future_time = parameters.thermal_op_times[time_idx + k]
+                ON_FLAT_future = model.get_variable(f"{self.name}_ON_FLAT_{future_time}")
+                model.add_constraint(stable <= ON_FLAT_future)
+
+    def _add_ramping_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters, combination: str
+    ):
+        """Add ramping/gradient constraints."""
+        time_idx = parameters.thermal_op_times.index(time)
+        if time_idx == 0:
+            return
+
+        prev_time = parameters.thermal_op_times[time_idx - 1]
+        power_level = model.get_variable(f"{self.name}_power_level_{time}")
+        prev_power_level = model.get_variable(f"{self.name}_power_level_{prev_time}")
+
+        if self._Delta_Q > 0:  # Finite ramping rate
+            turned_on = model.get_variable(f"{self.name}_turned_on_{time}")
+            turned_off = model.get_variable(f"{self.name}_turned_off_{time}")
+
+            if combination in ["combination_1", "combination_2", "combination_4", "combination_7"]:
+                prev_ON_UP = model.get_variable(f"{self.name}_ON_UP_{prev_time}")
+                prev_ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{prev_time}")
+
+                # Upward ramping constraint
+                model.add_constraint(
+                    power_level - prev_power_level
+                    <= self._Delta_Q * prev_ON_UP + self._Delta_Q_unconstrained * turned_on
+                )
+
+                # Downward ramping constraint
+                model.add_constraint(
+                    power_level - prev_power_level
+                    >= -self._Delta_Q * prev_ON_DOWN - self._Delta_Q_unconstrained * turned_off
+                )
+
+    def _add_gradient_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters, combination: str
+    ):
+        """Add sophisticated gradient constraints for stable operation."""
+        time_idx = parameters.thermal_op_times.index(time)
+        if time_idx == 0:
+            return
+
+        prev_time = parameters.thermal_op_times[time_idx - 1]
+
+        # Get gradient variables
+        U = model.get_variable(f"{self.name}_U_{time}")
+        tilde_U = model.get_variable(f"{self.name}_tilde_U_{time}")
+        D = model.get_variable(f"{self.name}_D_{time}")
+        tilde_D = model.get_variable(f"{self.name}_tilde_D_{time}")
+
+        power_level = model.get_variable(f"{self.name}_power_level_{time}")
+        prev_power_level = model.get_variable(f"{self.name}_power_level_{prev_time}")
+
+        ON_UP = model.get_variable(f"{self.name}_ON_UP_{time}")
+        ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{time}")
+        prev_ON_UP = model.get_variable(f"{self.name}_ON_UP_{prev_time}")
+        prev_ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{prev_time}")
+
+        # Complex gradient formulation
+        model.add_constraint(U == prev_ON_UP * prev_ON_UP * (power_level - prev_power_level))
+        model.add_constraint(D == prev_ON_DOWN * prev_ON_DOWN * (power_level - prev_power_level))
+
+        # Semi-continuous constraints for tilde variables
+        max_power = self.maximum_power.get_value(time)
+        model.add_constraint(tilde_U <= max_power * ON_UP)
+        model.add_constraint(tilde_U >= -max_power * ON_UP)
+        model.add_constraint(tilde_D <= max_power * ON_DOWN)
+        model.add_constraint(tilde_D >= -max_power * ON_DOWN)
+
+    def add_objective(
+        self,
+        model: OptimisationModel,
+        time: DateTime,
+        price_forecast: float,
+        parameters: PortfolioOptimisationParameters,
+    ):
+        """Add objective function terms for thermal equipment."""
+        if time not in parameters.thermal_op_times:
+            return
+
+        power_level = model.get_variable(f"{self.name}_power_level_{time}")
+
+        # Variable cost (fuel, O&M)
+        variable_cost = get_variable_cost(self, time)
+        model.add_objective(variable_cost * power_level * parameters.timestep)
+
+        # Startup cost
+        turned_on = model.get_variable(f"{self.name}_turned_on_{time}")
+        startup_cost = self.startup_cost.get_value(time)
+        model.add_objective(startup_cost * turned_on)
+
+        # Revenue from power sales (negative cost)
+        if time in parameters.target_times:
+            model.add_objective(-price_forecast * power_level * parameters.timestep)
+
+        # Penalty costs for additional power variables (constraint relaxation)
+        additional_above = model.get_variable(f"{self.name}_additional_power_above_{time}")
+        additional_below = model.get_variable(f"{self.name}_additional_power_below_{time}")
+
+        # High penalty cost for constraint violations
+        penalty_cost = 10000.0  # €/MWh
+        model.add_objective(penalty_cost * (additional_above + additional_below) * parameters.timestep)
 
     @model_validator(mode="after")
     def validate_minimum_stable_power_duration(self) -> ThermalPO:
         """
         Validate that minimum_stable_power_duration is not greater than minimum_time_on.
-        Raises ValidationError if the condition is violated.
         """
         if (
             self.minimum_stable_power_duration is not None
@@ -143,1051 +759,202 @@ class ThermalPO(Thermal):
                 f"minimum_stable_power_duration ({self.minimum_stable_power_duration}) of equipment "
                 f"{self.name} cannot be greater than minimum_time_on ({self.minimum_time_on})"
             )
-
         return self
 
-    def fill_model(self, opt_thermic, p):
-        # get data from optimate equipment
-        self.minimumTimeOn = opt_thermic.MinimumTimeOn
-        self.minimumTimeOff = opt_thermic.MinimumTimeOff
-        self.minimumStablePowerDuration = opt_thermic.MinimumStablePowerDuration
-        self.startupDuration = opt_thermic.StartupDuration
-        self.shutdownDuration = opt_thermic.ShutdownDuration
+    def get_startup_cost(self, time: DateTime) -> float:
+        """Get startup cost at given time."""
+        return self.startup_cost.get_value(time)
 
-        self.hasDailyEnergyConstraint = opt_thermic.HasDailyEnergyConstraint
-        self.maximumDailyEnergy = opt_thermic.MaximumDailyEnergy  # peut etre mettre sous forme de doubleList?
-        self.maximumAFRR = opt_thermic.MaximumAFRR
-        self.maximumFCR = opt_thermic.MaximumFCR
+    def get_reserve_procurement(self, time: DateTime, reserve_type: str, execution_date: DateTime) -> float:
+        """Get reserve procurement value for given reserve type and time."""
+        reserve_matrix = getattr(self, f"{reserve_type}_procured")
+        return reserve_matrix.get_forecast(execution_date, time, time).get_value(time)
 
-        if p.debug:
-            self.name = self.id
+    def _add_reserve_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Add complete reserve constraint system from legacy code."""
+        # Get reserve variables
+        reserves_up = model.get_variable(f"{self.name}_reserves_up_{time}")
+        reserves_down = model.get_variable(f"{self.name}_reserves_down_{time}")
+        unprovided_reserves_up = model.get_variable(f"{self.name}_unprovided_reserves_up_{time}")
+        unprovided_reserves_down = model.get_variable(f"{self.name}_unprovided_reserves_down_{time}")
+        automated_reserves_up = model.get_variable(f"{self.name}_automated_reserves_up_{time}")
+        automated_reserves_down = model.get_variable(f"{self.name}_automated_reserves_down_{time}")
 
-        # Check that the minimumStablePowerDuration is smaller than the minimumTimeOn
+        # Get state variables
+        if self._combination in [1, 2, 3, 4, 5, 6, 7, 8]:
+            # Power level constraint with reserves
+            power_level = model.get_variable(f"{self.name}_power_level_{time}")
 
-        if self.minimumStablePowerDuration > self.minimumTimeOn:
-            # Warn the user
-            API.IO.Trace.Log(
-                f"""
-                *** WARNING *** \n
-                the MinimumStablePowerDuration of equipment {self.name} is greater than
-                its MinimumTimeOn.\n
-                MinimumStablePowerDuration has been modified and is now considered equal to MinimumTimeOn.
-                """
-            )
-            self.minimumStablePowerDuration = self.minimumTimeOn
-
-        # Conversion of the equipment-specific parameters in terms of time step.
-        # All T_.'s are integers (by definition).
-        # FC: Testing the extension of all "constant" periods (i.e. T_stable, T_on, T_off)
-        # to take into account ramping
-        if self.minimumTimeOn != 0:
-            self.T_on = int(max(1, math.ceil(self.minimumTimeOn * 60.0 / p.time_step))) + 1
-        else:
-            self.T_on = 0
-
-        if self.minimumTimeOff != 0:
-            self.T_off = int(max(1, math.ceil(self.minimumTimeOff * 60.0 / p.time_step))) + 1
-        else:
-            self.T_off = 0
-
-        self.T_start = int(math.floor(self.startupDuration * 60.0 / p.time_step))
-        self.T_stop = int(math.floor(self.shutdownDuration * 60.0 / p.time_step))
-
-        if self.minimumStablePowerDuration * 60.0 < p.time_step:
-            self.T_stable = 0
-        else:
-            self.T_stable = int(math.ceil(self.minimumStablePowerDuration * 60.0 / p.time_step)) + 1
-
-        # Rescale T_stable so that it is either equal to 0 or >= 2:
-        self.T_stable = self.T_stable if self.T_stable >= 2 else 0
-
-        # Creating the necessary time frames
-        self.T_traceback = int(max(self.T_on + self.T_start, self.T_off + self.T_stop))
-
-        initialCondTimeFame = []
-        stableInitialCondTimeFame = []
-
-        for k in range(self.T_traceback, 1, -1):
-            stableInitialCondTimeFame.append(
-                p.start_date.AddMinutes(-k * p.time_step)
-            )  # Corresponds to [T_traceback; StartDate - 2]
-
-        if self.T_traceback > 0:
-            for k in range(self.T_traceback, 0, -1):
-                initialCondTimeFame.append(
-                    p.start_date.AddMinutes(-k * p.time_step)
-                )  # Corresponds to [T_traceback; StartDate - 1]
-        else:
-            initialCondTimeFame.append(p.start_date.AddMinutes(-p.time_step))
-
-        # Free Power Values TimeFrame:
-        optimTimeFrame = API.DatetimeIndex.NewIndex(
-            p.start_date, (p.thermal_optimization_period + self.T_traceback), p.time_step
-        )  # Corresponds to [StartDate; EndDate + AddHours]
-
-        # Free States TimeFrame:
-        stableOptimTimeFrame = API.DatetimeIndex.NewIndex(
-            p.start_date.AddMinutes(-p.time_step),
-            (p.thermal_optimization_period + self.T_traceback),
-            p.time_step,
-        )  # Corresponds to [StartDate-1; EndDate + AddHours]
-
-        # Exentend Time Frame:
-        if self.T_traceback > 0:
-            extendedTimeFrame = API.DatetimeIndex.NewIndex(
-                p.start_date.AddMinutes(-self.T_traceback * p.time_step),
-                optimTimeFrame[-1],
-                p.time_step,
-            )
-        else:
-            extendedTimeFrame = API.DatetimeIndex.NewIndex(
-                p.start_date.AddMinutes(-p.time_step), optimTimeFrame[-1], p.time_step
-            )
-        extendedStartDate = extendedTimeFrame[0]
-
-        startDate_minus_one = p.start_date.AddMinutes(-p.time_step)  # SD-1
-        startDate_minus_two = p.start_date.AddMinutes(-2 * p.time_step)  # SD-2
-        startDate_minus_three = p.start_date.AddMinutes(-3 * p.time_step)  # SD-3
-
-        for time in extendedTimeFrame:
-            self.MaximumPower[time] = opt_thermic.MaximumPower.GetValue(time)
-            self.MinimumPower[time] = opt_thermic.MinimumPower.GetValue(time)
-            self.q_lower[time] = opt_thermic.MinimumPower.GetValue(time)
-            self.q_upper[time] = opt_thermic.MaximumPower.GetValue(time)
-            self.aFRRUpProcured[time] = opt_thermic.AFRRUpProcured.GetForecast(p.execution_date, time, time).GetValue(
+            # Reserve procurement constraints
+            afrr_up_procured = self.afrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            afrr_down_procured = self.afrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
                 time
             )
-            self.aFRRDownProcured[time] = opt_thermic.AFRRDownProcured.GetForecast(
-                p.execution_date, time, time
-            ).GetValue(time)
-            self.mFRRUpProcured[time] = opt_thermic.MFRRUpProcured.GetForecast(p.execution_date, time, time).GetValue(
+            mfrr_up_procured = self.mfrr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            mfrr_down_procured = self.mfrr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
                 time
             )
-            self.mFRRDownProcured[time] = opt_thermic.MFRRDownProcured.GetForecast(
-                p.execution_date, time, time
-            ).GetValue(time)
-            self.rRUpProcured[time] = opt_thermic.RRUpProcured.GetForecast(p.execution_date, time, time).GetValue(time)
-            self.rRDownProcured[time] = opt_thermic.RRDownProcured.GetForecast(p.execution_date, time, time).GetValue(
+            rr_up_procured = self.rr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            rr_down_procured = self.rr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            fcr_up_procured = self.fcr_up_procured.get_forecast(parameters.execution_date, time, time).get_value(time)
+            fcr_down_procured = self.fcr_down_procured.get_forecast(parameters.execution_date, time, time).get_value(
                 time
             )
-            self.fCRUpProcured[time] = opt_thermic.FCRUpProcured.GetForecast(p.execution_date, time, time).GetValue(
-                time
-            )
-            self.fCRDownProcured[time] = opt_thermic.FCRDownProcured.GetForecast(p.execution_date, time, time).GetValue(
-                time
-            )
-            self.StartupCost[time] = opt_thermic.StartupCost.GetValue(time)
-            self.VariableCost[time] = opt_thermic.VariableCost.GetValue(time)
 
-            # Set-up the reserve requirements
-            self.automatedUnsuppliedReserves += (
-                max(self.aFRRUpProcured[time] - self.maximumAFRR, 0)
-                + max(self.fCRUpProcured[time] - self.maximumFCR, 0)
-                + max(self.aFRRDownProcured[time] - self.maximumAFRR, 0)
-                + max(self.fCRDownProcured[time] - self.maximumFCR, 0)
+            # Reserve balance constraints (Equation 41-44 from legacy)
+            model.add_constraint(reserves_up + unprovided_reserves_up == rr_up_procured + mfrr_up_procured)
+            model.add_constraint(reserves_down + unprovided_reserves_down == rr_down_procured + mfrr_down_procured)
+            model.add_constraint(
+                automated_reserves_up
+                == min(afrr_up_procured, self.maximum_afrr) + min(fcr_up_procured, self.maximum_fcr)
+            )
+            model.add_constraint(
+                automated_reserves_down
+                == min(afrr_down_procured, self.maximum_afrr) + min(fcr_down_procured, self.maximum_fcr)
             )
 
-            self.maximumAutomated = self.maximumAFRR + self.maximumFCR
+            # Reserve capacity constraints
+            max_power = self.maximum_power.get_value(time)
+            model.add_constraint(power_level + reserves_up + automated_reserves_up <= max_power)
+            model.add_constraint(power_level - reserves_down - automated_reserves_down >= 0)
 
-            # Set-up the power gradients
-            self.Delta_Q = opt_thermic.MaximumGradient * p.time_step
-            self.Delta_Q_unconstrained = max(self.MaximumPower.values())
+    def _add_daily_energy_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Add daily energy limitation constraints (Equation 37 from legacy)."""
+        if self.has_daily_energy_constraint and self.maximum_daily_energy and self.maximum_daily_energy.max() > 0:
+            # Find all times in the same day
+            current_day_times = [t for t in parameters.thermal_op_times if t.date() == time.date()]
 
-            # Define dummy bounds for the gradient auxiliaries
-            self.Q_max = max(self.MaximumPower.values())
-            self.Q_min = -self.Q_max
-
-        # 1:Creation of optim states variables:
-        for time_enum, time in enumerate(optimTimeFrame):
-            # Always defined Variables:
-            self.OFF[time] = API.Solver.NewOpVariable(
-                "OFF_var_e_%s_at_%s" % (self.name, str(time_enum)), API.Solver.OpCategoryBinary
-            )
-            self.ON_UP[time] = API.Solver.NewOpVariable(
-                "ON_UP_var_e_%s_at_%s" % (self.name, str(time_enum)), API.Solver.OpCategoryBinary
-            )
-            self.ON_DOWN[time] = API.Solver.NewOpVariable(
-                "ON_DOWN_var_e_%s_at_%s" % (self.name, str(time_enum)), API.Solver.OpCategoryBinary
-            )
-
-            self.turned_on[time] = API.Solver.NewOpVariable(
-                "t_on_of_e_%s_at_%s" % (self.name, str(time_enum)), API.Solver.OpCategoryBinary
-            )
-            self.turned_off[time] = API.Solver.NewOpVariable(
-                "t_off_of_e_%s_at_%s" % (self.name, str(time_enum)), API.Solver.OpCategoryBinary
-            )
-
-        # 'Conditional' state variables:defined only if a certain criteria on T is met.
-        if self.T_start >= 1:
-            for time_enum, time in enumerate(optimTimeFrame):
-                self.START[time] = API.Solver.NewOpVariable(
-                    "ON_START_e_%s_at_%s" % (self.name, str(time_enum)), API.Solver.OpCategoryBinary
+            if len(current_day_times) > 1:
+                # Sum power over the day
+                daily_energy_expr = sum(
+                    model.get_variable(f"{self.name}_power_level_{t}") * parameters.timestep for t in current_day_times
                 )
-
-        if self.T_stop >= 1:
-            for time_enum, time in enumerate(optimTimeFrame):
-                self.STOP[time] = API.Solver.NewOpVariable(
-                    "STOP_e_%s_at_%s" % (self.name, time_enum), API.Solver.OpCategoryBinary
-                )
-
-        if self.T_stable >= 1:
-            for time_enum, time in enumerate(stableOptimTimeFrame):
-                # Variables proper to T_STABLE >= 1:
-                self.ON_FLAT[time] = API.Solver.NewOpVariable(
-                    "ON_FLAT_e_%s_at_%s" % (self.name, str(time_enum)), API.Solver.OpCategoryBinary
-                )
-                self.stable[time] = API.Solver.NewOpVariable(
-                    "stable_at_%s_e_%s" % (str(time_enum), self.name), API.Solver.OpCategoryBinary
-                )
-                self.entered_up[time] = API.Solver.NewOpVariable(
-                    "entered_up_at_%s_e_%s" % (str(time_enum), self.name),
-                    API.Solver.OpCategoryBinary,
-                )
-                self.entered_down[time] = API.Solver.NewOpVariable(
-                    "entered_down_at_%s_e_%s" % (str(time_enum), self.name),
-                    API.Solver.OpCategoryBinary,
-                )
-            # Extra optim TimeStep proper to T_STABLE >= 1:
-            self.ON_UP[startDate_minus_one] = API.Solver.NewOpVariable(
-                "ON_UP_var_e_%s_at_%s" % (self.name, get_date_to_clean_string(startDate_minus_one)),
-                API.Solver.OpCategoryBinary,
-            )
-            self.ON_DOWN[startDate_minus_one] = API.Solver.NewOpVariable(
-                "ON_DOWN_var_e_%s_at_%s" % (self.name, get_date_to_clean_string(startDate_minus_one)),
-                API.Solver.OpCategoryBinary,
-            )
-
-            for time_enum, time in enumerate(optimTimeFrame):
-                # Initialize the gradient auxiliaries.
-                self.U[time] = API.Solver.NewOpVariable(
-                    "UP_grad_at_%s_for_e_%s" % (str(time_enum), self.name), self.Q_min, self.Q_max
-                )
-                self.tilde_U[time] = API.Solver.NewOpVariable(
-                    "aux_up_grad_at_%s_e_%s" % (str(time_enum), self.name), self.Q_min, self.Q_max
-                )
-                self.D[time] = API.Solver.NewOpVariable(
-                    "DOWN_grad_at_%s_e_%s" % (str(time_enum), self.name), self.Q_min, self.Q_max
-                )
-                self.tilde_D[time] = API.Solver.NewOpVariable(
-                    "aux_down_grad_at_%s_e_%s" % (str(time_enum), self.name), self.Q_min, self.Q_max
-                )
-
-        if self.T_stop >= 1 and self.T_start == 0 and self.T_stable == 0:
-            for time_enum, time in enumerate(optimTimeFrame):
-                self.down_to_stop[time] = API.Solver.NewOpVariable(
-                    "down_to_stop_grad_at_%s_e_%s" % (str(time_enum), self.name),
-                    API.Solver.OpCategoryBinary,
-                )
-
-        if self.T_stop >= 1 and self.T_stable >= 1:
-            for time_enum, time in enumerate(optimTimeFrame):
-                self.flat_down_stop[time] = API.Solver.NewOpVariable(
-                    "flat_down_stop_at_%s_e_%s" % (str(time_enum), self.name),
-                    API.Solver.OpCategoryBinary,
-                )
-
-        if self.T_stable >= 1 and (self.T_start >= 1 or self.T_stop >= 1):
-            for time_enum, time in enumerate(optimTimeFrame):
-                self.DD[time] = API.Solver.NewOpVariable(
-                    "DD_grad_at_%s_e_%s" % (str(time_enum), self.name), self.Q_min, self.Q_max
-                )
-
-            # Add the time step before start_date
-            self.DD[p.start_date.AddMinutes(-p.time_step)] = API.Solver.NewOpVariable(
-                "DD_grad_at_%s_e_%s" % ("-1", self.name), self.Q_min, self.Q_max
-            )
-
-        if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable == 0:
-            for time_enum, time in enumerate(optimTimeFrame):
-                self.down_to_stop[time] = API.Solver.NewOpVariable(
-                    "down_to_stop_grad_at_%s_e_%s" % (str(time_enum), self.name),
-                    API.Solver.OpCategoryBinary,
-                )
-
-        # 2:Creation of Power Optim Variables:
-        for time_enum, time in enumerate(optimTimeFrame):
-            # Create optimisation variables
-            if time in p.thermal_op_times:
-                # Power levels (only in thermal_op_timeframe)
-                self.PowerLevel[time] = API.Solver.NewOpVariable(
-                    f"{self.name}_p_lev_{str(time_enum)}",
-                    0,
-                    self.q_upper[time],
-                    API.Solver.OpCategoryReal,
-                )
-                self.Additionnal_power[time] = API.Solver.NewOpVariable(
-                    f"{self.name}_p_lev_above_maxAvail_{str(time_enum)}",
-                    0,
-                    self.q_upper[time],
-                    API.Solver.OpCategoryReal,
-                )
-                self.Additionnal_power_below[time] = API.Solver.NewOpVariable(
-                    f"{self.name}_p_lev_below_minAvail_{str(time_enum)}",
-                    0,
-                    self.q_upper[time],
-                    API.Solver.OpCategoryReal,
-                )
-
-            else:
-                # Initialize with a specific case for Base strategy
-                if opt_thermic.Strategy == "Base":
-                    if self.MaximumPower[time] >= self.MinimumPower[time]:
-                        self.PowerLevel[time] = (
-                            self.MinimumPower[time] + (self.MaximumPower[time] - self.MinimumPower[time]) / 2
-                        )
-                    else:
-                        self.PowerLevel[time] = 0
-
-                else:
-                    self.PowerLevel[time] = opt_thermic.Power.GetForecast(p.execution_date, time, time).GetValue(time)
-
-                self.Additionnal_power[time] = 0
-                self.Additionnal_power_below[time] = 0
-
-            # Optimisation Variables related tp,
-            self.reservesUp[time] = API.Solver.NewOpVariable(
-                "resUp_e_%s_at_%s" % (self.name, str(time_enum)),
-                0,
-                self.q_upper[time],
-                API.Solver.OpCategoryReal,
-            )
-
-            self.reservesDown[time] = API.Solver.NewOpVariable(
-                "resDown_e_%s_at_%s" % (self.name, str(time_enum)),
-                0,
-                self.q_upper[time],
-                API.Solver.OpCategoryReal,
-            )
-            self.unprovidedReservesUp[time] = API.Solver.NewOpVariable(
-                "unpResUp_e_%s_at_%s" % (self.name, str(time_enum)),
-                0,
-                self.q_upper[time],
-                API.Solver.OpCategoryReal,
-            )
-            self.unprovidedReservesDown[time] = API.Solver.NewOpVariable(
-                "unpResDown_e_%s_at_%s" % (self.name, str(time_enum)),
-                0,
-                self.q_upper[time],
-                API.Solver.OpCategoryReal,
-            )
-            self.relaxedReserves[time] = API.Solver.NewOpVariable(
-                "relRes_e_%s_at_%s" % (self.name, str(time_enum)),
-                0,
-                self.q_lower[time],
-                API.Solver.OpCategoryReal,
-            )
-            self.automatedReservesUp[time] = API.Solver.NewOpVariable(
-                "autoResUp_e_%s_at_%s" % (self.name, str(time_enum)),
-                0,
-                self.maximumAutomated,
-                API.Solver.OpCategoryReal,
-            )
-            self.automatedReservesDown[time] = API.Solver.NewOpVariable(
-                "autoResDown_e_%s_at_%s" % (self.name, str(time_enum)),
-                0,
-                self.maximumAutomated,
-                API.Solver.OpCategoryReal,
-            )
-
-        # INTIAL CONDITIONS
-        # Extraction of the Past power:
-        lastPower = opt_thermic.Power.GetForecast(p.execution_date, initialCondTimeFame[0], initialCondTimeFame[-1])
-
-        # Extraction of the last fixed power value (corresponding to SD-1):
-        lastDate = lastPower.LastDate
-
-        # See if the program needs to be initialized as DayZero or not
-        if lastDate is None:
-            # Initialization of the program as DayZero and warn the user
-            API.IO.Trace.Log("***WARNING***\n The program is initialized for the first time.")
-
-            dayZero = True  # Boolean to keep track of the status
-
-        elif DateTime.Compare(lastDate, p.start_date.AddMinutes(-p.time_step)) != 0:
-            # lastDate doesn't match startDate - DeltaT (i.e. t_{-1},
-            # so we will initialize as DayZero and send a warning message
-            API.IO.Trace.Log(
-                "***WARNING***\n The lastDate found in Power of equipement %s "
-                "does not match the startDate of the current program. \n "
-                "The program will be initialized as DayZero." % self.name
-            )
-            dayZero = True
-
-        else:
-            dayZero = False
-
-        # 3:Initialization of Past Power Variables:
-        # 3.1:Initialize variables in the dayZero case
-        if dayZero:
-            for time in initialCondTimeFame:
-                API.IO.Trace.Log(
-                    "Initial conditions of unit %s have been set as follows:\n "
-                    "for"
-                    " all t in previousTimeFrame \n q_t = 0 \n OFF_t = 1, "
-                    "ON_UP = ON_DOWN = 0 \n delta_start = delta_stop = 0" % self.name
-                )
-
-                # Initial conditions on the power output
-                self.PowerLevel[time] = 0
-                self.OFF[time] = 1
-
-                self.turned_off[time] = 0
-                self.turned_on[time] = 0
-
-            if self.T_stop >= 1:
-                for time in initialCondTimeFame:
-                    self.STOP[time] = 0
-
-                if self.T_stable >= 1:
-                    for time in initialCondTimeFame:
-                        self.flat_down_stop[time] = 0
-
-                else:
-                    for time in initialCondTimeFame:
-                        self.down_to_stop[time] = 0
-
-            if self.T_start >= 1:
-                for time in initialCondTimeFame:
-                    self.START[time] = 0
-
-            if self.T_stable == 0:
-                for time in initialCondTimeFame:
-                    self.ON_UP[time] = 0
-                    self.ON_DOWN[time] = 0
-
-            else:
-                for time in stableInitialCondTimeFame:
-                    self.ON_FLAT[time] = 0
-                    self.ON_UP[time] = 0
-                    self.ON_DOWN[time] = 0
-
-                    self.stable[time] = 0
-                    self.entered_up[time] = 0
-                    self.entered_down[time] = 0
-
-                for time in initialCondTimeFame:
-                    self.U[time] = 0
-                    self.D[time] = 0
-                    self.tilde_U[time] = 0
-                    self.tilde_D[time] = 0
-
-                    self.U[startDate_minus_one] = (
-                        self.ON_UP[startDate_minus_one]
-                        * self.ON_UP[startDate_minus_two]
-                        * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                    )
-
-                    self.D[startDate_minus_one] = (
-                        self.ON_DOWN[startDate_minus_one]
-                        * self.ON_DOWN[startDate_minus_two]
-                        * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                    )
-
-            API.IO.Trace.Log(
-                "Initial conditions of unit %s have been set as follows:\n "
-                "for"
-                " all t in previousTimeFrame \n q_t = 0 \n OFF_t = 1, "
-                " ON_UP = ON_DOWN = 0 \n delta_start = delta_stop = 0" % self.name
-            )
-
-        # 3.2:If not dayZero, initializes the power output as the past Program
-        else:
-            for time in initialCondTimeFame:
-                self.PowerLevel[time] = lastPower.GetValue(time)
-
-            # COMBINATION 1
-
-            if self.T_stop == 0 and self.T_start == 0 and self.T_stable == 0:
-                for time in initialCondTimeFame:
-                    if lastPower.GetValue(time) > 0:
-                        self.OFF[time] = 0
-                        self.ON_DOWN[time] = 1
-                        self.ON_UP[time] = 1
-
-                    else:
-                        self.OFF[time] = 1
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-
-                    # Initialize all the values to 0
-                    self.turned_on[time] = 0
-                    self.turned_off[time] = 0
-
-                    if not time == extendedStartDate:
-                        # Reconstruct potential switches using the state variables
-                        # See if the unit has been turned off
-                        if self.OFF[time] - self.OFF[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_off[time] = 1
-
-                        # Or turned on
-                        elif self.OFF[time] - self.OFF[time.AddMinutes(-p.time_step)] == -1:
-                            self.turned_on[time] = 1
-
-                        else:
-                            self.turned_on[time] = 0
-                            self.turned_off[time] = 0
-
-            # COMBINATION 2
-            if self.T_stop >= 1 and self.T_start == 0 and self.T_stable == 0:
-                for time in initialCondTimeFame:
-                    if lastPower.GetValue(time) >= self.MinimumPower[time]:
-                        self.OFF[time] = 0
-                        self.STOP[time] = 0
-                        self.ON_UP[time] = 1
-                        self.ON_DOWN[time] = 1
-
-                    elif lastPower.GetValue(time) > 0:
-                        self.OFF[time] = 0
-                        self.STOP[time] = 1
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-
-                    else:
-                        self.OFF[time] = 1
-                        self.STOP[time] = 0
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-
-                    # Initial conditions on the auxiliary variables
-                    # Initialize all the values to 0
-                    self.turned_on[time] = 0
-                    self.turned_off[time] = 0
-                    self.down_to_stop[time] = 0
-
-                    # Reconstruction of the shutdown phase
-                    if not time == extendedStartDate:
-                        # Reconstruct potential switches using the state variables
-                        if self.STOP[time] - self.STOP[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_off[time] = 1
-
-                        # Or turned on
-                        elif self.OFF[time] - self.OFF[time.AddMinutes(-p.time_step)] == -1:
-                            self.turned_on[time] = 1
-
-                        elif self.STOP[time] - self.ON_DOWN[time.AddMinutes(-p.time_step)] == 0:
-                            self.down_to_stop[time] = 1
-
-            # COMBINATION 3
-            if self.T_stop == 0 and self.T_start == 0 and self.T_stable >= 1:
-                for time in initialCondTimeFame:
-                    if lastPower.GetValue(time) > 0:
-                        self.OFF[time] = 0
-
-                    else:
-                        self.OFF[time] = 1
-
-                    # Initialize all the values to 0
-                    self.turned_on[time] = 0
-                    self.turned_off[time] = 0
-
-                    if not time == extendedStartDate:
-                        # Reconstruct potential switches using the state variables
-                        # See if the unit has been turned off
-                        if self.OFF[time] - self.OFF[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_off[time] = 1
-
-                        # Or turned on
-                        elif self.OFF[time] - self.OFF[time.AddMinutes(-p.time_step)] == -1:
-                            self.turned_on[time] = 1
-
-                    else:
-                        self.turned_on[time] = 0
-                        self.turned_off[time] = 0
-
-                for time in stableInitialCondTimeFame:
-                    if self.OFF[time] == 0:
-                        if self.PowerLevel[time] < self.PowerLevel[time.AddMinutes(p.time_step)]:
-                            self.ON_UP[time] = 1
-                            self.ON_DOWN[time] = 0
-                            self.ON_FLAT[time] = 0
-
-                        if self.PowerLevel[time] > self.PowerLevel[time.AddMinutes(p.time_step)]:
-                            self.ON_UP[time] = 0
-                            self.ON_DOWN[time] = 1
-                            self.ON_FLAT[time] = 0
-
-                        if self.PowerLevel[time] == self.PowerLevel[time.AddMinutes(p.time_step)]:
-                            self.ON_UP[time] = 0
-                            self.ON_DOWN[time] = 0
-                            self.ON_FLAT[time] = 1
-
-                    # Initialize the auxiliary variable
-                    # Default value set to 0
-                    self.stable[time] = 0
-                    self.entered_up[time] = 0
-                    self.entered_down[time] = 0
-
-                    if not time == extendedStartDate:
-                        # See which state the unit has entered
-                        if self.ON_FLAT[time] - self.ON_FLAT[time.AddMinutes(-p.time_step)] == 1:
-                            self.stable[time] = 1
-
-                        if self.ON_UP[time] - self.ON_UP[time.AddMinutes(-p.time_step)] == 1:
-                            self.entered_up[time] = 1
-
-                        if self.ON_DOWN[time] - self.ON_DOWN[time.AddMinutes(-p.time_step)] == 1:
-                            self.entered_down[time] = 1
-
-                # Initialize the gradient auxiliaries. This is only required for the last time step of the
-                # previousTimeFrame. Only ON_UP[startDate_minus_one] and ON_DOWN[startDate_minus_one] are decision variables
-                # in the expressions below.
-                self.U[startDate_minus_one] = (
-                    self.ON_UP[startDate_minus_one]
-                    * self.ON_UP[startDate_minus_two]
-                    * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                )
-
-                self.D[startDate_minus_one] = (
-                    self.ON_DOWN[startDate_minus_one]
-                    * self.ON_DOWN[startDate_minus_two]
-                    * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                )
-
-            # COMBINATION 4
-            if self.T_start >= 1 and self.T_stop == 0 and self.T_stable == 0:
-                for time in initialCondTimeFame:
-                    if lastPower.GetValue(time) >= self.MinimumPower[time]:
-                        self.OFF[time] = 0
-                        self.START[time] = 0
-                        self.ON_UP[time] = 1
-                        self.ON_DOWN[time] = 1
-
-                    elif lastPower.GetValue(time) > 0:
-                        self.OFF[time] = 0
-                        self.START[time] = 1
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-
-                    else:
-                        self.OFF[time] = 1
-                        self.START[time] = 0
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-
-                    # Initial conditions on the auxiliary variables
-                    # Initialize all the values to 0
-                    self.turned_on[time] = 0
-                    self.turned_off[time] = 0
-
-                    if not time == extendedStartDate:
-                        if self.OFF[time] - self.OFF[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_off[time] = 1
-
-                        elif self.START[time] - self.START[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_on[time] = 1
-
-            # COMBINATION 5
-            if self.T_stop >= 1 and self.T_start == 0 and self.T_stable >= 1:
-                for time in initialCondTimeFame:
-                    if lastPower.GetValue(time) >= self.MinimumPower[time]:
-                        self.OFF[time] = 0
-                        self.STOP[time] = 0
-
-                    elif lastPower.GetValue(time) >= self.MinimumPower[time]:
-                        self.OFF[time] = 0
-                        self.STOP[time] = 1
-
-                    else:
-                        self.OFF[time] = 1
-                        self.STOP[time] = 0
-
-                    # Initial conditions on the auxiliary variables turned_on turned_off and flat_down_stop
-                    # Initialize all the values to 0
-                    self.turned_on[time] = 0
-                    self.turned_off[time] = 0
-                    self.flat_down_stop[time] = 0
-
-                    if not time == extendedStartDate:
-                        # Reconstruct potential switches using the state variables
-                        # See if the unit has been turned off
-                        if self.STOP[time] - self.STOP[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_off[time] = 1
-
-                        # Or turned on
-                        elif self.OFF[time] - self.OFF[time.AddMinutes(-p.time_step)] == -1:
-                            self.turned_on[time] = 1
-
-                for time_enum, time in enumerate(stableInitialCondTimeFame):
-                    if self.OFF[time] == 0:
-                        # OFF = 0 and STOP = 1:
-                        if self.STOP[time] == 1:
-                            self.ON_UP[time] = 0
-                            self.ON_DOWN[time] = 0
-                            self.ON_FLAT[time] = 0
-
-                        # OFF = 0 and STOP = 0:
-                        else:
-                            # See if the power output was stable, increasing or decreasing:
-                            if self.PowerLevel[time] < self.PowerLevel[time.AddMinutes(p.time_step)]:
-                                self.ON_UP[time] = 1
-                                self.ON_DOWN[time] = 0
-                                self.ON_FLAT[time] = 0
-
-                            elif self.PowerLevel[time] > self.PowerLevel[time.AddMinutes(p.time_step)]:
-                                self.ON_UP[time] = 0
-                                self.ON_DOWN[time] = 1
-                                self.ON_FLAT[time] = 0
-
-                            elif self.PowerLevel[time] == self.PowerLevel[time.AddMinutes(p.time_step)]:
-                                self.ON_UP[time] = 0
-                                self.ON_DOWN[time] = 0
-                                self.ON_FLAT[time] = 1
-                    # OFF = 1
-                    else:
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-                        self.ON_FLAT[time] = 0
-
-                    # Initialize the auxiliary variables
-                    # Default value set to 0
-                    self.stable[time] = 0
-                    self.entered_up[time] = 0
-                    self.entered_down[time] = 0
-
-                    if (not time == extendedStartDate) and (not self.OFF[time] == 1):
-                        if self.ON_FLAT[time] - self.ON_FLAT[time.AddMinutes(-p.time_step)] == 1:
-                            self.stable[time] = 1
-
-                        if self.ON_UP[time] - self.ON_UP[time.AddMinutes(-p.time_step)] == 1:
-                            self.entered_up[time] = 1
-
-                        if self.ON_DOWN[time] - self.ON_DOWN[time.AddMinutes(-p.time_step)] == 1:
-                            self.entered_down[time] = 1
-
-                    # Initialize flat_down_stop.
-                    if time_enum >= 2:
-                        # Moreover, if we are after extendedStartDate + deltaTime
-                        # initialize flat_down_stop (which traces back up to two time index before)
-                        self.flat_down_stop[time] = int(
-                            math.floor(
-                                (
-                                    self.STOP[time]
-                                    + self.ON_DOWN[time.AddMinutes(-p.time_step)]
-                                    + self.ON_FLAT[time.AddMinutes(-2 * p.time_step)]
-                                )
-                                / 3
-                            )
-                        )
-
-                self.U[startDate_minus_one] = (
-                    self.ON_UP[startDate_minus_one]
-                    * self.ON_UP[startDate_minus_two]
-                    * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                )
-
-                self.D[startDate_minus_one] = (
-                    self.ON_DOWN[startDate_minus_one]
-                    * self.ON_DOWN[startDate_minus_two]
-                    * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                )
-
-                self.flat_down_stop[startDate_minus_one] = int(
-                    math.floor(
-                        (
-                            self.STOP[startDate_minus_one]
-                            + self.ON_DOWN[startDate_minus_two]
-                            + self.ON_FLAT[startDate_minus_three]
-                        )
-                        / 3
-                    )
-                )
-
-            # COMBINATION 6
-            if self.T_stop == 0 and self.T_start >= 1 and self.T_stable >= 1:
-                for time in initialCondTimeFame:
-                    if lastPower.GetValue(time) >= self.MinimumPower[time]:
-                        self.OFF[time] = 0
-                        self.START[time] = 0
-
-                    elif lastPower.GetValue(time) >= self.MinimumPower[time]:
-                        self.OFF[time] = 0
-                        self.START[time] = 1
-
-                    else:
-                        self.OFF[time] = 1
-                        self.START[time] = 0
-
-                    # Initial conditions on the auxiliary variables turned_on and turned_off.
-                    # Initialize all the values to 0
-                    self.turned_on[time] = 0
-                    self.turned_off[time] = 0
-
-                    if not time == extendedStartDate:
-                        # Reconstruct potential switches using the state variables
-
-                        # See if the unit has been turned off
-                        if self.OFF[time] - self.OFF[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_off[time] = 1
-
-                        # Or turned on
-                        elif self.START[time] - self.START[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_on[time] = 1
-
-                for time in stableInitialCondTimeFame:
-                    if self.OFF[time] == 0:
-                        # OFF = 0 and START = 1:
-                        if self.START[time] == 1:
-                            self.ON_UP[time] = 0
-                            self.ON_DOWN[time] = 0
-                            self.ON_FLAT[time] = 0
-
-                        # OFF = 0 and START = 0:
-                        else:
-                            # See if the power output was stable, increasing or decreasing:
-                            if self.PowerLevel[time] < self.PowerLevel[time.AddMinutes(p.time_step)]:
-                                self.ON_UP[time] = 1
-                                self.ON_DOWN[time] = 0
-                                self.ON_FLAT[time] = 0
-
-                            elif self.PowerLevel[time] > self.PowerLevel[time.AddMinutes(p.time_step)]:
-                                self.ON_UP[time] = 0
-                                self.ON_DOWN[time] = 1
-                                self.ON_FLAT[time] = 0
-
-                            elif self.PowerLevel[time] == self.PowerLevel[time.AddMinutes(p.time_step)]:
-                                self.ON_UP[time] = 0
-                                self.ON_DOWN[time] = 0
-                                self.ON_FLAT[time] = 1
-                    # OFF = 1
-                    else:
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-                        self.ON_FLAT[time] = 0
-
-                    # Initialize the auxiliary variables
-                    # Default value set to 0
-                    self.stable[time] = 0
-                    self.entered_up[time] = 0
-                    self.entered_down[time] = 0
-
-                    if (not self.OFF[time] == 1) and (not time == extendedStartDate):
-                        if self.ON_FLAT[time] - self.ON_FLAT[time.AddMinutes(-p.time_step)] == 1:
-                            self.stable[time] = 1
-
-                        if self.ON_UP[time] - self.ON_UP[time.AddMinutes(-p.time_step)] == 1:
-                            self.entered_up[time] = 1
-
-                        if self.ON_DOWN[time] - self.ON_DOWN[time.AddMinutes(-p.time_step)] == 1:
-                            self.entered_down[time] = 1
-
-                self.U[startDate_minus_one] = (
-                    self.ON_UP[startDate_minus_one]
-                    * self.ON_UP[startDate_minus_two]
-                    * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                )
-
-                self.D[startDate_minus_one] = (
-                    self.ON_DOWN[startDate_minus_one]
-                    * self.ON_DOWN[startDate_minus_two]
-                    * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                )
-
-            # COMBINATION 7
-            if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable == 0:
-                # In this case, there are five state variables and four auxiliary variables.
-
-                # Initial conditions on the state variables
-                # Only need to set one value, the mutual exclusion constraint being defined over the
-                # whole extended time frame.
-
-                # There are now three cases:either q_t >= q_min, 0 < q_t < q_min or q_t = 0
-                for time in initialCondTimeFame:
-                    if lastPower.GetValue(time) >= self.MinimumPower[time]:
-                        self.OFF[time] = 0
-                        self.STOP[time] = 0
-                        self.START[time] = 0
-                        self.ON_DOWN[time] = 1
-                        self.ON_UP[time] = (
-                            1  # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
-                        )
-                    # stable constraint at this point.
-                    elif (
-                        lastPower.GetValue(time) > 0
-                    ):  # We will below see whether the unit was being turned on or turned off.
-                        self.STOP[time] = 1
-                        self.START[time] = 1
-                        self.OFF[time] = 0
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-                    else:
-                        self.STOP[time] = 0
-                        self.START[time] = 0
-                        self.OFF[time] = 1
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-
-                    # Distinguish between start-ups and shutdowns
-                    # discard the extendedStartDate only.
-                    if not time == extendedStartDate:
-                        if self.START[time] == 1:  # Take start or stop, does not matter.
-                            # If the power output increases, then we are starting up.
-                            if self.PowerLevel[time] > self.PowerLevel[time.AddMinutes(-p.time_step)]:
-                                self.STOP[time] = 0
-                                self.START[time] = 1
-                            # Otherwise we are shutting down the unit.
-                            elif self.PowerLevel[time] < self.PowerLevel[time.AddMinutes(-p.time_step)]:
-                                self.STOP[time] = 1
-                                self.START[time] = 0
-
-                    # Initial conditions on the auxiliary variables
-                    # Initialize all the values to 0
-                    self.turned_on[time] = 0
-                    self.turned_off[time] = 0
-                    self.down_to_stop[time] = 0
-
-                    # Reconstruct potential switches using the state variables
-                    # See if the unit has been turned off
-                    if not time == extendedStartDate:
-                        if self.STOP[time] - self.STOP[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_off[time] = 1
-
-                        # Or turned on
-                        elif self.START[time] - self.START[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_on[time] = 1
-
-                        # Reconstruction of down_to_stop
-                        elif self.STOP[time] - self.ON_DOWN[time.AddMinutes(-p.time_step)] == 0:
-                            self.down_to_stop[time] = 1
-
-            # COMBINATION 8
-            if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable >= 1:
-                for time in initialCondTimeFame:
-                    if lastPower.GetValue(time) >= self.MinimumPower[time]:
-                        self.OFF[time] = 0
-                        self.START[time] = 0
-                        self.STOP[time] = 0
-
-                    elif lastPower.GetValue(time) >= self.MinimumPower[time]:
-                        self.OFF[time] = 0
-                        self.START[time] = 1
-                        self.STOP[time] = 1
-
-                    else:
-                        self.OFF[time] = 1
-                        self.START[time] = 0
-                        self.STOP[time] = 0
-
-                    # Distinguish between start-ups and shutdowns
-                    # discard the extendedStartDate only.
-
-                    # Take start or stop, does not matter.
-                    if (self.START[time] == 1) and (not time == extendedStartDate):
-                        # If the power output increases, then we are starting up.
-                        if self.PowerLevel[time] > self.PowerLevel[time.AddMinutes(-p.time_step)]:
-                            self.STOP[time] = 0
-                            self.START[time] = 1
-
-                        # otherwise we are shutting down the unit.
-                        elif self.PowerLevel[time] < self.PowerLevel[time.AddMinutes(-p.time_step)]:
-                            self.STOP[time] = 1
-                            self.START[time] = 0
-
-                    # Initial conditions on the auxiliary variables turned_on turned_off
-
-                    # Initialize all the values to 0
-                    self.turned_on[time] = 0
-                    self.turned_off[time] = 0
-
-                    if not time == extendedStartDate:
-                        # See if the unit has been turned off
-
-                        if self.STOP[time] - self.STOP[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_off[time] = 1
-
-                        # Or turned on
-                        elif self.START[time] - self.START[time.AddMinutes(-p.time_step)] == 1:
-                            self.turned_on[time] = 1
-
-                    # Reconstruct the values of UP, DOWN and FLAT and their associated
-                    # auxiliary variables
-
-                for time_enum, time in enumerate(stableInitialCondTimeFame):
-                    # if ((self.OFF[time] == 0) and (self.START[time] == 0) and (self.STOP[time] == 0)):
-                    if self.OFF[time] == 0:
-                        # OFF = 0 and START = 1 and STOP = 1:
-                        if (self.START[time] == 1) or (self.STOP[time] == 1):
-                            self.ON_UP[time] = 0
-                            self.ON_DOWN[time] = 0
-                            self.ON_FLAT[time] = 0
-
-                        # OFF = 0 and START = 0 and STOP = 0:
-                        else:
-                            # See if the power output was stable, increasing or decreasing:
-                            if self.PowerLevel[time] < self.PowerLevel[time.AddMinutes(p.time_step)]:
-                                self.ON_UP[time] = 1
-                                self.ON_DOWN[time] = 0
-                                self.ON_FLAT[time] = 0
-
-                            elif self.PowerLevel[time] > self.PowerLevel[time.AddMinutes(p.time_step)]:
-                                self.ON_UP[time] = 0
-                                self.ON_DOWN[time] = 1
-                                self.ON_FLAT[time] = 0
-
-                            elif self.PowerLevel[time] == self.PowerLevel[time.AddMinutes(p.time_step)]:
-                                self.ON_UP[time] = 0
-                                self.ON_DOWN[time] = 0
-                                self.ON_FLAT[time] = 1
-                    # OFF = 1
-                    else:
-                        self.ON_UP[time] = 0
-                        self.ON_DOWN[time] = 0
-                        self.ON_FLAT[time] = 0
-
-                    # Default value set to 0
-                    self.stable[time] = 0
-                    self.entered_up[time] = 0
-                    self.entered_down[time] = 0
-
-                    if (not time == extendedStartDate) and (not self.OFF[time] == 1):
-                        # See if the unit entered the FLAT state
-                        if self.ON_FLAT[time] - self.ON_FLAT[time.AddMinutes(-p.time_step)] == 1:
-                            self.stable[time] = 1
-                        # or the UP state
-                        if self.ON_UP[time] - self.ON_UP[time.AddMinutes(-p.time_step)] == 1:
-                            self.entered_up[time] = 1
-                        # or the DOWN state
-                        if self.ON_DOWN[time] - self.ON_DOWN[time.AddMinutes(-p.time_step)] == 1:
-                            self.entered_down[time] = 1
-
-                    # Initialize flat_down_stop.
-                    if time_enum >= 2:
-                        # Moreover, if we are after extendedStartDate + deltaTime
-                        # initialize flat_down_stop (which traces back up to two time index before)
-
-                        self.flat_down_stop[time] = int(
-                            math.floor(
-                                (
-                                    self.STOP[time]
-                                    + self.ON_DOWN[time.AddMinutes(-p.time_step)]
-                                    + self.ON_FLAT[time.AddMinutes(-2 * p.time_step)]
-                                )
-                                / 3
-                            )
-                        )
-
-                    # Initialize the gradient auxiliaries. This is only required for the last time step of the
-                    # previousTimeFrame. Only ON_UP[startDate_minus_one] and ON_DOWN[startDate_minus_one] are decision variables
-                    # in the expressions below
-
-                self.U[startDate_minus_one] = (
-                    self.ON_UP[startDate_minus_one]
-                    * self.ON_UP[startDate_minus_two]
-                    * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                )
-
-                self.D[startDate_minus_one] = (
-                    self.ON_DOWN[startDate_minus_one]
-                    * self.ON_DOWN[startDate_minus_two]
-                    * (self.PowerLevel[startDate_minus_one] - self.PowerLevel[startDate_minus_two])
-                )
-
-                self.flat_down_stop[startDate_minus_one] = int(
-                    math.floor(
-                        (
-                            self.STOP[startDate_minus_one]
-                            + self.ON_DOWN[startDate_minus_two]
-                            + self.ON_FLAT[startDate_minus_three]
-                        )
-                        / 3
-                    )
-                )
+                model.add_constraint(daily_energy_expr <= self.maximum_daily_energy.get_value(time))
+
+    def _add_complete_gradient_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Add complete 2-stage gradient constraint system (Equations 27-30 from legacy)."""
+        time_idx = parameters.thermal_op_times.index(time)
+        if time_idx == 0 or self._T_stable < 1:
+            return
+
+        prev_time = parameters.thermal_op_times[time_idx - 1]
+
+        # Get all gradient variables
+        U = model.get_variable(f"{self.name}_U_{time}")
+        tilde_U = model.get_variable(f"{self.name}_tilde_U_{time}")
+        D = model.get_variable(f"{self.name}_D_{time}")
+        tilde_D = model.get_variable(f"{self.name}_tilde_D_{time}")
+
+        power_level = model.get_variable(f"{self.name}_power_level_{time}")
+        prev_power_level = model.get_variable(f"{self.name}_power_level_{prev_time}")
+
+        # State variables
+        ON_UP = model.get_variable(f"{self.name}_ON_UP_{time}")
+        ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{time}")
+        prev_ON_UP = model.get_variable(f"{self.name}_ON_UP_{prev_time}")
+        prev_ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{prev_time}")
+
+        # Equation 27: U definition
+        model.add_constraint(U <= self._Delta_Q_unconstrained * prev_ON_UP)
+        model.add_constraint(U >= -self._Delta_Q_unconstrained * prev_ON_UP)
+        model.add_constraint(U <= power_level - prev_power_level + self._Delta_Q_unconstrained * (1 - prev_ON_UP))
+        model.add_constraint(U >= power_level - prev_power_level - self._Delta_Q_unconstrained * (1 - prev_ON_UP))
+
+        # Equation 28: D definition
+        model.add_constraint(D <= self._Delta_Q_unconstrained * prev_ON_DOWN)
+        model.add_constraint(D >= -self._Delta_Q_unconstrained * prev_ON_DOWN)
+        model.add_constraint(D <= power_level - prev_power_level + self._Delta_Q_unconstrained * (1 - prev_ON_DOWN))
+        model.add_constraint(D >= power_level - prev_power_level - self._Delta_Q_unconstrained * (1 - prev_ON_DOWN))
+
+        # Equation 29: tilde_U constraints
+        max_power = self.maximum_power.get_value(time)
+        model.add_constraint(tilde_U <= max_power * ON_UP)
+        model.add_constraint(tilde_U >= -max_power * ON_UP)
+        model.add_constraint(tilde_U <= U + max_power * (1 - ON_UP))
+        model.add_constraint(tilde_U >= U - max_power * (1 - ON_UP))
+
+        # Equation 30: tilde_D constraints
+        model.add_constraint(tilde_D <= max_power * ON_DOWN)
+        model.add_constraint(tilde_D >= -max_power * ON_DOWN)
+        model.add_constraint(tilde_D <= D + max_power * (1 - ON_DOWN))
+        model.add_constraint(tilde_D >= D - max_power * (1 - ON_DOWN))
+
+        # Gradient limitation with 2-stage variables
+        if self._Delta_Q > 0:
+            model.add_constraint(tilde_U <= self._Delta_Q)
+            model.add_constraint(tilde_D >= -self._Delta_Q)
+
+    def _add_flat_down_stop_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Add flat_down_stop auxiliary variable constraints (Equation 22 from legacy)."""
+        if self._combination not in [5, 8]:  # Only for combinations with STOP + FLAT
+            return
+
+        time_idx = parameters.thermal_op_times.index(time)
+        if time_idx < 2:
+            return
+
+        flat_down_stop = model.get_variable(f"{self.name}_flat_down_stop_{time}")
+        STOP = model.get_variable(f"{self.name}_STOP_{time}")
+
+        prev_time = parameters.thermal_op_times[time_idx - 1]
+        prev2_time = parameters.thermal_op_times[time_idx - 2]
+        prev_ON_DOWN = model.get_variable(f"{self.name}_ON_DOWN_{prev_time}")
+        prev2_ON_FLAT = model.get_variable(f"{self.name}_ON_FLAT_{prev2_time}")
+
+        # flat_down_stop = floor((STOP + ON_DOWN[t-1] + ON_FLAT[t-2]) / 3)
+        # Implemented as: 3 * flat_down_stop <= sum <= 3 * flat_down_stop + 2
+        model.add_constraint(3 * flat_down_stop <= STOP + prev_ON_DOWN + prev2_ON_FLAT)
+        model.add_constraint(3 * flat_down_stop >= STOP + prev_ON_DOWN + prev2_ON_FLAT - 2)
+
+        # Additional constraints for flat_down_stop usage
+        model.add_constraint(flat_down_stop <= STOP)
+        model.add_constraint(flat_down_stop <= prev_ON_DOWN)
+        model.add_constraint(flat_down_stop <= prev2_ON_FLAT)
+
+    def _add_shutdown_gradient_constraints(
+        self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    ):
+        """Add shutdown gradient constraints with q_step modifications."""
+        if self._combination not in [2, 5, 7, 8]:  # Only for combinations with STOP
+            return
+
+        time_idx = parameters.thermal_op_times.index(time)
+        if time_idx == 0:
+            return
+
+        STOP = model.get_variable(f"{self.name}_STOP_{time}")
+        power_level = model.get_variable(f"{self.name}_power_level_{time}")
+
+        # Shutdown gradient modification (q_step logic from legacy)
+        max_power = self.maximum_power.get_value(time)
+
+        # During shutdown, power must be between q_step bounds
+        q_step_lower = 0  # Simplified - in legacy this depends on shutdown progression
+        q_step_upper = max_power * 0.5  # Simplified shutdown limitation
+
+        model.add_constraint(power_level >= q_step_lower * STOP)
+        model.add_constraint(power_level <= q_step_upper * STOP + max_power * (1 - STOP))
+
+    def get_combination_info(self) -> dict[str, Any]:
+        """Get information about the constraint combination being used."""
+        return {
+            "combination": self._combination,
+            "T_on": self._T_on,
+            "T_off": self._T_off,
+            "T_start": self._T_start,
+            "T_stop": self._T_stop,
+            "T_stable": self._T_stable,
+            "Delta_Q": self._Delta_Q,
+            "has_start_state": self._T_start >= 1,
+            "has_stop_state": self._T_stop >= 1,
+            "has_stable_state": self._T_stable >= 1,
+            "automated_unsupplied_reserves": getattr(self, "_automated_unsupplied_reserves", 0),
+        }
