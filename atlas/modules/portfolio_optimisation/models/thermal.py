@@ -64,31 +64,33 @@ class ThermalPO(Thermal):
         timestep_minutes = parameters.timestep.total_minutes()
 
         # Convert time durations to time steps
-        if self.minimum_time_on and self.minimum_time_on > 0:
-            self._T_on = int(max(1, math.ceil(self.minimum_time_on * 60.0 / timestep_minutes))) + 1
+        if self.minimum_time_on and self.minimum_time_on.total_minutes() > 0:
+            self._T_on = int(max(1, math.ceil(self.minimum_time_on.total_minutes() / timestep_minutes))) + 1
         else:
             self._T_on = 0
 
-        if self.minimum_time_off and self.minimum_time_off > 0:
-            self._T_off = int(max(1, math.ceil(self.minimum_time_off * 60.0 / timestep_minutes))) + 1
+        if self.minimum_time_off and self.minimum_time_off.total_minutes() > 0:
+            self._T_off = int(max(1, math.ceil(self.minimum_time_off.total_minutes() / timestep_minutes))) + 1
         else:
             self._T_off = 0
 
         if self.startup_duration:
-            self._T_start = int(math.floor(self.startup_duration * 60.0 / timestep_minutes))
+            self._T_start = int(math.floor(self.startup_duration.total_minutes() / timestep_minutes))
         else:
             self._T_start = 0
 
         if self.shutdown_duration:
-            self._T_stop = int(math.floor(self.shutdown_duration * 60.0 / timestep_minutes))
+            self._T_stop = int(math.floor(self.shutdown_duration.total_minutes() / timestep_minutes))
         else:
             self._T_stop = 0
 
         if self.minimum_stable_power_duration:
-            if self.minimum_stable_power_duration * 60.0 < timestep_minutes:
+            if self.minimum_stable_power_duration.total_minutes() < timestep_minutes:
                 self._T_stable = 0
             else:
-                self._T_stable = int(math.ceil(self.minimum_stable_power_duration * 60.0 / timestep_minutes)) + 1
+                self._T_stable = (
+                    int(math.ceil(self.minimum_stable_power_duration.total_minutes() / timestep_minutes)) + 1
+                )
                 # Rescale T_stable so that it is either equal to 0 or >= 2
                 self._T_stable = self._T_stable if self._T_stable >= 2 else 0
         else:
@@ -728,11 +730,11 @@ class ThermalPO(Thermal):
         if (
             self.minimum_stable_power_duration is not None
             and self.minimum_time_on is not None
-            and self.minimum_stable_power_duration > self.minimum_time_on
+            and self.minimum_stable_power_duration.total_minutes() > self.minimum_time_on.total_minutes()
         ):
             raise ValueError(
-                f"minimum_stable_power_duration ({self.minimum_stable_power_duration}) of equipment "
-                f"{self.name} cannot be greater than minimum_time_on ({self.minimum_time_on})"
+                f"minimum_stable_power_duration ({self.minimum_stable_power_duration.total_hours()}h) of equipment "
+                f"{self.name} cannot be greater than minimum_time_on ({self.minimum_time_on.total_hours()}h)"
             )
         return self
 

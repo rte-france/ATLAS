@@ -6,13 +6,15 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enum import ThermalStrategy
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
+from atlas.validators import hours_validator
 
 
 class Thermal(Equipment):
@@ -20,12 +22,14 @@ class Thermal(Equipment):
     :param installed_capacity: Installed capacity
     :type installed_capacity: float
     :param minimum_stable_power_duration: Minimum stable power duration. Length of time that this unit must stay
-    at a stable production level in between ramping periods
-    :type minimum_stable_power_duration: float
-    :param minimum_time_off: Minimum time that the unit must remain off after shutting down prior to a new start-up
-    :type minimum_time_off: float
-    :param minimum_time_on: Minimum time that the unit must remain on after starting up
-    :type minimum_time_on: float
+    at a stable production level in between ramping periods. Provide as float (hours) or Duration object.
+    :type minimum_stable_power_duration: Duration | float
+    :param minimum_time_off: Minimum time that the unit must remain off after shutting down prior to a new start-up.
+    Provide as float (hours) or Duration object.
+    :type minimum_time_off: Duration | float
+    :param minimum_time_on: Minimum time that the unit must remain on after starting up.
+    Provide as float (hours) or Duration object.
+    :type minimum_time_on: Duration | float
     :param outage_mean_duration: Sum of volume of sell offers on the Day Ahead market
     :type outage_mean_duration: float
     :param outage_probability: Probability of outage
@@ -34,12 +38,14 @@ class Thermal(Equipment):
     :type scheduled_shutdown_mean_duration: float
     :param scheduled_shutdown_probability: Sum of volume of sell offers on the Day Ahead market
     :type scheduled_shutdown_probability: float
-    :param shutdown_duration: Time it takes for the unit to shut down
-    :type shutdown_duration: float
+    :param shutdown_duration: Time it takes for the unit to shut down.
+    Provide as float (hours) or Duration object.
+    :type shutdown_duration: Duration | float
     :param startup_delay_probability: Sum of volume of sell offers on the Day Ahead market
     :type startup_delay_probability: float
-    :param startup_duration: Time it takes for the unit to start up
-    :type startup_duration: float
+    :param startup_duration: Time it takes for the unit to start up.
+    Provide as float (hours) or Duration object.
+    :type startup_duration: Duration | float
     :param strategy: Sum of volume of sell offers on the Day Ahead market
     :type strategy: ThermalStrategy
     :param state_sequence: Sum of volume of sell offers on the Day Ahead market
@@ -59,18 +65,41 @@ class Thermal(Equipment):
         ge=0,
         description="Installed capacity (must be positive)",
     )
-    minimum_stable_power_duration: float | None = Field(None, ge=0)
-    minimum_time_off: float | None = Field(None, ge=0)
-    minimum_time_on: float | None = Field(None, ge=0)
+    minimum_stable_power_duration: Duration | None = Field(
+        None, description="Minimum stable power duration in hours (will be converted to Duration)"
+    )
+    minimum_time_off: Duration | None = Field(
+        None, description="Minimum time off in hours (will be converted to Duration)"
+    )
+    minimum_time_on: Duration | None = Field(
+        None, description="Minimum time on in hours (will be converted to Duration)"
+    )
     outage_mean_duration: float | None = Field(None, ge=0)
     outage_probability: float | None = Field(None, ge=0, le=1)
     scheduled_shutdown_mean_duration: float | None = Field(None, ge=0)
     scheduled_shutdown_probability: float | None = Field(None, ge=0, le=1)
-    shutdown_duration: float | None = Field(None, ge=0)
+    shutdown_duration: Duration | None = Field(
+        None, description="Shutdown duration in hours (will be converted to Duration)"
+    )
     startup_delay_probability: float | None = Field(None, ge=0, le=1)
-    startup_duration: float | None = Field(None, ge=0)
+    startup_duration: Duration | None = Field(
+        None, description="Startup duration in hours (will be converted to Duration)"
+    )
     strategy: ThermalStrategy | None = None
     state_sequence: ScenarioMatrix | LazyScenarioMatrix | None = None
     da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
     maximum_power: Timeseries | LazyTimeseries | None = None
     minimum_power: Timeseries | LazyTimeseries | None = None
+
+    @field_validator(
+        "minimum_stable_power_duration",
+        "minimum_time_off",
+        "minimum_time_on",
+        "shutdown_duration",
+        "startup_duration",
+        mode="before",
+    )
+    @classmethod
+    def convert_hours_to_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return hours_validator(v)

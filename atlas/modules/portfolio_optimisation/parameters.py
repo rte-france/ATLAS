@@ -13,6 +13,7 @@ from pydantic_extra_types.pendulum_dt import Duration
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import MarketType, SolverEnum, StorageType
 from atlas.timing import generate_datetimes
+from atlas.validators import hours_validator, minutes_validator
 
 
 class PortfolioOptimisationParameters(AbstractParameters):
@@ -163,9 +164,8 @@ class PortfolioOptimisationParameters(AbstractParameters):
     )
     @classmethod
     def convert_hours_to_duration(cls, v):
-        if isinstance(v, int):
-            return Duration(hours=v)
-        return v
+        """Convert various duration formats to Duration objects (hours default)."""
+        return hours_validator(v)
 
     @field_validator(
         "pumped_hydraulic_automated_reserve_duration",
@@ -175,9 +175,8 @@ class PortfolioOptimisationParameters(AbstractParameters):
     )
     @classmethod
     def convert_minutes_to_duration(cls, v):
-        if isinstance(v, int):
-            return Duration(minutes=v)
-        return v
+        """Convert various duration formats to Duration objects (minutes default)."""
+        return minutes_validator(v)
 
     @property
     def target_times(self) -> list[DateTime]:
