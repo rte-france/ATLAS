@@ -18,6 +18,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated, get_variable_cost
+from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -181,41 +182,15 @@ class ThermalPO(Thermal):
             if self._T_stop >= 1 and self._T_start >= 1 and self._T_stable == 0:
                 model.add_boolean_variable(name=f"{self.name}_down_to_stop_{time}")
 
-            # Complete reserve variables (from legacy)
-            model.add_continuous_variable(
-                name=f"{self.name}_reserves_up_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"{self.name}_reserves_down_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"{self.name}_unprovided_reserves_up_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"{self.name}_unprovided_reserves_down_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
-            )
-            model.add_continuous_variable(
-                name=f"{self.name}_relaxed_reserves_{time}",
-                lower_bound=0,
-                upper_bound=min_power,
-            )
-            model.add_continuous_variable(
-                name=f"{self.name}_automated_reserves_up_{time}",
-                lower_bound=0,
-                upper_bound=maximum_automated,
-            )
-            model.add_continuous_variable(
-                name=f"{self.name}_automated_reserves_down_{time}",
-                lower_bound=0,
-                upper_bound=maximum_automated,
+            add_reserve_variables(
+                model,
+                self.name,
+                time,
+                min_power,
+                max_power,
+                maximum_automated,
+                thermal_equipment=True,
+                relaxed_reserves=True,
             )
 
             # Gradient auxiliary variables for complex ramping
