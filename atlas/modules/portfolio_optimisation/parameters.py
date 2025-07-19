@@ -13,7 +13,7 @@ from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enum import StorageType
+from atlas.enum import SolverEnum, StorageType
 from atlas.timing import generate_datetimes
 
 
@@ -22,14 +22,6 @@ class MarketEnum(str, Enum):
     intraday = "Intraday"
     rr_activation = "RRActivation"
     mfrr_activation = "MFRRActivation"
-
-
-class SolverEnum(str, Enum):
-    xpress = "XPRESS"
-    pne = "PNE"
-    glop = "GLOP"
-    scip = "SCIP"
-    cpsat = "CP-SAT"
 
 
 class PortfolioOptimisationParameters(AbstractParameters):
@@ -135,7 +127,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
     )
     solver: SolverEnum = Field(
-        SolverEnum.xpress,
+        SolverEnum.XPRESS,
         description='Solver to use. Default: "XPRESS". Other options: "PNE", "GLOP", "SCIP", "CP-SAT".',
     )
 

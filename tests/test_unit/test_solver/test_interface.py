@@ -59,7 +59,7 @@ class TestOptimisationModel:
     def test_solver_creation_failure(self):
         """Test handling of solver creation failure."""
         with patch("ortools.linear_solver.pywraplp.Solver.CreateSolver", return_value=None):
-            with pytest.raises(RuntimeError, match="Failed to create solver"):
+            with pytest.raises(ValueError, match="'INVALID_SOLVER' is not a valid SolverEnum"):
                 OptimisationModel("INVALID_SOLVER")
 
     def test_add_continuous_variable(self, model, mock_solver):
