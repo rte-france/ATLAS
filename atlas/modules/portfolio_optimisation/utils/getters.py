@@ -1,24 +1,20 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from pendulum import DateTime
 
 from atlas.enum import MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.models.equipment.equipment import Equipment
-from atlas.modules.portfolio_optimisation.models import EquipmentPO
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
-from atlas.modules.portfolio_optimisation.models.load import LoadPO
-from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
-from atlas.modules.portfolio_optimisation.models.solar import SolarPO
-from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
-from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+
+if TYPE_CHECKING:
+    from atlas.modules.portfolio_optimisation.models import EquipmentPO
 
 
 def get_reserve(
-    obj: Equipment,
+    obj: EquipmentPO,
     sum_reserves_up: float,
     sum_reserves_down: float,
     sum_automated_reserves_up: float,
@@ -66,9 +62,12 @@ def get_reserve_value(
 def get_maximum_power(
     obj: EquipmentPO, time: DateTime, execution_date: datetime | DateTime | str | None = None
 ) -> float:
-    if isinstance(obj, HydroPO | StoragePO | ThermalPO):
+    # Use class name for runtime type checking to avoid circular imports
+    obj_type = type(obj).__name__
+
+    if obj_type in ("HydroPO", "StoragePO", "ThermalPO"):
         return obj.maximum_power.get_value(time)
-    elif isinstance(obj, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
+    elif obj_type in ("LoadPO", "WindPO", "SolarPO", "OtherNonDispatchablePO"):
         if execution_date:
             return obj.maximum_power_forecast.get_forecast(execution_date, time, time).get_value(time)
         else:
