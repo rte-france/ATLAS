@@ -1,6 +1,6 @@
 from pendulum import DateTime
 
-from atlas.enum import StorageType
+from atlas.enum import MarketType, StorageType
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
@@ -11,7 +11,7 @@ from atlas.modules.portfolio_optimisation.models.solar import SolarPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
-from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
 def is_excluded_technology(parameters: PortfolioOptimisationParameters, equipment: type[Equipment]) -> bool:
@@ -61,10 +61,10 @@ def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOpti
 
 def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimisationParameters) -> Timeseries:
     """Calculate new power based on market type."""
-    if parameters.market == MarketEnum.dayahead:
+    if parameters.market == MarketType.dayahead:
         return equipment.da_cleared_quantity.filter(parameters.target_times)
 
-    elif parameters.market == MarketEnum.intraday:
+    elif parameters.market == MarketType.intraday:
         da_power = equipment.da_cleared_quantity.filter(parameters.target_times)
         id_power = equipment.total_id_cleared_quantity.filter(parameters.target_times)
         return da_power + id_power
@@ -72,10 +72,10 @@ def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimi
 
 def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimisationParameters):
     """Calculate activated power for validation."""
-    if parameters.market == MarketEnum.dayahead:
+    if parameters.market == MarketType.dayahead:
         return equipment.da_cleared_quantity.filter(parameters.target_times)
 
-    elif parameters.market == MarketEnum.intraday:
+    elif parameters.market == MarketType.intraday:
         return equipment.id_cleared_quantity.get_forecast(
             parameters.execution_date, parameters.start_date, parameters.end_date
         ).filter(parameters.target_times)

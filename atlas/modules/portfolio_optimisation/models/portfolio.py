@@ -8,6 +8,7 @@ from typing import Any, cast
 
 from pendulum import DateTime, Duration
 
+from atlas.enum import MarketType
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
@@ -17,7 +18,7 @@ from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_reserve, get_upstream_energy
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.solver.solver_interface import OptimisationModel
@@ -443,23 +444,23 @@ class PortfolioPO(Portfolio):
 
         if time in parameters.target_times:
             if parameters.use_forecast:
-                if parameters.market == MarketEnum.dayahead:
+                if parameters.market == MarketType.dayahead:
                     return self.market_area.price_forecast_medium.get_forecast(
                         parameters.execution_date, time, time
                     ).get_value(time)
-                elif parameters.market == MarketEnum.intraday:
+                elif parameters.market == MarketType.intraday:
                     return self.market_area.id_price_forecast.get_forecast(
                         parameters.execution_date, time, time
                     ).get_value(time)
 
             else:
-                if parameters.market == MarketEnum.dayahead:
+                if parameters.market == MarketType.dayahead:
                     return self.market_area.da_price.get_value(time)
-                elif parameters.market == MarketEnum.intraday:
+                elif parameters.market == MarketType.intraday:
                     return self.market_area.id_price.get_forecast(parameters.execution_date, time, time).get_value(time)
-                elif parameters.market == MarketEnum.rr_activation:
+                elif parameters.market == MarketType.rr_activation:
                     return self.market_area.rr_activation_price.get_value(time)
-                elif parameters.market == MarketEnum.mfrr_activation:
+                elif parameters.market == MarketType.mfrr_activation:
                     return self.market_area.mfrr_activation_price.get_value(time)
         else:
             return self.market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time).get_value(

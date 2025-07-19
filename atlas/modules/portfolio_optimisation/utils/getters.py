@@ -3,6 +3,7 @@ from typing import cast
 
 from pendulum import DateTime
 
+from atlas.enum import MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
@@ -13,7 +14,7 @@ from atlas.modules.portfolio_optimisation.models.solar import SolarPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
-from atlas.modules.portfolio_optimisation.parameters import MarketEnum, PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
 def get_reserve(
@@ -92,9 +93,9 @@ def get_upstream_energy(
     parameters: PortfolioOptimisationParameters,
 ) -> float:
     """Get upstream energy (bought or sold) based on market type."""
-    if parameters.market == MarketEnum.rr_activation:
+    if parameters.market == MarketType.rr_activation:
         return obj.rr_activated.get_value(time)
-    elif parameters.market == MarketEnum.mfrr_activation:
+    elif parameters.market == MarketType.mfrr_activation:
         return obj.mfrr_activated.get_value(time)
     else:
         return obj.total_id_cleared_quantity.get_value(time) + obj.da_cleared_quantity.get_value(time)

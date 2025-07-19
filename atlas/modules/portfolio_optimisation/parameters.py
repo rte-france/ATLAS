@@ -6,22 +6,13 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from enum import Enum
-
 from pendulum import DateTime
 from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enum import SolverEnum, StorageType
+from atlas.enum import MarketType, SolverEnum, StorageType
 from atlas.timing import generate_datetimes
-
-
-class MarketEnum(str, Enum):
-    dayahead = "DayAhead"
-    intraday = "Intraday"
-    rr_activation = "RRActivation"
-    mfrr_activation = "MFRRActivation"
 
 
 class PortfolioOptimisationParameters(AbstractParameters):
@@ -122,8 +113,8 @@ class PortfolioOptimisationParameters(AbstractParameters):
         description='list of thermal strategies (separated by ";") for which manual activation is always used. "Peak", "Intermediate", "Base", "all", None.',
         alias="excluded_thermal_strategy",
     )
-    market: MarketEnum = Field(
-        MarketEnum.dayahead,
+    market: MarketType = Field(
+        MarketType.dayahead,
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
     )
     solver: SolverEnum = Field(
