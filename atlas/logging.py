@@ -52,21 +52,6 @@ class Logger(BaseSettings):
         super().__init__(**kwargs)
         self._configure_logger()
 
-    @property
-    def log_to_file(self) -> str:
-        """Backwards compatibility property for file logging flag."""
-        return "true" if self.to_file else "false"
-
-    @property
-    def log_dir(self) -> Path:
-        """Backwards compatibility property for log directory."""
-        return self.dir
-
-    @property
-    def format_str(self) -> str:
-        """Backwards compatibility property for log format."""
-        return self.format
-
     def _configure_logger(self) -> None:
         logger.remove()
 

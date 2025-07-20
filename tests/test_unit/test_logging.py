@@ -62,11 +62,11 @@ class TestLogger(unittest.TestCase):
 
         self.assertEqual(logger_instance.name, "test_logger")
         self.assertEqual(logger_instance.level, "DEBUG")
-        self.assertEqual(logger_instance.log_to_file, "true")
-        self.assertEqual(logger_instance.log_dir, self.test_log_dir)
+        self.assertEqual(logger_instance.to_file, True)
+        self.assertEqual(logger_instance.dir, self.test_log_dir)
         self.assertEqual(logger_instance.rotation, "5 MB")
         self.assertEqual(logger_instance.retention, "1 week")
-        self.assertEqual(logger_instance.format_str, "{time} {level} {message}")
+        self.assertEqual(logger_instance.format, "{time} {level} {message}")
 
     @patch("sys.stdout", new_callable=MagicMock)
     @patch("loguru.logger.add")
@@ -154,7 +154,7 @@ class TestLogger(unittest.TestCase):
 
         # Replace all handlers to redirect output to our StringIO
         loguru_logger.remove()
-        loguru_logger.add(string_io, format=logger_instance.format_str, level=logger_instance.level)
+        loguru_logger.add(string_io, format=logger_instance.format, level=logger_instance.level)
 
         # Log some test messages
         test_logger.debug("This is a debug message")
@@ -187,7 +187,7 @@ class TestLogger(unittest.TestCase):
 
         # Replace all handlers to redirect output to our StringIO
         loguru_logger.remove()
-        loguru_logger.add(string_io, format=logger_instance.format_str, level=logger_instance.level)
+        loguru_logger.add(string_io, format=logger_instance.format, level=logger_instance.level)
 
         # Log messages at different levels
         test_logger.debug("This is a debug message")
@@ -219,7 +219,7 @@ class TestLogger(unittest.TestCase):
 
         # Replace all handlers to redirect output to our StringIO
         loguru_logger.remove()
-        loguru_logger.add(string_io, format=logger_instance.format_str, level=logger_instance.level)
+        loguru_logger.add(string_io, format=logger_instance.format, level=logger_instance.level)
 
         # Log a test message
         test_logger.info("Test message")
@@ -245,7 +245,7 @@ class TestLogger(unittest.TestCase):
 
         # Replace all handlers to redirect output to our StringIO
         loguru_logger.remove()
-        loguru_logger.add(string_io, format=logger_instance.format_str, level=logger_instance.level)
+        loguru_logger.add(string_io, format=logger_instance.format, level=logger_instance.level)
 
         # Log a test message
         test_logger.info("Test message with bound value")
