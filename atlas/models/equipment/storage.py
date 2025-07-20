@@ -28,10 +28,10 @@ class Storage(Equipment):
     :param storage_initial_level: Percentage of MaximumEnergy used as a reference to determine the unit's initial
     stock level, if StoredEnergy has not yet been filled by a previous market
     :type storage_initial_level: float
-    :param storage_type: Sum of volume of sell offers on the Day Ahead market
+    :param storage_type: Storage type, e.g. battery, pumped hydro, etc.
     :type storage_type: StorageType
-    :param transition_duration: Sum of volume of sell offers on the Day Ahead market
-    :type transition_duration: float
+    :param transition_duration: Duration of the transition phase between two states (e.g. charging to discharging).
+    :type transition_duration: Duration
     :param stored_energy: Portfolio Optimization output containing anticipated storage levels after each clearing
     :type stored_energy: ForecastingMatrix
     :param da_buy_submitted_volume: Sum of volume of purchase offers submitted to the Day Ahead market
@@ -42,9 +42,9 @@ class Storage(Equipment):
     :type displacement_energy: Timeseries
     :param maximum_energy: Maximum energy that can be stored
     :type maximum_energy: Timeseries
-    :param maximum_power: Sum of volume of sell offers on the Day Ahead market
+    :param maximum_power: Maximum power of the unit or cluster
     :type maximum_power: Timeseries | LazyTimeseries
-    :param minimum_power: Sum of volume of sell offers on the Day Ahead market
+    :param minimum_power: Minimum power of the unit or cluster
     :type minimum_power: Timeseries
     :param minimum_state_of_charge: Coefficient applied to MaximumEnergy, to represent the minimum energy that can be
     stored
