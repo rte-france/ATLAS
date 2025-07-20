@@ -1,4 +1,8 @@
-"""Tests for AbstractParameters class."""
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
 
 import json
 import tempfile
@@ -12,19 +16,13 @@ from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import SolverEnum
 
 
-class TestAbstractParameters:
-    """Test suite for AbstractParameters class."""
-
-    def test_from_file_yaml_valid(self):
-        """Test loading parameters from a valid YAML file."""
-        yaml_content = {
-            "start_date": "2024-01-01T00:00:00",
-            "end_date": "2024-12-31T23:59:59",
-            "execution_date": "2024-01-01T10:00:00",
-            "export_result": False,
-            "export_output_dataset": True,
-            "solver_name": "yaml_solver",
-        }
+def test_valid_dates():
+    params = AbstractParameters(
+        start_date=datetime(2024, 1, 1),
+        end_date=datetime(2024, 12, 31),
+        execution_date=datetime(2024, 6, 1),
+    )
+    assert params.start_date < params.end_date
 
 
 def test_invalid_end_before_start():

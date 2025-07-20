@@ -39,7 +39,6 @@ class HydroPO(Hydro):
             max_energy = self.maximum_energy.get_value(time)
             maximum_automated = get_maximum_automated(self)
 
-            # Basic variables
             model.add_continuous_variable(
                 name=f"{self.name}_stored_energy_{time}",
                 lower_bound=0,
