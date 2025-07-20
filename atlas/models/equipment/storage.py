@@ -4,13 +4,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enum import StorageType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
+from atlas.validators import hours_validator
 
 
 class Storage(Equipment):
@@ -67,7 +69,7 @@ class Storage(Equipment):
         description="Initial storage level (positive or zero)",
     )
     storage_type: StorageType | None = None
-    transition_duration: float | None = Field(
+    transition_duration: Duration | None = Field(
         None,
         ge=0,
         description="Transition duration (must be positive)",
@@ -82,3 +84,12 @@ class Storage(Equipment):
     maximum_power: Timeseries | LazyTimeseries | None = None
     minimum_power: Timeseries | LazyTimeseries | None = None
     minimum_state_of_charge: Timeseries | LazyTimeseries | None = None
+
+    @field_validator(
+        "transition_duration",
+        mode="before",
+    )
+    @classmethod
+    def convert_hours_to_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return hours_validator(v)
