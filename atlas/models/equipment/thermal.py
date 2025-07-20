@@ -30,25 +30,25 @@ class Thermal(Equipment):
     :param minimum_time_on: Minimum time that the unit must remain on after starting up.
     Provide as float (hours) or Duration object.
     :type minimum_time_on: Duration | float
-    :param outage_mean_duration: Sum of volume of sell offers on the Day Ahead market
-    :type outage_mean_duration: float
+    :param outage_mean_duration: Mean duration of an outage, in hours.
+    :type outage_mean_duration: Duration | float
     :param outage_probability: Probability of outage
     :type outage_probability: float
-    :param scheduled_shutdown_mean_duration: Sum of volume of sell offers on the Day Ahead market
+    :param scheduled_shutdown_mean_duration: Mean duration of a scheduled shutdown, in hours.
     :type scheduled_shutdown_mean_duration: float
-    :param scheduled_shutdown_probability: Sum of volume of sell offers on the Day Ahead market
+    :param scheduled_shutdown_probability: Probability of a scheduled shutdown
     :type scheduled_shutdown_probability: float
     :param shutdown_duration: Time it takes for the unit to shut down.
     Provide as float (hours) or Duration object.
     :type shutdown_duration: Duration | float
-    :param startup_delay_probability: Sum of volume of sell offers on the Day Ahead market
+    :param startup_delay_probability: Probability of a startup delay, which is the time it takes
     :type startup_delay_probability: float
     :param startup_duration: Time it takes for the unit to start up.
     Provide as float (hours) or Duration object.
     :type startup_duration: Duration | float
-    :param strategy: Sum of volume of sell offers on the Day Ahead market
+    :param strategy: Thermal strategy to be used for this unit. Possible values are "thermal", "thermal_with_startup_delay", "thermal_with_shutdown".
     :type strategy: ThermalStrategy
-    :param state_sequence: Sum of volume of sell offers on the Day Ahead market
+    :param state_sequence: Sequence of states for the thermal unit.
     :type state_sequence: ScenarioMatrix | LazyScenarioMatrix
     :param da_sell_submitted_volume: Sum of volume of sell offers on the Day Ahead market
     :type da_sell_submitted_volume: Timeseries
