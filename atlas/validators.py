@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pendulum
 from pendulum import duration
 from pendulum.duration import Duration as PendulumDuration
 from pydantic_extra_types.pendulum_dt import Duration
@@ -17,7 +18,7 @@ def convert_to_duration(
     value: Any,
     default_unit: str = "hours",
     allow_zero: bool = True,
-) -> Duration | None:
+) -> pendulum.Duration | Duration | None:
     """
     Simple conversion of numeric values and Duration objects to Duration.
 
@@ -92,7 +93,7 @@ def duration_validator(
             return duration_validator(default_unit="minutes")(v)
     """
 
-    def validator(value: Any) -> Duration | None:
+    def validator(value: Any) -> pendulum.Duration | Duration | None:
         return convert_to_duration(
             value,
             default_unit=default_unit,
