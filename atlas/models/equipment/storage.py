@@ -4,13 +4,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enum import StorageType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
+from atlas.validators import hours_validator
 
 
 class Storage(Equipment):
@@ -26,10 +28,10 @@ class Storage(Equipment):
     :param storage_initial_level: Percentage of MaximumEnergy used as a reference to determine the unit's initial
     stock level, if StoredEnergy has not yet been filled by a previous market
     :type storage_initial_level: float
-    :param storage_type: Sum of volume of sell offers on the Day Ahead market
+    :param storage_type: Storage type, e.g. battery, pumped hydro, etc.
     :type storage_type: StorageType
-    :param transition_duration: Sum of volume of sell offers on the Day Ahead market
-    :type transition_duration: float
+    :param transition_duration: Duration of the transition phase between two states (e.g. charging to discharging).
+    :type transition_duration: Duration
     :param stored_energy: Portfolio Optimization output containing anticipated storage levels after each clearing
     :type stored_energy: ForecastingMatrix
     :param da_buy_submitted_volume: Sum of volume of purchase offers submitted to the Day Ahead market
@@ -40,9 +42,9 @@ class Storage(Equipment):
     :type displacement_energy: Timeseries
     :param maximum_energy: Maximum energy that can be stored
     :type maximum_energy: Timeseries
-    :param maximum_power: Sum of volume of sell offers on the Day Ahead market
+    :param maximum_power: Maximum power of the unit or cluster
     :type maximum_power: Timeseries | LazyTimeseries
-    :param minimum_power: Sum of volume of sell offers on the Day Ahead market
+    :param minimum_power: Minimum power of the unit or cluster
     :type minimum_power: Timeseries
     :param minimum_state_of_charge: Coefficient applied to MaximumEnergy, to represent the minimum energy that can be
     stored
@@ -67,7 +69,7 @@ class Storage(Equipment):
         description="Initial storage level (positive or zero)",
     )
     storage_type: StorageType | None = None
-    transition_duration: float | None = Field(
+    transition_duration: Duration | None = Field(
         None,
         ge=0,
         description="Transition duration (must be positive)",
@@ -82,3 +84,12 @@ class Storage(Equipment):
     maximum_power: Timeseries | LazyTimeseries | None = None
     minimum_power: Timeseries | LazyTimeseries | None = None
     minimum_state_of_charge: Timeseries | LazyTimeseries | None = None
+
+    @field_validator(
+        "transition_duration",
+        mode="before",
+    )
+    @classmethod
+    def convert_hours_to_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return hours_validator(v)
