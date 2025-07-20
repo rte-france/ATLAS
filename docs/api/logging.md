@@ -2,8 +2,6 @@
 
 This logger utility provides a project-wide logging solution using [Loguru](https://github.com/Delgan/loguru), with configuration driven by environment variables and an optional `.env` file.
 
-::: atlas.logging.Logger
-
 ## Features
 
 - Log level and output customizable via environment variables
@@ -45,3 +43,5 @@ LOG_RETENTION=7 days
 LOG_NAME=atlas
 LOG_FORMAT=
 ```
+
+::: atlas.logging.Logger
