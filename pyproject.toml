@@ -92,4 +92,4 @@ module = "atlas.solver.solver_interface"
 ignore_errors = true
 
 [tool.coverage.run]
-omit = ['atlas/io/prometheus_transformer.py']
+omit = ['atlas/io_utils/prometheus_transformer.py']
