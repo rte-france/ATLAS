@@ -151,35 +151,35 @@ class InputLoader:
             objects_type_sorted = sorted(objects, key=lambda x: cfg.MODEL_ORDER_INSTANTIATION.index(x))
 
             for object_type in objects_type_sorted:
-                # try:
-                objects_instantiated_with_math_objects[object_type] = cls._build_math_objects(
-                    objects[object_type],
-                    object_type,
-                    base_path=directory_path,
-                    timeseries_file_extension=timeseries_file_extension,
-                    matrix_file_extension=matrix_file_extension,
-                    lazy=lazy,
-                    timezone=timezone,
-                    date_format_forecasting_matrix=date_format_forecasting_matrix,
-                    date_format_input_files=date_format_input_files,
-                    use_parallel=use_parallel,
-                )
+                try:
+                    objects_instantiated_with_math_objects[object_type] = cls._build_math_objects(
+                        objects[object_type],
+                        object_type,
+                        base_path=directory_path,
+                        timeseries_file_extension=timeseries_file_extension,
+                        matrix_file_extension=matrix_file_extension,
+                        lazy=lazy,
+                        timezone=timezone,
+                        date_format_forecasting_matrix=date_format_forecasting_matrix,
+                        date_format_input_files=date_format_input_files,
+                        use_parallel=use_parallel,
+                    )
 
-                objects_instantiated[object_type] = cls._build_business_models(
-                    objects_instantiated_with_math_objects[object_type],
-                    object_type,
-                    objects_instantiated,
-                )
+                    objects_instantiated[object_type] = cls._build_business_models(
+                        objects_instantiated_with_math_objects[object_type],
+                        object_type,
+                        objects_instantiated,
+                    )
 
-                cfg.logger.success(
-                    f"Successfully instantiated {len(objects_instantiated[object_type])} "
-                    f"objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
-                )
+                    cfg.logger.success(
+                        f"Successfully instantiated {len(objects_instantiated[object_type])} "
+                        f"objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
+                    )
 
-                # except Exception as e:
-                #     raise ObjectInstantiationError(
-                #         f"Failed to instantiate objects of type '{object_type}': {str(e)}"
-                #     ) from e
+                except Exception as e:
+                    raise ObjectInstantiationError(
+                        f"Failed to instantiate objects of type '{object_type}': {str(e)}"
+                    ) from e
 
             cfg.logger.success("Atlas data loaded successfully.")
             return objects_instantiated
