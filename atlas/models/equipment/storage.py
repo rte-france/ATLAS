@@ -71,7 +71,6 @@ class Storage(Equipment):
     storage_type: StorageType | None = None
     transition_duration: Duration | None = Field(
         None,
-        ge=0,
         description="Transition duration (must be positive)",
     )
 
