@@ -11,7 +11,21 @@ from typing import Any
 import pendulum
 from pendulum import duration
 from pendulum.duration import Duration as PendulumDuration
+from pydantic import ValidationError
 from pydantic_extra_types.pendulum_dt import Duration
+
+
+def parse_list_float(value: Any) -> list[float] | None:
+    """Parse list attributes with proper error handling."""
+    if value is None:
+        return None
+
+    try:
+        return list(map(float, value.split(":")))
+    except Exception as e:
+        raise ValidationError(
+            f"Failed to parse list attribute '{value}': {e}",
+        ) from e
 
 
 def convert_to_duration(

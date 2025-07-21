@@ -4,13 +4,14 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from atlas.enum import InflowFrequency
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
+from atlas.validators import parse_list_float
 
 
 class Hydro(Equipment):
@@ -66,3 +67,8 @@ class Hydro(Equipment):
     minimum_energy: Timeseries | LazyTimeseries | None = None
     maximum_power: Timeseries | LazyTimeseries | None = None
     minimum_power: Timeseries | LazyTimeseries | None = None
+
+    @field_validator("fragment_prices", "fragment_volumes", mode="before")
+    @classmethod
+    def validate_fragment_prices_and_volumes(cls, value: list[float] | None):
+        return parse_list_float(value)

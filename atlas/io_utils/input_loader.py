@@ -6,12 +6,10 @@ This file is part of the ATLAS project.
 Module that implements Input Loader
 """
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast, get_args, get_origin
 
 import pendulum
-from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
 from atlas.custom_errors import (
@@ -318,12 +316,6 @@ class InputLoader:
                                 timezone=timezone,
                                 date_format_forecasting=date_format_forecasting_matrix,
                             )
-                        elif attribute_type in (DateTime, datetime) and value is not None:
-                            object_instantiated[key] = cls._parse_datetime(value, date_format_input_files)
-                        elif get_origin(attribute_type) is list and value is not None:
-                            object_instantiated[key] = cls._parse_list_attribute(
-                                value, attribute_type, object_name, key
-                            )
                         else:
                             object_instantiated[key] = value
 
@@ -341,34 +333,6 @@ class InputLoader:
                 raise FileParsingError(f"Error processing object {i} of type '{object_type}': {str(e)}") from e
 
         return objects_instantiated
-
-    @classmethod
-    def _parse_datetime(cls, value: Any, date_format: str) -> str:
-        """Parse datetime values with proper error handling."""
-        try:
-            if isinstance(value, (datetime | DateTime)):
-                return pendulum.instance(value).to_datetime_string()
-            else:
-                return pendulum.from_format(value, date_format).to_datetime_string()
-        except Exception as e:
-            raise DataValidationError(f"Invalid datetime value '{value}' with format '{date_format}': {str(e)}") from e
-
-    @classmethod
-    def _parse_list_attribute(
-        cls, value: str, attribute_type: type[BusinessModel] | float | str | int | None, object_name: str, key: str
-    ) -> list:
-        """Parse list attributes with proper error handling."""
-        try:
-            inside_type = get_args(attribute_type)[0]
-            if inside_type in (float, int):
-                return list(map(inside_type, value.split(":")))
-            else:
-                return list(map(str, value.split(":")))
-        except Exception as e:
-            raise DataValidationError(
-                f"Error parsing list attribute '{key}' for object '{object_name}': "
-                f"Expected format 'item1:item2:item3', got '{value}'. Error: {str(e)}"
-            ) from e
 
     @classmethod
     def _build_business_models(
@@ -431,7 +395,7 @@ class InputLoader:
                         f"Error resolving attribute '{attribute}' for object '{object_name}': {str(e)}"
                     ) from e
 
-            return cast(type[BusinessModel], cfg.MODEL_MAPPING_NAME[object_type](**object_dict))
+            return cast(type[BusinessModel], cfg.MODEL_MAPPING_NAME[object_type].model_validate(object_dict))
 
         except Exception as e:
             if isinstance(e, ObjectInstantiationError):
