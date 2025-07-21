@@ -219,6 +219,8 @@ def test_instantiate_model_object_with_cross_reference(monkeypatch):
 
 
 def test_load_matrix(tmp_path):
+    # Create required directory structure
+    (tmp_path / "objects").mkdir()
     matrix_path = tmp_path / "scenario_matrix" / "hydro"
     matrix_path.mkdir(parents=True)
     pl.DataFrame(
@@ -230,17 +232,22 @@ def test_load_matrix(tmp_path):
         }
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
+    from atlas.io_utils.models import InputLoaderConfig
+
+    config = InputLoaderConfig(directory_path=tmp_path)
     result = InputLoader._load_matrix(
-        tmp_path,
         object_type="hydro",
         name="fr_hydro",
         attribute_name="attribute",
         matrix_type="scenario_matrix",
+        config=config,
     )
     assert isinstance(result, ScenarioMatrix)
 
 
 def test_load_forecasting_matrix(tmp_path):
+    # Create required directory structure
+    (tmp_path / "objects").mkdir()
     matrix_path = tmp_path / "forecasting_matrix" / "hydro"
     matrix_path.mkdir(parents=True)
     pl.DataFrame(
@@ -252,17 +259,22 @@ def test_load_forecasting_matrix(tmp_path):
         }
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
+    from atlas.io_utils.models import InputLoaderConfig
+
+    config = InputLoaderConfig(directory_path=tmp_path)
     result = InputLoader._load_matrix(
-        tmp_path,
         object_type="hydro",
         name="fr_hydro",
         attribute_name="attribute",
         matrix_type="forecasting_matrix",
+        config=config,
     )
     assert isinstance(result, ForecastingMatrix)
 
 
 def test_load_lazy_matrix(tmp_path):
+    # Create required directory structure
+    (tmp_path / "objects").mkdir()
     matrix_path = tmp_path / "scenario_matrix" / "hydro"
     matrix_path.mkdir(parents=True)
     pl.DataFrame(
@@ -274,18 +286,22 @@ def test_load_lazy_matrix(tmp_path):
         }
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
+    from atlas.io_utils.models import InputLoaderConfig
+
+    config = InputLoaderConfig(directory_path=tmp_path, lazy=True)
     result = InputLoader._load_matrix(
-        tmp_path,
         object_type="hydro",
         name="fr_hydro",
         attribute_name="attribute",
         matrix_type="scenario_matrix",
-        lazy=True,
+        config=config,
     )
     assert isinstance(result, LazyScenarioMatrix)
 
 
 def test_load_lazy_forecasting_matrix(tmp_path):
+    # Create required directory structure
+    (tmp_path / "objects").mkdir()
     matrix_path = tmp_path / "forecasting_matrix" / "hydro"
     matrix_path.mkdir(parents=True)
     pl.DataFrame(
@@ -297,18 +313,22 @@ def test_load_lazy_forecasting_matrix(tmp_path):
         }
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
+    from atlas.io_utils.models import InputLoaderConfig
+
+    config = InputLoaderConfig(directory_path=tmp_path, lazy=True)
     result = InputLoader._load_matrix(
-        tmp_path,
         object_type="hydro",
         name="fr_hydro",
         attribute_name="attribute",
         matrix_type="forecasting_matrix",
-        lazy=True,
+        config=config,
     )
     assert isinstance(result, LazyForecastingMatrix)
 
 
 def test_load_timeseries(tmp_path):
+    # Create required directory structure
+    (tmp_path / "objects").mkdir()
     ts_path = tmp_path / "timeseries" / "hydro"
     ts_path.mkdir(parents=True)
     pl.DataFrame(
@@ -319,20 +339,30 @@ def test_load_timeseries(tmp_path):
         }
     ).write_parquet(ts_path / "fr_hydro.parquet")
 
-    result = InputLoader._load_timeseries(tmp_path, object_type="hydro", name="fr_hydro", attribute_name="attribute")
+    from atlas.io_utils.models import InputLoaderConfig
+
+    config = InputLoaderConfig(directory_path=tmp_path)
+    result = InputLoader._load_timeseries(
+        object_type="hydro", name="fr_hydro", attribute_name="attribute", config=config
+    )
     assert isinstance(result, Timeseries)
     assert result.frequency == pendulum.duration(hours=1)
 
 
 def test_load_lazy_timeseries(tmp_path):
+    # Create required directory structure
+    (tmp_path / "objects").mkdir()
     ts_path = tmp_path / "timeseries" / "hydro"
     ts_path.mkdir(parents=True)
     pl.DataFrame({"date": [datetime(2024, 1, 1, 0, 0, 0)], "value": [1.0], "attribute": ["attribute"]}).write_parquet(
         ts_path / "fr_hydro.parquet"
     )
 
+    from atlas.io_utils.models import InputLoaderConfig
+
+    config = InputLoaderConfig(directory_path=tmp_path, lazy=True)
     result = InputLoader._load_timeseries(
-        tmp_path, object_type="hydro", name="fr_hydro", attribute_name="attribute", lazy=True
+        object_type="hydro", name="fr_hydro", attribute_name="attribute", config=config
     )
     assert isinstance(result, LazyTimeseries)
 

@@ -10,8 +10,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Literal, cast, get_args, get_origin
 
-import pendulum
-
 import atlas.config as cfg
 from atlas.custom_errors import (
     DataValidationError,
@@ -20,6 +18,7 @@ from atlas.custom_errors import (
     InputLoaderError,
     ObjectInstantiationError,
 )
+from atlas.io_utils.models import InputLoaderConfig
 from atlas.io_utils.utils import read_data_file
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyMatrix
@@ -81,7 +80,6 @@ class InputLoader:
         timezone: str = "UTC",
         date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss",
         date_format_input_files: str = "YYYY-MM-DD HH:mm:ss",
-        use_parallel: bool = True,
     ) -> dict[str, list[type[BusinessModel]]]:
         """
         Load input data from a directory and return instantiated BusinessModel objects.
@@ -106,8 +104,7 @@ class InputLoader:
         :type date_format_forecasting_matrix: str
         :param date_format_input_files: Date format used in object CSV data.
         :type date_format_input_files: str
-        :param use_parallel: Whether to use parallel processing for better performance (default: True).
-        :type use_parallel: bool
+
         :return: A dictionary mapping object type names to lists of instantiated BusinessModel objects.
         :rtype: dict[str, list[type[BusinessModel]]]
 
@@ -118,24 +115,20 @@ class InputLoader:
         """
         try:
             cfg.logger.debug(f"Loading input from directory: {directory_path}")
-            cfg.logger.debug(f"Parameters -> directory_path: {directory_path}, lazy mode: {lazy}")
 
-            cls._validate_input_parameters(
-                directory_path,
-                separator,
-                timeseries_file_extension,
-                matrix_file_extension,
-                timezone,
-                date_format_forecasting_matrix,
-                date_format_input_files,
+            config = InputLoaderConfig(
+                directory_path=Path(directory_path),
+                separator=separator,
+                timeseries_file_extension=timeseries_file_extension,
+                matrix_file_extension=matrix_file_extension,
+                lazy=lazy,
+                timezone=timezone,
+                date_format_forecasting_matrix=date_format_forecasting_matrix,
+                date_format_input_files=date_format_input_files,
             )
 
-            # Validate and parse directory structure
-            directory_path = Path(directory_path)
-            cls._validate_directory_structure(directory_path)
-
-            objects_dir = directory_path / "objects"
-            objects = cls._parse_objects_files(objects_dir, separator=separator)
+            objects_dir = config.directory_path / "objects"
+            objects = cls._parse_objects_files(objects_dir, separator=config.separator)
 
             if not objects:
                 raise DataValidationError(
@@ -146,8 +139,6 @@ class InputLoader:
             objects_instantiated_with_math_objects = {}
             objects_instantiated: dict[str, list[type[BusinessModel]]] = {}
 
-            cls._validate_object_types(objects)
-
             objects_type_sorted = sorted(objects, key=lambda x: cfg.MODEL_ORDER_INSTANTIATION.index(x))
 
             for object_type in objects_type_sorted:
@@ -155,14 +146,7 @@ class InputLoader:
                     objects_instantiated_with_math_objects[object_type] = cls._build_math_objects(
                         objects[object_type],
                         object_type,
-                        base_path=directory_path,
-                        timeseries_file_extension=timeseries_file_extension,
-                        matrix_file_extension=matrix_file_extension,
-                        lazy=lazy,
-                        timezone=timezone,
-                        date_format_forecasting_matrix=date_format_forecasting_matrix,
-                        date_format_input_files=date_format_input_files,
-                        use_parallel=use_parallel,
+                        config,
                     )
 
                     objects_instantiated[object_type] = cls._build_business_models(
@@ -190,140 +174,16 @@ class InputLoader:
             raise InputLoaderError(f"Unexpected error during data loading: {str(e)}") from e
 
     @classmethod
-    def _validate_input_parameters(
-        cls,
-        directory_path: str | Path,
-        separator: str,
-        timeseries_file_extension: str,
-        matrix_file_extension: str,
-        timezone: str,
-        date_format_forecasting_matrix: str,
-        date_format_input_files: str,
-    ) -> None:
-        """Validate input parameters."""
-        if not directory_path:
-            raise ValueError("directory_path cannot be empty")
-
-        if not separator:
-            raise ValueError("separator cannot be empty")
-
-        for ext_name, ext_value in [
-            ("timeseries_file_extension", timeseries_file_extension),
-            ("matrix_file_extension", matrix_file_extension),
-        ]:
-            if not ext_value or not ext_value.startswith("."):
-                raise ValueError(f"{ext_name} must start with '.' (e.g., '.parquet')")
-
-        # Validate timezone
-        try:
-            pendulum.timezone(timezone)
-        except Exception as e:
-            raise ValueError(f"Invalid timezone '{timezone}': {str(e)}") from e
-
-        # Validate date formats
-        for format_name, format_value in [
-            ("date_format_forecasting_matrix", date_format_forecasting_matrix),
-            ("date_format_input_files", date_format_input_files),
-        ]:
-            try:
-                # Test the format with a sample date
-                pendulum.now().format(format_value)
-            except Exception as e:
-                raise ValueError(f"Invalid {format_name} '{format_value}': {str(e)}") from e
-
-    @classmethod
-    def _validate_directory_structure(cls, directory_path: Path) -> None:
-        """Validate the directory structure."""
-        if not directory_path.exists():
-            raise DirectoryStructureError(f"Directory does not exist: {directory_path}")
-
-        if not directory_path.is_dir():
-            raise DirectoryStructureError(f"Path is not a directory: {directory_path}")
-
-        objects_dir = directory_path / "objects"
-        if not objects_dir.exists():
-            raise DirectoryStructureError(
-                f"Required 'objects' subdirectory not found in: {directory_path}. "
-                f"Expected structure: {directory_path}/objects/"
-            )
-
-        if not objects_dir.is_dir():
-            raise DirectoryStructureError(f"'objects' path is not a directory: {objects_dir}")
-
-    @classmethod
-    def _validate_object_types(cls, objects: dict[str, list[dict[str, Any]]]) -> None:
-        """Validate that all object types are recognized."""
-        invalid_elements = [x for x in objects if x not in cfg.MODEL_MAPPING_NAME]
-        if invalid_elements:
-            available_types = list(cfg.MODEL_MAPPING_NAME.keys())
-            raise DataValidationError(
-                f"Object type(s) {invalid_elements} are not recognized. "
-                f"Available types are: {available_types}. "
-                f"Please ensure your CSV files in the 'objects' directory are named correctly."
-            )
-
-    @classmethod
     def _build_math_objects(
         cls,
         object_list: list[dict[str, Any]],
         object_type: str,
-        base_path: Path,
-        timeseries_file_extension: str = ".parquet",
-        matrix_file_extension: str = ".parquet",
-        lazy: bool = False,
-        timezone: str = "UTC",
-        date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss",
-        date_format_input_files: str = "YYYY-MM-DD HH:mm:ss",
-        use_parallel: bool = True,
-    ) -> list[dict[str, Any]]:
-        """
-        Instantiate intermediate math objects (timeseries or matrices) from input attributes.
-        Uses parallel processing when use_parallel=True for better performance.
-        """
-        if use_parallel and len(object_list) > 1:
-            cfg.logger.debug(f"Using parallel processing for {len(object_list)} objects of type '{object_type}'")
-            return cls._build_math_objects_parallel(
-                object_list=object_list,
-                object_type=object_type,
-                base_path=base_path,
-                timeseries_file_extension=timeseries_file_extension,
-                matrix_file_extension=matrix_file_extension,
-                lazy=lazy,
-                timezone=timezone,
-                date_format_forecasting_matrix=date_format_forecasting_matrix,
-                date_format_input_files=date_format_input_files,
-            )
-        else:
-            # Sequential processing (original implementation)
-            return cls._build_math_objects_sequential(
-                object_list=object_list,
-                object_type=object_type,
-                base_path=base_path,
-                timeseries_file_extension=timeseries_file_extension,
-                matrix_file_extension=matrix_file_extension,
-                lazy=lazy,
-                timezone=timezone,
-                date_format_forecasting_matrix=date_format_forecasting_matrix,
-                date_format_input_files=date_format_input_files,
-            )
-
-    @classmethod
-    def _build_math_objects_parallel(
-        cls,
-        object_list: list[dict[str, Any]],
-        object_type: str,
-        base_path: Path,
-        timeseries_file_extension: str = ".parquet",
-        matrix_file_extension: str = ".parquet",
-        lazy: bool = False,
-        timezone: str = "UTC",
-        date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss",
-        date_format_input_files: str = "YYYY-MM-DD HH:mm:ss",
+        config: InputLoaderConfig,
     ) -> list[dict[str, Any]]:
         """
         Parallel version of _build_math_objects for better performance with I/O operations.
         """
-        results = [None] * len(object_list)
+        results: list[dict[str, Any]] = [{}] * len(object_list)
         max_workers = min(4, len(object_list))  # Limit concurrent workers
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -334,13 +194,7 @@ class InputLoader:
                     cls._process_single_object_math,
                     obj,
                     object_type,
-                    base_path,
-                    timeseries_file_extension,
-                    matrix_file_extension,
-                    lazy,
-                    timezone,
-                    date_format_forecasting_matrix,
-                    date_format_input_files,
+                    config,
                     i,  # Pass index for error reporting
                 )
                 futures[future] = i
@@ -364,13 +218,7 @@ class InputLoader:
         cls,
         obj: dict[str, Any],
         object_type: str,
-        base_path: Path,
-        timeseries_file_extension: str,
-        matrix_file_extension: str,
-        lazy: bool,
-        timezone: str,
-        date_format_forecasting_matrix: str,
-        date_format_input_files: str,
+        config: InputLoaderConfig,
         obj_index: int,
     ) -> dict[str, Any]:
         """
@@ -388,13 +236,10 @@ class InputLoader:
 
                     if value == "timeseries" and attribute_type in (Timeseries, LazyTimeseries):
                         object_instantiated[key] = cls._load_timeseries(
-                            base_path=base_path,
                             object_type=object_type,
                             name=object_name,
                             attribute_name=key,
-                            file_extension=timeseries_file_extension,
-                            lazy=lazy,
-                            timezone=timezone,
+                            config=config,
                         )
 
                     elif value in ["forecasting_matrix", "scenario_matrix"] and attribute_type in (
@@ -404,15 +249,11 @@ class InputLoader:
                         LazyScenarioMatrix,
                     ):
                         object_instantiated[key] = cls._load_matrix(
-                            base_path=base_path,
                             name=object_name,
                             attribute_name=key,
                             object_type=object_type,
                             matrix_type=value,
-                            file_extension=matrix_file_extension,
-                            lazy=lazy,
-                            timezone=timezone,
-                            date_format_forecasting=date_format_forecasting_matrix,
+                            config=config,
                         )
                     else:
                         object_instantiated[key] = value
@@ -429,41 +270,6 @@ class InputLoader:
             if isinstance(e, FileParsingError):
                 raise
             raise FileParsingError(f"Error processing object {obj_index} of type '{object_type}': {str(e)}") from e
-
-    @classmethod
-    def _build_math_objects_sequential(
-        cls,
-        object_list: list[dict[str, Any]],
-        object_type: str,
-        base_path: Path,
-        timeseries_file_extension: str = ".parquet",
-        matrix_file_extension: str = ".parquet",
-        lazy: bool = False,
-        timezone: str = "UTC",
-        date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss",
-        date_format_input_files: str = "YYYY-MM-DD HH:mm:ss",
-    ) -> list[dict[str, Any]]:
-        """
-        Sequential version of _build_math_objects (original implementation).
-        """
-        objects_instantiated = []
-
-        for i, obj in enumerate(object_list):
-            result = cls._process_single_object_math(
-                obj,
-                object_type,
-                base_path,
-                timeseries_file_extension,
-                matrix_file_extension,
-                lazy,
-                timezone,
-                date_format_forecasting_matrix,
-                date_format_input_files,
-                i,
-            )
-            objects_instantiated.append(result)
-
-        return objects_instantiated
 
     @classmethod
     def _build_business_models(
@@ -720,23 +526,20 @@ class InputLoader:
 
     @staticmethod
     def _load_timeseries(
-        base_path: Path,
         object_type: str,
         name: str,
         attribute_name: str,
-        file_extension: str = ".parquet",
-        lazy: bool = False,
-        timezone: str = "UTC",
+        config: InputLoaderConfig,
     ) -> Timeseries | LazyTimeseries:
         """Load a Timeseries or LazyTimeseries from a file with enhanced error handling."""
-        timeseries_dir = base_path / "timeseries"
+        timeseries_dir = config.directory_path / "timeseries"
         object_type_dir = timeseries_dir / object_type
-        timeseries_path = object_type_dir / (name + file_extension)
+        timeseries_path = object_type_dir / (name + config.timeseries_file_extension)
 
         # Validate directory structure
         if not timeseries_dir.exists():
             raise DirectoryStructureError(
-                f"Directory does not contain 'timeseries' subdirectory: {base_path}. Expected: {timeseries_dir}"
+                f"Directory does not contain 'timeseries' subdirectory: {config.directory_path}. Expected: {timeseries_dir}"
             )
 
         if not object_type_dir.exists():
@@ -755,14 +558,14 @@ class InputLoader:
         cfg.logger.debug(f"Loading timeseries from file: {timeseries_path} with attribute {attribute_name}")
 
         try:
-            if lazy:
+            if config.lazy:
                 return LazyTimeseries.from_file(
                     file_path=timeseries_path,
-                    timezone=timezone,
+                    timezone=config.timezone,
                     filters=("attribute", attribute_name),
                 )
             return Timeseries.from_file(
-                file_path=timeseries_path, timezone=timezone, filters=("attribute", attribute_name)
+                file_path=timeseries_path, timezone=config.timezone, filters=("attribute", attribute_name)
             )
         except Exception as e:
             raise FileParsingError(
@@ -771,29 +574,24 @@ class InputLoader:
 
     @staticmethod
     def _load_matrix(
-        base_path: str | Path,
         name: str,
         object_type: str,
         attribute_name: str,
         matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
-        file_extension: str = ".parquet",
-        lazy: bool = False,
-        timezone: str = "UTC",
-        date_format_forecasting: str = "YYYY-MM-DD HH:mm:ss",
+        config: InputLoaderConfig,
     ) -> Matrix | LazyMatrix:
         """Load a ForecastingMatrix or ScenarioMatrix (lazy or not) from a file with enhanced error handling."""
         if matrix_type not in ("scenario_matrix", "forecasting_matrix"):
             raise ValueError(f"Invalid matrix type '{matrix_type}'. Must be 'scenario_matrix' or 'forecasting_matrix'")
 
-        base_path = Path(base_path)
-        matrix_dir = base_path / matrix_type
+        matrix_dir = config.directory_path / matrix_type
         object_type_dir = matrix_dir / object_type
-        matrix_file_path = object_type_dir / (name + file_extension)
+        matrix_file_path = object_type_dir / (name + config.matrix_file_extension)
 
         # Validate directory structure
         if not matrix_dir.exists():
             raise DirectoryStructureError(
-                f"Directory does not contain '{matrix_type}' subdirectory: {base_path}. Expected: {matrix_dir}"
+                f"Directory does not contain '{matrix_type}' subdirectory: {config.directory_path}. Expected: {matrix_dir}"
             )
 
         if not object_type_dir.exists():
@@ -812,31 +610,31 @@ class InputLoader:
         cfg.logger.debug(f"Loading {matrix_type} from file: {matrix_file_path}")
 
         try:
-            if not lazy:
+            if not config.lazy:
                 if matrix_type == "scenario_matrix":
                     return ScenarioMatrix.from_file(
                         file_path=matrix_file_path,
-                        timezone=timezone,
+                        timezone=config.timezone,
                         filters=("attribute", attribute_name),
                     )
                 elif matrix_type == "forecasting_matrix":
                     return ForecastingMatrix.from_file(
                         file_path=matrix_file_path,
-                        timezone=timezone,
+                        timezone=config.timezone,
                         filters=("attribute", attribute_name),
-                        date_format=date_format_forecasting,
+                        date_format=config.date_format_forecasting_matrix,
                     )
             else:
                 if matrix_type == "scenario_matrix":
                     return LazyScenarioMatrix.from_file(
                         file_path=matrix_file_path,
-                        timezone=timezone,
+                        timezone=config.timezone,
                         filters=("attribute", attribute_name),
                     )
                 elif matrix_type == "forecasting_matrix":
                     return LazyForecastingMatrix.from_file(
                         file_path=matrix_file_path,
-                        timezone=timezone,
+                        timezone=config.timezone,
                         filters=("attribute", attribute_name),
                     )
 
