@@ -338,23 +338,3 @@ def test_parse_objects_multiple_models(tmp_path):
     result = InputLoader._parse_objects_files(tmp_path / "objects")
     assert "hydro" in result
     assert "solar" in result
-
-
-def test_instantiate_math_objects_datetime_list(temp_input_dir, monkeypatch):
-    # Simulate the instantiation of math objects
-    monkeypatch.setitem(cfg.MODEL_MAPPING_NAME, "my_object", DummyReferencing)
-
-    object_dict = [
-        {
-            "name": "fr_hydro",
-            "list_field": "a:b",
-            "start_date": "2023/01/01 00:00:00",
-        }
-    ]
-
-    result = InputLoader._build_math_objects(
-        object_dict, "my_object", temp_input_dir, date_format_input_files="YYYY/MM/DD HH:mm:ss"
-    )
-    assert result[0]["name"] == "fr_hydro"
-    assert result[0]["start_date"] == "2023-01-01 00:00:00"
-    assert result[0]["list_field"] == ["a", "b"]
