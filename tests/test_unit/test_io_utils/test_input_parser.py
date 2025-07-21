@@ -9,6 +9,7 @@ from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
 from atlas.io_utils.input_loader import InputLoader
+from atlas.io_utils.models import InputLoaderConfig
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
@@ -232,8 +233,6 @@ def test_load_matrix(tmp_path):
         }
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
-    from atlas.io_utils.models import InputLoaderConfig
-
     config = InputLoaderConfig(directory_path=tmp_path)
     result = InputLoader._load_matrix(
         object_type="hydro",
@@ -258,8 +257,6 @@ def test_load_forecasting_matrix(tmp_path):
             "attribute": ["attribute"],
         }
     ).write_parquet(matrix_path / "fr_hydro.parquet")
-
-    from atlas.io_utils.models import InputLoaderConfig
 
     config = InputLoaderConfig(directory_path=tmp_path)
     result = InputLoader._load_matrix(
@@ -286,8 +283,6 @@ def test_load_lazy_matrix(tmp_path):
         }
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
-    from atlas.io_utils.models import InputLoaderConfig
-
     config = InputLoaderConfig(directory_path=tmp_path, lazy=True)
     result = InputLoader._load_matrix(
         object_type="hydro",
@@ -313,8 +308,6 @@ def test_load_lazy_forecasting_matrix(tmp_path):
         }
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
-    from atlas.io_utils.models import InputLoaderConfig
-
     config = InputLoaderConfig(directory_path=tmp_path, lazy=True)
     result = InputLoader._load_matrix(
         object_type="hydro",
@@ -339,8 +332,6 @@ def test_load_timeseries(tmp_path):
         }
     ).write_parquet(ts_path / "fr_hydro.parquet")
 
-    from atlas.io_utils.models import InputLoaderConfig
-
     config = InputLoaderConfig(directory_path=tmp_path)
     result = InputLoader._load_timeseries(
         object_type="hydro", name="fr_hydro", attribute_name="attribute", config=config
@@ -357,8 +348,6 @@ def test_load_lazy_timeseries(tmp_path):
     pl.DataFrame({"date": [datetime(2024, 1, 1, 0, 0, 0)], "value": [1.0], "attribute": ["attribute"]}).write_parquet(
         ts_path / "fr_hydro.parquet"
     )
-
-    from atlas.io_utils.models import InputLoaderConfig
 
     config = InputLoaderConfig(directory_path=tmp_path, lazy=True)
     result = InputLoader._load_timeseries(

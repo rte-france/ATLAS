@@ -37,18 +37,18 @@ def read_data_file(
         df = df.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
         return df.collect()
 
-    # Fallback to eager loading
-    if file_path.suffix == ".csv":
-        df = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
-    elif file_path.suffix == ".parquet":
-        df = pl.read_parquet(file_path)
     else:
-        raise NotImplementedError("Atlas file should be a csv or parquet.")
+        if file_path.suffix == ".csv":
+            df_eager = pl.read_csv(file_path, separator=separator, try_parse_dates=True)
+        elif file_path.suffix == ".parquet":
+            df_eager = pl.read_parquet(file_path)
+        else:
+            raise NotImplementedError("Atlas file should be a csv or parquet.")
 
-    if filters:
-        df = df.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
+        if filters:
+            df_eager = df_eager.filter(pl.col(f"{filters[0]}") == filters[1]).drop(filters[0])
 
-    return df
+        return df_eager
 
 
 def scan_data_file(

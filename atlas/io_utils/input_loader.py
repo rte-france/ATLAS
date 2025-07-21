@@ -72,7 +72,7 @@ class InputLoader:
     @classmethod
     def from_directory(
         cls,
-        directory_path: str | Path,
+        directory_path: Path,
         separator: str = ";",
         timeseries_file_extension: str = ".parquet",
         matrix_file_extension: str = ".parquet",
@@ -117,7 +117,7 @@ class InputLoader:
             cfg.logger.debug(f"Loading input from directory: {directory_path}")
 
             config = InputLoaderConfig(
-                directory_path=Path(directory_path),
+                directory_path=directory_path,
                 separator=separator,
                 timeseries_file_extension=timeseries_file_extension,
                 matrix_file_extension=matrix_file_extension,
