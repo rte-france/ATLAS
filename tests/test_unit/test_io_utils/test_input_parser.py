@@ -170,7 +170,12 @@ def test_instantiate_model_object_with_equipment_reference(monkeypatch):
     # Object to instantiate, referencing the equipment
     object_dict = {"name": "obj1", "equipment": "eq1"}
 
-    result = InputLoader._build_single_business_model(object_dict.copy(), "my_object", objects_instantiated)
+    # Build indices like the actual method does
+    object_indices = InputLoader._build_object_indices(objects_instantiated)
+
+    result = InputLoader._build_single_business_model(
+        object_dict.copy(), "my_object", objects_instantiated, object_indices
+    )
 
     assert isinstance(result, DummyReferencing)
     assert result.name == "obj1"
@@ -199,7 +204,12 @@ def test_instantiate_model_object_with_cross_reference(monkeypatch):
         "list_field": ["a", "b"],
     }
 
-    result = InputLoader._build_single_business_model(object_dict.copy(), "dummy_referencing", objects_instantiated)
+    # Build indices like the actual method does
+    object_indices = InputLoader._build_object_indices(objects_instantiated)
+
+    result = InputLoader._build_single_business_model(
+        object_dict.copy(), "dummy_referencing", objects_instantiated, object_indices
+    )
 
     assert isinstance(result, DummyReferencing)
     assert result.name == "obj1"
