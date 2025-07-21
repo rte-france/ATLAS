@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import Any
+
 from pydantic import Field, field_validator
 
 from atlas.enum import InflowFrequency
@@ -70,5 +72,5 @@ class Hydro(Equipment):
 
     @field_validator("fragment_prices", "fragment_volumes", mode="before")
     @classmethod
-    def validate_fragment_prices_and_volumes(cls, value: list[float] | None):
+    def validate_fragment_prices_and_volumes(cls, value: Any):
         return parse_list_float(value)
