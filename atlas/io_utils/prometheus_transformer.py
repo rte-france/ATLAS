@@ -15,7 +15,7 @@ from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_t
 from atlas.typing import get_class_inheritance_chain
 
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
-NAME_MAPPING = {"Baseload": "BaseLoad", "is_v2_g": "is_v2g"}
+NAME_MAPPING = {"Baseload": "BaseLoad", "is_v2_g": "is_v2g", "idpo_for_orders": "id_po_for_orders"}
 
 
 class PrometheusToAtlasDataParser:

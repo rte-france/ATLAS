@@ -62,7 +62,7 @@ class MarketArea(BusinessModel):
     """
 
     control_block: ControlBlock | None = None
-    co2_emission: ForecastingMatrix | LazyForecastingMatrix | None = None
+    co2_emissions: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_balance: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_price: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_price_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
