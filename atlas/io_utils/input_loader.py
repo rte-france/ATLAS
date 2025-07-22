@@ -114,7 +114,7 @@ class InputLoader:
         :raises DataValidationError: If data validation fails
         """
         try:
-            cfg.logger.debug(f"Loading input from directory: {directory_path}")
+            cfg.logger.info(f"Loading Atlas input from directory: {directory_path}")
 
             config = InputLoaderConfig(
                 directory_path=directory_path,
