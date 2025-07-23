@@ -763,7 +763,7 @@ class Timeseries:
 
         :param item: Datetime to filter the Timeseries
         :type item: list[datetime] or datetime or pendulum.DateTime or str
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -957,3 +957,14 @@ class Timeseries:
             self.frequency = infer_frequency(self.timeseries)
             return self
         return Timeseries(df, self.timezone)
+
+    def first_date(self) -> pendulum.DateTime | None:
+        """
+        Return the first date in the Timeseries index.
+
+        :return: The first date in the Timeseries index
+        :rtype: DateTime or None
+        """
+        if len(self.timeseries) > 0:
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").to_series().to_list()[0]))
+        return None
