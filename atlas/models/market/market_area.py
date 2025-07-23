@@ -15,8 +15,8 @@ class MarketArea(BusinessModel):
     """
     :param control_block: Associated Control block
     :type control_block: ControlBlock
-    :param co2_emission: CO2 emissions at the end of each Portfolio Optimization
-    :type co2_emission: ForecastingMatrix
+    :param co2_emissions: CO2 emissions at the end of each Portfolio Optimization
+    :type co2_emissions: ForecastingMatrix
     :param id_balance: Net position of the zone on the various Intraday market clearings (sales - purchases)
     :type id_balance: ForecastingMatrix
     :param id_price: Market area prices from each Intraday clearing market
@@ -59,7 +59,7 @@ class MarketArea(BusinessModel):
     """
 
     control_block: ControlBlock | None = None
-    co2_emission: ForecastingMatrix | LazyForecastingMatrix | None = None
+    co2_emissions: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_balance: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_price: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_price_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
