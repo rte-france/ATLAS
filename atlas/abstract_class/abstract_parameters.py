@@ -74,7 +74,7 @@ class AbstractParameters(BaseModel):
         else:
             raise ValueError(f"Unsupported file extension: {file_extension}")
 
-        return cls(**parameters)
+        return cls.model_validate(parameters)
 
     @staticmethod
     def _parse_yaml(file_path: str | Path) -> dict:

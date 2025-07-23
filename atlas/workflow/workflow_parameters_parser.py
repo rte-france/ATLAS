@@ -62,7 +62,7 @@ class WorkflowParametersParser:
         else:
             raise ValueError(f"Unsupported file extension: {file_extension}")
 
-        return WorkflowParameters(**parameters)
+        return WorkflowParameters.model_validate(parameters)
 
     @staticmethod
     def _parse_yaml(file_path: str | Path) -> dict:
