@@ -1,4 +1,5 @@
 import typer
+from rich import print as rprint
 
 import atlas
 
@@ -8,4 +9,4 @@ app = typer.Typer()
 @app.command()
 def version() -> None:
     """Print the version of the package."""
-    print(f"Atlas version : {atlas.__version__}")  # noqa: T201
+    rprint(f"[bold]Atlas version[/bold] : {atlas.__version__}")  # noqa: T201

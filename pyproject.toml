@@ -25,8 +25,7 @@ dependencies = [
 ]
 
 [project.scripts]
-coe-tazama-writer = "atlas.app:app"
-
+atlas = "atlas.app:app"
 
 [build-system]
 requires = ["uv_build>=0.7.19,<0.8.0"]
