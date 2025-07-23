@@ -1074,6 +1074,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label=" Storage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#atlas.Storage.convert_hours_to_duration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;convert_hours_to_duration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1082,6 +1097,21 @@
       <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Thermal
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label=" Thermal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#atlas.Thermal.convert_hours_to_duration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;convert_hours_to_duration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1469,6 +1499,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label=" Storage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#atlas.Storage.convert_hours_to_duration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;convert_hours_to_duration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1477,6 +1522,21 @@
       <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Thermal
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label=" Thermal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#atlas.Thermal.convert_hours_to_duration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;convert_hours_to_duration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3148,7 +3208,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Storage type, e.g. battery, pumped hydro, etc.</p>
               </div>
             </td>
             <td>
@@ -3160,11 +3220,11 @@
                 <code>transition_duration</code>
             </td>
             <td>
-                  <code>float</code>
+                  <code>Duration</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Duration of the transition phase between two states (e.g. charging to discharging).</p>
               </div>
             </td>
             <td>
@@ -3260,7 +3320,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Maximum power of the unit or cluster</p>
               </div>
             </td>
             <td>
@@ -3276,7 +3336,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Minimum power of the unit or cluster</p>
               </div>
             </td>
             <td>
@@ -3320,6 +3380,49 @@
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="atlas.Storage.convert_hours_to_duration" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">convert_hours_to_duration</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#atlas.Storage.convert_hours_to_duration" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">convert_hours_to_duration</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert various duration formats to Duration objects.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>atlas/models/equipment/storage.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#__codelineno-0-91">91</a></span>
+<span class="normal"><a href="#__codelineno-0-92">92</a></span>
+<span class="normal"><a href="#__codelineno-0-93">93</a></span>
+<span class="normal"><a href="#__codelineno-0-94">94</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="nd">@field_validator</span><span class="p">(</span>
+</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="s2">&quot;transition_duration&quot;</span><span class="p">,</span>
+</span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">,</span>
+</span><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="p">)</span>
+</span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="nd">@classmethod</span>
+</span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="k">def</span><span class="w"> </span><span class="nf">convert_hours_to_duration</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+</span><span id="__span-0-93"><a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert various duration formats to Duration objects.&quot;&quot;&quot;</span>
+</span><span id="__span-0-94"><a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="k">return</span> <span class="n">hours_validator</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 
@@ -3380,11 +3483,11 @@
                 <code>minimum_stable_power_duration</code>
             </td>
             <td>
-                  <code>float</code>
+                  <code>Duration | float</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Minimum stable power duration. Length of time that this unit must stay at a stable production level in between ramping periods</p>
+                <p>Minimum stable power duration. Length of time that this unit must stay at a stable production level in between ramping periods. Provide as float (hours) or Duration object.</p>
               </div>
             </td>
             <td>
@@ -3396,11 +3499,11 @@
                 <code>minimum_time_off</code>
             </td>
             <td>
-                  <code>float</code>
+                  <code>Duration | float</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Minimum time that the unit must remain off after shutting down prior to a new start-up</p>
+                <p>Minimum time that the unit must remain off after shutting down prior to a new start-up. Provide as float (hours) or Duration object.</p>
               </div>
             </td>
             <td>
@@ -3412,11 +3515,11 @@
                 <code>minimum_time_on</code>
             </td>
             <td>
-                  <code>float</code>
+                  <code>Duration | float</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Minimum time that the unit must remain on after starting up</p>
+                <p>Minimum time that the unit must remain on after starting up. Provide as float (hours) or Duration object.</p>
               </div>
             </td>
             <td>
@@ -3428,11 +3531,11 @@
                 <code>outage_mean_duration</code>
             </td>
             <td>
-                  <code>float</code>
+                  <code>Duration | float</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Mean duration of an outage, in hours.</p>
               </div>
             </td>
             <td>
@@ -3464,7 +3567,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Mean duration of a scheduled shutdown, in hours.</p>
               </div>
             </td>
             <td>
@@ -3480,7 +3583,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Probability of a scheduled shutdown</p>
               </div>
             </td>
             <td>
@@ -3492,11 +3595,11 @@
                 <code>shutdown_duration</code>
             </td>
             <td>
-                  <code>float</code>
+                  <code>Duration | float</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Time it takes for the unit to shut down</p>
+                <p>Time it takes for the unit to shut down. Provide as float (hours) or Duration object.</p>
               </div>
             </td>
             <td>
@@ -3512,7 +3615,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Probability of a startup delay, which is the time it takes</p>
               </div>
             </td>
             <td>
@@ -3524,11 +3627,11 @@
                 <code>startup_duration</code>
             </td>
             <td>
-                  <code>float</code>
+                  <code>Duration | float</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Time it takes for the unit to start up</p>
+                <p>Time it takes for the unit to start up. Provide as float (hours) or Duration object.</p>
               </div>
             </td>
             <td>
@@ -3544,7 +3647,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Thermal strategy to be used for this unit. Possible values are "thermal", "thermal_with_startup_delay", "thermal_with_shutdown".</p>
               </div>
             </td>
             <td>
@@ -3560,7 +3663,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Sum of volume of sell offers on the Day Ahead market</p>
+                <p>Sequence of states for the thermal unit.</p>
               </div>
             </td>
             <td>
@@ -3652,6 +3755,59 @@
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="atlas.Thermal.convert_hours_to_duration" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">convert_hours_to_duration</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#atlas.Thermal.convert_hours_to_duration" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">convert_hours_to_duration</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert various duration formats to Duration objects.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>atlas/models/equipment/thermal.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
+<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
+<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
+<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
+<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-94"><a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="nd">@field_validator</span><span class="p">(</span>
+</span><span id="__span-0-95"><a id="__codelineno-0-95" name="__codelineno-0-95"></a>    <span class="s2">&quot;minimum_stable_power_duration&quot;</span><span class="p">,</span>
+</span><span id="__span-0-96"><a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="s2">&quot;minimum_time_off&quot;</span><span class="p">,</span>
+</span><span id="__span-0-97"><a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="s2">&quot;minimum_time_on&quot;</span><span class="p">,</span>
+</span><span id="__span-0-98"><a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="s2">&quot;outage_mean_duration&quot;</span><span class="p">,</span>
+</span><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="s2">&quot;shutdown_duration&quot;</span><span class="p">,</span>
+</span><span id="__span-0-100"><a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="s2">&quot;startup_duration&quot;</span><span class="p">,</span>
+</span><span id="__span-0-101"><a id="__codelineno-0-101" name="__codelineno-0-101"></a>    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">,</span>
+</span><span id="__span-0-102"><a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="p">)</span>
+</span><span id="__span-0-103"><a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="nd">@classmethod</span>
+</span><span id="__span-0-104"><a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="k">def</span><span class="w"> </span><span class="nf">convert_hours_to_duration</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+</span><span id="__span-0-105"><a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert various duration formats to Duration objects.&quot;&quot;&quot;</span>
+</span><span id="__span-0-106"><a id="__codelineno-0-106" name="__codelineno-0-106"></a>    <span class="k">return</span> <span class="n">hours_validator</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 
