@@ -74,9 +74,9 @@ class Thermal(Equipment):
     minimum_time_on: Duration | None = Field(
         None, description="Minimum time on in hours (will be converted to Duration)"
     )
-    outage_mean_duration: Duration | None = Field(None, ge=0)
+    outage_mean_duration: Duration | None = Field(None)
     outage_probability: float | None = Field(None, ge=0, le=1)
-    scheduled_shutdown_mean_duration: float | None = Field(None, ge=0)
+    scheduled_shutdown_mean_duration: float | None = Field(None)
     scheduled_shutdown_probability: float | None = Field(None, ge=0, le=1)
     shutdown_duration: Duration | None = Field(
         None, description="Shutdown duration in hours (will be converted to Duration)"
