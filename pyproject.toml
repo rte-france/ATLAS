@@ -24,6 +24,9 @@ dependencies = [
     "typing-extensions>=4.13.2",
 ]
 
+[project.scripts]
+coe-tazama-writer = "atlas.app:app"
+
 
 [build-system]
 requires = ["uv_build>=0.7.19,<0.8.0"]
@@ -36,9 +39,7 @@ module-root = ""
 [tool.ruff]
 line-length = 120
 extend-exclude = ["*.ipynb"]
-exclude = [
-    "atlas/io/transform_dataset.py",
-]
+
 
 [tool.ruff.lint]
 select = [
@@ -87,8 +88,11 @@ docs = [
 url = "https://pypi.org/simple/"
 
 [tool.mypy]
+disable_error_code = ["operator"]
 [[tool.mypy.overrides]]
-module = "atlas.solver.solver_interface"
+module = [
+    "atlas.solver.solver_interface",
+]
 ignore_errors = true
 
 [tool.coverage.run]
