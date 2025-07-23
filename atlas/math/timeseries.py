@@ -959,7 +959,8 @@ class Timeseries:
         return Timeseries(df, self.timezone)
 
     def first_date(self) -> pendulum.DateTime | None:
-        """Return the first date in the Timeseries index.
+        """
+        Return the first date in the Timeseries index.
 
         :return: The first date in the Timeseries index
         :rtype: DateTime or None

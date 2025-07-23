@@ -169,7 +169,9 @@ class InflowFrequency(str, Enum):
 
 
 class MarketType(str, Enum):
-    """Enumeration of market types.
+    """
+    Enumeration of market types.
+
     :cvar dayahead: Day-ahead market.
     :cvar intraday: Intraday market.
     :cvar rr_activation: Replacement reserve activation.
@@ -183,7 +185,9 @@ class MarketType(str, Enum):
 
 
 class SolverEnum(str, Enum):
-    """Enumeration of solver types.
+    """
+    Enumeration of solver types.
+
     :cvar XPRESS: Xpress solver.
     :cvar GLOP: Google Linear Optimization solver.
     :cvar SCIP: SCIP solver.

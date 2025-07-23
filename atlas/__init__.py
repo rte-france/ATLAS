@@ -77,5 +77,4 @@ __all__ = [
     "Wind",
 ]
 
-
 __version__ = version("atlas")
