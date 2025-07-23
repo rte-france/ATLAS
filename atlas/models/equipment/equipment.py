@@ -16,7 +16,8 @@ from atlas.models.portfolio import Portfolio
 
 
 class Equipment(BusinessModel):
-    """:param node: Associated Node
+    """
+    :param node: Associated Node
     :type node: Node
     :param portfolio: Associated Portfolio
     :type portfolio: Portfolio
@@ -61,8 +62,7 @@ class Equipment(BusinessModel):
     of all orders for this equipment
     :type id_cleared_quantity: ForecastingMatrix
     :param id_po_for_orders: Intermediate result of Portfolio optimization for Intraday market.
-    Note that this value does not represent the production plan of the unit, but rather an intermediate result used
-    for the creation of intraday orders.
+    Note that this value does not represent the production plan of the unit, but rather an intermediate result used for the creation of intraday orders.
     :type id_po_for_orders: ForecastingMatrix
     :param id_sell_submitted_volume: Sum of volume of sell offers for each Intraday market
     :type id_sell_submitted_volume: ForecastingMatrix
