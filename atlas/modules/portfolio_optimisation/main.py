@@ -4,11 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import cast, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from atlas.modules.portfolio_optimisation.models.wind import WindPO
-    from atlas.modules.portfolio_optimisation.models.solar import SolarPO
+from typing import cast
 
 from pendulum import DateTime
 

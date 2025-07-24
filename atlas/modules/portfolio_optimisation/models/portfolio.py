@@ -105,7 +105,7 @@ class PortfolioPO(Portfolio):
         """Add global portfolio constraints."""
         # Power balance constraint
         residual_energy = self._compute_residual_energy(time, parameters)
-        max_overall_imbal = max(residual_energy * parameters.maximum_imbalance)
+        max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
         sum_power_variables = self._get_sum_power_level_variables(model, time, parameters)
 
         power_balance_constraint = (
@@ -206,7 +206,7 @@ class PortfolioPO(Portfolio):
     ):
         """Add imbalance variables to the optimization model."""
         small_imbalance_limit = maximum_energy * parameters.small_imbalance_size
-        max_overall_imbal = max(residual_energy * parameters.maximum_imbalance)
+        max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
 
         model.add_continuous_variable(
             name=f"{self.name}_small_imbalance_up_{time}",
@@ -262,7 +262,7 @@ class PortfolioPO(Portfolio):
         # Hydro equipment - uses hydraulic_op_times and fragment variables
         if "hydro" in self.equipments and time in parameters.hydraulic_op_times:
             for obj in cast(list[HydroPO], self.equipments["hydro"]):
-                fragment_data = obj._get_fragment_data(obj)
+                fragment_data = obj._get_fragment_data()
                 for category in fragment_data.keys():
                     var = model.get_variable(f"{obj.name}_power_level_frag_{category}_at_{time}")
                     if var is not None:
@@ -272,32 +272,33 @@ class PortfolioPO(Portfolio):
         if time in parameters.target_times:
             for equipment_type in ["solar", "wind"]:
                 if equipment_type in self.equipments:
-                    for obj in self.equipments[equipment_type]:
+                    for obj in cast(list, self.equipments[equipment_type]):
                         var = model.get_variable(f"{obj.name}_power_level_{time}")
                         if var is not None:
                             total_power += var
 
             # Load equipment - uses target_times
             if "load" in self.equipments:
-                for obj in self.equipments["load"]:
+                for obj in cast(list, self.equipments["load"]):
                     var = model.get_variable(f"{obj.name}_power_level_{time}")
                     if var is not None:
                         total_power += var
 
         # Thermal equipment - uses thermal_op_times
         if "thermal" in self.equipments and time in parameters.thermal_op_times:
-            for obj in self.equipments["thermal"]:
+            for obj in cast(list, self.equipments["thermal"]):
                 var = model.get_variable(f"{obj.name}_power_level_{time}")
                 if var is not None:
                     total_power += var
 
         if "storage" in self.equipments:
-            for obj in cast(list[StoragePO], self.equipments["storage"]):
-                optimisation_times = parameters.storage_mapping[obj.storage_type].get("optimisation_times", [])
+            storage_equipment = cast(list[StoragePO], self.equipments["storage"])
+            for storage_obj in storage_equipment:
+                optimisation_times = parameters.storage_mapping[storage_obj.storage_type].get("optimisation_times", [])
                 if time in optimisation_times:
                     # Storage has both sell and buy power levels
-                    sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
-                    buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
+                    sell_var = model.get_variable(f"{storage_obj.name}_power_level_sell_{time}")
+                    buy_var = model.get_variable(f"{storage_obj.name}_power_level_buy_{time}")
 
                     if sell_var is not None:
                         total_power += sell_var
@@ -337,7 +338,7 @@ class PortfolioPO(Portfolio):
         self, time: DateTime, parameters: PortfolioOptimisationParameters
     ) -> float:
         """Compute residual energy for dispatchable equipment."""
-        residual_energy = 0
+        residual_energy: float = 0
         equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
 
         for equipment_type in equipment_types:
@@ -353,7 +354,7 @@ class PortfolioPO(Portfolio):
         parameters: PortfolioOptimisationParameters,
     ) -> float:
         """Compute non-dispatchable production equipment residual energy"""
-        residual_energy = 0
+        residual_energy = 0.0
 
         for obj in cast(list[OtherNonDispatchablePO], self.equipments.get("non_dispatchable_production", [])):
             last_forecast_ti = obj.maximum_power_forecast.get_forecast(
@@ -372,7 +373,7 @@ class PortfolioPO(Portfolio):
         parameters: PortfolioOptimisationParameters,
     ) -> float:
         """Compute non-dispatchable load equipment residual energy"""
-        residual_energy = 0
+        residual_energy = 0.0
 
         for obj in cast(list[LoadPO], self.equipments.get("non_dispatchable_load", [])):
             last_forecast_ti = obj.maximum_power_forecast.get_forecast(
@@ -466,3 +467,5 @@ class PortfolioPO(Portfolio):
             return self.market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time).get_value(
                 time
             )
+
+        return None

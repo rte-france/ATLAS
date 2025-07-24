@@ -215,11 +215,11 @@ class HydroPO(Hydro):
 
         if x_min_candidates:
             xp_min = max(x_min_candidates, key=lambda x: int(x))
-            weights["level_inf"] = self.storage_marginal_value.select(xp_min)
+            weights["level_inf"] = self.storage_marginal_value.select(xp_min)  # type: ignore[assignment]
 
         if x_max_candidates:
             xp_max = min(x_max_candidates, key=lambda x: int(x))
-            weights["level_sup"] = self.storage_marginal_value.select(xp_max)
+            weights["level_sup"] = self.storage_marginal_value.select(xp_max)  # type: ignore[assignment]
 
         # Calculate interpolation weights if we have both bounds
         if weights["has_min"] and weights["has_max"]:
@@ -252,8 +252,8 @@ class HydroPO(Hydro):
         return base_price + marginal_adjustment
 
     def get_initial_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> Timeseries:
-        if len(
-            (
+        if (
+            len(
                 self.stored_energy.get_forecast(
                     parameters.execution_date,
                     parameters.start_date - parameters.timestep,
@@ -285,7 +285,13 @@ class HydroPO(Hydro):
                 )
 
             else:
-                return self.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
+                return (
+                    self.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
+                    if isinstance(self.initial_level, Timeseries)
+                    else self.initial_level.filter(
+                        [parameters.start_date - parameters.timestep, parameters.end_date]
+                    ).collect()
+                )
 
 
 class FragmentData(BaseModel):
