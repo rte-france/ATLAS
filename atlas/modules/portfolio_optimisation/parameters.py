@@ -6,9 +6,9 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime
+from pendulum import DateTime, duration
+from pendulum.duration import Duration
 from pydantic import Field, field_validator
-from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import MarketType, SolverEnum, StorageType
@@ -124,31 +124,31 @@ class PortfolioOptimisationParameters(AbstractParameters):
     )
 
     additional_hours: Duration = Field(
-        default=12,  # 12 hours
+        default_factory=lambda: duration(hours=12),  # 12 hours
         description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
     )
     battery_additional_hours: Duration = Field(
-        default=48,  # 48 hours
+        default_factory=lambda: duration(hours=48),  # 48 hours
         description="Optimization period in hours for Storage Equipments of type Battery.",
     )
     electric_vehicle_additional_hours: Duration = Field(
-        default=0,  # 0 hours
+        default_factory=lambda: duration(hours=0),  # 0 hours
         description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",
     )
     hydraulic_additional_hours: Duration = Field(
-        default=12,  # 12 hours
+        default_factory=lambda: duration(hours=12),  # 12 hours
         description="Optimization period in hours for hydraulic group.",
     )
     pumped_hydraulic_storage_additional_hours: Duration = Field(
-        default=144,  # 144 hours
+        default_factory=lambda: duration(hours=144),  # 144 hours
         description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",
     )
     thermal_additional_hours: Duration = Field(
-        default=12,  # 12 hours
+        default_factory=lambda: duration(hours=12),  # 12 hours
         description="Optimization period in hours for thermal group.",
     )
     timestep: Duration = Field(
-        default=1,  # 1 hour
+        default_factory=lambda: duration(hours=1),  # 1 hour
         description="Time step (in hours) of the simulated market.",
     )
 

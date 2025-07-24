@@ -45,8 +45,8 @@ def get_reserve(
     # Calculate reserve totals
     sum_reserves_up += rr_up + mfrr_up
     sum_reserves_down += rr_down + mfrr_down
-    sum_automated_reserves_up += min(afrr_up, maximum_afrr) + min(fcr_up, maximum_fcr)
-    sum_automated_reserves_down += min(afrr_down, maximum_afrr) + min(fcr_down, maximum_fcr)
+    sum_automated_reserves_up += min(afrr_up, maximum_afrr or 0) + min(fcr_up, maximum_fcr or 0)
+    sum_automated_reserves_down += min(afrr_down, maximum_afrr or 0) + min(fcr_down, maximum_fcr or 0)
 
     return (
         sum_reserves_up,
@@ -72,10 +72,10 @@ def get_maximum_power(
     obj_type = type(obj).__name__
 
     if obj_type in ("HydroPO", "StoragePO", "ThermalPO"):
-        return obj.maximum_power.get_value(time)
+        return obj.maximum_power.get_value(time)  # type: ignore[union-attr]
     elif obj_type in ("LoadPO", "WindPO", "SolarPO", "OtherNonDispatchablePO"):
         if execution_date:
-            return obj.maximum_power_forecast.get_forecast(execution_date, time, time).get_value(time)
+            return obj.maximum_power_forecast.get_forecast(execution_date, time, time).get_value(time)  # type: ignore[union-attr]
         else:
             raise RuntimeError(
                 "Missing execution date argument for a Load, Wind, Solar or OtherNonDispatchable equipment"
@@ -85,11 +85,13 @@ def get_maximum_power(
 
 
 def get_variable_cost(obj: EquipmentPO, time: DateTime):
-    return obj.variable_cost.get_value(time)
+    if obj.variable_cost is not None:
+        return obj.variable_cost.get_value(time)
+    return 0.0
 
 
 def get_maximum_automated(obj: EquipmentPO) -> float:
-    return obj.maximum_afrr + obj.maximum_fcr
+    return (obj.maximum_afrr or 0.0) + (obj.maximum_fcr or 0.0)
 
 
 def get_upstream_energy(
@@ -99,8 +101,14 @@ def get_upstream_energy(
 ) -> float:
     """Get upstream energy (bought or sold) based on market type."""
     if parameters.market == MarketType.rr_activation:
-        return obj.rr_activated.get_value(time)
+        if obj.rr_activated is not None:
+            return obj.rr_activated.get_value(time)
+        return 0.0
     elif parameters.market == MarketType.mfrr_activation:
-        return obj.mfrr_activated.get_value(time)
+        if obj.mfrr_activated is not None:
+            return obj.mfrr_activated.get_value(time)
+        return 0.0
     else:
-        return obj.total_id_cleared_quantity.get_value(time) + obj.da_cleared_quantity.get_value(time)
+        total_id = obj.total_id_cleared_quantity.get_value(time) if obj.total_id_cleared_quantity is not None else 0.0
+        da_cleared = obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0.0
+        return total_id + da_cleared

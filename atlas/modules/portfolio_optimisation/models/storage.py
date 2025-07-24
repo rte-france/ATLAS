@@ -189,7 +189,7 @@ class StoragePO(Storage):
             if time == parameters.start_date:
                 model.add_constraint(
                     stored_energy_var
-                    == self.get_initial_stock(self, parameters) * max_energy / max_energy_previous
+                    == self.get_initial_stock(parameters) * max_energy / max_energy_previous
                     - power_level_buy_var * self.charge_efficiency * parameters.timestep
                     - power_level_sell_var * parameters.timestep / self.discharge_efficiency
                     + (self.displacement_energy.get_value(time) - self.displacement_energy.get_value(prev_time))
@@ -255,6 +255,11 @@ class StoragePO(Storage):
                     )
 
     def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
+        if self.stored_energy is None:
+            return (
+                self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
+            )
+
         if (
             len(
                 self.stored_energy.get_forecast(
@@ -266,7 +271,7 @@ class StoragePO(Storage):
             == 0
         ):
             return (
-                self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level,
+                self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
             )
 
         else:

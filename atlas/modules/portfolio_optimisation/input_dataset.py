@@ -143,3 +143,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                 portfolio_po_manual = PortfolioPO(**original_portfolio.__dict__)
                 portfolio_po_manual.equipments = equipment_by_type_manual
                 self.portfolios_manual_activation.append(portfolio_po_manual)
+
+    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
+        """Return list of business model classes used in this dataset."""
+        return []

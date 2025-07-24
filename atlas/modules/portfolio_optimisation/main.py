@@ -4,7 +4,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import cast
+from typing import cast, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from atlas.modules.portfolio_optimisation.models.wind import WindPO
+    from atlas.modules.portfolio_optimisation.models.solar import SolarPO
 
 from pendulum import DateTime
 
@@ -17,6 +21,7 @@ from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.solar import SolarPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
+from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
@@ -44,13 +49,18 @@ class PortfolioOptimisationModel:
                 )
             for portfolio in input_dataset.portfolios_manual_activation:
                 self._optimize_portfolio_manual_activated(
-                    portfolio=input_dataset.portfolios_manual_activation[portfolio.name],
+                    portfolio=portfolio,
                 )
         else:
             for portfolio in input_dataset.portfolios:
                 for equipment_type, list_equipment in portfolio.equipments.items():
                     for equipment in list_equipment:
-                        equipment_portfolio = PortfolioPO(name=equipment.name, equipments={equipment_type: [equipment]})
+                        equipment_portfolio = PortfolioPO(
+                            name=equipment.name,
+                            equipments={equipment_type: [equipment]},
+                            control_block=portfolio.control_block,
+                            market_area=portfolio.market_area,
+                        )
 
                         self._optimize_portfolio(
                             portfolio=equipment_portfolio,
@@ -61,7 +71,12 @@ class PortfolioOptimisationModel:
             for portfolio_manual in input_dataset.portfolios_manual_activation:
                 for equipment_type, list_equipment in portfolio_manual.equipments.items():
                     for equipment in list_equipment:
-                        equipment_portfolio = PortfolioPO(name=equipment.name, equipments={equipment_type: [equipment]})
+                        equipment_portfolio = PortfolioPO(
+                            name=equipment.name,
+                            equipments={equipment_type: [equipment]},
+                            control_block=portfolio_manual.control_block,
+                            market_area=portfolio_manual.market_area,
+                        )
 
                     self._optimize_portfolio_manual_activated(
                         portfolio=equipment_portfolio,
@@ -85,7 +100,9 @@ class PortfolioOptimisationModel:
                 list[EquipmentPO],
                 portfolio.equipments.get(equipment_type, []),
             ):
-                equipment.add_variables(model, self.parameters)
+                # OtherNonDispatchablePO doesn't have add_variables method
+                if hasattr(equipment, "add_variables"):
+                    equipment.add_variables(model, self.parameters)
 
         try:
             for time in max_optimisation_times:
@@ -114,14 +131,24 @@ class PortfolioOptimisationModel:
 
                 # Load constraints
                 for load in cast(list[LoadPO], portfolio.equipments.get("load", [])):
-                    load.add_constraints(time, model)
+                    load.add_constraints(time, model, self.parameters)
 
             portfolio.add_objective(model, self.parameters)
             for time in self.parameters.target_times:
                 price_forecast = portfolio._get_price_forecast(time, self.parameters)
                 for equipment_type in portfolio.equipments:
                     for equipment in cast(list[EquipmentPO], portfolio.equipments.get(equipment_type, [])):
-                        equipment.add_objective(model, time, price_forecast, self.parameters)
+                        # Handle different add_objective signatures based on equipment type
+                        equipment_type_name = type(equipment).__name__
+                        if equipment_type_name in ("WindPO", "SolarPO"):
+                            # Wind and Solar have (model, time, parameters) signature
+                            cast("WindPO | SolarPO", equipment).add_objective(model, time, self.parameters)
+                        elif equipment_type_name in ("HydroPO", "LoadPO", "StoragePO", "ThermalPO"):
+                            # Other equipment types have (model, time, price_forecast, parameters) signature
+                            cast("HydroPO | LoadPO | StoragePO | ThermalPO", equipment).add_objective(
+                                model, time, price_forecast or 0.0, self.parameters
+                            )
+                        # OtherNonDispatchablePO doesn't have add_objective method, so we skip it
 
             solution_info = model.solve()
 
@@ -134,12 +161,8 @@ class PortfolioOptimisationModel:
         except Exception as e:
             cfg.logger.error(f"Optimization failed for portfolio {portfolio.name}: {e}")
 
-            equipment_list = [
-                portfolio.equipments[t][equipment]
-                for t in portfolio.equipments
-                for equipment in portfolio.equipments[t]
-            ]
-            set_manual_activation(equipment_list, self.parameters)
+            equipment_list = [equipment for t in portfolio.equipments for equipment in portfolio.equipments[t]]
+            set_manual_activation(cast(list, equipment_list), self.parameters)
 
             return SolutionInfo(
                 status=SolverStatus.NOT_SOLVED,

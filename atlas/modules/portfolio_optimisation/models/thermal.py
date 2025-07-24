@@ -191,8 +191,9 @@ class ThermalPO(Thermal):
                 min_power,
                 max_power,
                 maximum_automated,
-                thermal_equipment=True,
                 relaxed_reserves=True,
+                storage_equipment=False,
+                thermal_equipment=True,
             )
 
             # Gradient auxiliary variables for complex ramping

@@ -28,11 +28,11 @@ class PortfolioOptimisationModule(
 
     def import_data(
         self,
-        input_data: dict[str, list[BusinessModel]],
+        raw_data: dict[str, list[type[BusinessModel]]],
         parameters: PortfolioOptimisationParameters,
     ) -> PortfolioOptimisationInputDataset:
         """Imports data using business objects and parameters."""
-        return PortfolioOptimisationInputDataset(input_data, parameters)
+        return PortfolioOptimisationInputDataset(raw_data, parameters)
 
     def validate_data(
         self,
@@ -49,7 +49,7 @@ class PortfolioOptimisationModule(
         output_dataset: PortfolioOptimisationOutputDataset,
     ) -> bool:
         """Validates results"""
-        pass
+        return True
 
     def export_results(
         self,
@@ -68,4 +68,4 @@ class PortfolioOptimisationModule(
         """Executes the module's main logic."""
         model = PortfolioOptimisationModel(parameters)
         model.optimize(dataset)
-        return PortfolioOptimisationOutputDataset(parameters)
+        return PortfolioOptimisationOutputDataset()
