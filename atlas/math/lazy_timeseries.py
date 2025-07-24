@@ -211,3 +211,11 @@ class LazyTimeseries:
         :rtype: float
         """
         return self.collect().min()
+
+    def __len__(self) -> int:
+        """Return the number of rows in the LazyTimeseries.
+
+        :return: The number of rows
+        :rtype: int
+        """
+        return self.collect().__len__()
