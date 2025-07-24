@@ -28,13 +28,13 @@ class StoragePO(Storage):
     maximum_energy: Timeseries | LazyTimeseries
     displacement_energy: Timeseries | LazyTimeseries
 
-    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for storage equipment."""
 
         optimisation_times: list[DateTime] = parameters.storage_mapping[self.storage_type]["optimisation_times"]
         nbr_fragment: int = parameters.storage_mapping[self.storage_type]["fragment"]
 
-        for time in optimisation_times:
+        if time in optimisation_times:
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
             maximum_energy = self.maximum_energy.get_value(time)
@@ -85,7 +85,7 @@ class StoragePO(Storage):
                 thermal_equipment=False,
             )
 
-    def add_contraints(
+    def add_constraints(
         self,
         time: DateTime,
         model: OptimisationModel,

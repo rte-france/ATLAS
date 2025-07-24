@@ -41,7 +41,6 @@ class PortfolioOptimisationModel:
                 self._optimize_portfolio(
                     portfolio=portfolio,
                     max_optimisation_times=input_dataset.max_optimisation_times,
-                    optimisation_times=input_dataset.optimisation_times,
                 )
             for portfolio in input_dataset.portfolios_manual_activation:
                 self._optimize_portfolio_manual_activated(
@@ -61,7 +60,6 @@ class PortfolioOptimisationModel:
                         self._optimize_portfolio(
                             portfolio=equipment_portfolio,
                             max_optimisation_times=input_dataset.max_optimisation_times,
-                            optimisation_times=input_dataset.optimisation_times,
                         )
 
             for portfolio_manual in input_dataset.portfolios_manual_activation:
@@ -82,7 +80,6 @@ class PortfolioOptimisationModel:
         self,
         portfolio: PortfolioPO,
         max_optimisation_times: list[DateTime],
-        optimisation_times: dict[str, list[DateTime]],
     ) -> SolutionInfo:
         """Optimize a single portfolio using OptimisationModel."""
 
@@ -90,61 +87,38 @@ class PortfolioOptimisationModel:
 
         model = OptimisationModel(solver_name=self.parameters.solver_name, name=portfolio.name)
 
-        portfolio.add_variables(model, self.parameters.target_times, self.parameters)
-        for equipment_type in portfolio.equipments:
-            for equipment in cast(
-                list[EquipmentPO],
-                portfolio.equipments.get(equipment_type, []),
-            ):
-                # OtherNonDispatchablePO doesn't have add_variables method
-                if hasattr(equipment, "add_variables"):
-                    equipment.add_variables(model, self.parameters)
-
         try:
             for time in max_optimisation_times:
+                portfolio.add_variables(model, time, self.parameters)
+
                 portfolio.add_constraints(time, model, self.parameters)
-                # Wind and PV constraints
-                for obj in cast(
-                    list[WindPO | SolarPO],
-                    portfolio.equipments.get("wind", []) + portfolio.equipments.get("solar", []),
-                ):
-                    obj.add_constraints(time, model, self.parameters)
 
-                # Thermal constraints
-                # if time in optimisation_times.get("thermal_op_times", []):
-                #     for thermal in cast(list[ThermalPO],  portfolio.equipments.get("thermal", [])):
-                #         thermal.add_constraints(time, model, self.parameters)
+                portfolio.add_objective(model, time, self.parameters)
 
-                # Hydraulic constraints
-                for hydro in cast(list[HydroPO], portfolio.equipments.get("hydro", [])):
-                    hydro.add_constraints(time, model, self.parameters)
+                # Get price forecast for equipment that need it
+                price_forecast = None
+                if time in self.parameters.target_times:
+                    price_forecast = portfolio._get_price_forecast(time, self.parameters)
 
-                # Storage constraints
-                storage_times = ["battery_op_times", "phs_op_times", "ev_op_times"]
-                if any(time in optimisation_times.get(st, []) for st in storage_times):
-                    for storage in cast(list[StoragePO], portfolio.equipments.get("storage", [])):
-                        storage.add_contraints(time, model, self.parameters)
-
-                # Load constraints
-                for load in cast(list[LoadPO], portfolio.equipments.get("load", [])):
-                    load.add_constraints(time, model, self.parameters)
-
-            portfolio.add_objective(model, self.parameters)
-            for time in self.parameters.target_times:
-                price_forecast = portfolio._get_price_forecast(time, self.parameters)
                 for equipment_type in portfolio.equipments:
-                    for equipment in cast(list[EquipmentPO], portfolio.equipments.get(equipment_type, [])):
-                        # Handle different add_objective signatures based on equipment type
-                        equipment_type_name = type(equipment).__name__
-                        if equipment_type_name in ("WindPO", "SolarPO"):
-                            # Wind and Solar have (model, time, parameters) signature
-                            cast("WindPO | SolarPO", equipment).add_objective(model, time, self.parameters)
-                        elif equipment_type_name in ("HydroPO", "LoadPO", "StoragePO", "ThermalPO"):
-                            # Other equipment types have (model, time, price_forecast, parameters) signature
-                            cast("HydroPO | LoadPO | StoragePO | ThermalPO", equipment).add_objective(
-                                model, time, price_forecast or 0.0, self.parameters
-                            )
-                        # OtherNonDispatchablePO doesn't have add_objective method, so we skip it
+                    for equipment in cast(
+                        list[EquipmentPO],
+                        portfolio.equipments.get(equipment_type, []),
+                    ):
+                        if hasattr(equipment, "add_variables"):
+                            equipment.add_variables(model, time, self.parameters)
+
+                        if hasattr(equipment, "add_constraints"):
+                            equipment.add_constraints(time, model, self.parameters)
+
+                        if time in self.parameters.target_times and hasattr(equipment, "add_objective"):
+                            equipment_type_name = type(equipment).__name__
+                            if equipment_type_name in ("WindPO", "SolarPO"):
+                                cast(WindPO | SolarPO, equipment).add_objective(model, time, self.parameters)
+                            elif equipment_type_name in ("HydroPO", "LoadPO", "StoragePO", "ThermalPO"):
+                                cast(HydroPO | LoadPO | StoragePO | ThermalPO, equipment).add_objective(
+                                    model, time, price_forecast or 0.0, self.parameters
+                                )
 
             solution_info = model.solve()
 

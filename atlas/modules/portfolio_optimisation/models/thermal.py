@@ -124,11 +124,12 @@ class ThermalPO(Thermal):
         else:
             return 1  # Default fallback
 
-    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for complex thermal unit commitment."""
-        self._compute_time_parameters(parameters)
-
-        for time in parameters.thermal_op_times:
+        if time in parameters.thermal_op_times:
+            if not hasattr(self, "_computed_time_parameters"):
+                self._compute_time_parameters(parameters)
+                self._computed_time_parameters = True
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
             maximum_automated = get_maximum_automated(self)

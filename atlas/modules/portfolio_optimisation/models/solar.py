@@ -25,9 +25,9 @@ class SolarPO(Solar):
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     variable_cost: Timeseries | LazyTimeseries
 
-    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for solar and wind equipment."""
-        for time in parameters.target_times:
+        if time in parameters.target_times:
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
             maximum_automated = get_maximum_automated(self)

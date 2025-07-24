@@ -31,9 +31,9 @@ class HydroPO(Hydro):
     initial_level: Timeseries | LazyTimeseries
     storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix
 
-    def add_variables(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for hydro equipment."""
-        for time in parameters.hydraulic_op_times:
+        if time in parameters.hydraulic_op_times:
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
             max_energy = self.maximum_energy.get_value(time)

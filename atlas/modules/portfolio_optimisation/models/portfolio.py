@@ -32,12 +32,12 @@ class PortfolioPO(Portfolio):
     def add_variables(
         self,
         model: OptimisationModel,
-        times: list[DateTime],
+        time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
         """Build portfolio-level optimization variables."""
 
-        for time in times:
+        if time in parameters.target_times:
             residual_energy = self._compute_residual_energy(time, parameters)
             maximum_power, maximum_energy = self._compute_power_and_energy(time, parameters)
 
@@ -132,8 +132,8 @@ class PortfolioPO(Portfolio):
         )
         model.add_constraint(down_imbalance_limit, name=f"down_imbalance_limit_{time}")
 
-    def add_objective(self, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
-        for time in parameters.target_times:
+    def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+        if time in parameters.target_times:
             self._add_imbalance_cost_terms(
                 model,
                 time,
