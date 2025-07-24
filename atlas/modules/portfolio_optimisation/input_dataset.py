@@ -14,6 +14,7 @@ from atlas import BusinessModel, Portfolio
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enum import LoadType
 from atlas.models.equipment.equipment import Equipment
+from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
@@ -59,15 +60,19 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         ]
         self.load: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in input_data.get("load", [])]
 
-        self.equipments: dict[str, list[Equipment]] = {
-            "wind": self.wind,
-            "storage": self.storage,
-            "hydro": self.hydro,
-            "solar": self.solar,
-            "thermal": self.thermal,
-            "other_non_dispatchable": self.other_non_dispatchable,
-            "dispatchable_load": [load for load in self.load if load.load_type == LoadType.POWER_TO_GAS],
-            "non_dispatchable_load": [load for load in self.load if load.load_type != LoadType.POWER_TO_GAS],
+        self.equipments: dict[str, list[EquipmentPO]] = {
+            "wind": cast(list[EquipmentPO], self.wind),
+            "storage": cast(list[EquipmentPO], self.storage),
+            "hydro": cast(list[EquipmentPO], self.hydro),
+            "solar": cast(list[EquipmentPO], self.solar),
+            "thermal": cast(list[EquipmentPO], self.thermal),
+            "other_non_dispatchable": cast(list[EquipmentPO], self.other_non_dispatchable),
+            "dispatchable_load": cast(
+                list[EquipmentPO], [load for load in self.load if load.load_type == LoadType.POWER_TO_GAS]
+            ),
+            "non_dispatchable_load": cast(
+                list[EquipmentPO], [load for load in self.load if load.load_type != LoadType.POWER_TO_GAS]
+            ),
         }
 
         self.portfolios: list[PortfolioPO] = []
