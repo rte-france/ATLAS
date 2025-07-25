@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
     tags:
       - 'v*'  # Trigger on version tags
   pull_request:
@@ -39,9 +40,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --group docs --no-dev
 
-      # Deploy development version for main branch
+      # Deploy development version for develop branch
       - name: Deploy development docs
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/develop'
         run: |
           uv run mike deploy --push --update-aliases dev latest
           uv run mike set-default --push latest
