@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 Test AbstractModule
 """
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
@@ -19,8 +20,8 @@ class ModuleTest(AbstractModule[module_parameters_type_var, input_dataset_type_v
     def __init__(self):
         pass
 
-    def create_parameters(self, raw_params: dict[str, Any]) -> module_parameters_type_var:
-        return Mock()
+    def get_parameters_class(self) -> type[module_parameters_type_var]:
+        return Mock
 
     def import_data(
         self, raw_data: dict[str, list[BusinessModel]], parameters: module_parameters_type_var

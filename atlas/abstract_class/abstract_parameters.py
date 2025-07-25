@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TypeVar
 
 import yaml
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
 
@@ -31,6 +31,8 @@ class AbstractParameters(BaseModel):
     :type export_result: bool
     :param export_output_dataset: true if business model object output should be export else false
     :type export_output_dataset: bool
+    :param solver_name: Name of the solver to use
+    :type solver_name: SolverEnum
     """
 
     start_date: DateTime
@@ -39,6 +41,8 @@ class AbstractParameters(BaseModel):
     export_result: bool = True
     export_output_dataset: bool = False
     solver_name: SolverEnum = SolverEnum.XPRESS
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode="after")
     def check_dates(self) -> Self:
@@ -79,7 +83,9 @@ class AbstractParameters(BaseModel):
 
     @staticmethod
     def _parse_yaml(file_path: str | Path) -> dict:
-        """Parse a YAML file and return its contents as a dictionary.
+        """
+        Parse a YAML file and return its contents as a dictionary.
+
         :param file_path: Path to the YAML file.
         :type file_path: str or pathlib.Path
         :return: Parsed parameters.
@@ -90,7 +96,9 @@ class AbstractParameters(BaseModel):
 
     @staticmethod
     def _parse_json(file_path: str | Path) -> dict:
-        """Parse a JSON file and return its contents as a dictionary.
+        """
+        Parse a JSON file and return its contents as a dictionary.
+
         :param file_path: Path to the JSON file.
         :type file_path: str or pathlib.Path
         :return: Parsed parameters.
