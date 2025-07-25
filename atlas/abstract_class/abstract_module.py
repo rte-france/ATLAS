@@ -29,7 +29,7 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
     def get_parameters_class(self) -> type[module_parameters_type_var]:
         """Returns the concrete Parameters class for this module."""
 
-    def create_parameters(self, raw_params: dict[str, Any] | str | Path) -> module_parameters_type_var:
+    def import_parameters(self, raw_params: dict[str, Any] | str | Path) -> module_parameters_type_var:
         """Creates a concrete parameters object from raw dictionary or file path.
 
         This method provides a default implementation that handles both formats:
@@ -80,7 +80,7 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
         """Orchestrates the preparation and execution of the module.
         Should not be overridden in subclass
         """
-        parameters = self.create_parameters(raw_params)
+        parameters = self.import_parameters(raw_params)
 
         input_dataset = self.import_data(raw_data, parameters)
         validate_data_ok = self.validate_data(parameters, input_dataset)
