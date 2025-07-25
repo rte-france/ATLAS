@@ -225,17 +225,17 @@ class StoragePO(Storage):
         price_forecast: float,
         parameters: PortfolioOptimisationParameters,
     ):
-        power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
-        power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
-
         if self.maximum_energy.max() <= 0:
             return None
-        local_op_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
 
-        if time not in local_op_times:
+        optimisation_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
+        if time not in optimisation_times:
             return None
 
+        power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
+        power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
         model.add_objective(price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.timestep)
+
         if time not in parameters.target_times:
             smoothing_factor = parameters.storage_mapping[self.storage_type]["smoothing_factor"]
             nb_fragment = parameters.storage_mapping[self.storage_type]["nb_fragment"]
