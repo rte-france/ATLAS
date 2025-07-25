@@ -8,6 +8,7 @@ Module that implements AbstractModule
 """
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Generic
 
 from atlas import BusinessModel
@@ -25,8 +26,21 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
         """Hook after execution."""
 
     @abstractmethod
-    def create_parameters(self, raw_params: dict[str, Any]) -> module_parameters_type_var:
-        """Creates a concrete parameters object from raw dictionary."""
+    def get_parameters_class(self) -> type[module_parameters_type_var]:
+        """Returns the concrete Parameters class for this module."""
+
+    def create_parameters(self, raw_params: dict[str, Any] | str | Path) -> module_parameters_type_var:
+        """Creates a concrete parameters object from raw dictionary or file path.
+
+        This method provides a default implementation that handles both formats:
+        - If raw_params is dict: uses Parameters.model_validate(raw_params)
+        - If raw_params is str/Path: uses Parameters.from_file(raw_params)
+        """
+        parameters_class = self.get_parameters_class()
+
+        if isinstance(raw_params, str | Path):
+            return parameters_class.from_file(raw_params)
+        return parameters_class.model_validate(raw_params)
 
     @abstractmethod
     def import_data(
@@ -62,7 +76,7 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
     ) -> None:
         """Exports results."""
 
-    def run(self, raw_data: dict[str, list[type[BusinessModel]]], raw_params: dict[str, Any]) -> None:
+    def run(self, raw_data: dict[str, list[type[BusinessModel]]], raw_params: dict[str, Any] | str | Path) -> None:
         """Orchestrates the preparation and execution of the module.
         Should not be overridden in subclass
         """
