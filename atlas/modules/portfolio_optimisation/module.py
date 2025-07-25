@@ -5,8 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any
-
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
@@ -22,9 +20,9 @@ class PortfolioOptimisationModule(
         PortfolioOptimisationOutputDataset,
     ]
 ):
-    def create_parameters(self, raw_params: dict[str, Any]) -> PortfolioOptimisationParameters:
-        """Creates a concrete parameters object from raw dictionary."""
-        return PortfolioOptimisationParameters(**raw_params)
+    def get_parameters_class(self):
+        """Returns the concrete Parameters class for this module."""
+        return PortfolioOptimisationParameters
 
     def import_data(
         self,
