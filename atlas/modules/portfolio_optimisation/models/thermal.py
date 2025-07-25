@@ -12,6 +12,7 @@ from typing import Any
 from pendulum import DateTime
 from pydantic import model_validator
 
+import atlas.config as cfg
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
@@ -126,6 +127,7 @@ class ThermalPO(Thermal):
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for complex thermal unit commitment."""
+
         if time in parameters.thermal_op_times:
             if not hasattr(self, "_computed_time_parameters"):
                 self._compute_time_parameters(parameters)
@@ -698,6 +700,7 @@ class ThermalPO(Thermal):
         parameters: PortfolioOptimisationParameters,
     ):
         """Add objective function terms for thermal equipment."""
+
         if time not in parameters.thermal_op_times:
             return
 
@@ -705,6 +708,7 @@ class ThermalPO(Thermal):
 
         # Variable cost (fuel, O&M)
         variable_cost = get_variable_cost(self, time)
+        cfg.logger.debug(f"Variable cost for {self.name}: {variable_cost}")
         model.add_objective(variable_cost * power_level * parameters.timestep)
 
         # Startup cost

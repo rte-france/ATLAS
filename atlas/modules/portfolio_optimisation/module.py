@@ -5,6 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import atlas.config as cfg
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
@@ -30,6 +31,7 @@ class PortfolioOptimisationModule(
         parameters: PortfolioOptimisationParameters,
     ) -> PortfolioOptimisationInputDataset:
         """Imports data using business objects and parameters."""
+        cfg.logger.info("Importing data for portfolio optimisation")
         return PortfolioOptimisationInputDataset(raw_data, parameters)
 
     def validate_data(
@@ -56,7 +58,7 @@ class PortfolioOptimisationModule(
         output_dataset: PortfolioOptimisationOutputDataset,
     ) -> None:
         """Exports results."""
-        pass
+        cfg.logger.info("Exporting results of portfolio optimisation")
 
     def execute(
         self,
@@ -64,6 +66,8 @@ class PortfolioOptimisationModule(
         dataset: PortfolioOptimisationInputDataset,
     ) -> PortfolioOptimisationOutputDataset:
         """Executes the module's main logic."""
+        cfg.logger.info("Executing portfolio optimisation module")
         model = PortfolioOptimisationModel(parameters)
         model.optimize(dataset)
+        cfg.logger.info("Portfolio optimisation module execution completed")
         return PortfolioOptimisationOutputDataset()

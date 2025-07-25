@@ -134,10 +134,12 @@ class PortfolioPO(Portfolio):
 
     def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         if time in parameters.target_times:
+            imbalance_prices = estimate_imbalance_prices(time, self.market_area, self.control_block, parameters)
+
             self._add_imbalance_cost_terms(
                 model,
                 time,
-                *estimate_imbalance_prices(time, self.market_area, self.control_block, parameters),
+                *imbalance_prices,
                 parameters.timestep,
             )
 

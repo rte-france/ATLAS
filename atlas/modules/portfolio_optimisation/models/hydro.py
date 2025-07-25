@@ -9,6 +9,7 @@ from __future__ import annotations
 from pendulum import DateTime
 from pydantic import BaseModel
 
+import atlas.config as cfg
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
@@ -33,6 +34,7 @@ class HydroPO(Hydro):
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for hydro equipment."""
+        cfg.logger.debug(f"Adding variables for hydro unit {self.name} at time {time}")
         if time in parameters.hydraulic_op_times:
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)

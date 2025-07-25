@@ -13,7 +13,6 @@ from pendulum import DateTime
 from atlas import BusinessModel, Portfolio
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enum import LoadType
-from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
@@ -42,18 +41,23 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.portfolio = cast(list[Portfolio], input_data.get("portfolio", []))
 
         self.wind: list[WindPO] = [WindPO.model_validate(wind.model_dump()) for wind in input_data.get("wind", [])]
+
         self.storage: list[StoragePO] = [
             StoragePO.model_validate(storage.model_dump()) for storage in input_data.get("storage", [])
         ]
+
         self.hydro: list[HydroPO] = [
             HydroPO.model_validate(hydro.model_dump()) for hydro in input_data.get("hydro", [])
         ]
+
         self.solar: list[SolarPO] = [
             SolarPO.model_validate(solar.model_dump()) for solar in input_data.get("solar", [])
         ]
+
         self.thermal: list[ThermalPO] = [
             ThermalPO.model_validate(thermal.model_dump()) for thermal in input_data.get("thermal", [])
         ]
+
         self.other_non_dispatchable: list[OtherNonDispatchablePO] = [
             OtherNonDispatchablePO.model_validate(other.model_dump())
             for other in input_data.get("other_non_dispatchable", [])
