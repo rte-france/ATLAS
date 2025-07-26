@@ -60,44 +60,41 @@ class ThermalPO(Thermal):
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""
-        timestep_minutes = parameters.timestep.total_minutes()
 
         # Convert time durations to time steps
         if self.minimum_time_on and self.minimum_time_on.total_minutes() > 0:
-            self._T_on = int(max(1, math.ceil(self.minimum_time_on.total_minutes() / timestep_minutes))) + 1
+            self._T_on = int(max(1, math.ceil(self.minimum_time_on / parameters.timestep))) + 1
         else:
             self._T_on = 0
 
         if self.minimum_time_off and self.minimum_time_off.total_minutes() > 0:
-            self._T_off = int(max(1, math.ceil(self.minimum_time_off.total_minutes() / timestep_minutes))) + 1
+            self._T_off = int(max(1, math.ceil(self.minimum_time_off / parameters.timestep))) + 1
         else:
             self._T_off = 0
 
         if self.startup_duration:
-            self._T_start = int(math.floor(self.startup_duration.total_minutes() / timestep_minutes))
+            self._T_start = int(math.floor(self.startup_duration / parameters.timestep))
         else:
             self._T_start = 0
 
         if self.shutdown_duration:
-            self._T_stop = int(math.floor(self.shutdown_duration.total_minutes() / timestep_minutes))
+            self._T_stop = int(math.floor(self.shutdown_duration / parameters.timestep))
         else:
             self._T_stop = 0
 
         if self.minimum_stable_power_duration:
-            if self.minimum_stable_power_duration.total_minutes() < timestep_minutes:
+            if self.minimum_stable_power_duration < parameters.timestep:
                 self._T_stable = 0
             else:
-                self._T_stable = (
-                    int(math.ceil(self.minimum_stable_power_duration.total_minutes() / timestep_minutes)) + 1
-                )
+                self._T_stable = int(math.ceil(self.minimum_stable_power_duration / parameters.timestep)) + 1
                 # Rescale T_stable so that it is either equal to 0 or >= 2
                 self._T_stable = self._T_stable if self._T_stable >= 2 else 0
         else:
             self._T_stable = 0
 
         # Ramping parameters
-        self._Delta_Q = self.maximum_gradient * timestep_minutes
-        self._Delta_Q_unconstrained = max(self.maximum_power.max(), 1000.0)  # Large value for unconstrained ramping
+        self._Delta_Q = self.maximum_gradient * parameters.timestep.total_minutes()
+        self._Delta_Q_unconstrained = self.maximum_power.max()
 
         # Determine which constraint combination to use
         self._combination = self._determine_combination()
@@ -233,16 +230,13 @@ class ThermalPO(Thermal):
         if time not in parameters.thermal_op_times:
             return
 
-        timestep_minutes = parameters.timestep.total_minutes()
-
         # Variable cost term: cost * power * time_step / 60
         variable_cost = self.variable_cost.get_value(time)
         power_level_var = model.get_variable(f"{self.name}_p_lev_{time}")
-        model.add_objective(variable_cost * power_level_var * timestep_minutes / 60.0, "minimize")
+        model.add_objective(variable_cost * power_level_var * parameters.timestep.total_hours(), "minimize")
 
-        # Revenue term: -price * power * time_step / 60 (only for optimization periods beyond target times)
         if len(parameters.target_times) > 0 and time not in parameters.target_times:
-            model.add_objective(-price_forecast * power_level_var * timestep_minutes / 60.0, "minimize")
+            model.add_objective(-price_forecast * power_level_var * parameters.timestep.total_hours(), "minimize")
 
         # Startup cost term: startup_cost * turned_on
         startup_cost = self.startup_cost.get_value(time)

@@ -121,13 +121,11 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         # Tri par nom de portfolio, type d'équipement et statut
         all_equipments_with_type_and_status.sort(key=lambda x: (x[0].portfolio.name, x[1], x[2]))
 
-        # Groupement par portfolio
         for _, portfolio_items in groupby(all_equipments_with_type_and_status, key=lambda x: x[0].portfolio.name):
             portfolio_list = list(portfolio_items)
 
-            original_portfolio = portfolio_list[0][0].portfolio  # Tous les équipements du même portfolio
+            original_portfolio: Portfolio = portfolio_list[0][0].portfolio
 
-            # Séparation des équipements par statut
             equipment_by_type_included = {}
             equipment_by_type_manual = {}
 
@@ -144,13 +142,15 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
             # Création des objets PortfolioPO
             if equipment_by_type_included:
-                portfolio_po = PortfolioPO(**original_portfolio.__dict__)
-                portfolio_po.equipments = equipment_by_type_included
+                portfolio_po = PortfolioPO(**original_portfolio.model_dump(), equipments=equipment_by_type_included)
+
                 self.portfolios.append(portfolio_po)
 
             if equipment_by_type_manual:
-                portfolio_po_manual = PortfolioPO(**original_portfolio.__dict__)
-                portfolio_po_manual.equipments = equipment_by_type_manual
+                portfolio_po_manual = PortfolioPO(
+                    **original_portfolio.model_dump(), equipments=equipment_by_type_manual
+                )
+
                 self.portfolios_manual_activation.append(portfolio_po_manual)
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
