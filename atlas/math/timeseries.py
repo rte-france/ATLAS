@@ -23,13 +23,7 @@ import polars as pl
 
 import atlas.config as cfg
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
-from atlas.timing import (
-    build_datetime,
-    check_timezone,
-    generate_datetimes,
-    get_duration,
-    infer_frequency,
-)
+from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
 
 
 class Timeseries:
@@ -769,7 +763,7 @@ class Timeseries:
 
         :param item: Datetime to filter the Timeseries
         :type item: list[datetime] or datetime or pendulum.DateTime or str
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss z"
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
@@ -778,7 +772,16 @@ class Timeseries:
         :rtype: Timeseries
         """
         if isinstance(item, list):
-            item = [pendulum.instance(i).in_tz(self.timezone) if isinstance(i, datetime) else i for i in item]
+            item = [
+                pendulum.instance(i).in_tz(self.timezone)
+                if isinstance(i, datetime)
+                else pendulum.from_format(i, fmt=date_format).in_tz(self.timezone)
+                if isinstance(i, str)
+                else i.in_tz(self.timezone)
+                if isinstance(i, pendulum.DateTime)
+                else (_ for _ in ()).throw(NotImplementedError(f"Unsupported item in list: {type(i)}"))
+                for i in item
+            ]
             df = self.timeseries.filter(pl.col("time").is_in(item))
         elif isinstance(item, str):
             date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
@@ -793,27 +796,29 @@ class Timeseries:
 
         return self._return_inplace(df, inplace)
 
-    def max(self) -> float | None:
+    def max(self) -> float:  # type:ignore[return]
         """Return the max value in the 'value' column.
 
         :return: The Timeseries max value
         :rtype: float or None
         """
-        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+        if len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].max())
-        return None
+        else:
+            RuntimeError("Timeseries is empty, can't get the maximum value")
 
-    def min(self) -> float | None:
+    def min(self) -> float:  # type:ignore[return]
         """Return the min value in the 'value' column.
 
         :return: The Timeseries min value
         :rtype: float or None
         """
-        if "value" in self.timeseries.columns and len(self.timeseries) > 0:
+        if len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].min())
-        return None
+        else:
+            RuntimeError("Timeseries is empty, can't get the minimum value")
 
-    def sum(self) -> float | None:
+    def sum(self) -> float:  # type:ignore[return]
         """Return the sum of the 'value' column.
 
         :return: The Timeseries sum value
@@ -821,7 +826,8 @@ class Timeseries:
         """
         if len(self.timeseries) > 0:
             return cast("float", self.timeseries["value"].sum())
-        return None
+        else:
+            RuntimeError("Timeseries is empty, can't perform the sum")
 
     def abs(self, inplace=True) -> Timeseries:
         """Compute the absolute value of each timestamp
@@ -861,15 +867,15 @@ class Timeseries:
         self,
         datetime: str | datetime | pendulum.DateTime,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
-    ) -> float | None:
+    ) -> float:
         """Return values at the given datetime. If exact match is not found, interpolate.
 
         :param datetime: Datetime to get value for
         :type datetime: str or datetime
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
-        :return: Dictionary with time and value
-        :rtype: dict
+        :return: The value at the timestamp requested
+        :rtype: float
         """
         if len(self.timeseries) == 0:
             raise ValueError("Can't get value on empty timeseries.")
@@ -951,3 +957,14 @@ class Timeseries:
             self.frequency = infer_frequency(self.timeseries)
             return self
         return Timeseries(df, self.timezone)
+
+    def first_date(self) -> pendulum.DateTime | None:
+        """
+        Return the first date in the Timeseries index.
+
+        :return: The first date in the Timeseries index
+        :rtype: DateTime or None
+        """
+        if len(self.timeseries) > 0:
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").to_series().to_list()[0]))
+        return None

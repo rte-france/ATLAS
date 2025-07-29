@@ -9,8 +9,10 @@ This module provides LazyTimeseries.
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
+import pendulum
 import polars as pl
 
 from atlas.io_utils.utils import scan_data_file
@@ -128,3 +130,92 @@ class LazyTimeseries:
             self.timeseries.collect(),
             timezone=self.timezone,
         )
+
+    def get_value(
+        self,
+        datetime: str | datetime | pendulum.DateTime,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> float:
+        """Return values at the given datetime. If exact match is not found, interpolate.
+
+        :param datetime: Datetime to get value for
+        :type datetime: str or datetime
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :return: The value at the timestamp requested
+        :rtype: flaot
+        """
+
+        return self.collect().get_value(datetime=datetime, date_format=date_format)
+
+    def filter(
+        self,
+        item: list[datetime | pendulum.DateTime | str] | datetime | pendulum.DateTime | str,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Filter the LazyTimeseries based on a list of datetime.
+
+        :param item: Datetime to filter the LazyTimeseries
+        :type item: list[datetime] or datetime or pendulum.DateTime or str
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :raises NotImplementedError: If the times to filter type is unsupported
+        :return: Filtered LazyTimeseries
+        :rtype: LazyTimeseries
+        """
+        if isinstance(item, list):
+            item = [
+                pendulum.instance(i).in_tz(self.timezone)
+                if isinstance(i, datetime)
+                else pendulum.from_format(i, fmt=date_format).in_tz(self.timezone)
+                if isinstance(i, str)
+                else i.in_tz(self.timezone)
+                if isinstance(i, pendulum.DateTime)
+                else (_ for _ in ()).throw(NotImplementedError(f"Unsupported item in list: {type(i)}"))
+                for i in item
+            ]
+            df = self.timeseries.filter(pl.col("time").is_in(item))
+        elif isinstance(item, str):
+            date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
+        elif isinstance(item, datetime):
+            date = pendulum.instance(item).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
+        elif isinstance(item, pendulum.DateTime):
+            df = self.timeseries.filter(pl.col("time") == item)
+        else:
+            raise NotImplementedError("Invalid filter formatting")
+
+        if inplace:
+            self.timeseries = df
+            return self
+        else:
+            return LazyTimeseries(df, timezone=self.timezone)
+
+    def max(self) -> float:
+        """Return the max value column.
+
+        :return: The Timeseries max value
+        :rtype: float or None
+        """
+        return self.collect().max()
+
+    def min(self) -> float:
+        """Return the min value column.
+
+        :return: The Timeseries min value
+        :rtype: float
+        """
+        return self.collect().min()
+
+    def __len__(self) -> int:
+        """Return the number of rows in the LazyTimeseries.
+
+        :return: The number of rows
+        :rtype: int
+        """
+        return self.collect().__len__()

@@ -18,12 +18,10 @@ class Portfolio(BusinessModel):
     :type control_block: ControlBlock
     :param market_area: Sum of volume of sell offers on the Day Ahead market
     :type market_area: MarketArea
-    :param id_cleared_quantity: Sum of the cleared quantities for all equipment in this portfolio in
-    each Intraday Market Clearing
+    :param id_cleared_quantity: Sum of the cleared quantities for all equipment in this portfolio in each Intraday Market Clearing
     :type id_cleared_quantity: ForecastingMatrix
-    :param imbalance: Portfolio imbalance at the end of each Portfolio optimization. Convention : imbalance is positive
-    in the case of excess production, and negative in the opposite case.
-    :type imbalance: ForecastingMatrix | LazyForecastingMatrix
+    :param imbalance: Portfolio imbalance at the end of each Portfolio optimization. Positive for excess production, and negative in the opposite case.
+    :type imbalance: ForecastingMatrix
     :param power: Sum of every power of the Portfolio equipment
     :type power: ForecastingMatrix
     :param afrr_activated: Volume of aFRR activated
@@ -32,8 +30,7 @@ class Portfolio(BusinessModel):
     :type afrr_down_procured: float
     :param afrr_up_procured: Volume of aFRR reserves contracted upward, summed for all equipment in this portfolio
     :type afrr_up_procured: ForecastingMatrix
-    :param da_cleared_quantity: Sum of the cleared quantities for all equipment in this portfolio in the
-    Day Ahead Market Clearing
+    :param da_cleared_quantity: Sum of the cleared quantities for all equipment in this portfolio in the Day Ahead Market Clearing
     :type da_cleared_quantity: ForecastingMatrix
     :param fcr_activated: Volume of FCR activated for this portfolio
     :type fcr_activated: Timeseries
@@ -51,8 +48,7 @@ class Portfolio(BusinessModel):
     :type rr_down_procured: Timeseries
     :param rr_up_procured: Volume of RR reserves contracted upward, summed for all equipment in this portfolio
     :type rr_up_procured: Timeseries
-    :param total_id_cleared_quantity: Cumulative sum of all cleared quantities for equipment in this portfolio across
-    all Intraday Market Clearings
+    :param total_id_cleared_quantity: Cumulative sum of all cleared quantities for equipment in this portfolio across all Intraday Market Clearings
     :type total_id_cleared_quantity: Timeseries
     """
 
