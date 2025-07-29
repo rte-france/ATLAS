@@ -3,13 +3,15 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+from pendulum import Duration, duration
 
 from atlas.enum import Enum
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import Product
+from atlas.validators import minutes_validator, hours_validator
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -95,10 +97,9 @@ class MarketClearingParameters(AbstractParameters):
     solver_name: SolverEnum = Field(
         SolverEnum.XPRESS, description="Name of the solver to use : default value is Xpress"
     )
-    time_step: int = Field(
-        default=60,
-        ge=1,
-        description="Timestep of the studied market, in minutes : must be superior to 0, default value is 60",
+    time_step: Duration = Field(
+        default_factory=lambda: duration(hours=1),
+        description="Timestep of the studied market",
     )
     price_modifier_lambda_1: float = Field(
         0, description="Price modifier that allows to alter prices for a better optimization : default value is 0"
@@ -201,3 +202,9 @@ class MarketClearingParameters(AbstractParameters):
         -int(1e8),
         description="Min price : default value is - 100 000 000",
     )
+
+    @field_validator("time_step", mode="before")
+    @classmethod
+    def convert_minutes_to_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return minutes_validator(v)

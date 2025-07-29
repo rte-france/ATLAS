@@ -3,7 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-
+from pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enum import OrderType
@@ -19,7 +19,7 @@ class MCOrder:
         # everything stays consistent).
         # NB: by convention, self.end_date are actually starts of a last time step:
         self.duration = int(
-            (((self.order.end_date - self.order.start_date).total_seconds() / 60) // parameters.time_step) * 60
+            (((self.order.end_date - self.order.start_date).total_seconds() / 60) // int(parameters.time_step.total_minutes())) * 60
         )
         self.end_datetime = self.order.start_date.add(minutes=self.duration)
         self.end_date_processed = self.order.start_date.add(minutes=self.duration)
@@ -80,7 +80,7 @@ class MCOrder:
             return False
 
         # MS
-        duration_span = (order.end_date - order.start_date).total_seconds() / 60
+        duration_span = Duration(seconds=(order.end_date - order.start_date).total_seconds())
         if parameters.time_step > duration_span:
             logger.info(
                 f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.time_step} min"

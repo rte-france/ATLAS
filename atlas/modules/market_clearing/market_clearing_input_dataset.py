@@ -4,7 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import pendulum
 
 from atlas import ControlBlock, CriticalBranch, MarketBorder
 from atlas.abstract_class.abstract_dataset import AbstractDataset
@@ -13,11 +12,11 @@ from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.modules.market_clearing.market_clearing_data.marcket_clearing_market_area import MCMarketArea
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_border import MCBorder
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_critical_branch import MCCriticalBranch
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
 
 
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
@@ -27,10 +26,10 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.raw_data = raw_data
         self.parameters = parameters
 
-        step = pendulum.duration(minutes=self.parameters.time_step)
+        step = self.parameters.time_step
         total_minutes = (self.parameters.end_date - self.parameters.start_date).in_minutes()
         self.times = [
-            self.parameters.start_date + step * i for i in range(0, total_minutes // self.parameters.time_step)
+            self.parameters.start_date + step * i for i in range(0, total_minutes // int(self.parameters.time_step.total_minutes()))
         ]
 
         self.order_couplings = self.get_order_couplings(raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]])
@@ -58,13 +57,13 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         control_blocks_to_keep = {}
         for control_block in control_blocks:
             for mc_market_area in self.mc_market_areas.values():
-                if control_block == mc_market_area.market_area.control_block:
+                if control_block == mc_market_area.control_block:
                     control_blocks_to_keep[control_block.name] = control_block
         return control_blocks_to_keep
 
     def get_market_areas(
         self, market_areas: list[MarketArea], mc_orders: dict[str, MCOrder]
-    ) -> dict[str, MCMarketArea]:
+    ) -> dict[str, MarketAreaMC]:
         if self.parameters.market_area_names == "All":
             market_areas_to_keep = market_areas
         else:
@@ -78,9 +77,10 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 for order_name, mc_order in mc_orders.items()
                 if mc_order.order.market_area == market_area
             }
-            mc_market_areas[market_area.name] = MCMarketArea(
-                market_area, market_area_orders, self.times, self.parameters.time_step
-            )
+            mc_market_area = MarketAreaMC.model_validate(market_area.model_dump())
+            mc_market_area.compute_attributes(self.times, self.parameters.time_step)
+            mc_market_areas[market_area.name] = mc_market_area
+
         return mc_market_areas
 
     def get_orders(self, mc_orders: list[Order], order_couplings: dict[str:OrderCoupling]) -> dict[str, MCOrder]:

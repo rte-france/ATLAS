@@ -9,6 +9,7 @@ from atlas.enum import OrderType
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
+from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
 
 
 class MarginalFixing:
@@ -38,14 +39,14 @@ class MarginalFixing:
         # Start with looping over time, since all time steps are independent:
         for time_index, time in enumerate(self.input_dataset.times):
             # Loop again immediately on market areas, since they are also,independent of each other:
-            for area in self.input_dataset.mc_market_areas:
+            for mc_market_area in self.input_dataset.mc_market_areas:
                 # Get the values of local variables:
-                spot_price = market_prices[area.market_area.name][time_index]
-                local_accepted_powers = accepted_powers[area.market_area.name]
-                self.update_local_accepted_power(local_accepted_powers, area, time, spot_price)
+                spot_price = market_prices[mc_market_area.name][time_index]
+                local_accepted_powers = accepted_powers[mc_market_area.name]
+                self.update_local_accepted_power(local_accepted_powers, mc_market_area, time, spot_price)
 
     def update_local_accepted_power(
-        self, local_accepted_powers: dict[str, float], area: MarketArea, time, spot_price: float
+        self, local_accepted_powers: dict[str, float], area: MarketAreaMC, time, spot_price: float
     ):
         # Initialize the variables storing the total amounts of usable marginal powers as well as the marginal amounts
         # of balances that can be redistributed:

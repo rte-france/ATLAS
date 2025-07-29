@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import pendulum
+from pendulum._pendulum import Duration
 
 from atlas.math.timeseries import Timeseries
 from atlas.models.market.market_area import MarketArea
@@ -16,11 +17,11 @@ INITIAL_MIN_PRICE = -1.0e8
 
 class MCMarketArea:
     def __init__(
-        self, market_area: MarketArea, orders: dict[str, MCOrder], times: list[pendulum.DateTime], time_step: int
+        self, market_area: MarketArea, orders: dict[str, MCOrder], times: list[pendulum.DateTime], time_step: Duration
     ):
         self.market_area = market_area
         self.orders = orders
-        minute_time_step = pendulum.Duration(minutes=time_step)
+        minute_time_step = time_step
         if market_area.reference_balance:
             self.ref_balance = market_area.reference_balance.set_frequency(minute_time_step, False).filter(times)
         else:
