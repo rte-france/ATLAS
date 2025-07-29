@@ -12,10 +12,11 @@ from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.modules.market_clearing.market_clearing_data.market_clearing_border import MCBorder
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_critical_branch import MCCriticalBranch
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.modules.market_clearing.models.control_block_mc import ControlBlockMC
+from atlas.modules.market_clearing.models.critical_branch_mc import CriticalBranchMC
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
 from atlas.modules.market_clearing.models.market_border_mc import MarketBorderMC
 from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
@@ -41,27 +42,35 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.mc_market_borders = self.get_market_borders(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]])
         self.control_blocks = self.get_control_blocks(raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]])
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
-            if INVERSE_MODEL_MAPPING_NAME[CriticalBranch] in raw_data:
-                self.mc_critical_branches = self.get_critical_branches(
-                    raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]]
-                )
-            else:
-                self.mc_critical_branches = {}
+            self.mc_critical_branches = self.get_critical_branches(
+                raw_data.get(INVERSE_MODEL_MAPPING_NAME[CriticalBranch], {})
+            )
         else:
             self.mc_critical_branches = None
 
-    def get_critical_branches(self, critical_branches: list[CriticalBranch]) -> dict[str, MCCriticalBranch]:
-        return {
-            critical_branche.name: MCCriticalBranch(critical_branche, self.times, self.parameters.time_step)
-            for critical_branche in critical_branches
-        }
+    def get_critical_branches(self, critical_branches: list[CriticalBranch]) -> dict[str, CriticalBranchMC]:
+        if not critical_branches:
+            return {}
+        mc_critical_branches = {}
+        for critical_branch in critical_branches:
+            critical_branch_dump = {
+                **critical_branch.model_dump(),
+                "time_step": self.parameters.time_step,
+                "times": self.times,
+                "da_ptdf": critical_branch.market_area_ptdf.da_ptdf,
+            }
+            mc_critical_branch = CriticalBranchMC.model_validate(critical_branch_dump)
+            mc_critical_branches[critical_branch.name] = mc_critical_branch
+        return mc_critical_branches
 
-    def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlock]:
+    def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlockMC]:
         control_blocks_to_keep = {}
         for control_block in control_blocks:
             for mc_market_area in self.mc_market_areas.values():
                 if control_block == mc_market_area.control_block:
-                    control_blocks_to_keep[control_block.name] = control_block
+                    control_block_dump = control_block.model_dump()
+                    mc_control_block = ControlBlockMC.model_validate(control_block_dump)
+                    control_blocks_to_keep[control_block.name] = mc_control_block
         return control_blocks_to_keep
 
     def get_market_areas(
