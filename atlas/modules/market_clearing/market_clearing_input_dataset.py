@@ -17,6 +17,7 @@ from atlas.modules.market_clearing.market_clearing_data.market_clearing_critical
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
+from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
 from atlas.modules.market_clearing.models.order_mc import OrderMC
 
 
@@ -89,7 +90,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
 
         return mc_market_areas
 
-    def get_orders(self, orders: list[Order], order_couplings: dict[str:OrderCoupling]) -> dict[str, OrderMC]:
+    def get_orders(self, orders: list[Order], order_couplings: dict[str:OrderCouplingMC]) -> dict[str, OrderMC]:
         mc_orders = {}
         for order in orders:
             if OrderMC.is_feasible(order, self.times, self.parameters):
@@ -124,12 +125,16 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     mc_order.link_id = order_coupling.name
         return mc_orders
 
-    def get_order_couplings(self, order_couplings: list[OrderCoupling]) -> dict[str:OrderCoupling]:
-        return {
-            order_coupling.name: order_coupling
-            for order_coupling in order_couplings
-            if self.is_order_coupling_feasible(order_coupling)
-        }
+    def get_order_couplings(self, order_couplings: list[OrderCoupling]) -> dict[str:OrderCouplingMC]:
+        mc_order_couplings = {}
+        for order_coupling in order_couplings:
+            if self.is_order_coupling_feasible(order_coupling):
+                order_coupling_dump = {
+                    **order_coupling.model_dump()
+                }
+                mc_order_coupling = OrderCouplingMC.model_validate(order_coupling_dump)
+                mc_order_couplings[order_coupling.name] = mc_order_coupling
+        return mc_order_couplings
 
     def is_order_coupling_feasible(self, order_coupling: OrderCoupling) -> bool:
         if order_coupling.orders is None:
