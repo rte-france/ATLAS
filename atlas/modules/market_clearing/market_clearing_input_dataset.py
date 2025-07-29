@@ -17,6 +17,7 @@ from atlas.modules.market_clearing.market_clearing_data.market_clearing_critical
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
+from atlas.modules.market_clearing.models.market_border_mc import MarketBorderMC
 from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
 from atlas.modules.market_clearing.models.order_mc import OrderMC
 
@@ -147,11 +148,17 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         else:
             return True
 
-    def get_market_borders(self, market_borders: list[MarketBorder]) -> dict[str, MCBorder]:
-        return {
-            market_border.name: MCBorder(market_border, self.times, self.parameters.time_step)
-            for market_border in market_borders
-        }
+    def get_market_borders(self, market_borders: list[MarketBorder]) -> dict[str, MarketBorderMC]:
+        mc_market_borders = {}
+        for market_border in market_borders:
+            market_border_dump = {
+                **market_border.model_dump(),
+                "time_step": self.parameters.time_step,
+                "times": self.times,
+            }
+            mc_market_border = MarketBorderMC.model_validate(market_border_dump)
+            mc_market_borders[market_border.name] = mc_market_border
+        return mc_market_borders
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
         return []
