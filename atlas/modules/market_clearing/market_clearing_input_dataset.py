@@ -17,6 +17,7 @@ from atlas.modules.market_clearing.market_clearing_data.market_clearing_critical
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
+from atlas.modules.market_clearing.models.order_mc import OrderMC
 
 
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
@@ -62,7 +63,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         return control_blocks_to_keep
 
     def get_market_areas(
-        self, market_areas: list[MarketArea], mc_orders: dict[str, MCOrder]
+        self, market_areas: list[MarketArea], mc_orders: dict[str, OrderMC]
     ) -> dict[str, MarketAreaMC]:
         if self.parameters.market_area_names == "All":
             market_areas_to_keep = market_areas
@@ -75,20 +76,30 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             market_area_orders = {
                 order_name: mc_order
                 for order_name, mc_order in mc_orders.items()
-                if mc_order.order.market_area == market_area
+                if mc_order.market_area == market_area
             }
-            mc_market_area = MarketAreaMC.model_validate(market_area.model_dump())
-            mc_market_area.compute_attributes(self.times, self.parameters.time_step)
+            market_area_dump = {
+                **market_area.model_dump(),
+                "time_step": self.parameters.time_step,
+                "times": self.times,
+                "mc_orders": market_area_orders
+            }
+            mc_market_area = MarketAreaMC.model_validate(market_area_dump)
             mc_market_areas[market_area.name] = mc_market_area
 
         return mc_market_areas
 
-    def get_orders(self, mc_orders: list[Order], order_couplings: dict[str:OrderCoupling]) -> dict[str, MCOrder]:
-        mc_orders = {
-            order.name: MCOrder(order, self.parameters)
-            for order in mc_orders
-            if MCOrder.is_feasible(order, self.times, self.parameters)
-        }
+    def get_orders(self, orders: list[Order], order_couplings: dict[str:OrderCoupling]) -> dict[str, OrderMC]:
+        mc_orders = {}
+        for order in orders:
+            if OrderMC.is_feasible(order, self.times, self.parameters):
+                order_dump = {
+                    **order.model_dump(),
+                    "time_step": self.parameters.time_step
+                }
+                mc_order = OrderMC.model_validate(order_dump)
+                mc_orders[order.name] = mc_order
+
         for order_coupling in order_couplings.values():
             for order in order_coupling.orders:
                 if order.name not in mc_orders:
