@@ -20,11 +20,12 @@ class MarketClearingModule(
     AbstractModule[MarketClearingParameters, MarketClearingInputDataset, MarketClearingOutputDataset]
 ):
     """The Market Clearing prototype, resulting from a merge of TERRE and Optimate's Market Coupling module, deals with
-    the clearing of short-term markets of elecricity at the European scale.
+    the clearing of short-term markets of electricity at the European scale.
     """
 
-    def create_parameters(self, raw_params: dict[str, Any]) -> MarketClearingParameters:
-        return MarketClearingParameters(**raw_params)
+    def get_parameters_class(self):
+        """Returns the concrete Parameters class for this module."""
+        return MarketClearingParameters
 
     def import_data(
         self, raw_data: dict[str, list[type(BusinessModel)]], parameters: MarketClearingParameters

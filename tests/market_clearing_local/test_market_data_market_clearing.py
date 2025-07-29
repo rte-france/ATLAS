@@ -179,11 +179,9 @@ def test_market_data():
     expected_data_path = "tests/market_clearing_local/data"
     with open(pickle_dataset_path, "rb") as f:
         raw_data = pickle.load(f)
-    with open(parameters_path) as r:
-        raw_params = yaml.safe_load(r)
 
     mc_module = MarketClearingModule()
-    parameters = mc_module.create_parameters(raw_params)
+    parameters = mc_module.import_parameters(parameters_path)
 
     input_dataset = mc_module.import_data(raw_data, parameters)
 
