@@ -293,3 +293,115 @@ def test_filter_timezone_handling():
     collected = filtered_lt.collect()
     assert collected.timezone == "Europe/Paris"
     assert collected.timeseries.shape == (1, 2)
+
+
+def test_set_frequency_inplace():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 2, 0),
+                datetime(2023, 1, 1, 4, 0),
+            ],
+            "value": [10.0, 20.0, 30.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+
+    result = lt.set_frequency("1h")
+
+    # Should return same object when inplace=True
+    assert result is lt
+
+    collected = result.collect()
+    assert collected.timeseries.shape[0] == 5  # 5 hourly points from 0h to 4h
+    assert collected.timeseries["value"].to_list() == [10.0, 10.0, 20.0, 20.0, 30.0]
+
+
+def test_set_frequency_not_inplace():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+                datetime(2023, 1, 1, 3, 0),
+                datetime(2023, 1, 1, 4, 0),
+                datetime(2023, 1, 1, 5, 0),
+            ],
+            "value": [10.0, 15.0, 20.0, 25.0, 30.0, 35.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+    original_collected = lt.collect()
+
+    result = lt.set_frequency("2h", inplace=False)
+
+    assert result is not lt
+    assert isinstance(result, LazyTimeseries)
+
+    result_collected = result.collect()
+    assert result_collected.timeseries.shape[0] == 3  # 3 two-hourly points
+
+    current_collected = lt.collect()
+    assert current_collected.timeseries.equals(original_collected.timeseries)
+
+
+def test_set_frequency_with_pendulum_duration():
+    # Test using pendulum.Duration instead of string
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 6, 0),
+                datetime(2023, 1, 1, 12, 0),
+                datetime(2023, 1, 1, 18, 0),
+            ],
+            "value": [100.0, 200.0, 300.0, 400.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+
+    duration = pendulum.duration(hours=3)
+    result = lt.set_frequency(duration, inplace=False)
+
+    collected = result.collect()
+    assert collected.timeseries.shape[0] == 7
+
+
+def test_set_frequency_same_frequency():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+            ],
+            "value": [10.0, 20.0, 30.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+    original_collected = lt.collect()
+
+    result = lt.set_frequency("1h", inplace=False)
+
+    result_collected = result.collect()
+
+    assert result_collected.timeseries.shape == original_collected.timeseries.shape
+    assert result_collected.timeseries["value"].to_list() == original_collected.timeseries["value"].to_list()
+
+
+def test_set_frequency_timezone_preservation():
+    df = pl.DataFrame(
+        {
+            "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 2, 0)],
+            "value": [100.0, 200.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy(), timezone="Europe/London")
+
+    result = lt.set_frequency("1h", inplace=False)
+
+    assert result.timezone == "Europe/London"
+    collected = result.collect()
+    assert collected.timezone == "Europe/London"

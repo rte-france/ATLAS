@@ -219,3 +219,23 @@ class LazyTimeseries:
         :rtype: int
         """
         return self.collect().__len__()
+
+    def set_frequency(self, frequency: str | pendulum.Duration, inplace: bool = True) -> LazyTimeseries:
+        """
+        Change the frequency (timestep) of the lazy time series.
+
+        :param frequency: The desired frequency. Can be a string (e.g., '1d', '15m') or a `pendulum.Duration`.
+        :type frequency: str or pendulum.Duration
+        :param inplace: If True, modifies the object in place. If False, returns a new modified object.
+        :type inplace: bool
+        :return: The resampled lazy time series, either modified in place or as a new object.
+        :rtype: LazyTimeseries
+        """
+
+        resampled_ts = self.collect().set_frequency(frequency, inplace=False)
+
+        if inplace:
+            self.timeseries = resampled_ts.to_lazy()
+            return self
+        else:
+            return LazyTimeseries(resampled_ts.to_lazy(), timezone=self.timezone)
