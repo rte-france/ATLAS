@@ -26,21 +26,22 @@ class MarketBorderMC(MarketBorder):
             max_flow = self.maximum_flow.set_frequency(self.time_step, False).filter(self.times)
         else:
             max_flow = Timeseries.from_index(self.times[0], self.time_step, self.times[-1], DEFAULT_MAX_FLOW)
-        max_flow -= self.ref_flow
+        if self.ref_flow:
+            max_flow -= self.ref_flow
         return max_flow
 
     @property
     def min_flow(self) -> Timeseries | LazyTimeseries:
-
-        if self.maximum_price:
+        if self.minimum_flow:
             min_flow = self.minimum_flow.set_frequency(self.time_step, False).filter(self.times)
         else:
             min_flow = Timeseries.from_index(self.times[0], self.time_step, self.times[-1], DEFAULT_MIN_FLOW)
-        min_flow -= self.ref_flow
+        if self.ref_flow:
+            min_flow -= self.ref_flow
         return min_flow
 
     @property
-    def ref_flow(self) -> Timeseries | LazyTimeseries |None:
+    def ref_flow(self) -> Timeseries | LazyTimeseries | None:
         if self.reference_flow:
             return self.reference_flow.set_frequency(self.time_step, False).filter(self.times)
 
