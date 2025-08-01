@@ -118,8 +118,8 @@ def compare_control_block(control_blocks_expected, input_dataset):
     clearing = Clearing(input_dataset, input_dataset.parameters)
     for control_block_expected in control_blocks_expected.values():
         for time_index in range(len(control_block_expected['max_tso_power_sold'])):
-            max_tso_power_bought = clearing.get_max_tso_power_bought(input_dataset.times[time_index], input_dataset.control_blocks[control_block_expected["name"]], input_dataset.mc_market_areas)
-            max_tso_power_sold = clearing.get_max_tso_power_sold(input_dataset.times[time_index], input_dataset.control_blocks[control_block_expected["name"]], input_dataset.mc_market_areas)
+            max_tso_power_bought = clearing.get_max_tso_power_bought(input_dataset.times[time_index], input_dataset.mc_control_blocks[control_block_expected["name"]], input_dataset.mc_market_areas)
+            max_tso_power_sold = clearing.get_max_tso_power_sold(input_dataset.times[time_index], input_dataset.mc_control_blocks[control_block_expected["name"]], input_dataset.mc_market_areas)
             assert max_tso_power_bought == pytest.approx(control_block_expected['max_tso_power_bought'][time_index], rel=1e-9)
             assert max_tso_power_sold == pytest.approx(control_block_expected['max_tso_power_sold'][time_index], rel=1e-9)
 
@@ -134,9 +134,9 @@ def compare_market_borders(market_borders_expected, input_dataset):
         assert compare_timeseries_to_dict(mc_market_border.min_flow, market_border_expected['min_flow'])
 
 def compare_market_data(market_data_expected, input_dataset):
-    assert market_data_expected["coupling_groups"] == len(input_dataset.order_couplings)
+    assert market_data_expected["coupling_groups"] == len(input_dataset.mc_order_couplings)
     assert market_data_expected["market_borders"] == len(input_dataset.mc_market_borders)
-    assert not set(market_data_expected["control_blocks"]).difference(set(input_dataset.control_blocks))
+    assert not set(market_data_expected["control_blocks"]).difference(set(input_dataset.mc_control_blocks))
 
 
 
@@ -186,7 +186,7 @@ def test_market_data():
     input_dataset = mc_module.import_data(raw_data, parameters)
 
     coupling_groups_expected, market_areas_expected, control_blocks_expected, market_borders_expected, market_data_expected = read_expected_data(expected_data_path)
-    compare_orders_couplings(coupling_groups_expected, input_dataset.order_couplings)
+    compare_orders_couplings(coupling_groups_expected, input_dataset.mc_order_couplings)
     compare_market_area(market_areas_expected, input_dataset)
     compare_control_block(control_blocks_expected, input_dataset)
     compare_market_borders(market_borders_expected, input_dataset)

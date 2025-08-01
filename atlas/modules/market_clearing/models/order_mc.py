@@ -13,6 +13,7 @@ from atlas.modules.market_clearing.market_clearing_parameters import MarketClear
 
 
 class OrderMC(Order):
+    # Override of parent class  attributes that were None
     accepted_power: float
     execution_date: DateTime
     start_date: DateTime

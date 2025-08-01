@@ -36,11 +36,11 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             self.parameters.start_date + step * i for i in range(0, total_minutes // int(self.parameters.time_step.total_minutes()))
         ]
 
-        self.order_couplings = self.get_order_couplings(raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]])
-        self.mc_orders = self.get_orders(raw_data[INVERSE_MODEL_MAPPING_NAME[Order]], self.order_couplings)
+        self.mc_order_couplings = self.get_order_couplings(raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]])
+        self.mc_orders = self.get_orders(raw_data[INVERSE_MODEL_MAPPING_NAME[Order]], self.mc_order_couplings)
         self.mc_market_areas = self.get_market_areas(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]], self.mc_orders)
         self.mc_market_borders = self.get_market_borders(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]])
-        self.control_blocks = self.get_control_blocks(raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]])
+        self.mc_control_blocks = self.get_control_blocks(raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]])
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
             self.mc_critical_branches = self.get_critical_branches(
                 raw_data.get(INVERSE_MODEL_MAPPING_NAME[CriticalBranch], {})

@@ -116,4 +116,4 @@ class MarginalFixing:
                 yield mc_order.order, accepted_power
 
     def get_order_names_in_order_couplings(self):
-        return [order.name for order_coupling in self.input_dataset.order_couplings for order in order_coupling.orders]
+        return [order.name for order_coupling in self.input_dataset.mc_order_couplings for order in order_coupling.orders]

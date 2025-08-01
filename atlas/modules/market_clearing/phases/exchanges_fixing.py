@@ -140,21 +140,21 @@ class ExchangesFixing(OptimisationModel):
         exchanges_sum = []
         for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             if market_area_name not in [
-                mc_border.border.uphill_market_area.name,
-                mc_border.border.downhill_market_area.name,
+                mc_border.uphill_market_area.name,
+                mc_border.downhill_market_area.name,
             ]:
                 continue
-            if mc_border.border.loss_factor != 0.0:
-                if mc_border.border.uphill_market_area.name == market_area_name:
+            if mc_border.loss_factor != 0.0:
+                if mc_border.uphill_market_area.name == market_area_name:
                     exchanges_sum.append(
                         self.get_variable(constants.border_export_variable_name(border_name, time_index))
                     )
-                elif mc_border.border.downhill_market_area.name == market_area_name:
+                elif mc_border.downhill_market_area.name == market_area_name:
                     exchanges_sum.append(
                         -self.get_variable(constants.border_import_variable_name(border_name, time_index))
                     )
             else:
-                border_sign = 1 if market_area_name == mc_border.border.uphill_market_area.name else -1
+                border_sign = 1 if market_area_name == mc_border.uphill_market_area.name else -1
                 exchanges_sum.append(
                     border_sign * self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                 )
@@ -165,11 +165,11 @@ class ExchangesFixing(OptimisationModel):
         exchanges_sum = []
         for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             if market_area_name not in [
-                mc_border.border.uphill_market_area.name,
-                mc_border.border.downhill_market_area.name,
+                mc_border.uphill_market_area.name,
+                mc_border.downhill_market_area.name,
             ]:
                 continue
-            border_sign = 1 if market_area_name == mc_border.border.uphill_market_area.name else -1
+            border_sign = 1 if market_area_name == mc_border.uphill_market_area.name else -1
             exchanges_sum.append(
                 border_sign * self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
             )
@@ -185,7 +185,7 @@ class ExchangesFixing(OptimisationModel):
                     constants.border_neg_exchange_variable_name(border_name, time_index)
                 )
                 # Compute the sum of the absolute values of exchanges:
-                if is_atc and mc_border.border.loss_factor != 0.0:
+                if is_atc and mc_border.loss_factor != 0.0:
                     timed_exports = self.get_variable(constants.border_export_variable_name(border_name, time_index))
                     timed_imports = self.get_variable(constants.border_import_variable_name(border_name, time_index))
                     self.add_constraint(
@@ -204,7 +204,7 @@ class ExchangesFixing(OptimisationModel):
     def create_borders_constraints(self):
         for time_index, _time in enumerate(self.input_dataset.times):
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-                if mc_border.border.loss_factor <= 0.0:
+                if mc_border.loss_factor <= 0.0:
                     continue
                 relative_max_flow = mc_border.max_flow.get_value(_time)
                 relative_min_flow = mc_border.min_flow.get_value(_time)
@@ -223,8 +223,8 @@ class ExchangesFixing(OptimisationModel):
                 )
 
                 tmp_rhs = (
-                    (1.0 - mc_border.border.loss_factor) - 1.0 / (1.0 - mc_border.border.loss_factor)
-                ) * timed_xsis + timed_export / (1.0 - mc_border.border.loss_factor)
+                    (1.0 - mc_border.loss_factor) - 1.0 / (1.0 - mc_border.loss_factor)
+                ) * timed_xsis + timed_export / (1.0 - mc_border.loss_factor)
                 self.add_constraint(
                     timed_import >= tmp_rhs, constants.constraint_4_3a_constraint_name(border_name, time_index)
                 )
