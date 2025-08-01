@@ -172,7 +172,7 @@ def compare_timeseries_to_dict(timeseries: Timeseries, _dict: dict[str, float]):
             return False
     return True
 
-
+@pytest.mark.skip(reason="No data available")
 def test_market_data():
     parameters_path = "tests/market_clearing_local/parameters.yml"
     pickle_dataset_path = "tests/market_clearing_local/mc/raw_data.pkl"
