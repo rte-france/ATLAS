@@ -12,6 +12,7 @@ from atlas.enum import ComplementDirection, CouplingType, OrderType
 from atlas.models.control_block import ControlBlock
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.modules.market_clearing.models.control_block_mc import ControlBlockMC
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
 from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
 from atlas.modules.market_clearing.models.order_mc import OrderMC
@@ -194,11 +195,11 @@ class Clearing(OptimisationModel):
                         accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.name))
                         accepted_powers.append(mc_order.production_sign * accepted_power)
                 local_balance = self.get_variable(
-                    constants.local_balance_variable_name(mc_market_area.market_area.name, time_index)
+                    constants.local_balance_variable_name(mc_market_area.name, time_index)
                 )
                 self.add_constraint(
                     sum(accepted_powers) == local_balance,
-                    constants.constraint_3_2_1_constraint_name(mc_market_area.market_area.name, time_index),
+                    constants.constraint_3_2_1_constraint_name(mc_market_area.name, time_index),
                 )
 
     def create_exchanges_and_local_balances_equality_constraints(self, is_atc):
@@ -335,13 +336,14 @@ class Clearing(OptimisationModel):
             for critical_branch_name, mc_critical_branch in self.input_dataset.mc_critical_branches.items():
                 branch_load = []
                 mc_market_area = self.input_dataset.mc_market_areas[
-                    mc_critical_branch.critical_branch.market_area_ptdf.market_area.name
+                    mc_critical_branch.market_area_ptdf.market_area.name
                 ]
                 relative_balance = self.get_variable(
-                    constants.local_balance_variable_name(mc_market_area.market_area.name, time_index)
+                    constants.local_balance_variable_name(mc_market_area.name, time_index)
                     - mc_market_area.ref_balance.get_value(time)
                 )
-                branch_load.append(mc_critical_branch.ptdf.get_value(time) * relative_balance)
+                da_ptdf = self.input_dataset.mc_market_area_ptdfs[mc_critical_branch.market_area_ptdf.name].day_ahead_ptdf
+                branch_load.append(da_ptdf.get_value(time) * relative_balance)
                 self.add_constraint(
                     relative_balance <= mc_critical_branch.max_flow.get_value(time),
                     constants.constraint_3_6_2_constraint_name(critical_branch_name, time_index),
@@ -356,14 +358,14 @@ class Clearing(OptimisationModel):
                     order_status = self.get_variable(constants.order_status_variable_name(mc_order.name))
                     accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.name))
                     self.create_min_accepted_power_constraint(
-                        mc_market_area.market_area.name,
+                        mc_market_area.name,
                         mc_order.name,
                         order_status,
                         mc_order.qmin,
                         accepted_power,
                     )
                     self.create_max_accepted_power_constraint(
-                        mc_market_area.market_area.name,
+                        mc_market_area.name,
                         mc_order.name,
                         order_status,
                         mc_order.qmax,
@@ -528,10 +530,10 @@ class Clearing(OptimisationModel):
                 objective.append(border_exchange - border_exchange.Lb())
         return sum(objective)
 
-    def get_tso_sold_power(self, time, control_block):
+    def get_tso_sold_power(self, time: int, control_block: ControlBlockMC):
         tso_sold_power = 0.0
         for mc_market_area in self.input_dataset.mc_market_areas.values():
-            if control_block == mc_market_area.market_area.control_block:
+            if control_block.name == mc_market_area.control_block.name:
                 for order_name, mc_order in mc_market_area.mc_orders.items():
                     is_available = mc_order.start_date <= time <= mc_order.end_date_processed
                     not_tso = not mc_order.is_agent_tso
@@ -540,10 +542,10 @@ class Clearing(OptimisationModel):
                         tso_sold_power += self.get_variable(constants.accepted_power_variable_name(order_name))
         return tso_sold_power
 
-    def get_tso_bought_power(self, time, control_block):
+    def get_tso_bought_power(self, time: int, control_block: ControlBlockMC):
         tso_bought_power = []
         for mc_market_area in self.input_dataset.mc_market_areas.values():
-            if control_block == mc_market_area.market_area.control_block:
+            if control_block.name == mc_market_area.control_block.name:
                 for order_name, mc_order in mc_market_area.mc_orders.items():
                     is_available = mc_order.start_date <= time <= mc_order.end_date_processed
                     not_tso = not mc_order.is_agent_tso
@@ -556,7 +558,7 @@ class Clearing(OptimisationModel):
     def get_max_tso_power_sold(time, control_block: ControlBlock, mc_market_areas: dict[str, MarketAreaMC]) -> float:
         max_tso_power_sold = []
         for mc_market_area in mc_market_areas.values():
-            if control_block == mc_market_area.market_area.control_block:
+            if control_block == mc_market_area.control_block:
                 for mc_order in mc_market_area.mc_orders.values():
                     is_available = mc_order.start_date <= time <= mc_order.end_date_processed
                     not_tso = not mc_order.is_agent_tso
@@ -569,7 +571,7 @@ class Clearing(OptimisationModel):
     def get_max_tso_power_bought(time, control_block: ControlBlock, mc_market_areas: dict[str, MarketAreaMC]) -> float:
         max_tso_power_bought = []
         for mc_market_area in mc_market_areas.values():
-            if control_block == mc_market_area.market_area.control_block:
+            if control_block == mc_market_area.control_block:
                 for mc_order in mc_market_area.mc_orders.values():
                     is_available = mc_order.start_date <= time <= mc_order.end_date_processed
                     not_tso = not mc_order.is_agent_tso

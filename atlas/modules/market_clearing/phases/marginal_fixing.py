@@ -8,6 +8,7 @@ from atlas.enum import OrderType
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
+from atlas.modules.market_clearing.models.order_mc import OrderMC
 
 
 class MarginalFixing:
@@ -51,41 +52,41 @@ class MarginalFixing:
         max_marginal_sales = 0.0
         max_marginal_purchases = 0.0
         marginal_demand = 0.0
-        for order, accepted_power in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
-            if order.order_type == OrderType.Sell:
-                max_marginal_sales += order.qmax - order.qmin
-                marginal_demand += accepted_power - order.qmin
+        for mc_order, accepted_power in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
+            if mc_order.order_type == OrderType.Sell:
+                max_marginal_sales += mc_order.qmax - mc_order.qmin
+                marginal_demand += accepted_power - mc_order.qmin
             else:
-                max_marginal_purchases += order.qmax - order.qmin
-                marginal_demand -= accepted_power - order.qmin
+                max_marginal_purchases += mc_order.qmax - mc_order.qmin
+                marginal_demand -= accepted_power - mc_order.qmin
 
             sharable_purchase_power = None
             sharable_sale_power = None
             if marginal_demand >= max_marginal_sales - max_marginal_purchases:
-                for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
-                    if order.order_type == OrderType.Sell:
-                        local_accepted_powers[order.id] = order.qmax
+                for mc_order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
+                    if mc_order.order_type == OrderType.Sell:
+                        local_accepted_powers[mc_order.id] = mc_order.qmax
                 sharable_purchase_power = max_marginal_sales - marginal_demand
             else:
-                for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
-                    if order.order_type == OrderType.Buy:
-                        local_accepted_powers[order.id] = order.qmax
+                for mc_order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
+                    if mc_order.order_type == OrderType.Buy:
+                        local_accepted_powers[mc_order.id] = mc_order.qmax
                 sharable_sale_power = max_marginal_purchases + marginal_demand
 
             if sharable_purchase_power is not None:
-                for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
-                    if order.order_type == OrderType.Buy and max_marginal_purchases * (order.qmax - order.qmin) != 0:
-                        local_accepted_powers[order.id] = (
-                            order.qmin + sharable_purchase_power / max_marginal_purchases * (order.qmax - order.qmin)
+                for mc_order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
+                    if mc_order.order_type == OrderType.Buy and max_marginal_purchases * (mc_order.qmax - mc_order.qmin) != 0:
+                        local_accepted_powers[mc_order.id] = (
+                            mc_order.qmin + sharable_purchase_power / max_marginal_purchases * (mc_order.qmax - mc_order.qmin)
                         )
             else:
-                for order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
-                    if order.order_type == OrderType.Sell and max_marginal_sales * (order.qmax - order.qmin) != 0:
-                        local_accepted_powers[order.id] = order.qmin + sharable_sale_power / max_marginal_sales * (
-                            order.qmax - order.qmin
+                for mc_order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
+                    if mc_order.order_type == OrderType.Sell and max_marginal_sales * (mc_order.qmax - mc_order.qmin) != 0:
+                        local_accepted_powers[mc_order.id] = mc_order.qmin + sharable_sale_power / max_marginal_sales * (
+                            mc_order.qmax - mc_order.qmin
                         )
 
-    def get_marginal_orders(self, current_time, market_area, spot_price, local_accepted_powers) -> list[OrderMC]:
+    def get_marginal_orders(self, current_time, market_area, spot_price, local_accepted_powers: dict[int, float]) -> list[OrderMC, float]:
         """Generator selecting marginal orders that can be involved in the redistribution process
 
         :param current_time: Result of optimization
@@ -99,17 +100,17 @@ class MarginalFixing:
         :return: A generator of OrderMC that may be updated
         :rtype: list[OrderMC]
         """
-        for mc_order in self.input_dataset.mc_orders:
-            if not mc_order.order.start_datetime <= current_time < mc_order.order.end_date_processed:
+        for mc_order in self.input_dataset.mc_orders.values():
+            if not mc_order.start_datetime <= current_time < mc_order.end_date_processed:
                 continue
-            if mc_order.order.duration > self.parameters.time_step:
+            if mc_order.duration > self.parameters.time_step:
                 continue
-            if mc_order.order.price != spot_price:
+            if mc_order.price != spot_price:
                 continue
-            if mc_order.order.name in self.get_order_names_in_order_couplings():
+            if mc_order.name in self.get_order_names_in_order_couplings():
                 continue
-            accepted_power = local_accepted_powers[mc_order.order.id]
-            if mc_order.order.qmin == 0.0 or (mc_order.order.qmax != mc_order.order.qmin and accepted_power != 0.0):
+            accepted_power = local_accepted_powers[mc_order.id]
+            if mc_order.qmin == 0.0 or (mc_order.qmax != mc_order.qmin and accepted_power != 0.0):
                 # TODO: return only order
                 yield mc_order.order, accepted_power
 

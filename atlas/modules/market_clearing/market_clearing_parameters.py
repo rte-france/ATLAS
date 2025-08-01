@@ -5,13 +5,13 @@ This file is part of the ATLAS project.
 """
 from pendulum import Duration, duration
 
-from atlas.enum import Enum
+from atlas.enum import Enum, SolverEnum
 
 from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import Product
-from atlas.validators import minutes_validator, hours_validator
+from atlas.validators import minutes_validator
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -24,10 +24,6 @@ class ExchangeConstraintsType(str, Enum):
 
     ATC = "ATC"
     FB = "FB"
-
-
-class SolverEnum(str, Enum):
-    XPRESS = "Xpress"
 
 
 class MarketClearingParameters(AbstractParameters):

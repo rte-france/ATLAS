@@ -19,6 +19,7 @@ class OrderMC(Order):
     start_date: DateTime
     end_date: DateTime
     product: Product
+    order_type: OrderType
     qmax: float
     qmin: float
 
@@ -26,13 +27,13 @@ class OrderMC(Order):
     id_with_status: int | None = None
     is_mutually_excluding: bool = False
     is_linked: bool = False
-    link_id: int | None = None
+    link_id: str | None = None
     group_index: int | None = None
     is_parent_children: bool = False
-    parent_child_id: int | None = None
+    parent_child_id: str | None = None
     full_link_id: int | None = None
     full_pc_id: int | None = None
-    child_id: int | None = None
+    child_id: str | None = None
     is_parent: bool = False
     parent_id: bool = False
     circular_pc_id: int | None = None
@@ -54,17 +55,17 @@ class OrderMC(Order):
     @property
     def duration(self) -> int:
         return int(
-            (((self.order.end_date - self.order.start_date).total_seconds() / 60) //
+            (((self.end_date - self.start_date).total_seconds() / 60) //
              int(self.time_step.total_minutes())) * 60
         )
 
     @property
-    def end_datetime(self) -> int:
-        return self.order.start_date.add(minutes=self.duration)
+    def end_datetime(self) -> DateTime:
+        return self.start_date.add(minutes=self.duration)
 
     @property
-    def end_date_processed(self) -> int:
-        return self.order.start_date.add(minutes=self.duration)
+    def end_date_processed(self) -> DateTime:
+        return self.start_date.add(minutes=self.duration)
 
     @staticmethod
     def is_feasible(order: Order, times: list[DateTime], parameters: MarketClearingParameters) -> bool:

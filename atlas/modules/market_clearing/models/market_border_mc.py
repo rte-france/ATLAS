@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import Duration
 
-from atlas import Timeseries, LazyTimeseries
+from atlas import Timeseries, LazyTimeseries, MarketArea
 from atlas.config import logger
 from atlas.models.market.market_border import MarketBorder
 
@@ -16,6 +16,9 @@ DEFAULT_MIN_FLOW = -10000.0
 
 
 class MarketBorderMC(MarketBorder):
+    uphill_market_area: MarketArea
+    downhill_control_block: MarketArea
+
     # Attributes from market clearing parameter
     time_step: Duration
     times: list[pendulum.DateTime]
@@ -44,25 +47,26 @@ class MarketBorderMC(MarketBorder):
     def ref_flow(self) -> Timeseries | LazyTimeseries | None:
         if self.reference_flow:
             return self.reference_flow.set_frequency(self.time_step, False).filter(self.times)
+        return None
 
     @property
     def has_loss_factor(self) -> bool:
         return True if self.loss_factor > 0 else False
 
     @property
-    def time_resolution(self) -> int:
-        time_resolution = self.border.time_resolution if self.border.time_resolution else self.time_step
+    def resolution_time(self) -> int:
+        time_resolution = self.time_resolution if self.time_resolution else self.time_step.total_minutes()
         # Check and adapt if needed the time resolution:
         if self.time_resolution < self.time_step.total_minutes():
             time_resolution = self.time_step
             logger.info(
-                f"The time resolution of the border {self.border.name} has had to be adapted to the time step (it was smaller)."
+                f"The time resolution of the border {self.name} has had to be adapted to the time step (it was smaller)."
             )
         else:
             n_time_steps, rest = divmod(time_resolution, self.time_step.total_minutes())
             if rest != 0.0:
                 time_resolution = (n_time_steps + round(rest)) * self.time_step.total_minutes()
                 logger.info(
-                    f"The time resolution of the border {self.border.name} has had to be rounded according to the time step."
+                    f"The time resolution of the border {self.name} has had to be rounded according to the time step."
                 )
         return time_resolution

@@ -6,11 +6,13 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import Duration
 
-from atlas import Timeseries, LazyTimeseries
+from atlas import Timeseries, LazyTimeseries, MarketAreaPtdf
 from atlas.models.market.critical_branch import CriticalBranch
 
 
 class CriticalBranchMC(CriticalBranch):
+    market_area_ptdf: MarketAreaPtdf
+
     # Attributes from market clearing parameter
     time_step: Duration
     times: list[pendulum.DateTime]
@@ -43,7 +45,3 @@ class CriticalBranchMC(CriticalBranch):
                 return max_flow
         else:
             return None
-
-    @property
-    def ptdf(self) -> Timeseries | LazyTimeseries:
-        return self.da_ptdf.set_frequency(self.time_step, False).filter(self.times)

@@ -5,18 +5,18 @@ This file is part of the ATLAS project.
 """
 
 
-from atlas import ControlBlock, CriticalBranch, MarketBorder
+from atlas import ControlBlock, CriticalBranch, MarketBorder, MarketAreaPtdf
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME
 from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.modules.market_clearing.models.control_block_mc import ControlBlockMC
 from atlas.modules.market_clearing.models.critical_branch_mc import CriticalBranchMC
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
+from atlas.modules.market_clearing.models.market_area_ptdf_mc import MarketAreaPtdfMC
 from atlas.modules.market_clearing.models.market_border_mc import MarketBorderMC
 from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
 from atlas.modules.market_clearing.models.order_mc import OrderMC
@@ -35,15 +35,22 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             self.parameters.start_date + step * i for i in range(0, total_minutes // int(self.parameters.time_step.total_minutes()))
         ]
 
-        self.mc_order_couplings = self.get_order_couplings(raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]])
-        self.mc_orders = self.get_orders(raw_data[INVERSE_MODEL_MAPPING_NAME[Order]], self.mc_order_couplings)
-        self.mc_market_areas = self.get_market_areas(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]], self.mc_orders)
-        self.mc_market_borders = self.get_market_borders(raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]])
-        self.mc_control_blocks = self.get_control_blocks(raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]])
+        order_couplings = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]] if isinstance(obj, OrderCoupling)]
+        self.mc_order_couplings = self.get_order_couplings(order_couplings)
+        orders = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Order]] if isinstance(obj, Order)]
+        self.mc_orders = self.get_orders(orders, self.mc_order_couplings)
+        market_areas = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]] if isinstance(obj, MarketArea)]
+        self.mc_market_areas = self.get_market_areas(market_areas, self.mc_orders)
+        market_borders = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]] if isinstance(obj, MarketBorder)]
+        self.mc_market_borders = self.get_market_borders(market_borders)
+        control_blocks = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]] if isinstance(obj, ControlBlock)]
+        self.mc_control_blocks = self.get_control_blocks(control_blocks)
+        market_area_ptdfs = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf]] if isinstance(obj, MarketAreaPtdf)]
+        self.mc_market_area_ptdfs = self.get_market_area_ptdfs(market_area_ptdfs)
+
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
-            self.mc_critical_branches = self.get_critical_branches(
-                raw_data.get(INVERSE_MODEL_MAPPING_NAME[CriticalBranch], {})
-            )
+            critical_branches = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]] if isinstance(obj, CriticalBranch)]
+            self.mc_critical_branches = self.get_critical_branches(critical_branches)
         else:
             self.mc_critical_branches = None
 
@@ -56,7 +63,6 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 **critical_branch.model_dump(),
                 "time_step": self.parameters.time_step,
                 "times": self.times,
-                "da_ptdf": critical_branch.market_area_ptdf.da_ptdf,
             }
             mc_critical_branch = CriticalBranchMC.model_validate(critical_branch_dump)
             mc_critical_branches[critical_branch.name] = mc_critical_branch
@@ -99,7 +105,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
 
         return mc_market_areas
 
-    def get_orders(self, orders: list[Order], order_couplings: dict[str:OrderCouplingMC]) -> dict[str, OrderMC]:
+    def get_orders(self, orders: list[Order], order_couplings: dict[str, OrderCouplingMC]) -> dict[str, OrderMC]:
         mc_orders = {}
         for order in orders:
             if OrderMC.is_feasible(order, self.times, self.parameters):
@@ -134,7 +140,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     mc_order.link_id = order_coupling.name
         return mc_orders
 
-    def get_order_couplings(self, order_couplings: list[OrderCoupling]) -> dict[str:OrderCouplingMC]:
+    def get_order_couplings(self, order_couplings: list[OrderCoupling]) -> dict[str, OrderCouplingMC]:
         mc_order_couplings = {}
         for order_coupling in order_couplings:
             if self.is_order_coupling_feasible(order_coupling):
@@ -167,6 +173,18 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             mc_market_border = MarketBorderMC.model_validate(market_border_dump)
             mc_market_borders[market_border.name] = mc_market_border
         return mc_market_borders
+
+    def get_market_area_ptdfs(self, market_area_ptdfs: list[MarketAreaPtdf]) -> dict[str, MarketAreaPtdfMC]:
+        mc_market_area_ptdfs = {}
+        for market_area_ptdf in market_area_ptdfs:
+            market_area_ptdf_dump = {
+                **market_area_ptdf.model_dump(),
+                "time_step": self.parameters.time_step,
+                "times": self.times,
+            }
+            mc_market_area_ptdf = MarketAreaPtdfMC.model_validate(market_area_ptdf_dump)
+            mc_market_area_ptdfs[market_area_ptdf.name] = mc_market_area_ptdf
+        return mc_market_area_ptdfs
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
         return []

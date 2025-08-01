@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import Duration
 
+from atlas import ControlBlock
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.market.market_area import MarketArea
@@ -16,9 +17,7 @@ INITIAL_MAX_PRICE = 1.0e8
 INITIAL_MIN_PRICE = -1.0e8
 
 class MarketAreaMC(MarketArea):
-    ref_balance: Timeseries | LazyTimeseries
-    max_price: Timeseries | LazyTimeseries
-    min_price: Timeseries | LazyTimeseries
+    control_block: ControlBlock
 
     mc_orders: dict[str, OrderMC]
 
