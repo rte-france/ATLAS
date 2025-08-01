@@ -10,12 +10,11 @@ import atlas.modules.market_clearing.market_clearing_constants as constants
 from atlas.config import logger
 from atlas.enum import ComplementDirection, CouplingType, OrderType
 from atlas.models.control_block import ControlBlock
-from atlas.models.market.order_coupling import OrderCoupling
-from atlas.modules.market_clearing.market_clearing_data.marcket_clearing_market_area import MCMarketArea
-from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
 from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
+from atlas.modules.market_clearing.models.order_mc import OrderMC
 from atlas.solver.solver_interface import OptimisationModel
 
 # Static definition of default bounds on exchanges (can be changed at will):
@@ -415,7 +414,7 @@ class Clearing(OptimisationModel):
     def create_complement_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         aggregated_accepted_power = []
         for order in order_coupling.orders:
-            if not MCOrder.is_feasible(order, self.input_dataset.times, self.parameters):
+            if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
             accepted_power = self.get_variable(constants.accepted_power_variable_name(order.name))
             if order.order_type == OrderType.Sell:
@@ -450,7 +449,7 @@ class Clearing(OptimisationModel):
     def create_exclusion_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         aggregated_status = []
         for order in order_coupling.orders:
-            if not MCOrder.is_feasible(order, self.input_dataset.times, self.parameters):
+            if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
             order_status = self.get_variable(constants.order_status_variable_name(order.name))
             aggregated_status.append(order_status)
@@ -460,11 +459,11 @@ class Clearing(OptimisationModel):
 
     def create_parent_children_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         parent_order = order_coupling.orders[0]
-        if not MCOrder.is_feasible(parent_order, self.input_dataset.times, self.parameters):
+        if not OrderMC.is_feasible(parent_order, self.input_dataset.times, self.parameters):
             return
         parent_order_status = self.get_variable(constants.order_status_variable_name(parent_order.name))
         for order in order_coupling.orders[1:]:
-            if not MCOrder.is_feasible(order, self.input_dataset.times, self.parameters):
+            if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
             order_status = self.get_variable(constants.order_status_variable_name(order.name))
             self.add_constraint(
@@ -554,29 +553,29 @@ class Clearing(OptimisationModel):
         return sum(tso_bought_power)
 
     @staticmethod
-    def get_max_tso_power_sold(time, control_block: ControlBlock, mc_market_areas: dict[str, MCMarketArea]) -> float:
+    def get_max_tso_power_sold(time, control_block: ControlBlock, mc_market_areas: dict[str, MarketAreaMC]) -> float:
         max_tso_power_sold = []
         for mc_market_area in mc_market_areas.values():
             if control_block == mc_market_area.market_area.control_block:
                 for mc_order in mc_market_area.mc_orders.values():
-                    is_available = mc_order.order.start_date <= time <= mc_order.end_date_processed
-                    not_tso = not mc_order.order.is_agent_tso
-                    not_sale = mc_order.order.order_type == OrderType.Buy
+                    is_available = mc_order.start_date <= time <= mc_order.end_date_processed
+                    not_tso = not mc_order.is_agent_tso
+                    not_sale = mc_order.order_type == OrderType.Buy
                     if is_available and not_tso and not_sale:
-                        max_tso_power_sold.append(mc_order.order.qmax)
+                        max_tso_power_sold.append(mc_order.qmax)
         return sum(max_tso_power_sold)
 
     @staticmethod
-    def get_max_tso_power_bought(time, control_block: ControlBlock, mc_market_areas: dict[str, MCMarketArea]) -> float:
+    def get_max_tso_power_bought(time, control_block: ControlBlock, mc_market_areas: dict[str, MarketAreaMC]) -> float:
         max_tso_power_bought = []
         for mc_market_area in mc_market_areas.values():
             if control_block == mc_market_area.market_area.control_block:
                 for mc_order in mc_market_area.mc_orders.values():
-                    is_available = mc_order.order.start_date <= time <= mc_order.end_date_processed
-                    not_tso = not mc_order.order.is_agent_tso
-                    is_sale = mc_order.order.order_type == OrderType.Sell
+                    is_available = mc_order.start_date <= time <= mc_order.end_date_processed
+                    not_tso = not mc_order.is_agent_tso
+                    is_sale = mc_order.order_type == OrderType.Sell
                     if is_available and not_tso and is_sale:
-                        max_tso_power_bought.append(mc_order.order.qmax)
+                        max_tso_power_bought.append(mc_order.qmax)
         return sum(max_tso_power_bought)
 
     def get_n_borders_with_losses(self):

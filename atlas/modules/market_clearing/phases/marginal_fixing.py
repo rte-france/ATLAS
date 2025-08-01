@@ -4,9 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import MarketArea
 from atlas.enum import OrderType
-from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
@@ -87,7 +85,7 @@ class MarginalFixing:
                             order.qmax - order.qmin
                         )
 
-    def get_marginal_orders(self, current_time, market_area, spot_price, local_accepted_powers) -> list[MCOrder]:
+    def get_marginal_orders(self, current_time, market_area, spot_price, local_accepted_powers) -> list[OrderMC]:
         """Generator selecting marginal orders that can be involved in the redistribution process
 
         :param current_time: Result of optimization
@@ -98,8 +96,8 @@ class MarginalFixing:
         :type spot_price:
         :param local_accepted_powers: Result of optimization
         :type local_accepted_powers:
-        :return: A generator of MCOrder that may be updated
-        :rtype: list[MCOrder]
+        :return: A generator of OrderMC that may be updated
+        :rtype: list[OrderMC]
         """
         for mc_order in self.input_dataset.mc_orders:
             if not mc_order.order.start_datetime <= current_time < mc_order.order.end_date_processed:

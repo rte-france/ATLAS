@@ -4,8 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
-
 ##################################
 # Clearing Constants
 ##################################
@@ -254,11 +252,11 @@ def negative_parent_child_surplus_constraint_name(index_pc: int) -> str:
     return f"neg_surplus_parent_PC_{index_pc}"
 
 
-def pos_surplus_order_constraint_name(order: MCOrder, market_area_name: str, time_index: int) -> str:
+def pos_surplus_order_constraint_name(order: OrderMC, market_area_name: str, time_index: int) -> str:
     return f"pos_surplus_order_{order.id}_area_{market_area_name}_eqpt_{order.eqpt_name}_t_{time_index}"
 
 
-def null_marginal_order_constraint_name(order: MCOrder, market_area_name: str, time_index: int) -> str:
+def null_marginal_order_constraint_name(order: OrderMC, market_area_name: str, time_index: int) -> str:
     return f"s_null_marginal_order_{order.id}_area_{market_area_name}_eqpt_{order.eqpt_name}_t_{time_index}"
 
 
@@ -291,7 +289,7 @@ def delta_p_pc(index_pc: int) -> str:
     return f"delta_p_PC_{index_pc}"
 
 
-def delta_p_order(order: MCOrder, market_area_name: str, time_index: int) -> str:
+def delta_p_order(order: OrderMC, market_area_name: str, time_index: int) -> str:
     return f"delta_p_order_{order.id}_area_{market_area_name}_eqpt_{order.eqpt_name}_t_{time_index}"
 
 
@@ -304,6 +302,6 @@ def paradoxical_delta_p_pc_constraint_name(index_pc: int) -> str:
     return f"paradoxical_delta_p_PC_{index_pc}"
 
 
-def paradoxical_delta_p_order_constraint_name(order: MCOrder, market_area_name: str, time_index: int) -> str:
+def paradoxical_delta_p_order_constraint_name(order: OrderMC, market_area_name: str, time_index: int) -> str:
     return f"paradoxial_delta_p_order_{order.id}_area_{market_area_name}_eqpt_{order.eqpt_name}_t_{time_index}"
 """

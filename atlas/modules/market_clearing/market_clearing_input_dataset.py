@@ -12,7 +12,6 @@ from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.modules.market_clearing.market_clearing_data.market_clearing_critical_branch import MCCriticalBranch
 from atlas.modules.market_clearing.market_clearing_data.market_clearing_order import MCOrder
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.modules.market_clearing.models.control_block_mc import ControlBlockMC
