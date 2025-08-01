@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from ortools.linear_solver import pywraplp
+from ortools.linear_solver import pywraplp # type: ignore[attr-defined]
 
 import atlas.modules.market_clearing.market_clearing_constants as constants
 from atlas.config import logger
@@ -419,14 +419,15 @@ class Clearing(OptimisationModel):
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
             accepted_power = self.get_variable(constants.accepted_power_variable_name(order.name))
-            if order.order_type == OrderType.Sell:
+            mc_order = self.input_dataset.mc_orders[order.name]
+            if mc_order.order_type == OrderType.Sell:
                 aggregated_accepted_power.append(-accepted_power)
-            elif order.order_type == OrderType.Buy:
+            elif mc_order.order_type == OrderType.Buy:
                 aggregated_accepted_power.append(accepted_power)
             else:
                 logger.info(
                     f"Can't create constraint complement order coupling ('{order_coupling.name}') on "
-                    f"'{order.name}' because the order type '{order.order_type.value}' is not implemented"
+                    f"'{order.name}' because the order type '{mc_order.order_type.value}' is not implemented"
                 )
         aggregated_proportion_accepted_power = sum(aggregated_accepted_power) * self.parameters.time_step / 60
         constraint_name = constants.constraint_3_9_constraint_name(order_coupling.name)

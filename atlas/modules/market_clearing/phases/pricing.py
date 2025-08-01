@@ -21,11 +21,3 @@ class Pricing:
 
     def run(self):
         pass
-
-    def retrieve_market_prices(self) -> dict[str, list[float]]:
-        """
-
-        :return: A dictionary containing the market price of each market area for each timestep
-        :rtype: dict[str, list[float]]
-        """
-        pass

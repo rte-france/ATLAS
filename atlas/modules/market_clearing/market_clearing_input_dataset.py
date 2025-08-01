@@ -3,7 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-
+from typing import cast
 
 from atlas import ControlBlock, CriticalBranch, MarketBorder, MarketAreaPtdf
 from atlas.abstract_class.abstract_dataset import AbstractDataset
@@ -25,7 +25,7 @@ from atlas.modules.market_clearing.models.order_mc import OrderMC
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
     """Input dataset for Market Clearing module"""
 
-    def __init__(self, raw_data: dict[str, list[BusinessModel]], parameters: MarketClearingParameters):
+    def __init__(self, raw_data: dict[str, list[type[BusinessModel]]], parameters: MarketClearingParameters):
         self.raw_data = raw_data
         self.parameters = parameters
 
@@ -35,24 +35,24 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             self.parameters.start_date + step * i for i in range(0, total_minutes // int(self.parameters.time_step.total_minutes()))
         ]
 
-        order_couplings = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]] if isinstance(obj, OrderCoupling)]
+        order_couplings = [cast(OrderCoupling, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]]]
         self.mc_order_couplings = self.get_order_couplings(order_couplings)
-        orders = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Order]] if isinstance(obj, Order)]
+        orders = [cast(Order, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Order]]]
         self.mc_orders = self.get_orders(orders, self.mc_order_couplings)
-        market_areas = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]] if isinstance(obj, MarketArea)]
+        market_areas = [cast(MarketArea, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]]]
         self.mc_market_areas = self.get_market_areas(market_areas, self.mc_orders)
-        market_borders = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]] if isinstance(obj, MarketBorder)]
+        market_borders = [cast(MarketBorder, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]]]
         self.mc_market_borders = self.get_market_borders(market_borders)
-        control_blocks = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]] if isinstance(obj, ControlBlock)]
+        control_blocks = [cast(ControlBlock, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]]
         self.mc_control_blocks = self.get_control_blocks(control_blocks)
-        market_area_ptdfs = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf]] if isinstance(obj, MarketAreaPtdf)]
+        market_area_ptdfs = [cast(MarketAreaPtdf, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf]]]
         self.mc_market_area_ptdfs = self.get_market_area_ptdfs(market_area_ptdfs)
 
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
-            critical_branches = [obj for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]] if isinstance(obj, CriticalBranch)]
+            critical_branches = [cast(CriticalBranch, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]]]
             self.mc_critical_branches = self.get_critical_branches(critical_branches)
         else:
-            self.mc_critical_branches = None
+            self.mc_critical_branches = {}
 
     def get_critical_branches(self, critical_branches: list[CriticalBranch]) -> dict[str, CriticalBranchMC]:
         if not critical_branches:
@@ -155,7 +155,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         if order_coupling.orders is None:
             return False
         order_names = [
-            order.name for order in order_coupling.orders if MCOrder.is_feasible(order, self.times, self.parameters)
+            order.name for order in order_coupling.orders if OrderMC.is_feasible(order, self.times, self.parameters)
         ]
         if len(order_names) < 2:
             return False

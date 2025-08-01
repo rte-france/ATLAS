@@ -42,6 +42,6 @@ class CriticalBranchMC(CriticalBranch):
                 max_flow -= self.flow_reliability_margin
             if self.ref_flow is not None:
                 max_flow -= self.ref_flow
-                return max_flow
+            return max_flow
         else:
             return None

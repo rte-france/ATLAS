@@ -28,7 +28,7 @@ class MarketClearingModule(
         return MarketClearingParameters
 
     def import_data(
-        self, raw_data: dict[str, list[type(BusinessModel)]], parameters: MarketClearingParameters
+        self, raw_data: dict[str, list[type[BusinessModel]]], parameters: MarketClearingParameters
     ) -> MarketClearingInputDataset:
         input_dataset = MarketClearingInputDataset(raw_data, parameters)
         return input_dataset
