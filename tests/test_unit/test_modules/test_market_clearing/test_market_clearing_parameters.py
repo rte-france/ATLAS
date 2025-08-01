@@ -1,14 +1,18 @@
 import pytest
+from pendulum import DateTime, Duration
 from pydantic import ValidationError
 
 from atlas.enum import Product
-from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters, ExchangeConstraintsType, \
-    SolverEnum
+from atlas.modules.market_clearing.market_clearing_parameters import (
+    ExchangeConstraintsType,
+    MarketClearingParameters,
+    SolverEnum,
+)
 
 
 def test_default_parameters():
-    params = MarketClearingParameters()
-    assert params.time_step == 60
+    params = MarketClearingParameters(start_date=DateTime.now(), end_date=DateTime.now(), execution_date=DateTime.now())
+    assert params.time_step == Duration(hours=1)
     assert params.solver_name == SolverEnum.XPRESS
     assert params.allowed_round_off_error == 0.001
     assert params.exchange_constraints_type == ExchangeConstraintsType.ATC
@@ -25,7 +29,10 @@ def test_default_parameters():
 
 def test_custom_parameters():
     params = MarketClearingParameters(
-        time_step=15,
+        start_date=DateTime.now(),
+        end_date=DateTime.now(),
+        execution_date=DateTime.now(),
+        time_step=Duration(minutes=15),
         solver_name=SolverEnum.XPRESS,
         control_block_names=["CB1", "CB2"],
         market_area_names="MA",
@@ -35,7 +42,7 @@ def test_custom_parameters():
         use_presolve=False,
         paradoxically_rejected_penalty_N=2000,
     )
-    assert params.time_step == 15
+    assert params.time_step == Duration(minutes=15)
     assert params.price_modifier_lambda_1 == 0.05
     assert params.control_block_names == ["CB1", "CB2"]
     assert params.market_area_names == "MA"
@@ -47,7 +54,7 @@ def test_custom_parameters():
 
 def test_invalid_time_step_raises():
     with pytest.raises(ValidationError):
-        MarketClearingParameters(time_step=0)
+        MarketClearingParameters(time_step="")
 
 
 def test_invalid_enum_for_exchange_constraints_type_raises():
@@ -56,9 +63,16 @@ def test_invalid_enum_for_exchange_constraints_type_raises():
 
 
 def test_list_or_str_control_blocks():
-    params = MarketClearingParameters(control_block_names="All")
+    params = MarketClearingParameters(
+        start_date=DateTime.now(), end_date=DateTime.now(), execution_date=DateTime.now(), control_block_names="All"
+    )
     assert isinstance(params.control_block_names, str)
 
-    params = MarketClearingParameters(control_block_names=["CB1", "CB2"])
+    params = MarketClearingParameters(
+        start_date=DateTime.now(),
+        end_date=DateTime.now(),
+        execution_date=DateTime.now(),
+        control_block_names=["CB1", "CB2"],
+    )
     assert isinstance(params.control_block_names, list)
     assert "CB1" in params.control_block_names
