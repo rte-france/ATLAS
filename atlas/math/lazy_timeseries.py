@@ -150,7 +150,7 @@ class LazyTimeseries:
 
     def filter(
         self,
-        item: list[datetime | pendulum.DateTime | str] | datetime | pendulum.DateTime | str,
+        item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> LazyTimeseries:
