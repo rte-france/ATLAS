@@ -4,7 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any
 
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.models.business_model import BusinessModel

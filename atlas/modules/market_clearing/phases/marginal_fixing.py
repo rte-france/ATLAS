@@ -3,7 +3,8 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-from typing import Generator
+
+from collections.abc import Generator
 
 from atlas.enum import OrderType
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
@@ -76,18 +77,27 @@ class MarginalFixing:
 
             if sharable_purchase_power is not None:
                 for mc_order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
-                    if mc_order.order_type == OrderType.Buy and max_marginal_purchases * (mc_order.qmax - mc_order.qmin) != 0:
+                    if (
+                        mc_order.order_type == OrderType.Buy
+                        and max_marginal_purchases * (mc_order.qmax - mc_order.qmin) != 0
+                    ):
                         local_accepted_powers[mc_order.name] = (
-                            mc_order.qmin + sharable_purchase_power / max_marginal_purchases * (mc_order.qmax - mc_order.qmin)
+                            mc_order.qmin
+                            + sharable_purchase_power / max_marginal_purchases * (mc_order.qmax - mc_order.qmin)
                         )
             else:
                 for mc_order, _ in self.get_marginal_orders(time, area, spot_price, local_accepted_powers):
-                    if mc_order.order_type == OrderType.Sell and max_marginal_sales * (mc_order.qmax - mc_order.qmin) != 0:
-                        local_accepted_powers[mc_order.name] = mc_order.qmin + sharable_sale_power / max_marginal_sales * (
-                            mc_order.qmax - mc_order.qmin
+                    if (
+                        mc_order.order_type == OrderType.Sell
+                        and max_marginal_sales * (mc_order.qmax - mc_order.qmin) != 0
+                    ):
+                        local_accepted_powers[mc_order.name] = (
+                            mc_order.qmin + sharable_sale_power / max_marginal_sales * (mc_order.qmax - mc_order.qmin)
                         )
 
-    def get_marginal_orders(self, current_time, market_area, spot_price, local_accepted_powers: dict[str, float]) -> Generator[tuple[OrderMC, float]]:
+    def get_marginal_orders(
+        self, current_time, market_area, spot_price, local_accepted_powers: dict[str, float]
+    ) -> Generator[tuple[OrderMC, float]]:
         """Generator selecting marginal orders that can be involved in the redistribution process
 
         :param current_time: Result of optimization
@@ -116,4 +126,6 @@ class MarginalFixing:
                 yield mc_order, accepted_power
 
     def get_order_names_in_order_couplings(self):
-        return [order.name for order_coupling in self.input_dataset.mc_order_couplings for order in order_coupling.orders]
+        return [
+            order.name for order_coupling in self.input_dataset.mc_order_couplings for order in order_coupling.orders
+        ]

@@ -3,9 +3,10 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 from typing import cast
 
-from atlas import ControlBlock, CriticalBranch, MarketBorder, MarketAreaPtdf
+from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME
 from atlas.models.business_model import BusinessModel
@@ -32,7 +33,8 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         step = self.parameters.time_step
         total_minutes = (self.parameters.end_date - self.parameters.start_date).in_minutes()
         self.times = [
-            self.parameters.start_date + step * i for i in range(0, total_minutes // int(self.parameters.time_step.total_minutes()))
+            self.parameters.start_date + step * i
+            for i in range(0, total_minutes // int(self.parameters.time_step.total_minutes()))
         ]
 
         order_couplings = [cast(OrderCoupling, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]]]
@@ -49,7 +51,9 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.mc_market_area_ptdfs = self.get_market_area_ptdfs(market_area_ptdfs)
 
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
-            critical_branches = [cast(CriticalBranch, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]]]
+            critical_branches = [
+                cast(CriticalBranch, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]]
+            ]
             self.mc_critical_branches = self.get_critical_branches(critical_branches)
         else:
             self.mc_critical_branches = {}
@@ -98,7 +102,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 **market_area.model_dump(),
                 "time_step": self.parameters.time_step,
                 "times": self.times,
-                "mc_orders": market_area_orders
+                "mc_orders": market_area_orders,
             }
             mc_market_area = MarketAreaMC.model_validate(market_area_dump)
             mc_market_areas[market_area.name] = mc_market_area
@@ -109,10 +113,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_orders = {}
         for order in orders:
             if OrderMC.is_feasible(order, self.times, self.parameters):
-                order_dump = {
-                    **order.model_dump(),
-                    "time_step": self.parameters.time_step
-                }
+                order_dump = {**order.model_dump(), "time_step": self.parameters.time_step}
                 mc_order = OrderMC.model_validate(order_dump)
                 mc_orders[order.name] = mc_order
 
@@ -144,9 +145,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_order_couplings = {}
         for order_coupling in order_couplings:
             if self.is_order_coupling_feasible(order_coupling):
-                order_coupling_dump = {
-                    **order_coupling.model_dump()
-                }
+                order_coupling_dump = {**order_coupling.model_dump()}
                 mc_order_coupling = OrderCouplingMC.model_validate(order_coupling_dump)
                 mc_order_couplings[order_coupling.name] = mc_order_coupling
         return mc_order_couplings

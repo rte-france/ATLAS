@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from ortools.linear_solver import pywraplp # type: ignore[attr-defined]
+from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
 
 import atlas.modules.market_clearing.market_clearing_constants as constants
 from atlas.config import logger
@@ -167,9 +167,7 @@ class Clearing(OptimisationModel):
             for mc_order in mc_market_area.mc_orders.values():
                 if not mc_order.qmin:
                     max_power = mc_order.qmax
-                    self.add_continuous_variable(
-                        constants.accepted_power_variable_name(mc_order.name), 0.0, max_power
-                    )
+                    self.add_continuous_variable(constants.accepted_power_variable_name(mc_order.name), 0.0, max_power)
                 else:
                     self.add_continuous_variable(
                         constants.accepted_power_variable_name(mc_order.name), -float("inf"), float("inf")
@@ -178,7 +176,7 @@ class Clearing(OptimisationModel):
     def create_orders_status(self):
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             for mc_order in mc_market_area.mc_orders.values():
-                mc_order = self.input_dataset.mc_orders[order.name]
+                mc_order = self.input_dataset.mc_orders[mc_order.name]
                 if mc_order.id_with_status:
                     self.add_boolean_variable(constants.order_status_variable_name(mc_order.name))
 
@@ -286,9 +284,9 @@ class Clearing(OptimisationModel):
                     constants.constraint_3_6_1b_constraint_name(border_name, time_index),
                 )
 
-                tmp_rhs = (
-                    (1.0 - mc_border.loss_factor) - 1.0 / (1.0 - mc_border.loss_factor)
-                ) * xsis + _export / (1.0 - mc_border.loss_factor)
+                tmp_rhs = ((1.0 - mc_border.loss_factor) - 1.0 / (1.0 - mc_border.loss_factor)) * xsis + _export / (
+                    1.0 - mc_border.loss_factor
+                )
                 self.add_constraint(
                     _import == tmp_rhs, constants.constraint_3_6_1c_constraint_name(border_name, time_index)
                 )
@@ -342,7 +340,9 @@ class Clearing(OptimisationModel):
                     constants.local_balance_variable_name(mc_market_area.name, time_index)
                     - mc_market_area.ref_balance.get_value(time)
                 )
-                da_ptdf = self.input_dataset.mc_market_area_ptdfs[mc_critical_branch.market_area_ptdf.name].day_ahead_ptdf
+                da_ptdf = self.input_dataset.mc_market_area_ptdfs[
+                    mc_critical_branch.market_area_ptdf.name
+                ].day_ahead_ptdf
                 branch_load.append(da_ptdf.get_value(time) * relative_balance)
                 self.add_constraint(
                     relative_balance <= mc_critical_branch.max_flow.get_value(time),

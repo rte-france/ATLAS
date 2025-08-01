@@ -16,6 +16,7 @@ from atlas.modules.market_clearing.models.order_mc import OrderMC
 INITIAL_MAX_PRICE = 1.0e8
 INITIAL_MIN_PRICE = -1.0e8
 
+
 class MarketAreaMC(MarketArea):
     control_block: ControlBlock
 

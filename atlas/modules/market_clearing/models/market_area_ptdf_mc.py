@@ -3,9 +3,10 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-from pendulum import Duration, DateTime
 
-from atlas import Timeseries, LazyTimeseries
+from pendulum import DateTime, Duration
+
+from atlas import LazyTimeseries, Timeseries
 from atlas.models.market.market_area_ptdf import MarketAreaPtdf
 
 

@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 from pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
@@ -55,8 +56,7 @@ class OrderMC(Order):
     @property
     def duration(self) -> int:
         return int(
-            (((self.end_date - self.start_date).total_seconds() / 60) //
-             int(self.time_step.total_minutes())) * 60
+            (((self.end_date - self.start_date).total_seconds() / 60) // int(self.time_step.total_minutes())) * 60
         )
 
     @property
