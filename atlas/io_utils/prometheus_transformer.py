@@ -9,10 +9,11 @@ import pendulum
 import polars as pl
 import yaml
 
+import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
-from atlas.typing import get_class_inheritance_chain
+from atlas.typing import get_class_inheritance_chain, get_type_attribute
 
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
 NAME_MAPPING = {
@@ -20,6 +21,7 @@ NAME_MAPPING = {
     "is_v2_g": "is_v2g",
     "idpo_for_orders": "id_po_for_orders",
     "co2_emission": "co2_emissions",
+    "daptdf": "da_ptdf",
 }
 
 
@@ -230,7 +232,11 @@ class PrometheusToAtlasDataParser:
                                     attrs[attr_name_snake] = None
                                 if attrs[attr_name_snake] in NAME_MAPPING:
                                     attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
-                                if attr_name_snake == "equipment":
+                                if (
+                                    attr_name_snake == "equipment"
+                                    or get_type_attribute(object_type_snake, attr_name_snake)
+                                    in cfg.MODEL_MAPPING_NAME.values()
+                                ):
                                     attrs[attr_name_snake] = to_snake_case(attrs[attr_name_snake])
                                 logger.debug(f"Scalar attribute: {attr_name_snake} = {attrs[attr_name_snake]}")
                             elif isinstance(val, np.ndarray):
