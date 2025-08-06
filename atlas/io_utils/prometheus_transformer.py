@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import h5py  # type: ignore[import-untyped]
 import numpy as np
@@ -61,6 +61,9 @@ class PrometheusToAtlasDataParser:
 
             for object_type in object_types:
                 object_type_snake = to_snake_case(object_type)
+                if object_type_snake == "critical_branch":
+                    logger.info("Skipping 'critical_branch' object type as it is not supported.")
+
                 if (
                     object_type_snake not in cfg.MODEL_MAPPING_NAME
                     and object_type_snake not in MAPPING_OBJECTS_TO_ATLAS
@@ -244,18 +247,23 @@ class PrometheusToAtlasDataParser:
                                     attrs[attr_name_snake] = None
                                 if attrs[attr_name_snake] in NAME_MAPPING:
                                     attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
-                                if (
-                                    attr_name_snake == "equipment"
-                                    or get_type_attribute(object_type_snake, attr_name_snake)
-                                    in cfg.MODEL_MAPPING_NAME.values()
-                                ):
+
+                                type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
+                                try:
+                                    type_attribute = get_args(type_attribute)[0]
+                                except Exception:
+                                    pass
+                                if attr_name_snake == "equipment" or type_attribute in cfg.MODEL_MAPPING_NAME.values():
                                     attrs[attr_name_snake] = to_snake_case(attrs[attr_name_snake])
                                 logger.debug(f"Scalar attribute: {attr_name_snake} = {attrs[attr_name_snake]}")
                             elif isinstance(val, np.ndarray):
                                 if val.ndim == 1:
                                     if isinstance(list(val)[0], bytes):
                                         val = [v.decode("utf-8") for v in val]
-                                    if attr_name_snake == "orders":
+                                    if (
+                                        get_args(get_type_attribute(object_type_snake, attr_name_snake))[0]
+                                        in cfg.MODEL_MAPPING_NAME.values()
+                                    ):
                                         val = [to_snake_case(order) for order in val]
                                     attrs[attr_name_snake] = ":".join(map(str, list(val)))
                             else:
