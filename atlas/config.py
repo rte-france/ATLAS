@@ -75,6 +75,7 @@ MODEL_ORDER_INSTANTIATION = (
         "order",
         "order_coupling",
     ]
+    + ["critical_branch"]
 )
 
 DEFAULT_VALUE_IO = {
