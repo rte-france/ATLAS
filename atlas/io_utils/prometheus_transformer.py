@@ -61,6 +61,12 @@ class PrometheusToAtlasDataParser:
 
             for object_type in object_types:
                 object_type_snake = to_snake_case(object_type)
+                if (
+                    object_type_snake not in cfg.MODEL_MAPPING_NAME
+                    and object_type_snake not in MAPPING_OBJECTS_TO_ATLAS
+                ):
+                    logger.warning(f"Object type {object_type_snake} not found in Atlas model mapping, skipping.")
+                    continue
                 if object_type_snake in MAPPING_OBJECTS_TO_ATLAS:
                     object_type_snake = MAPPING_OBJECTS_TO_ATLAS[object_type_snake]
                 logger.info(f"Processing object type: {object_type} (as {object_type_snake})")
@@ -84,7 +90,13 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = to_snake_case(attr_name)
-                        if attr_name_snake == "comment":
+                        if (
+                            attr_name_snake not in list(cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys())
+                            and attr_name_snake not in NAME_MAPPING
+                        ):
+                            cfg.logger.warning(
+                                f"The attribute {attr_name_snake} is not present in Atlas model object: {object_type_snake}, skipping it."
+                            )
                             continue
 
                         if attr_name_snake in NAME_MAPPING:
