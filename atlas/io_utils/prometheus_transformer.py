@@ -61,8 +61,6 @@ class PrometheusToAtlasDataParser:
 
             for object_type in object_types:
                 object_type_snake = to_snake_case(object_type)
-                if object_type_snake == "critical_branch":
-                    logger.info("Skipping 'critical_branch' object type as it is not supported.")
 
                 if (
                     object_type_snake not in cfg.MODEL_MAPPING_NAME
