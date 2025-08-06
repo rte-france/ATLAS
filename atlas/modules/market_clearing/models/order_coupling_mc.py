@@ -5,10 +5,11 @@ This file is part of the ATLAS project.
 """
 
 from atlas import Order
-from atlas.enum import ComplementDirection
+from atlas.enum import ComplementDirection, CouplingType
 from atlas.models.market.order_coupling import OrderCoupling
 
 
 class OrderCouplingMC(OrderCoupling):
     orders: list[Order]
-    complement_direction: ComplementDirection
+    coupling_type: CouplingType
+    complement_direction: ComplementDirection | None
