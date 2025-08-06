@@ -253,9 +253,9 @@ class ExchangesFixing(OptimisationModel):
                 if mc_border.time_resolution > self.parameters.time_step:
                     time_elapsed = _time - self.parameters.start_date
                     # % and / have same precedence => parsed left to right
-                    res_offset = time_elapsed.minutes % mc_border.time_resolution / self.parameters.time_step
+                    res_offset = time_elapsed.minutes % mc_border.time_resolution / self.parameters.time_step.total_minutes()
                     if res_offset != 0:
-                        precedent_time_index = res_offset * self.parameters.time_step
+                        precedent_time_index = res_offset * self.parameters.time_step.total_minutes()
                         self.add_constraint(
                             self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                             == self.get_variable(
@@ -267,6 +267,6 @@ class ExchangesFixing(OptimisationModel):
     def get_n_borders_with_losses(self):
         n_borders_with_losses = 0
         for mc_market_border in self.input_dataset.mc_market_borders.values():
-            if mc_market_border.border.loss_factor and mc_market_border.border.loss_factor > 0.0:
+            if mc_market_border.loss_factor and mc_market_border.loss_factor > 0.0:
                 n_borders_with_losses += 1
         return n_borders_with_losses
