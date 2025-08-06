@@ -246,13 +246,18 @@ class PrometheusToAtlasDataParser:
                                 if attrs[attr_name_snake] in NAME_MAPPING:
                                     attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
 
-                                type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
+                                type_attribute = get_type_attribute(
+                                    object_type_snake, attr_name_snake
+                                )  # gets the type of the attribute in the pydantic model
                                 try:
                                     type_attribute = get_args(type_attribute)[0]
+                                    # get the sub type if it's a Union or a list, to get the actual business model object into it if it exists
                                 except Exception:
                                     pass
                                 if attr_name_snake == "equipment" or type_attribute in cfg.MODEL_MAPPING_NAME.values():
-                                    attrs[attr_name_snake] = to_snake_case(attrs[attr_name_snake])
+                                    attrs[attr_name_snake] = to_snake_case(
+                                        attrs[attr_name_snake]
+                                    )  # convert to snake case to make a proper reference to the other business model object already in snake case
                                 logger.debug(f"Scalar attribute: {attr_name_snake} = {attrs[attr_name_snake]}")
                             elif isinstance(val, np.ndarray):
                                 if val.ndim == 1:
