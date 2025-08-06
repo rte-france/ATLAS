@@ -47,16 +47,17 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.mc_market_borders = self.get_market_borders(market_borders)
         control_blocks = [cast(ControlBlock, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]]
         self.mc_control_blocks = self.get_control_blocks(control_blocks)
-        market_area_ptdfs = [cast(MarketAreaPtdf, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf]]]
-        self.mc_market_area_ptdfs = self.get_market_area_ptdfs(market_area_ptdfs)
 
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
             critical_branches = [
                 cast(CriticalBranch, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]]
             ]
             self.mc_critical_branches = self.get_critical_branches(critical_branches)
+            market_area_ptdfs = [cast(MarketAreaPtdf, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf]]]
+            self.mc_market_area_ptdfs = self.get_market_area_ptdfs(market_area_ptdfs)
         else:
             self.mc_critical_branches = {}
+            self.mc_market_area_ptdfs = {}
 
     def get_critical_branches(self, critical_branches: list[CriticalBranch]) -> dict[str, CriticalBranchMC]:
         if not critical_branches:
