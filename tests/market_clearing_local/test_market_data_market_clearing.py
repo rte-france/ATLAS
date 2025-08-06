@@ -1,3 +1,9 @@
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+See AUTHORS.txt
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+import os
 import ast
 import math
 from collections import OrderedDict
@@ -7,12 +13,12 @@ import pytest
 import pickle
 from pathlib import Path
 
+from atlas import InputLoader
 from atlas.math.timeseries import Timeseries
 from atlas.io_utils.utils import to_snake_case
 import re
 
 import pandas as pd
-import yaml
 
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 from atlas.modules.market_clearing.phases.clearing import Clearing
@@ -22,10 +28,8 @@ def transform_dataframe_to_dict(df: pd.DataFrame):
     _dict = {}
     for name, df_group in df.groupby("Name"):
         _dict[name] = {}
-        # Filter out rows where Attribute is "id"
-        filtered_df = df_group[df_group['Attribute'] != 'id']
         # Convert to dictionary with Attribute as key and Value as value
-        _dict[name] = dict(zip(filtered_df['Attribute'], filtered_df['Value']))
+        _dict[name] = dict(zip(df_group['Attribute'], df_group['Value']))
     return _dict
 
 
@@ -174,13 +178,24 @@ def compare_timeseries_to_dict(timeseries: Timeseries, _dict: dict[str, float]):
 
 @pytest.mark.skip(reason="No data available")
 def test_market_data():
-    parameters_path = "tests/market_clearing_local/parameters.yml"
-    pickle_dataset_path = "tests/market_clearing_local/mc/raw_data.pkl"
-    expected_data_path = "tests/market_clearing_local/data"
-    with open(pickle_dataset_path, "rb") as f:
-        raw_data = pickle.load(f)
+    path = "C:/Users/aboutet/Documents/atlas 2/ATLAS/data/market_clearing_prometheus/MarketClearing input v1.3 FB_2"
+    parameters_path = os.path.join(path, "parameters.yml")
+    dataset_path = os.path.join(path, "atlas-dataset")
+    pkl_path = os.path.join(path, "raw_data.pkl")
+    expected_data_path = os.path.join(path, "market_data_export")
 
     mc_module = MarketClearingModule()
+    if os.path.exists(pkl_path):
+        print("Chargement rapide depuis un pickle...")
+        with open(pkl_path, "rb") as f:
+            raw_data = pickle.load(f)
+    else:
+        print("Chargement long des données...")
+        raw_data = InputLoader.from_directory(dataset_path)
+        print("Création d'un pickle...")
+        with open(pkl_path, "wb") as f:
+            pickle.dump(raw_data, f)
+
     parameters = mc_module.import_parameters(parameters_path)
 
     input_dataset = mc_module.import_data(raw_data, parameters)
@@ -191,5 +206,3 @@ def test_market_data():
     compare_control_block(control_blocks_expected, input_dataset)
     compare_market_borders(market_borders_expected, input_dataset)
     compare_market_data(market_data_expected, input_dataset)
-
-
