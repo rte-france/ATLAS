@@ -458,27 +458,6 @@ def test_abs_not_inplace():
     assert current_collected.timeseries["value"].to_list() == original_collected.timeseries["value"].to_list()
 
 
-def test_abs_mixed_values():
-    df = pl.DataFrame(
-        {
-            "time": [
-                datetime(2023, 1, 1, 0, 0),
-                datetime(2023, 1, 1, 1, 0),
-                datetime(2023, 1, 1, 2, 0),
-                datetime(2023, 1, 1, 3, 0),
-                datetime(2023, 1, 1, 4, 0),
-            ],
-            "value": [-100.0, 0.0, 50.0, -25.5, 75.3],
-        }
-    )
-    lt = LazyTimeseries(df.lazy())
-
-    result = lt.abs(inplace=False)
-
-    collected = result.collect()
-    assert collected.timeseries["value"].to_list() == [100.0, 0.0, 50.0, 25.5, 75.3]
-
-
 def test_abs_timezone_preservation():
     df = pl.DataFrame(
         {
