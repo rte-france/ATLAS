@@ -38,8 +38,6 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        self.portfolio = cast(list[Portfolio], input_data.get("portfolio", []))
-
         self.wind: list[WindPO] = [WindPO.model_validate(wind.model_dump()) for wind in input_data.get("wind", [])]
 
         self.storage: list[StoragePO] = [
@@ -146,7 +144,9 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
             if equipment_by_type_included:
                 portfolio_po = PortfolioPO(**original_portfolio.model_dump(), equipments=equipment_by_type_included)
                 # Apply market validation to the MarketAreaPO based on parameters
-                portfolio_po.market_area.set_market_context(self.parameters.market, self.parameters.use_forecast)
+                portfolio_po.market_area = portfolio_po.market_area.set_market_context(
+                    self.parameters.market, self.parameters.use_forecast
+                )
                 self.portfolios.append(portfolio_po)
 
             if equipment_by_type_manual:
@@ -154,7 +154,9 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                     **original_portfolio.model_dump(), equipments=equipment_by_type_manual
                 )
                 # Apply market validation to the MarketAreaPO based on parameters
-                portfolio_po_manual.market_area.set_market_context(self.parameters.market, self.parameters.use_forecast)
+                portfolio_po_manual.market_area = portfolio_po_manual.market_area.set_market_context(
+                    self.parameters.market, self.parameters.use_forecast
+                )
                 self.portfolios_manual_activation.append(portfolio_po_manual)
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:

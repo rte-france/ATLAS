@@ -358,7 +358,7 @@ class PortfolioPO(Portfolio):
         """Compute non-dispatchable production equipment residual energy"""
         residual_energy = 0.0
 
-        for obj in cast(list[OtherNonDispatchablePO], self.equipments.get("non_dispatchable_production", [])):
+        for obj in cast(list[OtherNonDispatchablePO], self.equipments.get("other_non_dispatchable", [])):
             last_forecast_ti = obj.maximum_power_forecast.get_forecast(
                 parameters.execution_date, parameters.start_date, parameters.end_date
             ).get_value(time)

@@ -101,11 +101,6 @@ class PortfolioOptimisationModel:
                 cfg.logger.debug(f"Processing optimisation time: {time}")
                 portfolio.add_variables(model, time, self.parameters)
 
-                portfolio.add_constraints(time, model, self.parameters)
-
-                portfolio.add_objective(model, time, self.parameters)
-
-                # Get price forecast for equipment that need it
                 price_forecast = None
                 if time in self.parameters.target_times:
                     price_forecast = portfolio._get_price_forecast(time, self.parameters)
@@ -139,6 +134,10 @@ class PortfolioOptimisationModel:
                                 cast(HydroPO | LoadPO | StoragePO | ThermalPO, equipment).add_objective(
                                     model, time, price_forecast or 0.0, self.parameters
                                 )
+
+                portfolio.add_constraints(time, model, self.parameters)
+
+                portfolio.add_objective(model, time, self.parameters)
 
             solution_info = model.solve()
 

@@ -105,7 +105,6 @@ class HydroPO(Hydro):
             model.add_constraint(model.get_variable(f"reserves_up_{self.name}_{time}") <= max_power)
 
             stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
-            previous_stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time - parameters.timestep}")
 
             power_level_fragment_sum_var = sum(
                 model.get_variable(f"{self.name}_power_level_frag_{category}_at_{time}")
@@ -120,6 +119,10 @@ class HydroPO(Hydro):
                 )
 
             elif time in parameters.target_times:
+                previous_stored_energy_var = model.get_variable(
+                    f"{self.name}_stored_energy_{time - parameters.timestep}"
+                )
+
                 model.add_constraint(
                     stored_energy_var == previous_stored_energy_var - power_level_fragment_sum_var * parameters.timestep
                 )
