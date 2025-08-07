@@ -13,7 +13,7 @@ from atlas.models.market.market_area import MarketArea
 class MarketAreaPO(MarketArea):
     price_forecast_medium: ForecastingMatrix | LazyForecastingMatrix
     da_price: Timeseries | LazyTimeseries
-    id_price: ForecastingMatrix | LazyForecastingMatrix
-    rr_activation_price: Timeseries | LazyTimeseries
-    mfrr_activation_price: Timeseries | LazyTimeseries
-    id_price_forecast: ForecastingMatrix | LazyForecastingMatrix
+    # id_price: ForecastingMatrix | LazyForecastingMatrix
+    # rr_activation_price: Timeseries | LazyTimeseries
+    # mfrr_activation_price: Timeseries | LazyTimeseries
+    # id_price_forecast: ForecastingMatrix | LazyForecastingMatrix

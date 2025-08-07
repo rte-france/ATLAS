@@ -10,7 +10,6 @@ from pendulum import DateTime
 from pydantic import BaseModel
 
 import atlas.config as cfg
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -28,7 +27,7 @@ class HydroPO(Hydro):
     maximum_afrr: float
     minimum_power: Timeseries | LazyTimeseries
     maximum_power: Timeseries | LazyTimeseries
-    stored_energy: ForecastingMatrix | LazyForecastingMatrix
+    # stored_energy: ForecastingMatrix | LazyForecastingMatrix
     initial_level: Timeseries | LazyTimeseries
     storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix
 

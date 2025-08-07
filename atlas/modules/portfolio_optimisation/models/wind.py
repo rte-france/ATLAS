@@ -21,7 +21,7 @@ class WindPO(Wind):
     maximum_afrr: float
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     maximum_curtailment_ratio: Timeseries | LazyTimeseries
-    variable_cost: Timeseries | LazyTimeseries | None
+    # variable_cost: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for solar and wind equipment."""

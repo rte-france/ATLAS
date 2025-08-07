@@ -11,7 +11,6 @@ import math
 from pendulum import DateTime
 from pydantic import model_validator
 
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
@@ -31,22 +30,22 @@ class ThermalPO(Thermal):
 
     maximum_fcr: float
     maximum_afrr: float
-    minimum_power: Timeseries | LazyTimeseries
+    # minimum_power: Timeseries | LazyTimeseries
     maximum_power: Timeseries | LazyTimeseries
     variable_cost: Timeseries | LazyTimeseries
-    startup_cost: Timeseries | LazyTimeseries
+    # startup_cost: Timeseries | LazyTimeseries
     maximum_gradient: float = 0.0  # MW/min ramping rate
     has_daily_energy_constraint: bool = False
 
     # Reserve procurement forecasts
-    afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
-    afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
-    mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
-    mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
-    rr_up_procured: ForecastingMatrix | LazyForecastingMatrix
-    rr_down_procured: ForecastingMatrix | LazyForecastingMatrix
-    fcr_up_procured: ForecastingMatrix | LazyForecastingMatrix
-    fcr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    # afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    # afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    # mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    # mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    # rr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    # rr_down_procured: ForecastingMatrix | LazyForecastingMatrix
+    # fcr_up_procured: ForecastingMatrix | LazyForecastingMatrix
+    # fcr_down_procured: ForecastingMatrix | LazyForecastingMatrix
 
     # Internal time step parameters (computed from time durations)
     _T_on: int = 0
@@ -2100,7 +2099,7 @@ class ThermalPO(Thermal):
         if (
             self.minimum_stable_power_duration is not None
             and self.minimum_time_on is not None
-            and self.minimum_stable_power_duration.total_minutes() > self.minimum_time_on.total_minutes()
+            and self.minimum_stable_power_duration > self.minimum_time_on
         ):
             raise ValueError(
                 f"minimum_stable_power_duration ({self.minimum_stable_power_duration.total_hours()}h) of equipment "

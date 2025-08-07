@@ -110,7 +110,9 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         # Collecte de tous les équipements avec leur type et statut
         for equipment_type, equipment_list in self.equipments.items():
             for equipment in equipment_list:
-                is_manual = should_manually_activate(self.parameters, equipment) or is_excluded_market_area(
+                is_manual = should_manually_activate(
+                    equipment, self.parameters.excluded_technologies, self.parameters.excluded_thermal_strategies
+                ) or is_excluded_market_area(
                     use_forecast=self.parameters.use_forecast,
                     excluded_market_areas=self.parameters.excluded_market_areas,
                     market_area=equipment.portfolio.market_area.name,

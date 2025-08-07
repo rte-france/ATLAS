@@ -10,8 +10,6 @@ from pendulum import DateTime
 
 from atlas.enum import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.load import Load
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
@@ -21,7 +19,7 @@ from atlas.solver.solver_interface import OptimisationModel
 class LoadPO(Load):
     load_type: LoadType
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    variable_cost: Timeseries | LazyTimeseries
+    # variable_cost: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for load equipment."""
