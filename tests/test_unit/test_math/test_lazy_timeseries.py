@@ -404,3 +404,81 @@ def test_set_frequency_timezone_preservation():
     assert result.timezone == "Europe/London"
     collected = result.collect()
     assert collected.timezone == "Europe/London"
+
+
+def test_abs_inplace():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+                datetime(2023, 1, 1, 3, 0),
+            ],
+            "value": [-10.0, 15.0, -20.0, 25.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+
+    result = lt.abs()
+
+    # Should return same object when inplace=True (default)
+    assert result is lt
+
+    collected = result.collect()
+    assert collected.timeseries["value"].to_list() == [10.0, 15.0, 20.0, 25.0]
+
+
+def test_abs_not_inplace():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+            ],
+            "value": [-5.0, -10.0, -15.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+    original_collected = lt.collect()
+
+    result = lt.abs(inplace=False)
+
+    # Should return new object when inplace=False
+    assert result is not lt
+    assert isinstance(result, LazyTimeseries)
+
+    result_collected = result.collect()
+    assert result_collected.timeseries["value"].to_list() == [5.0, 10.0, 15.0]
+
+    # Original should be unchanged
+    current_collected = lt.collect()
+    assert current_collected.timeseries["value"].to_list() == original_collected.timeseries["value"].to_list()
+
+
+def test_abs_timezone_preservation():
+    df = pl.DataFrame(
+        {
+            "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 1, 0)],
+            "value": [-42.0, -13.7],
+        }
+    )
+    lt = LazyTimeseries(df.lazy(), timezone="America/New_York")
+
+    result = lt.abs(inplace=False)
+
+    assert result.timezone == "America/New_York"
+    collected = result.collect()
+    assert collected.timezone == "America/New_York"
+    assert collected.timeseries["value"].to_list() == [42.0, 13.7]
+
+
+def test_abs_empty_series():
+    lt = LazyTimeseries()
+
+    result = lt.abs(inplace=False)
+
+    collected = result.collect()
+    assert collected.timeseries.shape == (0, 2)
+    assert result.timezone == "UTC"
