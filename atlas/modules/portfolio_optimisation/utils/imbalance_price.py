@@ -51,10 +51,10 @@ def estimate_imbalance_prices(
         elif parameters.market == MarketType.mfrr_activation:
             price = market_area.mfrr_activation_price.get_value(time)
         else:
-            price = 0.0  # fallback
+            price = 0.0
 
     # 2. Upward imbalance prices
-    if len(control_block.negative_imbalance_price) > 0:
+    if control_block.negative_imbalance_price:
         base = control_block.negative_imbalance_price.get_value(time)
         imbalance_price_up = base * (1 + parameters.small_imbalance_penalty)
         large_imbalance_price_up = base * (1 + parameters.large_imbalance_penalty)
@@ -78,7 +78,7 @@ def estimate_imbalance_prices(
                 large_imbalance_price_up = (1 - parameters.large_imbalance_penalty) * price
 
     # 3. Downward imbalance prices
-    if len(control_block.positive_imbalance_price) > 0:
+    if control_block.positive_imbalance_price:
         base = control_block.positive_imbalance_price.get_value(time)
         imbalance_price_down = base * (1 - parameters.small_imbalance_penalty)
         large_imbalance_price_down = base * (1 - parameters.large_imbalance_penalty)

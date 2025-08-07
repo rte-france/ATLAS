@@ -145,14 +145,16 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
             # Création des objets PortfolioPO
             if equipment_by_type_included:
                 portfolio_po = PortfolioPO(**original_portfolio.model_dump(), equipments=equipment_by_type_included)
-
+                # Apply market validation to the MarketAreaPO based on parameters
+                portfolio_po.market_area.set_market_context(self.parameters.market, self.parameters.use_forecast)
                 self.portfolios.append(portfolio_po)
 
             if equipment_by_type_manual:
                 portfolio_po_manual = PortfolioPO(
                     **original_portfolio.model_dump(), equipments=equipment_by_type_manual
                 )
-
+                # Apply market validation to the MarketAreaPO based on parameters
+                portfolio_po_manual.market_area.set_market_context(self.parameters.market, self.parameters.use_forecast)
                 self.portfolios_manual_activation.append(portfolio_po_manual)
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:

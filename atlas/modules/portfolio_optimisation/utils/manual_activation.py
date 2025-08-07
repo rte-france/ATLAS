@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime
 
-from atlas.enum import MarketType, StorageType
+from atlas.enum import MarketType, StorageType, ThermalStrategy
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
@@ -25,7 +25,7 @@ def is_excluded_technology(excluded_technologies: list[str], equipment: type[Equ
     return equipment.__class__.__name__ in excluded_technologies
 
 
-def is_excluded_thermal_strategy(excluded_thermal_strategies: list[str], equipment: ThermalPO) -> bool:
+def is_excluded_thermal_strategy(excluded_thermal_strategies: list[ThermalStrategy], equipment: ThermalPO) -> bool:
     """Check if thermal equipment strategy is excluded."""
     if isinstance(equipment, ThermalPO):
         return equipment.strategy in excluded_thermal_strategies
@@ -37,7 +37,9 @@ def is_excluded_market_area(use_forecast: bool, excluded_market_areas: list[str]
     return not use_forecast and market_area in excluded_market_areas
 
 
-def should_manually_activate(equipment: type[Equipment], excluded_technologies, excluded_thermal_strategies) -> bool:
+def should_manually_activate(
+    equipment: type[Equipment], excluded_technologies: list[str], excluded_thermal_strategies: list[ThermalStrategy]
+) -> bool:
     """Determine if equipment should be manually activated."""
     return is_excluded_technology(excluded_technologies, equipment) or is_excluded_thermal_strategy(
         excluded_thermal_strategies, equipment

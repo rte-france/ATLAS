@@ -27,7 +27,6 @@ class HydroPO(Hydro):
     maximum_afrr: float
     minimum_power: Timeseries | LazyTimeseries
     maximum_power: Timeseries | LazyTimeseries
-    # stored_energy: ForecastingMatrix | LazyForecastingMatrix
     initial_level: Timeseries | LazyTimeseries
     storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix
 

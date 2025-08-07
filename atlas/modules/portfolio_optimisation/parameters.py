@@ -11,7 +11,7 @@ from pendulum.duration import Duration
 from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enum import MarketType, SolverEnum, StorageType
+from atlas.enum import MarketType, SolverEnum, StorageType, ThermalStrategy
 from atlas.timing import generate_datetimes
 from atlas.validators import hours_validator, minutes_validator
 
@@ -227,8 +227,8 @@ class PortfolioOptimisationParameters(AbstractParameters):
         if val is None or val.lower() == "none":
             return []
         if val.lower() == "all":
-            return ["Base", "Intermediate", "Peak"]
-        return [strat.strip() for strat in val.split(";")]
+            return [ThermalStrategy.BASE, ThermalStrategy.INTERMEDIATE, ThermalStrategy.PEAK]
+        return [ThermalStrategy(strat.strip()) for strat in val.split(";")]
 
     @property
     def adjusted_end_date(self) -> DateTime:

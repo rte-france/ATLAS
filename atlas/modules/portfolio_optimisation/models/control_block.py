@@ -9,5 +9,3 @@ from atlas.models.control_block import ControlBlock
 
 class ControlBlockPO(ControlBlock):
     pass
-    # positive_imbalance_price: Timeseries | LazyTimeseries
-    # negative_imbalance_price: Timeseries | LazyTimeseries

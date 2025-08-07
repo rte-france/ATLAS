@@ -61,6 +61,10 @@ class PortfolioOptimisationModel:
                             control_block=portfolio.control_block,
                             market_area=portfolio.market_area,
                         )
+                        # Apply market validation to the MarketAreaPO based on parameters
+                        equipment_portfolio.market_area.set_market_context(
+                            self.parameters.market, self.parameters.use_forecast
+                        )
 
                         self._optimize_portfolio(
                             portfolio=equipment_portfolio,

@@ -40,6 +40,7 @@ class PortfolioOptimisationModule(
         input_dataset: PortfolioOptimisationInputDataset,
     ) -> bool:
         """Validates imported or generated data."""
+
         return True
 
     def validates_results(
