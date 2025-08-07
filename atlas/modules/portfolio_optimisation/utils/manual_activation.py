@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 from atlas.enum import MarketType, StorageType, ThermalStrategy
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
@@ -38,7 +39,9 @@ def is_excluded_market_area(use_forecast: bool, excluded_market_areas: list[str]
 
 
 def should_manually_activate(
-    equipment: type[Equipment], excluded_technologies: list[str], excluded_thermal_strategies: list[ThermalStrategy]
+    equipment: type[Equipment],
+    excluded_technologies: list[str],
+    excluded_thermal_strategies: list[ThermalStrategy] | ThermalPO,
 ) -> bool:
     """Determine if equipment should be manually activated."""
     return is_excluded_technology(excluded_technologies, equipment) or is_excluded_thermal_strategy(
@@ -215,7 +218,7 @@ def _update_stored_energy(
 
     # Update equipment stored energy
     if not parameters.use_forecast:
-        stored_energy_matrix = equipment.stored_energy
+        stored_energy_matrix = equipment.stored_energy if equipment.stored_energy else ForecastingMatrix()
         if parameters.execution_date in stored_energy_matrix.index:
             equipment.stored_energy.delete(parameters.execution_date)
         equipment.stored_energy.add(parameters.execution_date, new_stored_energy)
@@ -225,7 +228,7 @@ def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: Portf
     """Get initial stored energy level for equipment."""
     stored_energy_matrix = equipment.stored_energy
 
-    if stored_energy_matrix.index:
+    if stored_energy_matrix:
         local_stored_energy = stored_energy_matrix.get_forecast(
             parameters.execution_date,
             parameters.start_date - parameters.timestep,
@@ -321,4 +324,7 @@ def _finalize_power_update(
     else:
         if parameters.execution_date in equipment.power.index:
             equipment.power.delete(parameters.execution_date)
-        equipment.power.add(parameters.execution_date, new_power)
+        equipment.power.add(
+            new_power,
+            parameters.execution_date,
+        )
