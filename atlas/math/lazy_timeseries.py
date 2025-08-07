@@ -89,6 +89,11 @@ class LazyTimeseries:
         """
         return self.timeseries
 
+    @property
+    def index(self) -> list[datetime]:
+        """Returns the LazyTimeseries indexes"""
+        return self.timeseries.select("time").collect().to_series().to_list()
+
     @classmethod
     def from_file(
         cls,
