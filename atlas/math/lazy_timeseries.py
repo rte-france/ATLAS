@@ -239,3 +239,20 @@ class LazyTimeseries:
             return self
         else:
             return LazyTimeseries(resampled_ts.to_lazy(), timezone=self.timezone)
+
+    def abs(self, inplace: bool = True) -> LazyTimeseries:
+        """
+        Compute the absolute value of each value in the time series.
+
+        :param inplace: If True, modifies the object in place. If False, returns a new modified object.
+        :type inplace: bool
+        :return: The LazyTimeseries with absolute values, either modified in place or as a new object.
+        :rtype: LazyTimeseries
+        """
+        df = self.timeseries.with_columns(pl.col("value").abs())
+
+        if inplace:
+            self.timeseries = df
+            return self
+        else:
+            return LazyTimeseries(df, timezone=self.timezone)
