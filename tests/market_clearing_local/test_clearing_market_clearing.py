@@ -11,7 +11,7 @@ import pytest
 from atlas import InputLoader
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 from atlas.modules.market_clearing.phases.clearing import Clearing
-from atlas.solver.solver_helper import SolverHelper
+#from atlas.solver.solver_helper import SolverHelper
 from tests.market_clearing_local.test_market_data_market_clearing import read_expected_data
 
 
