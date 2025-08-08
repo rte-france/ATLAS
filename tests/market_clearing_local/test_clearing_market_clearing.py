@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 import os
 import pickle
 import pandas as pd
+import pytest
 
 from atlas import InputLoader
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
