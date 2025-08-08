@@ -69,6 +69,7 @@ def test_clearing():
 
     print()
 
+@pytest.mark.skip(reason="No data available")
 def test_compare_lp():
     path = "C:/Users/aboutet/Documents/atlas 2/ATLAS/data/market_clearing_prometheus/MarketClearing input v1.3 ATC_1"
     expected_lp_path = os.path.join(path, "optimization_data", "clearing_phase.lp")
