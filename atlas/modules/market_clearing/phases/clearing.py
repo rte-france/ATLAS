@@ -257,7 +257,9 @@ class Clearing(OptimisationModel):
                 if mc_border.time_resolution > self.parameters.time_step.total_minutes():
                     time_elapsed = time - self.parameters.start_date
                     # % and / have same precedence => parsed left to right
-                    res_offset = time_elapsed.minutes % mc_border.time_resolution / self.parameters.time_step.total_minutes()
+                    res_offset = (
+                        time_elapsed.minutes % mc_border.time_resolution / self.parameters.time_step.total_minutes()
+                    )
                     if res_offset != 0:
                         precedent_time_index = res_offset * self.parameters.time_step.total_minutes()
                         self.add_constraint(
@@ -414,6 +416,12 @@ class Clearing(OptimisationModel):
             )
 
     def create_complement_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
+        if not order_coupling.complement_direction:
+            logger.info(
+                f"Can't create constraint complement order coupling ('{order_coupling.name}') because there is not "
+                f"complement_direction"
+            )
+            return
         aggregated_accepted_power = []
         for order in order_coupling.orders:
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
@@ -429,7 +437,9 @@ class Clearing(OptimisationModel):
                     f"Can't create constraint complement order coupling ('{order_coupling.name}') on "
                     f"'{order.name}' because the order type '{mc_order.order_type.value}' is not implemented"
                 )
-        aggregated_proportion_accepted_power = sum(aggregated_accepted_power) * self.parameters.time_step.total_minutes() / 60
+        aggregated_proportion_accepted_power = (
+            sum(aggregated_accepted_power) * self.parameters.time_step.total_minutes() / 60
+        )
         constraint_name = constants.constraint_3_9_constraint_name(order_coupling.name)
         if order_coupling.complement_direction == ComplementDirection.EqualTo:
             self.add_constraint(

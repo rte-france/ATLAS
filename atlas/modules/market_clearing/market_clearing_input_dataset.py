@@ -53,7 +53,9 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 cast(CriticalBranch, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]]
             ]
             self.mc_critical_branches = self.get_critical_branches(critical_branches)
-            market_area_ptdfs = [cast(MarketAreaPtdf, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf]]]
+            market_area_ptdfs = [
+                cast(MarketAreaPtdf, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf]]
+            ]
             self.mc_market_area_ptdfs = self.get_market_area_ptdfs(market_area_ptdfs)
         else:
             self.mc_critical_branches = {}

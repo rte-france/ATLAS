@@ -253,7 +253,9 @@ class ExchangesFixing(OptimisationModel):
                 if mc_border.time_resolution > self.parameters.time_step:
                     time_elapsed = _time - self.parameters.start_date
                     # % and / have same precedence => parsed left to right
-                    res_offset = time_elapsed.minutes % mc_border.time_resolution / self.parameters.time_step.total_minutes()
+                    res_offset = (
+                        time_elapsed.minutes % mc_border.time_resolution / self.parameters.time_step.total_minutes()
+                    )
                     if res_offset != 0:
                         precedent_time_index = res_offset * self.parameters.time_step.total_minutes()
                         self.add_constraint(
