@@ -24,31 +24,102 @@ from atlas.modules.portfolio_optimisation.utils.manual_activation import set_man
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
 
-class PortfolioOptimisationModel:
-    """Main class for optimal placement optimisation using OptimisationModel."""
+class PortfolioOptimisationModel(OptimisationModel):
+    """Portfolio-specific optimization model that inherits OR-Tools capabilities."""
+
+    def __init__(self, portfolio: PortfolioPO, parameters: PortfolioOptimisationParameters):
+        super().__init__(solver_name=parameters.solver_name, name=portfolio.name)
+        self.portfolio = portfolio
+        self.parameters = parameters
+
+    def optimise(self) -> SolutionInfo:
+        """run this specific portfolio using inherited OptimisationModel capabilities."""
+        cfg.logger.info(f"Optimising portfolio: {self.portfolio.name}")
+
+        try:
+            solution_info = self.solve()
+
+            cfg.logger.info(
+                f"Portfolio {self.portfolio.name} optimisation completed with status: {solution_info.status.name}"
+            )
+            if solution_info.objective_value is not None:
+                cfg.logger.debug(f"Objective value: {solution_info.objective_value}")
+            if solution_info.solve_time is not None:
+                cfg.logger.debug(f"Solve time: {solution_info.solve_time}s")
+
+            return solution_info
+
+        except Exception as e:
+            cfg.logger.error(f"Optimisation failed for portfolio {self.portfolio.name}: {e}")
+            raise
+
+    def build_model(self, max_optimisation_times: list[DateTime]) -> None:
+        """Build the optimization model by adding variables, constraints, and objectives."""
+        for time in max_optimisation_times:
+            cfg.logger.debug(f"Processing optimisation time: {time}")
+            self.portfolio.add_variables(self, time, self.parameters)
+
+            price_forecast = None
+            if time in self.parameters.target_times:
+                price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
+
+            for equipment_type in self.portfolio.equipments:
+                equipment_list = self.portfolio.equipments.get(equipment_type, [])
+
+                for equipment in cast(list[EquipmentPO], equipment_list):
+                    cfg.logger.debug(f"Processing equipment: {equipment.name}")
+
+                    if hasattr(equipment, "add_variables"):
+                        cfg.logger.debug(
+                            f"Adding variables for equipment: {equipment.name}, of type {type(equipment).__name__}"
+                        )
+                        equipment.add_variables(self, time, self.parameters)
+
+                    if hasattr(equipment, "add_constraints"):
+                        cfg.logger.debug(
+                            f"Adding constraints for equipment: {equipment.name}, of type {type(equipment).__name__}"
+                        )
+                        equipment.add_constraints(time, self, self.parameters)
+
+                    if time in self.parameters.target_times and hasattr(equipment, "add_objective"):
+                        equipment_type_name = type(equipment).__name__
+                        cfg.logger.debug(
+                            f"Adding objective for equipment {equipment.name} of type {equipment_type_name}"
+                        )
+                        if equipment_type_name in ("WindPO", "SolarPO"):
+                            cast(WindPO | SolarPO, equipment).add_objective(self, time, self.parameters)
+                        elif equipment_type_name in ("HydroPO", "LoadPO", "StoragePO", "ThermalPO"):
+                            cast(HydroPO | LoadPO | StoragePO | ThermalPO, equipment).add_objective(
+                                self, time, price_forecast or 0.0, self.parameters
+                            )
+
+            self.portfolio.add_constraints(time, self, self.parameters)
+            self.portfolio.add_objective(self, time, self.parameters)
+
+
+class PortfolioOptimisationOrchestrator:
+    """Orchestrates optimization across multiple portfolios."""
 
     def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
 
-    def optimize(self, input_dataset: PortfolioOptimisationInputDataset) -> None:
+    def run(self, input_dataset: PortfolioOptimisationInputDataset) -> None:
         """
         Main optimisation method.
         """
-        cfg.logger.info("Starting optimal placement optimisation")
+        cfg.logger.info("Starting Portfolio Optimisation")
         cfg.logger.debug(f"Portfolio bidding mode: {self.parameters.is_portfolio_bidding}")
         cfg.logger.debug(f"Number of portfolios: {len(input_dataset.portfolios)}")
         cfg.logger.debug(f"Number of manual activation portfolios: {len(input_dataset.portfolios_manual_activation)}")
 
         if self.parameters.is_portfolio_bidding:
             for portfolio in input_dataset.portfolios:
-                self._optimize_portfolio(
+                self._optimise_portfolio(
                     portfolio=portfolio,
                     max_optimisation_times=input_dataset.max_optimisation_times,
                 )
             for portfolio in input_dataset.portfolios_manual_activation:
-                self._optimize_portfolio_manual_activated(
-                    portfolio=portfolio,
-                )
+                self._optimise_portfolio_manual_activated(portfolio=portfolio)
         else:
             cfg.logger.debug("Individual equipment optimisation mode")
             for portfolio in input_dataset.portfolios:
@@ -66,7 +137,7 @@ class PortfolioOptimisationModel:
                             self.parameters.market, self.parameters.use_forecast
                         )
 
-                        self._optimize_portfolio(
+                        self._optimise_portfolio(
                             portfolio=equipment_portfolio,
                             max_optimisation_times=input_dataset.max_optimisation_times,
                         )
@@ -81,78 +152,24 @@ class PortfolioOptimisationModel:
                             market_area=portfolio_manual.market_area,
                         )
 
-                    self._optimize_portfolio_manual_activated(
-                        portfolio=equipment_portfolio,
-                    )
+                    self._optimise_portfolio_manual_activated(portfolio=equipment_portfolio)
 
-    def _optimize_portfolio(
+    def _optimise_portfolio(
         self,
         portfolio: PortfolioPO,
         max_optimisation_times: list[DateTime],
     ) -> SolutionInfo:
-        """Optimize a single portfolio using OptimisationModel."""
+        """run a single portfolio using PortfolioOptimisationModel."""
 
-        cfg.logger.info(f"Optimising portfolio: {portfolio.name}")
-
-        model = OptimisationModel(solver_name=self.parameters.solver_name, name=portfolio.name)
+        model = PortfolioOptimisationModel(portfolio, self.parameters)
 
         try:
-            for time in max_optimisation_times:
-                cfg.logger.debug(f"Processing optimisation time: {time}")
-                portfolio.add_variables(model, time, self.parameters)
-
-                price_forecast = None
-                if time in self.parameters.target_times:
-                    price_forecast = portfolio.get_price_forecast(time, self.parameters)
-
-                for equipment_type in portfolio.equipments:
-                    equipment_list = portfolio.equipments.get(equipment_type, [])
-
-                    for equipment in cast(list[EquipmentPO], equipment_list):
-                        cfg.logger.debug(f"Processing equipment: {equipment.name}")
-
-                        if hasattr(equipment, "add_variables"):
-                            cfg.logger.debug(
-                                f"Adding variables for equipment: {equipment.name}, of type {type(equipment).__name__}"
-                            )
-                            equipment.add_variables(model, time, self.parameters)
-
-                        if hasattr(equipment, "add_constraints"):
-                            cfg.logger.debug(
-                                f"Adding constraints for equipment: {equipment.name}, of type {type(equipment).__name__}"
-                            )
-                            equipment.add_constraints(time, model, self.parameters)
-
-                        if time in self.parameters.target_times and hasattr(equipment, "add_objective"):
-                            equipment_type_name = type(equipment).__name__
-                            cfg.logger.debug(
-                                f"Adding objective for equipment {equipment.name} of type {equipment_type_name}"
-                            )
-                            if equipment_type_name in ("WindPO", "SolarPO"):
-                                cast(WindPO | SolarPO, equipment).add_objective(model, time, self.parameters)
-                            elif equipment_type_name in ("HydroPO", "LoadPO", "StoragePO", "ThermalPO"):
-                                cast(HydroPO | LoadPO | StoragePO | ThermalPO, equipment).add_objective(
-                                    model, time, price_forecast or 0.0, self.parameters
-                                )
-
-                portfolio.add_constraints(time, model, self.parameters)
-
-                portfolio.add_objective(model, time, self.parameters)
-
-            solution_info = model.solve()
-
-            cfg.logger.info(
-                f"Portfolio {portfolio.name} optimisation completed with status: {solution_info.status.name}"
-            )
-            if solution_info.objective_value is not None:
-                cfg.logger.debug(f"Objective value: {solution_info.objective_value}")
-            if solution_info.solve_time is not None:
-                cfg.logger.debug(f"Solve time: {solution_info.solve_time}s")
-
+            model.build_model(max_optimisation_times)
+            solution_info = model.optimise()
             return solution_info
 
         except Exception as e:
-            cfg.logger.error(f"optimisation failed for portfolio {portfolio.name}: {e}")
+            cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}: {e}")
             cfg.logger.debug("Falling back to manual activation")
 
             equipment_list = [equipment for t in portfolio.equipments for equipment in portfolio.equipments[t]]
@@ -166,6 +183,6 @@ class PortfolioOptimisationModel:
                 num_iterations=None,
             )
 
-    def _optimize_portfolio_manual_activated(self, portfolio: PortfolioPO):
+    def _optimise_portfolio_manual_activated(self, portfolio: PortfolioPO):
         cfg.logger.info(f"Manual activation for portfolio: {portfolio.name}")
         cfg.logger.debug("Manual activation optimisation not yet implemented")

@@ -9,7 +9,7 @@ import atlas.config as cfg
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
-from atlas.modules.portfolio_optimisation.main import PortfolioOptimisationModel
+from atlas.modules.portfolio_optimisation.main import PortfolioOptimisationOrchestrator
 from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
@@ -68,7 +68,7 @@ class PortfolioOptimisationModule(
     ) -> PortfolioOptimisationOutputDataset:
         """Executes the module's main logic."""
         cfg.logger.info("Executing portfolio optimisation module")
-        model = PortfolioOptimisationModel(parameters)
-        model.optimize(dataset)
+        model = PortfolioOptimisationOrchestrator(parameters)
+        model.run(dataset)
         cfg.logger.info("Portfolio optimisation module execution completed")
         return PortfolioOptimisationOutputDataset()
