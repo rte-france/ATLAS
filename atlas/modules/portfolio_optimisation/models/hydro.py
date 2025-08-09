@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from typing import cast
+
 from pendulum import DateTime
 from pydantic import BaseModel
 
@@ -115,7 +117,7 @@ class HydroPO(Hydro):
                 model.add_constraint(
                     stored_energy_var
                     == self.get_initial_level(parameters).get_value(parameters.start_date - parameters.timestep)
-                    - power_level_fragment_sum_var * parameters.timestep
+                    - power_level_fragment_sum_var * parameters.timestep.total_hours()
                 )
 
             elif time in parameters.target_times:
@@ -131,11 +133,11 @@ class HydroPO(Hydro):
             # Respect of minimum and maximum stock constraints
             if time in parameters.target_times:
                 reserve_stored_energy_up_var = model.get_variable(
-                    f"reserves_up_e_{self.name}_{time}"
-                ) + model.get_variable(f"automated_res_up_e_{self.name}_{time}")
+                    f"reserves_up_{self.name}_{time}"
+                ) + model.get_variable(f"automated_reserves_up_{self.name}_{time}")
                 reserve_stored_energy_down_var = model.get_variable(
-                    f"reserves_down_e_{self.name}_{time}"
-                ) + model.get_variable(f"automated_res_down_e_{self.name}_{time}")
+                    f"reserves_down_{self.name}_{time}"
+                ) + model.get_variable(f"automated_reserves_down_{self.name}_{time}")
 
                 model.add_constraint(stored_energy_var >= minimum_energy + reserve_stored_energy_up_var)
                 model.add_constraint(stored_energy_var <= maximum_energy - reserve_stored_energy_down_var)
@@ -189,13 +191,13 @@ class HydroPO(Hydro):
 
     def _get_current_energy_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
         """Get the current energy level from forecast or initial level."""
-        energy_forecast = self.stored_energy.get_forecast(
-            parameters.execution_date,
-            parameters.start_date - parameters.timestep,
-            parameters.start_date - parameters.timestep,
-        )
+        if self.stored_energy:
+            energy_forecast = self.stored_energy.get_forecast(
+                parameters.execution_date,
+                parameters.start_date - parameters.timestep,
+                parameters.start_date - parameters.timestep,
+            )
 
-        if len(energy_forecast) > 0:
             return energy_forecast.get_value(parameters.start_date - parameters.timestep)
         else:
             return self.initial_level.get_value(parameters.start_date - parameters.timestep)
@@ -239,14 +241,14 @@ class HydroPO(Hydro):
         # Apply marginal value adjustments based on available bounds
         if not marginal_weights["has_min"] and marginal_weights["has_max"]:
             # Only upper bound available
-            marginal_adjustment = marginal_weights["level_sup"].get_value(time)
+            marginal_adjustment = cast(Timeseries | LazyTimeseries, marginal_weights["level_sup"]).get_value(time)
         elif marginal_weights["has_min"] and not marginal_weights["has_max"]:
             # Only lower bound available
-            marginal_adjustment = marginal_weights["level_inf"].get_value(time)
+            marginal_adjustment = cast(Timeseries | LazyTimeseries, marginal_weights["level_inf"]).get_value(time)
         elif marginal_weights["has_min"] and marginal_weights["has_max"]:
             # Both bounds available - interpolate
-            p_min = marginal_weights["level_inf"].get_value(time)
-            p_max = marginal_weights["level_sup"].get_value(time)
+            p_min = cast(Timeseries | LazyTimeseries, marginal_weights["level_inf"]).get_value(time)
+            p_max = cast(Timeseries | LazyTimeseries, marginal_weights["level_sup"]).get_value(time)
             marginal_adjustment = marginal_weights["weight_inf"] * p_min + marginal_weights["weight_sup"] * p_max
         else:
             # No bounds available
@@ -255,24 +257,7 @@ class HydroPO(Hydro):
         return base_price + marginal_adjustment
 
     def get_initial_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> Timeseries:
-        if (
-            len(
-                self.stored_energy.get_forecast(
-                    parameters.execution_date,
-                    parameters.start_date - parameters.timestep,
-                    parameters.end_date,
-                )
-            )
-            == 0
-        ):
-            return (
-                self.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
-                if isinstance(self.initial_level, Timeseries)
-                else self.initial_level.filter(
-                    [parameters.start_date - parameters.timestep, parameters.end_date]
-                ).collect()
-            )
-        else:
+        if self.stored_energy:
             if (
                 self.stored_energy.get_forecast(
                     parameters.execution_date,
@@ -295,6 +280,15 @@ class HydroPO(Hydro):
                         [parameters.start_date - parameters.timestep, parameters.end_date]
                     ).collect()
                 )
+
+        else:
+            return (
+                self.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
+                if isinstance(self.initial_level, Timeseries)
+                else self.initial_level.filter(
+                    [parameters.start_date - parameters.timestep, parameters.end_date]
+                ).collect()
+            )
 
 
 class FragmentData(BaseModel):
