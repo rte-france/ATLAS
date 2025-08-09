@@ -67,8 +67,6 @@ class PortfolioOptimisationModule(
         dataset: PortfolioOptimisationInputDataset,
     ) -> PortfolioOptimisationOutputDataset:
         """Executes the module's main logic."""
-        cfg.logger.info("Executing portfolio optimisation module")
         model = PortfolioOptimisationOrchestrator(parameters)
         model.run(dataset)
-        cfg.logger.info("Portfolio optimisation module execution completed")
         return PortfolioOptimisationOutputDataset()

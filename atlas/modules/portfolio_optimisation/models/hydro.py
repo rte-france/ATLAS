@@ -144,7 +144,7 @@ class HydroPO(Hydro):
         price_forecast: float,
         parameters: PortfolioOptimisationParameters,
     ):
-        for k in range(self.get_fragment_length()):
+        for k in range(len(self.fragment_data.keys())):
             if time in parameters.target_times:
                 model.add_objective(
                     self.compute_fragment_prices(time, k, parameters)

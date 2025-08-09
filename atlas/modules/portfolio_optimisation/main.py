@@ -107,8 +107,7 @@ class PortfolioOptimisationOrchestrator:
         """
         Main optimisation method.
         """
-        cfg.logger.info("Starting Portfolio Optimisation")
-        cfg.logger.debug(f"Portfolio bidding mode: {self.parameters.is_portfolio_bidding}")
+        cfg.logger.info("Starting Portfolio Optimisation Module")
         cfg.logger.debug(f"Number of portfolios: {len(input_dataset.portfolios)}")
         cfg.logger.debug(f"Number of manual activation portfolios: {len(input_dataset.portfolios_manual_activation)}")
 
