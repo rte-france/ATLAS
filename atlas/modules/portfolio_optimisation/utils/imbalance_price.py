@@ -4,9 +4,14 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import cast
+
 from pendulum import DateTime
 
 from atlas.enum import MarketType
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -34,22 +39,32 @@ def estimate_imbalance_prices(
 
     if parameters.use_forecast:
         if parameters.market == MarketType.dayahead:
-            price = market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time).get_value(
-                time
+            price = (
+                cast(ForecastingMatrix | LazyForecastingMatrix, market_area.price_forecast_medium)
+                .get_forecast(parameters.execution_date, time, time)
+                .get_value(time)
             )
         elif parameters.market == MarketType.intraday:
-            price = market_area.id_price_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
+            price = (
+                cast(ForecastingMatrix | LazyForecastingMatrix, market_area.id_price_forecast)
+                .get_forecast(parameters.execution_date, time, time)
+                .get_value(time)
+            )
         else:
             price = 0.0
     else:
         if parameters.market == MarketType.dayahead:
-            price = market_area.da_price.get_value(time)
+            price = cast(Timeseries | LazyTimeseries, market_area.da_price).get_value(time)
         elif parameters.market == MarketType.intraday:
-            price = market_area.id_price.get_forecast(parameters.execution_date, time, time).get_value(time)
+            price = (
+                cast(ForecastingMatrix | LazyForecastingMatrix, market_area.id_price)
+                .get_forecast(parameters.execution_date, time, time)
+                .get_value(time)
+            )
         elif parameters.market == MarketType.rr_activation:
-            price = market_area.rr_activation_price.get_value(time)
+            price = cast(Timeseries | LazyTimeseries, market_area.rr_activation_price).get_value(time)
         elif parameters.market == MarketType.mfrr_activation:
-            price = market_area.mfrr_activation_price.get_value(time)
+            price = cast(Timeseries | LazyTimeseries, market_area.mfrr_activation_price).get_value(time)
         else:
             price = 0.0
 
@@ -59,16 +74,17 @@ def estimate_imbalance_prices(
         imbalance_price_up = base * (1 + parameters.small_imbalance_penalty)
         large_imbalance_price_up = base * (1 + parameters.large_imbalance_penalty)
     else:
-        # French rule estimation
-        ref = parameters.isp_forecast_lower_bound
-        abs_price = abs(price)
-        if abs_price < ref:
+        if abs(price) < parameters.isp_forecast_lower_bound:
             if price >= 0:
-                imbalance_price_up = (1 + parameters.small_imbalance_penalty) * ref
-                large_imbalance_price_up = (1 + parameters.large_imbalance_penalty) * ref
+                imbalance_price_up = (1 + parameters.small_imbalance_penalty) * parameters.isp_forecast_lower_bound
+                large_imbalance_price_up = (
+                    1 + parameters.large_imbalance_penalty
+                ) * parameters.isp_forecast_lower_bound
             else:
-                imbalance_price_up = (1 - parameters.small_imbalance_penalty) * -ref
-                large_imbalance_price_up = (1 - parameters.large_imbalance_penalty) * -ref
+                imbalance_price_up = (1 - parameters.small_imbalance_penalty) * -parameters.isp_forecast_lower_bound
+                large_imbalance_price_up = (
+                    1 - parameters.large_imbalance_penalty
+                ) * -parameters.isp_forecast_lower_bound
         else:
             if price >= 0:
                 imbalance_price_up = (1 + parameters.small_imbalance_penalty) * price
@@ -83,14 +99,18 @@ def estimate_imbalance_prices(
         imbalance_price_down = base * (1 - parameters.small_imbalance_penalty)
         large_imbalance_price_down = base * (1 - parameters.large_imbalance_penalty)
     else:
-        ref = parameters.isp_forecast_lower_bound
-        if abs(price) < ref:
+        parameters.isp_forecast_lower_bound = parameters.isp_forecast_lower_bound
+        if abs(price) < parameters.isp_forecast_lower_bound:
             if price >= 0:
-                imbalance_price_down = (1 - parameters.small_imbalance_penalty) * ref
-                large_imbalance_price_down = (1 - parameters.large_imbalance_penalty) * ref
+                imbalance_price_down = (1 - parameters.small_imbalance_penalty) * parameters.isp_forecast_lower_bound
+                large_imbalance_price_down = (
+                    1 - parameters.large_imbalance_penalty
+                ) * parameters.isp_forecast_lower_bound
             else:
-                imbalance_price_down = (1 + parameters.small_imbalance_penalty) * -ref
-                large_imbalance_price_down = (1 + parameters.large_imbalance_penalty) * -ref
+                imbalance_price_down = (1 + parameters.small_imbalance_penalty) * -parameters.isp_forecast_lower_bound
+                large_imbalance_price_down = (
+                    1 + parameters.large_imbalance_penalty
+                ) * -parameters.isp_forecast_lower_bound
         else:
             if price >= 0:
                 imbalance_price_down = (1 - parameters.small_imbalance_penalty) * price
