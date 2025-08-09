@@ -38,42 +38,23 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        self.wind: list[WindPO] = [WindPO.model_validate(wind.model_dump()) for wind in input_data.get("wind", [])]
-
-        self.storage: list[StoragePO] = [
-            StoragePO.model_validate(storage.model_dump()) for storage in input_data.get("storage", [])
-        ]
-
-        self.hydro: list[HydroPO] = [
-            HydroPO.model_validate(hydro.model_dump()) for hydro in input_data.get("hydro", [])
-        ]
-
-        self.solar: list[SolarPO] = [
-            SolarPO.model_validate(solar.model_dump()) for solar in input_data.get("solar", [])
-        ]
-
-        self.thermal: list[ThermalPO] = [
-            ThermalPO.model_validate(thermal.model_dump()) for thermal in input_data.get("thermal", [])
-        ]
-
-        self.other_non_dispatchable: list[OtherNonDispatchablePO] = [
-            OtherNonDispatchablePO.model_validate(other.model_dump())
-            for other in input_data.get("other_non_dispatchable", [])
-        ]
-        self.load: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in input_data.get("load", [])]
+        loads: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in input_data.get("load", [])]
 
         self.equipments: dict[str, list[EquipmentPO]] = {
-            "wind": cast(list[EquipmentPO], self.wind),
-            "storage": cast(list[EquipmentPO], self.storage),
-            "hydro": cast(list[EquipmentPO], self.hydro),
-            "solar": cast(list[EquipmentPO], self.solar),
-            "thermal": cast(list[EquipmentPO], self.thermal),
-            "other_non_dispatchable": cast(list[EquipmentPO], self.other_non_dispatchable),
+            "wind": [WindPO.model_validate(wind.model_dump()) for wind in input_data.get("wind", [])],
+            "storage": [StoragePO.model_validate(storage.model_dump()) for storage in input_data.get("storage", [])],
+            "hydro": [HydroPO.model_validate(hydro.model_dump()) for hydro in input_data.get("hydro", [])],
+            "solar": [SolarPO.model_validate(solar.model_dump()) for solar in input_data.get("solar", [])],
+            "thermal": [ThermalPO.model_validate(thermal.model_dump()) for thermal in input_data.get("thermal", [])],
+            "other_non_dispatchable": [
+                OtherNonDispatchablePO.model_validate(other.model_dump())
+                for other in input_data.get("other_non_dispatchable", [])
+            ],
             "dispatchable_load": cast(
-                list[EquipmentPO], [load for load in self.load if load.load_type == LoadType.POWER_TO_GAS]
+                list[EquipmentPO], [load for load in loads if load.load_type == LoadType.POWER_TO_GAS]
             ),
             "non_dispatchable_load": cast(
-                list[EquipmentPO], [load for load in self.load if load.load_type != LoadType.POWER_TO_GAS]
+                list[EquipmentPO], [load for load in loads if load.load_type != LoadType.POWER_TO_GAS]
             ),
         }
 

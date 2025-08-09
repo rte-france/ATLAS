@@ -267,8 +267,7 @@ class PortfolioPO(Portfolio):
         # Hydro equipment - uses hydraulic_op_times and fragment variables
         if "hydro" in self.equipments and time in parameters.hydraulic_op_times:
             for obj in cast(list[HydroPO], self.equipments["hydro"]):
-                fragment_data = obj._get_fragment_data()
-                for category in fragment_data.keys():
+                for category in obj.fragment_data.keys():
                     var = model.get_variable(f"{obj.name}_power_level_frag_{category}_at_{time}")
                     if var is not None:
                         total_power += var
@@ -445,7 +444,7 @@ class PortfolioPO(Portfolio):
             sum_maximum_energy,
         )
 
-    def _get_price_forecast(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float | None:
+    def get_price_forecast(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float | None:
         """Get price forecast for given time based on market type and forecast settings."""
 
         if time in parameters.target_times:

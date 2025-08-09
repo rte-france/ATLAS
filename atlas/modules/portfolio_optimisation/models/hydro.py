@@ -107,7 +107,7 @@ class HydroPO(Hydro):
 
             power_level_fragment_sum_var = sum(
                 model.get_variable(f"{self.name}_power_level_frag_{category}_at_{time}")
-                for category in self._get_fragment_data()
+                for category in self.fragment_data
             )
 
         if time in parameters.target_times:
