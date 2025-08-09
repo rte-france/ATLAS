@@ -106,7 +106,7 @@ class PortfolioOptimisationModel:
                     price_forecast = portfolio._get_price_forecast(time, self.parameters)
 
                 for equipment_type in portfolio.equipments:
-                    equipment_list = portfolio.equipments.get(equipment_type, [])
+                    equipment_list = portfolio.equipments.get("storage", [])
 
                     for equipment in cast(list[EquipmentPO], equipment_list):
                         cfg.logger.debug(f"Processing equipment: {equipment.name}")

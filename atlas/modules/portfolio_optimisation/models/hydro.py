@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import cast
 
 from pendulum import DateTime
-from pydantic import BaseModel
 
 import atlas.config as cfg
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -69,10 +68,8 @@ class HydroPO(Hydro):
     ):
         """Formulates hydraulic reservoir offers by calculating fragment prices and volumes."""
 
-        fragment_data = self._get_fragment_data()
-
         if time in parameters.hydraulic_op_times:
-            for category, fragment in fragment_data.items():
+            for category, fragment in self.fragment_data.items():
                 volume = self.maximum_power.get_value(time) * fragment.volume
 
                 model.add_continuous_variable(
@@ -113,6 +110,7 @@ class HydroPO(Hydro):
                 for category in self._get_fragment_data()
             )
 
+        if time in parameters.target_times:
             if time == parameters.start_date:
                 model.add_constraint(
                     stored_energy_var
@@ -120,7 +118,7 @@ class HydroPO(Hydro):
                     - power_level_fragment_sum_var * parameters.timestep.total_hours()
                 )
 
-            elif time in parameters.target_times:
+            else:
                 previous_stored_energy_var = model.get_variable(
                     f"{self.name}_stored_energy_{time - parameters.timestep}"
                 )
@@ -129,9 +127,6 @@ class HydroPO(Hydro):
                     stored_energy_var == previous_stored_energy_var - power_level_fragment_sum_var * parameters.timestep
                 )
 
-            # For any time steps:
-            # Respect of minimum and maximum stock constraints
-            if time in parameters.target_times:
                 reserve_stored_energy_up_var = model.get_variable(
                     f"reserves_up_{self.name}_{time}"
                 ) + model.get_variable(f"automated_reserves_up_{self.name}_{time}")
@@ -171,23 +166,11 @@ class HydroPO(Hydro):
         parameters: PortfolioOptimisationParameters,
     ):
         if time in parameters.hydraulic_op_times:
-            fragment_data = self._get_fragment_data()
             energy_level = self._get_current_energy_level(parameters)
 
             marginal_weights = self._calculate_marginal_weights(energy_level)
 
-            return self._calculate_fragment_price(fragment_data[category].price, marginal_weights, time)
-
-    def _get_fragment_data(self):
-        return {
-            category: FragmentData(volume=self.fragment_volumes[category], price=self.fragment_prices[category])
-            for category in range(len(self.fragment_volumes))
-        }
-
-    def get_fragment_length(self):
-        if not len(self.fragment_volumes) == len(self.fragment_prices):
-            raise ValueError("Fragment volumes and prices has to be same length")
-        return len(self.fragment_volumes)
+            return self._calculate_fragment_price(self.fragment_data[category].price, marginal_weights, time)
 
     def _get_current_energy_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
         """Get the current energy level from forecast or initial level."""
@@ -289,10 +272,3 @@ class HydroPO(Hydro):
                     [parameters.start_date - parameters.timestep, parameters.end_date]
                 ).collect()
             )
-
-
-class FragmentData(BaseModel):
-    """Data structure to hold fragment volume and price information."""
-
-    volume: float
-    price: float
