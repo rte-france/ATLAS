@@ -18,6 +18,7 @@ import polars as pl
 
 from atlas.io_utils.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import (
@@ -180,6 +181,22 @@ class ForecastingMatrix(Matrix):
         super().delete(dt)
 
         self._sort_indexes()
+
+    def replace(
+        self,
+        index: str | datetime | pendulum.DateTime,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+    ) -> None:
+        """
+        Replace a Timeseries in the matrix and keep indexes sorted.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
+        """
+        self.delete(index=index)
+        self.add(timeseries=timeseries, index=index)
 
     def get_forecast(
         self,
@@ -361,6 +378,50 @@ class LazyForecastingMatrix(LazyMatrix):
             timezone,
             date_format,
         )
+
+    def add(
+        self,
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        index: str | datetime | pendulum.DateTime,
+    ) -> None:
+        """
+        Add a timeseries to the lazy forecasting matrix.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime | pendulum.DateTime
+        :raises KeyError: If index already exists in the matrix.
+        """
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
+        super().add(timeseries, dt)
+
+    def delete(self, index: str | datetime | pendulum.DateTime) -> None:
+        """
+        Delete a timeseries by index.
+
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime | pendulum.DateTime
+        :raises KeyError: If the index does not exist in the matrix.
+        """
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
+        super().delete(dt)
+
+    def replace(
+        self,
+        index: str | datetime | pendulum.DateTime,
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+    ) -> None:
+        """
+        Replace a Timeseries in the matrix and keep indexes sorted.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
+        """
+        self.delete(index=index)
+        self.add(timeseries=timeseries, index=index)
 
     def get_forecast(
         self,

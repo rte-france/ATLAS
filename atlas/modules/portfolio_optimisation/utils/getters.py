@@ -68,7 +68,6 @@ def get_reserve_value(
 def get_maximum_power(
     obj: EquipmentPO, time: DateTime, execution_date: datetime | DateTime | str | None = None
 ) -> float:
-    # Use class name for runtime type checking to avoid circular imports
     obj_type = type(obj).__name__
 
     if obj_type in ("HydroPO", "StoragePO", "ThermalPO"):

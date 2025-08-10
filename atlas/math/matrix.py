@@ -246,6 +246,22 @@ class Matrix:
         self.matrix = self.matrix.drop(index)
         self.indexes = self._get_indexes()
 
+    def replace(
+        self,
+        index: str,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+    ) -> None:
+        """
+        Replace a Timeseries in the matrix and keep indexes sorted.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
+        """
+        self.delete(index=index)
+        self.add(timeseries=timeseries, index=index)
+
     def get_matrix(self) -> pl.DataFrame:
         """
         Get the matrix data.

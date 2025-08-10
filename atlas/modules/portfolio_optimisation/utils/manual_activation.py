@@ -4,10 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import cast
+
 from pendulum import DateTime
 
 from atlas.enum import MarketType, StorageType, ThermalStrategy
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
@@ -75,23 +77,27 @@ def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOpti
 def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimisationParameters) -> Timeseries:
     """Calculate new power based on market type."""
     if parameters.market == MarketType.dayahead:
-        return equipment.da_cleared_quantity.filter(parameters.target_times)
+        return cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times)
 
     elif parameters.market == MarketType.intraday:
-        da_power = equipment.da_cleared_quantity.filter(parameters.target_times)
-        id_power = equipment.total_id_cleared_quantity.filter(parameters.target_times)
+        da_power = cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times)
+        id_power = cast(Timeseries | LazyTimeseries, equipment.total_id_cleared_quantity).filter(
+            parameters.target_times
+        )
         return da_power + id_power
 
 
 def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimisationParameters):
     """Calculate activated power for validation."""
     if parameters.market == MarketType.dayahead:
-        return equipment.da_cleared_quantity.filter(parameters.target_times)
+        return cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times)
 
     elif parameters.market == MarketType.intraday:
-        return equipment.id_cleared_quantity.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
-        ).filter(parameters.target_times)
+        return (
+            cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_cleared_quantity)
+            .get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
+            .filter(parameters.target_times)
+        )
 
 
 def _should_skip_equipment(
@@ -221,7 +227,7 @@ def _update_stored_energy(
         stored_energy_matrix = equipment.stored_energy if equipment.stored_energy else ForecastingMatrix()
         if parameters.execution_date in stored_energy_matrix.index:
             equipment.stored_energy.delete(parameters.execution_date)
-        equipment.stored_energy.add(parameters.execution_date, new_stored_energy)
+        equipment.stored_energy.add(new_stored_energy, parameters.execution_date)
 
 
 def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: PortfolioOptimisationParameters):
@@ -320,11 +326,12 @@ def _finalize_power_update(
 
     # Update equipment power
     if parameters.use_forecast:
-        equipment.id_po_for_orders.add(new_power, parameters.execution_date)
-    else:
-        if parameters.execution_date in equipment.power.index:
-            equipment.power.delete(parameters.execution_date)
-        equipment.power.add(
-            new_power,
-            parameters.execution_date,
+        cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_po_for_orders).add(
+            new_power, parameters.execution_date
         )
+    else:
+        if equipment.power:
+            equipment.power.replace(
+                parameters.execution_date,
+                new_power,
+            )
