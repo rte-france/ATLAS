@@ -26,7 +26,6 @@ class StoragePO(Storage):
     discharge_efficiency: float
     charge_efficiency: float
     maximum_energy: Timeseries | LazyTimeseries
-    # displacement_energy: Timeseries | LazyTimeseries # to set to Timeseries(0) if None
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for storage equipment."""
@@ -185,12 +184,23 @@ class StoragePO(Storage):
                 )
 
             if time == parameters.start_date:
+                if not self.displacement_energy:
+                    self.displacement_energy = Timeseries.from_index(
+                        start_date=prev_time,
+                        end_date=time,
+                        frequency=parameters.timestep,
+                        default_value=0.0,
+                    )
                 model.add_constraint(
                     stored_energy_var
                     == self.get_initial_stock(parameters) * max_energy / max_energy_previous
                     - power_level_buy_var * self.charge_efficiency * parameters.timestep.total_hours()
                     - power_level_sell_var * parameters.timestep.total_hours() / self.discharge_efficiency
                     + (self.displacement_energy.get_value(time) - self.displacement_energy.get_value(prev_time))
+                )
+                model.add_constraint(
+                    sum(-power_level_buy_var for _ in optimisation_times) * self.charge_efficiency
+                    == sum(power_level_sell_var for _ in optimisation_times) / self.discharge_efficiency
                 )
 
             else:
@@ -209,12 +219,6 @@ class StoragePO(Storage):
             )
             model.add_constraint(stored_energy_var <= max_energy - reserve_stored_energy_down_ti)
 
-            if time == parameters.start_date:
-                model.add_constraint(
-                    sum(-power_level_buy_var for _ in optimisation_times) * self.charge_efficiency
-                    == sum(power_level_sell_var for _ in optimisation_times) / self.discharge_efficiency
-                )
-
     def add_objective(
         self,
         model: OptimisationModel,
@@ -231,7 +235,9 @@ class StoragePO(Storage):
 
         power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
         power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
-        model.add_objective(price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.timestep)
+        model.add_objective(
+            price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.timestep.total_hours()
+        )
 
         if time not in parameters.target_times:
             smoothing_factor = parameters.storage_mapping[self.storage_type]["smoothing_factor"]

@@ -66,10 +66,10 @@ class SolarPO(Solar):
             maximum_automated = get_maximum_automated(self)
 
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
-            automated_reserves_up_var = model.get_variable(f"automated_res_up_e_{self.name}_{time}")
-            automated_reserves_down_var = model.get_variable(f"automated_res_down_e_{self.name}_{time}")
-            reserves_up_var = model.get_variable(f"reserves_up_e_{self.name}_{time}")
-            reserves_down_var = model.get_variable(f"reserves_down_e_{self.name}_{time}")
+            automated_reserves_up_var = model.get_variable(f"automated_reserves_up_{self.name}_{time}")
+            automated_reserves_down_var = model.get_variable(f"automated_reserves_down_{self.name}_{time}")
+            reserves_up_var = model.get_variable(f"reserves_up_{self.name}_{time}")
+            reserves_down_var = model.get_variable(f"reserves_down_{self.name}_{time}")
 
             model.add_constraint(power_level_var <= max_power)
             model.add_constraint(power_level_var >= min_power)

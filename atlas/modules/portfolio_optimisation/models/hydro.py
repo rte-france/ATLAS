@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -149,14 +149,14 @@ class HydroPO(Hydro):
                 model.add_objective(
                     self.compute_fragment_prices(time, k, parameters)
                     * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
-                    * parameters.timestep
+                    * parameters.timestep.total_hours()
                 )
 
             else:
                 model.add_objective(
                     -(price_forecast - self.compute_fragment_prices(time, k, parameters))
                     * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
-                    * parameters.timestep
+                    * parameters.timestep.total_hours()
                 )
 
     def compute_fragment_prices(
@@ -168,7 +168,7 @@ class HydroPO(Hydro):
         if time in parameters.hydraulic_op_times:
             energy_level = self._get_current_energy_level(parameters)
 
-            marginal_weights = self._calculate_marginal_weights(energy_level)
+            marginal_weights = self._calculate_marginal_weights(energy_level, parameters.timestep)
 
             return self._calculate_fragment_price(self.fragment_data[category].price, marginal_weights, time)
 
@@ -185,7 +185,7 @@ class HydroPO(Hydro):
         else:
             return self.initial_level.get_value(parameters.start_date - parameters.timestep)
 
-    def _calculate_marginal_weights(self, energy_level: float) -> dict:
+    def _calculate_marginal_weights(self, energy_level: float, timestep: Duration) -> dict:
         """Calculate marginal value weights based on current energy level."""
         storage_indices = self.storage_marginal_value.indexes
 
@@ -203,11 +203,11 @@ class HydroPO(Hydro):
 
         if x_min_candidates:
             xp_min = max(x_min_candidates, key=lambda x: int(x))
-            weights["level_inf"] = self.storage_marginal_value.select(xp_min)  # type: ignore[assignment]
+            weights["level_inf"] = self.storage_marginal_value.select(xp_min).set_frequency(timestep, inplace=False)  # type: ignore[assignment]
 
         if x_max_candidates:
             xp_max = min(x_max_candidates, key=lambda x: int(x))
-            weights["level_sup"] = self.storage_marginal_value.select(xp_max)  # type: ignore[assignment]
+            weights["level_sup"] = self.storage_marginal_value.select(xp_max).set_frequency(timestep, inplace=False)  # type: ignore[assignment]
 
         # Calculate interpolation weights if we have both bounds
         if weights["has_min"] and weights["has_max"]:
