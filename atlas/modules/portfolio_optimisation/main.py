@@ -65,6 +65,8 @@ class PortfolioOptimisationModel(OptimisationModel):
 
             for equipment_type in self.portfolio.equipments:
                 equipment_list = self.portfolio.equipments.get(equipment_type, [])
+                if equipment_type == "thermal":  # TODO
+                    continue
 
                 for equipment in cast(list[EquipmentPO], equipment_list):
                     cfg.logger.debug(f"Processing equipment: {equipment.name}")

@@ -149,7 +149,7 @@ class ThermalPO(Thermal):
                 model.add_boolean_variable(f"entered_down_at_{time}_e_{self.name}")
 
                 # Gradient auxiliary variables for stable case
-                max_power = float(self.maximum_power.max())
+                max_power = self.maximum_power.max()
                 model.add_continuous_variable(f"UP_grad_at_{time}_for_e_{self.name}", -max_power, max_power)
                 model.add_continuous_variable(f"aux_up_grad_at_{time}_e_{self.name}", -max_power, max_power)
                 model.add_continuous_variable(f"DOWN_grad_at_{time}_e_{self.name}", -max_power, max_power)

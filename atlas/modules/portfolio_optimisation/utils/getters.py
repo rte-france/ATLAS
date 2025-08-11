@@ -21,14 +21,9 @@ if TYPE_CHECKING:
 
 def get_reserve(
     obj: EquipmentPO,
-    sum_reserves_up: float,
-    sum_reserves_down: float,
-    sum_automated_reserves_up: float,
-    sum_automated_reserves_down: float,
-    sum_maximum_power: float,
     time: DateTime,
     parameters: PortfolioOptimisationParameters,
-) -> tuple[float, float, float, float, float]:
+) -> tuple[float, float, float, float]:
     """Calculate reserve values for equipment object."""
     maximum_afrr = obj.maximum_afrr
     maximum_fcr = obj.maximum_fcr
@@ -42,18 +37,17 @@ def get_reserve(
     fcr_up = get_reserve_value(obj, time, "fcr_up", parameters)
     fcr_down = get_reserve_value(obj, time, "fcr_down", parameters)
 
-    # Calculate reserve totals
-    sum_reserves_up += rr_up + mfrr_up
-    sum_reserves_down += rr_down + mfrr_down
-    sum_automated_reserves_up += min(afrr_up, maximum_afrr or 0) + min(fcr_up, maximum_fcr or 0)
-    sum_automated_reserves_down += min(afrr_down, maximum_afrr or 0) + min(fcr_down, maximum_fcr or 0)
+    # Calculate individual equipment reserve totals
+    reserves_up = rr_up + mfrr_up
+    reserves_down = rr_down + mfrr_down
+    automated_reserves_up = min(afrr_up, maximum_afrr or 0) + min(fcr_up, maximum_fcr or 0)
+    automated_reserves_down = min(afrr_down, maximum_afrr or 0) + min(fcr_down, maximum_fcr or 0)
 
     return (
-        sum_reserves_up,
-        sum_reserves_down,
-        sum_automated_reserves_up,
-        sum_automated_reserves_down,
-        sum_maximum_power,
+        reserves_up,
+        reserves_down,
+        automated_reserves_up,
+        automated_reserves_down,
     )
 
 
