@@ -150,14 +150,16 @@ class HydroPO(Hydro):
                 model.add_objective(
                     self.compute_fragment_prices(time, k, parameters)
                     * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
-                    * parameters.timestep.total_hours()
+                    * parameters.timestep.total_hours(),
+                    direction="minimize",
                 )
 
             else:
                 model.add_objective(
                     -(price_forecast - self.compute_fragment_prices(time, k, parameters))
                     * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
-                    * parameters.timestep.total_hours()
+                    * parameters.timestep.total_hours(),
+                    direction="minimize",
                 )
 
     def compute_fragment_prices(

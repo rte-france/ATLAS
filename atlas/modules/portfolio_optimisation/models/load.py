@@ -55,7 +55,10 @@ class LoadPO(Load):
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             if self.load_type == LoadType.POWER_TO_GAS:
                 model.add_objective(
-                    (get_variable_cost(self, time) - price_forecast) * power_level_var * parameters.timestep
+                    (get_variable_cost(self, time) - price_forecast) * power_level_var * parameters.timestep,
+                    direction="minimize",
                 )
             else:
-                model.add_objective(get_variable_cost(self, time) * -power_level_var * parameters.timestep)
+                model.add_objective(
+                    get_variable_cost(self, time) * -power_level_var * parameters.timestep, direction="minimize"
+                )

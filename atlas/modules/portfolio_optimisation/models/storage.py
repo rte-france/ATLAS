@@ -249,12 +249,14 @@ class StoragePO(Storage):
                 # The objective function is the total profit over the optimisation period
                 if nb_fragment == 1 and n == 0:
                     model.add_objective(
-                        -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast
+                        -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast,
+                        direction="minimize",
                     )
                 else:
                     model.add_objective(
                         -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
-                        - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1))
+                        - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1)),
+                        direction="minimize",
                     )
 
     def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
