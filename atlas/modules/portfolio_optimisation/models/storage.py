@@ -186,8 +186,8 @@ class StoragePO(Storage):
             if time == parameters.start_date:
                 if not self.displacement_energy:
                     self.displacement_energy = Timeseries.from_index(
-                        start_date=prev_time,
-                        end_date=time,
+                        start_date=parameters.start_date - parameters.timestep,
+                        end_date=parameters.end_date,
                         frequency=parameters.timestep,
                         default_value=0.0,
                     )

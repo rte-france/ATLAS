@@ -9,7 +9,6 @@ from typing import cast
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enum import SolverStatus
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
@@ -20,7 +19,6 @@ from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
 
@@ -167,25 +165,25 @@ class PortfolioOptimisationOrchestrator:
 
         model = PortfolioOptimisationModel(portfolio, self.parameters)
 
-        try:
-            model.build_model(max_optimisation_times)
-            solution_info = model.optimise()
-            return solution_info
+        # try:
+        model.build_model(max_optimisation_times)
+        solution_info = model.optimise()
+        return solution_info
 
-        except Exception as e:
-            cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}: {e}")
-            cfg.logger.debug("Falling back to manual activation")
+        # except Exception as e:
+        #     cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}: {e}")
+        #     cfg.logger.debug("Falling back to manual activation")
 
-            equipment_list = [equipment for t in portfolio.equipments for equipment in portfolio.equipments[t]]
-            cfg.logger.debug(f"Setting manual activation for {len(equipment_list)} equipment(s)")
-            set_manual_activation(cast(list, equipment_list), self.parameters)
+        #     equipment_list = [equipment for t in portfolio.equipments for equipment in portfolio.equipments[t]]
+        #     cfg.logger.debug(f"Setting manual activation for {len(equipment_list)} equipment(s)")
+        #     set_manual_activation(cast(list, equipment_list), self.parameters)
 
-            return SolutionInfo(
-                status=SolverStatus.NOT_SOLVED,
-                objective_value=None,
-                solve_time=None,
-                num_iterations=None,
-            )
+        #     return SolutionInfo(
+        #         status=SolverStatus.NOT_SOLVED,
+        #         objective_value=None,
+        #         solve_time=None,
+        #         num_iterations=None,
+        #     )
 
     def _optimise_portfolio_manual_activated(self, portfolio: PortfolioPO):
         cfg.logger.info(f"Manual activation for portfolio: {portfolio.name}")

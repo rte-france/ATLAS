@@ -124,7 +124,8 @@ class HydroPO(Hydro):
                 )
 
                 model.add_constraint(
-                    stored_energy_var == previous_stored_energy_var - power_level_fragment_sum_var * parameters.timestep
+                    stored_energy_var
+                    == previous_stored_energy_var - power_level_fragment_sum_var * parameters.timestep.total_hours()
                 )
 
                 reserve_stored_energy_up_var = model.get_variable(
