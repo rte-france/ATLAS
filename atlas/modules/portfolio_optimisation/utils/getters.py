@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, cast
 from pendulum import DateTime
 
 from atlas.enum import MarketType
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 if TYPE_CHECKING:
@@ -55,8 +55,15 @@ def get_reserve_value(
     obj: EquipmentPO, time: DateTime, reserve_type: str, parameters: PortfolioOptimisationParameters
 ) -> float:
     """Helper to get reserve value from forecast."""
-    reserve_attr = cast(ForecastingMatrix, getattr(obj, f"{reserve_type}_procured"))
-    return reserve_attr.get_forecast(parameters.execution_date, time, time).get_value(time)
+    reserve_attr = getattr(obj, f"{reserve_type}_procured")
+    if reserve_attr:
+        return (
+            cast(ForecastingMatrix | LazyForecastingMatrix, reserve_attr)
+            .get_forecast(parameters.execution_date, time, time)
+            .get_value(time)
+        )
+    else:
+        return 0
 
 
 def get_maximum_power(

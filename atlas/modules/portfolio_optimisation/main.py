@@ -95,7 +95,10 @@ class PortfolioOptimisationModel(OptimisationModel):
                                 self, time, price_forecast or 0.0, self.parameters
                             )
 
+            cfg.logger.debug(f"Adding constraints for Portfolio {self.portfolio.name}")
             self.portfolio.add_constraints(time, self, self.parameters)
+
+            cfg.logger.debug(f"Adding objective for Portfolio {self.portfolio.name}")
             self.portfolio.add_objective(self, time, self.parameters)
 
 

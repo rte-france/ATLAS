@@ -170,17 +170,17 @@ class PortfolioPO(Portfolio):
 
         # Small imbalance costs
         if imbalance_price_up:
-            model.add_objective(imbalance_price_up * small_imbalance_up_var * timestep)
+            model.add_objective(imbalance_price_up * small_imbalance_up_var * timestep.total_hours())
 
         if imbalance_price_down:
-            model.add_objective(-imbalance_price_down * small_imbalance_down_var * timestep)
+            model.add_objective(-imbalance_price_down * small_imbalance_down_var * timestep.total_hours())
 
         # Large imbalance costs
         if large_imbalance_price_up:
-            model.add_objective(large_imbalance_price_up * large_imbalance_up_var * timestep)
+            model.add_objective(large_imbalance_price_up * large_imbalance_up_var * timestep.total_hours())
 
         if large_imbalance_price_down:
-            model.add_objective(-large_imbalance_price_down * large_imbalance_down_var * timestep)
+            model.add_objective(-large_imbalance_price_down * large_imbalance_down_var * timestep.total_hours())
 
     def _add_reserve_penalty_terms(
         self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters
@@ -193,15 +193,23 @@ class PortfolioPO(Portfolio):
         auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{self.name}_{time}")
 
         # Manual reserve penalties
-        model.add_objective(parameters.manual_unprocured_reserves_penalty * parameters.timestep * contracted_diff_up)
-        model.add_objective(parameters.manual_unprocured_reserves_penalty * parameters.timestep * contracted_diff_down)
+        model.add_objective(
+            parameters.manual_unprocured_reserves_penalty * parameters.timestep.total_hours() * contracted_diff_up
+        )
+        model.add_objective(
+            parameters.manual_unprocured_reserves_penalty * parameters.timestep.total_hours() * contracted_diff_down
+        )
 
         # Automated reserve penalties
         model.add_objective(
-            parameters.automated_unprocured_reserves_penalty * parameters.timestep * auto_contracted_diff_up
+            parameters.automated_unprocured_reserves_penalty
+            * parameters.timestep.total_hours()
+            * auto_contracted_diff_up
         )
         model.add_objective(
-            parameters.automated_unprocured_reserves_penalty * parameters.timestep * auto_contracted_diff_down
+            parameters.automated_unprocured_reserves_penalty
+            * parameters.timestep.total_hours()
+            * auto_contracted_diff_down
         )
 
     def _add_imbalance_variables(
