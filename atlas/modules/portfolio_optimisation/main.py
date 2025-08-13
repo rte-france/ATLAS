@@ -36,6 +36,8 @@ class PortfolioOptimisationModel(OptimisationModel):
 
         for time in max_optimisation_times:
             cfg.logger.info(f"Building optimisation model at time: {time}..")
+
+            cfg.logger.debug(f"Adding variables for portfolio :{self.portfolio.name}")
             self.portfolio.add_variables(self, time, self.parameters)
 
             price_forecast = None
@@ -78,6 +80,8 @@ class PortfolioOptimisationModel(OptimisationModel):
             cfg.logger.debug(f"Adding objective for portfolio {self.portfolio.name}")
             self.portfolio.add_objective(self, time, self.parameters)
 
+        cfg.logger.info(f"Completed optimisation model for portfolio: {self.portfolio.name}.")
+
     def optimise(self) -> SolutionInfo:
         """Run this specific portfolio using inherited OptimisationModel capabilities."""
         cfg.logger.info(f"Solving portfolio optimisation problem for portfolio: {self.portfolio.name}")
@@ -86,7 +90,7 @@ class PortfolioOptimisationModel(OptimisationModel):
             solution_info = self.solve(self.parameters.solver_timeout.total_seconds())
 
             cfg.logger.info(
-                f"Portfolio {self.portfolio.name} optimisation completed with status: {solution_info.status.name}"
+                f"Portfolio '{self.portfolio.name}' optimisation completed with status: {solution_info.status.name}"
             )
             if solution_info.objective_value is not None:
                 cfg.logger.debug(f"Objective value: {solution_info.objective_value}")
@@ -156,7 +160,7 @@ class PortfolioOptimisationOrchestrator:
                             market_area=portfolio_manual.market_area,
                         )
 
-                        models[portfolio.name] = self._optimise_portfolio_manual_activated(
+                        models[equipment_portfolio.name] = self._optimise_portfolio_manual_activated(
                             portfolio=equipment_portfolio
                         )
 

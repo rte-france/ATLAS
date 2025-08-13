@@ -58,7 +58,7 @@ class WindPO(Wind):
         This function formulates the wind equipments constraints.
         """
 
-        if time in parameters.renewables_load_op_times:
+        if time in parameters.target_times:
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
             maximum_automated = get_maximum_automated(self)
