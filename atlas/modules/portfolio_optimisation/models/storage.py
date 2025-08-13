@@ -143,7 +143,7 @@ class StoragePO(Storage):
             model.add_constraint(reserves_up_var <= max_power)
             model.add_constraint(reserves_down_var <= max_power)
 
-            if self.storage_type == StorageType.BATTERY or self.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
+            if self.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]:
                 reserve_stored_energy_down = reserves_down_var * (
                     parameters.battery_reserve_duration.total_hours()
                 ) + automated_reserves_down_var * (parameters.battery_automated_reserve_duration.total_hours())
@@ -232,35 +232,34 @@ class StoragePO(Storage):
             return None
 
         storage_optimisation_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
-        if time not in storage_optimisation_times:
-            return None
+        if time in storage_optimisation_times:
+            power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
+            power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
+            model.add_objective(
+                price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.timestep.total_hours(),
+                direction="minimize",
+            )
 
-        power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
-        power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
-        model.add_objective(
-            price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.timestep.total_hours(),
-            direction="minimize",
-        )
+            if time not in parameters.target_times:
+                smoothing_factor = parameters.storage_mapping[self.storage_type]["smoothing_factor"]
+                nb_fragment = parameters.storage_mapping[self.storage_type]["nb_fragment"]
 
-        if time not in parameters.target_times:
-            smoothing_factor = parameters.storage_mapping[self.storage_type]["smoothing_factor"]
-            nb_fragment = parameters.storage_mapping[self.storage_type]["nb_fragment"]
-            for n in range(0, nb_fragment):
-                power_level_sell_n_var = model.get_variable(f"{self.name}_power_level_sell_n_{n}_time_{time}")
-                power_level_buy_n_var = model.get_variable(f"{self.name}_power_level_buy_n_{n}_time_{time}")
+                for n in range(0, nb_fragment):
+                    power_level_sell_n_var = model.get_variable(f"{self.name}_power_level_sell_n_{n}_time_{time}")
+                    power_level_buy_n_var = model.get_variable(f"{self.name}_power_level_buy_n_{n}_time_{time}")
 
-                # The objective function is the total profit over the optimisation period
-                if nb_fragment == 1 and n == 0:
-                    model.add_objective(
-                        -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast,
-                        direction="minimize",
-                    )
-                else:
-                    model.add_objective(
-                        -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
-                        - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1)),
-                        direction="minimize",
-                    )
+                    # The objective function is the total profit over the optimisation period
+                    if nb_fragment == 1 and n == 0:
+                        model.add_objective(
+                            -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast,
+                            direction="minimize",
+                        )
+                    else:
+                        model.add_objective(
+                            -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
+                            - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1)),
+                            direction="minimize",
+                        )
 
     def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
         if self.stored_energy is None:
