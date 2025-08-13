@@ -96,10 +96,6 @@ timestep = 1h                                        # Time resolution
 
 ## Important Notes
 
-### Price Forecast Availability
-- **Only available for `target_times`** (market participation period)
-- Equipment objectives that need prices must check `if time in parameters.target_times`
-
 ### Storage Special Behavior
 - Storage can operate during extended periods BUT with different objectives
 - Inside `target_times`: Don't use the price forecast, uses only fragment prices
