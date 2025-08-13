@@ -89,7 +89,7 @@ url = "https://pypi.org/simple/"
 
 [tool.mypy]
 [[tool.mypy.overrides]]
-module = "atlas.solver.solver_interface"
+module = ["atlas.solver.solver_interface","atlas.solver.solver_helper"]
 ignore_errors = true
 
 [tool.coverage.run]
