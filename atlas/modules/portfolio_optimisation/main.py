@@ -30,31 +30,12 @@ class PortfolioOptimisationModel(OptimisationModel):
         self.portfolio = portfolio
         self.parameters = parameters
 
-    def optimise(self) -> SolutionInfo:
-        """run this specific portfolio using inherited OptimisationModel capabilities."""
-        cfg.logger.info(f"Optimising portfolio: {self.portfolio.name}")
-
-        try:
-            solution_info = self.solve()
-
-            cfg.logger.info(
-                f"Portfolio {self.portfolio.name} optimisation completed with status: {solution_info.status.name}"
-            )
-            if solution_info.objective_value is not None:
-                cfg.logger.debug(f"Objective value: {solution_info.objective_value}")
-            if solution_info.solve_time is not None:
-                cfg.logger.debug(f"Solve time: {solution_info.solve_time}s")
-
-            return solution_info
-
-        except Exception as e:
-            cfg.logger.error(f"Optimisation failed for portfolio {self.portfolio.name}: {e}")
-            raise
-
     def build_model(self, max_optimisation_times: list[DateTime]) -> None:
         """Build the optimization model by adding variables, constraints, and objectives."""
+        cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
+
         for time in max_optimisation_times:
-            cfg.logger.debug(f"Building optimisation model at time: {time}")
+            cfg.logger.info(f"Building optimisation model at time: {time}..")
             self.portfolio.add_variables(self, time, self.parameters)
 
             price_forecast = None
@@ -97,6 +78,27 @@ class PortfolioOptimisationModel(OptimisationModel):
             cfg.logger.debug(f"Adding objective for portfolio {self.portfolio.name}")
             self.portfolio.add_objective(self, time, self.parameters)
 
+    def optimise(self) -> SolutionInfo:
+        """Run this specific portfolio using inherited OptimisationModel capabilities."""
+        cfg.logger.info(f"Solving portfolio optimisation problem for portfolio: {self.portfolio.name}")
+
+        try:
+            solution_info = self.solve(self.parameters.solver_timeout.total_seconds())
+
+            cfg.logger.info(
+                f"Portfolio {self.portfolio.name} optimisation completed with status: {solution_info.status.name}"
+            )
+            if solution_info.objective_value is not None:
+                cfg.logger.debug(f"Objective value: {solution_info.objective_value}")
+            if solution_info.solve_time is not None:
+                cfg.logger.debug(f"Solve time: {solution_info.solve_time}s")
+
+            return solution_info
+
+        except Exception as e:
+            cfg.logger.error(f"Optimisation failed for portfolio {self.portfolio.name}: {e}")
+            raise
+
 
 class PortfolioOptimisationOrchestrator:
     """Orchestrates optimization across multiple portfolios."""
@@ -108,21 +110,22 @@ class PortfolioOptimisationOrchestrator:
         """
         Main optimisation method.
         """
-        cfg.logger.info("Starting Portfolio Optimisation module")
-        cfg.logger.debug(f"Number of portfolios: {len(input_dataset.portfolios)}")
-        cfg.logger.debug(f"Number of manual activation portfolios: {len(input_dataset.portfolios_manual_activation)}")
+        cfg.logger.info(
+            f"Starting Portfolio Optimisation | Portfolios: {len(input_dataset.portfolios)}, Manual Activation: {len(input_dataset.portfolios_manual_activation)}"
+        )
+        models: dict[str, PortfolioOptimisationModel] = {}
 
         if self.parameters.is_portfolio_bidding:
             for portfolio in input_dataset.portfolios:
-                cfg.logger.info(f"Building optimisation model for {portfolio.name}")
-                self._optimise_portfolio(
+                models[portfolio.name] = self._optimise_portfolio(
                     portfolio=portfolio,
                     max_optimisation_times=input_dataset.max_optimisation_times,
                 )
             for portfolio in input_dataset.portfolios_manual_activation:
-                self._optimise_portfolio_manual_activated(portfolio=portfolio)
+                models[portfolio.name] = self._optimise_portfolio_manual_activated(portfolio=portfolio)
         else:
             cfg.logger.debug("Individual equipment optimisation mode")
+
             for portfolio in input_dataset.portfolios:
                 cfg.logger.debug(f"Processing portfolio {portfolio.name} for individual equipment optimisation")
                 for equipment_type, list_equipment in portfolio.equipments.items():
@@ -138,7 +141,7 @@ class PortfolioOptimisationOrchestrator:
                             self.parameters.market, self.parameters.use_forecast
                         )
 
-                        self._optimise_portfolio(
+                        models[portfolio.name] = self._optimise_portfolio(
                             portfolio=equipment_portfolio,
                             max_optimisation_times=input_dataset.max_optimisation_times,
                         )
@@ -153,21 +156,23 @@ class PortfolioOptimisationOrchestrator:
                             market_area=portfolio_manual.market_area,
                         )
 
-                    self._optimise_portfolio_manual_activated(portfolio=equipment_portfolio)
+                        models[portfolio.name] = self._optimise_portfolio_manual_activated(
+                            portfolio=equipment_portfolio
+                        )
 
     def _optimise_portfolio(
         self,
         portfolio: PortfolioPO,
         max_optimisation_times: list[DateTime],
-    ) -> SolutionInfo:
+    ) -> PortfolioOptimisationModel:
         """run a single portfolio using PortfolioOptimisationModel."""
 
         model = PortfolioOptimisationModel(portfolio, self.parameters)
 
         # try:
         model.build_model(max_optimisation_times)
-        solution_info = model.optimise()
-        return solution_info
+        model.optimise()
+        return model
 
         # except Exception as e:
         #     cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}: {e}")

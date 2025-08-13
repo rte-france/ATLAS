@@ -38,7 +38,7 @@ class PortfolioOptimisationModule(
         parameters: PortfolioOptimisationParameters,
     ) -> PortfolioOptimisationInputDataset:
         """Imports data using business objects and parameters."""
-        cfg.logger.info("Importing data for portfolio optimisation")
+        cfg.logger.info("Building Portfolio Optimisation input dataset ..")
         return PortfolioOptimisationInputDataset(raw_data, parameters)
 
     def validate_data(
@@ -73,7 +73,7 @@ class PortfolioOptimisationModule(
         output_dataset: PortfolioOptimisationOutputDataset,
     ) -> None:
         """Exports results."""
-        cfg.logger.debug("Exporting results of portfolio optimisation")
+        cfg.logger.debug("Exporting Portfolio Optimisation results ..")
 
     def execute(
         self,

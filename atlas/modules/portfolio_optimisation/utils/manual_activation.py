@@ -31,7 +31,8 @@ def is_excluded_technology(excluded_technologies: list[str], equipment: type[Equ
 def is_excluded_thermal_strategy(excluded_thermal_strategies: list[ThermalStrategy], equipment: ThermalPO) -> bool:
     """Check if thermal equipment strategy is excluded."""
     if isinstance(equipment, ThermalPO):
-        return equipment.strategy in excluded_thermal_strategies
+        if equipment.strategy:
+            return equipment.strategy in excluded_thermal_strategies
     return False
 
 

@@ -191,11 +191,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
         return minutes_validator(v)
 
     @property
-    def target_times(self) -> list[DateTime]:
-        """Datetime index for the main optimization period."""
-        return generate_datetimes(self.start_date, self.end_date, self.timestep)
-
-    @property
     def excluded_market_areas(self) -> list[str]:
         """list of market areas excluded from optimization."""
         val = self.excluded_market_areas_
@@ -229,6 +224,11 @@ class PortfolioOptimisationParameters(AbstractParameters):
     def adjusted_end_date(self) -> DateTime:
         """End date adjusted by subtracting one time step."""
         return self.end_date - self.timestep
+
+    @property
+    def target_times(self) -> list[DateTime]:
+        """Datetime index for the main optimization period."""
+        return generate_datetimes(self.start_date, self.adjusted_end_date, self.timestep)
 
     @property
     def renewables_load_op_times(self) -> list[DateTime]:
