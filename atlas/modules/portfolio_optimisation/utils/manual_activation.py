@@ -25,7 +25,7 @@ from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisatio
 
 def is_excluded_technology(excluded_technologies: list[str], equipment: type[Equipment]) -> bool:
     """Check if equipment technology is excluded."""
-    return equipment.__class__.__name__ in excluded_technologies
+    return equipment.__class__.__name__ in excluded_technologies if excluded_technologies != ["all"] else True
 
 
 def is_excluded_thermal_strategy(excluded_thermal_strategies: list[ThermalStrategy], equipment: ThermalPO) -> bool:
@@ -37,7 +37,7 @@ def is_excluded_thermal_strategy(excluded_thermal_strategies: list[ThermalStrate
 
 def is_excluded_market_area(use_forecast: bool, excluded_market_areas: list[str], market_area: str) -> bool:
     """Check if portfolio market area is excluded."""
-    return not use_forecast and market_area in excluded_market_areas
+    return not use_forecast and market_area in excluded_market_areas if excluded_market_areas != ["all"] else True
 
 
 def should_manually_activate(
