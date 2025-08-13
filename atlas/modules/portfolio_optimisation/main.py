@@ -67,8 +67,6 @@ class PortfolioOptimisationModel(OptimisationModel):
                     continue
 
                 for equipment in cast(list[EquipmentPO], equipment_list):
-                    cfg.logger.debug(f"Processing equipment: {equipment.name}")
-
                     if hasattr(equipment, "add_variables"):
                         cfg.logger.debug(
                             f"Adding variables for equipment: {equipment.name}, of type {type(equipment).__name__}"
@@ -93,10 +91,10 @@ class PortfolioOptimisationModel(OptimisationModel):
                                 self, time, price_forecast or 0.0, self.parameters
                             )
 
-            cfg.logger.debug(f"Adding constraints for Portfolio {self.portfolio.name}")
+            cfg.logger.debug(f"Adding constraints for portfolio :{self.portfolio.name}")
             self.portfolio.add_constraints(time, self, self.parameters)
 
-            cfg.logger.debug(f"Adding objective for Portfolio {self.portfolio.name}")
+            cfg.logger.debug(f"Adding objective for portfolio {self.portfolio.name}")
             self.portfolio.add_objective(self, time, self.parameters)
 
 

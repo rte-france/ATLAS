@@ -69,7 +69,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
     def _get_optimization_times(self) -> dict[str, list[DateTime]]:
         """Get all optimization time periods."""
         return {
-            "op_times": self.parameters.op_times,
+            "renewables_load_op_times": self.parameters.renewables_load_op_times,
             "thermal_op_times": self.parameters.thermal_op_times,
             "hydraulic_op_times": self.parameters.hydraulic_op_times,
             "battery_op_times": self.parameters.battery_op_times,
