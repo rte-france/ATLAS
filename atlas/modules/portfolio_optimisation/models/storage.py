@@ -248,7 +248,6 @@ class StoragePO(Storage):
                     power_level_sell_n_var = model.get_variable(f"{self.name}_power_level_sell_n_{n}_time_{time}")
                     power_level_buy_n_var = model.get_variable(f"{self.name}_power_level_buy_n_{n}_time_{time}")
 
-                    # The objective function is the total profit over the optimisation period
                     if nb_fragment == 1 and n == 0:
                         model.add_objective(
                             -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast,
