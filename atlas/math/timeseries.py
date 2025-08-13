@@ -800,7 +800,6 @@ class Timeseries:
         self,
         start_bound: datetime | pendulum.DateTime | str,
         end_bound: datetime | pendulum.DateTime | str,
-        date_format: str = "YYYY-MM-DD HH:mm:ss",
         closed: Literal["left", "right", "both", "none"] = "both",
         inplace: bool = True,
     ) -> Timeseries:
@@ -808,21 +807,13 @@ class Timeseries:
 
         :param start_bound: Datetime to filter the Timeseries
         :param end_bound: Datetime to filter the Timeseries
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :param closed : {'both', 'left', 'right', 'none'}
             Define which sides of the interval are closed (inclusive).
         :param inplace: Whether to modify the current instance, defaults to True
         :return: The Timeseries object
         """
-        if isinstance(start_bound, str) and isinstance(end_bound, str):
-            date_start = pendulum.from_format(start_bound, fmt=date_format).in_tz(self.timezone)
-            date_end = pendulum.from_format(end_bound, fmt=date_format).in_tz(self.timezone)
-        elif isinstance(start_bound, datetime) and isinstance(end_bound, datetime):
-            date_start = pendulum.instance(start_bound).in_tz(self.timezone)
-            date_end = pendulum.instance(end_bound).in_tz(self.timezone)
-        else:
-            raise NotImplementedError("Invalid filter formatting")
-
+        date_start = build_datetime(start_bound).in_tz(self.timezone)
+        date_end = build_datetime(end_bound).in_tz(self.timezone)
         df = self.timeseries.filter(pl.col("time").is_between(date_start, date_end, closed))
 
         return self._return_inplace(df, inplace)
