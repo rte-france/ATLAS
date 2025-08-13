@@ -94,3 +94,7 @@ ignore_errors = true
 
 [tool.coverage.run]
 omit = ['atlas/io/prometheus_transformer.py']
+
+[[tool.mypy.overrides]]
+module = ["dictdiffer.*"]
+follow_untyped_imports = true
