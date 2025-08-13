@@ -6,14 +6,14 @@ Atlas project uses or-tools as modeller, you can use the solver of your choice. 
 
 ### Xpress for windows
 
-- Download [file]('https://www.artelys.com/fr/espace-client/telecharger-xpress/') (You will probably need to create an account) and install the file
+- Download [file](https://www.artelys.com/fr/espace-client/telecharger-xpress/) (You will probably need to create an account) and install the file
 - Move your license  `xpauth.xpr` in `xpressmp/bin/`
 
 ### Xpress for linux
 
 Find below a quick installation guide, more information can be find directly on **FICO** website : [here](https://www.fico.com/fico-xpress-optimization/docs/dms2021-02/installguide/dhtml/chapinst1_sec_secunix.html)
 
-- Download [file]('https://www.artelys.com/fr/espace-client/telecharger-xpress/') (You will probably need to create an account)
+- Download [file](https://www.artelys.com/fr/espace-client/telecharger-xpress/) (You will probably need to create an account)
 - Move the archive here : `/opt/xpressmp`
 - Enter the uncompressed archive : `cd <archive_uncompressed>`
 - Run the installer, select **static licensing** :

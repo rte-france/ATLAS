@@ -54,7 +54,7 @@ class PortfolioOptimisationModel(OptimisationModel):
     def build_model(self, max_optimisation_times: list[DateTime]) -> None:
         """Build the optimization model by adding variables, constraints, and objectives."""
         for time in max_optimisation_times:
-            cfg.logger.debug(f"Processing optimisation time: {time}")
+            cfg.logger.debug(f"Building optimisation model at time: {time}")
             self.portfolio.add_variables(self, time, self.parameters)
 
             price_forecast = None
@@ -110,12 +110,13 @@ class PortfolioOptimisationOrchestrator:
         """
         Main optimisation method.
         """
-        cfg.logger.info("Starting Portfolio Optimisation Module")
+        cfg.logger.info("Starting Portfolio Optimisation module")
         cfg.logger.debug(f"Number of portfolios: {len(input_dataset.portfolios)}")
         cfg.logger.debug(f"Number of manual activation portfolios: {len(input_dataset.portfolios_manual_activation)}")
 
         if self.parameters.is_portfolio_bidding:
             for portfolio in input_dataset.portfolios:
+                cfg.logger.info(f"Building optimisation model for {portfolio.name}")
                 self._optimise_portfolio(
                     portfolio=portfolio,
                     max_optimisation_times=input_dataset.max_optimisation_times,
