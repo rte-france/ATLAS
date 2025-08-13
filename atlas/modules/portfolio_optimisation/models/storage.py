@@ -232,7 +232,7 @@ class StoragePO(Storage):
             return None
 
         storage_optimisation_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
-        if time in storage_optimisation_times:
+        if time in storage_optimisation_times and time in parameters.target_times:
             power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
             power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
             model.add_objective(

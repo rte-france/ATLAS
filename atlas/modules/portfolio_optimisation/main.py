@@ -40,9 +40,7 @@ class PortfolioOptimisationModel(OptimisationModel):
             cfg.logger.debug(f"Adding variables for portfolio :{self.portfolio.name}")
             self.portfolio.add_variables(self, time, self.parameters)
 
-            price_forecast = None
-            if time in self.parameters.target_times:
-                price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
+            price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
 
             for equipment_type in self.portfolio.equipments:
                 equipment_list = self.portfolio.equipments.get(equipment_type, [])
@@ -62,7 +60,7 @@ class PortfolioOptimisationModel(OptimisationModel):
                         )
                         equipment.add_constraints(time, self, self.parameters)
 
-                    if time in self.parameters.target_times and hasattr(equipment, "add_objective"):
+                    if hasattr(equipment, "add_objective"):
                         equipment_type_name = type(equipment).__name__
                         cfg.logger.debug(
                             f"Adding objective for equipment {equipment.name} of type {equipment_type_name}"
