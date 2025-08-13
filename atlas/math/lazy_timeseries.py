@@ -18,7 +18,7 @@ import polars as pl
 
 from atlas.io_utils.utils import scan_data_file
 from atlas.math.timeseries import Timeseries
-from atlas.timing import check_timezone, build_datetime
+from atlas.timing import build_datetime, check_timezone
 
 
 class LazyTimeseries:
