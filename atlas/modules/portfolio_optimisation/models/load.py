@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pendulum import DateTime
 
+import atlas.config as cfg
 from atlas.enum import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.models.equipment.load import Load
@@ -23,8 +24,8 @@ class LoadPO(Load):
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for load equipment."""
-
         if time in parameters.target_times:
+            cfg.logger.debug(f"Adding variables for load unit {self.name} at time {time}")
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
 
             model.add_continuous_variable(
@@ -32,17 +33,22 @@ class LoadPO(Load):
                 lower_bound=0,
                 upper_bound=max_power,
             )
+        else:
+            cfg.logger.debug(f"Skipping variables for load unit {self.name} at non-target time {time}")
 
     def add_constraints(self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         """
         This function adds constraints related to load equipments.
         """
         if time in parameters.target_times:
+            cfg.logger.debug(f"Adding constraints for load unit {self.name} at time {time}")
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
 
             model.add_constraint(power_level_var >= max_power)
             model.add_constraint(power_level_var <= 0)
+        else:
+            cfg.logger.debug(f"Skipping constraints for load unit {self.name} at non-target time {time}")
 
     def add_objective(
         self,
@@ -52,6 +58,7 @@ class LoadPO(Load):
         parameters: PortfolioOptimisationParameters,
     ):
         if time in parameters.target_times:
+            cfg.logger.debug(f"Adding objective for load unit {self.name} at time {time}")
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             if self.load_type == LoadType.POWER_TO_GAS:
                 model.add_objective(
@@ -62,3 +69,5 @@ class LoadPO(Load):
                 model.add_objective(
                     get_variable_cost(self, time) * -power_level_var * parameters.timestep, direction="minimize"
                 )
+        else:
+            cfg.logger.debug(f"Skipping objective for load unit {self.name} at non-target time {time}")

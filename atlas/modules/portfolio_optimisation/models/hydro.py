@@ -33,8 +33,8 @@ class HydroPO(Hydro):
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for hydro equipment."""
-        cfg.logger.debug(f"Adding variables for hydro unit {self.name} at time {time}")
         if time in parameters.hydraulic_op_times:
+            cfg.logger.debug(f"Adding variables for hydro unit {self.name} at time {time}")
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
             max_energy = self.maximum_energy.get_value(time)
@@ -59,6 +59,8 @@ class HydroPO(Hydro):
                 storage_equipment=False,
                 thermal_equipment=False,
             )
+        else:
+            cfg.logger.debug(f"Skipping variables for hydro unit {self.name} at non-hydraulic-op time {time}")
 
     def add_variable_fragment(
         self,
@@ -88,6 +90,7 @@ class HydroPO(Hydro):
         This function formulates the hydraulic reservoir offers.
         """
         if time in parameters.hydraulic_op_times:
+            cfg.logger.debug(f"Adding constraints for hydro unit {self.name} at time {time}")
             max_power = self.maximum_power.get_value(time)
             maximum_energy = self.maximum_energy.get_value(time)
             minimum_energy = self.minimum_energy.get_value(time)
@@ -98,10 +101,10 @@ class HydroPO(Hydro):
                 model.get_variable(f"automated_reserves_up_{self.name}_{time}") <= get_maximum_automated(self)
             )
             model.add_constraint(
-                model.get_variable(f"automated_reserves_up_{self.name}_{time}") <= get_maximum_automated(self)
+                model.get_variable(f"automated_reserves_down_{self.name}_{time}") <= get_maximum_automated(self)
             )
             model.add_constraint(model.get_variable(f"reserves_up_{self.name}_{time}") <= max_power)
-            model.add_constraint(model.get_variable(f"reserves_up_{self.name}_{time}") <= max_power)
+            model.add_constraint(model.get_variable(f"reserves_down_{self.name}_{time}") <= max_power)
 
             stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
 
@@ -137,6 +140,8 @@ class HydroPO(Hydro):
 
                 model.add_constraint(stored_energy_var >= minimum_energy + reserve_stored_energy_up_var)
                 model.add_constraint(stored_energy_var <= maximum_energy - reserve_stored_energy_down_var)
+        else:
+            cfg.logger.debug(f"Skipping constraints for hydro unit {self.name} at non-hydraulic-op time {time}")
 
     def add_objective(
         self,
@@ -145,35 +150,46 @@ class HydroPO(Hydro):
         price_forecast: float,
         parameters: PortfolioOptimisationParameters,
     ):
-        for k in range(len(self.fragment_data.keys())):
-            if time in parameters.target_times:
-                model.add_objective(
-                    self.compute_fragment_prices(time, k, parameters)
-                    * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
-                    * parameters.timestep.total_hours(),
-                    direction="minimize",
-                )
+        if time in parameters.hydraulic_op_times:
+            cfg.logger.debug(f"Adding objective for hydro unit {self.name} at time {time}")
+            for k in range(len(self.fragment_data.keys())):
+                fragment_price = self.compute_fragment_prices(time, k, parameters)
 
-            else:
-                model.add_objective(
-                    -(price_forecast - self.compute_fragment_prices(time, k, parameters))
-                    * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
-                    * parameters.timestep.total_hours(),
-                    direction="minimize",
-                )
+                if time in parameters.target_times:
+                    model.add_objective(
+                        fragment_price
+                        * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
+                        * parameters.timestep.total_hours(),
+                        direction="minimize",
+                    )
+
+                else:
+                    model.add_objective(
+                        -(price_forecast - fragment_price)
+                        * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
+                        * parameters.timestep.total_hours(),
+                        direction="minimize",
+                    )
+            cfg.logger.debug(f"Finished adding objective for hydro unit {self.name} at time {time}")
+        else:
+            cfg.logger.debug(
+                f"Skipping objective for hydro unit {self.name} at time {time} - not in optimization times or target times"
+            )
 
     def compute_fragment_prices(
         self,
         time: DateTime,
         category,
         parameters: PortfolioOptimisationParameters,
-    ):
+    ) -> float:
         if time in parameters.hydraulic_op_times:
             energy_level = self._get_current_energy_level(parameters)
 
             marginal_weights = self._calculate_marginal_weights(energy_level, parameters.timestep)
 
             return self._calculate_fragment_price(self.fragment_data[category].price, marginal_weights, time)
+        else:
+            return 0
 
     def _get_current_energy_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
         """Get the current energy level from forecast or initial level."""

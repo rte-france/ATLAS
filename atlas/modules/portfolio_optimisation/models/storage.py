@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime
 
+import atlas.config as cfg
 from atlas.enum import StorageType
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
@@ -29,13 +30,13 @@ class StoragePO(Storage):
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for storage equipment."""
-
         storage_optimisation_times: list[DateTime] = parameters.storage_mapping[self.storage_type].get(
             "optimisation_times", []
         )
         nbr_fragment: int = parameters.storage_mapping[self.storage_type]["nb_fragment"]
 
         if time in storage_optimisation_times:
+            cfg.logger.debug(f"Adding variables for storage unit {self.name} at time {time}")
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
             maximum_energy = self.maximum_energy.get_value(time)
@@ -85,6 +86,8 @@ class StoragePO(Storage):
                 storage_equipment=True,
                 thermal_equipment=False,
             )
+        else:
+            cfg.logger.debug(f"Skipping variables for storage unit {self.name} at non-optimization time {time}")
 
     def add_constraints(
         self,
@@ -96,10 +99,12 @@ class StoragePO(Storage):
         This function adds constraints and elements in the objective function related to storage equipments.
         """
         if self.maximum_energy.max() <= 0:
+            cfg.logger.debug(f"Skipping constraints for storage unit {self.name} - maximum energy is 0")
             return None
         storage_optimisation_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
 
         if time in storage_optimisation_times:
+            cfg.logger.debug(f"Adding constraints for storage unit {self.name} at time {time}")
             prev_time = time - parameters.timestep
             automated_reserves_up_var = model.get_variable(f"automated_reserves_up_{self.name}_{time}")
             automated_reserves_down_var = model.get_variable(f"automated_reserves_down_{self.name}_{time}")
@@ -184,21 +189,20 @@ class StoragePO(Storage):
                     )
                     >= min_power / self.charge_efficiency
                 )
+            if not self.displacement_energy:
+                displacement_energy = 0
+                displacement_energy_prev = 0
+            else:
+                displacement_energy = self.displacement_energy.get_value(time)
+                displacement_energy_prev = self.displacement_energy.get_value(prev_time)
 
             if time == parameters.start_date:
-                if not self.displacement_energy:
-                    self.displacement_energy = Timeseries.from_index(
-                        start_date=parameters.start_date - parameters.timestep,
-                        end_date=parameters.end_date,
-                        frequency=parameters.timestep,
-                        default_value=0.0,
-                    )
                 model.add_constraint(
                     stored_energy_var
                     == self.get_initial_stock(parameters) * max_energy / max_energy_previous
                     - power_level_buy_var * self.charge_efficiency * parameters.timestep.total_hours()
                     - power_level_sell_var * parameters.timestep.total_hours() / self.discharge_efficiency
-                    + (self.displacement_energy.get_value(time) - self.displacement_energy.get_value(prev_time))
+                    + (displacement_energy - displacement_energy_prev)
                 )
                 model.add_constraint(
                     sum(-power_level_buy_var for _ in storage_optimisation_times) * self.charge_efficiency
@@ -212,7 +216,7 @@ class StoragePO(Storage):
                     == stored_energy_var_previous_time * max_energy / max_energy_previous
                     - power_level_buy_var * self.charge_efficiency * parameters.timestep.total_hours()
                     - power_level_sell_var * parameters.timestep.total_hours() / self.discharge_efficiency
-                    + (self.displacement_energy.get_value(time) - self.displacement_energy.get_value(prev_time))
+                    + (displacement_energy - displacement_energy_prev)
                 )
 
             model.add_constraint(
@@ -220,6 +224,8 @@ class StoragePO(Storage):
                 >= max_energy * self.minimum_state_of_charge.get_value(time) + reserve_stored_energy_up
             )
             model.add_constraint(stored_energy_var <= max_energy - reserve_stored_energy_down)
+        else:
+            cfg.logger.debug(f"Skipping constraints for storage unit {self.name} at non-optimization time {time}")
 
     def add_objective(
         self,
@@ -229,10 +235,12 @@ class StoragePO(Storage):
         parameters: PortfolioOptimisationParameters,
     ):
         if self.maximum_energy.max() <= 0:
+            cfg.logger.debug(f"Skipping objective for storage unit {self.name} - maximum energy is 0")
             return None
 
         storage_optimisation_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
-        if time in storage_optimisation_times and time in parameters.target_times:
+        if time in storage_optimisation_times:
+            cfg.logger.debug(f"Adding objective for storage unit {self.name} at time {time}")
             power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
             power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
             model.add_objective(
@@ -259,6 +267,10 @@ class StoragePO(Storage):
                             - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1)),
                             direction="minimize",
                         )
+        else:
+            cfg.logger.debug(
+                f"Skipping objective for storage unit {self.name} at time {time} - not in optimization times or target times"
+            )
 
     def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
         if self.stored_energy is None:

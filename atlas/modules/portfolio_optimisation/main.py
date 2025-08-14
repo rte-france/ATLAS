@@ -49,22 +49,14 @@ class PortfolioOptimisationModel(OptimisationModel):
 
                 for equipment in cast(list[EquipmentPO], equipment_list):
                     if hasattr(equipment, "add_variables"):
-                        cfg.logger.debug(
-                            f"Adding variables for equipment: {equipment.name}, of type {type(equipment).__name__}"
-                        )
                         equipment.add_variables(self, time, self.parameters)
 
                     if hasattr(equipment, "add_constraints"):
-                        cfg.logger.debug(
-                            f"Adding constraints for equipment: {equipment.name}, of type {type(equipment).__name__}"
-                        )
                         equipment.add_constraints(time, self, self.parameters)
 
                     if hasattr(equipment, "add_objective"):
                         equipment_type_name = type(equipment).__name__
-                        cfg.logger.debug(
-                            f"Adding objective for equipment {equipment.name} of type {equipment_type_name}"
-                        )
+
                         if equipment_type_name in ("WindPO", "SolarPO"):
                             cast(WindPO | SolarPO, equipment).add_objective(self, time, self.parameters)
                         elif equipment_type_name in ("HydroPO", "LoadPO", "StoragePO", "ThermalPO"):
@@ -75,8 +67,10 @@ class PortfolioOptimisationModel(OptimisationModel):
             cfg.logger.debug(f"Adding constraints for portfolio :{self.portfolio.name}")
             self.portfolio.add_constraints(time, self, self.parameters)
 
-            cfg.logger.debug(f"Adding objective for portfolio {self.portfolio.name}")
+            cfg.logger.debug(f"Adding objective terms for portfolio {self.portfolio.name}")
             self.portfolio.add_objective(self, time, self.parameters)
+
+            cfg.logger.info(f"Completed optimisation model at time: {time}")
 
         cfg.logger.info(f"Completed optimisation model for portfolio: {self.portfolio.name}.")
 
