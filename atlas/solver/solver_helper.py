@@ -5,6 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import re
 from collections import OrderedDict
 from pathlib import Path
 
@@ -711,10 +712,17 @@ class SolverHelper:
 
     @staticmethod
     def rebuild_lp_with_real_names(lp_file: str, csv_file: str, new_lp_file: str):
+        """
+        Rebuild the lp file with the original variables/constraints names.
+        :param lp_file: lp file written with shortened names
+        :param csv_file: csv file matching the shortened names with the original ones
+        :param new_lp_file: lp file with the original variables/constraints names to be written
+        """
         names: dict[str, str] = {}
         new_lines = []
         with open(csv_file) as csv:
             csv_lines = csv.readlines()
+            csv_lines = SolverHelper.adapt_date_format(csv_lines)
             for id_line, line in enumerate(csv_lines):
                 line = line.strip()
                 if id_line > 0 and len(line) > 0:  # skip first line and empty line
@@ -749,6 +757,22 @@ class SolverHelper:
                     new_lines.append(new_line)
         with open(new_lp_file, "w") as new_lp:
             new_lp.writelines(new_lines)
+
+    @staticmethod
+    def adapt_date_format(csv_lines: list[str]) -> list[str]:
+        lines = []
+        # Format 1 : JJ/MM/AAAA HH:MM:SS
+        pattern_slash = re.compile(r"(\d{2})/(\d{2})/(\d{4}) (\d{2}):(\d{2}):(\d{2})$")
+        # Format 2 : JJ_MM_AAAA_HH:MM:SS
+        pattern_underscore = re.compile(r"(\d{2})_(\d{2})_(\d{4})_(\d{2}):(\d{2}):(\d{2})$")
+        for line in csv_lines:
+            new_line = line.rstrip("\n")
+            # Remplace format slash
+            new_line = pattern_slash.sub(r"\3_\2_\1_\4_\5_\6_00_00", new_line)
+            # Remplace format underscore
+            new_line = pattern_underscore.sub(r"\3_\2_\1_\4_\5_\6_00_00", new_line)
+            lines.append(new_line + "\n")
+        return lines
 
 
 if __name__ == "__main__":
