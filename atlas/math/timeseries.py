@@ -796,6 +796,44 @@ class Timeseries:
 
         return self._return_inplace(df, inplace)
 
+    def slice(
+        self,
+        start_bound: datetime | pendulum.DateTime | str,
+        end_bound: datetime | pendulum.DateTime | str,
+        closed: Literal["left", "right", "both", "none"] = "both",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """Get a slice of the Timeseries
+
+        :param start_bound: Datetime to filter the Timeseries
+        :param end_bound: Datetime to filter the Timeseries
+        :param closed : {'both', 'left', 'right', 'none'}
+            Define which sides of the interval are closed (inclusive).
+        :param inplace: Whether to modify the current instance, defaults to True
+        :return: The Timeseries object
+        """
+        date_start = build_datetime(start_bound).in_tz(self.timezone)
+        date_end = build_datetime(end_bound).in_tz(self.timezone)
+        df = self.timeseries.filter(pl.col("time").is_between(date_start, date_end, closed))
+
+        return self._return_inplace(df, inplace)
+
+    def slice_with_offset(
+        self,
+        offset: int,
+        length: int | None = None,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """Get a slice of the Timeseries
+
+        :param offset: Start index. Negative indexing is supported.
+        :param length: Length of the slice. If set to `None`, all rows starting at the offset will be selected.
+        :param inplace: Whether to modify the current instance, defaults to True
+        :return: The Timeseries object
+        """
+        df = self.timeseries.slice(offset, length)
+        return self._return_inplace(df, inplace)
+
     def max(self) -> float:  # type:ignore[return]
         """Return the max value in the 'value' column.
 
