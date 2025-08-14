@@ -37,7 +37,6 @@ class PortfolioOptimisationModel(OptimisationModel):
         for time in max_optimisation_times:
             cfg.logger.info(f"Building optimisation model at time: {time}..")
 
-            cfg.logger.debug(f"Adding variables for portfolio :{self.portfolio.name}")
             self.portfolio.add_variables(self, time, self.parameters)
 
             price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
@@ -64,10 +63,8 @@ class PortfolioOptimisationModel(OptimisationModel):
                                 self, time, price_forecast or 0.0, self.parameters
                             )
 
-            cfg.logger.debug(f"Adding constraints for portfolio :{self.portfolio.name}")
             self.portfolio.add_constraints(time, self, self.parameters)
 
-            cfg.logger.debug(f"Adding objective terms for portfolio {self.portfolio.name}")
             self.portfolio.add_objective(self, time, self.parameters)
 
             cfg.logger.info(f"Completed optimisation model at time: {time}")

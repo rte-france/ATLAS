@@ -58,27 +58,6 @@ def add_reserve_variables(
             lower_bound=-maximum_automated,
             upper_bound=maximum_automated,
         )
-    if not storage_equipment and not thermal_equipment:
-        model.add_continuous_variable(
-            name=f"contracted_diff_up_{name}_{time}",
-            lower_bound=0,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"contracted_diff_down_{name}_{time}",
-            lower_bound=min_power,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"automated_contracted_diff_up_{name}_{time}",
-            lower_bound=0,
-            upper_bound=max_power,
-        )
-        model.add_continuous_variable(
-            name=f"automated_contracted_diff_down_{name}_{time}",
-            lower_bound=min_power,
-            upper_bound=max_power,
-        )
 
     if relaxed_reserves:
         model.add_continuous_variable(

@@ -8,6 +8,7 @@ from typing import Any, cast
 
 from pendulum import DateTime, Duration
 
+import atlas.config as cfg
 from atlas.enum import MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -41,17 +42,23 @@ class PortfolioPO(Portfolio):
         """Build portfolio-level optimization variables."""
 
         if time in parameters.target_times:
+            cfg.logger.debug(f"Adding variables for portfolio :{self.name} at time {time}")
             residual_energy = self._compute_residual_energy(time, parameters)
             maximum_power, maximum_energy = self._compute_power_and_energy(time, parameters)
 
             self._add_imbalance_variables(model, time, residual_energy, maximum_energy, parameters)
             self._add_contract_difference_variables(model, time, maximum_power)
+        else:
+            cfg.logger.debug(f"Skipping variables adding for portfolio :{self.name} at non-target time {time}")
 
     def add_constraints(self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
         if time in parameters.target_times:
+            cfg.logger.debug(f"Adding constraints for portfolio :{self.name}")
             self._add_global_constraints(time, model, parameters)
             if any(self.equipments.get(tech, []) for tech in ["thermal", "storage", "wind", "solar", "hydro"]):
                 self._add_reserves_constraints(time, model, parameters)
+        else:
+            cfg.logger.debug(f"Skipping constraints for portfolio :{self.name} at non-target time {time}")
 
     def _add_reserves_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
@@ -99,12 +106,12 @@ class PortfolioPO(Portfolio):
         )
 
         model.add_constraint(
-            model.get_variable(f"auto_contracted_diff_up_{self.name}_{time}")
+            model.get_variable(f"automated_contracted_diff_up_{self.name}_{time}")
             >= automated_reserves_up - sum_automated_reserves_up_var
         )
 
         model.add_constraint(
-            model.get_variable(f"auto_contracted_diff_down_{self.name}_{time}")
+            model.get_variable(f"automated_contracted_diff_down_{self.name}_{time}")
             >= automated_reserves_down - sum_automated_reserves_down_var
         )
 
@@ -140,6 +147,7 @@ class PortfolioPO(Portfolio):
 
     def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         if time in parameters.target_times:
+            cfg.logger.debug(f"Adding objective terms for portfolio :{self.name} at time {time}")
             imbalance_prices = estimate_imbalance_prices(time, self.market_area, self.control_block, parameters)
 
             self._add_imbalance_cost_terms(
@@ -150,6 +158,8 @@ class PortfolioPO(Portfolio):
             )
 
             self._add_reserve_penalty_terms(model, time, parameters)
+        else:
+            cfg.logger.debug(f"Skipping objective terms for portfolio :{self.name} at non-target time {time}")
 
     def _add_imbalance_cost_terms(
         self,
@@ -267,8 +277,8 @@ class PortfolioPO(Portfolio):
         contract_vars = [
             "contracted_diff_up",
             "contracted_diff_down",
-            "auto_contracted_diff_up",
-            "auto_contracted_diff_down",
+            "automated_contracted_diff_up",
+            "automated_contracted_diff_down",
         ]
 
         for var_type in contract_vars:

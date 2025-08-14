@@ -89,10 +89,9 @@ class HydroPO(Hydro):
         """
         if time in parameters.hydraulic_op_times:
             cfg.logger.debug(f"Adding constraints for hydro unit {self.name} at time {time}")
-            max_power = self.maximum_power.get_value(time)
+
             maximum_energy = self.maximum_energy.get_value(time)
             minimum_energy = self.minimum_energy.get_value(time)
-
 
             stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
 
