@@ -30,8 +30,8 @@ class LoadPO(Load):
 
             model.add_continuous_variable(
                 f"{self.name}_power_level_{time}",
-                lower_bound=0,
-                upper_bound=max_power,
+                lower_bound=max_power,
+                upper_bound=0,
             )
         else:
             cfg.logger.debug(f"Skipping variables for load unit {self.name} at non-target time {time}")
@@ -40,15 +40,7 @@ class LoadPO(Load):
         """
         This function adds constraints related to load equipments.
         """
-        if time in parameters.target_times:
-            cfg.logger.debug(f"Adding constraints for load unit {self.name} at time {time}")
-            max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
-            power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
-
-            model.add_constraint(power_level_var >= max_power)
-            model.add_constraint(power_level_var <= 0)
-        else:
-            cfg.logger.debug(f"Skipping constraints for load unit {self.name} at non-target time {time}")
+        pass
 
     def add_objective(
         self,
