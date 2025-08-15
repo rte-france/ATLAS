@@ -207,8 +207,8 @@ class PortfolioPO(Portfolio):
 
         contracted_diff_up = model.get_variable(f"contracted_diff_up_{self.name}_{time}")
         contracted_diff_down = model.get_variable(f"contracted_diff_down_{self.name}_{time}")
-        auto_contracted_diff_up = model.get_variable(f"auto_contracted_diff_up_{self.name}_{time}")
-        auto_contracted_diff_down = model.get_variable(f"auto_contracted_diff_down_{self.name}_{time}")
+        auto_contracted_diff_up = model.get_variable(f"automated_contracted_diff_up_{self.name}_{time}")
+        auto_contracted_diff_down = model.get_variable(f"automated_contracted_diff_down_{self.name}_{time}")
 
         # Manual reserve penalties
         model.add_objective(

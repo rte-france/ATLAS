@@ -53,7 +53,7 @@ self.max_optimisation_times = self._get_longest_optimization_period()
 #### Storage Type Mapping:
 - **Battery**: `storage_optimisation_times` = `battery_op_times` (target_times + 48h)
 - **Pumped Hydraulic**: `storage_optimisation_times` = `phs_op_times` (target_times + 144h)  
-- **Electric Vehicle**: `storage_optimisation_times` = `ev_op_times` (target_times + 0h)
+- **Electric Vehicle**: `storage_optimisation_times` = `ev_op_times` (target_times + 24h)
 
 ### Thermal Equipment (`ThermalPO`) 
 - **`add_variables()`**: `if time in parameters.thermal_op_times` 
@@ -69,7 +69,7 @@ self.max_optimisation_times = self._get_longest_optimization_period()
 
 ## Timeframe Summary Table
 
-| Equipment Type | Variables | Constraints | Objectives | Typical Extension |
+| Equipment Type | Variables | Constraints | Objectives | Default extension |
 |---------------|-----------|-------------|------------|------------------|
 | **Solar** | target_times | target_times | target_times | None (market only) |
 | **Wind** | target_times | target_times | target_times | None (market only) |
@@ -89,7 +89,7 @@ additional_hours = 12h                               # Renewables, Load (UNUSED 
 hydraulic_additional_hours = 12h                     # Hydro 
 thermal_additional_hours = 12h                       # Thermal (disabled)
 battery_additional_hours = 48h                       # Battery Storage (2 days)
-electric_vehicle_additional_hours = 0h               # EV Storage (same as target)
+electric_vehicle_additional_hours = 24h               # EV Storage (same as target)
 pumped_hydraulic_storage_additional_hours = 144h     # PHS Storage (6 days)
 timestep = 1h                                        # Time resolution
 ```

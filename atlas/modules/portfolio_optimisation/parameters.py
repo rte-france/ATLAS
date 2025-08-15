@@ -141,7 +141,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
         description="Optimization period in hours for Storage Equipments of type Battery.",
     )
     electric_vehicle_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=0),
+        default_factory=lambda: duration(hours=24),
         description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",
     )
     hydraulic_additional_hours: Duration = Field(
