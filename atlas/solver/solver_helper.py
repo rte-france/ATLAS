@@ -764,6 +764,11 @@ class SolverHelper:
 
     @staticmethod
     def adapt_date_format(csv_lines: list[str]) -> list[str]:
+        """
+        change date format in the given line. Used to ease the comparison between given lp files and lp files exported via OrTools
+        :param csv_lines: lines
+        :return: lines with the date format changed to yyyy_MM_dd_HH_mm_ss_SS_SS
+        """
         lines = []
         # Format 1 : JJ/MM/AAAA HH:MM:SS
         pattern_slash = re.compile(r"(\d{2})/(\d{2})/(\d{4}) (\d{2}):(\d{2}):(\d{2})$")
@@ -771,9 +776,7 @@ class SolverHelper:
         pattern_underscore = re.compile(r"(\d{2})_(\d{2})_(\d{4})_(\d{2}):(\d{2}):(\d{2})$")
         for line in csv_lines:
             new_line = line.rstrip("\n")
-            # Remplace format slash
             new_line = pattern_slash.sub(r"\3_\2_\1_\4_\5_\6_00_00", new_line)
-            # Remplace format underscore
             new_line = pattern_underscore.sub(r"\3_\2_\1_\4_\5_\6_00_00", new_line)
             lines.append(new_line + "\n")
         return lines
