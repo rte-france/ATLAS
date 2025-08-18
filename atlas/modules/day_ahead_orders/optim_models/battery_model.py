@@ -71,16 +71,13 @@ class BatteryModel(DAOBaseModel):
                     "Stock_tracking_at_{}".format(t.add(minutes=self.time_step)),
                 )
             else:
-                (
-                    self.add_constraint(
-                        self.stored_energy[t]
-                        == self.stored_energy[t.subtract(minutes=self.time_step)]
-                        + self.time_step
-                        / 60.0
-                        * (
-                            self.Qa[t] * self.equipment.charge_efficiency
-                            - self.Qv[t] / self.equipment.discharge_efficiency
-                        )
+                self.add_constraint(
+                    self.stored_energy[t]
+                    == self.stored_energy[t.subtract(minutes=self.time_step)]
+                    + self.time_step
+                    / 60.0
+                    * (
+                        self.Qa[t] * self.equipment.charge_efficiency - self.Qv[t] / self.equipment.discharge_efficiency
                     ),
                     "Stock_tracking_at_{}".format(t.add(minutes=self.time_step)),
                 )
