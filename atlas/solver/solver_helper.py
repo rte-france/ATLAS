@@ -732,7 +732,11 @@ class SolverHelper:
             lp_lines = lp.readlines()
             is_binaries = False
             for line in lp_lines:
-                words = line.split(" ")
+                if line.startswith("OBJ:"):
+                    words = line.strip("\n").split(" ")
+                    words.append("\n")
+                else:
+                    words = line.split(" ")
                 new_words = []
                 first = True
                 if len(words) == 1 and words[0].strip() == "Binaries":
