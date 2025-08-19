@@ -168,6 +168,44 @@ class InflowFrequency(str, Enum):
     Monthly = "Monthly"
 
 
+class MarketType(str, Enum):
+    """
+    Enumeration of market types.
+
+    :cvar dayahead: Day-ahead market.
+    :cvar intraday: Intraday market.
+    :cvar rr_activation: Replacement reserve activation.
+    :cvar mfrr_activation: Manual frequency restoration reserve activation.
+    """
+
+    dayahead = "DayAhead"
+    intraday = "Intraday"
+    rr_activation = "RRActivation"
+    mfrr_activation = "MFRRActivation"
+
+
+class SolverEnum(str, Enum):
+    """
+    Enumeration of solver types.
+
+    :cvar XPRESS: Xpress solver.
+    :cvar GLOP: Google Linear Optimization solver.
+    :cvar SCIP: SCIP solver.
+    :cvar CPSAT: Google CP-SAT solver.
+    :cvar GUROBI: Gurobi solver.
+    :cvar CBC: CBC solver.
+    :cvar HIGHS: HiGHS solver.
+    """
+
+    XPRESS = "XPRESS"
+    GLOP = "GLOP"
+    SCIP = "SCIP"
+    CPSAT = "CP-SAT"
+    GUROBI = "GUROBI"
+    CBC = "CBC"
+    HIGHS = "HIGHS"
+
+
 ENUM_TYPE_MAPPING = {
     "LoadType": LoadType,
     "StorageType": StorageType,

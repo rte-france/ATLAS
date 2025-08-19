@@ -18,6 +18,7 @@ import polars as pl
 
 from atlas.io_utils.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import (
@@ -181,6 +182,22 @@ class ForecastingMatrix(Matrix):
 
         self._sort_indexes()
 
+    def replace(
+        self,
+        index: str | datetime | pendulum.DateTime,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+    ) -> None:
+        """
+        Replace a Timeseries in the matrix and keep indexes sorted.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
+        """
+        self.delete(index=index)
+        self.add(timeseries=timeseries, index=index)
+
     def get_forecast(
         self,
         execution_date: datetime | str | pendulum.DateTime,
@@ -191,6 +208,22 @@ class ForecastingMatrix(Matrix):
         """
         Returns the most up-to-date forecast available per time row in the given window.
         Newer forecasts are prioritized. Gaps are filled from older forecasts.
+
+        :param execution_date: The reference date for determining which forecasts are available.
+                              Only forecasts made on or before this date will be considered.
+        :type execution_date: datetime | str | pendulum.DateTime
+        :param start_date: Start date of the forecast window to retrieve.
+        :type start_date: datetime | str | pendulum.DateTime
+        :param end_date: End date of the forecast window to retrieve.
+        :type end_date: datetime | str | pendulum.DateTime
+        :param timestep: Target frequency for the output timeseries. If None, the lowest
+                        frequency found in the data will be used.
+        :type timestep: str | pendulum.Duration | None
+        :raises ValueError: If start_date is after end_date or if no forecasting dates
+                           are available before the execution date.
+        :return: A timeseries containing the most recent forecast values for each timestamp
+                in the specified window, with gaps filled using older forecasts.
+        :rtype: Timeseries
         """
 
         execution_date = build_datetime(execution_date, self.date_format)
@@ -344,4 +377,79 @@ class LazyForecastingMatrix(LazyMatrix):
             ),
             timezone,
             date_format,
+        )
+
+    def add(
+        self,
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        index: str | datetime | pendulum.DateTime,
+    ) -> None:
+        """
+        Add a timeseries to the lazy forecasting matrix.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime | pendulum.DateTime
+        :raises KeyError: If index already exists in the matrix.
+        """
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
+        super().add(timeseries, dt)
+
+    def delete(self, index: str | datetime | pendulum.DateTime) -> None:
+        """
+        Delete a timeseries by index.
+
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime | pendulum.DateTime
+        :raises KeyError: If the index does not exist in the matrix.
+        """
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
+        super().delete(dt)
+
+    def replace(
+        self,
+        index: str | datetime | pendulum.DateTime,
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+    ) -> None:
+        """
+        Replace a Timeseries in the matrix and keep indexes sorted.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
+        """
+        self.delete(index=index)
+        self.add(timeseries=timeseries, index=index)
+
+    def get_forecast(
+        self,
+        execution_date: datetime | str | pendulum.DateTime,
+        start_date: datetime | str | pendulum.DateTime,
+        end_date: datetime | str | pendulum.DateTime,
+        timestep: str | pendulum.Duration | None = None,
+    ) -> Timeseries:
+        """
+        Returns the most up-to-date forecast available per time row in the given window.
+        Newer forecasts are prioritized. Gaps are filled from older forecasts.
+
+        :param execution_date: The reference date for determining which forecasts are available.
+                              Only forecasts made on or before this date will be considered.
+        :type execution_date: datetime | str | pendulum.DateTime
+        :param start_date: Start date of the forecast window to retrieve.
+        :type start_date: datetime | str | pendulum.DateTime
+        :param end_date: End date of the forecast window to retrieve.
+        :type end_date: datetime | str | pendulum.DateTime
+        :param timestep: Target frequency for the output timeseries. If None, the lowest
+                        frequency found in the data will be used.
+        :type timestep: str | pendulum.Duration | None
+        :raises ValueError: If start_date is after end_date or if no forecasting dates
+                           are available before the execution date.
+        :return: A timeseries containing the most recent forecast values for each timestamp
+                in the specified window, with gaps filled using older forecasts.
+        :rtype: Timeseries
+        """
+        return self.collect().get_forecast(
+            execution_date=execution_date, start_date=start_date, end_date=end_date, timestep=timestep
         )

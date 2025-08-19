@@ -45,8 +45,8 @@ class ModuleTest(AbstractModule):
         output_dataset.data += 1
         return output_dataset
 
-    def create_parameters(self, raw_params: dict[str, Any]) -> module_parameters_type_var:
-        pass
+    def get_parameters_class(self) -> type[module_parameters_type_var]:
+        return AbstractParameters
 
     def import_data(
         self, raw_data: dict[str, list[BusinessModel]], parameters: module_parameters_type_var
