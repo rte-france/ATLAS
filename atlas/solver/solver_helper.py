@@ -780,21 +780,3 @@ class SolverHelper:
             new_line = pattern_underscore.sub(r"\3_\2_\1_\4_\5_\6_00_00", new_line)
             lines.append(new_line + "\n")
         return lines
-
-
-if __name__ == "__main__":
-    # rewrite lp with real variables names
-    lp = "D:\\Projets\\ATLAS\\Refonte_DAO_Tests\\es_battery_lp.lp"
-    csv_path = "D:\\Projets\\ATLAS\\Refonte_DAO_Tests\\es_battery_lp.lp_correspondance.csv"
-    new_lp = "D:\\Projets\\ATLAS\\Refonte_DAO_Tests\\es_battery_lpNEW.lp"
-    SolverHelper.rebuild_lp_with_real_names(lp, csv_path, new_lp)
-
-    # Check that both lp are the same
-    lp_ATLAS = "D:\\Projets\\ATLAS\\code\\ATLAS\\atlas\\modules\\day_ahead_orders\\storage_es_battery.lp"
-    objectives_a, constraints_a, variables_a, binaries_a = SolverHelper.read_lp_ortools(lp_ATLAS)
-    objectives_p, constraints_p, variables_p, binaries_p = SolverHelper.read_lp_legacy(new_lp)
-
-    assert len(objectives_a) == len(objectives_p)
-    assert len(constraints_a) == len(constraints_p)
-    assert len(variables_a) == len(variables_p)
-    assert len(binaries_a) == len(binaries_p)
