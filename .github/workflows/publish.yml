@@ -4,12 +4,10 @@ on:
   push:
     tags:
       - 'v*'  # Example: v1.0.0
-    branches:
-      - main
 
 jobs:
   publish:
-    if: startsWith(github.ref, 'refs/tags/v') && github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     permissions:
@@ -18,7 +16,21 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 1
+          fetch-depth: 0  # Need full history to check tag origin
+
+      - name: Verify tag is from main branch
+        run: |
+          # Check if tag was created from main branch
+          TAG_COMMIT=$(git rev-list -n 1 $GITHUB_REF)
+
+          # Check if this commit exists in main branch
+          if ! git merge-base --is-ancestor $TAG_COMMIT origin/main; then
+            echo "Error: Tag was not created from main branch"
+            echo "Tags can only be created from the main branch for releases"
+            exit 1
+          fi
+
+          echo "Tag verification passed: created from main branch"
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -27,6 +39,28 @@ jobs:
 
       - name: Install uv
         run: pip install uv
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Verify version matches pyproject.toml
+        run: |
+          PYPROJECT_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+
+          if [ "$PYPROJECT_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: Version mismatch!"
+            echo "pyproject.toml version: $PYPROJECT_VERSION"
+            echo "Tag version: $TAG_VERSION"
+            echo "Please update pyproject.toml version to match the tag"
+            exit 1
+          fi
+
+          echo "Version verification passed: $TAG_VERSION"
 
       - name: Build the package
         run: uv build

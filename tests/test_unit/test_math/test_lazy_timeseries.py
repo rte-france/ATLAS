@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pendulum
 import polars as pl
 import pytest
 
@@ -13,6 +14,29 @@ def sample_df():
         {
             "time": [datetime(2023, 1, 1), datetime(2023, 1, 2)],
             "value": [1.0, 2.0],
+        }
+    )
+
+
+@pytest.fixture
+def sample_df_extended():
+    return pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+                datetime(2023, 1, 1, 3, 0),
+                datetime(2023, 1, 1, 4, 0),
+                datetime(2023, 1, 1, 5, 0),
+                datetime(2023, 1, 1, 6, 0),
+                datetime(2023, 1, 1, 7, 0),
+                datetime(2023, 1, 1, 8, 0),
+                datetime(2023, 1, 1, 9, 0),
+                datetime(2023, 1, 1, 10, 0),
+                datetime(2023, 1, 1, 11, 0),
+            ],
+            "value": [10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0],
         }
     )
 
@@ -167,3 +191,295 @@ def test_repr(sample_ts):
     lt = LazyTimeseries(sample_ts)
     repr_str = repr(lt)
     assert "LazyTimeseries with schema" in repr_str
+
+
+def test_filter_single_datetime(sample_df_extended):
+    lt = LazyTimeseries(sample_df_extended.lazy())
+    target_date = datetime(2023, 1, 1, 3, 0)  # 03:00
+
+    # Test inplace=True (default)
+    filtered_lt = lt.filter(target_date)
+    assert filtered_lt is lt  # Should return same instance
+    collected = filtered_lt.collect()
+    assert collected.timeseries.shape == (1, 2)
+    assert collected.timeseries["value"].to_list() == [25.0]
+
+
+def test_filter_single_datetime_not_inplace(sample_df_extended):
+    lt = LazyTimeseries(sample_df_extended.lazy())
+    target_date = datetime(2023, 1, 1, 5, 0)  # 05:00
+
+    # Test inplace=False
+    filtered_lt = lt.filter(target_date, inplace=False)
+    assert filtered_lt is not lt  # Should return new instance
+    collected = filtered_lt.collect()
+    assert collected.timeseries.shape == (1, 2)
+    assert collected.timeseries["value"].to_list() == [35.0]
+
+    # Original should be unchanged
+    original_collected = lt.collect()
+    assert original_collected.timeseries.shape == (12, 2)
+
+
+def test_filter_single_string(sample_df_extended):
+    lt = LazyTimeseries(sample_df_extended.lazy())
+    target_date_str = "2023-01-01 07:00:00"
+
+    filtered_lt = lt.filter(target_date_str, inplace=False)
+    collected = filtered_lt.collect()
+    assert collected.timeseries.shape == (1, 2)
+    assert collected.timeseries["value"].to_list() == [45.0]
+
+
+def test_filter_single_pendulum_datetime(sample_df_extended):
+    lt = LazyTimeseries(sample_df_extended.lazy())
+    target_date = pendulum.datetime(2023, 1, 1, 9, 0, tz="UTC")
+
+    filtered_lt = lt.filter(target_date, inplace=False)
+    collected = filtered_lt.collect()
+    assert collected.timeseries.shape == (1, 2)
+    assert collected.timeseries["value"].to_list() == [55.0]
+
+
+def test_filter_list_of_datetimes(sample_df_extended):
+    lt = LazyTimeseries(sample_df_extended.lazy())
+    target_dates = [datetime(2023, 1, 1, 2, 0), datetime(2023, 1, 1, 6, 0), datetime(2023, 1, 1, 10, 0)]
+
+    filtered_lt = lt.filter(target_dates, inplace=False)
+    collected = filtered_lt.collect()
+    assert collected.timeseries.shape == (3, 2)
+    assert sorted(collected.timeseries["value"].to_list()) == [20.0, 40.0, 60.0]
+
+
+def test_filter_custom_date_format(sample_df_extended):
+    lt = LazyTimeseries(sample_df_extended.lazy())
+    target_date_str = "2023/01/01 11:00"
+    date_format = "YYYY/MM/DD HH:mm"
+
+    filtered_lt = lt.filter(target_date_str, date_format=date_format, inplace=False)
+    collected = filtered_lt.collect()
+    assert collected.timeseries.shape == (1, 2)
+    assert collected.timeseries["value"].to_list() == [65.0]
+
+
+def test_filter_no_matches(sample_df_extended):
+    lt = LazyTimeseries(sample_df_extended.lazy())
+    target_date = datetime(2023, 1, 1, 15, 0)  # 15:00 - not in hourly dataset
+
+    filtered_lt = lt.filter(target_date, inplace=False)
+    collected = filtered_lt.collect()
+    assert collected.timeseries.shape == (0, 2)
+
+
+def test_filter_invalid_type(sample_df_extended):
+    lt = LazyTimeseries(sample_df_extended.lazy())
+
+    with pytest.raises(NotImplementedError, match="Invalid filter formatting"):
+        lt.filter(123)  # Invalid type
+
+
+def test_filter_timezone_handling():
+    # Test with different timezone
+    df = pl.DataFrame(
+        {
+            "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 1, 0)],
+            "value": [100.0, 200.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy(), timezone="Europe/Paris")
+    target_date = datetime(2023, 1, 1, 0, 0)
+
+    filtered_lt = lt.filter(target_date, inplace=False)
+    collected = filtered_lt.collect()
+    assert collected.timezone == "Europe/Paris"
+    assert collected.timeseries.shape == (1, 2)
+
+
+def test_set_frequency_inplace():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 2, 0),
+                datetime(2023, 1, 1, 4, 0),
+            ],
+            "value": [10.0, 20.0, 30.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+
+    result = lt.set_frequency("1h")
+
+    # Should return same object when inplace=True
+    assert result is lt
+
+    collected = result.collect()
+    assert collected.timeseries.shape[0] == 5  # 5 hourly points from 0h to 4h
+    assert collected.timeseries["value"].to_list() == [10.0, 10.0, 20.0, 20.0, 30.0]
+
+
+def test_set_frequency_not_inplace():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+                datetime(2023, 1, 1, 3, 0),
+                datetime(2023, 1, 1, 4, 0),
+                datetime(2023, 1, 1, 5, 0),
+            ],
+            "value": [10.0, 15.0, 20.0, 25.0, 30.0, 35.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+    original_collected = lt.collect()
+
+    result = lt.set_frequency("2h", inplace=False)
+
+    assert result is not lt
+    assert isinstance(result, LazyTimeseries)
+
+    result_collected = result.collect()
+    assert result_collected.timeseries.shape[0] == 3  # 3 two-hourly points
+
+    current_collected = lt.collect()
+    assert current_collected.timeseries.equals(original_collected.timeseries)
+
+
+def test_set_frequency_with_pendulum_duration():
+    # Test using pendulum.Duration instead of string
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 6, 0),
+                datetime(2023, 1, 1, 12, 0),
+                datetime(2023, 1, 1, 18, 0),
+            ],
+            "value": [100.0, 200.0, 300.0, 400.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+
+    duration = pendulum.duration(hours=3)
+    result = lt.set_frequency(duration, inplace=False)
+
+    collected = result.collect()
+    assert collected.timeseries.shape[0] == 7
+
+
+def test_set_frequency_same_frequency():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+            ],
+            "value": [10.0, 20.0, 30.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+    original_collected = lt.collect()
+
+    result = lt.set_frequency("1h", inplace=False)
+
+    result_collected = result.collect()
+
+    assert result_collected.timeseries.shape == original_collected.timeseries.shape
+    assert result_collected.timeseries["value"].to_list() == original_collected.timeseries["value"].to_list()
+
+
+def test_set_frequency_timezone_preservation():
+    df = pl.DataFrame(
+        {
+            "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 2, 0)],
+            "value": [100.0, 200.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy(), timezone="Europe/London")
+
+    result = lt.set_frequency("1h", inplace=False)
+
+    assert result.timezone == "Europe/London"
+    collected = result.collect()
+    assert collected.timezone == "Europe/London"
+
+
+def test_abs_inplace():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+                datetime(2023, 1, 1, 3, 0),
+            ],
+            "value": [-10.0, 15.0, -20.0, 25.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+
+    result = lt.abs()
+
+    # Should return same object when inplace=True (default)
+    assert result is lt
+
+    collected = result.collect()
+    assert collected.timeseries["value"].to_list() == [10.0, 15.0, 20.0, 25.0]
+
+
+def test_abs_not_inplace():
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+            ],
+            "value": [-5.0, -10.0, -15.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy())
+    original_collected = lt.collect()
+
+    result = lt.abs(inplace=False)
+
+    # Should return new object when inplace=False
+    assert result is not lt
+    assert isinstance(result, LazyTimeseries)
+
+    result_collected = result.collect()
+    assert result_collected.timeseries["value"].to_list() == [5.0, 10.0, 15.0]
+
+    # Original should be unchanged
+    current_collected = lt.collect()
+    assert current_collected.timeseries["value"].to_list() == original_collected.timeseries["value"].to_list()
+
+
+def test_abs_timezone_preservation():
+    df = pl.DataFrame(
+        {
+            "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 1, 0)],
+            "value": [-42.0, -13.7],
+        }
+    )
+    lt = LazyTimeseries(df.lazy(), timezone="America/New_York")
+
+    result = lt.abs(inplace=False)
+
+    assert result.timezone == "America/New_York"
+    collected = result.collect()
+    assert collected.timezone == "America/New_York"
+    assert collected.timeseries["value"].to_list() == [42.0, 13.7]
+
+
+def test_abs_empty_series():
+    lt = LazyTimeseries()
+
+    result = lt.abs(inplace=False)
+
+    collected = result.collect()
+    assert collected.timeseries.shape == (0, 2)
+    assert result.timezone == "UTC"

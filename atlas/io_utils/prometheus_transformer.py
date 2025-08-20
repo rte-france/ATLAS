@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import h5py  # type: ignore[import-untyped]
 import numpy as np
@@ -9,13 +9,20 @@ import pendulum
 import polars as pl
 import yaml
 
+import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
-from atlas.typing import get_class_inheritance_chain
+from atlas.typing import get_class_inheritance_chain, get_type_attribute
 
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
-NAME_MAPPING = {"Baseload": "BaseLoad", "is_v2_g": "is_v2g"}
+NAME_MAPPING = {
+    "Baseload": "BaseLoad",
+    "is_v2_g": "is_v2g",
+    "idpo_for_orders": "id_po_for_orders",
+    "co2_emission": "co2_emissions",
+    "daptdf": "da_ptdf",
+}
 
 
 class PrometheusToAtlasDataParser:
@@ -54,6 +61,13 @@ class PrometheusToAtlasDataParser:
 
             for object_type in object_types:
                 object_type_snake = to_snake_case(object_type)
+
+                if (
+                    object_type_snake not in cfg.MODEL_MAPPING_NAME
+                    and object_type_snake not in MAPPING_OBJECTS_TO_ATLAS
+                ):
+                    logger.warning(f"Object type {object_type_snake} not found in Atlas model mapping, skipping.")
+                    continue
                 if object_type_snake in MAPPING_OBJECTS_TO_ATLAS:
                     object_type_snake = MAPPING_OBJECTS_TO_ATLAS[object_type_snake]
                 logger.info(f"Processing object type: {object_type} (as {object_type_snake})")
@@ -77,7 +91,13 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = to_snake_case(attr_name)
-                        if attr_name_snake == "comment":
+                        if (
+                            attr_name_snake not in list(cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys())
+                            and attr_name_snake not in NAME_MAPPING
+                        ):
+                            cfg.logger.warning(
+                                f"The attribute {attr_name_snake} is not present in Atlas model object: {object_type_snake}, skipping it."
+                            )
                             continue
 
                         if attr_name_snake in NAME_MAPPING:
@@ -225,14 +245,28 @@ class PrometheusToAtlasDataParser:
                                     attrs[attr_name_snake] = None
                                 if attrs[attr_name_snake] in NAME_MAPPING:
                                     attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
-                                if attr_name_snake == "equipment":
-                                    attrs[attr_name_snake] = to_snake_case(attrs[attr_name_snake])
+
+                                type_attribute = get_type_attribute(
+                                    object_type_snake, attr_name_snake
+                                )  # gets the type of the attribute in the pydantic model
+                                try:
+                                    type_attribute = get_args(type_attribute)[0]
+                                    # get the sub type if it's a Union or a list, to get the actual business model object into it if it exists
+                                except Exception:
+                                    pass
+                                if attr_name_snake == "equipment" or type_attribute in cfg.MODEL_MAPPING_NAME.values():
+                                    attrs[attr_name_snake] = to_snake_case(
+                                        attrs[attr_name_snake]
+                                    )  # convert to snake case to make a proper reference to the other business model object already in snake case
                                 logger.debug(f"Scalar attribute: {attr_name_snake} = {attrs[attr_name_snake]}")
                             elif isinstance(val, np.ndarray):
                                 if val.ndim == 1:
                                     if isinstance(list(val)[0], bytes):
                                         val = [v.decode("utf-8") for v in val]
-                                    if attr_name_snake == "orders":
+                                    if (
+                                        get_args(get_type_attribute(object_type_snake, attr_name_snake))[0]
+                                        in cfg.MODEL_MAPPING_NAME.values()
+                                    ):
                                         val = [to_snake_case(order) for order in val]
                                     attrs[attr_name_snake] = ":".join(map(str, list(val)))
                             else:

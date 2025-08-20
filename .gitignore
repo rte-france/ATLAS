@@ -183,6 +183,8 @@ data/
 *.pickle
 *.lp
 *.pkl
+*.yml
+*.yaml
 
 # Notebooks
 polars_vs_pandas.ipynb
@@ -191,3 +193,4 @@ test.ipynb
 # scripts
 commit.sh
 test.py
+CLAUDE.md

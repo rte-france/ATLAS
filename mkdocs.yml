@@ -77,7 +77,6 @@ markdown_extensions:
   - toc:
       permalink: true
 
-
 extra_javascript:
   - custom/katex.js
   - https://unpkg.com/katex@0/dist/katex.min.js
@@ -93,6 +92,7 @@ nav:
     - Welcome to Atlas: index.md
     - Getting Started: getting_started.md
     - Contributing: contributing.md
+    - Release Process: release_process.md
     - Changelog: changelog.md
     - Authors: authors.md
   - Concepts:
