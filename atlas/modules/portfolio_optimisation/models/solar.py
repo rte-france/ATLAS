@@ -63,7 +63,26 @@ class SolarPO(Solar):
         """
         This function formulates the photovoltaic equipments constraints.
         """
-        pass
+        if time in parameters.target_times:
+            cfg.logger.debug(f"Adding constraints for solar unit {self.name} at time {time}")
+            max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
+            min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
+            maximum_automated = get_maximum_automated(self)
+
+            power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
+            automated_reserves_up_var = model.get_variable(f"automated_reserves_up_{self.name}_{time}")
+            automated_reserves_down_var = model.get_variable(f"automated_reserves_down_{self.name}_{time}")
+            reserves_up_var = model.get_variable(f"reserves_up_{self.name}_{time}")
+            reserves_down_var = model.get_variable(f"reserves_down_{self.name}_{time}")
+
+            model.add_constraint(power_level_var <= max_power)
+            model.add_constraint(power_level_var >= min_power)
+            model.add_constraint(automated_reserves_up_var <= maximum_automated)
+            model.add_constraint(automated_reserves_down_var <= maximum_automated)
+            model.add_constraint(reserves_up_var <= max_power)
+            model.add_constraint(reserves_down_var <= max_power)
+        else:
+            cfg.logger.debug(f"Skipping constraints for solar unit {self.name} at non-target time {time}")
 
     def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         if time in parameters.target_times:

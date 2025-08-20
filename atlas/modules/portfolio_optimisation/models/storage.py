@@ -122,6 +122,7 @@ class StoragePO(Storage):
             max_power = self.maximum_power.get_value(time)
             max_energy = self.maximum_energy.get_value(time)
             max_energy_previous = self.maximum_energy.get_value(prev_time)
+            maximum_automated = get_maximum_automated(self)
 
             # For additional period
             if time not in parameters.target_times:
@@ -142,6 +143,10 @@ class StoragePO(Storage):
                         power_level_buy_var == sum(power_level_buy_n_var for n in range(0, nb_fragment))
                     )
 
+            model.add_constraint(automated_reserves_up_var <= maximum_automated)
+            model.add_constraint(automated_reserves_down_var <= maximum_automated)
+            model.add_constraint(reserves_up_var <= max_power)
+            model.add_constraint(reserves_down_var <= max_power)
 
             if self.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]:
                 reserve_stored_energy_down = reserves_down_var * (

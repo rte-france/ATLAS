@@ -92,6 +92,18 @@ class HydroPO(Hydro):
 
             maximum_energy = self.maximum_energy.get_value(time)
             minimum_energy = self.minimum_energy.get_value(time)
+            min_power = self.minimum_power.get_value(time)
+            max_power = self.maximum_power.get_value(time)
+
+            model.add_constraint(model.get_variable(f"relaxed_reserves_{self.name}_{time}") <= min_power)
+            model.add_constraint(
+                model.get_variable(f"automated_reserves_up_{self.name}_{time}") <= get_maximum_automated(self)
+            )
+            model.add_constraint(
+                model.get_variable(f"automated_reserves_down_{self.name}_{time}") <= get_maximum_automated(self)
+            )
+            model.add_constraint(model.get_variable(f"reserves_up_{self.name}_{time}") <= max_power)
+            model.add_constraint(model.get_variable(f"reserves_down_{self.name}_{time}") <= max_power)
 
             stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
 
