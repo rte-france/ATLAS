@@ -244,7 +244,7 @@ class DAOStorage:
             )
             if local_max_energy <= 0:
                 if parameters.verbose:
-                    cfg.logger.debug("Equipment {} avoided, as its MaximumEnergy is 0".format(str(equipment.name)))
+                    cfg.logger.debug("Equipment {} avoided, as its maximum_energy is 0".format(str(equipment.name)))
                 continue
 
             cfg.logger.debug("Equipment {}".format(str(equipment.name)))

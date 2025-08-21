@@ -34,7 +34,7 @@ class NonDispatchable:
         Arguments:
         - `dataset`: a dataset
         - `orders_time`: a list of dates at which orders must be formulated.
-        - `p`: a named tuple of subclass 'Parameters_List' containing the common parameters.
+        - `parameters` a named tuple of parameters, containing the common parameters.
         """
 
         # Loop over the market players first.
