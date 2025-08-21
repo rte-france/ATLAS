@@ -10,6 +10,7 @@ from typing import Any
 import atlas.config as cfg
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.abstract_parameters import module_parameters_type_var
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
@@ -22,9 +23,8 @@ from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 class DayAheadOrdersModule(
     AbstractModule[DayAheadOrdersParameters, DayAheadOrdersInputDataset, DayAheadOrdersOutputDataset]
 ):
-    def create_parameters(self, raw_params: dict[str, Any]) -> DayAheadOrdersParameters:
-        """Creates a concrete parameters object from raw dictionary."""
-        return DayAheadOrdersParameters(**raw_params)
+    def get_parameters_class(self) -> type[module_parameters_type_var]:
+        return DayAheadOrdersParameters
 
     def import_data(
         self, raw_data: dict[str, list[type[BusinessModel]]], parameters: DayAheadOrdersParameters
