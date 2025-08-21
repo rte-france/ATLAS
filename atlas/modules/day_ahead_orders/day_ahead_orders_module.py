@@ -17,6 +17,7 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadO
 from atlas.modules.day_ahead_orders.orders_formulation.dao_load import DAOLoad
 from atlas.modules.day_ahead_orders.orders_formulation.dao_storage import DAOStorage
 from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable import NonDispatchable
+from atlas.modules.day_ahead_orders.orders_formulation.hydraulic import Hydraulic
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
@@ -87,12 +88,12 @@ class DayAheadOrdersModule(
             DAOStorage.formulate_storage_orders(dataset, parameters)
             cfg.logger.info("Storage orders formulated.")
 
-            """
             #### STEP 4 - LAKES UNITS ####
-            API.IO.Trace.Log("Formulation of the hydraulic orders...", API.IO.LogTypeInfo)
-            hydraulic.formulate_hydraulic_orders(input_dataset, output_dataset, orders_time, parameters)
-            API.IO.Trace.Log("Hydraulic orders formulated.", API.IO.LogTypeInfo)
+            cfg.logger.info("Formulation of the hydraulic orders...")
+            Hydraulic.formulate_hydraulic_orders(dataset, orders_time, parameters)
+            cfg.logger.info("Hydraulic orders formulated.")
 
+            """
             #### STEP 5 - WIND AND PV UNITS ####
             API.IO.Trace.Log("Formulation of the wind/pv orders...", API.IO.LogTypeInfo)
             wind_pv.formulate_wind_and_pv_orders(input_dataset, output_dataset, orders_time, parameters)
