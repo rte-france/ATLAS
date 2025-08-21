@@ -8,12 +8,12 @@ This file is part of the ATLAS project.
 import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
+import atlas.config as cfg
 from atlas import Order, Timeseries
-from atlas.enum import Product, OrderType, LoadType
+from atlas.enum import LoadType, OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
-import atlas.config as cfg
 
 
 class DAOLoad:
@@ -53,7 +53,7 @@ class DAOLoad:
             for t in orders_time:
                 # Extract the desired consumption level.
                 if len(consumption_forecast) == 0:
-                    cfg.logger.debug("consumption_forecast is empty for load {}, {}".format(load.name, load.load_type))
+                    cfg.logger.debug(f"consumption_forecast is empty for load {load.name}, {load.load_type}")
                 else:
                     max_consumption_value = abs(consumption_forecast.get_value(t))
 
@@ -61,7 +61,7 @@ class DAOLoad:
                     if max_consumption_value > 0:
                         # Initialize the order object.
                         bid_output = Order(
-                            name="load_order_at_{}_for_unit_{}".format(Utilities.get_date_to_clean_string(t), load.name)
+                            name=f"load_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{load.name}"
                         )
 
                         # Fill the offer with the desired parameters.

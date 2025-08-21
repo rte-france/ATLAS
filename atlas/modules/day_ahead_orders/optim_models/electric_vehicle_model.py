@@ -38,21 +38,21 @@ class ElectricVehicleModel(DAOBaseModel):
             for i in range(self.ev_nb_fragments):
                 self.add_constraint(
                     self.Qvf[t][i] * self.ev_nb_fragments <= self.equipment.maximum_power.get_value(t),
-                    "Respect_of_sale_power_fragment_{}_limit_at_{}".format(i, t),
+                    f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
                 )
                 self.add_constraint(
                     self.Qaf[t][i] * self.ev_nb_fragments <= abs(self.equipment.minimum_power.get_value(t)),
-                    "Respect_of_purchase_power_fragment_{}_limit_at_{}".format(i, t),
+                    f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
                 )
 
             # Total bought/sold energy at each tome step is the sum of the fragments at time step
             self.add_constraint(
                 self.Qv[t] == sum(self.Qvf[t][i] for i in range(self.ev_nb_fragments)),
-                "Evaluation_of_quantity_sold_at_{}".format(t),
+                f"Evaluation_of_quantity_sold_at_{t}",
             )
             self.add_constraint(
                 self.Qa[t] == sum(self.Qaf[t][i] for i in range(self.ev_nb_fragments)),
-                "Evaluation_of_quantity_purchased_at_{}".format(t),
+                f"Evaluation_of_quantity_purchased_at_{t}",
             )
 
             # StoredEnergy tracking constraint, evaluates the stock at each time step
@@ -76,7 +76,7 @@ class ElectricVehicleModel(DAOBaseModel):
                             - self.equipment.displacement_energy.get_value(t.subtract(minutes=self.time_step))
                         )
                     ),
-                    "Stock_tracking_at_{}".format(t),
+                    f"Stock_tracking_at_{t}",
                 )
             else:
                 self.add_constraint(
@@ -98,31 +98,31 @@ class ElectricVehicleModel(DAOBaseModel):
                             - self.equipment.displacement_energy.get_value(t.subtract(minutes=self.time_step))
                         )
                     ),
-                    "Stock_tracking_at_{}".format(t),
+                    f"Stock_tracking_at_{t}",
                 )
 
             # Respect of system states constraints (isSell and is_v2g)
             self.add_constraint(
                 self.Qv[t] <= self.equipment.is_v2g * self.is_sell[t] * self.equipment.maximum_power.get_value(t),
-                "Respect_Pmax_sale_at_{}".format(t),
+                f"Respect_Pmax_sale_at_{t}",
             )
             self.add_constraint(
                 self.Qa[t]
                 <= (1 - self.is_sell[t] * self.equipment.is_v2g) * abs(self.equipment.maximum_power.get_value(t)),
-                "Respect_Pmax_purchase_at_{}".format(t),
+                f"Respect_Pmax_purchase_at_{t}",
             )
-            self.add_constraint(self.Qv[t] >= 0, "Respect_Pmin_sale_at_{}".format(t))
-            self.add_constraint(self.Qa[t] >= 0, "Respect_Pmin_purchase_at_{}".format(t))
+            self.add_constraint(self.Qv[t] >= 0, f"Respect_Pmin_sale_at_{t}")
+            self.add_constraint(self.Qa[t] >= 0, f"Respect_Pmin_purchase_at_{t}")
 
             # Respect of minimum and maximum stoage level constraints
             self.add_constraint(
                 self.stored_energy[t]
                 >= self.equipment.minimum_state_of_charge.get_value(t) * self.equipment.maximum_energy.get_value(t),
-                "Minimum_storage_level_constraint_at_{}".format(t),
+                f"Minimum_storage_level_constraint_at_{t}",
             )
             self.add_constraint(
                 self.stored_energy[t] <= self.equipment.maximum_energy.get_value(t),
-                "Maximum_storage_level_constraint_at_{}".format(t),
+                f"Maximum_storage_level_constraint_at_{t}",
             )
 
             # Create additional constraints linked with MaximumPower, to represent the fact that a part of the EV fleet
@@ -164,5 +164,5 @@ class ElectricVehicleModel(DAOBaseModel):
                 - self.equipment.displacement_energy.get_value(self.start_date.subtract(minutes=self.time_step))
             )
             * self.ev_energy_coef,
-            "DisplacementEnergy_compensation_for_{}".format(str(self.equipment.name)),
+            f"DisplacementEnergy_compensation_for_{str(self.equipment.name)}",
         )

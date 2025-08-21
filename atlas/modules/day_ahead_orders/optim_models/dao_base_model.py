@@ -10,7 +10,7 @@ from typing import Any
 import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
-from atlas import OptimisationModel, Equipment, generate_datetimes
+from atlas import Equipment, OptimisationModel, generate_datetimes
 
 
 class DAOBaseModel(OptimisationModel):
@@ -68,15 +68,15 @@ class DAOBaseModel(OptimisationModel):
         """Creation of decision variables"""
 
         for t in self.time_frame:
-            self.Qv[t] = self.add_continuous_variable("Amount_sold_at_{}".format(t), 0)
-            self.Qa[t] = self.add_continuous_variable("Amount_purchased_at_{}".format(t), 0)
-            self.is_sell[t] = self.add_boolean_variable("isSell_at_{}".format(t))
-            self.stored_energy[t] = self.add_continuous_variable("StoredEnergy_at_{}".format(t), 0)
+            self.Qv[t] = self.add_continuous_variable(f"Amount_sold_at_{t}", 0)
+            self.Qa[t] = self.add_continuous_variable(f"Amount_purchased_at_{t}", 0)
+            self.is_sell[t] = self.add_boolean_variable(f"isSell_at_{t}")
+            self.stored_energy[t] = self.add_continuous_variable(f"StoredEnergy_at_{t}", 0)
             self.Qvf[t] = {}
             self.Qaf[t] = {}
             for i in range(nb_fragments):
-                self.Qvf[t][i] = self.add_continuous_variable("Amount_sold_in_fragment_{}_at_{}".format(i, t), 0)
-                self.Qaf[t][i] = self.add_continuous_variable("Amount_purchased_in_fragment_{}_at_{}".format(i, t), 0)
+                self.Qvf[t][i] = self.add_continuous_variable(f"Amount_sold_in_fragment_{i}_at_{t}", 0)
+                self.Qaf[t][i] = self.add_continuous_variable(f"Amount_purchased_in_fragment_{i}_at_{t}", 0)
 
     def create_objective_function(self, nb_fragments: int, smoothing_factor: float):
         """Creation of objective function"""

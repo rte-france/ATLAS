@@ -7,20 +7,20 @@ This file is part of the ATLAS project.
 
 from atlas import (
     BusinessModel,
-    Storage,
     ControlBlock,
+    Hydro,
+    Load,
     MarketArea,
     MarketBorder,
     Node,
-    Portfolio,
-    Wind,
-    Hydro,
-    Solar,
-    Thermal,
-    OtherNonDispatchable,
     Order,
     OrderCoupling,
-    Load,
+    OtherNonDispatchable,
+    Portfolio,
+    Solar,
+    Storage,
+    Thermal,
+    Wind,
 )
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME

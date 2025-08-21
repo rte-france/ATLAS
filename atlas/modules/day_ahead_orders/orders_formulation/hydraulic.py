@@ -5,20 +5,19 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import os
-from typing import Any
+import math
 
-import atlas.config as cfg
 import pandas as pd
 import pendulum
-from atlas import Timeseries, Equipment, Order, OrderCoupling
-from atlas.enum import StorageType, Product, CouplingType, ComplementDirection, OrderType
+from pydantic_extra_types.pendulum_dt import DateTime
+
+import atlas.config as cfg
+from atlas import Order, OrderCoupling, Timeseries
+from atlas.enum import ComplementDirection, CouplingType, OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 from atlas.timing import generate_datetimes
-from pydantic_extra_types.pendulum_dt import DateTime
-import math
 
 
 class Hydraulic:
@@ -43,9 +42,7 @@ class Hydraulic:
 
         hydraulic_empty = [unit for unit in hydraulic_all if len(unit.storage_marginal_value) == 0]
         for equipment in hydraulic_empty:
-            msg = "There are no water values for instance {}. This instance will be ignored in the calculation.".format(
-                equipment.name
-            )
+            msg = f"There are no water values for instance {equipment.name}. This instance will be ignored in the calculation."
             cfg.logger.warning(msg)
 
         # Loop over the market players first.
@@ -71,7 +68,7 @@ class Hydraulic:
             )
             if local_max_energy <= 0:
                 if parameters.verbose:
-                    cfg.logger.debug("Equipment {} avoided, as its maximum_energy is 0".format(str(equipment.name)))
+                    cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
                 continue
 
             # FC: Assumption for the identification of the "initial" level, see the storage formulation for more details
@@ -103,9 +100,7 @@ class Hydraulic:
 
             # Create a COMPLEMENT coupling between all orders of the day to comply with MinimumEnergy constraints
             coupling_instance = OrderCoupling(
-                name="COMPLEMENT_{}_{}".format(
-                    str(equipment.name), Utilities.get_date_to_clean_string(parameters.execution_date)
-                ),
+                name=f"COMPLEMENT_{str(equipment.name)}_{Utilities.get_date_to_clean_string(parameters.execution_date)}",
                 orders=[],
             )
             coupling_instance.coupling_type = CouplingType.COMPLEMENT
@@ -149,9 +144,7 @@ class Hydraulic:
                     # Do not formulate empty orders
                     if v != 0:
                         # Assign a unique name.
-                        bid_name = "hydraulic_order_fragment_{}_at_{}_for_unit_{}".format(
-                            str(k), Utilities.get_date_to_clean_string(t), equipment.name
-                        )
+                        bid_name = f"hydraulic_order_fragment_{str(k)}_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{equipment.name}"
 
                         # Initialize the order object
                         bid_output = Order(name=bid_name)

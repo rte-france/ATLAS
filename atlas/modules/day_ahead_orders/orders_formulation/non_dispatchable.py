@@ -9,7 +9,7 @@ import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import Order
-from atlas.enum import Product, OrderType
+from atlas.enum import OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
@@ -61,7 +61,7 @@ class NonDispatchable:
             # We formulate as many offers as there are time stamps in orders_time.
             for t in orders_time:
                 # Assign a unique name.
-                bid_name = "otherND_order_at_{}_for_unit_{}".format(Utilities.get_date_to_clean_string(t), unit.name)
+                bid_name = f"otherND_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}"
 
                 # Initialize the order object
                 bid_output = Order(name=bid_name)

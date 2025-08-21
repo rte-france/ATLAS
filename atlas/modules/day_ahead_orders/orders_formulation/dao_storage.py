@@ -8,11 +8,13 @@ This file is part of the ATLAS project.
 import os
 from typing import Any
 
-import atlas.config as cfg
 import pandas as pd
 import pendulum
-from atlas import Timeseries, Equipment, Order, OrderCoupling
-from atlas.enum import StorageType, Product, CouplingType, ComplementDirection, OrderType
+from pydantic_extra_types.pendulum_dt import DateTime
+
+import atlas.config as cfg
+from atlas import Equipment, Order, OrderCoupling, Timeseries
+from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, StorageType
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
@@ -20,7 +22,6 @@ from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseMo
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 from atlas.timing import generate_datetimes
-from pydantic_extra_types.pendulum_dt import DateTime
 
 
 class DAOStorage:
@@ -132,20 +133,18 @@ class DAOStorage:
     @staticmethod
     def solve_with_xpress(model: DAOBaseModel, parameters: DayAheadOrdersParameters, equipment_name: str) -> None:
         model.set_solver_specific_parameters_as_string(
-            "MIPRELSTOP {} PRESOLVE {} MAXTIME {}".format(
-                parameters.solver_duality_gap, int(parameters.use_presolve), parameters.solver_time_out
-            )
+            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out}"
         )
 
         if parameters.debug:
-            lp_file_name = os.path.join(parameters.output_folder, "storage_{}.lp".format(equipment_name))
+            lp_file_name = os.path.join(parameters.output_folder, f"storage_{equipment_name}.lp")
             model.export_model(lp_file_name)
 
         model.solve(float(parameters.solver_time_out))
 
         if parameters.verbose:
-            cfg.logger.info("Solver status: {}".format(model.solution_info.status))
-            cfg.logger.info("Objective function value: {}".format(model.objective))
+            cfg.logger.info(f"Solver status: {model.solution_info.status}")
+            cfg.logger.info(f"Objective function value: {model.objective}")
 
     @staticmethod
     def price_calculation(
@@ -244,10 +243,10 @@ class DAOStorage:
             )
             if local_max_energy <= 0:
                 if parameters.verbose:
-                    cfg.logger.debug("Equipment {} avoided, as its maximum_energy is 0".format(str(equipment.name)))
+                    cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
                 continue
 
-            cfg.logger.debug("Equipment {}".format(str(equipment.name)))
+            cfg.logger.debug(f"Equipment {str(equipment.name)}")
 
             buy_submitted_volumes = Timeseries(pd.DataFrame({"time": local_index, "value": [0] * len(local_index)}))
             sell_submitted_volumes = Timeseries(pd.DataFrame({"time": local_index, "value": [0] * len(local_index)}))
@@ -288,10 +287,8 @@ class DAOStorage:
                     parameters.end_date.subtract(minutes=parameters.time_step), round(Psale, 2)
                 )
                 cfg.logger.warning(
-                    "WARNING: ChargeEfficiency or DischargeEfficiency is null for equipment {}. "
-                    "This is not supposed to be the case, as the default value for these is 1 and not 0".format(
-                        equipment.name
-                    )
+                    f"WARNING: ChargeEfficiency or DischargeEfficiency is null for equipment {equipment.name}. "
+                    "This is not supposed to be the case, as the default value for these is 1 and not 0"
                 )
 
             # --- Formulate orders, possibly with associated coupling instances
@@ -300,9 +297,7 @@ class DAOStorage:
             if equipment.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
                 # Create the order coupling instance
                 coupling_instance = OrderCoupling(
-                    name="COMPLEMENT_DA_{}_{}".format(
-                        equipment.name, Utilities.get_date_to_clean_string(parameters.execution_date)
-                    ),
+                    name=f"COMPLEMENT_DA_{equipment.name}_{Utilities.get_date_to_clean_string(parameters.execution_date)}",
                     orders=[],
                 )
                 coupling_instance.coupling_type = CouplingType.COMPLEMENT
@@ -339,9 +334,7 @@ class DAOStorage:
             else:
                 # Create a COMPLEMENT order coupling
                 coupling_instance = OrderCoupling(
-                    name="COMPLEMENT_DA_{}_{}".format(
-                        equipment.name, Utilities.get_date_to_clean_string(parameters.execution_date)
-                    ),
+                    name=f"COMPLEMENT_DA_{equipment.name}_{Utilities.get_date_to_clean_string(parameters.execution_date)}",
                     orders=[],
                 )
 
@@ -381,9 +374,7 @@ class DAOStorage:
         price: float,
         parameters: DayAheadOrdersParameters,
     ) -> Order:
-        order_name = "storage_order_type_{}_at_{}_for_unit_{}".format(
-            order_type, Utilities.get_date_to_clean_string(start_date), equipment.name
-        )
+        order_name = f"storage_order_type_{order_type}_at_{Utilities.get_date_to_clean_string(start_date)}_for_unit_{equipment.name}"
         order = Order(name=order_name)
         order.equipment = equipment
         order.portfolio = equipment.portfolio
