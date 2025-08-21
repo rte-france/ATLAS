@@ -1,0 +1,94 @@
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from pydantic_extra_types.pendulum_dt import DateTime
+
+from atlas import Order
+from atlas.enum import OrderType, Product
+from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
+
+
+class WindPV:
+    @staticmethod
+    def formulate_wind_and_pv_orders(
+        dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+    ):
+        """
+        This function formulates wind and pv orders. Orders are priced at the variable cost
+        `PropCost`. This can be assimilated to a `plug-in` strategy implied by
+        a "à la Bertrand" market structure (competition through prices).
+
+        For all bids, Qmax corresponds to the production forecast at the time for wich
+        the offer is made. Qmin corresponds to a ratio of Qmax given by the property MaximumCurtailmentRatio.
+
+        Arguments:
+        - `dataset`: a dataset
+        - `orders_time`: a list of dates at which orders must be formulated.
+        - `parameters` a named tuple of parameters, containing the common parameters.
+        """
+
+        # Extract the wind portfolios
+        wind = dataset.wind
+        photovoltaic = dataset.solar
+
+        # Create a list of the different non dispatchable portfolios.
+        # This crude loop appears to be the only method working with lists{DynamicInstance}
+        equipments_list = wind + photovoltaic
+
+        # Loop over the market players first.
+        for equipment in equipments_list:
+            # Extract the MaximumPowerForecast matrix of the current actor.
+            production_forecast = equipment.maximum_power_forecast.get_forecast(
+                parameters.execution_date,
+                parameters.start_date,
+                parameters.end_date.subtract(minutes=parameters.time_step),
+            )
+            if equipment.da_sell_submitted_volume is None:
+                equipment.da_sell_submitted_volume = production_forecast
+            else:
+                equipment.da_sell_submitted_volume.__add__(production_forecast)
+
+            # Extract the sequence of variable costs that will be used to define the price.
+            variable_costs = equipment.variable_cost.filter(orders_time)
+
+            # Now we loop over the time stamps for which we want an offer to be made.
+            # We formulate as many offers as there are time stamps in orders_time.
+            for t in orders_time:
+                # Assign a unique name
+                if type(equipment).__name__ == "Wind":
+                    bid_name = f"wind_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{equipment.name}"
+                if type(equipment).__name__ == "Solar":
+                    bid_name = f"pv_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{equipment.name}"
+
+                # Extract the available production level range
+                max_production_value = production_forecast.get_value(t)
+                min_production_value = max_production_value * (1 - equipment.maximum_curtailment_ratio.get_value(t))
+
+                if max_production_value > 0:
+                    # Initialize the order object
+                    bid_output = Order(name=bid_name)
+
+                    # Extract the PropCpst that will define the price.
+                    price = variable_costs.get_value(t)
+
+                    # Fill the offer with the desired parameters.
+                    bid_output.market_area = equipment.portfolio.market_area
+                    bid_output.portfolio = equipment.portfolio
+                    bid_output.equipment = equipment
+                    bid_output.qmax = max_production_value
+                    bid_output.qmin = min_production_value
+                    bid_output.price = price
+                    bid_output.product = Product.DayAhead
+                    bid_output.order_type = OrderType.Sell
+                    bid_output.is_agent_tso = False
+                    bid_output.execution_date = str(parameters.execution_date)
+                    bid_output.start_date = str(t)
+                    bid_output.end_date = str(t.add(minutes=parameters.time_step))
+
+        return None
