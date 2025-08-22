@@ -309,16 +309,15 @@ class ThermalPO(Thermal):
         # C. CONSTRAINTS ON THE CONTROL VARIABLE
 
         # Reserve "fill up" constraints
-        round_off_error = 1e-6  # Small tolerance for numerical precision
 
         # Upward constraint
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            <= q_upper + round_off_error
+            <= q_upper + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            >= q_upper - round_off_error
+            >= q_upper - parameters.allowed_round_off_error
         )
 
         # Downward constraint
@@ -328,7 +327,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            <= q_lower + round_off_error
+            <= q_lower + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var
@@ -336,7 +335,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            >= q_lower - round_off_error
+            >= q_lower - parameters.allowed_round_off_error
         )
 
         # Relaxed reserve disabling condition
@@ -353,8 +352,7 @@ class ThermalPO(Thermal):
         model.add_constraint(power_level_var <= q_upper * (on_up_var + on_down_var))
 
         # Power gradients (if not the last time step)
-        optimization_times = list(parameters.thermal_op_times)
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             if self._Delta_Q > 0:  # Finite gradient
                 # Upward gradient
                 model.add_constraint(
@@ -480,16 +478,14 @@ class ThermalPO(Thermal):
 
         # C. CONSTRAINTS ON THE CONTROL VARIABLE
 
-        round_off_error = 1e-6
-
         # Reserve "fill up" constraints (same as Combination 1)
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            <= q_upper + round_off_error
+            <= q_upper + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            >= q_upper - round_off_error
+            >= q_upper - parameters.allowed_round_off_error
         )
 
         model.add_constraint(
@@ -498,7 +494,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            <= q_lower + round_off_error
+            <= q_lower + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var
@@ -506,7 +502,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            >= q_lower - round_off_error
+            >= q_lower - parameters.allowed_round_off_error
         )
 
         # Relaxed reserve disabling condition
@@ -525,8 +521,7 @@ class ThermalPO(Thermal):
         )
 
         # Power gradients with shutdown considerations
-        optimization_times = list(parameters.thermal_op_times)
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             if self._Delta_Q > 0:  # Finite gradient
                 # Upward gradient
                 model.add_constraint(
@@ -695,16 +690,14 @@ class ThermalPO(Thermal):
 
         # C. CONSTRAINTS ON THE CONTROL VARIABLE
 
-        round_off_error = 1e-6
-
         # Reserve "fill up" constraints
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            <= q_upper + round_off_error
+            <= q_upper + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            >= q_upper - round_off_error
+            >= q_upper - parameters.allowed_round_off_error
         )
 
         model.add_constraint(
@@ -713,7 +706,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            <= q_lower + round_off_error
+            <= q_lower + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var
@@ -721,7 +714,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            >= q_lower - round_off_error
+            >= q_lower - parameters.allowed_round_off_error
         )
 
         # Relaxed reserve disabling condition - includes ON_FLAT state
@@ -739,8 +732,7 @@ class ThermalPO(Thermal):
         model.add_constraint(power_level_var <= q_upper * (on_up_var + on_down_var + on_flat_var))
 
         # Power gradients with gradient auxiliary variables
-        optimization_times = list(parameters.thermal_op_times)
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             if self._Delta_Q > 0:  # Finite gradient
                 # Upward gradient
                 model.add_constraint(
@@ -878,16 +870,14 @@ class ThermalPO(Thermal):
 
         # C. CONSTRAINTS ON THE CONTROL VARIABLE
 
-        round_off_error = 1e-6
-
         # Reserve "fill up" constraints
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            <= q_upper + round_off_error
+            <= q_upper + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            >= q_upper - round_off_error
+            >= q_upper - parameters.allowed_round_off_error
         )
 
         model.add_constraint(
@@ -896,7 +886,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            <= q_lower + round_off_error
+            <= q_lower + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var
@@ -904,7 +894,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            >= q_lower - round_off_error
+            >= q_lower - parameters.allowed_round_off_error
         )
 
         # Relaxed reserve disabling condition - only available when ON_UP or ON_DOWN
@@ -924,8 +914,7 @@ class ThermalPO(Thermal):
         model.add_constraint(power_level_var <= q_upper * (on_up_var + on_down_var) + start_var * q_min)
 
         # Power gradients with startup considerations
-        optimization_times = list(parameters.thermal_op_times)
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             if self._Delta_Q > 0:  # Finite gradient
                 # Upward gradient with startup ramping - eq. (33)
                 model.add_constraint(
@@ -1079,8 +1068,7 @@ class ThermalPO(Thermal):
 
         # DD Gradient auxiliary - eq. (23)
         # Detects if unit is to be stopped at t+1 after being in DOWN state at t and t-1
-        optimization_times = list(parameters.thermal_op_times)
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             model.add_constraint(dd_grad_var <= q_upper * stop_var)
             model.add_constraint(dd_grad_var >= q_lower * stop_var)
             model.add_constraint(dd_grad_var <= down_grad_prev_var - q_lower * (1 - stop_var))
@@ -1146,16 +1134,14 @@ class ThermalPO(Thermal):
 
         # C. CONSTRAINTS ON THE CONTROL VARIABLE
 
-        round_off_error = 1e-6
-
         # Reserve "fill up" constraints
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            <= q_upper + round_off_error
+            <= q_upper + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            >= q_upper - round_off_error
+            >= q_upper - parameters.allowed_round_off_error
         )
 
         model.add_constraint(
@@ -1164,7 +1150,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            <= q_lower + round_off_error
+            <= q_lower + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var
@@ -1172,7 +1158,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            >= q_lower - round_off_error
+            >= q_lower - parameters.allowed_round_off_error
         )
 
         # Relaxed reserve disabling condition - eq. (43)
@@ -1197,7 +1183,7 @@ class ThermalPO(Thermal):
         )
 
         # Power gradients with complex auxiliary variables
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             if self._Delta_Q > 0:  # Finite gradient
                 # Upward gradient - eq. (33)
                 model.add_constraint(
@@ -1417,16 +1403,14 @@ class ThermalPO(Thermal):
 
         # C. CONSTRAINTS ON THE CONTROL VARIABLE
 
-        round_off_error = 1e-6
-
         # Reserve "fill up" constraints
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            <= q_upper + round_off_error
+            <= q_upper + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            >= q_upper - round_off_error
+            >= q_upper - parameters.allowed_round_off_error
         )
 
         model.add_constraint(
@@ -1435,7 +1419,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            <= q_lower + round_off_error
+            <= q_lower + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var
@@ -1443,7 +1427,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            >= q_lower - round_off_error
+            >= q_lower - parameters.allowed_round_off_error
         )
 
         # Relaxed reserve disabling condition - eq. (43)
@@ -1463,8 +1447,7 @@ class ThermalPO(Thermal):
         model.add_constraint(power_level_var <= q_upper * (on_up_var + on_down_var + on_flat_var) + start_var * q_min)
 
         # Power gradients with startup considerations and gradient auxiliary variables
-        optimization_times = list(parameters.thermal_op_times)
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             if self._Delta_Q > 0:  # Finite gradient
                 # Upward gradient with startup ramping - eq. (33)
                 model.add_constraint(
@@ -1649,16 +1632,14 @@ class ThermalPO(Thermal):
 
         # C. CONSTRAINTS ON THE CONTROL VARIABLE
 
-        round_off_error = 1e-6
-
         # Reserve "fill up" constraints
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            <= q_upper + round_off_error
+            <= q_upper + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            >= q_upper - round_off_error
+            >= q_upper - parameters.allowed_round_off_error
         )
 
         model.add_constraint(
@@ -1667,7 +1648,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            <= q_lower + round_off_error
+            <= q_lower + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var
@@ -1675,7 +1656,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            >= q_lower - round_off_error
+            >= q_lower - parameters.allowed_round_off_error
         )
 
         # Relaxed reserve disabling condition - eq. (43)
@@ -1700,8 +1681,7 @@ class ThermalPO(Thermal):
         )
 
         # Power gradients with dual gradient parameters
-        optimization_times = list(parameters.thermal_op_times)
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             if self._Delta_Q > 0:  # Finite gradient
                 # Upward gradient - eq. (33)
                 model.add_constraint(
@@ -1872,8 +1852,7 @@ class ThermalPO(Thermal):
 
         # DD Gradient auxiliary - eq. (23)
         # Detects if unit is to be stopped at t+1 after being in DOWN state at t and t-1
-        optimization_times = list(parameters.thermal_op_times)
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             model.add_constraint(dd_grad_prev_var <= q_upper * stop_var)
             model.add_constraint(dd_grad_prev_var >= q_lower * stop_var)
             model.add_constraint(dd_grad_prev_var <= down_grad_prev_var - q_lower * (1 - stop_var))
@@ -1973,16 +1952,14 @@ class ThermalPO(Thermal):
 
         # C. CONSTRAINTS ON THE CONTROL VARIABLE
 
-        round_off_error = 1e-6
-
         # Reserve "fill up" constraints
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            <= q_upper + round_off_error
+            <= q_upper + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-            >= q_upper - round_off_error
+            >= q_upper - parameters.allowed_round_off_error
         )
 
         model.add_constraint(
@@ -1991,7 +1968,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            <= q_lower + round_off_error
+            <= q_lower + parameters.allowed_round_off_error
         )
         model.add_constraint(
             power_level_var
@@ -1999,7 +1976,7 @@ class ThermalPO(Thermal):
             - automated_reserves_down_var
             - unprovided_reserves_down_var
             + relaxed_reserves_var
-            >= q_lower - round_off_error
+            >= q_lower - parameters.allowed_round_off_error
         )
 
         # Relaxed reserve disabling condition - eq. (43)
@@ -2032,7 +2009,7 @@ class ThermalPO(Thermal):
         )
 
         # Power gradients with all auxiliary variables - most complex gradient logic
-        if time in optimization_times[:-1]:  # Not the last time step
+        if time in parameters.thermal_op_times[:-1]:  # Not the last time step
             if self._Delta_Q > 0:  # Finite gradient
                 # Upward gradient - eq. (33)
                 model.add_constraint(
