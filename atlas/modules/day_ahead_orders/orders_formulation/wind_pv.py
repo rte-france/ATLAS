@@ -52,7 +52,7 @@ class WindPV:
             if equipment.da_sell_submitted_volume is None:
                 equipment.da_sell_submitted_volume = production_forecast
             else:
-                equipment.da_sell_submitted_volume.__add__(production_forecast)
+                equipment.da_sell_submitted_volume += production_forecast
 
             # Extract the sequence of variable costs that will be used to define the price.
             variable_costs = equipment.variable_cost.filter(orders_time)

@@ -176,6 +176,6 @@ class Hydraulic:
                         submitted_volumes.add_value_at(t, bid_output.qmax)
 
             dataset.coupling_instance.append(coupling_instance)
-            equipment.da_sell_submitted_volume.__add__(submitted_volumes)
+            equipment.da_sell_submitted_volume += submitted_volumes
 
         return None

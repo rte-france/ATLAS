@@ -50,7 +50,7 @@ class NonDispatchable:
             if unit.da_sell_submitted_volume is None:
                 unit.da_sell_submitted_volume = production_forecast
             else:
-                unit.da_sell_submitted_volume.__add__(production_forecast)
+                unit.da_sell_submitted_volume += production_forecast
 
             # Extract the sequence of variable costs that will be used to define the price.
             variable_costs = None

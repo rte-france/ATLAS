@@ -358,12 +358,12 @@ class DAOStorage:
             if equipment.da_buy_submitted_volume is None:
                 equipment.da_buy_submitted_volume = buy_submitted_volumes
             else:
-                equipment.da_buy_submitted_volume.__add__(buy_submitted_volumes)
+                equipment.da_buy_submitted_volume += buy_submitted_volumes
 
             if equipment.da_sell_submitted_volume is None:
                 equipment.da_sell_submitted_volume = sell_submitted_volumes
             else:
-                equipment.da_sell_submitted_volume.__add__(sell_submitted_volumes)
+                equipment.da_sell_submitted_volume += sell_submitted_volumes
 
     @staticmethod
     def create_spot_order(
