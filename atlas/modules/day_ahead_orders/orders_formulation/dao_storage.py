@@ -374,7 +374,7 @@ class DAOStorage:
         price: float,
         parameters: DayAheadOrdersParameters,
     ) -> Order:
-        order = Order(
+        return Order(
             name=f"storage_order_type_{order_type}_at_{Utilities.get_date_to_clean_string(start_date)}_for_unit_{equipment.name}",
             equipment=equipment,
             portfolio=equipment.portfolio,
@@ -388,7 +388,6 @@ class DAOStorage:
             qmin=0.0,
             price=price,
         )
-        return order
 
     @staticmethod
     def add_spot_order(

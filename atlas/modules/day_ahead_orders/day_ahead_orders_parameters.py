@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from pydantic import Field
+from atlas.enum import SolverEnum
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 
@@ -124,7 +125,7 @@ class DayAheadOrdersParameters(AbstractParameters):
         "always include 'Medium'.",
     )
     solver: str = Field(
-        "XPRESS",
+        SolverEnum.XPRESS,
         description="Name of the solver to use in the optimization problems. Note that only 'XPRESS' is maintained "
         "and tested, other solvers may result in unexpected behaviour. Other possible values : "
         "'GLPK', 'PNE', 'GLOP' (for linear problems only), 'SCIP', 'CP-SAT'.",
