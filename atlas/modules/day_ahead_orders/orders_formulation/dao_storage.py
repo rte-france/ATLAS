@@ -294,9 +294,9 @@ class DAOStorage:
                 coupling_instance = OrderCoupling(
                     name=f"COMPLEMENT_DA_{equipment.name}_{Utilities.get_date_to_clean_string(parameters.execution_date)}",
                     orders=[],
+                    coupling_type=CouplingType.COMPLEMENT,
+                    complement_direction=ComplementDirection.EqualTo,
                 )
-                coupling_instance.coupling_type = CouplingType.COMPLEMENT
-                coupling_instance.complement_direction = ComplementDirection.EqualTo
 
                 # Compute the ComplementEnergy according to the evolution DisplacementEnergy over the day,
                 # if it is feasible given all orders generated for this equipment.

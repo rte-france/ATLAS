@@ -101,9 +101,9 @@ class Hydraulic:
             coupling_instance = OrderCoupling(
                 name=f"COMPLEMENT_{str(equipment.name)}_{Utilities.get_date_to_clean_string(parameters.execution_date)}",
                 orders=[],
+                coupling_type=CouplingType.COMPLEMENT,
+                complement_direction=ComplementDirection.GreaterThan,
             )
-            coupling_instance.coupling_type = CouplingType.COMPLEMENT
-            coupling_instance.complement_direction = ComplementDirection.GreaterThan
 
             if len(equipment.minimum_energy.slice(parameters.start_date, parameters.end_date)) > 0:
                 coupling_instance.complement_energy = -(
