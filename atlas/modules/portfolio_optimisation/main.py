@@ -43,8 +43,6 @@ class PortfolioOptimisationModel(OptimisationModel):
 
             for equipment_type in self.portfolio.equipments:
                 equipment_list = self.portfolio.equipments.get(equipment_type, [])
-                if equipment_type == "thermal":  # TODO
-                    continue
 
                 for equipment in cast(list[EquipmentPO], equipment_list):
                     if hasattr(equipment, "add_variables"):
