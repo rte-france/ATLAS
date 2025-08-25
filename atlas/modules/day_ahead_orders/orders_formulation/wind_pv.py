@@ -72,23 +72,21 @@ class WindPV:
 
                 if max_production_value > 0:
                     # Initialize the order object
-                    bid_output = Order(name=bid_name)
-
-                    # Extract the PropCpst that will define the price.
-                    price = variable_costs.get_value(t)
-
-                    # Fill the offer with the desired parameters.
-                    bid_output.market_area = equipment.portfolio.market_area
-                    bid_output.portfolio = equipment.portfolio
-                    bid_output.equipment = equipment
-                    bid_output.qmax = max_production_value
-                    bid_output.qmin = min_production_value
-                    bid_output.price = price
-                    bid_output.product = Product.DayAhead
-                    bid_output.order_type = OrderType.Sell
-                    bid_output.is_agent_tso = False
-                    bid_output.execution_date = str(parameters.execution_date)
-                    bid_output.start_date = str(t)
-                    bid_output.end_date = str(t.add(minutes=parameters.time_step))
+                    bid_output = Order(
+                        name=bid_name,
+                        market_area=equipment.portfolio.market_area,
+                        portfolio=equipment.portfolio,
+                        equipment=equipment,
+                        qmax=max_production_value,
+                        qmin=min_production_value,
+                        price=variable_costs.get_value(t),  # Extract the PropCpst that will define the price.
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=str(parameters.execution_date),
+                        start_date=str(t),
+                        end_date=str(t.add(minutes=parameters.time_step)),
+                    )
+                    dataset.order.append(bid_output)
 
         return None

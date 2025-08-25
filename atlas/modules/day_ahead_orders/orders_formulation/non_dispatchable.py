@@ -60,25 +60,22 @@ class NonDispatchable:
             # Now we loop over the time stamps for which we want an offer to be made.
             # We formulate as many offers as there are time stamps in orders_time.
             for t in orders_time:
-                # Assign a unique name.
-                bid_name = f"otherND_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}"
-
                 # Initialize the order object
-                bid_output = Order(name=bid_name)
-
-                # Fill the offer with the desired parameters.
-                bid_output.market_area = unit.portfolio.market_area
-                bid_output.portfolio = unit.portfolio
-                bid_output.equipment = unit
-                bid_output.qmax = production_forecast.get_value(t)
-                bid_output.qmin = 0
-                bid_output.price = 0.0 if variable_costs is None else variable_costs.get_value(t)
-                bid_output.product = Product.DayAhead
-                bid_output.order_type = OrderType.Sell
-                bid_output.is_agent_tso = False
-                bid_output.execution_date = parameters.execution_date
-                bid_output.start_date = t
-                bid_output.end_date = t.add(minutes=parameters.time_step)
+                bid_output = Order(
+                    name=f"otherND_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}",  # Assign a unique name.
+                    market_area=unit.portfolio.market_area,
+                    portfolio=unit.portfolio,
+                    equipment=unit,
+                    qmax=production_forecast.get_value(t),
+                    qmin=0,
+                    price=0.0 if variable_costs is None else variable_costs.get_value(t),
+                    product=Product.DayAhead,
+                    order_type=OrderType.Sell,
+                    is_agent_tso=False,
+                    execution_date=parameters.execution_date,
+                    start_date=t,
+                    end_date=t.add(minutes=parameters.time_step),
+                )
                 dataset.order.append(bid_output)
 
         return None

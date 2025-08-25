@@ -147,15 +147,20 @@ class Hydraulic:
                         bid_name = f"hydraulic_order_fragment_{str(k)}_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{equipment.name}"
 
                         # Initialize the order object
-                        bid_output = Order(name=bid_name)
-
-                        # Fill the offer with the desired parameters.<<
-                        bid_output.market_area = equipment.portfolio.market_area
-                        bid_output.portfolio = equipment.portfolio
-                        bid_output.equipment = equipment
-                        bid_output.qmax = v
-                        bid_output.qmin = 0
-
+                        bid_output = Order(
+                            name=bid_name,
+                            market_area=equipment.portfolio.market_area,
+                            portfolio=equipment.portfolio,
+                            equipment=equipment,
+                            qmax=v,
+                            qmin=0,
+                            product=Product.DayAhead,
+                            order_type=OrderType.Sell,
+                            is_agent_tso=False,
+                            execution_date=str(parameters.execution_date),
+                            start_date=str(t),
+                            end_date=str(t.add(minutes=parameters.time_step)),
+                        )
                         if not xmin:
                             bid_output.price = level_sup.get_value(t) + delta_wu[k][1]
                         elif not xmax:
@@ -165,12 +170,6 @@ class Hydraulic:
                             pmax = level_sup.get_value(t)
                             bid_output.price = weight_inf * pmin + weight_sup * pmax + delta_wu[k][1]
 
-                        bid_output.product = Product.DayAhead
-                        bid_output.order_type = OrderType.Sell
-                        bid_output.is_agent_tso = False
-                        bid_output.execution_date = str(parameters.execution_date)
-                        bid_output.start_date = str(t)
-                        bid_output.end_date = str(t.add(minutes=parameters.time_step))
                         coupling_instance.orders.append(bid_output)
 
                         submitted_volumes.add_value_at(t, bid_output.qmax)

@@ -374,19 +374,20 @@ class DAOStorage:
         price: float,
         parameters: DayAheadOrdersParameters,
     ) -> Order:
-        order_name = f"storage_order_type_{order_type}_at_{Utilities.get_date_to_clean_string(start_date)}_for_unit_{equipment.name}"
-        order = Order(name=order_name)
-        order.equipment = equipment
-        order.portfolio = equipment.portfolio
-        order.market_area = equipment.portfolio.market_area
-        order.execution_date = parameters.execution_date
-        order.start_date = start_date
-        order.end_date = start_date.add(minutes=parameters.time_step)
-        order.order_type = order_type
-        order.product = Product.DayAhead
-        order.qmax = qmax
-        order.qmin = 0.0
-        order.price = price
+        order = Order(
+            name=f"storage_order_type_{order_type}_at_{Utilities.get_date_to_clean_string(start_date)}_for_unit_{equipment.name}",
+            equipment=equipment,
+            portfolio=equipment.portfolio,
+            market_area=equipment.portfolio.market_area,
+            execution_date=parameters.execution_date,
+            start_date=start_date,
+            end_date=start_date.add(minutes=parameters.time_step),
+            order_type=order_type,
+            product=Product.DayAhead,
+            qmax=qmax,
+            qmin=0.0,
+            price=price,
+        )
         return order
 
     @staticmethod

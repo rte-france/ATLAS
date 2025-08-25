@@ -61,23 +61,20 @@ class DAOLoad:
                     if max_consumption_value > 0:
                         # Initialize the order object.
                         bid_output = Order(
-                            name=f"load_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{load.name}"
+                            name=f"load_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{load.name}",
+                            market_area=load.portfolio.market_area,
+                            portfolio=load.portfolio,
+                            equipment=load,
+                            qmax=max_consumption_value,
+                            qmin=0,
+                            product=Product.DayAhead,
+                            order_type=OrderType.Buy,
+                            is_agent_tso=False,
+                            execution_date=parameters.execution_date,
+                            start_date=t,
+                            end_date=t.add(minutes=parameters.time_step),
+                            price=load.variable_cost.get_value(t)
+                            if load.load_type == LoadType.POWER_TO_GAS
+                            else parameters.load_price,
                         )
-
-                        # Fill the offer with the desired parameters.
-                        bid_output.market_area = load.portfolio.market_area
-                        bid_output.portfolio = load.portfolio
-                        bid_output.equipment = load
-                        bid_output.qmax = max_consumption_value
-                        bid_output.qmin = 0
-                        if load.load_type == LoadType.POWER_TO_GAS:
-                            bid_output.price = load.variable_cost.get_value(t)
-                        else:
-                            bid_output.price = parameters.load_price
-                        bid_output.product = Product.DayAhead
-                        bid_output.order_type = OrderType.Buy
-                        bid_output.is_agent_tso = False
-                        bid_output.execution_date = parameters.execution_date
-                        bid_output.start_date = t
-                        bid_output.end_date = t.add(minutes=parameters.time_step)
                         dataset.order.append(bid_output)
