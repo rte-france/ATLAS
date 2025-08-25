@@ -5,21 +5,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import atlas.config as cfg
-import itertools
-import math
-
-import pandas as pd
-import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas import Order, OrderCoupling, Timeseries
-from atlas.enum import ComplementDirection, CouplingType, OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
-from atlas.timing import generate_datetimes
 
 ##### Etat des lieux au 16.10.2020 ####
 #
@@ -46,7 +36,7 @@ from atlas.timing import generate_datetimes
 # . Functions used to extract sequences and states
 
 
-class ThermicBiding:
+class ThermicBidding:
     # ------ Main function ------
     @staticmethod
     def formulate_thermic_orders(

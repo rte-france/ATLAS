@@ -14,10 +14,10 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_output_dataset import DayAh
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.dao_load import DAOLoad
 from atlas.modules.day_ahead_orders.orders_formulation.dao_storage import DAOStorage
+from atlas.modules.day_ahead_orders.orders_formulation.hydraulic import Hydraulic
 from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable import NonDispatchable
 from atlas.modules.day_ahead_orders.orders_formulation.wind_pv import WindPV
-from atlas.modules.day_ahead_orders.orders_formulation.hydraulic import Hydraulic
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_bidding import ThermicBiding
+from atlas.modules.day_ahead_orders.orders_formulation.thermic_bidding import ThermicBidding
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
@@ -104,7 +104,7 @@ class DayAheadOrdersModule(
             cfg.logger.info("Thermic orders formulated.")
 
             #### STEP - INDICATE TO THE USER THAT THE FORMULATION OF ORDERS IS COMPLETED.
-            API.IO.Trace.Log("Formulation of orders successfully completed.", API.IO.LogTypeInfo)
+            cfg.logger.info("Formulation of orders successfully completed.")
 
             # return output_dataset
         else:
