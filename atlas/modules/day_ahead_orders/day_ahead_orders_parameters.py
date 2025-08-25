@@ -5,10 +5,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field
-from atlas.enum import SolverEnum
+from pendulum import duration
+from pendulum.duration import Duration
+from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.enum import SolverEnum
+from atlas.validators import hours_validator, minutes_validator
 
 
 class DayAheadOrdersParameters(AbstractParameters):
@@ -79,12 +82,12 @@ class DayAheadOrdersParameters(AbstractParameters):
         "related to the Storage instances with the type PumpedHydraulicStorage.",
     )
     solver_duality_gap: float = Field(0.0001, description="DualityGap used for the optimization.")
-    thermic_additional_hours: float = Field(
-        12,
+    thermic_additional_hours: Duration = Field(
+        default_factory=lambda: duration(hours=12),
         description="Number of extra hours after EndDate for the optimization programs applied to Thermic instances.",
     )
-    battery_additional_hours: int = Field(
-        48,
+    battery_additional_hours: Duration = Field(
+        default_factory=lambda: duration(hours=48),
         description="Number of extra hours after EndDate for the optimization programs applied to Storage instances "
         "with the type Battery.",
     )
@@ -93,8 +96,8 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Number of orders that can be formulated at one time-step for the optimization problem related to "
         "the Storage instances with the type Battery.",
     )
-    ev_additional_hours: int = Field(
-        144,
+    ev_additional_hours: Duration = Field(
+        default_factory=lambda: duration(hours=144),
         description="Number of extra hours after EndDate for the optimization programs applied to Storage instances "
         "with the type ElectricVehicle.",
     )
@@ -103,8 +106,8 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Number of orders that can be formulated at one time-step for the optimization problem related to "
         "the Storage instances with the type ElectricVehicle.",
     )
-    phs_additional_hours: int = Field(
-        144,
+    phs_additional_hours: Duration = Field(
+        default_factory=lambda: duration(hours=144),
         description="Number of extra hours after EndDate for the optimization programs applied to Storage instances "
         "with the type PumpedHydraulicStorage.",
     )
@@ -113,9 +116,11 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Number of orders that can be formulated at one time-step for the optimization problem related to "
         "the Storage instances with the type PumpedHydraulicStorage.",
     )
-    solver_time_out: int = Field(240, description="Timeout (in seconds) of the optimization.")
-    time_step: int = Field(
-        60,
+    solver_time_out: Duration = Field(
+        default_factory=lambda: duration(minutes=4), description="Timeout (in seconds) of the optimization."
+    )
+    time_step: Duration = Field(
+        default_factory=lambda: duration(minutes=60),
         description="Discretization step of the simulated time interval, expressed as a string giving an integer "
         "number of minutes",
     )
@@ -130,3 +135,25 @@ class DayAheadOrdersParameters(AbstractParameters):
         "and tested, other solvers may result in unexpected behaviour. Other possible values : "
         "'GLPK', 'PNE', 'GLOP' (for linear problems only), 'SCIP', 'CP-SAT'.",
     )
+
+    @field_validator(
+        "phs_additional_hours",
+        "ev_additional_hours",
+        "battery_additional_hours",
+        "thermic_additional_hours",
+        mode="before",
+    )
+    @classmethod
+    def convert_hours_to_duration(cls, v):
+        """Convert various duration formats to Duration objects (hours default)."""
+        return hours_validator(v)
+
+    @field_validator(
+        "time_step",
+        "solver_time_out",
+        mode="before",
+    )
+    @classmethod
+    def convert_minutes_to_duration(cls, v):
+        """Convert various duration formats to Duration objects (minutes default)."""
+        return minutes_validator(v)

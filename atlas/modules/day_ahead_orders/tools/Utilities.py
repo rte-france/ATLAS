@@ -5,7 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -33,9 +32,7 @@ class Utilities:
         orders_time = []
         if parameters.start_date < parameters.end_date:
             orders_time = generate_datetimes(
-                parameters.start_date,
-                parameters.end_date.subtract(minutes=parameters.time_step),
-                pendulum.duration(minutes=parameters.time_step),
+                parameters.start_date, parameters.end_date - parameters.time_step, parameters.time_step
             )
         else:
             msg = "The EndDate parameter must be posterior to the StartDate parameter."

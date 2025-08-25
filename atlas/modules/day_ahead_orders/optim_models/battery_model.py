@@ -5,6 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pendulum.duration import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import Equipment
@@ -19,9 +20,9 @@ class BatteryModel(DAOBaseModel):
         start_date: DateTime,
         end_date: DateTime,
         execution_date: DateTime,
-        time_step: int,
+        time_step: Duration,
         equipment: Equipment,
-        optimization_period: int,
+        optimization_period: Duration,
     ):
         super().__init__(
             solver_name, name, start_date, end_date, execution_date, time_step, equipment, optimization_period
@@ -61,25 +62,23 @@ class BatteryModel(DAOBaseModel):
                     self.stored_energy[t]
                     == (
                         initial_stock
-                        + self.time_step
-                        / 60.0
+                        + self.time_step.total_hours()
                         * (
                             self.Qa[t] * self.equipment.charge_efficiency
                             - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                     ),
-                    f"Stock_tracking_at_{t.add(minutes=self.time_step)}",
+                    f"Stock_tracking_at_{t + self.time_step}",
                 )
             else:
                 self.add_constraint(
                     self.stored_energy[t]
-                    == self.stored_energy[t.subtract(minutes=self.time_step)]
-                    + self.time_step
-                    / 60.0
+                    == self.stored_energy[t - self.time_step]
+                    + self.time_step.total_hours()
                     * (
                         self.Qa[t] * self.equipment.charge_efficiency - self.Qv[t] / self.equipment.discharge_efficiency
                     ),
-                    f"Stock_tracking_at_{t.add(minutes=self.time_step)}",
+                    f"Stock_tracking_at_{t + self.time_step}",
                 )
 
             # Respect of system states constraints (isSell and isV2G)

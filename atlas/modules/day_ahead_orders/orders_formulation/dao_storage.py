@@ -9,7 +9,6 @@ import os
 from typing import Any
 
 import pandas as pd
-import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -133,14 +132,14 @@ class DAOStorage:
     @staticmethod
     def solve_with_xpress(model: DAOBaseModel, parameters: DayAheadOrdersParameters, equipment_name: str) -> None:
         model.set_solver_specific_parameters_as_string(
-            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out}"
+            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_minutes()}"
         )
 
         if parameters.debug:
             lp_file_name = os.path.join(parameters.output_folder, f"storage_{equipment_name}.lp")
             model.export_model(lp_file_name)
 
-        model.solve(float(parameters.solver_time_out))
+        model.solve(parameters.solver_time_out.total_minutes())
 
         if parameters.verbose:
             cfg.logger.info(f"Solver status: {model.solution_info.status}")
@@ -160,7 +159,7 @@ class DAOStorage:
             parameters.execution_date,
             parameters.start_date,
             parameters.end_date,
-            pendulum.Duration(minutes=parameters.time_step),
+            parameters.time_step,
         )
 
         # Check if either Qv or Qa is empty (i.e. contains only 0)
@@ -232,12 +231,12 @@ class DAOStorage:
             # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
             local_index = generate_datetimes(
                 parameters.start_date,
-                parameters.end_date.subtract(minutes=parameters.time_step),
-                pendulum.duration(minutes=parameters.time_step),
+                parameters.end_date - parameters.time_step,
+                parameters.time_step,
             )
 
             local_max_energy = (
-                equipment.maximum_energy.set_frequency(pendulum.Duration(minutes=parameters.time_step), False)
+                equipment.maximum_energy.set_frequency(parameters.time_step, False)
                 .filter(item=local_index, inplace=False)
                 .max()
             )
@@ -269,23 +268,19 @@ class DAOStorage:
                 equipment.variable_cost = Timeseries(None)
             if Ppurchase != 0:
                 equipment.variable_cost.set_value(parameters.start_date, round(Ppurchase, 2))
-                equipment.variable_cost.set_value(
-                    parameters.end_date.subtract(minutes=parameters.time_step), round(Ppurchase, 2)
-                )
+                equipment.variable_cost.set_value(parameters.end_date - parameters.time_step, round(Ppurchase, 2))
             elif equipment.discharge_efficiency != 0 and equipment.charge_efficiency != 0:
                 equipment.variable_cost.set_value(
                     parameters.start_date,
                     round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
                 )
                 equipment.variable_cost.set_value(
-                    parameters.end_date.subtract(minutes=parameters.time_step),
+                    parameters.end_date - parameters.time_step,
                     round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
                 )
             else:
                 equipment.variable_cost.set_value(parameters.start_date, round(Psale, 2))
-                equipment.variable_cost.set_value(
-                    parameters.end_date.subtract(minutes=parameters.time_step), round(Psale, 2)
-                )
+                equipment.variable_cost.set_value(parameters.end_date - parameters.time_step, round(Psale, 2))
                 cfg.logger.warning(
                     f"WARNING: ChargeEfficiency or DischargeEfficiency is null for equipment {equipment.name}. "
                     "This is not supposed to be the case, as the default value for these is 1 and not 0"
@@ -293,7 +288,7 @@ class DAOStorage:
 
             # --- Formulate orders, possibly with associated coupling instances
             # First, orders that are included in a COMPLEMENT coupling
-            daily_buy_volume = sum(buy_volume * parameters.time_step / 60.0 for buy_volume in Qa.values())
+            daily_buy_volume = sum(buy_volume * parameters.time_step.total_hours() for buy_volume in Qa.values())
             if equipment.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
                 # Create the order coupling instance
                 coupling_instance = OrderCoupling(
@@ -307,10 +302,8 @@ class DAOStorage:
                 # if it is feasible given all orders generated for this equipment.
                 # If not, the energy requirement is capped to the feasible limit
                 energy_requirement = equipment.displacement_energy.get_value(
-                    parameters.end_date.subtract(minutes=parameters.time_step)
-                ) - equipment.displacement_energy.get_value(
-                    parameters.start_date.subtract(minutes=parameters.time_step)
-                )
+                    parameters.end_date - parameters.time_step
+                ) - equipment.displacement_energy.get_value(parameters.start_date - parameters.time_step)
 
                 if energy_requirement > daily_buy_volume:
                     coupling_instance.complement_energy = daily_buy_volume
@@ -381,7 +374,7 @@ class DAOStorage:
             market_area=equipment.portfolio.market_area,
             execution_date=parameters.execution_date,
             start_date=start_date,
-            end_date=start_date.add(minutes=parameters.time_step),
+            end_date=start_date + parameters.time_step,
             order_type=order_type,
             product=Product.DayAhead,
             qmax=qmax,
@@ -429,13 +422,13 @@ class DAOStorage:
             energy_forecast = equipment.stored_energy.get_forecast(
                 parameters.execution_date,
                 parameters.start_date.subtract(days=2),
-                parameters.start_date.subtract(minutes=parameters.time_step),
-                pendulum.Duration(minutes=parameters.time_step),
+                parameters.start_date - parameters.time_step,
+                parameters.time_step,
             )
             if len(energy_forecast) == 0:
                 initial_stock = equipment.storage_initial_level * equipment.maximum_energy.get_value(
                     parameters.start_date
                 )
             else:
-                initial_stock = energy_forecast.get_value(parameters.start_date.subtract(minutes=parameters.time_step))
+                initial_stock = energy_forecast.get_value(parameters.start_date - parameters.time_step)
         return initial_stock

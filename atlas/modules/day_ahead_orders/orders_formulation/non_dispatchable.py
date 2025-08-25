@@ -43,8 +43,8 @@ class NonDispatchable:
             production_forecast = unit.maximum_power_forecast.get_forecast(
                 parameters.execution_date,
                 parameters.start_date,
-                parameters.end_date.subtract(minutes=parameters.time_step),
-                pendulum.Duration(minutes=parameters.time_step),
+                parameters.end_date - parameters.time_step,
+                parameters.time_step,
             )
 
             if unit.da_sell_submitted_volume is None:
@@ -74,7 +74,7 @@ class NonDispatchable:
                     is_agent_tso=False,
                     execution_date=parameters.execution_date,
                     start_date=t,
-                    end_date=t.add(minutes=parameters.time_step),
+                    end_date=t + parameters.time_step,
                 )
                 dataset.order.append(bid_output)
 

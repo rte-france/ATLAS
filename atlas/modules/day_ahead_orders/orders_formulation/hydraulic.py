@@ -8,7 +8,6 @@ This file is part of the ATLAS project.
 import math
 
 import pandas as pd
-import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -55,14 +54,14 @@ class Hydraulic:
             # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
             local_index = generate_datetimes(
                 parameters.start_date,
-                parameters.end_date.subtract(minutes=parameters.time_step),
-                pendulum.duration(minutes=parameters.time_step),
+                parameters.end_date - parameters.time_step,
+                parameters.time_step,
             )
 
             submitted_volumes = Timeseries(pd.DataFrame({"time": local_index, "value": [0] * len(local_index)}))
 
             local_max_energy = (
-                equipment.maximum_energy.set_frequency(pendulum.Duration(minutes=parameters.time_step), False)
+                equipment.maximum_energy.set_frequency(parameters.time_step, False)
                 .filter(item=local_index, inplace=False)
                 .max()
             )
@@ -76,10 +75,10 @@ class Hydraulic:
                 energy_forecast = equipment.stored_energy.get_forecast(
                     parameters.execution_date,
                     parameters.start_date.subtract(days=1),
-                    parameters.start_date.subtract(minutes=parameters.time_step),
+                    parameters.start_date - parameters.time_step,
                 )
                 if len(energy_forecast) > 0:
-                    energy_level = energy_forecast.get_value(parameters.start_date.subtract(parameters.time_step))
+                    energy_level = energy_forecast.get_value(parameters.start_date - parameters.time_step)
                 else:
                     energy_level = equipment.initial_level.get_value(parameters.start_date)
             else:
@@ -159,7 +158,7 @@ class Hydraulic:
                             is_agent_tso=False,
                             execution_date=str(parameters.execution_date),
                             start_date=str(t),
-                            end_date=str(t.add(minutes=parameters.time_step)),
+                            end_date=str(t + parameters.time_step),
                         )
                         if not xmin:
                             bid_output.price = level_sup.get_value(t) + delta_wu[k][1]

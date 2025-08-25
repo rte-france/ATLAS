@@ -5,6 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pendulum.duration import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import Equipment
@@ -19,9 +20,9 @@ class ElectricVehicleModel(DAOBaseModel):
         start_date: DateTime,
         end_date: DateTime,
         execution_date: DateTime,
-        time_step: int,
+        time_step: Duration,
         equipment: Equipment,
-        optimization_period: int,
+        optimization_period: Duration,
         ev_nb_fragments: int,
         ev_energy_coef: float,
     ):
@@ -63,17 +64,16 @@ class ElectricVehicleModel(DAOBaseModel):
                         initial_stock
                         * (
                             self.equipment.maximum_energy.get_value(t)
-                            / self.equipment.maximum_energy.get_value(t.subtract(minutes=self.time_step))
+                            / self.equipment.maximum_energy.get_value(t - self.time_step)
                         )
-                        + self.time_step
-                        / 60.0
+                        + self.time_step.total_hours()
                         * (
                             self.Qa[t] * self.equipment.charge_efficiency
                             - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                         + (
                             self.equipment.displacement_energy.get_value(t)
-                            - self.equipment.displacement_energy.get_value(t.subtract(minutes=self.time_step))
+                            - self.equipment.displacement_energy.get_value(t - self.time_step)
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -82,20 +82,19 @@ class ElectricVehicleModel(DAOBaseModel):
                 self.add_constraint(
                     self.stored_energy[t]
                     == (
-                        self.stored_energy[t.subtract(minutes=self.time_step)]
+                        self.stored_energy[t - self.time_step]
                         * (
                             self.equipment.maximum_energy.get_value(t)
-                            / self.equipment.maximum_energy.get_value(t.subtract(minutes=self.time_step))
+                            / self.equipment.maximum_energy.get_value(t - self.time_step)
                         )
-                        + self.time_step
-                        / 60.0
+                        + self.time_step.total_hours()
                         * (
                             self.Qa[t] * self.equipment.charge_efficiency
                             - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                         + (
                             self.equipment.displacement_energy.get_value(t)
-                            - self.equipment.displacement_energy.get_value(t.subtract(minutes=self.time_step))
+                            - self.equipment.displacement_energy.get_value(t - self.time_step)
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -158,10 +157,8 @@ class ElectricVehicleModel(DAOBaseModel):
         self.add_constraint(
             sum(self.Qa[t] for t in self.time_frame) * self.equipment.charge_efficiency
             >= (
-                self.equipment.displacement_energy.get_value(
-                    self.end_date.add(hours=self.optimizationPeriod).subtract(minutes=self.time_step)
-                )
-                - self.equipment.displacement_energy.get_value(self.start_date.subtract(minutes=self.time_step))
+                self.equipment.displacement_energy.get_value(self.end_date + self.optimizationPeriod - self.time_step)
+                - self.equipment.displacement_energy.get_value(self.start_date - self.time_step)
             )
             * self.ev_energy_coef,
             f"DisplacementEnergy_compensation_for_{str(self.equipment.name)}",

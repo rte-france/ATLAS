@@ -47,7 +47,7 @@ class WindPV:
             production_forecast = equipment.maximum_power_forecast.get_forecast(
                 parameters.execution_date,
                 parameters.start_date,
-                parameters.end_date.subtract(minutes=parameters.time_step),
+                parameters.end_date - parameters.time_step,
             )
             if equipment.da_sell_submitted_volume is None:
                 equipment.da_sell_submitted_volume = production_forecast
@@ -85,7 +85,7 @@ class WindPV:
                         is_agent_tso=False,
                         execution_date=str(parameters.execution_date),
                         start_date=str(t),
-                        end_date=str(t.add(minutes=parameters.time_step)),
+                        end_date=str(t + parameters.time_step),
                     )
                     dataset.order.append(bid_output)
 
