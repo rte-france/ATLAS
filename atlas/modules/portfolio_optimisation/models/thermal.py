@@ -978,7 +978,6 @@ class ThermalPO(Thermal):
         aux_up_grad_var = model.get_variable(f"aux_up_grad_at_{time}_e_{self.name}")
         down_grad_var = model.get_variable(f"DOWN_grad_at_{time}_e_{self.name}")
         aux_down_grad_var = model.get_variable(f"aux_down_grad_at_{time}_e_{self.name}")
-        dd_grad_var = model.get_variable(f"DD_grad_at_{time}_e_{self.name}")
 
         # Previous time variables
         off_prev_var = model.get_variable(f"OFF_var_e_{self.name}_at_{prev_time}")
@@ -1758,7 +1757,6 @@ class ThermalPO(Thermal):
         aux_up_grad_var = model.get_variable(f"aux_up_grad_at_{time}_e_{self.name}")
         down_grad_var = model.get_variable(f"DOWN_grad_at_{time}_e_{self.name}")
         aux_down_grad_var = model.get_variable(f"aux_down_grad_at_{time}_e_{self.name}")
-        dd_grad_var = model.get_variable(f"DD_grad_at_{time}_e_{self.name}")
 
         # Previous time variables
         off_prev_var = model.get_variable(f"OFF_var_e_{self.name}_at_{prev_time}")
@@ -2108,40 +2106,20 @@ class ThermalPO(Thermal):
             if last_time not in power_history.time_index:
                 day_zero = True
 
-        # Add initial condition constraints based on combination
-        if self._combination == 1:
-            self._add_combination_1_initial_conditions(
-                model, parameters, initial_times, extended_start_date, power_history, day_zero
-            )
-        elif self._combination == 2:
-            self._add_combination_2_initial_conditions(
-                model, parameters, initial_times, extended_start_date, power_history, day_zero
-            )
-        elif self._combination == 3:
-            self._add_combination_3_initial_conditions(
-                model, parameters, initial_times, extended_start_date, power_history, day_zero
-            )
-        elif self._combination == 4:
-            self._add_combination_4_initial_conditions(
-                model, parameters, initial_times, extended_start_date, power_history, day_zero
-            )
-        elif self._combination == 5:
-            self._add_combination_5_initial_conditions(
-                model, parameters, initial_times, extended_start_date, power_history, day_zero
-            )
-        elif self._combination == 6:
-            self._add_combination_6_initial_conditions(
-                model, parameters, initial_times, extended_start_date, power_history, day_zero
-            )
-        elif self._combination == 7:
-            self._add_combination_7_initial_conditions(
-                model, parameters, initial_times, extended_start_date, power_history, day_zero
-            )
-        elif self._combination == 8:
-            self._add_combination_8_initial_conditions(
-                model, parameters, initial_times, extended_start_date, power_history, day_zero
-            )
-        # TODO: Add other combinations as needed
+        # Add initial condition constraints based on combination using mapping
+        initial_condition_methods = {
+            1: self._add_combination_1_initial_conditions,
+            2: self._add_combination_2_initial_conditions,
+            3: self._add_combination_3_initial_conditions,
+            4: self._add_combination_4_initial_conditions,
+            5: self._add_combination_5_initial_conditions,
+            6: self._add_combination_6_initial_conditions,
+            7: self._add_combination_7_initial_conditions,
+            8: self._add_combination_8_initial_conditions,
+        }
+
+        method = initial_condition_methods.get(self._combination, self._add_combination_1_initial_conditions)
+        method(model, parameters, initial_times, extended_start_date, power_history, day_zero)
 
     def _add_combination_1_initial_conditions(
         self,
