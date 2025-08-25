@@ -8,8 +8,12 @@ Thermal unit constraint combinations for different operational constraint scenar
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from pendulum import DateTime
 
+if TYPE_CHECKING:
+    from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.solver.solver_interface import OptimisationModel
@@ -18,7 +22,7 @@ from atlas.solver.solver_interface import OptimisationModel
 class ThermalConstraintCombinations:
     """Handles constraint combinations for thermal units across 8 different scenarios."""
 
-    def __init__(self, thermal_unit):
+    def __init__(self, thermal_unit: ThermalPO):
         """Initialize with reference to the thermal unit."""
         self.thermal_unit = thermal_unit
 

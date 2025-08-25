@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from pendulum import DateTime
 
 if TYPE_CHECKING:
-    from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
+    from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
 
