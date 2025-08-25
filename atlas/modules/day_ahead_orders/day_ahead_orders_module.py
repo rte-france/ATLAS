@@ -16,6 +16,8 @@ from atlas.modules.day_ahead_orders.orders_formulation.dao_load import DAOLoad
 from atlas.modules.day_ahead_orders.orders_formulation.dao_storage import DAOStorage
 from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable import NonDispatchable
 from atlas.modules.day_ahead_orders.orders_formulation.wind_pv import WindPV
+from atlas.modules.day_ahead_orders.orders_formulation.hydraulic import Hydraulic
+from atlas.modules.day_ahead_orders.orders_formulation.thermic_bidding import ThermicBiding
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
@@ -96,15 +98,14 @@ class DayAheadOrdersModule(
             WindPV.formulate_wind_and_pv_orders(dataset, orders_time, parameters)
             cfg.logger.info("wind/pv orders formulated.")
 
-            """
             #### STEP 6 - THERMIC UNITS ####
-            API.IO.Trace.Log("Formulation of the thermic orders...", API.IO.LogTypeInfo)
-            thermic_bidding.formulate_thermic_orders(input_dataset, output_dataset, orders_time, parameters)
-            API.IO.Trace.Log("Thermic orders formulated.", API.IO.LogTypeInfo)
+            cfg.logger.info("Formulation of the thermic orders...")
+            ThermicBidding.formulate_thermic_orders(dataset, orders_time, parameters)
+            cfg.logger.info("Thermic orders formulated.")
 
             #### STEP - INDICATE TO THE USER THAT THE FORMULATION OF ORDERS IS COMPLETED.
             API.IO.Trace.Log("Formulation of orders successfully completed.", API.IO.LogTypeInfo)
-            """
+
             # return output_dataset
         else:
             cfg.logger.error("orders_time is empty.")
