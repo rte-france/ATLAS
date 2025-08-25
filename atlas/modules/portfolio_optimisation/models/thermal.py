@@ -204,7 +204,7 @@ class ThermalPO(Thermal):
             return
 
         if not hasattr(self, "_initial_conditions_added"):
-            self._add_initial_conditions_once(model, parameters)
+            self.add_initial_conditions(model, parameters, power_history=None)
             self._initial_conditions_added = True
 
         # Delegate to the appropriate combination method
@@ -2072,29 +2072,10 @@ class ThermalPO(Thermal):
             # This would need to be implemented at a higher level since it requires all time steps for a day
             pass
 
-    def _add_initial_conditions_once(
-        self,
-        model: OptimisationModel,
-        parameters: PortfolioOptimisationParameters,
-    ):
-        """Add initial conditions for this thermal unit (called only once)."""
-        try:
-            # Get power history for this thermal unit if available
-            # For now, pass None (day_zero case) - this can be enhanced later
-            power_history = None  # TODO: Implement power history retrieval
-
-            self.add_initial_conditions(model=model, parameters=parameters, power_history=power_history)
-
-        except Exception as e:
-            # Log the error but don't fail the entire optimization
-            # In production, you might want to handle this differently
-            print(f"Warning: Failed to add initial conditions for thermal unit {self.name}: {e}")
-
     def add_initial_conditions(
         self,
         model: OptimisationModel,
         parameters: PortfolioOptimisationParameters,
-        power_history: Timeseries | None = None,
     ):
         """
         Add initial conditions for thermal unit based on power history.
@@ -2104,6 +2085,7 @@ class ThermalPO(Thermal):
             parameters: Portfolio optimization parameters
             power_history: Historical power data for initial conditions (None for dayZero)
         """
+
         self._compute_time_parameters(parameters)
 
         # Create initial condition time frame
@@ -2116,6 +2098,7 @@ class ThermalPO(Thermal):
         else:
             initial_times.append(parameters.start_date - parameters.timestep)
 
+        power_history = self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
         extended_start_date = initial_times[0]
 
         # Determine if this is dayZero initialization
