@@ -14,7 +14,9 @@ from pydantic import model_validator
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
-from atlas.modules.portfolio_optimisation.models.thermal.thermal_constraint_combinations import ThermalConstraintCombinations
+from atlas.modules.portfolio_optimisation.models.thermal.thermal_constraint_combinations import (
+    ThermalConstraintCombinations,
+)
 from atlas.modules.portfolio_optimisation.models.thermal.thermal_init_conditions import ThermalInitialConditions
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -222,7 +224,9 @@ class ThermalPO(Thermal):
             8: thermal_constraint_combinations.add_combination_8_constraints,
         }
 
-        method = combination_methods.get(self._combination, thermal_constraint_combinations.add_combination_1_constraints)
+        method = combination_methods.get(
+            self._combination, thermal_constraint_combinations.add_combination_1_constraints
+        )
         method(time, model, parameters)
 
     def add_objective(

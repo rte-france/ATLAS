@@ -16,7 +16,7 @@ from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.solar import SolarPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
@@ -43,7 +43,7 @@ class PortfolioOptimisationModel(OptimisationModel):
 
             for equipment_type in self.portfolio.equipments:
                 equipment_list = self.portfolio.equipments.get(equipment_type, [])
-                if equipment_type == "thermal":  # TODO
+                if equipment_type != "thermal":  # TODO
                     continue
 
                 for equipment in cast(list[EquipmentPO], equipment_list):
