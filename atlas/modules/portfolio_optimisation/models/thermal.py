@@ -204,7 +204,7 @@ class ThermalPO(Thermal):
             return
 
         if not hasattr(self, "_initial_conditions_added"):
-            self.add_initial_conditions(model, parameters, power_history=None)
+            self.add_initial_conditions(model, parameters)
             self._initial_conditions_added = True
 
         # Delegate to the appropriate combination method
