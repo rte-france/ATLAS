@@ -790,6 +790,23 @@ class TestTimeseriesManipulation:
         with pytest.raises(NotImplementedError):
             result = sample_ts.filter(2, inplace=False)
 
+    def test_slice_with_datetime(self, sample_ts):
+        result = sample_ts.slice(datetime(2023, 1, 1, 1, 0, 0), datetime(2023, 1, 1, 2, 0, 0), inplace=False)
+        result_exclude = sample_ts.slice(
+            datetime(2023, 1, 1, 1, 0, 0), datetime(2023, 1, 1, 3, 0, 0), closed="none", inplace=False
+        )
+        assert len(result) == 2
+        assert result["value"][0] == 20
+        assert result["value"][1] == 30
+        assert len(result_exclude) == 1
+        assert result_exclude["value"][0] == 30
+
+    def test_slice_with_int(self, sample_ts):
+        result = sample_ts.slice_with_offset(1, 2, inplace=False)
+        assert len(result) == 2
+        assert result["value"][0] == 20
+        assert result["value"][1] == 30
+
     def test_get_value(self):
         """Test getting a value at a specific timestamp."""
         ts = Timeseries()

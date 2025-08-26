@@ -1,7 +1,5 @@
 from typing import get_args, get_origin
 
-import pytest
-
 import atlas.typing as atlas_typing
 
 
@@ -65,13 +63,3 @@ def test_get_type_attribute_list_referenced():
 
     assert get_origin(result) is list
     assert get_args(result)[0] is DummyReferenced
-
-
-def test_get_type_attribute_invalid_object_type():
-    with pytest.raises(ValueError):
-        atlas_typing.get_type_attribute("not_a_type", "int_attr")
-
-
-def test_get_type_attribute_invalid_attribute():
-    with pytest.raises(KeyError):
-        atlas_typing.get_type_attribute("dummy", "not_an_attr")

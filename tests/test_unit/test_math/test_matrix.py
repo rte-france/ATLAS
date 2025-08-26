@@ -154,6 +154,32 @@ def test_add_dict(sample_polars_df):
     assert "scenario3" in matrix.indexes
 
 
+def test_add_polars_dataframe(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    new_df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+            "scenario3": [9, 10, 11, 12],
+        }
+    )
+    matrix.add(new_df, "scenario3")
+    assert "scenario3" in matrix.indexes
+    assert len(matrix.indexes) == 3
+
+
+def test_add_pandas_dataframe(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    new_df = pd.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+            "scenario3": [9, 10, 11, 12],
+        }
+    )
+    matrix.add(new_df, "scenario3")
+    assert "scenario3" in matrix.indexes
+    assert len(matrix.indexes) == 3
+
+
 def test_delete_existing(sample_polars_df):
     matrix = Matrix(sample_polars_df)
     matrix.delete("scenario1")
@@ -164,6 +190,45 @@ def test_delete_non_existing(sample_polars_df):
     matrix = Matrix(sample_polars_df)
     with pytest.raises(KeyError, match="No timeseries to delete"):
         matrix.delete("non_existing")
+
+
+def test_delete_all_scenarios(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    initial_count = len(matrix.indexes)
+
+    # Delete all scenarios
+    for index in matrix.indexes.copy():
+        matrix.delete(index)
+
+    assert len(matrix.indexes) == 0
+    assert matrix.matrix.shape == (3, 1)  # Only time column remains
+    assert matrix.matrix.columns == ["time"]
+
+
+def test_delete_and_readd(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+
+    # Delete scenario1
+    matrix.delete("scenario1")
+    assert "scenario1" not in matrix.indexes
+    assert len(matrix.indexes) == 1
+
+    # Re-add scenario1 with different data
+    new_ts = Timeseries(
+        pl.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+                "value": [100, 200, 300, 400],
+            }
+        )
+    )
+    matrix.add(new_ts, "scenario1")
+    assert "scenario1" in matrix.indexes
+    assert len(matrix.indexes) == 2
+
+    # Verify the new data
+    retrieved_ts = matrix["scenario1"]
+    assert retrieved_ts.to_frame().select("value").to_pandas()["value"].iloc[0] == 100
 
 
 def test_get_matrix(sample_polars_df):
@@ -347,3 +412,55 @@ def test_matrix_plot_returns_valid_figure(sample_polars_df):
     slider_steps = sliders[0]["steps"]
     assert len(slider_steps) == 2
     assert all("label" in step for step in slider_steps)
+
+
+def test_add_different_time_ranges():
+    # Test adding timeseries with different time ranges
+    initial_df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [1, 2, 3],
+        }
+    )
+    matrix = Matrix(initial_df)
+
+    # Add timeseries with different time range
+    new_ts = Timeseries(
+        pl.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-02", periods=4, freq="D"),  # Different start and length
+                "value": [10, 20, 30, 40],
+            }
+        )
+    )
+    matrix.add(new_ts, "scenario2")
+
+    assert "scenario2" in matrix.indexes
+    # The matrix should contain the union of both time ranges
+    assert matrix.matrix.shape[0] == 5  # 2025-01-01 to 2025-01-05
+
+
+def test_add_empty_timeseries():
+    initial_df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [1, 2, 3],
+        }
+    )
+    matrix = Matrix(initial_df)
+
+    # Add empty timeseries
+    empty_ts = Timeseries(
+        pl.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=0, freq="D"),
+                "value": [],
+            },
+            schema={"time": pl.Datetime, "value": pl.Float64},
+        )
+    )
+
+    matrix.add(empty_ts, "empty_scenario")
+    assert "empty_scenario" in matrix.indexes
+    # The matrix should still have the original 3 rows
+    assert matrix.matrix.shape[0] == 3
