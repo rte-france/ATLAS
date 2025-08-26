@@ -83,7 +83,9 @@ class WindPO(Wind):
         else:
             cfg.logger.debug(f"Skipping constraints for wind unit {self.name} at non-target time {time}")
 
-    def add_objective(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+    def add_objective(
+        self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters, **kwargs
+    ):
         if time in parameters.target_times:
             cfg.logger.debug(f"Adding objective for wind unit {self.name} at time {time}")
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")

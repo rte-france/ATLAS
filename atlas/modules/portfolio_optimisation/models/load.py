@@ -20,7 +20,6 @@ from atlas.solver.solver_interface import OptimisationModel
 class LoadPO(Load):
     load_type: LoadType
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    # variable_cost: Timeseries | LazyTimeseries
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for load equipment."""

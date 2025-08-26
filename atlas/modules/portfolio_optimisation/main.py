@@ -11,13 +11,7 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
-from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
-from atlas.modules.portfolio_optimisation.models.solar import SolarPO
-from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.models.thermal import ThermalPO
-from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
@@ -47,21 +41,11 @@ class PortfolioOptimisationModel(OptimisationModel):
                     continue
 
                 for equipment in cast(list[EquipmentPO], equipment_list):
-                    if hasattr(equipment, "add_variables"):
-                        equipment.add_variables(self, time, self.parameters)
-
-                    if hasattr(equipment, "add_constraints"):
-                        equipment.add_constraints(time, self, self.parameters)
-
-                    if hasattr(equipment, "add_objective"):
-                        equipment_type_name = type(equipment).__name__
-
-                        if equipment_type_name in ("WindPO", "SolarPO"):
-                            cast(WindPO | SolarPO, equipment).add_objective(self, time, self.parameters)
-                        elif equipment_type_name in ("HydroPO", "LoadPO", "StoragePO", "ThermalPO"):
-                            cast(HydroPO | LoadPO | StoragePO | ThermalPO, equipment).add_objective(
-                                self, time, price_forecast or 0.0, self.parameters
-                            )
+                    equipment.add_variables(self, time, self.parameters)
+                    equipment.add_constraints(time, self, self.parameters)
+                    equipment.add_objective(
+                        model=self, time=time, parameters=self.parameters, price_forecast=price_forecast or 0.0
+                    )
 
             self.portfolio.add_constraints(time, self, self.parameters)
 

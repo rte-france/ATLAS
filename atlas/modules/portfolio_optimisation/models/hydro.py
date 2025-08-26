@@ -146,8 +146,9 @@ class HydroPO(Hydro):
         self,
         model: OptimisationModel,
         time: DateTime,
-        price_forecast: float,
         parameters: PortfolioOptimisationParameters,
+        price_forecast: float = 0.0,
+        **kwargs,
     ):
         if time in parameters.hydraulic_op_times:
             cfg.logger.debug(f"Adding objective for hydro unit {self.name} at time {time}")
