@@ -406,7 +406,7 @@ class SolverHelper:
                 var_name = line
                 binaries.append(var_name)
 
-        return objectives, constraints, variables, binaries
+        return {"objectives": objectives, "constraints": constraints, "variables": variables, "binaries": binaries}
 
     @staticmethod
     def read_lp_legacy(filepath):
@@ -526,7 +526,7 @@ class SolverHelper:
                 var_name = line
                 binaries.append(var_name)
 
-        return objectives, constraints, variables, binaries
+        return {"objectives": objectives, "constraints": constraints, "variables": variables, "binaries": binaries}
 
     @staticmethod
     def read_lp_custom(filepath):

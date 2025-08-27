@@ -73,7 +73,7 @@ class HydroPO(Hydro):
             volume = self.maximum_power.get_value(time) * fragment.volume
 
             model.add_continuous_variable(
-                name=f"{self.name}_power_level_frag_{category}_at_{time}",
+                name=f"{self.name}_power_level_frag_{category}_{time}",
                 lower_bound=0,
                 upper_bound=volume,
             )
@@ -108,8 +108,7 @@ class HydroPO(Hydro):
             stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
 
             power_level_fragment_sum_var = sum(
-                model.get_variable(f"{self.name}_power_level_frag_{category}_at_{time}")
-                for category in self.fragment_data
+                model.get_variable(f"{self.name}_power_level_frag_{category}_{time}") for category in self.fragment_data
             )
 
         if time in parameters.target_times:
@@ -158,7 +157,7 @@ class HydroPO(Hydro):
                 if time in parameters.target_times:
                     model.add_objective(
                         fragment_price
-                        * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
+                        * model.get_variable(f"{self.name}_power_level_frag_{k}_{time}")
                         * parameters.timestep.total_hours(),
                         direction="minimize",
                     )
@@ -166,7 +165,7 @@ class HydroPO(Hydro):
                 else:
                     model.add_objective(
                         -(price_forecast - fragment_price)
-                        * model.get_variable(f"{self.name}_power_level_frag_{k}_at_{time}")
+                        * model.get_variable(f"{self.name}_power_level_frag_{k}_{time}")
                         * parameters.timestep.total_hours(),
                         direction="minimize",
                     )

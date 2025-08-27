@@ -301,7 +301,7 @@ class PortfolioPO(Portfolio):
         if "hydro" in self.equipments and time in parameters.hydraulic_op_times:
             for obj in cast(list[HydroPO], self.equipments["hydro"]):
                 for category in obj.fragment_data.keys():
-                    var = model.get_variable(f"{obj.name}_power_level_frag_{category}_at_{time}")
+                    var = model.get_variable(f"{obj.name}_power_level_frag_{category}_{time}")
                     if var is not None:
                         total_power += var
 

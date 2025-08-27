@@ -37,7 +37,7 @@ class PortfolioOptimisationModel(OptimisationModel):
 
             for equipment_type in self.portfolio.equipments:
                 equipment_list = self.portfolio.equipments.get(equipment_type, [])
-                if equipment_type != "thermal":  # TODO
+                if equipment_type == "thermal":  # TODO
                     continue
 
                 for equipment in cast(list[EquipmentPO], equipment_list):
@@ -48,7 +48,6 @@ class PortfolioOptimisationModel(OptimisationModel):
                     )
 
             self.portfolio.add_constraints(time, self, self.parameters)
-
             self.portfolio.add_objective(self, time, self.parameters)
 
             cfg.logger.info(f"Completed optimisation model at time: {time}")
@@ -148,6 +147,7 @@ class PortfolioOptimisationOrchestrator:
 
         # try:
         model.build_model(max_optimisation_times)
+        model.export_model("po.lp")
         model.optimise()
         return model
 
