@@ -5,7 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import Order

@@ -8,7 +8,6 @@ This file is part of the ATLAS project.
 import os
 from typing import Any
 
-import pandas as pd
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -229,9 +228,10 @@ class DAOStorage:
         # Loop on all the actors that have EV storage capacity
         for equipment in dataset.storage:
             # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
+            end_date = parameters.end_date - parameters.time_step
             local_index = generate_datetimes(
                 parameters.start_date,
-                parameters.end_date - parameters.time_step,
+                end_date,
                 parameters.time_step,
             )
 
@@ -247,8 +247,8 @@ class DAOStorage:
 
             cfg.logger.debug(f"Equipment {str(equipment.name)}")
 
-            buy_submitted_volumes = Timeseries(pd.DataFrame({"time": local_index, "value": [0] * len(local_index)}))
-            sell_submitted_volumes = Timeseries(pd.DataFrame({"time": local_index, "value": [0] * len(local_index)}))
+            buy_submitted_volumes = Timeseries.from_index(parameters.start_date, parameters.time_step, end_date, 0)
+            sell_submitted_volumes = Timeseries.from_index(parameters.start_date, parameters.time_step, end_date, 0)
 
             # if the stock of the equipment at start date is not defined, initiate it
             initial_stock = DAOStorage.initiate_stock(equipment, parameters)

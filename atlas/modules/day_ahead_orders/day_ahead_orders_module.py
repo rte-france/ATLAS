@@ -16,8 +16,8 @@ from atlas.modules.day_ahead_orders.orders_formulation.dao_load import DAOLoad
 from atlas.modules.day_ahead_orders.orders_formulation.dao_storage import DAOStorage
 from atlas.modules.day_ahead_orders.orders_formulation.hydraulic import Hydraulic
 from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable import NonDispatchable
-from atlas.modules.day_ahead_orders.orders_formulation.wind_pv import WindPV
 from atlas.modules.day_ahead_orders.orders_formulation.thermic_bidding import ThermicBidding
+from atlas.modules.day_ahead_orders.orders_formulation.wind_pv import WindPV
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 

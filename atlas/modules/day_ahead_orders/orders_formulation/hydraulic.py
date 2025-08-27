@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 
 import math
 
-import pandas as pd
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -52,13 +51,13 @@ class Hydraulic:
                 delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 
             # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
+            end_date = parameters.end_date - parameters.time_step
             local_index = generate_datetimes(
                 parameters.start_date,
-                parameters.end_date - parameters.time_step,
+                end_date,
                 parameters.time_step,
             )
-
-            submitted_volumes = Timeseries(pd.DataFrame({"time": local_index, "value": [0] * len(local_index)}))
+            submitted_volumes = Timeseries.from_index(parameters.start_date, parameters.time_step, end_date, 0)
 
             local_max_energy = (
                 equipment.maximum_energy.set_frequency(parameters.time_step, False)
