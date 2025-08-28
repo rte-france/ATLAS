@@ -10,7 +10,6 @@ from pendulum import Duration
 import atlas.config as cfg
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -180,8 +179,6 @@ class PortfolioOptimisationModule(
             obj,
             Timeseries
             | LazyTimeseries
-            | ForecastingMatrix
-            | LazyForecastingMatrix
             | ScenarioMatrix
             | LazyScenarioMatrix,
         )
@@ -231,6 +228,15 @@ class PortfolioOptimisationModule(
             if len(timeseries_obj.dataframe) < 2:
                 return None
             return infer_frequency(timeseries_obj.dataframe)
+        elif isinstance(timeseries_obj, ScenarioMatrix | LazyScenarioMatrix):
+            # For ScenarioMatrix and LazyScenarioMatrix, get frequency from matrix
+            if isinstance(timeseries_obj, LazyScenarioMatrix):
+                matrix_df = timeseries_obj.matrix.collect()
+            else:
+                matrix_df = timeseries_obj.matrix
+            if len(matrix_df) < 2:
+                return None
+            return infer_frequency(matrix_df)
         elif hasattr(timeseries_obj, "timeseries") and hasattr(timeseries_obj.timeseries, "dataframe"):
             # For matrix types that might have a timeseries attribute
             if len(timeseries_obj.timeseries.dataframe) < 2:

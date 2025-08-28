@@ -200,7 +200,7 @@ class HydroPO(Hydro):
         else:
             return self.initial_level.get_value(parameters.start_date - parameters.timestep)
 
-    def _calculate_marginal_weights(self, energy_level: float, timestep: Duration) -> dict:
+    def _calculate_marginal_weights(self, energy_level: float, timestep: Duration) -> dict:  # noqa: ARG002
         """Calculate marginal value weights based on current energy level."""
         storage_indices = self.storage_marginal_value.indexes
 
@@ -218,11 +218,11 @@ class HydroPO(Hydro):
 
         if x_min_candidates:
             xp_min = max(x_min_candidates, key=lambda x: int(x))
-            weights["level_inf"] = self.storage_marginal_value.select(xp_min).set_frequency(timestep, inplace=False)  # type: ignore[assignment]
+            weights["level_inf"] = self.storage_marginal_value.select(xp_min)  # type: ignore[assignment]
 
         if x_max_candidates:
             xp_max = min(x_max_candidates, key=lambda x: int(x))
-            weights["level_sup"] = self.storage_marginal_value.select(xp_max).set_frequency(timestep, inplace=False)  # type: ignore[assignment]
+            weights["level_sup"] = self.storage_marginal_value.select(xp_max)  # type: ignore[assignment]
 
         # Calculate interpolation weights if we have both bounds
         if weights["has_min"] and weights["has_max"]:
