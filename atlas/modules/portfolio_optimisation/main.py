@@ -29,7 +29,7 @@ class PortfolioOptimisationModel(OptimisationModel):
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 
         for time in max_optimisation_times:
-            cfg.logger.info(f"Building optimisation model at time: {time}..")
+            cfg.logger.debug(f"Building optimisation model at time: {time}..")
 
             self.portfolio.add_variables(self, time, self.parameters)
 
@@ -50,7 +50,7 @@ class PortfolioOptimisationModel(OptimisationModel):
             self.portfolio.add_constraints(time, self, self.parameters)
             self.portfolio.add_objective(self, time, self.parameters)
 
-            cfg.logger.info(f"Completed optimisation model at time: {time}")
+            cfg.logger.debug(f"Completed optimisation model at time: {time}")
 
         cfg.logger.info(f"Completed optimisation model for portfolio: {self.portfolio.name}.")
 
@@ -60,15 +60,6 @@ class PortfolioOptimisationModel(OptimisationModel):
 
         try:
             solution_info = self.solve(self.parameters.solver_timeout.total_seconds())
-
-            cfg.logger.info(
-                f"Portfolio '{self.portfolio.name}' optimisation completed with status: {solution_info.status.name}"
-            )
-            if solution_info.objective_value is not None:
-                cfg.logger.debug(f"Objective value: {solution_info.objective_value}")
-            if solution_info.solve_time is not None:
-                cfg.logger.debug(f"Solve time: {solution_info.solve_time}s")
-
             return solution_info
 
         except Exception as e:
