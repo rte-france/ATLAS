@@ -83,8 +83,8 @@ class Hydraulic:
             else:
                 energy_level = equipment.initial_level.get_value(parameters.start_date)
 
-            xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index)
-            xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index)
+            xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index())
+            xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index())
 
             if xmin:
                 xpmin = max(xmin, key=lambda x: int(x))
