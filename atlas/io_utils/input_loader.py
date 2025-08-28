@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 Module that implements Input Loader
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Literal, cast, get_args, get_origin
 
@@ -28,6 +28,63 @@ from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.typing import get_type_attribute
+
+
+def _process_single_object_math(
+    obj: dict[str, Any],
+    object_type: str,
+    config: InputLoaderConfig,
+    obj_index: int,
+) -> dict[str, Any]:
+    """
+    Standalone function to process a single object's math attributes.
+    Used by multiprocessing worker processes.
+    """
+    try:
+        object_name = cast(str, obj["name"])
+        cfg.logger.debug(f"Processing math objects for '{object_name}' (type: {object_type})")
+
+        object_instantiated: dict[str, Any] = {}
+
+        for key, value in obj.items():
+            try:
+                attribute_type = get_type_attribute(object_type, key)
+
+                if value == "timeseries" and attribute_type in (Timeseries, LazyTimeseries):
+                    object_instantiated[key] = InputLoader._load_timeseries(
+                        object_type=object_type,
+                        name=object_name,
+                        attribute_name=key,
+                        config=config,
+                    )
+
+                elif value in ["forecasting_matrix", "scenario_matrix"] and attribute_type in (
+                    ForecastingMatrix,
+                    LazyForecastingMatrix,
+                    ScenarioMatrix,
+                    LazyScenarioMatrix,
+                ):
+                    object_instantiated[key] = InputLoader._load_matrix(
+                        name=object_name,
+                        attribute_name=key,
+                        object_type=object_type,
+                        matrix_type=value,
+                        config=config,
+                    )
+                else:
+                    object_instantiated[key] = value
+
+            except Exception as e:
+                raise FileParsingError(
+                    f"Error processing attribute '{key}' for object '{object_name}' of type '{object_type}': {str(e)}"
+                ) from e
+
+        return object_instantiated
+
+    except Exception as e:
+        if isinstance(e, FileParsingError):
+            raise
+        raise FileParsingError(f"Error processing object {obj_index} of type '{object_type}': {str(e)}") from e
 
 
 class InputLoader:
@@ -181,95 +238,51 @@ class InputLoader:
         config: InputLoaderConfig,
     ) -> list[dict[str, Any]]:
         """
-        Parallel version of _build_math_objects for better performance with I/O operations.
+        Parallel version of _build_math_objects using multiprocessing for better performance.
+        Falls back to sequential processing if multiprocessing fails.
         """
         results: list[dict[str, Any]] = [{}] * len(object_list)
         max_workers = min(4, len(object_list))  # Limit concurrent workers
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks
-            futures = {}
-            for i, obj in enumerate(object_list):
-                future = executor.submit(
-                    cls._process_single_object_math,
-                    obj,
-                    object_type,
-                    config,
-                    i,  # Pass index for error reporting
-                )
-                futures[future] = i
+        try:
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all tasks
+                futures = {}
+                for i, obj in enumerate(object_list):
+                    future = executor.submit(
+                        _process_single_object_math,
+                        obj,
+                        object_type,
+                        config,
+                        i,  # Pass index for error reporting
+                    )
+                    futures[future] = i
 
-            # Collect results maintaining order
-            for future in as_completed(futures):
-                idx = futures[future]
+                # Collect results maintaining order
+                for future in as_completed(futures):
+                    idx = futures[future]
+                    try:
+                        results[idx] = future.result()
+                    except Exception as e:
+                        # Re-raise with context about which object failed
+                        obj_name = object_list[idx].get("name", f"object_{idx}")
+                        raise FileParsingError(
+                            f"Error processing object '{obj_name}' of type '{object_type}': {str(e)}"
+                        ) from e
+
+        except (OSError, ImportError, RuntimeError) as e:
+            # Fallback to sequential processing if multiprocessing fails
+            cfg.logger.warning(f"Multiprocessing failed ({str(e)}), falling back to sequential processing")
+            for i, obj in enumerate(object_list):
                 try:
-                    results[idx] = future.result()
+                    results[i] = _process_single_object_math(obj, object_type, config, i)
                 except Exception as e:
-                    # Re-raise with context about which object failed
-                    obj_name = object_list[idx].get("name", f"object_{idx}")
+                    obj_name = object_list[i].get("name", f"object_{i}")
                     raise FileParsingError(
                         f"Error processing object '{obj_name}' of type '{object_type}': {str(e)}"
                     ) from e
 
         return results
-
-    @classmethod
-    def _process_single_object_math(
-        cls,
-        obj: dict[str, Any],
-        object_type: str,
-        config: InputLoaderConfig,
-        obj_index: int,
-    ) -> dict[str, Any]:
-        """
-        Process a single object's math attributes. Used by parallel processing.
-        """
-        try:
-            object_name = cast(str, obj["name"])
-            cfg.logger.debug(f"Processing math objects for '{object_name}' (type: {object_type})")
-
-            object_instantiated: dict[str, Any] = {}
-
-            for key, value in obj.items():
-                try:
-                    attribute_type = get_type_attribute(object_type, key)
-
-                    if value == "timeseries" and attribute_type in (Timeseries, LazyTimeseries):
-                        object_instantiated[key] = cls._load_timeseries(
-                            object_type=object_type,
-                            name=object_name,
-                            attribute_name=key,
-                            config=config,
-                        )
-
-                    elif value in ["forecasting_matrix", "scenario_matrix"] and attribute_type in (
-                        ForecastingMatrix,
-                        LazyForecastingMatrix,
-                        ScenarioMatrix,
-                        LazyScenarioMatrix,
-                    ):
-                        object_instantiated[key] = cls._load_matrix(
-                            name=object_name,
-                            attribute_name=key,
-                            object_type=object_type,
-                            matrix_type=value,
-                            config=config,
-                        )
-                    else:
-                        object_instantiated[key] = value
-
-                except Exception as e:
-                    raise FileParsingError(
-                        f"Error processing attribute '{key}' for object '{object_name}' "
-                        f"of type '{object_type}': {str(e)}"
-                    ) from e
-
-            return object_instantiated
-
-        except Exception as e:
-            if isinstance(e, FileParsingError):
-                raise
-            raise FileParsingError(f"Error processing object {obj_index} of type '{object_type}': {str(e)}") from e
 
     @classmethod
     def _build_business_models(
