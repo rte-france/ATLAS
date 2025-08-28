@@ -95,7 +95,7 @@ class PortfolioPO(Portfolio):
             reserves_down,
             automated_reserves_up,
             automated_reserves_down,
-        ) = self._compute_reserves_and_power_for_time(time, parameters)
+        ) = self._compute_reserves_at_time(time, parameters)
 
         model.add_constraint(
             model.get_variable(f"contracted_diff_up_{self.name}_{time}") >= reserves_up - sum_reserves_up_var
@@ -433,7 +433,7 @@ class PortfolioPO(Portfolio):
 
         return power_level_variables
 
-    def _compute_reserves_and_power_for_time(
+    def _compute_reserves_at_time(
         self, time: DateTime, parameters: PortfolioOptimisationParameters
     ) -> tuple[float, float, float, float, float, float]:
         """Compute reserves and power metrics for a specific time."""
