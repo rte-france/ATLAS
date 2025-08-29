@@ -16,7 +16,7 @@ from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_baseload_orders import ThermicBaseloadOrders
+from atlas.modules.day_ahead_orders.orders_formulation.thermic_base_load_orders import ThermicBaseLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermic_optimization import ThermicOptimization
 from atlas.modules.day_ahead_orders.orders_formulation.thermic_unit_orders import ThermicUnitOrders
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
@@ -52,7 +52,7 @@ class ThermicIntermediateLoadOrders:
             return None
 
         # Solve the optimisation programs
-        res = ThermicOptimization.solve_optimization_programs(equipments_list, parameters)  # TODO #######
+        res = ThermicOptimization.solve_optimization_programs(equipments_list, parameters)
 
         for thermal_unit in equipments_list:
             # Consider the unique cases
@@ -67,7 +67,7 @@ class ThermicIntermediateLoadOrders:
                 )
 
                 # Extract the list of online time frames
-                list_of_online_timeframes = ThermicBaseloadOrders.extract_online_sequences(
+                list_of_online_timeframes = ThermicBaseLoadOrders.extract_online_sequences(
                     thermal_unit, states_sequence, orders_time, parameters, case=case
                 )
 
@@ -83,7 +83,7 @@ class ThermicIntermediateLoadOrders:
             overlapping_blocks = ThermicIntermediateLoadOrders.get_overlapping_timeframes(online_timeframes)
 
             if overlapping_blocks:
-                # Retrive the orders corresponding to the first order of each time frame
+                # Retrieve the orders corresponding to the first order of each time frame
                 # time frames are mutually exclusive provided that the unit's minimum power is not null
                 # over the whole orders time sequence
                 if sum(thermal_unit.minimum_power.get_value(t) for t in orders_time) > 0.0:
@@ -147,7 +147,7 @@ class ThermicIntermediateLoadOrders:
         are identical, then cases = ["Low", "Medium"]
 
         Arguments:
-        `results` : the dictionnary of results
+        `results` : the dictionary of results
         `thermal_unit`the unit from which the results need to be retrieved
 
         Returns:
@@ -208,7 +208,7 @@ class ThermicIntermediateLoadOrders:
                 # the current scenario pair is perfectly overlapping
                 to_discard.append(pair[0])
 
-        # Remove scenarios to be discarded from the intial list. By construction, at least one scenario
+        # Remove scenarios to be discarded from the initial list. By construction, at least one scenario
         # will not be discarded.
         for scenario in to_discard:
             collapsed_outcomes.remove(scenario)
@@ -240,7 +240,7 @@ class ThermicIntermediateLoadOrders:
 
         Arguments :
         `unit`: the unit to be analysed
-        `res` : the dictionnary of results
+        `res` : the dictionary of results
         `case` : a string corresponding to the name of the scenario
         `p` : the tuple of parameters
 
@@ -261,7 +261,7 @@ class ThermicIntermediateLoadOrders:
             0 * res[unit.name][case]["OFF"] + res[unit.name][case]["ON_UP"] + res[unit.name][case]["ON_DOWN"]
         )
 
-        # Now add the conditionnal states if relevant :
+        # Now add the conditional states if relevant :
         if min(T_stable, unit.minimum_time_on) >= 2:
             states_sequence += res[unit.name][case]["ON_FLAT"]
 

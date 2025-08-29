@@ -19,7 +19,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermic_unit_orders impor
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
-class ThermicBaseloadOrders:
+class ThermicBaseLoadOrders:
     # ------ Order formulation for each strategy ------
     # Base
     @staticmethod
@@ -52,7 +52,7 @@ class ThermicBaseloadOrders:
         # Start the formulation of the orders
         for unit in equipments_list:
             # Get the states sequence and the inconsistency status of the unit.
-            states_sequence, inconsistent = ThermicBaseloadOrders.determine_baseload_states_sequence(unit, parameters)
+            states_sequence, inconsistent = ThermicBaseLoadOrders.determine_baseload_states_sequence(unit, parameters)
             if inconsistent:  # skip the unit if its states sequence is inconsistent.
                 cfg.logger.warning(
                     f"*** WARNING ***\n Equipment {unit.name}'s states sequence is inconsistent. "
@@ -61,7 +61,7 @@ class ThermicBaseloadOrders:
                 continue
 
             # Retrieve the time steps over which the unit is oneline.
-            list_of_online_timeframes = ThermicBaseloadOrders.extract_online_sequences(
+            list_of_online_timeframes = ThermicBaseLoadOrders.extract_online_sequences(
                 states_sequence, orders_time, parameters
             )
 
@@ -89,7 +89,7 @@ class ThermicBaseloadOrders:
         The sequence of states is computed over the extended time frame, retrieved with the input parameters.
         For the baseload unit, the extentedTimeFrame corresponds to startDate - T_traceback * TimeStep , ... , endDate + T_traceback * TimeStep
 
-        REMARK : if there are more than one start up and one shutdown over the period, the program will be considred as inconsistent.
+        REMARK : if there are more than one start up and one shutdown over the period, the program will be considered as inconsistent.
 
         Arguments :
         unit : the unit to be analysed
@@ -198,7 +198,7 @@ class ThermicBaseloadOrders:
                     inconsistent = True
                     return states_sequence, inconsistent
 
-                # See if the spell between the end of the start up and the begnning of the shutdown is greater than T_on
+                # See if the spell between the end of the start up and the beginning of the shutdown is greater than T_on
                 if (end_of_shutdown - started_at_t).total_minutes() >= 0 and int(
                     math.floor((stopped_at_t - end_of_start_up).total_minutes() / parameters.time_step)
                 ) < T_on:

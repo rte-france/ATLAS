@@ -15,7 +15,7 @@ from atlas.enum import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_baseload_orders import ThermicBaseloadOrders
+from atlas.modules.day_ahead_orders.orders_formulation.thermic_base_load_orders import ThermicBaseLoadOrders
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
@@ -174,7 +174,7 @@ class ThermicUnitOrders:
         # step longer than the usual start-up and shutdown periods.
         # In case of startup: the last startup timestep, at Pmin, is the first one of the stable state sequence (state = 1),
         # to be removed from the flexible_time_frame.
-        # In case of shutdown: the first shutdown timestep, at Pmin, is the last one of the orevious stable state sequence,
+        # In case of shutdown: the first shutdown timestep, at Pmin, is the last one of the previous stable state sequence,
         # to be removed from the flexible_time_frame.
         flexible_time_frame = []
         for t in orders_time:
@@ -247,7 +247,7 @@ class ThermicUnitOrders:
                 dataset.order.append(flexible_part)
 
             # Part 2: reserve requirement orders
-            # Automated downard reserves requirements
+            # Automated downward reserves requirements
             if automated_reserves_down_procured.get_value(t) > 0.0:
                 # This order will be the child of the current inflexible order.
                 # Initialize the order object.
@@ -464,7 +464,7 @@ class ThermicUnitOrders:
                     flexible_bid_name = flex_type + config_bid_name
                     flexible_bid = next((bid for bid in dataset.order if bid.name == flexible_bid_name), None)
                     if flexible_bid is not None:
-                        ThermicBaseloadOrders.create_parent_child_link(dataset, bid_output, flexible_bid, case, unit, t)
+                        ThermicBaseLoadOrders.create_parent_child_link(dataset, bid_output, flexible_bid, case, unit, t)
 
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]

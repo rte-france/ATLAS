@@ -10,10 +10,11 @@ from pydantic_extra_types.pendulum_dt import DateTime
 import atlas.config as cfg
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_baseload_orders import ThermicBaseloadOrders
+from atlas.modules.day_ahead_orders.orders_formulation.thermic_base_load_orders import ThermicBaseLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermic_intermediate_load_orders import (
     ThermicIntermediateLoadOrders,
 )
+from atlas.modules.day_ahead_orders.orders_formulation.thermic_peak_load_orders import ThermicPeakLoadOrders
 
 ##### Etat des lieux au 16.10.2020 ####
 #
@@ -59,7 +60,7 @@ class ThermicBidding:
 
         # Formulate baseload orders
         cfg.logger.info("Formulation of the thermic baseload orders...")
-        ThermicBaseloadOrders.formulate_thermic_baseload_orders(dataset, orders_time, parameters)
+        ThermicBaseLoadOrders.formulate_thermic_baseload_orders(dataset, orders_time, parameters)
 
         # Formulate intermediate load orders
         cfg.logger.info(
@@ -71,14 +72,14 @@ class ThermicBidding:
         cfg.logger.info(
             "Intermediate load orders formulation completed. Moving on to the formulation of the peak load orders..."
         )
-        # TODO
-        # ThermicBiding.formulate_thermic_peak_load_orders(dataset, orders_time, parameters)
+
+        ThermicPeakLoadOrders.formulate_thermic_peak_load_orders(dataset, orders_time, parameters)
         cfg.logger.info("Peak load orders formulation completed.")
 
         # This is done last and not during the bidding process because of mutually exclusive programs, and to simplify debug
         cfg.logger.info("Computing maximum sell volumes...")
         # TODO
-        # ThermicBiding.computeDASellSubmittedVolumes(dataset, orders_time)
+        # ThermicBidding.computeDASellSubmittedVolumes(dataset, orders_time)
         cfg.logger.info("End of computation.")
 
         return None

@@ -6,9 +6,8 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
+from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
 
 class ThermicOptimization:
@@ -18,16 +17,16 @@ class ThermicOptimization:
         Solves the optimization programs for a list of equipment given the three price curves.
 
         Arguments:
-        equiment_list : a list of thermal equipements
+        equiment_list : a list of thermal equipments
         parameters : a signedTuple of parameters
 
         Returns:
-        results : a two stage dictionnary containing for each equipment the optimal quantities given a price curve.
-        lp_files : a two stage dictionnary containing for each equipment and each price curve the associated lp file
+        results : a two stage dictionary containing for each equipment the optimal quantities given a price curve.
+        lp_files : a two stage dictionary containing for each equipment and each price curve the associated lp file
                     of the optimization program.
         """
 
-        # create a dictionnary that will store the program's outcomes.
+        # create a dictionary that will store the program's outcomes.
         results = {}
 
         for unit, i in zip(equipments_list, range(len(equipments_list)), strict=False):
@@ -65,8 +64,8 @@ class ThermicOptimization:
 
             # Initialize the output of the function
 
-            # Solve three times the optmization program, one for each price curve
-            # and store the optimal output quantities into the dictionnaries
+            # Solve three times the optimization program, one for each price curve
+            # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
                 res = solve_thermic_optimization_program(unit, price, value, parameters)  # TODO #####################
                 results[unit.name][value] = res
