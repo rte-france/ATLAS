@@ -167,10 +167,10 @@ class Clearing(OptimisationModel):
             for mc_order in mc_market_area.mc_orders.values():
                 if not mc_order.qmin:
                     max_power = mc_order.qmax
-                    self.add_continuous_variable(constants.accepted_power_variable_name(mc_order.name), 0.0, max_power)
+                    self.add_continuous_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name), 0.0, max_power)
                 else:
                     self.add_continuous_variable(
-                        constants.accepted_power_variable_name(mc_order.name), -float("inf"), float("inf")
+                        constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name), -float("inf"), float("inf")
                     )
 
     def create_orders_status(self):
@@ -190,7 +190,7 @@ class Clearing(OptimisationModel):
                 for mc_order in mc_market_area.mc_orders.values():
                     # Focus on orders comprising the current time in their duration:
                     if mc_order.start_date <= time < mc_order.end_date_processed:
-                        accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.name))
+                        accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name))
                         accepted_powers.append(mc_order.production_sign * accepted_power)
                 local_balance = self.get_variable(
                     constants.local_balance_variable_name(mc_market_area.name, time_index)
@@ -358,7 +358,7 @@ class Clearing(OptimisationModel):
                 # indivisible and/or mutually excluding orders and linked orders (3.4):
                 if mc_order.id_with_status is not None:
                     order_status = self.get_variable(constants.order_status_variable_name(mc_order.name))
-                    accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.name))
+                    accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name))
                     self.create_min_accepted_power_constraint(
                         mc_market_area.name,
                         mc_order.name,
@@ -407,8 +407,8 @@ class Clearing(OptimisationModel):
     def create_identical_volume_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         for i, order in enumerate(order_coupling.orders[1:]):
             prev_order = order_coupling.orders[i]
-            prev_accepted_power = self.get_variable(constants.accepted_power_variable_name(prev_order.name))
-            accepted_power = self.get_variable(constants.accepted_power_variable_name(order.name))
+            prev_accepted_power = self.get_variable(constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name))
+            accepted_power = self.get_variable(constants.accepted_power_variable_name(order.market_area.name, order.name))
 
             self.add_constraint(
                 accepted_power == prev_accepted_power,
@@ -426,7 +426,7 @@ class Clearing(OptimisationModel):
         for order in order_coupling.orders:
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
-            accepted_power = self.get_variable(constants.accepted_power_variable_name(order.name))
+            accepted_power = self.get_variable(constants.accepted_power_variable_name(order.market_area.name, order.name))
             mc_order = self.input_dataset.mc_orders[order.name]
             if mc_order.order_type == OrderType.Sell:
                 aggregated_accepted_power.append(-accepted_power)
@@ -489,8 +489,8 @@ class Clearing(OptimisationModel):
             prev_order = order_coupling.orders[i]
             if prev_order.qmax == prev_order.qmin or order.qmax == order.qmin:
                 continue
-            prev_accepted_power = self.get_variable(constants.accepted_power_variable_name(prev_order.name))
-            accepted_power = self.get_variable(constants.accepted_power_variable_name(order.name))
+            prev_accepted_power = self.get_variable(constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name))
+            accepted_power = self.get_variable(constants.accepted_power_variable_name(order.market_area.name, order.name))
 
             prev_ratio = (prev_accepted_power - prev_order.qmin) / (prev_order.qmax - prev_order.qmin)
             ratio = (accepted_power - order.qmin) / (order.qmax - order.qmin)
@@ -507,7 +507,7 @@ class Clearing(OptimisationModel):
         objective = []
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             for mc_order in mc_market_area.mc_orders.values():
-                accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.name))
+                accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name))
                 altered_price = mc_order.price - mc_order.production_sign * lambda1
                 objective.append(-mc_order.production_sign * altered_price * mc_order.duration * accepted_power / 60)
         return sum(objective)
@@ -550,7 +550,7 @@ class Clearing(OptimisationModel):
                     not_tso = not mc_order.is_agent_tso
                     not_sale = mc_order.order_type == OrderType.Buy
                     if is_available and not_tso and not_sale:
-                        tso_sold_power += self.get_variable(constants.accepted_power_variable_name(order_name))
+                        tso_sold_power += self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, order_name))
         return tso_sold_power
 
     def get_tso_bought_power(self, time: int, control_block: ControlBlockMC):
@@ -562,7 +562,7 @@ class Clearing(OptimisationModel):
                     not_tso = not mc_order.is_agent_tso
                     is_sale = mc_order.order_type == OrderType.Sell
                     if is_available and not_tso and is_sale:
-                        tso_bought_power.append(self.get_variable(constants.accepted_power_variable_name(order_name)))
+                        tso_bought_power.append(self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, order_name)))
         return sum(tso_bought_power)
 
     @staticmethod
@@ -609,6 +609,6 @@ class Clearing(OptimisationModel):
         accepted_powers = {}
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             for mc_order in mc_market_area.mc_orders.values():
-                accepted_power_name = constants.accepted_power_variable_name(mc_order.name)
+                accepted_power_name = constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
                 accepted_powers[mc_order.name] = self.get_variable(accepted_power_name)
         return accepted_powers

@@ -27,8 +27,8 @@ def local_balance_variable_name(market_area_name: str, time_index: int) -> str:
     return f"balance_on_{market_area_name}_at_{time_index}"
 
 
-def accepted_power_variable_name(order_name: str) -> str:
-    return f"qo_{order_name}"
+def accepted_power_variable_name(market_area_name: str, order_name: str) -> str:
+    return f"qo_{market_area_name}_{order_name}"
 
 
 def order_status_variable_name(order_name: str) -> str:
