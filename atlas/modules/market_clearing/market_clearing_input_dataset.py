@@ -99,7 +99,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             market_area_orders = {
                 order_name: mc_order
                 for order_name, mc_order in mc_orders.items()
-                if mc_order.market_area == market_area
+                if mc_order.market_area.name == market_area.name
             }
             market_area_dump = {
                 **market_area.model_dump(),

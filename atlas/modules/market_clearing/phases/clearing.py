@@ -205,22 +205,22 @@ class Clearing(OptimisationModel):
             for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
                 exchanges_sum = []
                 for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-                    if mc_market_area not in [
-                        mc_border.uphill_market_area,
-                        mc_border.downhill_market_area,
+                    if market_area_name not in [
+                        mc_border.uphill_market_area.name,
+                        mc_border.downhill_market_area.name,
                     ]:
                         continue
                     if is_atc and mc_border.loss_factor and mc_border.loss_factor != 0.0:
-                        if mc_border.uphill_market_area == mc_market_area:
+                        if mc_border.uphill_market_area.name == market_area_name:
                             exchanges_sum.append(
                                 self.get_variable(constants.border_export_variable_name(border_name, time_index))
                             )
-                        elif mc_border.downhill_market_area == mc_market_area:
+                        elif mc_border.downhill_market_area.name == market_area_name:
                             exchanges_sum.append(
                                 -self.get_variable(constants.border_import_variable_name(border_name, time_index))
                             )
                     else:
-                        border_sign = 1 if mc_market_area == mc_border.uphill_market_area else -1
+                        border_sign = 1 if market_area_name == mc_border.uphill_market_area.name else -1
                         exchanges_sum.append(
                             border_sign
                             * self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
