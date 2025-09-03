@@ -177,10 +177,7 @@ class PortfolioOptimisationModule(
         """Check if an object is a timeseries-like type that can have frequency adjusted."""
         return isinstance(
             obj,
-            Timeseries
-            | LazyTimeseries
-            | ScenarioMatrix
-            | LazyScenarioMatrix,
+            Timeseries | LazyTimeseries | ScenarioMatrix | LazyScenarioMatrix,
         )
 
     def _validate_and_fix_timeseries(self, timeseries_obj, expected_timestep: Duration, context: str) -> dict:

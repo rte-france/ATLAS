@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 
 from pendulum import DateTime
 
+from atlas.math.timeseries import Timeseries
+
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -31,7 +33,7 @@ class ThermalInitialConditions:
         parameters: PortfolioOptimisationParameters,
         initial_times: list[DateTime],
         extended_start_date: DateTime,
-        power_history: dict,
+        power_history: Timeseries | None,
         day_zero: bool,
     ) -> None:
         """Combination 1: T_stop=False, T_start=False, T_stable=False"""
@@ -113,7 +115,7 @@ class ThermalInitialConditions:
         parameters: PortfolioOptimisationParameters,
         initial_times: list[DateTime],
         extended_start_date: DateTime,
-        power_history: dict,
+        power_history: Timeseries | None,
         day_zero: bool,
     ) -> None:
         """Combination 2: T_stop=True, T_start=False, T_stable=False"""
@@ -220,7 +222,7 @@ class ThermalInitialConditions:
         parameters: PortfolioOptimisationParameters,
         initial_times: list[DateTime],
         extended_start_date: DateTime,
-        power_history: dict,
+        power_history: Timeseries | None,
         day_zero: bool,
     ) -> None:
         """Combination 3: T_stop=False, T_start=True, T_stable=False"""
@@ -444,7 +446,7 @@ class ThermalInitialConditions:
         parameters: PortfolioOptimisationParameters,
         initial_times: list[DateTime],
         extended_start_date: DateTime,
-        power_history: dict,
+        power_history: Timeseries | None,
         day_zero: bool,
     ) -> None:
         """Combination 4: T_stop=True, T_start=True, T_stable=False"""
@@ -539,7 +541,7 @@ class ThermalInitialConditions:
         parameters: PortfolioOptimisationParameters,
         initial_times: list[DateTime],
         extended_start_date: DateTime,
-        power_history: dict,
+        power_history: Timeseries | None,
         day_zero: bool,
     ) -> None:
         """Combination 5: T_stop=False, T_start=False, T_stable=True"""
@@ -896,7 +898,7 @@ class ThermalInitialConditions:
         parameters: PortfolioOptimisationParameters,
         initial_times: list[DateTime],
         extended_start_date: DateTime,
-        power_history: dict,
+        power_history: Timeseries | None,
         day_zero: bool,
     ) -> None:
         """Combination 6: T_stop=True, T_start=False, T_stable=True"""
@@ -1156,7 +1158,7 @@ class ThermalInitialConditions:
         parameters: PortfolioOptimisationParameters,
         initial_times: list[DateTime],
         extended_start_date: DateTime,
-        power_history: dict,
+        power_history: Timeseries | None,
         day_zero: bool,
     ) -> None:
         """Combination 7: T_stop=False, T_start=True, T_stable=True"""
@@ -1291,7 +1293,7 @@ class ThermalInitialConditions:
         parameters: PortfolioOptimisationParameters,
         initial_times: list[DateTime],
         extended_start_date: DateTime,
-        power_history: dict,
+        power_history: Timeseries | None,
         day_zero: bool,
     ) -> None:
         """Combination 8: T_stop=True, T_start=True, T_stable=True"""

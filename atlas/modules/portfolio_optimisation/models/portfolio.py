@@ -435,7 +435,7 @@ class PortfolioPO(Portfolio):
 
     def _compute_reserves_at_time(
         self, time: DateTime, parameters: PortfolioOptimisationParameters
-    ) -> tuple[float, float, float, float, float, float]:
+    ) -> tuple[float, float, float, float]:
         """Compute reserves and power metrics for a specific time."""
         sum_reserves_up: float = 0
         sum_reserves_down: float = 0

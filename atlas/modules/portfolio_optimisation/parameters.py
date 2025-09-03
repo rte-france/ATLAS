@@ -90,7 +90,8 @@ class PortfolioOptimisationParameters(AbstractParameters):
     )
     electric_vehicle_number_of_fragments: int = Field(3, description="Number of power fragments for electric vehicle.")
     electric_vehicle_reserve_duration: Duration = Field(
-        lambda: duration(minutes=1), description="Manual reserve duration for electric vehicle equipment."
+        default_factory=lambda: duration(minutes=1),
+        description="Manual reserve duration for electric vehicle equipment.",
     )
     hydraulic_minimal_fragment_size: int = Field(
         100, description="Minimal amount of power for an offer to be formulated for hydraulic."
