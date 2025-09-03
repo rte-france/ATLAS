@@ -157,7 +157,7 @@ class ThermicIntermediateLoadOrders:
         """
 
         # Quick sanity check on the class of the equipment supplied as input.
-        if not type(thermal_unit).__name__ == "Thermic":
+        if not type(thermal_unit).__name__ == "Thermal":
             cfg.logger.error(f"*** WARNING ***\n Equipement {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
 
