@@ -193,8 +193,8 @@ class StoragePO(Storage):
                 displacement_energy = 0
                 displacement_energy_prev = 0
             else:
-                displacement_energy = self.displacement_energy.get_value(time)
-                displacement_energy_prev = self.displacement_energy.get_value(prev_time)
+                displacement_energy = int(self.displacement_energy.get_value(time))
+                displacement_energy_prev = int(self.displacement_energy.get_value(prev_time))
 
             if time == parameters.start_date:
                 model.add_constraint(

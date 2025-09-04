@@ -34,7 +34,7 @@ class ThermalPO(Thermal):
 
     maximum_fcr: float
     maximum_afrr: float
-    # minimum_power: Timeseries | LazyTimeseries
+    minimum_power: Timeseries | LazyTimeseries
     maximum_power: Timeseries | LazyTimeseries
     variable_cost: Timeseries | LazyTimeseries
     # startup_cost: Timeseries | LazyTimeseries
@@ -249,9 +249,10 @@ class ThermalPO(Thermal):
             model.add_objective(-price_forecast * power_level_var * parameters.timestep.total_hours(), "minimize")
 
         # Startup cost term: startup_cost * turned_on
-        startup_cost = self.startup_cost.get_value(time)
-        turned_on_var = model.get_variable(f"t_on_of_e_{self.name}_at_{time}")
-        model.add_objective(startup_cost * turned_on_var, "minimize")
+        if self.startup_cost is not None:
+            startup_cost = self.startup_cost.get_value(time)
+            turned_on_var = model.get_variable(f"t_on_of_e_{self.name}_at_{time}")
+            model.add_objective(startup_cost * turned_on_var, "minimize")
 
     def add_initial_conditions(
         self,
@@ -279,14 +280,18 @@ class ThermalPO(Thermal):
         else:
             initial_times.append(parameters.start_date - parameters.timestep)
 
-        power_history = self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
+        power_history = (
+            self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
+            if self.power is not None
+            else None
+        )
         extended_start_date = initial_times[0]
 
         # Determine if this is dayZero initialization
         day_zero = power_history is None
         if power_history is not None:
             last_time = parameters.start_date - parameters.timestep
-            if last_time not in power_history.time_index:
+            if hasattr(power_history, "time_index") and last_time not in power_history.time_index:
                 day_zero = True
 
         # Add initial condition constraints based on combination using mapping
