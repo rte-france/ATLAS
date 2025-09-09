@@ -82,15 +82,23 @@ class Clearing(OptimisationModel):
 
     def build_objective(self):
         """Create objective function for the clearing phase model"""
-        objective = self.add_accepted_powers(self.parameters.price_modifier_lambda_1)
+        self.add_accepted_powers(self.parameters.price_modifier_lambda_1)
         if self.parameters.flow_penalty_lambda_2 != 0.0:
-            objective -= self.add_global_exchanges()
+            self.add_global_exchanges(self.parameters.flow_penalty_lambda_2)
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC:
+            exchange_objective_dict = {}
             if self.parameters.flow_penalty_lambda_3 != 0.0:
-                objective -= self.add_max_exchanges()
+                for key, value in self.add_max_exchanges(self.parameters.flow_penalty_lambda_3).items():
+                    exchange_objective_dict[key.name()] = value
             if self.parameters.flow_penalty_lambda_4 != 0.0:
-                objective -= self.add_min_exchanges()
-        self.solver.Maximize(objective)
+                for key, value in self.add_min_exchanges(self.parameters.flow_penalty_lambda_4).items():
+                    if key.name() not in exchange_objective_dict:
+                        exchange_objective_dict[key.name()] = value
+                    else:
+                        exchange_objective_dict[key.name()] += value
+            self.add_objective(sum([self.get_variable(key) * value for key, value in exchange_objective_dict.items()]),
+                               direction="maximize")
+
 
     ##################################
     # Variables
@@ -510,9 +518,9 @@ class Clearing(OptimisationModel):
                 accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name))
                 altered_price = mc_order.price - mc_order.production_sign * lambda1
                 objective.append(-mc_order.production_sign * altered_price * mc_order.duration * accepted_power / 60)
-        return sum(objective)
+        return self.add_objective(sum(objective), direction="maximize")
 
-    def add_global_exchanges(self):
+    def add_global_exchanges(self, lambda2: float):
         objective = []
         for time_index, _ in enumerate(self.input_dataset.times):
             for border_name in self.input_dataset.mc_market_borders.keys():
@@ -523,23 +531,27 @@ class Clearing(OptimisationModel):
                     constants.border_neg_exchange_variable_name(border_name, time_index)
                 )
                 objective.append(border_pos_exchanges - border_neg_exchanges)
-        return sum(objective)
+        return self.add_objective(-lambda2 * sum(objective), direction="maximize")
 
-    def add_max_exchanges(self):
-        objective = []
+    def add_max_exchanges(self, lambda4: float) -> dict:
+        objective = {}
+        constant = 0.0
         for time_index, _ in enumerate(self.input_dataset.times):
             for border_name in self.input_dataset.mc_market_borders.keys():
                 border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
-                objective.append(border_exchange.Ub() - border_exchange)
-        return sum(objective)
+                objective[border_exchange] = lambda4
+                constant -= lambda4 * border_exchange.Lb()
+        return objective
 
-    def add_min_exchanges(self):
-        objective = []
+    def add_min_exchanges(self, lambda4: float) -> dict:
+        objective = {}
+        constant = 0.0
         for time_index, _ in enumerate(self.input_dataset.times):
             for border_name in self.input_dataset.mc_market_borders.keys():
                 border_exchange = self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
-                objective.append(border_exchange - border_exchange.Lb())
-        return sum(objective)
+                objective[border_exchange] = -lambda4
+                constant += lambda4 * border_exchange.Lb()
+        return objective
 
     def get_tso_sold_power(self, time: int, control_block: ControlBlockMC):
         tso_sold_power = 0.0
