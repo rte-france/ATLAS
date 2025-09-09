@@ -98,8 +98,8 @@ class Clearing(OptimisationModel):
     def create_border_exchange_variables(self, is_atc: bool):
         for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _time in enumerate(self.input_dataset.times):
-                relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else DEFAULT_MAX_FLOW
-                relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else DEFAULT_MIN_FLOW
+                relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else float("inf")
+                relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else float("-inf")
                 self.add_continuous_variable(
                     constants.border_exchange_variable_name(border_name, time_index),
                     relative_min_flow,
@@ -334,19 +334,17 @@ class Clearing(OptimisationModel):
         for time_index, time in enumerate(self.input_dataset.times):
             for critical_branch_name, mc_critical_branch in self.input_dataset.mc_critical_branches.items():
                 branch_load = []
-                mc_market_area = self.input_dataset.mc_market_areas[
-                    mc_critical_branch.market_area_ptdf.market_area.name
-                ]
-                relative_balance = self.get_variable(
-                    constants.local_balance_variable_name(mc_market_area.name, time_index)
-                    - mc_market_area.ref_balance.get_value(time)
-                )
-                da_ptdf = self.input_dataset.mc_market_area_ptdfs[
-                    mc_critical_branch.market_area_ptdf.name
-                ].day_ahead_ptdf
-                branch_load.append(da_ptdf.get_value(time) * relative_balance)
+                for market_area_ptdf in mc_critical_branch.market_area_ptdf:
+                    mc_market_area_ptdf = self.input_dataset.mc_market_area_ptdfs[market_area_ptdf.name]
+                    da_ptdf = mc_market_area_ptdf.day_ahead_ptdf
+                    mc_market_area = self.input_dataset.mc_market_areas[mc_market_area_ptdf.market_area.name]
+                    relative_balance = (self.get_variable(constants.local_balance_variable_name(
+                        mc_market_area.name, time_index))
+                                        - mc_market_area.ref_balance.get_value(time))
+
+                    branch_load.append(da_ptdf.get_value(time) * relative_balance)
                 self.add_constraint(
-                    relative_balance <= mc_critical_branch.max_flow.get_value(time),
+                    sum(branch_load) <= mc_critical_branch.max_flow.get_value(time),
                     constants.constraint_3_6_2_constraint_name(critical_branch_name, time_index),
                 )
 

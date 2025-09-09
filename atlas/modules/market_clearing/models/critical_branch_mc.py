@@ -12,14 +12,11 @@ from atlas.models.market.critical_branch import CriticalBranch
 
 
 class CriticalBranchMC(CriticalBranch):
-    market_area_ptdf: MarketAreaPtdf
+    market_area_ptdf: list[MarketAreaPtdf]
 
     # Attributes from market clearing parameter
     time_step: Duration
     times: list[pendulum.DateTime]
-
-    # Attribute from MarketAreaPTDF
-    da_ptdf: Timeseries | LazyTimeseries
 
     @property
     def flow_margin(self) -> Timeseries | LazyTimeseries | None:
