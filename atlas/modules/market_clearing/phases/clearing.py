@@ -39,7 +39,6 @@ class Clearing(OptimisationModel):
         self.build()
         self.solve()
         self.export_model("clearing_model.lp")
-        print()
 
     def build(self):
         self.build_variables()
@@ -178,7 +177,7 @@ class Clearing(OptimisationModel):
             for mc_order in mc_market_area.mc_orders.values():
                 mc_order = self.input_dataset.mc_orders[mc_order.name]
                 if mc_order.id_with_status:
-                    self.add_boolean_variable(constants.order_status_variable_name(mc_order.name))
+                    self.add_boolean_variable(constants.order_status_variable_name(mc_market_area.name, mc_order.name))
 
     ##################################
     # Constraints
@@ -356,8 +355,8 @@ class Clearing(OptimisationModel):
             for mc_order in mc_market_area.mc_orders.values():
                 # Compute the constraints limiting the accepted powers of combined,
                 # indivisible and/or mutually excluding orders and linked orders (3.4):
-                if mc_order.id_with_status is not None:
-                    order_status = self.get_variable(constants.order_status_variable_name(mc_order.name))
+                if mc_order.id_with_status:
+                    order_status = self.get_variable(constants.order_status_variable_name(mc_market_area.name, mc_order.name))
                     accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name))
                     self.create_min_accepted_power_constraint(
                         mc_market_area.name,
@@ -464,7 +463,7 @@ class Clearing(OptimisationModel):
         for order in order_coupling.orders:
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
-            order_status = self.get_variable(constants.order_status_variable_name(order.name))
+            order_status = self.get_variable(constants.order_status_variable_name(order.market_area.name, order.name))
             aggregated_status.append(order_status)
         self.add_constraint(
             sum(aggregated_status) <= 1, constants.exclusion_order_coupling_constraint_name(order_coupling.name)
@@ -474,26 +473,29 @@ class Clearing(OptimisationModel):
         parent_order = order_coupling.orders[0]
         if not OrderMC.is_feasible(parent_order, self.input_dataset.times, self.parameters):
             return
-        parent_order_status = self.get_variable(constants.order_status_variable_name(parent_order.name))
+        parent_order_status = self.get_variable(constants.order_status_variable_name(parent_order.market_area.name, parent_order.name))
         for order in order_coupling.orders[1:]:
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
-            order_status = self.get_variable(constants.order_status_variable_name(order.name))
+            order_status = self.get_variable(constants.order_status_variable_name(order.market_area.name, order.name))
             self.add_constraint(
                 order_status <= parent_order_status,
-                constants.parent_child_order_coupling_constraint_name(order_coupling.name, order.name),
+                constants.parent_child_order_coupling_constraint_name(order_coupling.name, order.market_area.name),
             )
 
     def create_identical_ratio_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         for i, order in enumerate(order_coupling.orders[1:]):
             prev_order = order_coupling.orders[i]
-            if prev_order.qmax == prev_order.qmin or order.qmax == order.qmin:
-                continue
             prev_accepted_power = self.get_variable(constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name))
             accepted_power = self.get_variable(constants.accepted_power_variable_name(order.market_area.name, order.name))
-
-            prev_ratio = (prev_accepted_power - prev_order.qmin) / (prev_order.qmax - prev_order.qmin)
-            ratio = (accepted_power - order.qmin) / (order.qmax - order.qmin)
+            if prev_order.qmin == prev_order.qmax:
+                prev_ratio = prev_accepted_power / prev_order.qmax
+            else:
+                prev_ratio = (prev_accepted_power - prev_order.qmin) / (prev_order.qmax - prev_order.qmin)
+            if order.qmin == order.qmax:
+                ratio = accepted_power / order.qmax
+            else:
+                ratio = (accepted_power - order.qmin) / (order.qmax - order.qmin)
 
             self.add_constraint(
                 ratio == prev_ratio,

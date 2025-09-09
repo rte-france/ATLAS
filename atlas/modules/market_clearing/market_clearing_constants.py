@@ -31,8 +31,8 @@ def accepted_power_variable_name(market_area_name: str, order_name: str) -> str:
     return f"qo_{market_area_name}_{order_name}"
 
 
-def order_status_variable_name(order_name: str) -> str:
-    return f"stats_{order_name}"
+def order_status_variable_name(market_area_name: str, order_name: str) -> str:
+    return f"stats_{market_area_name}_{order_name}"
 
 
 def border_import_variable_name(border_name: str, time_index: int) -> str:
@@ -76,8 +76,8 @@ def exclusion_order_coupling_constraint_name(order_coupling_name: str) -> str:
     return f"Constraint_3_10_exclusive_o_g_number_{order_coupling_name}"
 
 
-def parent_child_order_coupling_constraint_name(order_coupling_name: str, order_name: str) -> str:
-    return f"Constraint_parent_child_on_child_{order_name}_on_group{order_coupling_name}"
+def parent_child_order_coupling_constraint_name(order_coupling_name: str, market_area_name: str) -> str:
+    return f"Constraint_parent_child_on_child_{market_area_name}_on_group{order_coupling_name}"
 
 
 def constraint_3_2_1_constraint_name(market_area_name: str, time_index: int) -> str:

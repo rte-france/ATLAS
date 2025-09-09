@@ -116,7 +116,8 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_orders = {}
         for order in orders:
             if OrderMC.is_feasible(order, self.times, self.parameters):
-                order_dump = {**order.model_dump(), "time_step": self.parameters.time_step}
+                id_with_status = True if order.qmin and order.qmin > self.parameters.allowed_round_off_error else False
+                order_dump = {**order.model_dump(), "time_step": self.parameters.time_step, "id_with_status": id_with_status}
                 mc_order = OrderMC.model_validate(order_dump)
                 mc_orders[order.name] = mc_order
 

@@ -25,7 +25,7 @@ class OrderMC(Order):
     qmin: float
 
     # Attributes that will be set later (while creating coupling groups):
-    id_with_status: int | None = None
+    id_with_status: bool = False
     is_mutually_excluding: bool = False
     is_linked: bool = False
     link_id: str | None = None

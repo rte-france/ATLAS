@@ -20,7 +20,6 @@ class ExchangesFixing(OptimisationModel):
         self.build(clearing)
         self.solve()
         self.export_model("exchange_fixing_model.lp")
-        print()
 
     def build(self, clearing: Clearing):
         self.build_variables()
