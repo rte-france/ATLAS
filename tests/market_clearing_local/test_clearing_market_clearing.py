@@ -23,7 +23,7 @@ from tests.market_clearing_local.test_market_data_market_clearing import read_ex
 
 
 
-def retrieve_lp(path):
+def retrieve_clearing_lp(path):
     parameters_path = os.path.join(path, "parameters.yml")
     dataset_path = os.path.join(path, "atlas-dataset")
     pkl_path = os.path.join(path, "raw_data.pkl")
@@ -221,7 +221,7 @@ def test_compare_lp(dataset_name):
     path = os.path.join("data", "market_clearing_prometheus", dataset_name)
     expected_lp_path = os.path.join(path, "optimization_data", "clearing_phase.lp")
     lp_mapping_path = os.path.join(path, "optimization_data", "clearing_phase.lp_correspondance.csv")
-    clearing_lp_path = retrieve_lp(path)
+    clearing_lp_path = retrieve_clearing_lp(path)
 
     market_data_export_path = os.path.join(path, "market_data_export")
     legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, market_data_export_path)
