@@ -61,6 +61,14 @@ def parse_orders(raw_text):
     return orders
 
 
+def read_order_coupling_csv(path):
+    coupling_groups_df = pd.read_csv(Path(path) / "coupling_groups.csv", sep=";")
+    coupling_groups = transform_dataframe_to_dict(coupling_groups_df)
+    for coupling_group in coupling_groups.values():
+        coupling_group["orders_info"] = ast.literal_eval(coupling_group["orders_info"])
+    return coupling_groups
+
+
 def read_market_area_csv(path):
     market_areas_df = pd.read_csv(Path(path) / "market_areas.csv", sep=";")
     market_areas = transform_dataframe_to_dict(market_areas_df)
@@ -98,8 +106,7 @@ def read_market_data_csv(path):
     return market_data
 
 def read_expected_data(path):
-    coupling_groups_df = pd.read_csv(Path(path) / "coupling_groups.csv", sep=";")
-    coupling_groups = transform_dataframe_to_dict(coupling_groups_df)
+    coupling_groups = read_order_coupling_csv(path)
     market_areas = read_market_area_csv(path)
     control_blocks = read_control_block_csv(path)
     market_borders = read_market_borders_csv(path)
@@ -165,8 +172,7 @@ def compare_orders_couplings(order_couplings_expected, order_couplings_dict):
         else:
             assert order_coupling.complement_direction.value == expected_complement_direction
         # Expected doesn't contain name so we compare size
-        orders_info_str = order_coupling_expected["orders_info"]
-        nb_orders = len(ast.literal_eval(orders_info_str))
+        nb_orders = len(order_coupling_expected["orders_info"])
         assert len(order_coupling.orders) == nb_orders
 
 def compare_timeseries_to_dict(timeseries: Timeseries, _dict: dict[str, float]):
