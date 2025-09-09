@@ -125,11 +125,10 @@ def find_func(name, func_with_start, coupling_groups_expected, market_areas_expe
         arguments[index] = to_snake_case(border_name)
     return fun_associated, arguments
 
-def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, other_mapping_path, expected_data_path):
+def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expected_data_path):
     (coupling_groups_expected, market_areas_expected, _, market_borders_expected,
      _) = read_expected_data(expected_data_path)
     mapping_df = pd.read_csv(lp_mapping_path, delimiter=";")[["New Name", "Original Name"]]
-    other_mapping = pd.read_csv(other_mapping_path, delimiter=";")[["Class", "InstanceName", "ID"]]
     prometheus_objectives, prometheus_constraints, prometheus_variables, prometheus_binaries = SolverHelper.read_lp_legacy(prometheus_lp_path)
     variable_mapping = mapping_df[mapping_df["New Name"].str.contains("V_")]
     constraint_mapping = mapping_df[mapping_df["New Name"].str.contains("C_")]
@@ -207,7 +206,7 @@ def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, other_
 
 
 
-#@pytest.mark.skip(reason="No data available")
+@pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
@@ -224,9 +223,8 @@ def test_compare_lp(dataset_name):
     lp_mapping_path = os.path.join(path, "optimization_data", "clearing_phase.lp_correspondance.csv")
     clearing_lp_path = retrieve_lp(path)
 
-    indexes_mapping_path = os.path.join(path, "market_data_export", "class_indexes.csv")
     market_data_export_path = os.path.join(path, "market_data_export")
-    legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, indexes_mapping_path, market_data_export_path)
+    legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, market_data_export_path)
     atlas_objectives, atlas_constraints, atlas_variables, atlas_binaries = SolverHelper.read_lp_ortools(clearing_lp_path)
     atlas_dict = {
         "constraints": atlas_constraints,
@@ -234,6 +232,8 @@ def test_compare_lp(dataset_name):
         "objectives": atlas_objectives,
         "binaries": atlas_binaries,
     }
+    SolverHelper.add_binaries_to_lp_problems_variables(atlas_dict)
+    SolverHelper.add_binaries_to_lp_problems_variables(legacy_dict)
     diff_constraint, diff_variables, diff_objectives = SolverHelper.compare_lp_problems(atlas_dict, legacy_dict)
     id_ratio_constraint_atlas = len([c for c in atlas_dict["constraints"] if "Constraint_3_8_1_id_ratio" in c])
     id_ratio_constraint_prometheus = len([c for c in legacy_dict["constraints"] if "Constraint_3_8_1_id_ratio" in c])

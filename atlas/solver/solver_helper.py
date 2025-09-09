@@ -632,6 +632,12 @@ class SolverHelper:
         return objectives, constraints, variables, binaries
 
     @staticmethod
+    def add_binaries_to_lp_problems_variables(lp_problem):
+        for binary in lp_problem["binaries"]:
+            if binary not in lp_problem["variables"]:
+                lp_problem["variables"][binary] = [0.0, 1.0]
+
+    @staticmethod
     def compare_lp_problems(pb1, pb2, tolerance=1e-5):
         """
         Test if the given number is a float
