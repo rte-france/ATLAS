@@ -486,7 +486,7 @@ class SolverHelper:
                     continue
 
                     # raise ValueError("Constraint line must contain >=, <=, or = sign")
-                line = line.split(" ")
+                line = line.strip().split(" ")
 
                 if not SolverHelper.isfloat(line[0]) and line[0] not in ("+", "-"):
                     line.insert(0, "+")
