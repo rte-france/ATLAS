@@ -15,7 +15,6 @@ from atlas.enum import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_base_load_orders import ThermicBaseLoadOrders
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
@@ -464,7 +463,7 @@ class ThermicUnitOrders:
                     flexible_bid_name = flex_type + config_bid_name
                     flexible_bid = next((bid for bid in dataset.order if bid.name == flexible_bid_name), None)
                     if flexible_bid is not None:
-                        ThermicBaseLoadOrders.create_parent_child_link(dataset, bid_output, flexible_bid, case, unit, t)
+                        ThermicUnitOrders.create_parent_child_link(dataset, bid_output, flexible_bid, case, unit, t)
 
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]
@@ -486,3 +485,16 @@ class ThermicUnitOrders:
                     order.price -= amortized_cost
 
         return None
+
+    @staticmethod
+    def create_parent_child_link(
+        dataset: DayAheadOrdersInputDataset, parent_bid: Order, child_bid: Order, case: str, unit: Thermal, t: DateTime
+    ):
+        # Add parent-children link between the flexible and inflexible parts
+        link_flexible_inflexible = OrderCoupling(
+            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_price_{case}",
+            coupling_type=CouplingType.PARENT_CHILDREN,
+        )
+        # add the two orders
+        link_flexible_inflexible.orders.append(parent_bid)
+        link_flexible_inflexible.orders.append(child_bid)

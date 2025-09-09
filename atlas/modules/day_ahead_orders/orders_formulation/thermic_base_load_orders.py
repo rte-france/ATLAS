@@ -282,16 +282,3 @@ class ThermicBaseLoadOrders:
             list_of_online_timeframes = list(dict.fromkeys(list_of_online_timeframes))
 
         return list_of_online_timeframes
-
-    @staticmethod
-    def create_parent_child_link(
-        dataset: DayAheadOrdersInputDataset, parent_bid: Order, child_bid: Order, case: str, unit: Thermal, t: DateTime
-    ):
-        # Add parent-children link between the flexible and inflexible parts
-        link_flexible_inflexible = OrderCoupling(
-            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_price_{case}",
-            coupling_type=CouplingType.PARENT_CHILDREN,
-        )
-        # add the two orders
-        link_flexible_inflexible.orders.append(parent_bid)
-        link_flexible_inflexible.orders.append(child_bid)
