@@ -18,6 +18,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.hydraulic import Hydrauli
 from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable import NonDispatchable
 from atlas.modules.day_ahead_orders.orders_formulation.thermic_bidding import ThermicBidding
 from atlas.modules.day_ahead_orders.orders_formulation.wind_pv import WindPV
+from atlas.timing import generate_datetimes
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
@@ -69,7 +70,7 @@ class DayAheadOrdersModule(
 
         # Create the sequence of orders times. In particular, this sequence is such that the endDate of the last order will be before
         # the endDate of the overall time frame.
-        orders_time = Utilities.define_orders_time(parameters)
+        orders_time = self._define_orders_time(parameters)
         if len(orders_time) > 0:
             cfg.logger.info("Extraction completed, now starting the formulation of orders...")
 
@@ -110,3 +111,22 @@ class DayAheadOrdersModule(
         else:
             cfg.logger.error("orders_time is empty.")
         return DayAheadOrdersOutputDataset(dataset)
+
+    def _define_orders_time(self, parameters: DayAheadOrdersParameters) -> list[DateTime]:
+        """
+        This function creates a sequence of timestamps between a start_date and a end_date
+        with step deltaTime. It returns a list of DateTime objects.
+        In particular, it makes sure that no time step crosses the end_date boundary.
+
+        Arguments:
+        - `parameters` an instance of DayAheadOrdersParameters.
+        """
+        orders_time = []
+        if parameters.start_date < parameters.end_date:
+            orders_time = generate_datetimes(
+                parameters.start_date, parameters.end_date - parameters.time_step, parameters.time_step
+            )
+        else:
+            msg = "The end_date parameter must be posterior to the start_date parameter."
+            cfg.logger.error(msg)
+        return orders_time
