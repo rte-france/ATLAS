@@ -111,7 +111,7 @@ class ThermicUnitOrders:
         T_endSU_in_sim = False
         if startup:
             for t in list(online_timeframe.index())[:-1]:
-                t_next = t.AddMinutes(parameters.time_step)
+                t_next = t + parameters.time_step
                 if online_timeframe.get_value(t) - online_timeframe.get_value(t_next) == 1:
                     # passage from 2 to 1 in sequence, indicating the end of a startup
                     T_endSU_in_sim = True

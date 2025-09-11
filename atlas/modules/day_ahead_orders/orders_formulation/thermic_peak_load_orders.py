@@ -183,7 +183,7 @@ class ThermicPeakLoadOrders:
                         link_reserve_inflexible = OrderCoupling(
                             name=f"PARENT_CHILDREN_automated_downward_reserve_inflexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}"
                         )
-                        link_reserve_inflexible.CouplingType = CouplingType.PARENT_CHILDREN
+                        link_reserve_inflexible.coupling_type = CouplingType.PARENT_CHILDREN
                         # add the two orders
                         link_reserve_inflexible.orders.append(inflexible_order)  # add the parent
                         link_reserve_inflexible.orders.append(reserve_bid)  # add the child
@@ -217,7 +217,7 @@ class ThermicPeakLoadOrders:
                         link_reserve_inflexible = OrderCoupling(
                             name=f"PARENT_CHILDREN_manual_downward_reserve_inflexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}"
                         )
-                        link_reserve_inflexible.CouplingType = CouplingType.PARENT_CHILDREN
+                        link_reserve_inflexible.coupling_type = CouplingType.PARENT_CHILDREN
                         # add the two orders
                         link_reserve_inflexible.orders.append(inflexible_order)  # add the parent
                         link_reserve_inflexible.orders.append(reserve_bid)  # add the child
@@ -250,7 +250,7 @@ class ThermicPeakLoadOrders:
                         link_reserve_flexible = OrderCoupling(
                             name=f"PARENT_CHILDREN_automated_upward_reserve_inflexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}"
                         )
-                        link_reserve_flexible.CouplingType = CouplingType.PARENT_CHILDREN
+                        link_reserve_flexible.coupling_type = CouplingType.PARENT_CHILDREN
                         # add the two orders
                         link_reserve_flexible.orders.append(inflexible_order)  # add the parent
                         link_reserve_flexible.orders.append(reserve_bid)  # add the child
@@ -284,10 +284,10 @@ class ThermicPeakLoadOrders:
                             name="PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{}_for_unit_{}_with_price_{}".format(
                                 Utilities.get_date_to_clean_string(t),
                                 unit.name,
-                                case,  # TODO : case not defined
+                                case,  # TODO case not defined
                             )
                         )
-                        link_reserve_flexible.CouplingType = CouplingType.PARENT_CHILDREN
+                        link_reserve_flexible.coupling_type = CouplingType.PARENT_CHILDREN
                         # add the two orders
                         link_reserve_flexible.orders.append(inflexible_order)  # add the parent
                         link_reserve_flexible.orders.append(reserve_bid)  # add the child
