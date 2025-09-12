@@ -83,8 +83,8 @@ class Hydraulic:
             else:
                 energy_level = equipment.initial_level.get_value(parameters.start_date)
 
-            xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index())
-            xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index())
+            xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index)
+            xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index)
 
             if xmin:
                 xpmin = max(xmin, key=lambda x: int(x))
@@ -172,7 +172,7 @@ class Hydraulic:
 
                         submitted_volumes.add_value_at(t, bid_output.qmax)
 
-            dataset.coupling_instance.append(coupling_instance)
+            dataset.order_coupling.append(coupling_instance)
             equipment.da_sell_submitted_volume += submitted_volumes
 
         return None

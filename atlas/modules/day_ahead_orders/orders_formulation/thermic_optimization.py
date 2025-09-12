@@ -4654,7 +4654,7 @@ class ThermicOptimization:
 
         results["q"] = {}
         for t in time_frame:
-            q_star[t] = q[t]
+            q_star[t] = q[t].solution_value()
 
         # If verbose is activated, inform the user if the optimal program is such that the unit
         # provides no output
@@ -4693,12 +4693,12 @@ class ThermicOptimization:
         results["automated_contracted_difference_down"] = {}
         # Populate the time series
         for t in time_frame:
-            contracted_difference_up_star[t] = contracted_difference_up[t]
-            contracted_difference_down_star[t] = contracted_difference_down[t]
+            contracted_difference_up_star[t] = contracted_difference_up[t].solution_value()
+            contracted_difference_down_star[t] = contracted_difference_down[t].solution_value()
         # Populate the automatedDifference time series
         for t in time_frame:
-            automated_contracted_difference_up_star[t] = automated_contracted_difference_up[t]
-            automated_contracted_difference_down_star[t] = automated_contracted_difference_down[t]
+            automated_contracted_difference_up_star[t] = automated_contracted_difference_up[t].solution_value()
+            automated_contracted_difference_down_star[t] = automated_contracted_difference_down[t].solution_value()
 
         # Populate the dictionnary
         results["q"] = q_star
@@ -4727,9 +4727,9 @@ class ThermicOptimization:
 
         # Populate the time series
         for t in time_frame:
-            ON_UP_star[t] = ON_UP[t]
-            ON_DOWN_star[t] = ON_DOWN[t]
-            OFF_star[t] = OFF[t]
+            ON_UP_star[t] = ON_UP[t].solution_value()
+            ON_DOWN_star[t] = ON_DOWN[t].solution_value()
+            OFF_star[t] = OFF[t].solution_value()
 
         # Populate the dictionnary
         results["ON_UP"] = ON_UP_star
@@ -4744,7 +4744,7 @@ class ThermicOptimization:
             # Add the keys in the dictionnary
             results["START"] = {}
             for t in time_frame:
-                START_star[t] = START[t]
+                START_star[t] = START[t].solution_value()
                 # Add the time series to the dictionnary.
             results["START"] = START_star
         if T_stop >= 1:
@@ -4753,7 +4753,7 @@ class ThermicOptimization:
             )
             results["STOP"] = {}
             for t in time_frame:
-                STOP_star[t] = STOP[t]
+                STOP_star[t] = STOP[t].solution_value()
             # Add the time series to the dictionnary.
             results["STOP"] = STOP_star
         if T_stable >= 1:
@@ -4762,7 +4762,7 @@ class ThermicOptimization:
             )
             results["ON_FLAT"] = {}
             for t in time_frame:
-                ON_FLAT_star[t] = ON_FLAT[t]
+                ON_FLAT_star[t] = ON_FLAT[t].solution_value()
             results["ON_FLAT"] = ON_FLAT_star
 
         return results
