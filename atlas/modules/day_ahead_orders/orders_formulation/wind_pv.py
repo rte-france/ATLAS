@@ -55,7 +55,9 @@ class WindPV:
                 equipment.da_sell_submitted_volume += production_forecast
 
             # Extract the sequence of variable costs that will be used to define the price.
-            variable_costs = equipment.variable_cost.filter(orders_time)
+            variable_costs = None
+            if equipment.variable_cost is not None:
+                variable_costs = equipment.variable_cost.filter(orders_time, inplace=False)
 
             # Now we loop over the time stamps for which we want an offer to be made.
             # We formulate as many offers as there are time stamps in orders_time.
@@ -79,7 +81,9 @@ class WindPV:
                         equipment=equipment,
                         qmax=max_production_value,
                         qmin=min_production_value,
-                        price=variable_costs.get_value(t),  # Extract the PropCpst that will define the price.
+                        price=0.0
+                        if variable_costs is None
+                        else variable_costs.get_value(t),  # Extract the PropCpst that will define the price.
                         product=Product.DayAhead,
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
