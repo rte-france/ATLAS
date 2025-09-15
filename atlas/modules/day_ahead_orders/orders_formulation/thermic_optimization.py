@@ -228,19 +228,19 @@ class ThermicOptimization:
         # Conversion of the equipment-specific parameters in terms of time step.
         # All T_.'s are integers (by definition).
         if thermal_unit.minimum_time_on > 0:
-            T_on = int(max(1, math.ceil(thermal_unit.minimum_time_on * 60 / parameters.time_step))) + 1
+            T_on = int(max(1, math.ceil(thermal_unit.minimum_time_on.total_minutes() / parameters.time_step))) + 1
         else:
             T_on = 0
 
         if thermal_unit.minimum_time_off > 0:
-            T_off = int(max(1, math.ceil(thermal_unit.minimum_time_off * 60 / parameters.time_step))) + 1
+            T_off = int(max(1, math.ceil(thermal_unit.minimum_time_off.total_minutes() / parameters.time_step))) + 1
         else:
             T_off = 0
-        T_start = int(math.floor(thermal_unit.startup_duration * 60 / parameters.time_step))
-        T_stop = int(math.floor(thermal_unit.shutdown_duration * 60 / parameters.time_step))
+        T_start = int(math.floor(thermal_unit.startup_duration.total_minutes() / parameters.time_step))
+        T_stop = int(math.floor(thermal_unit.shutdown_duration.total_minutes() / parameters.time_step))
 
-        if minimum_stable_power_duration * 60 >= parameters.time_step:
-            T_stable = int(math.ceil(minimum_stable_power_duration * 60 / parameters.time_step)) + 1
+        if minimum_stable_power_duration.total_minutes() >= parameters.time_step:
+            T_stable = int(math.ceil(minimum_stable_power_duration.total_minutes() / parameters.time_step)) + 1
         else:
             T_stable = 0
 
@@ -597,19 +597,19 @@ class ThermicOptimization:
             objective_expr=(
                 sum(
                     q[t]
-                    * (parameters.time_step / 60.0)
+                    * (parameters.time_step.total_hours())
                     * (prices.get_value(t) - thermal_unit.variable_cost.get_value(t))
                     - turned_on[t] * thermal_unit.startup_cost.get_value(t)
                     - parameters.manual_unprocured_reserves_penalty
-                    * (parameters.time_step / 60.0)
+                    * (parameters.time_step.total_hours())
                     * (contracted_difference_up[t] + contracted_difference_down[t])
                     - parameters.automated_unprocured_reserves_penalty
-                    * (parameters.time_step / 60.0)
+                    * (parameters.time_step.total_hours())
                     * (automated_contracted_difference_up[t] + automated_contracted_difference_down[t])
                     for t in time_frame
                 )
                 - parameters.automated_unprocured_reserves_penalty
-                * (parameters.time_step / 60.0)
+                * (parameters.time_step.total_hours())
                 * automated_unsupplied_reserves
             ),
             direction="maximize",
