@@ -103,7 +103,7 @@ class OptimisationModel:
     def add_continuous_variable(
         self,
         name: str,
-        lower_bound: float = 0.0,
+        lower_bound: float = float("-inf"),
         upper_bound: float = float("inf"),
     ) -> Any:
         """
