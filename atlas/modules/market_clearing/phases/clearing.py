@@ -70,7 +70,8 @@ class Clearing(OptimisationModel):
         self.create_order_couplings_constraints()
         self.create_local_balances_constraints()
         self.create_exchanges_and_local_balances_equality_constraints(is_atc)
-        self.create_control_blocks_constraints()
+        if self.parameters.activate_constrained_tso_quantity:
+            self.create_control_blocks_constraints()
         self.create_exchange_across_border_constraints()
         if is_atc and self.get_n_borders_with_losses():
             self.create_import_export_constraints()
@@ -610,9 +611,22 @@ class Clearing(OptimisationModel):
                 n_borders_with_losses += 1
         return n_borders_with_losses
 
-    # Retrieve information after optimization
-    # TODO : Delete
-    def retrieve_accepted_powers(self) -> dict[str, pywraplp.Variable]:
+
+    def retrieve_local_balances(self) -> dict[tuple[str, int], float]:
+        """
+
+        :return: A dictionary containing the accepted amounts of power for each orders of each market area
+        :rtype: dict[str, str, float]
+        """
+        local_balances = {}
+        for market_area_name in self.input_dataset.mc_market_areas:
+            for time_index, _ in enumerate(self.input_dataset.times):
+                accepted_power_name = constants.local_balance_variable_name(market_area_name, time_index)
+                local_balances[market_area_name, time_index] = self.get_variable(accepted_power_name).solution_value()
+        return local_balances
+
+
+    def retrieve_accepted_powers(self) -> dict[tuple[str, str], float]:
         """
 
         :return: A dictionary containing the accepted amounts of power for each orders of each market area
@@ -622,5 +636,5 @@ class Clearing(OptimisationModel):
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             for mc_order in mc_market_area.mc_orders.values():
                 accepted_power_name = constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
-                accepted_powers[mc_order.name] = self.get_variable(accepted_power_name)
+                accepted_powers[mc_order.market_area.name, mc_order.name] = self.get_variable(accepted_power_name).solution_value()
         return accepted_powers
