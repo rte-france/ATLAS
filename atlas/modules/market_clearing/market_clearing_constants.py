@@ -144,47 +144,47 @@ def exchange_across_border_constraint_name(border_name: str, time_index: int) ->
 # Exchange Fixing model
 # Constraint
 def constraint_4_2_constraint_name(market_area_name: str, time_index: int) -> str:
-    return f"Constraint 4.2 at time {time_index} on market area {market_area_name}"
+    return f"Constraint_4.2_at_time_{time_index}_on_market_area_{market_area_name}"
 
 
 def absolute_timed_exchanges_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Positive and negative parts definition at time {time_index} on market border {border_name}"
+    return f"Positive_and_negative_parts_definition_at_time_{time_index}_on_market_border_{border_name}"
 
 
 def constraint_4_4a_min_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint 4.4a (min) at time {time_index} on market border {border_name}"
+    return f"Constraint_4.4a_(min)_at_time_{time_index}_on_market_border_{border_name}"
 
 
 def constraint_4_4a_max_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint 4.4a (max) at time {time_index} on market border {border_name}"
+    return f"Constraint_4.4a_(max)_at_time_{time_index}_on_market_border_{border_name}"
 
 
 def constraint_4_3a_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint 4.3a at time {time_index} on market border {border_name}"
+    return f"Constraint_4.3a_at_time_{time_index}_on_market_border_{border_name}"
 
 
 def constraint_4_3b_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint 4.3b at time {time_index} on market border {border_name}"
+    return f"Constraint_4.3b_at_time_{time_index}_on_market_border_{border_name}"
 
 
 def constraint_4_3d_min_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint 4.3d (min) at time {time_index} on market border {border_name}"
+    return f"Constraint_4.3d_(min)_at_time_{time_index}_on_market_border {border_name}"
 
 
 def constraint_4_3d_max_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint 4.3d (max) at time {time_index} on market border {border_name}"
+    return f"Constraint_4.3d_(max)_at_time_{time_index}_on_market_border_{border_name}"
 
 
 def constraint_4_3e_min_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint 4.3e (min) at time {time_index} on market border {border_name}"
+    return f"Constraint_4.3e_(min)_at_time_{time_index}_on_market_border_{border_name}"
 
 
 def constraint_4_3e_max_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint 4.3e (max) at time {time_index} on market border {border_name}"
+    return f"Constraint_4.3e_(max)_at_time_{time_index}_on_market_border_{border_name}"
 
 
 def border_exchanges_constraint_name(border_name: str, time_index: int) -> str:
-    return f"Constraint 4.5 at time {time_index} on market border {border_name}"
+    return f"Constraint_4.5_at_time_{time_index}_on_market_border_{border_name}"
 
 
 ##################################
