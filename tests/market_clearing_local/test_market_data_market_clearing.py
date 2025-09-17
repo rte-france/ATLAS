@@ -69,6 +69,15 @@ def read_order_coupling_csv(path):
     return coupling_groups
 
 
+def read_critical_branches_csv(path):
+    critical_branches_path = Path(path) / "critical_branches.csv"
+    if not os.path.exists(critical_branches_path):
+        return None
+    critical_branches_df = pd.read_csv(critical_branches_path, sep=";")
+    critical_branches = transform_dataframe_to_dict(critical_branches_df)
+    return critical_branches
+
+
 def read_market_area_csv(path):
     market_areas_df = pd.read_csv(Path(path) / "market_areas.csv", sep=";")
     market_areas = transform_dataframe_to_dict(market_areas_df)
@@ -111,8 +120,9 @@ def read_expected_data(path):
     control_blocks = read_control_block_csv(path)
     market_borders = read_market_borders_csv(path)
     market_data = read_market_data_csv(path)
+    critical_branches_data = read_critical_branches_csv(path)
     # Price group is empty before the phases
-    return coupling_groups, market_areas, control_blocks, market_borders, market_data
+    return coupling_groups, market_areas, control_blocks, market_borders, market_data, critical_branches_data
 
 def compare_market_area(market_areas_expected, input_dataset):
     for market_area_name, market_area_expected in market_areas_expected.items():
@@ -206,7 +216,8 @@ def test_market_data():
 
     input_dataset = mc_module.import_data(raw_data, parameters)
 
-    coupling_groups_expected, market_areas_expected, control_blocks_expected, market_borders_expected, market_data_expected = read_expected_data(expected_data_path)
+    (coupling_groups_expected, market_areas_expected, control_blocks_expected, market_borders_expected,
+     market_data_expected, critical_branches_data) = read_expected_data(expected_data_path)
     compare_orders_couplings(coupling_groups_expected, input_dataset.mc_order_couplings)
     compare_market_area(market_areas_expected, input_dataset)
     compare_control_block(control_blocks_expected, input_dataset)

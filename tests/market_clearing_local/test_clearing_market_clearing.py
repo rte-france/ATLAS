@@ -91,7 +91,7 @@ def map_args(pattern: str, encoded_str: str) -> list[str, ...]:
     return [args_map[i] for i in sorted(args_map.keys())]
 
 
-def find_func(name, func_with_start, coupling_groups_expected, market_areas_expected, market_borders_expected):
+def find_func(name, func_with_start, coupling_groups_expected, market_areas_expected, market_borders_expected, critical_branches_expected):
     fun_associated = None
     for func_start in func_with_start:
         if func_start in name and func_start[:2] == name[:2]:
@@ -123,11 +123,15 @@ def find_func(name, func_with_start, coupling_groups_expected, market_areas_expe
         index = func_with_start[fun_associated][1].index("border_name")
         border_name = [key for key, value in market_borders_expected.items() if str(value["id"]) == f"{arguments[index]}"][0]
         arguments[index] = to_snake_case(border_name)
+    if "branch_name" in func_with_start[fun_associated][1]:
+        index = func_with_start[fun_associated][1].index("branch_name")
+        branch_name = [key for key, value in critical_branches_expected.items() if str(value["id"]) == f"{arguments[index]}"][0]
+        arguments[index] = to_snake_case(branch_name)
     return fun_associated, arguments
 
 def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expected_data_path):
     (coupling_groups_expected, market_areas_expected, _, market_borders_expected,
-     _) = read_expected_data(expected_data_path)
+     _, critical_branches_expected) = read_expected_data(expected_data_path)
     mapping_df = pd.read_csv(lp_mapping_path, delimiter=";")[["New Name", "Original Name"]]
     prometheus_objectives, prometheus_constraints, prometheus_variables, prometheus_binaries = SolverHelper.read_lp_legacy(prometheus_lp_path)
     variable_mapping = mapping_df[mapping_df["New Name"].str.contains("V_")]
@@ -175,13 +179,13 @@ def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expect
     binaries_dict = {}
     prometheus_binaries = []
     for var_name in new_prometheus_binaries:
-        fun_associated, arguments = find_func(var_name, func_with_start, coupling_groups_expected, market_areas_expected, market_borders_expected)
+        fun_associated, arguments = find_func(var_name, func_with_start, coupling_groups_expected, market_areas_expected, market_borders_expected, critical_branches_expected)
         prometheus_binaries.append(func_with_start[fun_associated][0](*arguments))
         binaries_dict[var_name] = func_with_start[fun_associated][0](*arguments)
 
     prometheus_constraints = {}
     for c_name in new_prometheus_constraints:
-        fun_associated, arguments = find_func(c_name, func_with_start, coupling_groups_expected, market_areas_expected, market_borders_expected)
+        fun_associated, arguments = find_func(c_name, func_with_start, coupling_groups_expected, market_areas_expected, market_borders_expected, critical_branches_expected)
         constraints = {}
         for key, value in new_prometheus_constraints[c_name].items():
             if key in variable_dict:
@@ -221,10 +225,17 @@ def test_compare_lp(dataset_name):
     path = os.path.join("data", "market_clearing_prometheus", dataset_name)
     expected_lp_path = os.path.join(path, "optimization_data", "clearing_phase.lp")
     lp_mapping_path = os.path.join(path, "optimization_data", "clearing_phase.lp_correspondance.csv")
-    clearing_lp_path = retrieve_clearing_lp(path)
 
     market_data_export_path = os.path.join(path, "market_data_export")
+
     legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, market_data_export_path)
+    legacy_solver = SolverHelper.model_from_dict_test(legacy_dict, "XPRESS")
+    legacy_solver.Solve()
+    s_legacy = legacy_solver.ExportModelAsLpFormat(False)
+    with open(os.path.join(path, "test_legacy.lp"), "w") as f:
+        f.write(s_legacy)
+
+    clearing_lp_path = retrieve_clearing_lp(path)
     atlas_objectives, atlas_constraints, atlas_variables, atlas_binaries = SolverHelper.read_lp_ortools(clearing_lp_path)
     atlas_dict = {
         "constraints": atlas_constraints,
@@ -232,6 +243,12 @@ def test_compare_lp(dataset_name):
         "objectives": atlas_objectives,
         "binaries": atlas_binaries,
     }
+    atlas_solver = SolverHelper.model_from_dict_test(atlas_dict, "XPRESS")
+    atlas_solver.Solve()
+    s_atlas = atlas_solver.ExportModelAsLpFormat(False)
+    with open(os.path.join(path, "test_atlas.lp"), "w") as f:
+        f.write(s_atlas)
+
     SolverHelper.add_binaries_to_lp_problems_variables(atlas_dict)
     SolverHelper.add_binaries_to_lp_problems_variables(legacy_dict)
     diff_constraint, diff_variables, diff_objectives = SolverHelper.compare_lp_problems(atlas_dict, legacy_dict)
