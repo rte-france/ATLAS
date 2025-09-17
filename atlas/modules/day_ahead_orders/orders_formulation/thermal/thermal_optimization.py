@@ -17,7 +17,7 @@ from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
 
-class ThermicOptimization:
+class ThermalOptimization:
     @staticmethod
     def solve_optimization_programs(equipments_list: Thermal, parameters: DayAheadOrdersParameters) -> dict:
         """
@@ -74,7 +74,7 @@ class ThermicOptimization:
             # Solve three times the optimization program, one for each price curve
             # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
-                res = ThermicOptimization.solve_thermic_optimization_program(unit, price, value, parameters)
+                res = ThermalOptimization.solve_thermal_optimization_program(unit, price, value, parameters)
                 results[unit.name][value] = res
 
                 # Store state sequences in the output marker
@@ -124,7 +124,7 @@ class ThermicOptimization:
         return results
 
     @staticmethod
-    def solve_thermic_optimization_program(
+    def solve_thermal_optimization_program(
         thermal_unit: Thermal, prices, price_type, parameters: DayAheadOrdersParameters
     ):
         """

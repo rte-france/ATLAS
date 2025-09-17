@@ -13,11 +13,11 @@ from atlas.enum import CouplingType, Product, ThermalStrategy
 from atlas.models.market.order import Order
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_base_load_orders import ThermicBaseLoadOrders
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_intermediate_load_orders import (
-    ThermicIntermediateLoadOrders,
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_intermediate_load_orders import (
+    ThermalIntermediateLoadOrders,
 )
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_peak_load_orders import ThermicPeakLoadOrders
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load_orders import ThermalPeakLoadOrders
 
 ##### Etat des lieux au 16.10.2020 ####
 #
@@ -44,10 +44,10 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermic_peak_load_orders 
 # . Functions used to extract sequences and states
 
 
-class ThermicBidding:
+class ThermalBidding:
     # ------ Main function ------
     @staticmethod
-    def formulate_thermic_orders(
+    def formulate_thermal_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
         """
@@ -63,25 +63,25 @@ class ThermicBidding:
 
         # Formulate baseload orders
         cfg.logger.info("Formulation of the thermic baseload orders...")
-        ThermicBaseLoadOrders.formulate_thermic_baseload_orders(dataset, orders_time, parameters)
+        ThermalBaseLoadOrders.formulate_thermal_baseload_orders(dataset, orders_time, parameters)
 
         # Formulate intermediate load orders
         cfg.logger.info(
             "Baseload orders formulation completed. Moving on to the formulation of the intermediate load orders..."
         )
-        ThermicIntermediateLoadOrders.formulate_thermic_intermediate_load_orders(dataset, orders_time, parameters)
+        ThermalIntermediateLoadOrders.formulate_thermal_intermediate_load_orders(dataset, orders_time, parameters)
 
         # Formulate peak load orders
         cfg.logger.info(
             "Intermediate load orders formulation completed. Moving on to the formulation of the peak load orders..."
         )
 
-        ThermicPeakLoadOrders.formulate_thermic_peak_load_orders(dataset, orders_time, parameters)
+        ThermalPeakLoadOrders.formulate_thermal_peak_load_orders(dataset, orders_time, parameters)
         cfg.logger.info("Peak load orders formulation completed.")
 
         # This is done last and not during the bidding process because of mutually exclusive programs, and to simplify debug
         cfg.logger.info("Computing maximum sell volumes...")
-        ThermicBidding.computeDASellSubmittedVolumes(dataset, orders_time, parameters)
+        ThermalBidding.computeDASellSubmittedVolumes(dataset, orders_time, parameters)
         cfg.logger.info("End of computation.")
 
         return None
@@ -171,7 +171,7 @@ class ThermicBidding:
                     continue
                 if not already_considered_orders[coupled_order.name]:
                     already_considered_orders_n = []
-                    programm, list_of_considerer_orders = ThermicBidding.graph_search_of_connected_orders(
+                    programm, list_of_considerer_orders = ThermalBidding.graph_search_of_connected_orders(
                         coupled_order,
                         unit_order_coupling_list,
                         Timeseries.from_index(
@@ -240,7 +240,7 @@ class ThermicBidding:
 
             for coupled_order in coupling[1:]:
                 if coupled_order.name not in already_considered_orders_n:
-                    current_programm, already_considered_orders_n = ThermicBidding.graph_search_of_connected_orders(
+                    current_programm, already_considered_orders_n = ThermalBidding.graph_search_of_connected_orders(
                         coupled_order, unit_order_coupling_list, current_programm, already_considered_orders_n
                     )
         return current_programm, already_considered_orders_n

@@ -15,10 +15,10 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadO
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
-class ThermicPeakLoadOrders:
+class ThermalPeakLoadOrders:
     # Peak
     @staticmethod
-    def formulate_thermic_peak_load_orders(
+    def formulate_thermal_peak_load_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
         """

@@ -16,16 +16,16 @@ from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_base_load_orders import ThermicBaseLoadOrders
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_optimization import ThermicOptimization
-from atlas.modules.day_ahead_orders.orders_formulation.thermic_unit_orders import ThermicUnitOrders
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimization
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
-class ThermicIntermediateLoadOrders:
+class ThermalIntermediateLoadOrders:
     # Intermediate
     @staticmethod
-    def formulate_thermic_intermediate_load_orders(
+    def formulate_thermal_intermediate_load_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
         """
@@ -52,35 +52,35 @@ class ThermicIntermediateLoadOrders:
             return None
 
         # Solve the optimisation programs
-        res = ThermicOptimization.solve_optimization_programs(equipments_list, parameters)
+        res = ThermalOptimization.solve_optimization_programs(equipments_list, parameters)
 
         for thermal_unit in equipments_list:
             # Consider the unique cases
-            cases = ThermicIntermediateLoadOrders.get_unique_cases(res, thermal_unit, parameters)
+            cases = ThermalIntermediateLoadOrders.get_unique_cases(res, thermal_unit, parameters)
 
             # Create a list that will all online time frames across all scenarios
             online_timeframes = []
             for case in cases:
                 # Encode the outcome as a state sequence
-                states_sequence = ThermicIntermediateLoadOrders.determine_intermediate_load_states_sequence(
+                states_sequence = ThermalIntermediateLoadOrders.determine_intermediate_load_states_sequence(
                     thermal_unit, res, case, parameters
                 )
 
                 # Extract the list of online time frames
-                list_of_online_timeframes = ThermicBaseLoadOrders.extract_online_sequences(
+                list_of_online_timeframes = ThermalBaseLoadOrders.extract_online_sequences(
                     thermal_unit, states_sequence, orders_time, parameters, case=case
                 )
 
                 # Formulate the orders over each online timeframe.
                 for online_timeframe in list_of_online_timeframes:
                     online_timeframes.append(online_timeframe)  # Add the time frame to the list of time frames
-                    ThermicUnitOrders.formulate_unit_orders(
+                    ThermalUnitOrders.formulate_unit_orders(
                         online_timeframe, thermal_unit, orders_time, dataset, parameters, case=case
                     )
 
             # Formulate the exclusion links between scenarios
             # Consider only the time frames that are overlapping
-            overlapping_blocks = ThermicIntermediateLoadOrders.get_overlapping_timeframes(online_timeframes)
+            overlapping_blocks = ThermalIntermediateLoadOrders.get_overlapping_timeframes(online_timeframes)
 
             if overlapping_blocks:
                 # Retrieve the orders corresponding to the first order of each time frame
@@ -203,7 +203,7 @@ class ThermicIntermediateLoadOrders:
         # list of scenarios to be discarded (if already marked as overlapping)
         to_discard = []
         for pair in itertools.combinations(collapsed_outcomes, 2):
-            if ThermicIntermediateLoadOrders.is_overlapping(pair):
+            if ThermalIntermediateLoadOrders.is_overlapping(pair):
                 # add the first scenario (arbitrarily) to the list of scenarios to be discarded if
                 # the current scenario pair is perfectly overlapping
                 to_discard.append(pair[0])

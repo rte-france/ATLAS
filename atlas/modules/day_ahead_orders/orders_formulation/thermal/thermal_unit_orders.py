@@ -18,7 +18,7 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadO
 from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
-class ThermicUnitOrders:
+class ThermalUnitOrders:
     # ------ Main order formulation function, for base and intermediate units ------
     @staticmethod
     def formulate_unit_orders(
@@ -463,7 +463,7 @@ class ThermicUnitOrders:
                     flexible_bid_name = flex_type + config_bid_name
                     flexible_bid = next((bid for bid in dataset.order if bid.name == flexible_bid_name), None)
                     if flexible_bid is not None:
-                        ThermicUnitOrders.create_parent_child_link(dataset, bid_output, flexible_bid, case, unit, t)
+                        ThermalUnitOrders.create_parent_child_link(dataset, bid_output, flexible_bid, case, unit, t)
 
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]
