@@ -38,7 +38,7 @@ class DAOLoad:
             consumption_forecast = load.maximum_power_forecast.get_forecast(
                 parameters.execution_date,
                 parameters.start_date,
-                parameters.end_date - parameters.time_step,
+                parameters.penultimate_date,
                 parameters.time_step,
             )
 

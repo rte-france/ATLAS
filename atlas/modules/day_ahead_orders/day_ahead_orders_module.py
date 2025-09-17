@@ -123,9 +123,7 @@ class DayAheadOrdersModule(
         """
         orders_time = []
         if parameters.start_date < parameters.end_date:
-            orders_time = generate_datetimes(
-                parameters.start_date, parameters.end_date - parameters.time_step, parameters.time_step
-            )
+            orders_time = generate_datetimes(parameters.start_date, parameters.penultimate_date, parameters.time_step)
         else:
             msg = "The end_date parameter must be posterior to the start_date parameter."
             cfg.logger.error(msg)

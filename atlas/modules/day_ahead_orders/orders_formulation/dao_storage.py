@@ -228,7 +228,7 @@ class DAOStorage:
         # Loop on all the actors that have EV storage capacity
         for equipment in dataset.storage:
             # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
-            end_date = parameters.end_date - parameters.time_step
+            end_date = parameters.penultimate_date
             local_index = generate_datetimes(
                 parameters.start_date,
                 end_date,
@@ -268,19 +268,19 @@ class DAOStorage:
                 equipment.variable_cost = Timeseries(None)
             if Ppurchase != 0:
                 equipment.variable_cost.set_value(parameters.start_date, round(Ppurchase, 2))
-                equipment.variable_cost.set_value(parameters.end_date - parameters.time_step, round(Ppurchase, 2))
+                equipment.variable_cost.set_value(parameters.penultimate_date, round(Ppurchase, 2))
             elif equipment.discharge_efficiency != 0 and equipment.charge_efficiency != 0:
                 equipment.variable_cost.set_value(
                     parameters.start_date,
                     round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
                 )
                 equipment.variable_cost.set_value(
-                    parameters.end_date - parameters.time_step,
+                    parameters.penultimate_date,
                     round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
                 )
             else:
                 equipment.variable_cost.set_value(parameters.start_date, round(Psale, 2))
-                equipment.variable_cost.set_value(parameters.end_date - parameters.time_step, round(Psale, 2))
+                equipment.variable_cost.set_value(parameters.penultimate_date, round(Psale, 2))
                 cfg.logger.warning(
                     f"WARNING: ChargeEfficiency or DischargeEfficiency is null for equipment {equipment.name}. "
                     "This is not supposed to be the case, as the default value for these is 1 and not 0"
@@ -302,7 +302,7 @@ class DAOStorage:
                 # if it is feasible given all orders generated for this equipment.
                 # If not, the energy requirement is capped to the feasible limit
                 energy_requirement = equipment.displacement_energy.get_value(
-                    parameters.end_date - parameters.time_step
+                    parameters.penultimate_date
                 ) - equipment.displacement_energy.get_value(parameters.start_date - parameters.time_step)
 
                 if energy_requirement > daily_buy_volume:

@@ -5,9 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from functools import cached_property
+
 from pendulum import duration
 from pendulum.duration import Duration
 from pydantic import Field, field_validator
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import SolverEnum
@@ -135,6 +138,10 @@ class DayAheadOrdersParameters(AbstractParameters):
         "and tested, other solvers may result in unexpected behaviour. Other possible values : "
         "'GLPK', 'PNE', 'GLOP' (for linear problems only), 'SCIP', 'CP-SAT'.",
     )
+
+    @cached_property
+    def penultimate_date(self) -> DateTime:
+        return self.end_date - self.time_step
 
     @field_validator(
         "phs_additional_hours",

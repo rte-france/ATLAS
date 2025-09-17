@@ -51,7 +51,7 @@ class Hydraulic:
                 delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 
             # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
-            end_date = parameters.end_date - parameters.time_step
+            end_date = parameters.penultimate_date
             local_index = generate_datetimes(
                 parameters.start_date,
                 end_date,
