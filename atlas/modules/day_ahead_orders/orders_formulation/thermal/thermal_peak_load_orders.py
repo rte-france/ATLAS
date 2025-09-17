@@ -281,10 +281,8 @@ class ThermalPeakLoadOrders:
                     if generate_inflexible_order:
                         # Parent-children link between the flexible and inflexible parts
                         link_reserve_flexible = OrderCoupling(
-                            name="PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{}_for_unit_{}_with_price_{}".format(
-                                Utilities.get_date_to_clean_string(t),
-                                unit.name,
-                                case,  # TODO case not defined
+                            name="PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{}_for_unit_{}".format(
+                                Utilities.get_date_to_clean_string(t), unit.name
                             )
                         )
                         link_reserve_flexible.coupling_type = CouplingType.PARENT_CHILDREN
