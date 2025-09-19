@@ -101,7 +101,7 @@ class DayAheadOrdersModule(
 
             #### STEP 6 - THERMIC UNITS ####
             cfg.logger.info("Formulation of the thermic orders...")
-            ThermicBidding.formulate_thermic_orders(dataset, orders_time, parameters)
+            ThermalBidding.formulate_thermal_orders(dataset, orders_time, parameters)
             cfg.logger.info("Thermic orders formulated.")
 
             #### STEP - INDICATE TO THE USER THAT THE FORMULATION OF ORDERS IS COMPLETED.
