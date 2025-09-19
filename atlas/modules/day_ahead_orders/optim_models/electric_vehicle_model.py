@@ -5,75 +5,63 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum.duration import Duration
-from pydantic_extra_types.pendulum_dt import DateTime
-
 from atlas import Equipment
+from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseModel
 
 
 class ElectricVehicleModel(DAOBaseModel):
     def __init__(
         self,
+        parameters: DayAheadOrdersParameters,
         solver_name: str,
         name: str,
-        start_date: DateTime,
-        end_date: DateTime,
-        execution_date: DateTime,
-        time_step: Duration,
         equipment: Equipment,
-        optimization_period: Duration,
-        ev_nb_fragments: int,
-        ev_energy_coef: float,
     ):
-        super().__init__(
-            solver_name, name, start_date, end_date, execution_date, time_step, equipment, optimization_period
-        )
-        self.ev_nb_fragments = ev_nb_fragments
-        self.ev_energy_coef = ev_energy_coef
+        super().__init__(parameters, solver_name, name, equipment, parameters.optimization_period)
 
     def create_constraints(self, initial_stock: float | None):
         # Creation of constraints
 
         for t in self.time_frame:
-            for i in range(self.ev_nb_fragments):
+            for i in range(self.parameters.ev_nb_fragments):
                 self.add_constraint(
-                    self.Qvf[t][i] * self.ev_nb_fragments <= self.equipment.maximum_power.get_value(t),
+                    self.Qvf[t][i] * self.parameters.ev_nb_fragments <= self.equipment.maximum_power.get_value(t),
                     f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
                 )
                 self.add_constraint(
-                    self.Qaf[t][i] * self.ev_nb_fragments <= abs(self.equipment.minimum_power.get_value(t)),
+                    self.Qaf[t][i] * self.parameters.ev_nb_fragments <= abs(self.equipment.minimum_power.get_value(t)),
                     f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
                 )
 
             # Total bought/sold energy at each tome step is the sum of the fragments at time step
             self.add_constraint(
-                self.Qv[t] == sum(self.Qvf[t][i] for i in range(self.ev_nb_fragments)),
+                self.Qv[t] == sum(self.Qvf[t][i] for i in range(self.parameters.ev_nb_fragments)),
                 f"Evaluation_of_quantity_sold_at_{t}",
             )
             self.add_constraint(
-                self.Qa[t] == sum(self.Qaf[t][i] for i in range(self.ev_nb_fragments)),
+                self.Qa[t] == sum(self.Qaf[t][i] for i in range(self.parameters.ev_nb_fragments)),
                 f"Evaluation_of_quantity_purchased_at_{t}",
             )
 
             # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == self.start_date:
+            if t == self.parameters.start_date:
                 self.add_constraint(
                     self.stored_energy[t]
                     == (
                         initial_stock
                         * (
                             self.equipment.maximum_energy.get_value(t)
-                            / self.equipment.maximum_energy.get_value(t - self.time_step)
+                            / self.equipment.maximum_energy.get_value(t - self.parameters.time_step)
                         )
-                        + self.time_step.total_hours()
+                        + self.parameters.time_step.total_hours()
                         * (
                             self.Qa[t] * self.equipment.charge_efficiency
                             - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                         + (
                             self.equipment.displacement_energy.get_value(t)
-                            - self.equipment.displacement_energy.get_value(t - self.time_step)
+                            - self.equipment.displacement_energy.get_value(t - self.parameters.time_step)
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -82,19 +70,19 @@ class ElectricVehicleModel(DAOBaseModel):
                 self.add_constraint(
                     self.stored_energy[t]
                     == (
-                        self.stored_energy[t - self.time_step]
+                        self.stored_energy[t - self.parameters.time_step]
                         * (
                             self.equipment.maximum_energy.get_value(t)
-                            / self.equipment.maximum_energy.get_value(t - self.time_step)
+                            / self.equipment.maximum_energy.get_value(t - self.parameters.time_step)
                         )
-                        + self.time_step.total_hours()
+                        + self.parameters.time_step.total_hours()
                         * (
                             self.Qa[t] * self.equipment.charge_efficiency
                             - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                         + (
                             self.equipment.displacement_energy.get_value(t)
-                            - self.equipment.displacement_energy.get_value(t - self.time_step)
+                            - self.equipment.displacement_energy.get_value(t - self.parameters.time_step)
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -157,9 +145,11 @@ class ElectricVehicleModel(DAOBaseModel):
         self.add_constraint(
             sum(self.Qa[t] for t in self.time_frame) * self.equipment.charge_efficiency
             >= (
-                self.equipment.displacement_energy.get_value(self.end_date + self.optimizationPeriod - self.time_step)
-                - self.equipment.displacement_energy.get_value(self.start_date - self.time_step)
+                self.equipment.displacement_energy.get_value(
+                    self.parameters.end_date + self.optimizationPeriod - self.parameters.time_step
+                )
+                - self.equipment.displacement_energy.get_value(self.parameters.start_date - self.parameters.time_step)
             )
-            * self.ev_energy_coef,
+            * self.parameters.ev_energy_coef,
             f"DisplacementEnergy_compensation_for_{str(self.equipment.name)}",
         )

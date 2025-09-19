@@ -5,41 +5,38 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import os
 from typing import Any
 
 from pendulum.duration import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import Equipment, OptimisationModel, generate_datetimes
+import atlas.config as cfg
+from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
 
 class DAOBaseModel(OptimisationModel):
     def __init__(
         self,
+        parameters: DayAheadOrdersParameters,
         solver_name: str,
         name: str,
-        start_date: DateTime,
-        end_date: DateTime,
-        execution_date: DateTime,
-        time_step: Duration,
         equipment: Equipment,
         optimization_period: Duration,
     ):
         super().__init__(solver_name, name)
+        self.parameters = parameters
         self._objective_direction = "maximize"
-        self.start_date = start_date
-        self.end_date = end_date
-        self.execution_date = execution_date
-        self.time_step = time_step
         self.equipment = equipment
         self.optimizationPeriod = optimization_period
         # Get the price forecast from the input marker: estimations are at ActionHour, over the optimisation period
         # The price forecast is relative to the equipment's market area
         self.price_forecast = self.equipment.portfolio.market_area.price_forecast_medium.get_forecast(
-            self.execution_date,
-            self.start_date,
-            self.end_date + self.optimizationPeriod,
-            self.time_step,
+            self.parameters.execution_date,
+            self.parameters.start_date,
+            self.parameters.end_date + self.optimizationPeriod,
+            self.parameters.time_step,
         )
         # Set-up the time frames
         # Definition of the time_frame time frame: the time frame on which
@@ -47,9 +44,9 @@ class DAOBaseModel(OptimisationModel):
         # Remark: we define the time series until end_date - time_step because
         # we want all time steps to lie in the [start_date, endOptimizationDate] range.
         self.time_frame = generate_datetimes(
-            self.start_date,
-            self.end_date + self.optimizationPeriod - self.time_step,
-            self.time_step,
+            self.parameters.start_date,
+            self.parameters.end_date + self.optimizationPeriod - self.parameters.time_step,
+            self.parameters.time_step,
         )
         # Total quantities bought and purchased in the market at each time step
         self.Qv: dict[DateTime, Any] = {}  # Qv: dict[Datetime, Any]
@@ -85,8 +82,8 @@ class DAOBaseModel(OptimisationModel):
         if nb_fragments == 1:
             self.objective = (
                 sum(
-                    self.price_forecast.get_value(t) * self.Qvf[t][0] * self.time_step.total_hours()
-                    - self.price_forecast.get_value(t) * self.Qaf[t][0] * self.time_step.total_hours()
+                    self.price_forecast.get_value(t) * self.Qvf[t][0] * self.parameters.time_step.total_hours()
+                    - self.price_forecast.get_value(t) * self.Qaf[t][0] * self.parameters.time_step.total_hours()
                     for t in self.time_frame
                 ),
                 "Profit",
@@ -98,11 +95,11 @@ class DAOBaseModel(OptimisationModel):
                         self.price_forecast.get_value(t)
                         * (1 - i * smoothing_factor / (nb_fragments - 1))
                         * self.Qvf[t][i]
-                        * self.time_step.total_hours()
+                        * self.parameters.time_step.total_hours()
                         - self.price_forecast.get_value(t)
                         * (1 + i * smoothing_factor / (nb_fragments - 1))
                         * self.Qaf[t][i]
-                        * self.time_step.total_hours()
+                        * self.parameters.time_step.total_hours()
                         for i in range(nb_fragments)
                     )
                     for t in self.time_frame
@@ -110,3 +107,14 @@ class DAOBaseModel(OptimisationModel):
                 "Profit",
             )
             self.solver.Maximize(self.objective[0])
+
+    def solve_with_xpress(self) -> None:
+        if self.parameters.debug:
+            lp_file_name = os.path.join(self.parameters.output_folder, f"storage_{self.equipment.name}.lp")
+            self.export_model(lp_file_name)
+
+        self.solve(self.parameters.solver_time_out.total_minutes())
+
+        if self.parameters.verbose:
+            cfg.logger.info(f"Solver status: {self.solution_info.status}")
+            cfg.logger.info(f"Objective function value: {self.objective}")

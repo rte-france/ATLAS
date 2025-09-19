@@ -6,27 +6,22 @@ This file is part of the ATLAS project.
 """
 
 from pendulum.duration import Duration
-from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import Equipment
+from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseModel
 
 
 class BatteryModel(DAOBaseModel):
     def __init__(
         self,
+        parameters: DayAheadOrdersParameters,
         solver_name: str,
         name: str,
-        start_date: DateTime,
-        end_date: DateTime,
-        execution_date: DateTime,
-        time_step: Duration,
         equipment: Equipment,
         optimization_period: Duration,
     ):
-        super().__init__(
-            solver_name, name, start_date, end_date, execution_date, time_step, equipment, optimization_period
-        )
+        super().__init__(parameters, solver_name, name, equipment, optimization_period)
 
     def create_constraints(self, initial_stock: float | None, power_fragments: int):
         """
@@ -57,28 +52,28 @@ class BatteryModel(DAOBaseModel):
             )
 
             # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == self.start_date:
+            if t == self.parameters.start_date:
                 self.add_constraint(
                     self.stored_energy[t]
                     == (
                         initial_stock
-                        + self.time_step.total_hours()
+                        + self.parameters.time_step.total_hours()
                         * (
                             self.Qa[t] * self.equipment.charge_efficiency
                             - self.Qv[t] / self.equipment.discharge_efficiency
                         )
                     ),
-                    f"Stock_tracking_at_{t + self.time_step}",
+                    f"Stock_tracking_at_{t + self.parameters.time_step}",
                 )
             else:
                 self.add_constraint(
                     self.stored_energy[t]
-                    == self.stored_energy[t - self.time_step]
-                    + self.time_step.total_hours()
+                    == self.stored_energy[t - self.parameters.time_step]
+                    + self.parameters.time_step.total_hours()
                     * (
                         self.Qa[t] * self.equipment.charge_efficiency - self.Qv[t] / self.equipment.discharge_efficiency
                     ),
-                    f"Stock_tracking_at_{t + self.time_step}",
+                    f"Stock_tracking_at_{t + self.parameters.time_step}",
                 )
 
             # Respect of system states constraints (isSell and isV2G)

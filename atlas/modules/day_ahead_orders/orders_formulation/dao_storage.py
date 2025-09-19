@@ -5,7 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import os
 from typing import Any
 
 from pydantic_extra_types.pendulum_dt import DateTime
@@ -16,9 +15,7 @@ from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, St
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
-from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseModel
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
-
 from atlas.timing import generate_datetimes
 
 
@@ -36,24 +33,18 @@ class DAOStorage:
         """
         # Creation of optimization problem
         model = ElectricVehicleModel(
-            parameters.solver.upper(),
-            "Optimization of the storage unit " + equipment.name,
-            parameters.start_date,
-            parameters.end_date,
-            parameters.execution_date,
-            parameters.time_step,
-            equipment,
-            parameters.ev_additional_hours,
-            parameters.ev_nb_fragments,
-            parameters.ev_energy_coef,
+            parameters, parameters.solver.upper(), "Optimization of the storage unit " + equipment.name, equipment
         )
         model.create_decision_variables(parameters.ev_nb_fragments)
         model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor)
         model.create_constraints(initial_stock)
+        model.set_solver_specific_parameters_as_string(
+            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_minutes()}"
+        )
 
         # Solving the problem
         if parameters.solver.upper() == "XPRESS":
-            DAOStorage.solve_with_xpress(model, parameters, equipment.name)
+            model.solve_with_xpress()
         else:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
             raise ValueError(
@@ -94,22 +85,22 @@ class DAOStorage:
 
         # Creation of optimization problem
         model = BatteryModel(
+            parameters,
             parameters.solver.upper(),
             "Optimization of the storage unit " + equipment.name,
-            parameters.start_date,
-            parameters.end_date,
-            parameters.execution_date,
-            parameters.time_step,
             equipment,
             optimization_period,
         )
         model.create_decision_variables(power_fragments)
         model.create_objective_function(power_fragments, smoothing_factor)
         model.create_constraints(initial_stock, power_fragments)
+        model.set_solver_specific_parameters_as_string(
+            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_minutes()}"
+        )
 
         # Solving the problem
         if parameters.solver.upper() == "XPRESS":
-            DAOStorage.solve_with_xpress(model, parameters, equipment.name)
+            model.solve_with_xpress()
         else:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previsously raised errors otherwise with GLPK
             raise ValueError(
@@ -127,22 +118,6 @@ class DAOStorage:
             Qaa[t] = round(model.Qa[t].solution_value(), 2)
 
         return Qvv, Qaa
-
-    @staticmethod
-    def solve_with_xpress(model: DAOBaseModel, parameters: DayAheadOrdersParameters, equipment_name: str) -> None:
-        model.set_solver_specific_parameters_as_string(
-            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_minutes()}"
-        )
-
-        if parameters.debug:
-            lp_file_name = os.path.join(parameters.output_folder, f"storage_{equipment_name}.lp")
-            model.export_model(lp_file_name)
-
-        model.solve(parameters.solver_time_out.total_minutes())
-
-        if parameters.verbose:
-            cfg.logger.info(f"Solver status: {model.solution_info.status}")
-            cfg.logger.info(f"Objective function value: {model.objective}")
 
     @staticmethod
     def price_calculation(
