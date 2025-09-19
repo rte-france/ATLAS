@@ -56,7 +56,7 @@ class ThermalIntermediateLoadOrders:
 
         for thermal_unit in equipments_list:
             # Consider the unique cases
-            cases = ThermalIntermediateLoadOrders.get_unique_cases(res, thermal_unit, parameters)
+            cases = ThermalIntermediateLoadOrders.get_unique_cases(res, thermal_unit)
 
             # Create a list that will all online time frames across all scenarios
             online_timeframes = []
@@ -139,7 +139,7 @@ class ThermalIntermediateLoadOrders:
         return None
 
     @staticmethod
-    def get_unique_cases(results: dict, thermal_unit: Thermal, parameters: DayAheadOrdersParameters) -> list[str]:
+    def get_unique_cases(results: dict, thermal_unit: Thermal) -> list[str]:
         """
         Returns a list of unique cases for the associated thermal unit.
 
@@ -152,8 +152,6 @@ class ThermalIntermediateLoadOrders:
 
         Returns:
         cases : a list of cases names (string) each of which is unique.
-
-
         """
 
         # Quick sanity check on the class of the equipment supplied as input.
