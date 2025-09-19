@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas import Order, OrderCoupling
+from atlas import Order, OrderCoupling, Equipment
 from atlas.enum import CouplingType, OrderType, Product, ThermalStrategy
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
@@ -121,36 +121,21 @@ class ThermalPeakLoadOrders:
                             f"*** WARNING ***\n Negative or null amount of energy in the flexible order to be offered by unit {unit.name} at time {str(t)}. "
                             "The order will therefore not be created."
                         )
-
                 else:
                     # Flexible order
-                    flexible_order = Order(
-                        name=f"flexible_order_at_{t}_for_unit_{unit.name}",
-                        market_area=unit.portfolio.market_area,
-                        portfolio=unit.portfolio,
-                        equipment=unit,
-                        qmax=q_max,
-                        qmin=0,
+                    ThermalPeakLoadOrders.create_order_and_link(
+                        dataset=dataset,
+                        parameters=parameters,
+                        generate_inflexible_order=generate_inflexible_order,
+                        inflexible_order=inflexible_order,
+                        t=t,
+                        unit=unit,
+                        order_name=f"flexible_order_at_{t}_for_unit_{unit.name}",
+                        q_max=q_max,
+                        q_min=0,
                         price=unit.variable_cost.get_value(t),
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=parameters.execution_date,
-                        start_date=t,
-                        end_date=t + parameters.time_step,
+                        link_name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}",
                     )
-                    dataset.order.append(flexible_order)
-
-                    if generate_inflexible_order:
-                        # Parent-children link between the flexible and inflexible parts
-                        link_flexible_inflexible = OrderCoupling(
-                            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}"
-                        )
-                        link_flexible_inflexible.coupling_type = CouplingType.PARENT_CHILDREN
-                        # add the two orders
-                        link_flexible_inflexible.orders.append(inflexible_order)  # add the parent
-                        link_flexible_inflexible.orders.append(flexible_order)  # add the child
-                        dataset.order_coupling.append(link_flexible_inflexible)
 
                 # Reserve orders
                 # ==============
@@ -158,136 +143,115 @@ class ThermalPeakLoadOrders:
                 # Automated downward reserves requirements
                 if automated_reserves_down_procured.get_value(t) > 0.0:
                     # This order will be the child of the current inflexible order.
-                    # Initialize the order object.
-                    reserve_bid = Order(
-                        name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}",
-                        market_area=unit.portfolio.market_area,
-                        portfolio=unit.portfolio,
-                        equipment=unit,
-                        qmax=automated_reserves_down_procured.get_value(t),
-                        qmin=(1 - parameters.imposed_proportional_reserves_penalty)
+                    ThermalPeakLoadOrders.create_order_and_link(
+                        dataset=dataset,
+                        parameters=parameters,
+                        generate_inflexible_order=generate_inflexible_order,
+                        inflexible_order=inflexible_order,
+                        t=t,
+                        unit=unit,
+                        order_name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}",
+                        q_max=automated_reserves_down_procured.get_value(t),
+                        q_min=(1 - parameters.imposed_proportional_reserves_penalty)
                         * automated_reserves_down_procured.get_value(t),
                         price=unit.variable_cost.get_value(t) - parameters.automated_unprocured_reserves_penalty,
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=parameters.execution_date,
-                        start_date=t,
-                        end_date=t + parameters.time_step,
+                        link_name=f"PARENT_CHILDREN_automated_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
-                    dataset.order.append(reserve_bid)
-
-                    if generate_inflexible_order:
-                        # Parent-children link between the flexible and inflexible parts
-                        link_reserve_inflexible = OrderCoupling(
-                            name=f"PARENT_CHILDREN_automated_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}"
-                        )
-                        link_reserve_inflexible.coupling_type = CouplingType.PARENT_CHILDREN
-                        # add the two orders
-                        link_reserve_inflexible.orders.append(inflexible_order)  # add the parent
-                        link_reserve_inflexible.orders.append(reserve_bid)  # add the child
-                        dataset.order_coupling.append(link_reserve_inflexible)
 
                 # Manual downward reserves requirements
                 if manual_reserves_down_procured.get_value(t) > 0.0:
                     # This order will be the child of the current inflexible order.
-                    # Initialize the order object.
-
-                    reserve_bid = Order(
-                        name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}",
-                        market_area=unit.portfolio.market_area,
-                        portfolio=unit.portfolio,
-                        equipment=unit,
-                        qmax=manual_reserves_down_procured.get_value(t),
-                        qmin=(1 - parameters.imposed_proportional_reserves_penalty)
+                    ThermalPeakLoadOrders.create_order_and_link(
+                        dataset=dataset,
+                        generate_inflexible_order=generate_inflexible_order,
+                        inflexible_order=inflexible_order,
+                        parameters=parameters,
+                        t=t,
+                        unit=unit,
+                        order_name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}",
+                        q_max=manual_reserves_down_procured.get_value(t),
+                        q_min=(1 - parameters.imposed_proportional_reserves_penalty)
                         * manual_reserves_down_procured.get_value(t),
                         price=unit.variable_cost.get_value(t) - parameters.manual_unprocured_reserves_penalty,
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=parameters.execution_date,
-                        start_date=t,
-                        end_date=t + parameters.time_step,
+                        link_name=f"PARENT_CHILDREN_manual_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
-                    dataset.order.append(reserve_bid)
-
-                    if generate_inflexible_order:
-                        # Parent-children link between the flexible and inflexible parts
-                        link_reserve_inflexible = OrderCoupling(
-                            name=f"PARENT_CHILDREN_manual_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}"
-                        )
-                        link_reserve_inflexible.coupling_type = CouplingType.PARENT_CHILDREN
-                        # add the two orders
-                        link_reserve_inflexible.orders.append(inflexible_order)  # add the parent
-                        link_reserve_inflexible.orders.append(reserve_bid)  # add the child
-                        dataset.order_coupling.append(link_reserve_inflexible)
 
                 # Automated upward reserves requirements
                 if automated_reserves_up_procured.get_value(t) > 0.0:
                     # This order will be the child of the current flexible order.
-                    # Initialize the order object.
-                    reserve_bid = Order(
-                        name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}",
-                        market_area=unit.portfolio.market_area,
-                        portfolio=unit.portfolio,
-                        equipment=unit,
-                        qmax=automated_reserves_up_procured.get_value(t),
-                        qmin=(1 - parameters.imposed_proportional_reserves_penalty)
+                    ThermalPeakLoadOrders.create_order_and_link(
+                        dataset=dataset,
+                        generate_inflexible_order=generate_inflexible_order,
+                        inflexible_order=inflexible_order,
+                        parameters=parameters,
+                        t=t,
+                        unit=unit,
+                        order_name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}",
+                        q_max=automated_reserves_up_procured.get_value(t),
+                        q_min=(1 - parameters.imposed_proportional_reserves_penalty)
                         * automated_reserves_up_procured.get_value(t),
                         price=(unit.VariableCost.get_value(t) + parameters.automated_unprocured_reserves_penalty),
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=parameters.execution_date,
-                        start_date=t,
-                        end_date=t + parameters.time_step,
+                        link_name=f"PARENT_CHILDREN_automated_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
-                    dataset.order.append(reserve_bid)
-
-                    if generate_inflexible_order:
-                        # Parent-children link between the flexible and inflexible parts
-                        link_reserve_flexible = OrderCoupling(
-                            name=f"PARENT_CHILDREN_automated_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}"
-                        )
-                        link_reserve_flexible.coupling_type = CouplingType.PARENT_CHILDREN
-                        # add the two orders
-                        link_reserve_flexible.orders.append(inflexible_order)  # add the parent
-                        link_reserve_flexible.orders.append(reserve_bid)  # add the child
-                        dataset.order_coupling.append(link_reserve_flexible)
 
                 # Manual upward reserves requirements
                 if manual_reserves_up_procured.get_value(t) > 0.0:
                     # This order will be the child of the current flexible order.
-                    # Initialize the order object.
-                    reserve_bid = Order(
-                        name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}",
-                        market_area=unit.portfolio.market_area,
-                        portfolio=unit.portfolio,
-                        equipment=unit,
-                        qmax=manual_reserves_up_procured.get_value(t),
-                        qmin=(1 - parameters.imposed_proportional_reserves_penalty)
+                    ThermalPeakLoadOrders.create_order_and_link(
+                        dataset=dataset,
+                        generate_inflexible_order=generate_inflexible_order,
+                        inflexible_order=inflexible_order,
+                        parameters=parameters,
+                        t=t,
+                        unit=unit,
+                        order_name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}",
+                        q_max=manual_reserves_up_procured.get_value(t),
+                        q_min=(1 - parameters.imposed_proportional_reserves_penalty)
                         * manual_reserves_up_procured.get_value(t),
                         price=unit.VariableCost.get_value(t) + parameters.manual_unprocured_reserves_penalty,
-                        product=Product.DayAhead,
-                        order_type=OrderType.Sell,
-                        is_agent_tso=False,
-                        execution_date=parameters.execution_date,
-                        start_date=t,
-                        end_date=t + parameters.time_step,
+                        link_name="PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{}_for_unit_{}".format(
+                            t, unit.name
+                        ),
                     )
-                    dataset.order.append(reserve_bid)
-
-                    if generate_inflexible_order:
-                        # Parent-children link between the flexible and inflexible parts
-                        link_reserve_flexible = OrderCoupling(
-                            name="PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{}_for_unit_{}".format(
-                                t, unit.name
-                            )
-                        )
-                        link_reserve_flexible.coupling_type = CouplingType.PARENT_CHILDREN
-                        # add the two orders
-                        link_reserve_flexible.orders.append(inflexible_order)  # add the parent
-                        link_reserve_flexible.orders.append(reserve_bid)  # add the child
-                        dataset.order_coupling.append(link_reserve_flexible)
 
         return None
+
+    @staticmethod
+    def create_order_and_link(
+        dataset: DayAheadOrdersInputDataset,
+        parameters: DayAheadOrdersParameters,
+        generate_inflexible_order: bool,
+        inflexible_order: Order,
+        t: DateTime,
+        unit: Equipment,
+        order_name: str,
+        q_max: float,
+        q_min: float,
+        price: float,
+        link_name: str,
+    ):
+        order = Order(
+            name=order_name,
+            market_area=unit.portfolio.market_area,
+            portfolio=unit.portfolio,
+            equipment=unit,
+            qmax=q_max,
+            qmin=q_min,
+            price=price,
+            product=Product.DayAhead,
+            order_type=OrderType.Sell,
+            is_agent_tso=False,
+            execution_date=parameters.execution_date,
+            start_date=t,
+            end_date=t + parameters.time_step,
+        )
+        dataset.order.append(order)
+
+        if generate_inflexible_order:
+            # Parent-children link between the flexible and inflexible parts
+            link = OrderCoupling(name=link_name)
+            link.coupling_type = CouplingType.PARENT_CHILDREN
+            # add the two orders
+            link.orders.append(inflexible_order)  # add the parent
+            link.orders.append(order)  # add the child
+            dataset.order_coupling.append(link)

@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from pydantic_extra_types.pendulum_dt import DateTime
-
+import atlas.config as cfg
 from atlas import Order
 from atlas.enum import OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
@@ -62,10 +62,13 @@ class WindPV:
             # We formulate as many offers as there are time stamps in orders_time.
             for t in orders_time:
                 # Assign a unique name
+                bid_name = ""
                 if type(equipment).__name__ == "Wind":
                     bid_name = f"wind_order_at_{t}_for_unit_{equipment.name}"
-                if type(equipment).__name__ == "Solar":
+                elif type(equipment).__name__ == "Solar":
                     bid_name = f"pv_order_at_{t}_for_unit_{equipment.name}"
+                else:
+                    cfg.logger.warning(f"equipment {equipment.name} isn't Wind nor Solar")
 
                 # Extract the available production level range
                 max_production_value = production_forecast.get_value(t)

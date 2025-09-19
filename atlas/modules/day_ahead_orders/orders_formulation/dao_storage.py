@@ -82,6 +82,10 @@ class DAOStorage:
             optimization_period = parameters.phs_additional_hours
             smoothing_factor = parameters.phs_smoothing_factor
             power_fragments = parameters.phs_nb_fragments
+        else:
+            cfg.logger.error(
+                f"equipment {equipment.name} isn't {StorageType.BATTERY} nor {StorageType.PUMPED_HYDRAULIC_STORAGE}"
+            )
 
         # Creation of optimization problem
         model = BatteryModel(
@@ -334,15 +338,17 @@ class DAOStorage:
                 equipment.da_sell_submitted_volume += sell_submitted_volumes
 
     @staticmethod
-    def create_spot_order(
+    def add_spot_order_with_coupling(
         order_type: OrderType,
         equipment: Equipment,
         start_date: DateTime,
         qmax: float,
         price: float,
         parameters: DayAheadOrdersParameters,
-    ) -> Order:
-        return Order(
+        dataset,
+        coupling_instance: OrderCoupling,
+    ):
+        order = Order(
             name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{equipment.name}",
             equipment=equipment,
             portfolio=equipment.portfolio,
@@ -356,19 +362,6 @@ class DAOStorage:
             qmin=0.0,
             price=price,
         )
-
-    @staticmethod
-    def add_spot_order_with_coupling(
-        order_type: OrderType,
-        equipment: Equipment,
-        start_date: DateTime,
-        qmax: float,
-        price: float,
-        parameters: DayAheadOrdersParameters,
-        dataset,
-        coupling_instance: OrderCoupling,
-    ):
-        order = DAOStorage.create_spot_order(order_type, equipment, start_date, qmax, price, parameters)
         dataset.order.append(order)
         coupling_instance.orders.append(order)
 
