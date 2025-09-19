@@ -358,19 +358,6 @@ class DAOStorage:
         )
 
     @staticmethod
-    def add_spot_order(
-        order_type: OrderType,
-        equipment: Equipment,
-        start_date: DateTime,
-        qmax: float,
-        price: float,
-        parameters: DayAheadOrdersParameters,
-        dataset,
-    ):
-        order = DAOStorage.create_spot_order(order_type, equipment, start_date, qmax, price, parameters)
-        dataset.order.append(order)
-
-    @staticmethod
     def add_spot_order_with_coupling(
         order_type: OrderType,
         equipment: Equipment,
