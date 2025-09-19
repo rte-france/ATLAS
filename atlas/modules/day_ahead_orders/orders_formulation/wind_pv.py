@@ -11,7 +11,6 @@ from atlas import Order
 from atlas.enum import OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
 class WindPV:
@@ -64,9 +63,9 @@ class WindPV:
             for t in orders_time:
                 # Assign a unique name
                 if type(equipment).__name__ == "Wind":
-                    bid_name = f"wind_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{equipment.name}"
+                    bid_name = f"wind_order_at_{t}_for_unit_{equipment.name}"
                 if type(equipment).__name__ == "Solar":
-                    bid_name = f"pv_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{equipment.name}"
+                    bid_name = f"pv_order_at_{t}_for_unit_{equipment.name}"
 
                 # Extract the available production level range
                 max_production_value = production_forecast.get_value(t)

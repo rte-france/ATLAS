@@ -15,7 +15,6 @@ from atlas.enum import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
 class ThermalUnitOrders:
@@ -229,7 +228,7 @@ class ThermalUnitOrders:
             else:
                 # Flexible part of the order
                 flexible_part = Order(
-                    name=f"flexible_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_scenario_{case}",
+                    name=f"flexible_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -251,7 +250,7 @@ class ThermalUnitOrders:
                 # This order will be the child of the current inflexible order.
                 # Initialize the order object.
                 reserve_bid = Order(
-                    name=f"automated_downward_reserve_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_scenario_{case}",
+                    name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -273,7 +272,7 @@ class ThermalUnitOrders:
                 # This order will be the child of the current inflexible order.
                 # Initialize the order object.
                 reserve_bid = Order(
-                    name=f"manual_downward_reserve_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_scenario_{case}",
+                    name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -295,7 +294,7 @@ class ThermalUnitOrders:
                 # This order will be the child of the current flexible order.
                 # Initialize the order object.
                 reserve_bid = Order(
-                    name=f"automated_upward_reserve_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_scenario_{case}",
+                    name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -317,7 +316,7 @@ class ThermalUnitOrders:
                 # This order will be the child of the current flexible order.
                 # Initialize the order object.
                 reserve_bid = Order(
-                    name=f"manual_upward_reserve_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_scenario_{case}",
+                    name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -373,7 +372,7 @@ class ThermalUnitOrders:
                         q_sell = round(i * q_step_up)
 
                     bid_output = Order(
-                        name=f"startup_ramp_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_scenario_{case}",
+                        name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                         market_area=unit.portfolio.market_area,
                         portfolio=unit.portfolio,
                         equipment=unit,
@@ -406,7 +405,7 @@ class ThermalUnitOrders:
                         q_sell = round(q_min - (T_stop - K_stop + i) * q_step_down)
 
                     bid_output = Order(
-                        name=f"shutdown_ramp_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_scenario_{case}",
+                        name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                         market_area=unit.portfolio.market_area,
                         portfolio=unit.portfolio,
                         equipment=unit,
@@ -429,7 +428,7 @@ class ThermalUnitOrders:
             for t, i in zip(flexible_time_frame, range(len(flexible_time_frame)), strict=False):
                 # Initialize the inflexible order object.
                 bid_output = Order(
-                    name=f"order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_under_price_{case}",
+                    name=f"order_at_{t}_for_unit_{unit.name}_under_price_{case}",
                     market_area=unit.portfolio.market_area,
                     portfolio=unit.portfolio,
                     equipment=unit,
@@ -457,9 +456,7 @@ class ThermalUnitOrders:
                     "automated_downward_reserve_order",
                 ]
                 for flex_type in flexible_types:
-                    config_bid_name = (
-                        f"_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_scenario_{case}"
-                    )
+                    config_bid_name = f"_at_{t}_for_unit_{unit.name}_with_scenario_{case}"
                     flexible_bid_name = flex_type + config_bid_name
                     flexible_bid = next((bid for bid in dataset.order if bid.name == flexible_bid_name), None)
                     if flexible_bid is not None:
@@ -468,7 +465,7 @@ class ThermalUnitOrders:
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]
             coupling = OrderCoupling(
-                name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{Utilities.get_date_to_clean_string(date)}_with_scenario_{case}",
+                name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{date}_with_scenario_{case}",
                 coupling_type=CouplingType.IDENTICAL_RATIO,
             )
             for order in inflexible_orders:
@@ -492,7 +489,7 @@ class ThermalUnitOrders:
     ):
         # Add parent-children link between the flexible and inflexible parts
         link_flexible_inflexible = OrderCoupling(
-            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}_with_scenario_{case}",
+            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
             coupling_type=CouplingType.PARENT_CHILDREN,
         )
         # add the two orders

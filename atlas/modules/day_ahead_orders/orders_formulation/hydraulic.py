@@ -14,7 +14,7 @@ from atlas import Order, OrderCoupling, Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
+
 from atlas.timing import generate_datetimes
 
 
@@ -98,7 +98,7 @@ class Hydraulic:
 
             # Create a COMPLEMENT coupling between all orders of the day to comply with MinimumEnergy constraints
             coupling_instance = OrderCoupling(
-                name=f"COMPLEMENT_{str(equipment.name)}_{Utilities.get_date_to_clean_string(parameters.execution_date)}",
+                name=f"COMPLEMENT_{str(equipment.name)}_{parameters.execution_date}",
                 orders=[],
                 coupling_type=CouplingType.COMPLEMENT,
                 complement_direction=ComplementDirection.GreaterThan,
@@ -142,7 +142,7 @@ class Hydraulic:
                     # Do not formulate empty orders
                     if v != 0:
                         # Assign a unique name.
-                        bid_name = f"hydraulic_order_fragment_{str(k)}_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{equipment.name}"
+                        bid_name = f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}"
 
                         # Initialize the order object
                         bid_output = Order(

@@ -19,7 +19,6 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimization
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
-from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
 class ThermalIntermediateLoadOrders:
@@ -94,10 +93,10 @@ class ThermalIntermediateLoadOrders:
                         start_date_order_1, start_date_order_2 = block[0].first_date(), block[1].first_date()
                         case_order_1, case_order_2 = block[0].name, block[1].name
                         orders_names.append(
-                            f"order_at_{Utilities.get_date_to_clean_string(start_date_order_1)}_for_unit_{thermal_unit.name}_under_price_{case_order_1}"
+                            f"order_at_{start_date_order_1}_for_unit_{thermal_unit.name}_under_price_{case_order_1}"
                         )
                         orders_names.append(
-                            f"order_at_{Utilities.get_date_to_clean_string(start_date_order_2)}_for_unit_{thermal_unit.name}_under_price_{case_order_2}"
+                            f"order_at_{start_date_order_2}_for_unit_{thermal_unit.name}_under_price_{case_order_2}"
                         )
 
                     # Get all the orders from the output marker.

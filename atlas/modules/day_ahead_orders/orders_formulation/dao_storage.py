@@ -18,7 +18,7 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadO
 from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
 from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseModel
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
-from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
+
 from atlas.timing import generate_datetimes
 
 
@@ -292,7 +292,7 @@ class DAOStorage:
             if equipment.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
                 # Create the order coupling instance
                 coupling_instance = OrderCoupling(
-                    name=f"COMPLEMENT_DA_{equipment.name}_{Utilities.get_date_to_clean_string(parameters.execution_date)}",
+                    name=f"COMPLEMENT_DA_{equipment.name}_{parameters.execution_date}",
                     orders=[],
                     coupling_type=CouplingType.COMPLEMENT,
                     complement_direction=ComplementDirection.EqualTo,
@@ -327,7 +327,7 @@ class DAOStorage:
             else:
                 # Create a COMPLEMENT order coupling
                 coupling_instance = OrderCoupling(
-                    name=f"COMPLEMENT_DA_{equipment.name}_{Utilities.get_date_to_clean_string(parameters.execution_date)}",
+                    name=f"COMPLEMENT_DA_{equipment.name}_{parameters.execution_date}",
                     orders=[],
                 )
 
@@ -368,7 +368,7 @@ class DAOStorage:
         parameters: DayAheadOrdersParameters,
     ) -> Order:
         return Order(
-            name=f"storage_order_type_{order_type}_at_{Utilities.get_date_to_clean_string(start_date)}_for_unit_{equipment.name}",
+            name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{equipment.name}",
             equipment=equipment,
             portfolio=equipment.portfolio,
             market_area=equipment.portfolio.market_area,

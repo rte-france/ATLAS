@@ -11,7 +11,6 @@ from atlas import Order
 from atlas.enum import OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
 class NonDispatchable:
@@ -61,7 +60,7 @@ class NonDispatchable:
             for t in orders_time:
                 # Initialize the order object
                 bid_output = Order(
-                    name=f"otherND_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}",  # Assign a unique name.
+                    name=f"otherND_order_at_{t}_for_unit_{unit.name}",  # Assign a unique name.
                     market_area=unit.portfolio.market_area,
                     portfolio=unit.portfolio,
                     equipment=unit,

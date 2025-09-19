@@ -12,7 +12,6 @@ from atlas import Order, Timeseries
 from atlas.enum import LoadType, OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
 class DAOLoad:
@@ -60,7 +59,7 @@ class DAOLoad:
                     if max_consumption_value > 0:
                         # Initialize the order object.
                         bid_output = Order(
-                            name=f"load_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{load.name}",
+                            name=f"load_order_at_{t}_for_unit_{load.name}",
                             market_area=load.portfolio.market_area,
                             portfolio=load.portfolio,
                             equipment=load,

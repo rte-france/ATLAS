@@ -12,7 +12,6 @@ from atlas import Order, OrderCoupling
 from atlas.enum import CouplingType, OrderType, Product, ThermalStrategy
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.tools.Utilities import Utilities
 
 
 class ThermalPeakLoadOrders:
@@ -86,7 +85,7 @@ class ThermalPeakLoadOrders:
 
                     # Create the instance
                     inflexible_order = Order(
-                        name=f"inflexible_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}",
+                        name=f"inflexible_order_at_{t}_for_unit_{unit.name}",
                         market_area=unit.portfolio.market_area,
                         portfolio=unit.portfolio,
                         equipment=unit,
@@ -126,7 +125,7 @@ class ThermalPeakLoadOrders:
                 else:
                     # Flexible order
                     flexible_order = Order(
-                        name=f"flexible_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}",
+                        name=f"flexible_order_at_{t}_for_unit_{unit.name}",
                         market_area=unit.portfolio.market_area,
                         portfolio=unit.portfolio,
                         equipment=unit,
@@ -145,7 +144,7 @@ class ThermalPeakLoadOrders:
                     if generate_inflexible_order:
                         # Parent-children link between the flexible and inflexible parts
                         link_flexible_inflexible = OrderCoupling(
-                            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}"
+                            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}"
                         )
                         link_flexible_inflexible.coupling_type = CouplingType.PARENT_CHILDREN
                         # add the two orders
@@ -161,7 +160,7 @@ class ThermalPeakLoadOrders:
                     # This order will be the child of the current inflexible order.
                     # Initialize the order object.
                     reserve_bid = Order(
-                        name=f"automated_downward_reserve_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}",
+                        name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}",
                         market_area=unit.portfolio.market_area,
                         portfolio=unit.portfolio,
                         equipment=unit,
@@ -181,7 +180,7 @@ class ThermalPeakLoadOrders:
                     if generate_inflexible_order:
                         # Parent-children link between the flexible and inflexible parts
                         link_reserve_inflexible = OrderCoupling(
-                            name=f"PARENT_CHILDREN_automated_downward_reserve_inflexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}"
+                            name=f"PARENT_CHILDREN_automated_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}"
                         )
                         link_reserve_inflexible.coupling_type = CouplingType.PARENT_CHILDREN
                         # add the two orders
@@ -195,7 +194,7 @@ class ThermalPeakLoadOrders:
                     # Initialize the order object.
 
                     reserve_bid = Order(
-                        name=f"manual_downward_reserve_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}",
+                        name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}",
                         market_area=unit.portfolio.market_area,
                         portfolio=unit.portfolio,
                         equipment=unit,
@@ -215,7 +214,7 @@ class ThermalPeakLoadOrders:
                     if generate_inflexible_order:
                         # Parent-children link between the flexible and inflexible parts
                         link_reserve_inflexible = OrderCoupling(
-                            name=f"PARENT_CHILDREN_manual_downward_reserve_inflexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}"
+                            name=f"PARENT_CHILDREN_manual_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}"
                         )
                         link_reserve_inflexible.coupling_type = CouplingType.PARENT_CHILDREN
                         # add the two orders
@@ -228,7 +227,7 @@ class ThermalPeakLoadOrders:
                     # This order will be the child of the current flexible order.
                     # Initialize the order object.
                     reserve_bid = Order(
-                        name=f"automated_upward_reserve_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}",
+                        name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}",
                         market_area=unit.portfolio.market_area,
                         portfolio=unit.portfolio,
                         equipment=unit,
@@ -248,7 +247,7 @@ class ThermalPeakLoadOrders:
                     if generate_inflexible_order:
                         # Parent-children link between the flexible and inflexible parts
                         link_reserve_flexible = OrderCoupling(
-                            name=f"PARENT_CHILDREN_automated_upward_reserve_inflexible_orders_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}"
+                            name=f"PARENT_CHILDREN_automated_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}"
                         )
                         link_reserve_flexible.coupling_type = CouplingType.PARENT_CHILDREN
                         # add the two orders
@@ -261,7 +260,7 @@ class ThermalPeakLoadOrders:
                     # This order will be the child of the current flexible order.
                     # Initialize the order object.
                     reserve_bid = Order(
-                        name=f"manual_upward_reserve_order_at_{Utilities.get_date_to_clean_string(t)}_for_unit_{unit.name}",
+                        name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}",
                         market_area=unit.portfolio.market_area,
                         portfolio=unit.portfolio,
                         equipment=unit,
@@ -282,7 +281,7 @@ class ThermalPeakLoadOrders:
                         # Parent-children link between the flexible and inflexible parts
                         link_reserve_flexible = OrderCoupling(
                             name="PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{}_for_unit_{}".format(
-                                Utilities.get_date_to_clean_string(t), unit.name
+                                t, unit.name
                             )
                         )
                         link_reserve_flexible.coupling_type = CouplingType.PARENT_CHILDREN
