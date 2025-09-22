@@ -29,6 +29,10 @@ class ThermalOptimization(OptimisationModel):
             raise ValueError(
                 "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
             )
+        # Quick sanity check on the class of the equipment supplied as input.
+        if not type(thermal_unit).__name__ == "Thermal":
+            cfg.logger.error("*** WARNING ***\n Equipement {} is not of type thermic.".format(thermal_unit.name))
+            raise ValueError("Wrong equipment type for the thermic optimization program.")
         self.thermal_unit = thermal_unit
         self.prices = prices
         self.price_type = price_type
@@ -84,10 +88,14 @@ class ThermalOptimization(OptimisationModel):
         self.D = {}  # This variable will be implemented in the gradient and bound the downward gradient
         self.tilde_D = {}
 
-        # Quick sanity check on the class of the equipment supplied as input.
-        if not type(thermal_unit).__name__ == "Thermal":
-            cfg.logger.error("*** WARNING ***\n Equipement {} is not of type thermic.".format(thermal_unit.name))
-            raise ValueError("Wrong equipment type for the thermic optimization program.")
+        # Power gradients
+        # Definition of the gradients_time_frame : starts at startDate - TimeStep and goes until T-1
+        # Gradients are defined on a "shifted" time frame.
+        self.gradients_time_frame = generate_datetimes(
+            self.parameters.start_date - self.parameters.time_step,
+            self.parameters.end_optimization_date - 2 * self.parameters.time_step,
+            self.parameters.time_step,
+        )
 
         self._initial_setup()
         self.step_1()
@@ -782,17 +790,8 @@ class ThermalOptimization(OptimisationModel):
                     "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Upper bound (eq. 34)
 
-            # Power gradients
-            # Definition of the gradients_time_frame : starts at startDate - TimeStep and goes until T-1
-            # Gradients are defined on a "shifted" time frame.
-            gradients_time_frame = generate_datetimes(
-                self.parameters.start_date - self.parameters.time_step,
-                self.parameters.end_optimization_date - 2 * self.parameters.time_step,
-                self.parameters.time_step,
-            )
-
             if self.delta_q > 0:  # Case where the gradient is finite.
-                for t in gradients_time_frame:  # The gradients are defined only up to T-1.
+                for t in self.gradients_time_frame:  # The gradients are defined only up to T-1.
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. 35):
@@ -810,7 +809,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
-                for t in gradients_time_frame:
+                for t in self.gradients_time_frame:
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. 36)
@@ -1193,17 +1192,8 @@ class ThermalOptimization(OptimisationModel):
                     "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Upper bound   (eq.34)
 
-            # Power gradients
-            # Definition of the gradients_time_frame : starts at startDate - TimeStep and goes until T-1
-            # Gradients are defined on a "shifted" time frame.
-            gradients_time_frame = generate_datetimes(
-                self.parameters.start_date - self.parameters.time_step,
-                self.parameters.end_optimization_date - 2 * self.parameters.time_step,
-                self.parameters.time_step,
-            )
-
             if self.delta_q > 0:  # Case where the gradient is finite.
-                for t in gradients_time_frame:  # The gradients are defined only up to T-1.
+                for t in self.gradients_time_frame:  # The gradients are defined only up to T-1.
                     t_next = t + self.parameters.time_step  # Get the next time step
                     # Constrained upward gradient (eq. (35))
                     self.model.add_constraint(
@@ -1230,7 +1220,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
-                for t in gradients_time_frame:
+                for t in self.gradients_time_frame:
                     t_next = t + self.parameters.time_step  # Get the next time step
                     # Unconstrained upward gradient (eq. (36))
                     self.model.add_constraint(
@@ -1715,17 +1705,8 @@ class ThermalOptimization(OptimisationModel):
                     "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Upper bound (eq. (34))
 
-            # Power gradients
-            # Definition of the gradients_time_frame : starts at startDate - TimeStep and goes until T-1
-            # Gradients are defined on a "shifted" time frame.
-            gradients_time_frame = generate_datetimes(
-                self.parameters.start_date - self.parameters.time_step,
-                self.parameters.end_optimization_date - 2 * self.parameters.time_step,
-                self.parameters.time_step,
-            )
-
             if self.delta_q > 0:  # Case where the gradient is finite.
-                for t in gradients_time_frame:  # The gradients are defined only up to T-1.
+                for t in self.gradients_time_frame:  # The gradients are defined only up to T-1.
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
@@ -1749,7 +1730,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
-                for t in gradients_time_frame:
+                for t in self.gradients_time_frame:
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
@@ -2109,17 +2090,8 @@ class ThermalOptimization(OptimisationModel):
                     "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Upper bound (eq. (34))
 
-            # Power gradients
-            # Definition of the gradients_time_frame : starts at startDate - TimeStep and goes until T-1
-            # Gradients are defined on a "shifted" time frame.
-            gradients_time_frame = generate_datetimes(
-                self.parameters.start_date - self.parameters.time_step,
-                self.parameters.end_optimization_date - 2 * self.parameters.time_step,
-                self.parameters.time_step,
-            )
-
             if self.delta_q > 0:  # Case where the gradient is finite.
-                for t in gradients_time_frame:  # The gradients are defined only up to T-1.
+                for t in self.gradients_time_frame:  # The gradients are defined only up to T-1.
                     # NB. The downward gradient implemented here requires the unit to be at most at deltaQ in order to be able to enter the stop state.
                     # The resulting constraint set is considerably more constraining than if the gradient was relaxed.
                     t_next = t + self.parameters.time_step  # Get the next time step
@@ -2142,7 +2114,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
-                for t in gradients_time_frame:
+                for t in self.gradients_time_frame:
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
@@ -2232,17 +2204,8 @@ class ThermalOptimization(OptimisationModel):
                     1,
                 )
 
-            # DD
-            # Definition of the gradients_time_frame : starts at startDate - TimeStep and goes until T-1
-            # Gradients are defined on a "shifted" time frame.
-            gradients_time_frame = generate_datetimes(
-                self.parameters.start_date - self.parameters.time_step,
-                self.parameters.end_optimization_date - 2 * self.parameters.time_step,
-                self.parameters.time_step,
-            )
-
             DD = {}
-            for t in gradients_time_frame:
+            for t in self.gradients_time_frame:
                 DD[t] = self.model.add_continuous_variable(
                     "DD_at_{}_equip_{}".format(t, self.thermal_unit.name), self.Q_min, self.Q_max
                 )
@@ -2532,7 +2495,7 @@ class ThermalOptimization(OptimisationModel):
                 )
 
             # DD Gradient auxiliary (eq. (23))
-            for t in gradients_time_frame:
+            for t in self.gradients_time_frame:
                 t_plus_one = t + self.parameters.time_step
                 self.model.add_constraint(DD[t] <= self.Q_max * self.STOP[t_plus_one])
                 self.model.add_constraint(DD[t] >= self.Q_min * self.STOP[t_plus_one])
@@ -2759,7 +2722,7 @@ class ThermalOptimization(OptimisationModel):
 
             # Power gradients
             if self.delta_q > 0:  # Case where the gradient is finite.
-                for t in gradients_time_frame:  # The gradients are defined only up to T-1.
+                for t in self.gradients_time_frame:  # The gradients are defined only up to T-1.
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
@@ -2793,7 +2756,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
-                for t in gradients_time_frame:
+                for t in self.gradients_time_frame:
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
@@ -3344,17 +3307,8 @@ class ThermalOptimization(OptimisationModel):
                     "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Upper bound (eq. (34))
 
-            # Power gradients
-            # Definition of the gradients_time_frame : starts at startDate - TimeStep and goes until T-1
-            # Gradients are defined on a "shifted" time frame.
-            gradients_time_frame = generate_datetimes(
-                self.parameters.start_date - self.parameters.time_step,
-                self.parameters.end_optimization_date - 2 * self.parameters.time_step,
-                self.parameters.time_step,
-            )
-
             if self.delta_q > 0:  # Case where the gradient is finite.
-                for t in gradients_time_frame:  # The gradients are defined only up to T-1.
+                for t in self.gradients_time_frame:  # The gradients are defined only up to T-1.
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
@@ -3383,7 +3337,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
-                for t in gradients_time_frame:
+                for t in self.gradients_time_frame:
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
@@ -3840,16 +3794,8 @@ class ThermalOptimization(OptimisationModel):
                 )
                 # Upper bound (eq. (34))
 
-            # Power gradients
-            # Definition of the gradients_time_frame : starts at startDate - TimeStep and goes until T-1
-            gradients_time_frame = generate_datetimes(
-                self.parameters.start_date - self.parameters.time_step,
-                self.parameters.end_optimization_date - 2 * self.parameters.time_step,
-                self.parameters.time_step,
-            )
-
             if self.delta_q > 0:  # Case where the gradient is finite.
-                for t in gradients_time_frame:  # The gradients are defined only up to T-1.
+                for t in self.gradients_time_frame:  # The gradients are defined only up to T-1.
                     # NB. The downward gradient implemented here requires the unit to be at most at deltaQ in order to be able to enter the stop state.
                     # The resulting constraint set is considerably more constraining than if the gradient was relaxed.
                     t_next = t + self.parameters.time_step  # Get the next time step
@@ -3881,7 +3827,7 @@ class ThermalOptimization(OptimisationModel):
                         "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
                     )  # Downward gradient
             elif self.delta_q == 0:
-                for t in gradients_time_frame:
+                for t in self.gradients_time_frame:
                     t_next = t + self.parameters.time_step
 
                     # Upward unconstrained gradient (eq. (36))
@@ -3980,17 +3926,8 @@ class ThermalOptimization(OptimisationModel):
                     1,
                 )
 
-            # DD
-            # Definition of the gradients_time_frame : starts at startDate - TimeStep and goes until T-1
-            # Gradients are defined on a "shifted" time frame.
-            gradients_time_frame = generate_datetimes(
-                self.parameters.start_date - self.parameters.time_step,
-                self.parameters.end_optimization_date - 2 * self.parameters.time_step,
-                self.parameters.time_step,
-            )
-
             DD = {}
-            for t in gradients_time_frame:
+            for t in self.gradients_time_frame:
                 DD[t] = self.model.add_continuous_variable(
                     "DD_{}_equip_{}".format(t, self.thermal_unit.name), self.Q_min, self.Q_max
                 )
@@ -4291,7 +4228,7 @@ class ThermalOptimization(OptimisationModel):
                 )
 
             # DD Gradient auxiliary (eq. (23))
-            for t in gradients_time_frame:
+            for t in self.gradients_time_frame:
                 t_plus_one = t + self.parameters.time_step
                 self.model.add_constraint(DD[t] <= self.Q_max * self.STOP[t_plus_one])
                 self.model.add_constraint(DD[t] >= self.Q_min * self.STOP[t_plus_one])
@@ -4562,7 +4499,7 @@ class ThermalOptimization(OptimisationModel):
 
             # Power gradients
             if self.delta_q > 0:  # Case where the gradient is finite.
-                for t in gradients_time_frame:  # The gradients are defined only up to T-1.
+                for t in self.gradients_time_frame:  # The gradients are defined only up to T-1.
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
@@ -4599,7 +4536,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
-                for t in gradients_time_frame:
+                for t in self.gradients_time_frame:
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
