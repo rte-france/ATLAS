@@ -13,6 +13,7 @@ from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import Equipment, OptimisationModel, generate_datetimes
 import atlas.config as cfg
+from atlas.enum import SolverEnum
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
 
@@ -109,6 +110,12 @@ class DAOBaseModel(OptimisationModel):
             self.solver.Maximize(self.objective[0])
 
     def solve_with_xpress(self) -> None:
+        if self.solver_name != SolverEnum.XPRESS:
+            # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
+            raise ValueError(
+                "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
+            )
+
         if self.parameters.debug:
             lp_file_name = os.path.join(self.parameters.output_folder, f"storage_{self.equipment.name}.lp")
             self.export_model(lp_file_name)

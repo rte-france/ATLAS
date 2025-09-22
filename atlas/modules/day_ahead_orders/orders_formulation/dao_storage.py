@@ -43,13 +43,7 @@ class DAOStorage:
         )
 
         # Solving the problem
-        if parameters.solver.upper() == "XPRESS":
-            model.solve_with_xpress()
-        else:
-            # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
-            raise ValueError(
-                "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
-            )
+        model.solve_with_xpress()
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [StartDate, EndDate]
@@ -103,13 +97,7 @@ class DAOStorage:
         )
 
         # Solving the problem
-        if parameters.solver.upper() == "XPRESS":
-            model.solve_with_xpress()
-        else:
-            # If another solver is being used, consider setting the NoOverlap parameter to False as it previsously raised errors otherwise with GLPK
-            raise ValueError(
-                "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
-            )
+        model.solve_with_xpress()
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [StartDate, EndDate]
