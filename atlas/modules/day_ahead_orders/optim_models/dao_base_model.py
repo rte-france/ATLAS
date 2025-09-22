@@ -28,7 +28,6 @@ class DAOBaseModel(OptimisationModel):
     ):
         super().__init__(solver_name, name)
         self.parameters = parameters
-        self._objective_direction = "maximize"
         self.equipment = equipment
         self.optimizationPeriod = optimization_period
         # Get the price forecast from the input marker: estimations are at ActionHour, over the optimisation period
@@ -76,38 +75,45 @@ class DAOBaseModel(OptimisationModel):
                 self.Qvf[t][i] = self.add_continuous_variable(f"Amount_sold_in_fragment_{i}_at_{t}", 0)
                 self.Qaf[t][i] = self.add_continuous_variable(f"Amount_purchased_in_fragment_{i}_at_{t}", 0)
 
-    def create_objective_function(self, nb_fragments: int, smoothing_factor: float):
+    def create_objective_function(
+        self, nb_fragments: int, smoothing_factor: float, direction: Literal["maximize", "minimize"] = "maximize"
+    ):
         """Creation of objective function"""
 
         # The objective function is the total profit over the optimisation period
         if nb_fragments == 1:
-            self.objective = (
-                sum(
-                    self.price_forecast.get_value(t) * self.Qvf[t][0] * self.parameters.time_step.total_hours()
-                    - self.price_forecast.get_value(t) * self.Qaf[t][0] * self.parameters.time_step.total_hours()
-                    for t in self.time_frame
+            self.add_objective(
+                objective_expr=(
+                    sum(
+                        self.price_forecast.get_value(t) * self.Qvf[t][0] * self.parameters.time_step.total_hours()
+                        - self.price_forecast.get_value(t) * self.Qaf[t][0] * self.parameters.time_step.total_hours()
+                        for t in self.time_frame
+                    ),
+                    "Profit",
                 ),
-                "Profit",
+                direction=direction,
             )
         else:
-            self.objective = (
-                sum(
+            self.add_objective(
+                objective_expr=(
                     sum(
-                        self.price_forecast.get_value(t)
-                        * (1 - i * smoothing_factor / (nb_fragments - 1))
-                        * self.Qvf[t][i]
-                        * self.parameters.time_step.total_hours()
-                        - self.price_forecast.get_value(t)
-                        * (1 + i * smoothing_factor / (nb_fragments - 1))
-                        * self.Qaf[t][i]
-                        * self.parameters.time_step.total_hours()
-                        for i in range(nb_fragments)
-                    )
-                    for t in self.time_frame
+                        sum(
+                            self.price_forecast.get_value(t)
+                            * (1 - i * smoothing_factor / (nb_fragments - 1))
+                            * self.Qvf[t][i]
+                            * self.parameters.time_step.total_hours()
+                            - self.price_forecast.get_value(t)
+                            * (1 + i * smoothing_factor / (nb_fragments - 1))
+                            * self.Qaf[t][i]
+                            * self.parameters.time_step.total_hours()
+                            for i in range(nb_fragments)
+                        )
+                        for t in self.time_frame
+                    ),
+                    "Profit",
                 ),
-                "Profit",
+                direction=direction,
             )
-            self.solver.Maximize(self.objective[0])
 
     def solve_with_xpress(self) -> None:
         if self.solver_name != SolverEnum.XPRESS:

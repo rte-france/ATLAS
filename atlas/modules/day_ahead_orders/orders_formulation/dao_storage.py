@@ -36,7 +36,7 @@ class DAOStorage:
             parameters, parameters.solver.upper(), "Optimization of the storage unit " + equipment.name, equipment
         )
         model.create_decision_variables(parameters.ev_nb_fragments)
-        model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor)
+        model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor, "maximize")
         model.create_constraints(initial_stock)
         model.set_solver_specific_parameters_as_string(
             f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_minutes()}"
@@ -90,7 +90,7 @@ class DAOStorage:
             optimization_period,
         )
         model.create_decision_variables(power_fragments)
-        model.create_objective_function(power_fragments, smoothing_factor)
+        model.create_objective_function(power_fragments, smoothing_factor, "maximize")
         model.create_constraints(initial_stock, power_fragments)
         model.set_solver_specific_parameters_as_string(
             f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_minutes()}"
