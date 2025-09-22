@@ -51,7 +51,7 @@ class ThermalIntermediateLoadOrders:
             return None
 
         # Solve the optimisation programs
-        res = ThermalOptimization.solve_optimization_programs(equipments_list, parameters)
+        res = ThermalIntermediateLoadOrders.solve_optimization_programs(equipments_list, parameters)
 
         for thermal_unit in equipments_list:
             # Consider the unique cases
@@ -343,3 +343,109 @@ class ThermalIntermediateLoadOrders:
                 is_overlapping = False
 
         return is_overlapping
+
+    @staticmethod
+    def solve_optimization_programs(equipments_list: Thermal, parameters: DayAheadOrdersParameters) -> dict:
+        """
+        Solves the optimization programs for a list of equipment given the three price curves.
+
+        Arguments:
+        equiment_list : a list of thermal equipments
+        parameters : a signedTuple of parameters
+
+        Returns:
+        results : a two stage dictionary containing for each equipment the optimal quantities given a price curve.
+        lp_files : a two stage dictionary containing for each equipment and each price curve the associated lp file
+                    of the optimization program.
+        """
+
+        # create a dictionary that will store the program's outcomes.
+        results = {}
+
+        for unit, i in zip(equipments_list, range(len(equipments_list)), strict=False):
+            # Initialize a key with the unit's name.
+            results[unit.name] = {}
+
+            # Retrieve the price forecasts types, extract the corresponding time series and store it in a list
+            price_types = parameters.price_forecasts_types
+            prices = []
+
+            for price_type in price_types:
+                if price_type == "Low":
+                    prices_low = unit.portfolio.market_area.price_forecast_low.get_forecast(
+                        parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+                    )
+                    prices.append(prices_low)
+
+                elif price_type == "Medium":
+                    prices_medium = unit.portfolio.market_area.price_forecast_medium.get_forecast(
+                        parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+                    )
+                    prices.append(prices_medium)
+
+                elif price_type == "High":
+                    prices_high = unit.portfolio.market_area.price_forecast_high.get_forecast(
+                        parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+                    )
+                    prices.append(prices_high)
+
+                else:
+                    cfg.logger.error(
+                        "WARNING: Wrong PriceForecastsType indicated as parameters. \n"
+                        "Possible values are: 'Low', 'Medium', 'High'"
+                    )
+
+            # Initialize the output of the function
+
+            # Solve three times the optimization program, one for each price curve
+            # and store the optimal output quantities into the dictionaries
+            for price, value in zip(prices, price_types, strict=False):
+                model = ThermalOptimization(unit, price, value, parameters)
+                res = model.solve_thermal_optimization_program(unit, price, value, parameters)
+                results[unit.name][value] = res
+
+                # Store state sequences in the output marker
+                local_time_index = res["OFF"].index()
+                # TODO
+                new_sequence_ts = API.TimeSeries.NewTimeSeries(
+                    "State_sequence_of_{}_{}_price".format(unit.Name, value),
+                    API.TimeSeries.Constant,
+                    "Integer",
+                    local_time_index,
+                    0,
+                )
+
+                for time in local_time_index:
+                    if res["ON_UP"].get_value(time) == 1:
+                        new_sequence_ts.set_value(time, 1)
+                        continue
+
+                    if res["ON_DOWN"].get_value(time) == 1:
+                        new_sequence_ts.set_value(time, 2)
+                        continue
+
+                    if res["OFF"].get_value(time) == 1:
+                        new_sequence_ts.set_value(time, 3)
+                        continue
+
+                    if "START" in res.keys():
+                        if res["START"].get_value(time) == 1:
+                            new_sequence_ts.set_value(time, 4)
+                            continue
+
+                    if "STOP" in res.keys():
+                        if res["STOP"].get_value(time) == 1:
+                            new_sequence_ts.set_value(time, 5)
+                            continue
+
+                    if "ON_FLAT" in res.keys():
+                        if res["ON_FLAT"].get_value(time) == 1:
+                            new_sequence_ts.set_value(time, 6)
+                            continue
+
+                unit.state_sequence.add(
+                    f"{parameters.execution_date}-{value.upper()}_DAO",
+                    new_sequence_ts,
+                )
+
+        return results
