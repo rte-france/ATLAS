@@ -47,6 +47,7 @@ class ThermalOptimization(OptimisationModel):
         self.reserves_down_procured = None
         self.feasible_automated_reserves_up_procured = None
         self.feasible_automated_reserves_down_procured = None
+        self.automated_unsupplied_reserves = 0
         self.delta_q = None
         self.delta_q_unconstrained = None
         self.q = {}
@@ -90,13 +91,14 @@ class ThermalOptimization(OptimisationModel):
 
         self._initial_setup()
         self.step_1()
+        self.create_objective_function("maximize")
 
     def _initial_setup(self):
         # ---------------------------------------------------#
-        #                                                   #
-        # STEP 0 : Retrieve the parameters of the program   #
-        #          and set up the time frame                #
-        #                                                   #
+        #                                                    #
+        # STEP 0 : Retrieve the parameters of the program    #
+        #          and set up the time frame                 #
+        #                                                    #
         # ---------------------------------------------------#
 
         # Sanity check on the startDate and the endDate. A warning message is sent to the user if the startDate is later
@@ -224,7 +226,6 @@ class ThermalOptimization(OptimisationModel):
         )
 
         # Populate the time series and retrieve the infeasible automated reserve procurements.
-        automated_unsupplied_reserves = 0
         for t in time_frame:
             # retrieve the feasible part in the feasible time series
             self.feasible_automated_reserves_up_procured[t] = min(
@@ -235,7 +236,7 @@ class ThermalOptimization(OptimisationModel):
             ) + min(fcr_down_procured.get_value(t), self.thermal_unit.maximum_fcr)
 
             # retrieve and save the infeasible part
-            automated_unsupplied_reserves += (
+            self.automated_unsupplied_reserves += (
                 max(afrr_up_procured.get_value(t) - self.thermal_unit.maximum_afrr, 0)
                 + max(fcr_up_procured.get_value(t) - self.thermal_unit.maximum_fcr, 0)
                 + max(afrr_down_procured.get_value(t) - self.thermal_unit.maximum_afrr, 0)
@@ -243,7 +244,7 @@ class ThermalOptimization(OptimisationModel):
             )
 
         if self.parameters.verbose:
-            cfg.logger.info("automated unsupplied reserves : {}".format(automated_unsupplied_reserves))
+            cfg.logger.info("automated unsupplied reserves : {}".format(self.automated_unsupplied_reserves))
 
         # Set-up the power gradients
         self.delta_q = self.thermal_unit.maximum_gradient * parameters.time_step
@@ -251,10 +252,10 @@ class ThermalOptimization(OptimisationModel):
 
     def step_1(self):
         # -------------------------------------------------------------------#
-        #                                                                   #
-        # STEP 1 : Definition of the state, auxiliary and control variables #
+        #                                                                    #
+        # STEP 1 : Definition of the state, auxiliary and control variables  #
         #          over the time_frame.                                      #
-        #                                                                   #
+        #                                                                    #
         # -------------------------------------------------------------------#
 
         # 1.1. Control variables :
@@ -462,6 +463,39 @@ class ThermalOptimization(OptimisationModel):
                     self.Q_max,
                 )
 
+    def create_objective_function(self, direction: Literal["maximize", "minimize"] = "maximize"):
+        """Creation of objective function"""
+        # -----------------------------#
+        #                              #
+        # STEP 2 : Objective function  #
+        #                              #
+        # -----------------------------#
+
+        # Set-up the objective function given by eq. (2) in the documentation.
+        # If self.T_stable = 0, we don't need to include automatedContractedReservesUp and automatedContractedReservesDown to the objective function.
+        # otherwise we need to include them.
+        self.model.add_objective(
+            objective_expr=(
+                sum(
+                    self.q[t]
+                    * (self.parameters.time_step.total_hours())
+                    * (self.prices.get_value(t) - self.thermal_unit.variable_cost.get_value(t))
+                    - self.turned_on[t] * self.thermal_unit.startup_cost.get_value(t)
+                    - self.parameters.manual_unprocured_reserves_penalty
+                    * (self.parameters.time_step.total_hours())
+                    * (self.contracted_difference_up[t] + self.contracted_difference_down[t])
+                    - self.parameters.automated_unprocured_reserves_penalty
+                    * (self.parameters.time_step.total_hours())
+                    * (self.automated_contracted_difference_up[t] + self.automated_contracted_difference_down[t])
+                    for t in self.time_frame
+                )
+                - self.parameters.automated_unprocured_reserves_penalty
+                * (self.parameters.time_step.total_hours())
+                * self.automated_unsupplied_reserves
+            ),
+            direction=direction,
+        )
+
     def solve_thermal_optimization_program(
         thermal_unit: Thermal, prices, price_type, parameters: DayAheadOrdersParameters
     ):
@@ -486,37 +520,6 @@ class ThermalOptimization(OptimisationModel):
         All these results are returned in the form of a TimeSeries object ranging over the optimization period
         (i.e. [startDate, endOptimizationDate]).
         """
-
-        # -----------------------------#
-        #                             #
-        # STEP 2 : Objective function #
-        #                             #
-        # -----------------------------#
-
-        # Set-up the objective function given by eq. (2) in the documentation.
-        # If self.T_stable = 0, we don't need to include automatedContractedReservesUp and automatedContractedReservesDown to the objective function.
-        # otherwise we need to include them.
-        self.model.add_objective(
-            objective_expr=(
-                sum(
-                    self.q[t]
-                    * (self.parameters.time_step.total_hours())
-                    * (self.prices.get_value(t) - self.thermal_unit.variable_cost.get_value(t))
-                    - self.turned_on[t] * self.thermal_unit.startup_cost.get_value(t)
-                    - self.parameters.manual_unprocured_reserves_penalty
-                    * (self.parameters.time_step.total_hours())
-                    * (self.contracted_difference_up[t] + self.contracted_difference_down[t])
-                    - self.parameters.automated_unprocured_reserves_penalty
-                    * (self.parameters.time_step.total_hours())
-                    * (self.automated_contracted_difference_up[t] + self.automated_contracted_difference_down[t])
-                    for t in self.time_frame
-                )
-                - self.parameters.automated_unprocured_reserves_penalty
-                * (self.parameters.time_step.total_hours())
-                * automated_unsupplied_reserves
-            ),
-            direction="maximize",
-        )
 
         # ---------------------------------------------#
         #                                             #
