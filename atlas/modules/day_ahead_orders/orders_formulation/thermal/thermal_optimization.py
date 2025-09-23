@@ -50,7 +50,7 @@ class ThermalOptimization(OptimisationModel):
         self.T_on = None
         self.T_off = None
         self.T_stable = None
-        self.time_frame = None
+        self.time_frame = list[pendulum.DateTime]
         self.T_start = None
         self.T_stop = None
         self.previous_time_frame = []
@@ -727,58 +727,40 @@ class ThermalOptimization(OptimisationModel):
             # We are in a case where there is no FLAT state, so manual reserves can be provided
             # as long as the unit is online.
 
-            # Constraints on contractedDifference (eq. (40))
-            # and on automatedContractedDifference (eq. (39))
-            for t in self.time_frame:
-                # contractedDifference
-                self.model.add_constraint(
-                    self.contracted_difference_up[t] >= self.reserves_up_procured.get_value(t) - self.reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.contracted_difference_down[t]
-                    >= self.reserves_down_procured.get_value(t) - self.reserves_down[t]
-                )
-                # automatedContractedDifference
-                self.model.add_constraint(
-                    self.automated_contracted_difference_up[t]
-                    >= self.feasible_automated_reserves_up_procured[t] - self.automated_reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.automated_contracted_difference_down[t]
-                    >= self.feasible_automated_reserves_down_procured[t] - self.automated_reserves_down[t]
-                )
+            # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
+            self.create_contracted_diff_constraints(
+                self.model,
+                self.time_frame,
+                self.contracted_difference_up,
+                self.reserves_up_procured,
+                self.reserves_up,
+                self.contracted_difference_down,
+                self.reserves_down_procured,
+                self.reserves_down,
+                self.automated_contracted_difference_up,
+                self.feasible_automated_reserves_up_procured,
+                self.automated_reserves_up,
+                self.automated_contracted_difference_down,
+                self.feasible_automated_reserves_down_procured,
+                self.automated_reserves_down,
+            )
 
             # Upward and downward "fill up" constraints.
-            for t in self.time_frame:
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    <= self.q_upper.get_value(t) + self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    >= self.q_upper.get_value(t) - self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    <= self.q_lower.get_value(t) + self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    >= self.q_lower.get_value(t) - self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
+            self.create_fill_up_constraints(
+                self.model,
+                self.time_frame,
+                self.q,
+                self.reserves_up,
+                self.automated_reserves_up,
+                self.unprovided_reserves_up,
+                self.q_upper,
+                self.parameters.epsilon,
+                self.reserves_down,
+                self.automated_reserves_down,
+                self.unprovided_reserves_down,
+                self.relaxed_reserves,
+                self.q_lower,
+            )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
@@ -847,7 +829,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.add_daily_energy_constraint(
+            self.create_daily_energy_constraint(
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
@@ -1092,58 +1074,40 @@ class ThermalOptimization(OptimisationModel):
             # We are in a case where there is no FLAT state, so manual reserves can be provided
             # as long as the unit is online.
 
-            # Constraints on contractedDifference (eq. (40))
-            # and on automatedContractedDifference (eq. (39))
-            for t in self.time_frame:
-                # contractedDifference
-                self.model.add_constraint(
-                    self.contracted_difference_up[t] >= self.reserves_up_procured.get_value(t) - self.reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.contracted_difference_down[t]
-                    >= self.reserves_down_procured.get_value(t) - self.reserves_down[t]
-                )
-                # automatedContractedDifference
-                self.model.add_constraint(
-                    self.automated_contracted_difference_up[t]
-                    >= self.feasible_automated_reserves_up_procured[t] - self.automated_reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.automated_contracted_difference_down[t]
-                    >= self.feasible_automated_reserves_down_procured[t] - self.automated_reserves_down[t]
-                )
+            # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
+            self.create_contracted_diff_constraints(
+                self.model,
+                self.time_frame,
+                self.contracted_difference_up,
+                self.reserves_up_procured,
+                self.reserves_up,
+                self.contracted_difference_down,
+                self.reserves_down_procured,
+                self.reserves_down,
+                self.automated_contracted_difference_up,
+                self.feasible_automated_reserves_up_procured,
+                self.automated_reserves_up,
+                self.automated_contracted_difference_down,
+                self.feasible_automated_reserves_down_procured,
+                self.automated_reserves_down,
+            )
 
             # Upward and downward "fill up" constraints.
-            for t in self.time_frame:
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    <= self.q_upper.get_value(t) + self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    >= self.q_upper.get_value(t) - self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    <= self.q_lower.get_value(t) + self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    >= self.q_lower.get_value(t) - self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
+            self.create_fill_up_constraints(
+                self.model,
+                self.time_frame,
+                self.q,
+                self.reserves_up,
+                self.automated_reserves_up,
+                self.unprovided_reserves_up,
+                self.q_upper,
+                self.parameters.epsilon,
+                self.reserves_down,
+                self.automated_reserves_down,
+                self.unprovided_reserves_down,
+                self.relaxed_reserves,
+                self.q_lower,
+            )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
@@ -1243,7 +1207,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.add_daily_energy_constraint(
+            self.create_daily_energy_constraint(
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
@@ -1585,58 +1549,40 @@ class ThermalOptimization(OptimisationModel):
             # We are in a case where there is a FLAT state, so manual reserves can only be provided
             # when the unit is in the FLAT state.
 
-            # Constraints on contractedDifference (eq. (40))
-            # and on automatedContractedDifference (eq. (39))
-            for t in self.time_frame:
-                # contractedDifference
-                self.model.add_constraint(
-                    self.contracted_difference_up[t] >= self.reserves_up_procured.get_value(t) - self.reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.contracted_difference_down[t]
-                    >= self.reserves_down_procured.get_value(t) - self.reserves_down[t]
-                )
-                # automatedContractedDifference
-                self.model.add_constraint(
-                    self.automated_contracted_difference_up[t]
-                    >= self.feasible_automated_reserves_up_procured[t] - self.automated_reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.automated_contracted_difference_down[t]
-                    >= self.feasible_automated_reserves_down_procured[t] - self.automated_reserves_down[t]
-                )
+            # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
+            self.create_contracted_diff_constraints(
+                self.model,
+                self.time_frame,
+                self.contracted_difference_up,
+                self.reserves_up_procured,
+                self.reserves_up,
+                self.contracted_difference_down,
+                self.reserves_down_procured,
+                self.reserves_down,
+                self.automated_contracted_difference_up,
+                self.feasible_automated_reserves_up_procured,
+                self.automated_reserves_up,
+                self.automated_contracted_difference_down,
+                self.feasible_automated_reserves_down_procured,
+                self.automated_reserves_down,
+            )
 
             # Upward and downward "fill up" constraints.
-            for t in self.time_frame:
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    <= self.q_upper.get_value(t) + self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    >= self.q_upper.get_value(t) - self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    <= self.q_lower.get_value(t) + self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    >= self.q_lower.get_value(t) - self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
+            self.create_fill_up_constraints(
+                self.model,
+                self.time_frame,
+                self.q,
+                self.reserves_up,
+                self.automated_reserves_up,
+                self.unprovided_reserves_up,
+                self.q_upper,
+                self.parameters.epsilon,
+                self.reserves_down,
+                self.automated_reserves_down,
+                self.unprovided_reserves_down,
+                self.relaxed_reserves,
+                self.q_lower,
+            )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
@@ -1725,7 +1671,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.add_daily_energy_constraint(
+            self.create_daily_energy_constraint(
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
@@ -1945,58 +1891,40 @@ class ThermalOptimization(OptimisationModel):
             # We are in a case where there is no FLAT state, so manual reserves can be provided
             # as long as the unit is online.
 
-            # Constraints on contractedDifference (eq. (40))
-            # and on automatedContractedDifference (eq. (39))
-            for t in self.time_frame:
-                # contractedDifference
-                self.model.add_constraint(
-                    self.contracted_difference_up[t] >= self.reserves_up_procured.get_value(t) - self.reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.contracted_difference_down[t]
-                    >= self.reserves_down_procured.get_value(t) - self.reserves_down[t]
-                )
-                # automatedContractedDifference
-                self.model.add_constraint(
-                    self.automated_contracted_difference_up[t]
-                    >= self.feasible_automated_reserves_up_procured[t] - self.automated_reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.automated_contracted_difference_down[t]
-                    >= self.feasible_automated_reserves_down_procured[t] - self.automated_reserves_down[t]
-                )
+            # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
+            self.create_contracted_diff_constraints(
+                self.model,
+                self.time_frame,
+                self.contracted_difference_up,
+                self.reserves_up_procured,
+                self.reserves_up,
+                self.contracted_difference_down,
+                self.reserves_down_procured,
+                self.reserves_down,
+                self.automated_contracted_difference_up,
+                self.feasible_automated_reserves_up_procured,
+                self.automated_reserves_up,
+                self.automated_contracted_difference_down,
+                self.feasible_automated_reserves_down_procured,
+                self.automated_reserves_down,
+            )
 
             # Upward and downward "fill up" constraints.
-            for t in self.time_frame:
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    <= self.q_upper.get_value(t) + self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    >= self.q_upper.get_value(t) - self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    <= self.q_lower.get_value(t) + self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    >= self.q_lower.get_value(t) - self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
+            self.create_fill_up_constraints(
+                self.model,
+                self.time_frame,
+                self.q,
+                self.reserves_up,
+                self.automated_reserves_up,
+                self.unprovided_reserves_up,
+                self.q_upper,
+                self.parameters.epsilon,
+                self.reserves_down,
+                self.automated_reserves_down,
+                self.unprovided_reserves_down,
+                self.relaxed_reserves,
+                self.q_lower,
+            )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
@@ -2084,7 +2012,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.add_daily_energy_constraint(
+            self.create_daily_energy_constraint(
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
@@ -2540,58 +2468,40 @@ class ThermalOptimization(OptimisationModel):
             # We are in a case where there is a FLAT state, so manual reserves can only be provided
             # when the unit is in the FLAT state.
 
-            # Constraints on contractedDifference (eq. (40))
-            # and on automatedContractedDifference (eq. (39))
-            for t in self.time_frame:
-                # contractedDifference
-                self.model.add_constraint(
-                    self.contracted_difference_up[t] >= self.reserves_up_procured.get_value(t) - self.reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.contracted_difference_down[t]
-                    >= self.reserves_down_procured.get_value(t) - self.reserves_down[t]
-                )
-                # automatedContractedDifference
-                self.model.add_constraint(
-                    self.automated_contracted_difference_up[t]
-                    >= self.feasible_automated_reserves_up_procured[t] - self.automated_reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.automated_contracted_difference_down[t]
-                    >= self.feasible_automated_reserves_down_procured[t] - self.automated_reserves_down[t]
-                )
+            # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
+            self.create_contracted_diff_constraints(
+                self.model,
+                self.time_frame,
+                self.contracted_difference_up,
+                self.reserves_up_procured,
+                self.reserves_up,
+                self.contracted_difference_down,
+                self.reserves_down_procured,
+                self.reserves_down,
+                self.automated_contracted_difference_up,
+                self.feasible_automated_reserves_up_procured,
+                self.automated_reserves_up,
+                self.automated_contracted_difference_down,
+                self.feasible_automated_reserves_down_procured,
+                self.automated_reserves_down,
+            )
 
             # Upward and downward "fill up" constraints.
-            for t in self.time_frame:
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    <= self.q_upper.get_value(t) + self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    >= self.q_upper.get_value(t) - self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    <= self.q_lower.get_value(t) + self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    >= self.q_lower.get_value(t) - self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
+            self.create_fill_up_constraints(
+                self.model,
+                self.time_frame,
+                self.q,
+                self.reserves_up,
+                self.automated_reserves_up,
+                self.unprovided_reserves_up,
+                self.q_upper,
+                self.parameters.epsilon,
+                self.reserves_down,
+                self.automated_reserves_down,
+                self.unprovided_reserves_down,
+                self.relaxed_reserves,
+                self.q_lower,
+            )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
@@ -2710,7 +2620,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.add_daily_energy_constraint(
+            self.create_daily_energy_constraint(
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
@@ -3106,58 +3016,40 @@ class ThermalOptimization(OptimisationModel):
             # We are in a case where there is a FLAT state, so manual reserves can only be provided
             # when the unit is in the FLAT state.
 
-            # Constraints on contractedDifference (eq. (40))
-            # and on automatedContractedDifference (eq. (39))
-            for t in self.time_frame:
-                # contractedDifference
-                self.model.add_constraint(
-                    self.contracted_difference_up[t] >= self.reserves_up_procured.get_value(t) - self.reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.contracted_difference_down[t]
-                    >= self.reserves_down_procured.get_value(t) - self.reserves_down[t]
-                )
-                # automatedContractedDifference
-                self.model.add_constraint(
-                    self.automated_contracted_difference_up[t]
-                    >= self.feasible_automated_reserves_up_procured[t] - self.automated_reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.automated_contracted_difference_down[t]
-                    >= self.feasible_automated_reserves_down_procured[t] - self.automated_reserves_down[t]
-                )
+            # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
+            self.create_contracted_diff_constraints(
+                self.model,
+                self.time_frame,
+                self.contracted_difference_up,
+                self.reserves_up_procured,
+                self.reserves_up,
+                self.contracted_difference_down,
+                self.reserves_down_procured,
+                self.reserves_down,
+                self.automated_contracted_difference_up,
+                self.feasible_automated_reserves_up_procured,
+                self.automated_reserves_up,
+                self.automated_contracted_difference_down,
+                self.feasible_automated_reserves_down_procured,
+                self.automated_reserves_down,
+            )
 
             # Upward and downward "fill up" constraints.
-            for t in self.time_frame:
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    <= self.q_upper.get_value(t) + self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    >= self.q_upper.get_value(t) - self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    <= self.q_lower.get_value(t) + self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    >= self.q_lower.get_value(t) - self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
+            self.create_fill_up_constraints(
+                self.model,
+                self.time_frame,
+                self.q,
+                self.reserves_up,
+                self.automated_reserves_up,
+                self.unprovided_reserves_up,
+                self.q_upper,
+                self.parameters.epsilon,
+                self.reserves_down,
+                self.automated_reserves_down,
+                self.unprovided_reserves_down,
+                self.relaxed_reserves,
+                self.q_lower,
+            )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
@@ -3262,7 +3154,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.add_daily_energy_constraint(
+            self.create_daily_energy_constraint(
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
@@ -3563,58 +3455,40 @@ class ThermalOptimization(OptimisationModel):
             # We are in a case where there is no FLAT state, so manual reserves can be provided
             # as long as the unit is online.
 
-            # Constraints on contractedDifference (eq. (40))
-            # and on automatedContractedDifference (eq. (39))
-            for t in self.time_frame:
-                # contractedDifference
-                self.model.add_constraint(
-                    self.contracted_difference_up[t] >= self.reserves_up_procured.get_value(t) - self.reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.contracted_difference_down[t]
-                    >= self.reserves_down_procured.get_value(t) - self.reserves_down[t]
-                )
-                # automatedContractedDifference
-                self.model.add_constraint(
-                    self.automated_contracted_difference_up[t]
-                    >= self.feasible_automated_reserves_up_procured[t] - self.automated_reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.automated_contracted_difference_down[t]
-                    >= self.feasible_automated_reserves_down_procured[t] - self.automated_reserves_down[t]
-                )
+            # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
+            self.create_contracted_diff_constraints(
+                self.model,
+                self.time_frame,
+                self.contracted_difference_up,
+                self.reserves_up_procured,
+                self.reserves_up,
+                self.contracted_difference_down,
+                self.reserves_down_procured,
+                self.reserves_down,
+                self.automated_contracted_difference_up,
+                self.feasible_automated_reserves_up_procured,
+                self.automated_reserves_up,
+                self.automated_contracted_difference_down,
+                self.feasible_automated_reserves_down_procured,
+                self.automated_reserves_down,
+            )
 
             # Upward and downward "fill up" constraints.
-            for t in self.time_frame:
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    <= self.q_upper.get_value(t) + self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    >= self.q_upper.get_value(t) - self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    <= self.q_lower.get_value(t) + self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    >= self.q_lower.get_value(t) - self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
+            self.create_fill_up_constraints(
+                self.model,
+                self.time_frame,
+                self.q,
+                self.reserves_up,
+                self.automated_reserves_up,
+                self.unprovided_reserves_up,
+                self.q_upper,
+                self.parameters.epsilon,
+                self.reserves_down,
+                self.automated_reserves_down,
+                self.unprovided_reserves_down,
+                self.relaxed_reserves,
+                self.q_lower,
+            )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
@@ -3728,7 +3602,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.add_daily_energy_constraint(
+            self.create_daily_energy_constraint(
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
@@ -4239,58 +4113,40 @@ class ThermalOptimization(OptimisationModel):
             # We are in a case where there is a FLAT state, so manual reserves can only be provided
             # when the unit is in the FLAT state.
 
-            # Constraints on contractedDifference (eq. (40))
-            # and on automatedContractedDifference (eq. (39))
-            for t in self.time_frame:
-                # contractedDifference
-                self.model.add_constraint(
-                    self.contracted_difference_up[t] >= self.reserves_up_procured.get_value(t) - self.reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.contracted_difference_down[t]
-                    >= self.reserves_down_procured.get_value(t) - self.reserves_down[t]
-                )
-                # automatedContractedDifference
-                self.model.add_constraint(
-                    self.automated_contracted_difference_up[t]
-                    >= self.feasible_automated_reserves_up_procured[t] - self.automated_reserves_up[t]
-                )
-                self.model.add_constraint(
-                    self.automated_contracted_difference_down[t]
-                    >= self.feasible_automated_reserves_down_procured[t] - self.automated_reserves_down[t]
-                )
+            # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
+            self.create_contracted_diff_constraints(
+                self.model,
+                self.time_frame,
+                self.contracted_difference_up,
+                self.reserves_up_procured,
+                self.reserves_up,
+                self.contracted_difference_down,
+                self.reserves_down_procured,
+                self.reserves_down,
+                self.automated_contracted_difference_up,
+                self.feasible_automated_reserves_up_procured,
+                self.automated_reserves_up,
+                self.automated_contracted_difference_down,
+                self.feasible_automated_reserves_down_procured,
+                self.automated_reserves_down,
+            )
 
             # Upward and downward "fill up" constraints.
-            for t in self.time_frame:
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    <= self.q_upper.get_value(t) + self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-                self.model.add_constraint(
-                    self.q[t] + self.reserves_up[t] + self.automated_reserves_up[t] + self.unprovided_reserves_up[t]
-                    >= self.q_upper.get_value(t) - self.parameters.epsilon
-                )  # Upward constraint - eq. (41)
-
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    <= self.q_lower.get_value(t) + self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
-                self.model.add_constraint(
-                    (
-                        self.q[t]
-                        - self.reserves_down[t]
-                        - self.automated_reserves_down[t]
-                        - self.unprovided_reserves_down[t]
-                        + self.relaxed_reserves[t]
-                    )
-                    >= self.q_lower.get_value(t) - self.parameters.epsilon
-                )  # Downward constraint - eq. (42)
+            self.create_fill_up_constraints(
+                self.model,
+                self.time_frame,
+                self.q,
+                self.reserves_up,
+                self.automated_reserves_up,
+                self.unprovided_reserves_up,
+                self.q_upper,
+                self.parameters.epsilon,
+                self.reserves_down,
+                self.automated_reserves_down,
+                self.unprovided_reserves_down,
+                self.relaxed_reserves,
+                self.q_lower,
+            )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
@@ -4419,7 +4275,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.add_daily_energy_constraint(
+            self.create_daily_energy_constraint(
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
@@ -4574,7 +4430,89 @@ class ThermalOptimization(OptimisationModel):
 
         return results
 
-    def add_daily_energy_constraint(
+    def create_fill_up_constraints(
+        self,
+        model: OptimisationModel,
+        time_frame: list[pendulum.DateTime],
+        q: dict,
+        reserves_up: dict,
+        automated_reserves_up: dict,
+        unprovided_reserves_up: dict,
+        q_upper: Timeseries,
+        epsilon: float,
+        reserves_down: dict,
+        automated_reserves_down: dict,
+        unprovided_reserves_down: dict,
+        relaxed_reserves: dict,
+        q_lower: Timeseries,
+    ):
+        """Upward and downward "fill up" constraints"""
+        for t in time_frame:
+            model.add_constraint(
+                q[t] + reserves_up[t] + automated_reserves_up[t] + unprovided_reserves_up[t]
+                <= q_upper.get_value(t) + epsilon
+            )  # Upward constraint - eq. (41)
+            model.add_constraint(
+                q[t] + reserves_up[t] + automated_reserves_up[t] + unprovided_reserves_up[t]
+                >= q_upper.get_value(t) - epsilon
+            )  # Upward constraint - eq. (41)
+
+            model.add_constraint(
+                (
+                    q[t]
+                    - reserves_down[t]
+                    - automated_reserves_down[t]
+                    - unprovided_reserves_down[t]
+                    + relaxed_reserves[t]
+                )
+                <= q_lower.get_value(t) + epsilon
+            )  # Downward constraint - eq. (42)
+            model.add_constraint(
+                (
+                    q[t]
+                    - reserves_down[t]
+                    - automated_reserves_down[t]
+                    - unprovided_reserves_down[t]
+                    + relaxed_reserves[t]
+                )
+                >= q_lower.get_value(t) - epsilon
+            )  # Downward constraint - eq. (42)
+
+    def create_contracted_diff_constraints(
+        self,
+        model: OptimisationModel,
+        time_frame: list[pendulum.DateTime],
+        contracted_difference_up: dict,
+        reserves_up_procured: Timeseries,
+        reserves_up: dict,
+        contracted_difference_down: dict,
+        reserves_down_procured: Timeseries,
+        reserves_down: dict,
+        automated_contracted_difference_up: dict,
+        feasible_automated_reserves_up_procured: Timeseries,
+        automated_reserves_up: dict,
+        automated_contracted_difference_down: dict,
+        feasible_automated_reserves_down_procured: Timeseries,
+        automated_reserves_down: dict,
+    ):
+        """Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))"""
+        for t in time_frame:
+            # contractedDifference
+            model.add_constraint(contracted_difference_up[t] >= reserves_up_procured.get_value(t) - reserves_up[t])
+            model.add_constraint(
+                contracted_difference_down[t] >= reserves_down_procured.get_value(t) - reserves_down[t]
+            )
+            # automatedContractedDifference
+            model.add_constraint(
+                automated_contracted_difference_up[t]
+                >= feasible_automated_reserves_up_procured[t] - automated_reserves_up[t]
+            )
+            model.add_constraint(
+                automated_contracted_difference_down[t]
+                >= feasible_automated_reserves_down_procured[t] - automated_reserves_down[t]
+            )
+
+    def create_daily_energy_constraint(
         self,
         model: OptimisationModel,
         thermal_unit: Thermal,
