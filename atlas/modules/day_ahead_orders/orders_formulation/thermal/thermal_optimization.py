@@ -581,7 +581,7 @@ class ThermalOptimization(OptimisationModel):
                 self.extended_start_date,
                 self.parameters.start_date - self.parameters.time_step,
             )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date  # get the last date with a recorded value
+            last_date = last_power.last_date()  # get the last date with a recorded value
 
             # See if the program needs to be initialized as DayZero or not
             if len(last_power) == 0:
@@ -860,7 +860,7 @@ class ThermalOptimization(OptimisationModel):
                 self.extended_start_date,
                 self.parameters.start_date - self.parameters.time_step,
             )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date  # get the last date with a recorded value
+            last_date = last_power.last_date()  # get the last date with a recorded value
 
             # See if the program needs to be initialized as DayZero or not
             if len(last_power) == 0:
@@ -1238,7 +1238,7 @@ class ThermalOptimization(OptimisationModel):
                 self.extended_start_date,
                 self.parameters.start_date - self.parameters.time_step,
             )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date  # get the last date with a recorded value
+            last_date = last_power.last_date()  # get the last date with a recorded value
 
             # See if the program needs to be initialized as DayZero or not
             if len(last_power) == 0:
@@ -1694,7 +1694,7 @@ class ThermalOptimization(OptimisationModel):
                 self.extended_start_date,
                 self.parameters.start_date - self.parameters.time_step,
             )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date  # get the last date with a recorded value
+            last_date = last_power.last_date()  # get the last date with a recorded value
 
             # See if the program needs to be initialized as DayZero or not
             if len(last_power) == 0:
@@ -2064,7 +2064,7 @@ class ThermalOptimization(OptimisationModel):
                 self.extended_start_date,
                 self.parameters.start_date - self.parameters.time_step,
             )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date  # get the last date with a recorded value
+            last_date = last_power.last_date()  # get the last date with a recorded value
 
             # See if the program needs to be initialized as DayZero or not
             if len(last_power) == 0:
@@ -2651,7 +2651,7 @@ class ThermalOptimization(OptimisationModel):
                 self.extended_start_date,
                 self.parameters.start_date - self.parameters.time_step,
             )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date  # get the last date with a recorded value
+            last_date = last_power.last_date()  # get the last date with a recorded value
 
             # See if the program needs to be initialized as DayZero or not
             if len(last_power) == 0:
@@ -3186,7 +3186,7 @@ class ThermalOptimization(OptimisationModel):
                 self.parameters.start_date - self.parameters.time_step,
             )  # Extract the time series corresponding to the previous period
 
-            last_date = last_power.last_date  # get the last date with a recorded value
+            last_date = last_power.last_date()  # get the last date with a recorded value
 
             # See if the program needs to be initialized as DayZero or not
             if len(last_power) == 0:
@@ -3658,7 +3658,7 @@ class ThermalOptimization(OptimisationModel):
                 self.parameters.start_date - self.parameters.time_step,
             )  # Extract the time series corresponding to the previous period
 
-            last_date = last_power.last_date  # get the last date with a recorded value
+            last_date = last_power.last_date()  # get the last date with a recorded value
 
             # See if the program needs to be initialized as DayZero or not
             if len(last_power) == 0:
