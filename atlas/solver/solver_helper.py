@@ -129,6 +129,27 @@ class SolverHelper:
         return solver
 
     @staticmethod
+    def model_from_dict_mc(model_dict, solver_name):
+        """
+        Transform a dict to a Solver object
+
+        :param model_dict: dict(str, 2d array). Dict representing the solver to create
+        :param solver_name: str. Name of the solver to create
+        :return: ortools.linear_solver.pywraplp.Solver.
+        """
+        solver = pywraplp.Solver.CreateSolver(solver_name)
+        for name, variable_dict in sorted(model_dict["variables"].items()):
+            SolverHelper.var_from_dict_test(name, variable_dict, True if name in model_dict["binaries"] else False, solver)
+        for binary_name in sorted(model_dict["binaries"]):
+            if not solver.LookupVariable(binary_name):
+                solver.IntVar(0, 1, binary_name)
+        for ct_name, ct_parameters in sorted(model_dict["constraints"].items()):
+            SolverHelper.constraint_from_dict_test(ct_name, ct_parameters, solver)
+        SolverHelper.objective_from_dict_test(model_dict["objectives"], solver)
+
+        return solver
+
+    @staticmethod
     def constraint_from_dict(name, constraint, solver):
         """
         Create a ortools Constraint in a solver with a name and a list input
@@ -147,6 +168,46 @@ class SolverHelper:
         return ct
 
     @staticmethod
+    def constraint_from_dict_mc(name, constraint, solver):
+        """
+        Create a ortools Constraint in a solver with a name and a list input
+
+        :param name: str. TName of the constraint.
+        :param constraint: 2d array. List containing all information for a constraint
+            [lower bound, upper bound, (variable name, coefficient), ...].
+        :param solver: ortools.linear_solver.pywraplp.Solver. THe solver where to add the constraint.
+        :return
+        """
+        lb = constraint["LB"]
+        ub = constraint["UB"]
+        ct = solver.Constraint(lb, ub, name)
+        for var_name, coeff in sorted(constraint.items()):
+            if var_name in ["LB", "UB"]:
+                continue
+            ct.SetCoefficient(solver.LookupVariable(var_name), coeff)
+        return ct
+
+    @staticmethod
+    def objective_from_dict_mc(objective, solver):
+        """
+        Create the objective in a solver with list input
+
+        :param objective: 2d array. List containing all information for a constraint
+            [direction of the optimization, offset, (variable name, coefficient), ...].
+        :param solver: ortools.linear_solver.pywraplp.Solver. THe solver where to add the objective.
+        :return
+        """
+        obj = solver.Objective()
+        constant = objective.get("Constant")
+        if constant:
+            obj.SetOffset(constant)
+        for var_name, coeff in sorted(objective.items()):
+            if var_name == "Constant":
+                continue
+            obj.SetCoefficient(solver.LookupVariable(var_name), coeff)
+        obj.SetOptimizationDirection(True)
+
+    @staticmethod
     def objective_from_dict(objective, solver):
         """
         Create the objective in a solver with list input
@@ -161,6 +222,17 @@ class SolverHelper:
         for var_name, coeff in objective[2:]:
             obj.SetCoefficient(solver.LookupVariable(var_name), coeff)
         obj.SetOptimizationDirection(objective[0])
+
+    @staticmethod
+    def var_from_dict_mc(name, var, boolean, solver):
+        lb = var[0]
+        ub = var[1]
+
+        if boolean:
+            var = solver.IntVar(lb, ub, name)
+        else:
+            var = solver.NumVar(lb, ub, name)
+        return var
 
     @staticmethod
     def var_from_dict(dict_var, solver):
