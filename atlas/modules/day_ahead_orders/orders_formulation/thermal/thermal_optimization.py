@@ -8,9 +8,10 @@ This file is part of the ATLAS project.
 import math
 import os
 from datetime import datetime
-
+from typing import Literal
 import atlas.config as cfg
 import pendulum
+from atlas.enum import SolverEnum
 
 from atlas.math.timeseries import Timeseries
 from atlas import generate_datetimes, OptimisationModel
@@ -20,7 +21,15 @@ from pendulum._pendulum import Duration
 
 
 class ThermalOptimization(OptimisationModel):
-    def __init__(self, parameters: DayAheadOrdersParameters, thermal_unit: Thermal, prices, price_type):
+    def __init__(
+        self,
+        parameters: DayAheadOrdersParameters,
+        thermal_unit: Thermal,
+        prices,
+        price_type,
+        solver_name: SolverEnum | str,
+    ):
+        super().__init__(solver_name)
         self.parameters = parameters
         self.model = OptimisationModel(
             solver_name=parameters.solver.upper(),
@@ -122,28 +131,28 @@ class ThermalOptimization(OptimisationModel):
 
         # Get the parameters of the unit
         fcr_up_procured = self.thermal_unit.fcr_up_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
         )
         fcr_down_procured = self.thermal_unit.fcr_down_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
         )
         afrr_up_procured = self.thermal_unit.afrr_up_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
         )
         afrr_down_procured = self.thermal_unit.afrr_down_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
         )
         mfrr_up_procured = self.thermal_unit.mfrr_up_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
         )
         mfrr_down_procured = self.thermal_unit.mfrr_down_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
         )
         rr_up_procured = self.thermal_unit.rr_up_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
         )
         rr_down_procured = self.thermal_unit.rr_down_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
         )
 
         # Check that the minimum_stable_power_duration is smaller than the minimumTimeOn
@@ -168,22 +177,26 @@ class ThermalOptimization(OptimisationModel):
         # All T_.'s are integers (by definition).
         if self.thermal_unit.minimum_time_on > 0:
             self.T_on = (
-                int(max(1, math.ceil(self.thermal_unit.minimum_time_on.total_minutes() / parameters.time_step))) + 1
+                int(max(1, math.ceil(self.thermal_unit.minimum_time_on.total_minutes() / self.parameters.time_step)))
+                + 1
             )
         else:
             self.T_on = 0
 
         if self.thermal_unit.minimum_time_off > 0:
             self.T_off = (
-                int(max(1, math.ceil(self.thermal_unit.minimum_time_off.total_minutes() / parameters.time_step))) + 1
+                int(max(1, math.ceil(self.thermal_unit.minimum_time_off.total_minutes() / self.parameters.time_step)))
+                + 1
             )
         else:
             self.T_off = 0
-        self.T_start = int(math.floor(self.thermal_unit.startup_duration.total_minutes() / parameters.time_step))
-        self.T_stop = int(math.floor(self.thermal_unit.shutdown_duration.total_minutes() / parameters.time_step))
+        self.T_start = int(math.floor(self.thermal_unit.startup_duration.total_minutes() / self.parameters.time_step))
+        self.T_stop = int(math.floor(self.thermal_unit.shutdown_duration.total_minutes() / self.parameters.time_step))
 
-        if minimum_stable_power_duration.total_minutes() >= parameters.time_step:
-            self.T_stable = int(math.ceil(minimum_stable_power_duration.total_minutes() / parameters.time_step)) + 1
+        if minimum_stable_power_duration.total_minutes() >= self.parameters.time_step:
+            self.T_stable = (
+                int(math.ceil(minimum_stable_power_duration.total_minutes() / self.parameters.time_step)) + 1
+            )
         else:
             self.T_stable = 0
 
@@ -195,8 +208,8 @@ class ThermalOptimization(OptimisationModel):
         # the optimization program will be solved.
         # Remark: we define the time series until endDate - TimeStep because
         # we want all time steps to lie in the [startDate, endOptimizationDate] range.
-        end_date = parameters.end_optimization_date - parameters.time_step
-        self.time_frame = generate_datetimes(parameters.start_date, end_date, parameters.time_step)
+        end_date = self.parameters.end_optimization_date - self.parameters.time_step
+        self.time_frame = generate_datetimes(self.parameters.start_date, end_date, self.parameters.time_step)
 
         # Define T_traceback, the number of timesteps we need to go before startDate to define the initial conditions.
         # We add +1 in order to avoid out-of-bounds errors when defining the ON_FLAT state.
@@ -204,7 +217,7 @@ class ThermalOptimization(OptimisationModel):
 
         # Define manually the previous_time_frame, which contains all time steps from startDate to (startDate - T_traceback * TimeStep)
         for k in range(1, T_traceback + 1):
-            self.previous_time_frame.append(parameters.start_date - k * parameters.time_step)
+            self.previous_time_frame.append(self.parameters.start_date - k * self.parameters.time_step)
 
             # Define the extendedTimeFrame, ranging from the last element of the previous_time_frame to endOptimizationDate.
         # We also start from 1 in order to exclude startDate from the previous_time_frame.
@@ -229,14 +242,14 @@ class ThermalOptimization(OptimisationModel):
 
         # Create the time series of feasible automated reserves procurements
         self.feasible_automated_reserves_up_procured = Timeseries.from_index(
-            parameters.start_date, parameters.timestep, end_date, default_value=0
+            self.parameters.start_date, self.parameters.timestep, end_date, default_value=0
         )
         self.feasible_automated_reserves_down_procured = Timeseries.from_index(
-            parameters.start_date, parameters.timestep, end_date, default_value=0
+            self.parameters.start_date, self.parameters.timestep, end_date, default_value=0
         )
 
         # Populate the time series and retrieve the infeasible automated reserve procurements.
-        for t in time_frame:
+        for t in self.time_frame:
             # retrieve the feasible part in the feasible time series
             self.feasible_automated_reserves_up_procured[t] = min(
                 afrr_up_procured.get_value(t), self.thermal_unit.maximum_afrr
@@ -257,7 +270,7 @@ class ThermalOptimization(OptimisationModel):
             cfg.logger.info("automated unsupplied reserves : {}".format(self.automated_unsupplied_reserves))
 
         # Set-up the power gradients
-        self.delta_q = self.thermal_unit.maximum_gradient * parameters.time_step
+        self.delta_q = self.thermal_unit.maximum_gradient * self.parameters.time_step
         self.delta_q_unconstrained = self.thermal_unit.maximum_power.max()
 
     def step_1(self):
@@ -507,7 +520,7 @@ class ThermalOptimization(OptimisationModel):
         )
 
     def solve_thermal_optimization_program(
-        thermal_unit: Thermal, prices, price_type, parameters: DayAheadOrdersParameters
+        self, thermal_unit: Thermal, prices, price_type, parameters: DayAheadOrdersParameters
     ):
         """
         This function solves the optimization program associated to the thermic units. It only
@@ -1191,7 +1204,7 @@ class ThermalOptimization(OptimisationModel):
                             -self.delta_q * self.ON_DOWN[t]
                             - self.turned_off[t_next] * q_step
                             - self.STOP[t] * q_step
-                            + down_to_stop[t_next] * delta_q
+                            + down_to_stop[t_next] * self.delta_q
                         ),
                         "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
                     )  # Downward gradient
@@ -2651,7 +2664,7 @@ class ThermalOptimization(OptimisationModel):
                             + self.D[t]
                             - q_step * self.turned_off[t_next]
                             - self.STOP[t] * q_step
-                            + flat_down_stop[t_next] * delta_q
+                            + flat_down_stop[t_next] * self.delta_q
                             - DD[t]
                         ),
                         "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
@@ -3672,7 +3685,7 @@ class ThermalOptimization(OptimisationModel):
                             -self.delta_q * self.ON_DOWN[t]
                             - self.turned_off[t_next] * q_step_down
                             - self.STOP[t] * q_step_down
-                            + down_to_stop[t_next] * delta_q
+                            + down_to_stop[t_next] * self.delta_q
                             + self.turned_on[t_next] * q_step_up
                             + self.START[t] * q_step_up
                         ),
@@ -4354,7 +4367,7 @@ class ThermalOptimization(OptimisationModel):
                             + self.D[t]
                             - q_step_down * self.turned_off[t_next]
                             - self.STOP[t] * q_step_down
-                            + flat_down_stop[t_next] * delta_q
+                            + flat_down_stop[t_next] * self.delta_q
                             - DD[t]
                             + q_step_up * self.turned_on[t_next]
                             + self.START[t] * q_step_up
@@ -4595,4 +4608,3 @@ class ThermalOptimization(OptimisationModel):
                         sum(q[t] for t in matching_steps) <= upper_bound * time_step.total_days() * len(matching_steps),
                         "energy_limit_of_{}_at_{}".format(thermal_unit.name, date),
                     )
-                    # TimeStep / 1440 * len(matching_steps) is a converting factor
