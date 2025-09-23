@@ -13,17 +13,14 @@ class ExchangesFixing(OptimisationModel):
         self.parameters = parameters
         self.exchange_fixing = None
 
-    def create_exchange_fixing_model(self):
-        pass
-
-    def run(self, clearing: Clearing):
-        self.build(clearing)
+    def run(self, clearing_local_balances: dict[tuple[str, int], float]):
+        self.build(clearing_local_balances)
         self.solve()
-        self.export_model("exchange_fixing_model.lp")
+        self.export_model("exchanges_fixing_model.lp")
 
-    def build(self, clearing: Clearing):
+    def build(self, clearing_local_balances: dict[tuple[str, int], float]):
         self.build_variables()
-        self.build_constraints(clearing)
+        self.build_constraints(clearing_local_balances)
         self.build_objective()
 
     def build_variables(self):
@@ -39,10 +36,10 @@ class ExchangesFixing(OptimisationModel):
             self.create_border_xsis_variables()
             self.create_border_nus_variables()
 
-    def build_constraints(self, clearing: Clearing):
+    def build_constraints(self, clearing_local_balances: dict[tuple[str, int], float]):
         """Create all constraints for the exchange fixing phase model"""
         is_atc = self.input_dataset.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
-        self.create_exchanges_constraints(is_atc, clearing)
+        self.create_exchanges_constraints(is_atc, clearing_local_balances)
         self.create_absolute_timed_exchanges_constraints(is_atc)
         if is_atc and self.get_n_borders_with_losses():
             self.create_borders_constraints()
@@ -122,7 +119,7 @@ class ExchangesFixing(OptimisationModel):
     ##################################
     # Constraints
     ##################################
-    def create_exchanges_constraints(self, is_atc: bool, clearing: Clearing):
+    def create_exchanges_constraints(self, is_atc: bool, clearing_local_balances: dict[tuple[str, int], float]):
         for time_index, _time in enumerate(self.input_dataset.times):
             for market_area_name in self.input_dataset.mc_market_areas:
                 if is_atc:
@@ -130,8 +127,7 @@ class ExchangesFixing(OptimisationModel):
                 else:
                     exchange_sum = self.compute_fb_exchange_sum_for_market_area(market_area_name, time_index)
                 constraint_name = constants.constraint_4_2_constraint_name(market_area_name, time_index)
-                local_balance_name = constants.local_balance_variable_name(market_area_name, time_index)
-                clearing_exchange_value = clearing.get_variable_value(local_balance_name)
+                clearing_exchange_value = clearing_local_balances[market_area_name, time_index]
                 self.add_constraint(clearing_exchange_value == exchange_sum, constraint_name)
 
     def compute_atc_exchange_sum_for_market_area(self, market_area_name: str, time_index: int):
