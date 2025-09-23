@@ -3,23 +3,20 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
-import os
 import ast
 import math
-from collections import OrderedDict
-
-import pendulum
-import pytest
+import os
 import pickle
+import re
 from pathlib import Path
 
-from atlas import InputLoader
-from atlas.math.timeseries import Timeseries
-from atlas.io_utils.utils import to_snake_case
-import re
-
 import pandas as pd
+import pendulum
+import pytest
 
+from atlas import InputLoader
+from atlas.io_utils.utils import to_snake_case
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 from atlas.modules.market_clearing.phases.clearing import Clearing
 
@@ -88,6 +85,7 @@ def read_market_area_csv(path):
         market_area["orders"] = parse_orders(market_area["orders"])
     return market_areas
 
+
 def read_control_block_csv(path):
     control_blocks_df = pd.read_csv(Path(path) / "control_blocks.csv", sep=";")
     control_blocks = transform_dataframe_to_dict(control_blocks_df)
@@ -97,6 +95,7 @@ def read_control_block_csv(path):
         control_block["max_tso_power_bought"] = eval(control_block["max_tso_power_bought"])
     return control_blocks
 
+
 def read_market_borders_csv(path):
     market_borders_df = pd.read_csv(Path(path) / "market_borders.csv", sep=";")
     market_borders = transform_dataframe_to_dict(market_borders_df)
@@ -104,6 +103,7 @@ def read_market_borders_csv(path):
         market_border["max_flow"] = eval(market_border["max_flow"])
         market_border["min_flow"] = eval(market_border["min_flow"])
     return market_borders
+
 
 def read_market_data_csv(path):
     market_data_df = pd.read_csv(Path(path) / "market_data.csv", sep=";")
@@ -114,6 +114,7 @@ def read_market_data_csv(path):
     market_data["market_borders"] = market_data["market_borders"].count("<MarketBorder object at")
     return market_data
 
+
 def read_expected_data(path):
     coupling_groups = read_order_coupling_csv(path)
     market_areas = read_market_area_csv(path)
@@ -123,6 +124,7 @@ def read_expected_data(path):
     critical_branches_data = read_critical_branches_csv(path)
     # Price group is empty before the phases
     return coupling_groups, market_areas, control_blocks, market_borders, market_data, critical_branches_data
+
 
 def compare_market_area(market_areas_expected, input_dataset):
     for market_area_name, market_area_expected in market_areas_expected.items():
@@ -139,20 +141,32 @@ def compare_control_block(control_blocks_expected, input_dataset):
     clearing = Clearing(input_dataset, input_dataset.parameters)
     for control_block_expected in control_blocks_expected.values():
         for time_index in range(len(control_block_expected['max_tso_power_sold'])):
-            max_tso_power_bought = clearing.get_max_tso_power_bought(input_dataset.times[time_index], input_dataset.mc_control_blocks[control_block_expected["name"]], input_dataset.mc_market_areas)
-            max_tso_power_sold = clearing.get_max_tso_power_sold(input_dataset.times[time_index], input_dataset.mc_control_blocks[control_block_expected["name"]], input_dataset.mc_market_areas)
-            assert max_tso_power_bought == pytest.approx(control_block_expected['max_tso_power_bought'][time_index], rel=1e-9)
-            assert max_tso_power_sold == pytest.approx(control_block_expected['max_tso_power_sold'][time_index], rel=1e-9)
+            max_tso_power_bought = clearing.get_max_tso_power_bought(input_dataset.times[time_index],
+                                                                     input_dataset.mc_control_blocks[
+                                                                         control_block_expected["name"]],
+                                                                     input_dataset.mc_market_areas)
+            max_tso_power_sold = clearing.get_max_tso_power_sold(input_dataset.times[time_index],
+                                                                 input_dataset.mc_control_blocks[
+                                                                     control_block_expected["name"]],
+                                                                 input_dataset.mc_market_areas)
+            assert max_tso_power_bought == pytest.approx(control_block_expected['max_tso_power_bought'][time_index],
+                                                         rel=1e-9)
+            assert max_tso_power_sold == pytest.approx(control_block_expected['max_tso_power_sold'][time_index],
+                                                       rel=1e-9)
+
 
 def compare_market_borders(market_borders_expected, input_dataset):
     for market_border_expected in market_borders_expected.values():
         mc_market_border = input_dataset.mc_market_borders[market_border_expected["name"]]
-        assert mc_market_border.border.loss_factor == pytest.approx(float(market_border_expected["loss_factor"]), rel=1e-9)
-        assert mc_market_border.time_resolution == pytest.approx(float(market_border_expected["time_resolution"]), rel=1e-9)
+        assert mc_market_border.border.loss_factor == pytest.approx(float(market_border_expected["loss_factor"]),
+                                                                    rel=1e-9)
+        assert mc_market_border.time_resolution == pytest.approx(float(market_border_expected["time_resolution"]),
+                                                                 rel=1e-9)
         assert mc_market_border.border.uphill_market_area.name == market_border_expected['upstream_market']
         assert mc_market_border.border.downhill_market_area.name == market_border_expected['downstream_market']
         assert compare_timeseries_to_dict(mc_market_border.max_flow, market_border_expected['max_flow'])
         assert compare_timeseries_to_dict(mc_market_border.min_flow, market_border_expected['min_flow'])
+
 
 def compare_market_data(market_data_expected, input_dataset):
     assert market_data_expected["coupling_groups"] == len(input_dataset.mc_order_couplings)
@@ -160,11 +174,10 @@ def compare_market_data(market_data_expected, input_dataset):
     assert not set(market_data_expected["control_blocks"]).difference(set(input_dataset.mc_control_blocks))
 
 
-
 def compare_orders_couplings(order_couplings_expected, order_couplings_dict):
     for name, order_coupling_expected in order_couplings_expected.items():
         # Sometimes there is an _ at the end after with_price
-        if to_snake_case(name) not in  order_couplings_dict:
+        if to_snake_case(name) not in order_couplings_dict:
             name = name[:-1]
         order_coupling = order_couplings_dict[to_snake_case(name)]
         assert to_snake_case(order_coupling.name) == to_snake_case(name)
@@ -185,12 +198,14 @@ def compare_orders_couplings(order_couplings_expected, order_couplings_dict):
         nb_orders = len(order_coupling_expected["orders_info"])
         assert len(order_coupling.orders) == nb_orders
 
+
 def compare_timeseries_to_dict(timeseries: Timeseries, _dict: dict[str, float]):
     for time, value in _dict.items():
         time_formated = pendulum.from_format(time, 'DD/MM/YYYY HH:mm:ss')
         if abs(timeseries.get_value(time_formated) - value) > 1e-9:
             return False
     return True
+
 
 @pytest.mark.skip(reason="No data available")
 def test_market_data():

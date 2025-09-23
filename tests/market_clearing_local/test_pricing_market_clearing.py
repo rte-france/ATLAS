@@ -11,7 +11,7 @@ import pytest
 
 from atlas import InputLoader
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
-from atlas.modules.market_clearing.phases.exchanges_fixing import ExchangesFixing
+from atlas.modules.market_clearing.phases.pricing import Pricing
 from atlas.solver.solver_helper import SolverHelper
 from tests.market_clearing_local.market_clearig_test_utils import transform_clearing_prometheus_lp
 
@@ -25,7 +25,7 @@ def retrieve_local_balances_from_json(local_balances_path: str) -> dict[tuple[st
     return local_balances
 
 
-def retrieve_exchanges_fixing_lp(path):
+def retrieve_pricing_lp(path):
     parameters_path = os.path.join(path, "parameters.yml")
     dataset_path = os.path.join(path, "atlas-dataset")
     pkl_path = os.path.join(path, "raw_data.pkl")
@@ -44,13 +44,13 @@ def retrieve_exchanges_fixing_lp(path):
     parameters = mc_module.import_parameters(parameters_path)
     input_dataset = mc_module.import_data(raw_data, parameters)
 
-    clearing_local_balances = retrieve_local_balances_from_json(os.path.join(path, "optimization_data",
-                                                                             "clearing_local_balances.json"))
+    # clearing_local_balances = retrieve_local_balances_from_json(os.path.join(path, "optimization_data",
+    #                                                                         "clearing_local_balances.json"))
 
-    exchange_fixing = ExchangesFixing(input_dataset, parameters)
-    exchange_fixing.run(clearing_local_balances)
+    pricing = Pricing(input_dataset, parameters)
+    pricing.run()
 
-    return "exchanges_fixing_model.lp"
+    return "pricing_1_model.lp", "pricing_2_model.lp", "pricing_3_model.lp"
 
 
 # @pytest.mark.skip(reason="No data available")
