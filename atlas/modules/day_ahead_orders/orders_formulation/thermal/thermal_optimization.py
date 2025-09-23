@@ -10,11 +10,13 @@ import os
 from datetime import datetime
 
 import atlas.config as cfg
+import pendulum
 
 from atlas.math.timeseries import Timeseries
 from atlas import generate_datetimes, OptimisationModel
 from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from pendulum._pendulum import Duration
 
 
 class ThermalOptimization(OptimisationModel):
@@ -832,34 +834,9 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-                # Energy limits
-            if self.thermal_unit.has_daily_energy_constraint:
-                days_in_time_frame = []
-
-                for local_time in self.time_frame:
-                    if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
-                        days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
-
-                for date in days_in_time_frame:
-                    upper_bound = self.thermal_unit.maximum_daily_energy.get_value(date)
-
-                    matching_steps = []
-                    for local_time in self.time_frame:
-                        if (
-                            (local_time.year == date.year)
-                            and (local_time.month == date.month)
-                            and (local_time.day == date.day)
-                        ):
-                            matching_steps.append(local_time)
-
-                    if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
-                        # Enforce eq. (37)
-                        self.model.add_constraint(
-                            sum(self.q[t] for t in matching_steps)
-                            <= upper_bound * self.parameters.time_step / 1440.0 * len(matching_steps),
-                            "energy_limit_of_{}_at_{}".format(self.thermal_unit.name, date),
-                        )
-                        # TimeStep / 1440 * len(matching_steps) is a converting factor
+            self.add_daily_energy_constraint(
+                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
+            )
 
         # -------------------------------------------------------------#
         #                                                             #
@@ -1253,34 +1230,9 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-                # Energy limits
-            if self.thermal_unit.has_daily_energy_constraint:
-                days_in_time_frame = []
-
-                for local_time in self.time_frame:
-                    if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
-                        days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
-
-                for date in days_in_time_frame:
-                    upper_bound = self.thermal_unit.maximum_daily_energy.get_value(date)
-
-                    matching_steps = []
-                    for local_time in self.time_frame:
-                        if (
-                            (local_time.year == date.year)
-                            and (local_time.month == date.month)
-                            and (local_time.day == date.day)
-                        ):
-                            matching_steps.append(local_time)
-
-                    if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
-                        # Enforce eq. (37)
-                        self.model.add_constraint(
-                            sum(self.q[t] for t in matching_steps)
-                            <= upper_bound * self.parameters.time_step / 1440.0 * len(matching_steps),
-                            "energy_limit_of_{}_at_{}".format(self.thermal_unit.name, date),
-                        )
-                        # TimeStep / 1440 * len(matching_steps) is a converting factor
+            self.add_daily_energy_constraint(
+                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
+            )
 
         # -------------------------------------------------------------#
         #                                                             #
@@ -1760,34 +1712,9 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-                # Energy limits
-            if self.thermal_unit.has_daily_energy_constraint:
-                days_in_time_frame = []
-
-                for local_time in self.time_frame:
-                    if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
-                        days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
-
-                for date in days_in_time_frame:
-                    upper_bound = self.thermal_unit.maximum_daily_energy.get_value(date)
-
-                    matching_steps = []
-                    for local_time in self.time_frame:
-                        if (
-                            (local_time.year == date.year)
-                            and (local_time.month == date.month)
-                            and (local_time.day == date.day)
-                        ):
-                            matching_steps.append(local_time)
-
-                    if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
-                        # Enforce eq. (37)
-                        self.model.add_constraint(
-                            sum(self.q[t] for t in matching_steps)
-                            <= upper_bound * self.parameters.time_step / 1440.0 * len(matching_steps),
-                            "energy_limit_of_{}_at_{}".format(self.thermal_unit.name, date),
-                        )
-                        # TimeStep / 1440 * len(matching_steps) is a converting factor
+            self.add_daily_energy_constraint(
+                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
+            )
 
         # -------------------------------------------------------------#
         #                                                             #
@@ -2144,34 +2071,9 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-                # Energy limits
-            if self.thermal_unit.has_daily_energy_constraint:
-                days_in_time_frame = []
-
-                for local_time in self.time_frame:
-                    if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
-                        days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
-
-                for date in days_in_time_frame:
-                    upper_bound = self.thermal_unit.maximum_daily_energy.get_value(date)
-
-                    matching_steps = []
-                    for local_time in self.time_frame:
-                        if (
-                            (local_time.year == date.year)
-                            and (local_time.month == date.month)
-                            and (local_time.day == date.day)
-                        ):
-                            matching_steps.append(local_time)
-
-                    if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
-                        # Enforce eq. (37)
-                        self.model.add_constraint(
-                            sum(self.q[t] for t in matching_steps)
-                            <= upper_bound * self.parameters.time_step / 1440.0 * len(matching_steps),
-                            "energy_limit_of_{}_at_{}".format(self.thermal_unit.name, date),
-                        )
-                        # TimeStep / 1440 * len(matching_steps) is a converting factor
+            self.add_daily_energy_constraint(
+                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
+            )
 
         # -------------------------------------------------------------#
         #                                                             #
@@ -2795,34 +2697,9 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-                # Energy limits
-            if self.thermal_unit.has_daily_energy_constraint:
-                days_in_time_frame = []
-
-                for local_time in self.time_frame:
-                    if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
-                        days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
-
-                for date in days_in_time_frame:
-                    upper_bound = self.thermal_unit.maximum_daily_energy.get_value(date)
-
-                    matching_steps = []
-                    for local_time in self.time_frame:
-                        if (
-                            (local_time.year == date.year)
-                            and (local_time.month == date.month)
-                            and (local_time.day == date.day)
-                        ):
-                            matching_steps.append(local_time)
-
-                    if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
-                        # Enforce eq. (37)
-                        self.model.add_constraint(
-                            sum(self.q[t] for t in matching_steps)
-                            <= upper_bound * self.parameters.time_step / 1440.0 * len(matching_steps),
-                            "energy_limit_of_{}_at_{}".format(self.thermal_unit.name, date),
-                        )
-                        # TimeStep / 1440 * len(matching_steps) is a converting factor
+            self.add_daily_energy_constraint(
+                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
+            )
 
         # -------------------------------------------------------------#
         #                                                              #
@@ -3372,34 +3249,9 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-                # Energy limits
-            if self.thermal_unit.has_daily_energy_constraint:
-                days_in_time_frame = []
-
-                for local_time in self.time_frame:
-                    if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
-                        days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
-
-                for date in days_in_time_frame:
-                    upper_bound = self.thermal_unit.maximum_daily_energy.get_value(date)
-
-                    matching_steps = []
-                    for local_time in self.time_frame:
-                        if (
-                            (local_time.year == date.year)
-                            and (local_time.month == date.month)
-                            and (local_time.day == date.day)
-                        ):
-                            matching_steps.append(local_time)
-
-                    if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
-                        # Enforce eq. (37)
-                        self.model.add_constraint(
-                            sum(self.q[t] for t in matching_steps)
-                            <= upper_bound * self.parameters.time_step / 1440.0 * len(matching_steps),
-                            "energy_limit_of_{}_at_{}".format(self.thermal_unit.name, date),
-                        )
-                        # TimeStep / 1440 * len(matching_steps) is a converting factor
+            self.add_daily_energy_constraint(
+                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
+            )
 
         # -------------------------------------------------------------#
         #                                                              #
@@ -3863,34 +3715,9 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-                # Energy limits
-            if self.thermal_unit.has_daily_energy_constraint:
-                days_in_time_frame = []
-
-                for local_time in self.time_frame:
-                    if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
-                        days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
-
-                for date in days_in_time_frame:
-                    upper_bound = self.thermal_unit.maximum_daily_energy.get_value(date)
-
-                    matching_steps = []
-                    for local_time in self.time_frame:
-                        if (
-                            (local_time.year == date.year)
-                            and (local_time.month == date.month)
-                            and (local_time.day == date.day)
-                        ):
-                            matching_steps.append(local_time)
-
-                    if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
-                        # Enforce eq. (37)
-                        self.model.add_constraint(
-                            sum(self.q[t] for t in matching_steps)
-                            <= upper_bound * self.parameters.time_step / 1440.0 * len(matching_steps),
-                            "energy_limit_of_{}_at_{}".format(self.thermal_unit.name, date),
-                        )
-                        # TimeStep / 1440 * len(matching_steps) is a converting factor
+            self.add_daily_energy_constraint(
+                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
+            )
 
         # -------------------------------------------------------------#
         #                                                              #
@@ -4579,34 +4406,9 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-                # Energy limits
-            if self.thermal_unit.has_daily_energy_constraint:
-                days_in_time_frame = []
-
-                for local_time in self.time_frame:
-                    if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
-                        days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
-
-                for date in days_in_time_frame:
-                    upper_bound = self.thermal_unit.maximum_daily_energy.get_value(date)
-
-                    matching_steps = []
-                    for local_time in self.time_frame:
-                        if (
-                            (local_time.year == date.year)
-                            and (local_time.month == date.month)
-                            and (local_time.day == date.day)
-                        ):
-                            matching_steps.append(local_time)
-
-                    if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
-                        # Enforce eq. (37)
-                        self.model.add_constraint(
-                            sum(self.q[t] for t in matching_steps)
-                            <= upper_bound * self.parameters.time_step / 1440.0 * len(matching_steps),
-                            "energy_limit_of_{}_at_{}".format(self.thermal_unit.name, date),
-                        )
-                        # TimeStep / 1440 * len(matching_steps) is a converting factor
+            self.add_daily_energy_constraint(
+                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
+            )
 
         ###############
         #
@@ -4758,3 +4560,39 @@ class ThermalOptimization(OptimisationModel):
             results["ON_FLAT"] = ON_FLAT_star
 
         return results
+
+    def add_daily_energy_constraint(
+        self,
+        model: OptimisationModel,
+        thermal_unit: Thermal,
+        time_frame: list[pendulum.DateTime],
+        time_step: Duration,
+        q: dict,
+    ):
+        # Energy limits
+        if thermal_unit.has_daily_energy_constraint:
+            days_in_time_frame = []
+
+            for local_time in time_frame:
+                if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
+                    days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
+
+            for date in days_in_time_frame:
+                upper_bound = thermal_unit.maximum_daily_energy.get_value(date)
+
+                matching_steps = []
+                for local_time in time_frame:
+                    if (
+                        (local_time.year == date.year)
+                        and (local_time.month == date.month)
+                        and (local_time.day == date.day)
+                    ):
+                        matching_steps.append(local_time)
+
+                if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
+                    # Enforce eq. (37)
+                    model.add_constraint(
+                        sum(q[t] for t in matching_steps) <= upper_bound * time_step.total_days() * len(matching_steps),
+                        "energy_limit_of_{}_at_{}".format(thermal_unit.name, date),
+                    )
+                    # TimeStep / 1440 * len(matching_steps) is a converting factor
