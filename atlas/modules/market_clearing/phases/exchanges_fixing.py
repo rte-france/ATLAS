@@ -64,8 +64,8 @@ class ExchangesFixing(OptimisationModel):
     def create_border_exchange_variables(self, is_atc: bool):
         for border_name, mc_border in self.input_dataset.mc_market_borders.items():
             for time_index, _time in enumerate(self.input_dataset.times):
-                relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else DEFAULT_MAX_FLOW
-                relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else DEFAULT_MIN_FLOW
+                relative_max_flow = mc_border.max_flow.get_value(_time) if is_atc else float("inf")
+                relative_min_flow = mc_border.min_flow.get_value(_time) if is_atc else float("-inf")
                 self.add_continuous_variable(
                     constants.border_exchange_variable_name(border_name, time_index),
                     relative_min_flow,
