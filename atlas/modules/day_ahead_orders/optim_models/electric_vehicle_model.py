@@ -18,7 +18,7 @@ class ElectricVehicleModel(DAOBaseModel):
         name: str,
         equipment: Equipment,
     ):
-        super().__init__(parameters, solver_name, name, equipment, parameters.optimization_period)
+        super().__init__(parameters, solver_name, name, equipment, parameters.ev_additional_hours)
 
     def create_constraints(self, initial_stock: float | None):
         # Creation of constraints
