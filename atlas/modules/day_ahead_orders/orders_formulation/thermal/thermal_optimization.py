@@ -122,7 +122,7 @@ class ThermalOptimization(OptimisationModel):
         )
 
         self._initial_setup()
-        self.step_1()
+        self.define_initial_parameters()
         self.create_objective_function("maximize")
         self.create_constraints_and_init_conitions()
 
@@ -282,7 +282,7 @@ class ThermalOptimization(OptimisationModel):
         self.delta_q = self.thermal_unit.maximum_gradient * self.parameters.time_step
         self.delta_q_unconstrained = self.thermal_unit.maximum_power.max()
 
-    def step_1(self):
+    def define_initial_parameters(self):
         """STEP 1 : Definition of the state, auxiliary and control variables over the time_frame."""
 
         # 1.1. Control variables :
