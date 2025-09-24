@@ -59,7 +59,6 @@ class DAOBaseModel(OptimisationModel):
         self.stored_energy: dict[DateTime, Any] = {}
         # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
         self.is_sell: dict[DateTime, Any] = {}
-        self.objective = None
 
     def create_decision_variables(self, nb_fragments: int):
         """Creation of decision variables"""
@@ -83,34 +82,28 @@ class DAOBaseModel(OptimisationModel):
         # The objective function is the total profit over the optimisation period
         if nb_fragments == 1:
             self.add_objective(
-                objective_expr=(
-                    sum(
-                        self.price_forecast.get_value(t) * self.Qvf[t][0] * self.parameters.time_step.total_hours()
-                        - self.price_forecast.get_value(t) * self.Qaf[t][0] * self.parameters.time_step.total_hours()
-                        for t in self.time_frame
-                    ),
-                    "Profit",
+                objective_expr=sum(
+                    self.price_forecast.get_value(t) * self.Qvf[t][0] * self.parameters.time_step.total_hours()
+                    - self.price_forecast.get_value(t) * self.Qaf[t][0] * self.parameters.time_step.total_hours()
+                    for t in self.time_frame
                 ),
                 direction=direction,
             )
         else:
             self.add_objective(
-                objective_expr=(
+                objective_expr=sum(
                     sum(
-                        sum(
-                            self.price_forecast.get_value(t)
-                            * (1 - i * smoothing_factor / (nb_fragments - 1))
-                            * self.Qvf[t][i]
-                            * self.parameters.time_step.total_hours()
-                            - self.price_forecast.get_value(t)
-                            * (1 + i * smoothing_factor / (nb_fragments - 1))
-                            * self.Qaf[t][i]
-                            * self.parameters.time_step.total_hours()
-                            for i in range(nb_fragments)
-                        )
-                        for t in self.time_frame
-                    ),
-                    "Profit",
+                        self.price_forecast.get_value(t)
+                        * (1 - i * smoothing_factor / (nb_fragments - 1))
+                        * self.Qvf[t][i]
+                        * self.parameters.time_step.total_hours()
+                        - self.price_forecast.get_value(t)
+                        * (1 + i * smoothing_factor / (nb_fragments - 1))
+                        * self.Qaf[t][i]
+                        * self.parameters.time_step.total_hours()
+                        for i in range(nb_fragments)
+                    )
+                    for t in self.time_frame
                 ),
                 direction=direction,
             )
@@ -130,4 +123,4 @@ class DAOBaseModel(OptimisationModel):
 
         if self.parameters.verbose:
             cfg.logger.info(f"Solver status: {self.solution_info.status}")
-            cfg.logger.info(f"Objective function value: {self.objective}")
+            cfg.logger.info(f"Objective function value: {self._objective}")
