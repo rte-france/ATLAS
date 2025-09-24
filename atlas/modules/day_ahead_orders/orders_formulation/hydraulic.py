@@ -14,7 +14,6 @@ from atlas import Order, OrderCoupling, Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-
 from atlas.timing import generate_datetimes
 
 

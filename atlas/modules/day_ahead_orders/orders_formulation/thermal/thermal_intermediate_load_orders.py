@@ -12,7 +12,7 @@ from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
 from atlas import OrderCoupling, Thermal
-from atlas.enum import CouplingType, ThermalStrategy, SolverEnum
+from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
@@ -408,7 +408,7 @@ class ThermalIntermediateLoadOrders:
                 local_time_index = res["OFF"].index()
                 # TODO
                 new_sequence_ts = API.TimeSeries.NewTimeSeries(
-                    "State_sequence_of_{}_{}_price".format(unit.Name, value),
+                    f"State_sequence_of_{unit.Name}_{value}_price",
                     API.TimeSeries.Constant,
                     "Integer",
                     local_time_index,

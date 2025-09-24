@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from pydantic_extra_types.pendulum_dt import DateTime
+
 import atlas.config as cfg
 from atlas import Order
 from atlas.enum import OrderType, Product

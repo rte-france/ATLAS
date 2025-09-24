@@ -9,15 +9,16 @@ import math
 import os
 from datetime import datetime
 from typing import Literal
-import atlas.config as cfg
-import pendulum
-from atlas.enum import SolverEnum
 
+import pendulum
+from pendulum._pendulum import Duration
+
+import atlas.config as cfg
+from atlas import OptimisationModel, generate_datetimes
+from atlas.enum import SolverEnum
 from atlas.math.timeseries import Timeseries
-from atlas import generate_datetimes, OptimisationModel
 from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from pendulum._pendulum import Duration
 
 
 class ThermalOptimization(OptimisationModel):
@@ -45,7 +46,7 @@ class ThermalOptimization(OptimisationModel):
         """
         super().__init__(
             solver_name=parameters.solver.upper(),
-            name="Optimization program for thermal unit {}".format(thermal_unit.name),
+            name=f"Optimization program for thermal unit {thermal_unit.name}",
         )
         self.parameters = parameters
         if self.solver_name != SolverEnum.XPRESS:
@@ -55,7 +56,7 @@ class ThermalOptimization(OptimisationModel):
             )
         # Quick sanity check on the class of the equipment supplied as input.
         if not type(thermal_unit).__name__ == "Thermal":
-            cfg.logger.error("*** WARNING ***\n Equipement {} is not of type thermic.".format(thermal_unit.name))
+            cfg.logger.error(f"*** WARNING ***\n Equipement {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
         self.thermal_unit = thermal_unit
         self.prices = prices
@@ -276,7 +277,7 @@ class ThermalOptimization(OptimisationModel):
             )
 
         if self.parameters.verbose:
-            cfg.logger.info("automated unsupplied reserves : {}".format(self.automated_unsupplied_reserves))
+            cfg.logger.info(f"automated unsupplied reserves : {self.automated_unsupplied_reserves}")
 
         # Set-up the power gradients
         self.delta_q = self.thermal_unit.maximum_gradient * self.parameters.time_step
@@ -292,7 +293,7 @@ class ThermalOptimization(OptimisationModel):
         # Define the main optimization variable. Bounds : O and self.q_upper
         for t in self.time_frame:
             self.q[t] = self.add_continuous_variable(
-                "power_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"power_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_upper.get_value(t),
             )
@@ -301,31 +302,31 @@ class ThermalOptimization(OptimisationModel):
         # reserves_up and reserves_down are defined no matter the value of self.T_stable. Only the type of reserves it encompasses changes.
         for t in self.time_frame:
             self.reserves_up[t] = self.add_continuous_variable(
-                "reservesUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"reservesUp_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_upper.get_value(t),
             )
 
             self.reserves_down[t] = self.add_continuous_variable(
-                "reservesDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"reservesDown_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_upper.get_value(t),
             )
 
             self.unprovided_reserves_up[t] = self.add_continuous_variable(
-                "unprovidedReservesUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"unprovidedReservesUp_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_upper.get_value(t),
             )
 
             self.unprovided_reserves_down[t] = self.add_continuous_variable(
-                "unprovidedReservesDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"unprovidedReservesDown_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_upper.get_value(t),
             )
 
             self.relaxed_reserves[t] = self.add_continuous_variable(
-                "relaxedReserves_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"relaxedReserves_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_lower.get_value(t),
             )
@@ -333,13 +334,13 @@ class ThermalOptimization(OptimisationModel):
         # create the automatedReserves control variables.
         for t in self.time_frame:
             self.automated_reserves_up[t] = self.add_continuous_variable(
-                "automatedReservesUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"automatedReservesUp_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.maximum_automated,
             )
 
             self.automated_reserves_down[t] = self.add_continuous_variable(
-                "automatedReservesDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"automatedReservesDown_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.maximum_automated,
             )
@@ -348,12 +349,12 @@ class ThermalOptimization(OptimisationModel):
         # objective function and constrained by constraint (40).
         for t in self.time_frame:
             self.contracted_difference_up[t] = self.add_continuous_variable(
-                "contractedDifferenceUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"contractedDifferenceUp_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_upper.get_value(t),
             )
             self.contracted_difference_down[t] = self.add_continuous_variable(
-                "contractedDifferenceDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"contractedDifferenceDown_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_upper.get_value(t),
             )
@@ -361,12 +362,12 @@ class ThermalOptimization(OptimisationModel):
         # Automated contracted difference variables. These variables will be constrained by equation (39).
         for t in self.time_frame:
             self.automated_contracted_difference_up[t] = self.add_continuous_variable(
-                "automatedContractedDifferenceUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"automatedContractedDifferenceUp_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_upper.get_value(t),
             )
             self.automated_contracted_difference_down[t] = self.add_continuous_variable(
-                "automatedContractedDifferenceDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
+                f"automatedContractedDifferenceDown_equip_{self.thermal_unit.name}_at_{t}",
                 0,
                 self.q_upper.get_value(t),
             )
@@ -378,9 +379,9 @@ class ThermalOptimization(OptimisationModel):
 
         # Create the state variables for each time step over the extended time frame.
         for t in self.time_frame:
-            self.OFF[t] = self.add_boolean_variable("OFF_equip_{}_at_{}".format(self.thermal_unit.name, t))
-            self.ON_UP[t] = self.add_boolean_variable("ON_UP_equip_{}_at_{}".format(self.thermal_unit.name, t))
-            self.ON_DOWN[t] = self.add_boolean_variable("ON_DOWN_equip_{}_at_{}".format(self.thermal_unit.name, t))
+            self.OFF[t] = self.add_boolean_variable(f"OFF_equip_{self.thermal_unit.name}_at_{t}")
+            self.ON_UP[t] = self.add_boolean_variable(f"ON_UP_equip_{self.thermal_unit.name}_at_{t}")
+            self.ON_DOWN[t] = self.add_boolean_variable(f"ON_DOWN_equip_{self.thermal_unit.name}_at_{t}")
 
         # 1.2.2. 'Conditional' state variables : defined only if a certain criteria on T is met.
         if self.T_start >= 1:
@@ -389,7 +390,7 @@ class ThermalOptimization(OptimisationModel):
 
             # Define the START state variable.
             for t in self.time_frame:
-                self.START[t] = self.add_boolean_variable("START_equip_{}_at_{}".format(self.thermal_unit.name, t))
+                self.START[t] = self.add_boolean_variable(f"START_equip_{self.thermal_unit.name}_at_{t}")
 
         if self.T_stop >= 1:
             # Define the stop_time_steps range.
@@ -397,24 +398,24 @@ class ThermalOptimization(OptimisationModel):
 
             # Define the STOP state variable
             for t in self.time_frame:
-                self.STOP[t] = self.add_boolean_variable("STOP_equip_{}_at_{}".format(self.thermal_unit.name, t))
+                self.STOP[t] = self.add_boolean_variable(f"STOP_equip_{self.thermal_unit.name}_at_{t}")
 
         if self.T_stable >= 1:
             self.start_date_minus_one = self.parameters.start_date - self.parameters.time_step
             for t in self.time_frame:
-                self.ON_FLAT[t] = self.add_boolean_variable("ON_FLAT_equip_{}_at_{}".format(self.thermal_unit.name, t))
+                self.ON_FLAT[t] = self.add_boolean_variable(f"ON_FLAT_equip_{self.thermal_unit.name}_at_{t}")
 
             # For the time step startDate - 1, create optimization avariables for ON_FLAT, ON_UP and ON_DOWN
             self.ON_FLAT[self.start_date_minus_one] = self.add_boolean_variable(
-                "ON_FLAT_equip_{}_at_{}".format(self.thermal_unit.name, self.start_date_minus_one)
+                f"ON_FLAT_equip_{self.thermal_unit.name}_at_{self.start_date_minus_one}"
             )
 
             self.ON_DOWN[self.start_date_minus_one] = self.add_boolean_variable(
-                "ON_DOWN_equip_{}_at_{}".format(self.thermal_unit.name, self.start_date_minus_one)
+                f"ON_DOWN_equip_{self.thermal_unit.name}_at_{self.start_date_minus_one}"
             )
 
             self.ON_UP[self.start_date_minus_one] = self.add_boolean_variable(
-                "ON_UP_equip_{}_at_{}".format(self.thermal_unit.name, self.start_date_minus_one)
+                f"ON_UP_equip_{self.thermal_unit.name}_at_{self.start_date_minus_one}"
             )
 
         # 1.3. Auxiliary variables
@@ -425,13 +426,9 @@ class ThermalOptimization(OptimisationModel):
 
         # 1.3.1. Create the auxiliary variables that will always be defined
         for t in self.time_frame:
-            self.turned_on[t] = self.add_continuous_variable(
-                "turned_on_equip_{}_at_{}".format(self.thermal_unit.name, t), 0, 1
-            )
+            self.turned_on[t] = self.add_continuous_variable(f"turned_on_equip_{self.thermal_unit.name}_at_{t}", 0, 1)
 
-            self.turned_off[t] = self.add_continuous_variable(
-                "turned_off_equip_{}_at_{}".format(self.thermal_unit.name, t), 0, 1
-            )
+            self.turned_off[t] = self.add_continuous_variable(f"turned_off_equip_{self.thermal_unit.name}_at_{t}", 0, 1)
 
         # 1.3.2. Create the condtionnal auxiliary variables if necessary.
 
@@ -451,35 +448,33 @@ class ThermalOptimization(OptimisationModel):
 
             for t in self.time_frame_union_minus_one:
                 # Define the auxiliary variables of this state.
-                self.stable[t] = self.add_continuous_variable(
-                    "stable_at_{}_equip_{}".format(t, self.thermal_unit.name), 0, 1
-                )
+                self.stable[t] = self.add_continuous_variable(f"stable_at_{t}_equip_{self.thermal_unit.name}", 0, 1)
                 self.entered_up[t] = self.add_continuous_variable(
-                    "entered_up_at_{}_equip_{}".format(t, self.thermal_unit.name), 0, 1
+                    f"entered_up_at_{t}_equip_{self.thermal_unit.name}", 0, 1
                 )
                 self.entered_down[t] = self.add_continuous_variable(
-                    "entered_down_at_{}_equip_{}".format(t, self.thermal_unit.name), 0, 1
+                    f"entered_down_at_{t}_equip_{self.thermal_unit.name}", 0, 1
                 )
 
             for t in self.time_frame:
                 # Initialize the gradient auxiliaries.
                 self.U[t] = self.add_continuous_variable(
-                    "UP_grad_at_{}_equip_{}".format(t, self.thermal_unit.name),
+                    f"UP_grad_at_{t}_equip_{self.thermal_unit.name}",
                     self.Q_min,
                     self.Q_max,
                 )
                 self.D[t] = self.add_continuous_variable(
-                    "DOWN_grad_at_{}_equip_{}".format(t, self.thermal_unit.name),
+                    f"DOWN_grad_at_{t}_equip_{self.thermal_unit.name}",
                     self.Q_min,
                     self.Q_max,
                 )
                 self.tilde_U[t] = self.add_continuous_variable(
-                    "aux_up_grad_at_{}_equip_{}".format(t, self.thermal_unit.name),
+                    f"aux_up_grad_at_{t}_equip_{self.thermal_unit.name}",
                     self.Q_min,
                     self.Q_max,
                 )
                 self.tilde_D[t] = self.add_continuous_variable(
-                    "aux_down_grad_at_{}_equip_{}".format(t, self.thermal_unit.name),
+                    f"aux_down_grad_at_{t}_equip_{self.thermal_unit.name}",
                     self.Q_min,
                     self.Q_max,
                 )
@@ -560,9 +555,9 @@ class ThermalOptimization(OptimisationModel):
                 # so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
-                        "***WARNING***\n The last_date found in Power of equipement {} "
+                        f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
                         "does not match the startDate of the current program. \n "
-                        "The program will be initialized as DayZero.".format(self.thermal_unit.name)
+                        "The program will be initialized as DayZero."
                     )
                 day_zero = True
             else:
@@ -572,9 +567,7 @@ class ThermalOptimization(OptimisationModel):
                 # Remind the user how the program has been initialized
                 if self.parameters.verbose:
                     cfg.logger.info(
-                        "Initial conditions of unit {} have been set as in equation (47).".format(
-                            self.thermal_unit.name
-                        )
+                        f"Initial conditions of unit {self.thermal_unit.name} have been set as in equation (47)."
                     )
 
                 for t in self.previous_time_frame:
@@ -664,11 +657,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_on[t_minus_s] <= self.ON_UP[t] + self.ON_DOWN[t],
-                            "minimum_time_ON_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_ON_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             if self.T_off >= 2:
@@ -680,11 +669,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_off[t_minus_s] <= self.OFF[t],
-                            "minimum_time_OFF_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_OFF_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             # D. CONSTRAINTS ON THE CONTROL VARIABLE
@@ -743,12 +728,12 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 self.add_constraint(
                     self.q[t] >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t]),
-                    "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"lower_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Lower bound (eq. 33)
 
                 self.add_constraint(
                     self.q[t] <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t]),
-                    "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"upper_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Upper bound (eq. 34)
 
             if self.delta_q > 0:  # Case where the gradient is finite.
@@ -759,14 +744,14 @@ class ThermalOptimization(OptimisationModel):
                     self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q * self.ON_UP[t] + self.delta_q_unconstrained * self.turned_on[t_next],
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. 37) :
                     self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= -self.delta_q * self.ON_DOWN[t] - self.delta_q_unconstrained * self.turned_off[t_next],
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
@@ -788,8 +773,8 @@ class ThermalOptimization(OptimisationModel):
                     )  # Downward gradient
             else:  # Raise an error since no gradients have been detected.
                 cfg.logger.warning(
-                    "*** WARNING ***\n No gradients have been defined for equipment {}. \n "
-                    "Please check the value of `maximum_gradient`.".format(self.thermal_unit.name)
+                    f"*** WARNING ***\n No gradients have been defined for equipment {self.thermal_unit.name}. \n "
+                    "Please check the value of `maximum_gradient`."
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
@@ -808,7 +793,7 @@ class ThermalOptimization(OptimisationModel):
             down_to_stop = {}
             for t in self.time_frame:
                 down_to_stop[t] = self.add_continuous_variable(
-                    "down_to_stop_equip_{}_at_{}".format(self.thermal_unit.name, t), 0, 1
+                    f"down_to_stop_equip_{self.thermal_unit.name}_at_{t}", 0, 1
                 )
 
             # A. INITIAL CONDITIONS
@@ -831,9 +816,9 @@ class ThermalOptimization(OptimisationModel):
                 # last_date doesn't match startDate - TimeStep (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
-                        "***WARNING***\n The last_date found in Power of equipement {} "
+                        f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
                         "does not match the startDate of the current program. \n "
-                        "The program will be initialized as DayZero.".format(self.thermal_unit.name)
+                        "The program will be initialized as DayZero."
                     )
                 day_zero = True
             else:
@@ -843,9 +828,7 @@ class ThermalOptimization(OptimisationModel):
                 # Remind the user how the program has been initialized
                 if self.parameters.verbose:
                     cfg.logger.info(
-                        "Initial conditions of unit {} have been set as in equation (47).".format(
-                            self.thermal_unit.name
-                        )
+                        f"Initial conditions of unit {self.thermal_unit.name} have been set as in equation (47)."
                     )
 
                 for t in self.previous_time_frame:
@@ -921,7 +904,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
                 self.add_constraint(
                     self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t],
-                    "constraints_defining_turned_on_{}".format(t),
+                    f"constraints_defining_turned_on_{t}",
                 )
 
             # Constraints on turned_off
@@ -931,7 +914,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.turned_off[t] <= self.STOP[t])
                 self.add_constraint(
                     self.turned_off[t] >= self.STOP[t] - self.STOP[t - self.parameters.time_step],
-                    "constraints_defining_turned_off_{}".format(t),
+                    f"constraints_defining_turned_off_{t}",
                 )
 
             # Constraints on down_to_stop (eq. (20))
@@ -949,7 +932,7 @@ class ThermalOptimization(OptimisationModel):
                 # Enforces eq. (9).
                 self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.STOP[t] == 1,
-                    "mutual_exclusion_at_{}".format(t),
+                    f"mutual_exclusion_at_{t}",
                 )
 
             # Transitions:
@@ -963,7 +946,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.ON_UP[t_minus_one] + self.OFF[t] <= 1)  # Eq. (18)
                 self.add_constraint(
                     self.ON_DOWN[t_minus_one] + self.OFF[t] <= 1,
-                    "transitions_constraints_at_{}".format(t),
+                    f"transitions_constraints_at_{t}",
                 )  # Eq. (18)
 
             # Eviction constraint : force the unit to remain only T_stop time steps in the shutdown phase.
@@ -972,7 +955,7 @@ class ThermalOptimization(OptimisationModel):
                 # Implement equation (19)
                 self.add_constraint(
                     self.turned_off[t_minus_T_stop] + self.STOP[t] <= 1,
-                    "eviction_constraint_at_{}".format(t),
+                    f"eviction_constraint_at_{t}",
                 )
 
             # Mininum time on, minimum time off, minimum time in the STOP state constraints:
@@ -985,11 +968,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_on[t_minus_s] <= self.ON_UP[t] + self.ON_DOWN[t],
-                            "minimum_time_ON_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_ON_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             if self.T_off >= 2:
@@ -1003,11 +982,7 @@ class ThermalOptimization(OptimisationModel):
                         # considered when entering the STOP state.
                         self.add_constraint(
                             self.turned_off[t_minus_s_minus_T_stop] <= self.OFF[t],
-                            "minimum_time_OFF_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s_minus_T_stop,
-                                t,
-                            ),
+                            f"minimum_time_OFF_{self.thermal_unit.name}_at_{t_minus_s_minus_T_stop}_for_{t}",
                         )
 
             if self.T_stop >= 2:
@@ -1017,11 +992,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_off[t_minus_s] <= self.STOP[t],
-                            "shutdown_ramp_of_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"shutdown_ramp_of_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             # D. CONSTRAINTS ON THE CONTROL VARIABLE
@@ -1092,14 +1063,14 @@ class ThermalOptimization(OptimisationModel):
                     self.q[t]
                     >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t])
                     + self.turned_off[t] * (q_min - q_step),
-                    "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"lower_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Lower bound (eq. 33)
                 self.add_constraint(
                     self.q[t]
                     <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t])
                     + self.STOP[t] * q_min
                     - self.turned_off[t] * q_step,
-                    "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"upper_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Upper bound   (eq.34)
 
             if self.delta_q > 0:  # Case where the gradient is finite.
@@ -1114,7 +1085,7 @@ class ThermalOptimization(OptimisationModel):
                             - self.STOP[t] * q_step
                             + self.delta_q_unconstrained * self.turned_on[t_next]
                         ),
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Constrained downward gradient (eq. (37))
@@ -1126,7 +1097,7 @@ class ThermalOptimization(OptimisationModel):
                             - self.STOP[t] * q_step
                             + down_to_stop[t_next] * self.delta_q
                         ),
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
@@ -1141,7 +1112,7 @@ class ThermalOptimization(OptimisationModel):
                             - self.STOP[t] * q_step
                             + self.delta_q_unconstrained * self.turned_on[t_next]
                         ),
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Unconstrained downward gradient (eq. (38))
@@ -1153,13 +1124,13 @@ class ThermalOptimization(OptimisationModel):
                             - self.STOP[t] * q_step
                             + down_to_stop[t_next] * self.delta_q_unconstrained
                         ),
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             else:  # Raise an error since no gradients have been detected.
                 cfg.logger.error(
-                    "*** WARNING ***\n No gradients have been defined for equipment {}. \n "
-                    "Please check the value of `maximum_gradient`.".format(self.thermal_unit.name)
+                    f"*** WARNING ***\n No gradients have been defined for equipment {self.thermal_unit.name}. \n "
+                    "Please check the value of `maximum_gradient`."
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
@@ -1201,9 +1172,9 @@ class ThermalOptimization(OptimisationModel):
                 # last_date doesn't match startDate - TimeStep (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
-                        "***WARNING***\n The last_date found in Power of equipement {} "
+                        f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
                         "does not match the startDate of the current program. \n "
-                        "The program will be initialized as DayZero.".format(self.thermal_unit.name)
+                        "The program will be initialized as DayZero."
                     )
                 day_zero = True
             else:
@@ -1213,9 +1184,7 @@ class ThermalOptimization(OptimisationModel):
                 # Remind the user how the program has been initialized
                 if self.parameters.verbose:
                     cfg.logger.info(
-                        "Initial conditions of unit {} have been set as in equation (47).".format(
-                            self.thermal_unit.name
-                        )
+                        f"Initial conditions of unit {self.thermal_unit.name} have been set as in equation (47)."
                     )
 
                 for t in self.previous_time_frame:
@@ -1389,7 +1358,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 self.add_constraint(
                     self.tilde_U[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_UP[t_minus_one]),
-                    "VALUE_of_tilde_UP_at_{}".format(t),
+                    f"VALUE_of_tilde_UP_at_{t}",
                 )
 
                 # tilde_D (eq. (30))
@@ -1400,7 +1369,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 self.add_constraint(
                     self.tilde_D[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_DOWN[t_minus_one]),
-                    "VALUE_of_tilde_DOWN_at_{}".format(t),
+                    f"VALUE_of_tilde_DOWN_at_{t}",
                 )
 
             # Second stage : U and D
@@ -1412,7 +1381,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
                 self.add_constraint(
                     self.U[t] >= self.tilde_U[t] - self.Q_max * (1 - self.ON_UP[t]),
-                    "VALUE_of_UP_at_{}".format(t),
+                    f"VALUE_of_UP_at_{t}",
                 )
                 # D (eq. (29))
                 self.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
@@ -1420,7 +1389,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
                 self.add_constraint(
                     self.D[t] >= self.tilde_D[t] - self.Q_max * (1 - self.ON_DOWN[t]),
-                    "VALUE_of_DOWN_at_{}".format(t),
+                    f"VALUE_of_DOWN_at_{t}",
                 )
 
                 # C. CONSTRAINTS ON THE STATE VARIABLES
@@ -1431,7 +1400,7 @@ class ThermalOptimization(OptimisationModel):
                 # Enforces eq. (9)
                 self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t] == 1,
-                    "mutual_exclusion_at_{}".format(t),
+                    f"mutual_exclusion_at_{t}",
                 )
 
             # Transitions:
@@ -1442,7 +1411,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.ON_UP[t_minus_one] + self.ON_DOWN[t] <= 1)
                 self.add_constraint(
                     self.ON_DOWN[t_minus_one] + self.ON_UP[t] <= 1,
-                    "transitions_constraints_at_{}".format(t),
+                    f"transitions_constraints_at_{t}",
                 )
 
             # Mininum time on and minimum time off constraints:
@@ -1455,11 +1424,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_on[t_minus_s] <= self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t],
-                            "minimum_time_ON_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_ON_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_off >= 2:
                 for t in self.time_frame:
@@ -1469,11 +1434,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_off[t_minus_s] <= self.OFF[t],
-                            "minimum_time_OFF_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_OFF_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_stable >= 2:
                 for t in self.time_frame_union_minus_one:
@@ -1483,11 +1444,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.stable[t_minus_s] <= self.ON_FLAT[t],
-                            "minimum_time_STABLE_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_STABLE_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             # D. CONSTRAINTS ON THE CONTROL VARIABLE
@@ -1553,12 +1510,12 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 self.add_constraint(
                     self.q[t] >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t]),
-                    "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"lower_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Lower bound (eq. (33))
 
                 self.add_constraint(
                     self.q[t] <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t]),
-                    "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"upper_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Upper bound (eq. (34))
 
             if self.delta_q > 0:  # Case where the gradient is finite.
@@ -1572,7 +1529,7 @@ class ThermalOptimization(OptimisationModel):
                         + self.U[t]
                         + self.D[t]
                         + self.delta_q_unconstrained * self.turned_on[t_next],
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downard constrained gradient (eq. (37))
@@ -1582,7 +1539,7 @@ class ThermalOptimization(OptimisationModel):
                         + self.U[t]
                         + self.D[t]
                         - self.delta_q_unconstrained * self.turned_off[t_next],
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
@@ -1596,7 +1553,7 @@ class ThermalOptimization(OptimisationModel):
                         + self.U[t]
                         + self.D[t]
                         + self.delta_q_unconstrained * self.turned_on[t_next],
-                        "unconstrained_upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
@@ -1606,13 +1563,13 @@ class ThermalOptimization(OptimisationModel):
                         + self.U[t]
                         + self.D[t]
                         - self.delta_q_unconstrained * self.turned_off[t_next],
-                        "unconstrained_downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             else:  # Raise an error since no gradients have been detected.
                 cfg.logger.error(
-                    "*** WARNING ***\n No gradients have been defined for equipment {}. \n "
-                    "Please check the value of `maximum_gradient`.".format(self.thermal_unit.name)
+                    f"*** WARNING ***\n No gradients have been defined for equipment {self.thermal_unit.name}. \n "
+                    "Please check the value of `maximum_gradient`."
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
@@ -1646,9 +1603,9 @@ class ThermalOptimization(OptimisationModel):
                 # last_date doesn't match startDate - TimeStep (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
-                        "***WARNING***\n The last_date found in Power of equipement {} "
+                        f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
                         "does not match the startDate of the current program. \n "
-                        "The program will be initialized as DayZero.".format(self.thermal_unit.name)
+                        "The program will be initialized as DayZero."
                     )
                 day_zero = True
             else:
@@ -1658,9 +1615,7 @@ class ThermalOptimization(OptimisationModel):
                 # Remind the user how the program has been initialized
                 if self.parameters.verbose:
                     cfg.logger.info(
-                        "Initial conditions of unit {} have been set as in equation (47).".format(
-                            self.thermal_unit.name
-                        )
+                        f"Initial conditions of unit {self.thermal_unit.name} have been set as in equation (47)."
                     )
 
                 for t in self.previous_time_frame:
@@ -1729,7 +1684,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
                 self.add_constraint(
                     self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t],
-                    "constraints_defining_turned_on_{}".format(t),
+                    f"constraints_defining_turned_on_{t}",
                 )
 
                 # Constraints on turned_off
@@ -1739,7 +1694,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.turned_off[t] <= self.OFF[t])
                 self.add_constraint(
                     self.turned_off[t] >= self.OFF[t] - self.OFF[t - self.parameters.time_step],
-                    "constraints_defining_turned_off_{}".format(t),
+                    f"constraints_defining_turned_off_{t}",
                 )
 
             # C. CONSTRAINTS ON THE STATE VARIABLES
@@ -1750,7 +1705,7 @@ class ThermalOptimization(OptimisationModel):
                 # Enforces eq. (9)
                 self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.START[t] == 1,
-                    "mutual_exclusion_at_{}".format(t),
+                    f"mutual_exclusion_at_{t}",
                 )
 
             # Transitions:
@@ -1764,7 +1719,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)  # eq. (15)
                 self.add_constraint(
                     self.OFF[t_minus_one] + self.ON_DOWN[t] <= 1,
-                    "transitions_constraints_at_{}".format(t),
+                    f"transitions_constraints_at_{t}",
                 )  # eq. (15)
 
             # Eviction constraint. This constraint forces the unit to leave the START state once the startup phase is finished.
@@ -1773,7 +1728,7 @@ class ThermalOptimization(OptimisationModel):
                 # Implement eqution (16)
                 self.add_constraint(
                     self.turned_on[t_minus_T_start] + self.START[t] <= 1,
-                    "eviction_constraint_at_{}".format(t),
+                    f"eviction_constraint_at_{t}",
                 )
 
             # Mininum time on and minimum time off constraints:
@@ -1788,11 +1743,7 @@ class ThermalOptimization(OptimisationModel):
                         )
                         self.add_constraint(
                             self.turned_on[t_minus_s_minus_T_start] <= self.ON_UP[t] + self.ON_DOWN[t],
-                            "minimum_time_ON_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s_minus_T_start,
-                                t,
-                            ),
+                            f"minimum_time_ON_{self.thermal_unit.name}_at_{t_minus_s_minus_T_start}_for_{t}",
                         )
             if self.T_off >= 2:
                 for t in self.time_frame:
@@ -1802,11 +1753,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_off[t_minus_s] <= self.OFF[t],
-                            "minimum_time_OFF_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_OFF_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_start >= 2:
                 for t in self.time_frame:
@@ -1815,11 +1762,7 @@ class ThermalOptimization(OptimisationModel):
                         # Enforce eq. (17)
                         self.add_constraint(
                             self.turned_on[t_minus_s] <= self.START[t],
-                            "startup_ramp_of_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"startup_ramp_of_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             # D. CONSTRAINTS ON THE CONTROL VARIABLE
@@ -1890,11 +1833,11 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 self.add_constraint(
                     self.q[t] >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t]),
-                    "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"lower_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Lower bound (eq. (33))
                 self.add_constraint(
                     self.q[t] <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t]) + self.START[t] * q_min,
-                    "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"upper_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Upper bound (eq. (34))
 
             if self.delta_q > 0:  # Case where the gradient is finite.
@@ -1907,7 +1850,7 @@ class ThermalOptimization(OptimisationModel):
                     self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q * self.ON_UP[t] + self.turned_on[t_next] * q_step + self.START[t] * q_step,
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. (37))
@@ -1917,7 +1860,7 @@ class ThermalOptimization(OptimisationModel):
                         + self.turned_on[t_next] * q_step
                         + self.START[t] * q_step
                         - self.delta_q_unconstrained * self.turned_off[t_next],
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
@@ -1930,7 +1873,7 @@ class ThermalOptimization(OptimisationModel):
                         <= self.delta_q_unconstrained * self.ON_UP[t]
                         + self.turned_on[t_next] * q_step
                         + self.START[t] * q_step,
-                        "unconstrained_upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
@@ -1942,12 +1885,12 @@ class ThermalOptimization(OptimisationModel):
                             + self.START[t] * q_step
                             - self.delta_q_unconstrained * self.turned_off[t_next]
                         ),
-                        "unconstrained_downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
             else:  # Raise an error since no gradients have been detected.
                 cfg.logger.error(
-                    "*** WARNING ***\n No gradients have been defined for equipment {}. \n "
-                    "Please check the value of `maximum_gradient`.".format(self.thermal_unit.name)
+                    f"*** WARNING ***\n No gradients have been defined for equipment {self.thermal_unit.name}. \n "
+                    "Please check the value of `maximum_gradient`."
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
@@ -1976,7 +1919,7 @@ class ThermalOptimization(OptimisationModel):
             flat_down_stop = {}
             for t in self.time_frame:
                 flat_down_stop[t] = self.add_continuous_variable(
-                    "flat_down_stop_at_{}_equip_{}".format(t, self.thermal_unit.name),
+                    f"flat_down_stop_at_{t}_equip_{self.thermal_unit.name}",
                     0,
                     1,
                 )
@@ -1984,7 +1927,7 @@ class ThermalOptimization(OptimisationModel):
             DD = {}
             for t in self.gradients_time_frame:
                 DD[t] = self.add_continuous_variable(
-                    "DD_at_{}_equip_{}".format(t, self.thermal_unit.name), self.Q_min, self.Q_max
+                    f"DD_at_{t}_equip_{self.thermal_unit.name}", self.Q_min, self.Q_max
                 )
 
             # A. INITIAL CONDITIONS
@@ -2010,9 +1953,9 @@ class ThermalOptimization(OptimisationModel):
                 # last_date doesn't match startDate - TimeStep (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
-                        "***WARNING***\n The last_date found in Power of equipement {} "
+                        f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
                         "does not match the startDate of the current program. \n "
-                        "The program will be initialized as DayZero.".format(self.thermal_unit.name)
+                        "The program will be initialized as DayZero."
                     )
                 day_zero = True
             else:
@@ -2022,9 +1965,7 @@ class ThermalOptimization(OptimisationModel):
                 # Remind the user how the program has been initialized
                 if self.parameters.verbose:
                     cfg.logger.info(
-                        "Initial conditions of unit {} have been set as in equation (47).".format(
-                            self.thermal_unit.name
-                        )
+                        f"Initial conditions of unit {self.thermal_unit.name} have been set as in equation (47)."
                     )
 
                 for t in self.previous_time_frame:
@@ -2233,7 +2174,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 self.add_constraint(
                     self.tilde_U[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_UP[t_minus_one]),
-                    "VALUE_of_tilde_UP_at_{}".format(t),
+                    f"VALUE_of_tilde_UP_at_{t}",
                 )
 
                 # tilde_D (eq. (30))
@@ -2244,7 +2185,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 self.add_constraint(
                     self.tilde_D[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_DOWN[t_minus_one]),
-                    "VALUE_of_tilde_DOWN_at_{}".format(t),
+                    f"VALUE_of_tilde_DOWN_at_{t}",
                 )
 
             # Second stage : U and D
@@ -2256,7 +2197,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
                 self.add_constraint(
                     self.U[t] >= self.tilde_U[t] - self.Q_max * (1 - self.ON_UP[t]),
-                    "VALUE_of_UP_at_{}".format(t),
+                    f"VALUE_of_UP_at_{t}",
                 )
                 # D (eq. (29))
                 self.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
@@ -2264,7 +2205,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
                 self.add_constraint(
                     self.D[t] >= self.tilde_D[t] - self.Q_max * (1 - self.ON_DOWN[t]),
-                    "VALUE_of_DOWN_at_{}".format(t),
+                    f"VALUE_of_DOWN_at_{t}",
                 )
 
             # DD Gradient auxiliary (eq. (23))
@@ -2275,7 +2216,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(DD[t] <= self.D[t] - self.Q_min * (1 - self.STOP[t_plus_one]))
                 self.add_constraint(
                     DD[t] >= self.D[t] - self.Q_max * (1 - self.STOP[t_plus_one]),
-                    "DD_gradient_auxiliary_at_{}".format(t),
+                    f"DD_gradient_auxiliary_at_{t}",
                 )
 
             # C. CONSTRAINTS ON THE STATE VARIABLES
@@ -2286,7 +2227,7 @@ class ThermalOptimization(OptimisationModel):
                 # Enforces eq. (9)
                 self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t] + self.STOP[t] == 1,
-                    "mutual_exclusion_at_{}".format(t),
+                    f"mutual_exclusion_at_{t}",
                 )
 
             # Transitions:
@@ -2305,7 +2246,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)
                 self.add_constraint(
                     self.STOP[t_minus_one] + self.ON_UP[t] <= 1,
-                    "transitions_constraints_on_timeFrame_union_minus_one_at_{}".format(t),
+                    f"transitions_constraints_on_timeFrame_union_minus_one_at_{t}",
                 )
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
@@ -2314,7 +2255,7 @@ class ThermalOptimization(OptimisationModel):
                 # Eq. (12)
                 self.add_constraint(
                     self.OFF[t_minus_one] + self.STOP[t] <= 1,
-                    "transitions_constraints_at_{}".format(t),
+                    f"transitions_constraints_at_{t}",
                 )
                 # The latter constraints are only defined on the time_frame because it does not involve ON variables at the t index.
 
@@ -2325,7 +2266,7 @@ class ThermalOptimization(OptimisationModel):
                 # Implements equation (19)
                 self.add_constraint(
                     self.turned_off[t_minus_T_stop] + self.STOP[t] <= 1,
-                    "eviction_constraint_at_{}".format(t),
+                    f"eviction_constraint_at_{t}",
                 )
 
                 # Mininum time on and minimum time off constraints:
@@ -2338,11 +2279,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_on[t_minus_s] <= self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t],
-                            "minimum_time_ON_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_ON_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_off >= 2:
                 for t in self.time_frame:
@@ -2354,11 +2291,7 @@ class ThermalOptimization(OptimisationModel):
                         )
                         self.add_constraint(
                             self.turned_off[t_minus_s_minus_T_stop] <= self.OFF[t],
-                            "minimum_time_OFF_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s_minus_T_stop,
-                                t,
-                            ),
+                            f"minimum_time_OFF_{self.thermal_unit.name}_at_{t_minus_s_minus_T_stop}_for_{t}",
                         )
             if self.T_stable >= 2:
                 for t in self.time_frame_union_minus_one:
@@ -2368,11 +2301,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.stable[t_minus_s] <= self.ON_FLAT[t],
-                            "minimum_time_STABLE_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_STABLE_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_stop >= 2:
                 for t in self.time_frame:
@@ -2381,11 +2310,7 @@ class ThermalOptimization(OptimisationModel):
                         # Enforces eq. (24)
                         self.add_constraint(
                             self.turned_off[t_minus_s] <= self.STOP[t],
-                            "shutdown_ramp_of_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"shutdown_ramp_of_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             # D. CONSTRAINTS ON THE CONTROL VARIABLE
@@ -2462,7 +2387,7 @@ class ThermalOptimization(OptimisationModel):
                     self.q[t]
                     >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + self.turned_off[t] * (q_min - q_step),
-                    "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"lower_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Lower bound (eq. (33))
 
                 self.add_constraint(
@@ -2470,7 +2395,7 @@ class ThermalOptimization(OptimisationModel):
                     <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + self.STOP[t] * q_min
                     - self.turned_off[t] * q_step,
-                    "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"upper_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Upper bound (eq. (34))
 
             # Power gradients
@@ -2490,7 +2415,7 @@ class ThermalOptimization(OptimisationModel):
                             + self.delta_q_unconstrained * self.turned_on[t_next]
                             - DD[t]
                         ),
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. (37))
@@ -2505,7 +2430,7 @@ class ThermalOptimization(OptimisationModel):
                             + flat_down_stop[t_next] * self.delta_q
                             - DD[t]
                         ),
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
@@ -2523,7 +2448,7 @@ class ThermalOptimization(OptimisationModel):
                             - self.STOP[t] * q_step
                             + self.delta_q_unconstrained * self.turned_on[t_next]
                         ),
-                        "unconstrained_upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
@@ -2538,13 +2463,13 @@ class ThermalOptimization(OptimisationModel):
                             + flat_down_stop[t_next] * self.delta_q_unconstrained
                             - DD[t]
                         ),
-                        "unconstrained_downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             else:  # Raise an error since no gradients have been detected.
                 cfg.logger.error(
-                    "*** WARNING ***\n No gradients have been defined for equipment {}. \n "
-                    "Please check the value of `maximum_gradient`.".format(self.thermal_unit.name)
+                    f"*** WARNING ***\n No gradients have been defined for equipment {self.thermal_unit.name}. \n "
+                    "Please check the value of `maximum_gradient`."
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
@@ -2586,9 +2511,9 @@ class ThermalOptimization(OptimisationModel):
                 # last_date doesn't match startDate - TimeStep (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
-                        "***WARNING***\n The last_date found in Power of equipement {} "
+                        f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
                         "does not match the startDate of the current program. \n "
-                        "The program will be initialized as DayZero.".format(self.thermal_unit.name)
+                        "The program will be initialized as DayZero."
                     )
                 day_zero = True
             else:
@@ -2598,9 +2523,7 @@ class ThermalOptimization(OptimisationModel):
                 # Remind the user how the program has been initialized
                 if self.parameters.verbose:
                     cfg.logger.info(
-                        "Initial conditions of unit {} have been set as in equation (47).".format(
-                            self.thermal_unit.name
-                        )
+                        f"Initial conditions of unit {self.thermal_unit.name} have been set as in equation (47)."
                     )
 
                 for t in self.previous_time_frame:
@@ -2784,7 +2707,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 self.add_constraint(
                     self.tilde_U[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_UP[t_minus_one]),
-                    "VALUE_of_tilde_UP_at_{}".format(t),
+                    f"VALUE_of_tilde_UP_at_{t}",
                 )
 
                 # tilde_D (eq. (30))
@@ -2795,7 +2718,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 self.add_constraint(
                     self.tilde_D[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_DOWN[t_minus_one]),
-                    "VALUE_of_tilde_DOWN_at_{}".format(t),
+                    f"VALUE_of_tilde_DOWN_at_{t}",
                 )
 
             # Second stage : U and D
@@ -2807,7 +2730,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
                 self.add_constraint(
                     self.U[t] >= self.tilde_U[t] - self.Q_max * (1 - self.ON_UP[t]),
-                    "VALUE_of_UP_at_{}".format(t),
+                    f"VALUE_of_UP_at_{t}",
                 )
                 # D (eq. (29))
                 self.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
@@ -2815,7 +2738,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
                 self.add_constraint(
                     self.D[t] >= self.tilde_D[t] - self.Q_max * (1 - self.ON_DOWN[t]),
-                    "VALUE_of_DOWN_at_{}".format(t),
+                    f"VALUE_of_DOWN_at_{t}",
                 )
 
             # C. CONSTRAINTS ON THE STATE VARIABLES
@@ -2826,7 +2749,7 @@ class ThermalOptimization(OptimisationModel):
                 # Enforces eq. (9)
                 self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t] + self.START[t] == 1,
-                    "mutual_exclusion_at_{}".format(t),
+                    f"mutual_exclusion_at_{t}",
                 )
 
             # Transitions:
@@ -2851,7 +2774,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.OFF[t_minus_one] + self.ON_DOWN[t] <= 1)
                 self.add_constraint(
                     self.OFF[t_minus_one] + self.ON_FLAT[t] <= 1,
-                    "transitions_constraints_at_{}".format(t),
+                    f"transitions_constraints_at_{t}",
                 )
 
             # Eviction constraint
@@ -2861,7 +2784,7 @@ class ThermalOptimization(OptimisationModel):
                 # Implement equation (16)
                 self.add_constraint(
                     self.turned_on[t_minus_T_start] + self.START[t] <= 1,
-                    "eviction_constraint_at_{}".format(t),
+                    f"eviction_constraint_at_{t}",
                 )
 
             # Mininum time on and minimum time off constraints:
@@ -2877,11 +2800,7 @@ class ThermalOptimization(OptimisationModel):
                         self.add_constraint(
                             self.turned_on[t_minus_s_minus_T_start]
                             <= self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t],
-                            "minimum_time_ON_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s_minus_T_start,
-                                t,
-                            ),
+                            f"minimum_time_ON_{self.thermal_unit.name}_at_{t_minus_s_minus_T_start}_for_{t}",
                         )
             if self.T_off >= 2:
                 for t in self.time_frame:
@@ -2891,11 +2810,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_off[t_minus_s] <= self.OFF[t],
-                            "minimum_time_OFF_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_OFF_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_stable >= 2:
                 for t in self.time_frame_union_minus_one:
@@ -2905,11 +2820,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.stable[t_minus_s] <= self.ON_FLAT[t],
-                            "minimum_time_STABLE_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_STABLE_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_start >= 2:
                 for t in self.time_frame:
@@ -2918,11 +2829,7 @@ class ThermalOptimization(OptimisationModel):
                         # Enforces eq. (17)
                         self.add_constraint(
                             self.turned_on[t_minus_s] <= self.START[t],
-                            "start_up_ramp_of_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"start_up_ramp_of_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             # D. CONSTRAINTS ON THE CONTROL VARIABLE
@@ -2997,13 +2904,13 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 self.add_constraint(
                     self.q[t] >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t]),
-                    "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"lower_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Lower bound (eq. (33))
                 self.add_constraint(
                     self.q[t]
                     <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + self.START[t] * q_min,
-                    "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"upper_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Upper bound (eq. (34))
 
             if self.delta_q > 0:  # Case where the gradient is finite.
@@ -3018,7 +2925,7 @@ class ThermalOptimization(OptimisationModel):
                         + self.D[t]
                         + q_step * self.turned_on[t_next]
                         + self.START[t] * q_step,
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downard constrained gradient (eq. (37))
@@ -3032,7 +2939,7 @@ class ThermalOptimization(OptimisationModel):
                             + q_step * self.turned_on[t_next]
                             + self.START[t] * q_step
                         ),
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
@@ -3047,7 +2954,7 @@ class ThermalOptimization(OptimisationModel):
                         + self.D[t]
                         + q_step * self.turned_on[t_next]
                         + self.START[t] * q_step,
-                        "unconstrained_upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
@@ -3061,13 +2968,13 @@ class ThermalOptimization(OptimisationModel):
                             + q_step * self.turned_on[t_next]
                             + self.START[t] * q_step
                         ),
-                        "unconstrained_downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             else:  # Raise an error since no gradients have been detected.
                 cfg.logger.error(
-                    "*** WARNING ***\n No gradients have been defined for equipment {}. \n "
-                    "Please check the value of `maximum_gradient`.".format(self.thermal_unit.name)
+                    f"*** WARNING ***\n No gradients have been defined for equipment {self.thermal_unit.name}. \n "
+                    "Please check the value of `maximum_gradient`."
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
@@ -3086,7 +2993,7 @@ class ThermalOptimization(OptimisationModel):
             down_to_stop = {}
             for t in self.time_frame:
                 down_to_stop[t] = self.add_continuous_variable(
-                    "down_to_stop_equip_{}_at_{}".format(self.thermal_unit.name, t), 0, 1
+                    f"down_to_stop_equip_{self.thermal_unit.name}_at_{t}", 0, 1
                 )
 
             # A. INITIAL CONDITIONS
@@ -3110,9 +3017,9 @@ class ThermalOptimization(OptimisationModel):
                 # last_date doesn't match startDate - TimeStep (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
-                        "***WARNING***\n The last_date found in Power of equipement {} "
+                        f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
                         "does not match the startDate of the current program. \n "
-                        "The program will be initialized as DayZero.".format(self.thermal_unit.name)
+                        "The program will be initialized as DayZero."
                     )
                 day_zero = True
             else:
@@ -3122,9 +3029,7 @@ class ThermalOptimization(OptimisationModel):
                 # Remind the user how the program has been initialized
                 if self.parameters.verbose:
                     cfg.logger.info(
-                        "Initial conditions of unit {} have been set as in equation (47).".format(
-                            self.thermal_unit.name
-                        )
+                        f"Initial conditions of unit {self.thermal_unit.name} have been set as in equation (47)."
                     )
 
                 for t in self.previous_time_frame:
@@ -3217,7 +3122,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
                 self.add_constraint(
                     self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t],
-                    "constraints_defining_turned_on_{}".format(t),
+                    f"constraints_defining_turned_on_{t}",
                 )
 
             # Constraints on turned_off
@@ -3227,7 +3132,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.turned_off[t] <= self.STOP[t])
                 self.add_constraint(
                     self.turned_off[t] >= self.STOP[t] - self.STOP[t - self.parameters.time_step],
-                    "constraints_defining_turned_off_{}".format(t),
+                    f"constraints_defining_turned_off_{t}",
                 )
 
             # Constraints on down_to_stop (eq. (20))
@@ -3245,7 +3150,7 @@ class ThermalOptimization(OptimisationModel):
                 # Enforces eq. (9)
                 self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.STOP[t] + self.START[t] == 1,
-                    "mutual_exclusion_at_{}".format(t),
+                    f"mutual_exclusion_at_{t}",
                 )
 
             # Transitions:
@@ -3275,7 +3180,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)
                 self.add_constraint(
                     self.OFF[t_minus_one] + self.ON_DOWN[t] <= 1,
-                    "transitions_constraints_at_{}".format(t),
+                    f"transitions_constraints_at_{t}",
                 )
 
                 # Eviction constraints.
@@ -3287,12 +3192,12 @@ class ThermalOptimization(OptimisationModel):
                 # Implements equation (16)
                 self.add_constraint(
                     self.turned_on[t_minus_T_start] + self.START[t] <= 1,
-                    "START_eviction_constraint_at_{}".format(t),
+                    f"START_eviction_constraint_at_{t}",
                 )
                 # Implements equation (19)
                 self.add_constraint(
                     self.turned_off[t_minus_T_stop] + self.STOP[t] <= 1,
-                    "STOP_eviction_constraint_at_{}".format(t),
+                    f"STOP_eviction_constraint_at_{t}",
                 )
 
             # Mininum time on and minimum time off constraints:
@@ -3307,11 +3212,7 @@ class ThermalOptimization(OptimisationModel):
                         )
                         self.add_constraint(
                             self.turned_on[t_minus_s_minus_T_start] <= self.ON_UP[t] + self.ON_DOWN[t],
-                            "minimum_time_ON_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s_minus_T_start,
-                                t,
-                            ),
+                            f"minimum_time_ON_{self.thermal_unit.name}_at_{t_minus_s_minus_T_start}_for_{t}",
                         )
             if self.T_off >= 2:
                 for t in self.time_frame:
@@ -3324,11 +3225,7 @@ class ThermalOptimization(OptimisationModel):
                         )
                         self.add_constraint(
                             self.turned_off[t_minus_s_minus_T_stop] <= self.OFF[t],
-                            "minimum_time_OFF_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s_minus_T_stop,
-                                t,
-                            ),
+                            f"minimum_time_OFF_{self.thermal_unit.name}_at_{t_minus_s_minus_T_stop}_for_{t}",
                         )
             if self.T_stop >= 2:
                 for t in self.time_frame:
@@ -3337,11 +3234,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_off[t_minus_s] <= self.STOP[t],
-                            "shutdown_ramp_of_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"shutdown_ramp_of_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_start >= 2:
                 for t in self.time_frame:
@@ -3350,11 +3243,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.turned_on[t_minus_s] <= self.START[t],
-                            "start_up_ramp_of_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"start_up_ramp_of_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             # D. CONSTRAINTS ON THE CONTROL VARIABLE
@@ -3431,7 +3320,7 @@ class ThermalOptimization(OptimisationModel):
                     self.q[t]
                     >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t])
                     + self.turned_off[t] * (q_min - q_step_down),
-                    "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"lower_bound_of_{self.thermal_unit.name}_at_{t}",
                 )
                 # Lower bound (eq. (33))
                 self.add_constraint(
@@ -3440,7 +3329,7 @@ class ThermalOptimization(OptimisationModel):
                     + self.STOP[t] * q_min
                     + self.START[t] * q_min
                     - self.turned_off[t] * q_step_down,
-                    "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"upper_bound_of_{self.thermal_unit.name}_at_{t}",
                 )
                 # Upper bound (eq. (34))
 
@@ -3460,7 +3349,7 @@ class ThermalOptimization(OptimisationModel):
                             + self.turned_on[t_next] * q_step_up
                             + self.START[t] * q_step_up
                         ),
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. (37))
@@ -3474,7 +3363,7 @@ class ThermalOptimization(OptimisationModel):
                             + self.turned_on[t_next] * q_step_up
                             + self.START[t] * q_step_up
                         ),
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
             elif self.delta_q == 0:
                 for t in self.gradients_time_frame:
@@ -3490,7 +3379,7 @@ class ThermalOptimization(OptimisationModel):
                             + self.turned_on[t_next] * q_step_up
                             + self.START[t] * q_step_up
                         ),
-                        "unconstrained_upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
@@ -3504,12 +3393,12 @@ class ThermalOptimization(OptimisationModel):
                             + self.turned_on[t_next] * q_step_up
                             + self.START[t] * q_step_up
                         ),
-                        "unconstrained_downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"unconstrained_downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
             else:  # Raise an error since no gradients have been detected.
                 cfg.logger.error(
-                    "*** WARNING ***\n No gradients have been defined for equipment {}. \n "
-                    "Please check the value of `maximum_gradient`.".format(self.thermal_unit.name)
+                    f"*** WARNING ***\n No gradients have been defined for equipment {self.thermal_unit.name}. \n "
+                    "Please check the value of `maximum_gradient`."
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
@@ -3541,16 +3430,14 @@ class ThermalOptimization(OptimisationModel):
             flat_down_stop = {}
             for t in self.time_frame:
                 flat_down_stop[t] = self.add_continuous_variable(
-                    "flat_down_stop_at_{}_equip_{}".format(t, self.thermal_unit.name),
+                    f"flat_down_stop_at_{t}_equip_{self.thermal_unit.name}",
                     0,
                     1,
                 )
 
             DD = {}
             for t in self.gradients_time_frame:
-                DD[t] = self.add_continuous_variable(
-                    "DD_{}_equip_{}".format(t, self.thermal_unit.name), self.Q_min, self.Q_max
-                )
+                DD[t] = self.add_continuous_variable(f"DD_{t}_equip_{self.thermal_unit.name}", self.Q_min, self.Q_max)
 
             # A. INITIAL CONDITIONS
 
@@ -3574,9 +3461,9 @@ class ThermalOptimization(OptimisationModel):
             elif last_date != self.parameters.start_date - self.parameters.time_step:
                 # last_date doesn't match startDate - TimeStep (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 cfg.logger.warning(
-                    "***WARNING***\n The last_date found in Power of equipement {} "
+                    f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
                     "does not match the startDate of the current program. \n "
-                    "The program will be initialized as DayZero.".format(self.thermal_unit.name)
+                    "The program will be initialized as DayZero."
                 )
                 day_zero = True
             else:
@@ -3585,7 +3472,7 @@ class ThermalOptimization(OptimisationModel):
             if day_zero:
                 # Remind the user how the program has been initialized
                 cfg.logger.info(
-                    "Initial conditions of unit {} have been set as in equation (47).".format(self.thermal_unit.name)
+                    f"Initial conditions of unit {self.thermal_unit.name} have been set as in equation (47)."
                 )
 
                 for t in self.previous_time_frame:
@@ -3809,7 +3696,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 self.add_constraint(
                     self.tilde_U[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_UP[t_minus_one]),
-                    "VALUE_of_tilde_UP_at_{}".format(t),
+                    f"VALUE_of_tilde_UP_at_{t}",
                 )
 
                 # tilde_D (eq. (30))
@@ -3820,7 +3707,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 self.add_constraint(
                     self.tilde_D[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_DOWN[t_minus_one]),
-                    "VALUE_of_tilde_DOWN_at_{}".format(t),
+                    f"VALUE_of_tilde_DOWN_at_{t}",
                 )
 
             # Second stage : U and D
@@ -3832,7 +3719,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
                 self.add_constraint(
                     self.U[t] >= self.tilde_U[t] - self.Q_max * (1 - self.ON_UP[t]),
-                    "VALUE_of_UP_at_{}".format(t),
+                    f"VALUE_of_UP_at_{t}",
                 )
                 # D (eq. (29))
                 self.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
@@ -3840,7 +3727,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
                 self.add_constraint(
                     self.D[t] >= self.tilde_D[t] - self.Q_max * (1 - self.ON_DOWN[t]),
-                    "VALUE_of_DOWN_at_{}".format(t),
+                    f"VALUE_of_DOWN_at_{t}",
                 )
 
             # DD Gradient auxiliary (eq. (23))
@@ -3851,7 +3738,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(DD[t] <= self.D[t] - self.Q_min * (1 - self.STOP[t_plus_one]))
                 self.add_constraint(
                     DD[t] >= self.D[t] - self.Q_max * (1 - self.STOP[t_plus_one]),
-                    "DD_gradient_auxiliary_at_{}".format(t),
+                    f"DD_gradient_auxiliary_at_{t}",
                 )
 
             # C. CONSTRAINTS ON THE STATE VARIABLES
@@ -3862,7 +3749,7 @@ class ThermalOptimization(OptimisationModel):
                 # Enforces eq. (9)
                 self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t] + self.STOP[t] + self.START[t] == 1,
-                    "mutual_exclusion_at_{}".format(t),
+                    f"mutual_exclusion_at_{t}",
                 )
 
             # Transitions:
@@ -3885,7 +3772,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)
                 self.add_constraint(
                     self.STOP[t_minus_one] + self.ON_UP[t] <= 1,
-                    "transitions_constraints_on_timeFrame_union_minus_one_at_{}".format(t),
+                    f"transitions_constraints_on_timeFrame_union_minus_one_at_{t}",
                 )
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
@@ -3907,7 +3794,7 @@ class ThermalOptimization(OptimisationModel):
                 self.add_constraint(self.OFF[t_minus_one] + self.ON_FLAT[t] <= 1)
                 self.add_constraint(
                     self.OFF[t_minus_one] + self.ON_DOWN[t] <= 1,
-                    "transitions_constraints_at_{}".format(t),
+                    f"transitions_constraints_at_{t}",
                 )
                 # The latter constraints are only defined on the time_frame because it does not involve ON variables at the t index.
 
@@ -3920,12 +3807,12 @@ class ThermalOptimization(OptimisationModel):
                 # Implements equation (19)
                 self.add_constraint(
                     self.turned_off[t_minus_T_stop] + self.STOP[t] <= 1,
-                    "STOP_eviction_constraint_at_{}".format(t),
+                    f"STOP_eviction_constraint_at_{t}",
                 )
                 # Implements equation (16)
                 self.add_constraint(
                     self.turned_on[t_minus_T_start] + self.START[t] <= 1,
-                    "START_eviction_constraint_at_{}".format(t),
+                    f"START_eviction_constraint_at_{t}",
                 )
 
                 # Mininum time on and minimum time off constraints:
@@ -3941,11 +3828,7 @@ class ThermalOptimization(OptimisationModel):
                         self.add_constraint(
                             self.turned_on[t_minus_s_minus_T_start]
                             <= self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t],
-                            "minimum_time_ON_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s_minus_T_start,
-                                t,
-                            ),
+                            f"minimum_time_ON_{self.thermal_unit.name}_at_{t_minus_s_minus_T_start}_for_{t}",
                         )
             if self.T_off >= 2:
                 for t in self.time_frame:
@@ -3957,11 +3840,7 @@ class ThermalOptimization(OptimisationModel):
                         )
                         self.add_constraint(
                             self.turned_off[t_minus_s_minus_T_stop] <= self.OFF[t],
-                            "minimum_time_OFF_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s_minus_T_stop,
-                                t,
-                            ),
+                            f"minimum_time_OFF_{self.thermal_unit.name}_at_{t_minus_s_minus_T_stop}_for_{t}",
                         )
             if self.T_stable >= 2:
                 for t in self.time_frame_union_minus_one:
@@ -3971,11 +3850,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s = t - s * self.parameters.time_step
                         self.add_constraint(
                             self.stable[t_minus_s] <= self.ON_FLAT[t],
-                            "minimum_time_STABLE_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"minimum_time_STABLE_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_stop >= 2:
                 for t in self.time_frame:
@@ -3984,11 +3859,7 @@ class ThermalOptimization(OptimisationModel):
                         # Enforces eq. (24)
                         self.add_constraint(
                             self.turned_off[t_minus_s] <= self.STOP[t],
-                            "shutdown_ramp_of_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"shutdown_ramp_of_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
             if self.T_start >= 2:
                 for t in self.time_frame:
@@ -3997,11 +3868,7 @@ class ThermalOptimization(OptimisationModel):
                         # Enforces eq. (17)
                         self.add_constraint(
                             self.turned_on[t_minus_s] <= self.START[t],
-                            "start_up_ramp_of_{}_at_{}_for_{}".format(
-                                self.thermal_unit.name,
-                                t_minus_s,
-                                t,
-                            ),
+                            f"start_up_ramp_of_{self.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                         )
 
             # D. CONSTRAINTS ON THE CONTROL VARIABLE
@@ -4083,14 +3950,14 @@ class ThermalOptimization(OptimisationModel):
                     self.q[t]
                     >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + self.turned_off[t] * (q_min - q_step_down),
-                    "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"lower_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Lower bound (eq. (33))
                 self.add_constraint(
                     self.q[t]
                     <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + (self.STOP[t] + self.START[t]) * q_min
                     - self.turned_off[t] * q_step_down,
-                    "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
+                    f"upper_bound_of_{self.thermal_unit.name}_at_{t}",
                 )  # Upper bound (eq. (34))
 
             # Power gradients
@@ -4111,7 +3978,7 @@ class ThermalOptimization(OptimisationModel):
                             + self.START[t] * q_step_up
                             - DD[t]
                         ),
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. (37))
@@ -4128,7 +3995,7 @@ class ThermalOptimization(OptimisationModel):
                             + q_step_up * self.turned_on[t_next]
                             + self.START[t] * q_step_up
                         ),
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             elif self.delta_q == 0:  # Case where the gradient is 'infinite'
@@ -4148,7 +4015,7 @@ class ThermalOptimization(OptimisationModel):
                             + self.START[t] * q_step_up
                             - DD[t]
                         ),
-                        "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"upward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
@@ -4165,13 +4032,13 @@ class ThermalOptimization(OptimisationModel):
                             + q_step_up * self.turned_on[t_next]
                             + self.START[t] * q_step_up
                         ),
-                        "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
+                        f"downward_gradient_of_{self.thermal_unit.name}_at_{t}",
                     )  # Downward gradient
 
             else:  # Raise an error since no gradients have been detected.
                 cfg.logger.error(
-                    "*** WARNING ***\n No gradients have been defined for equipment {}. \n "
-                    "Please check the value of `maximum_gradient`.".format(self.thermal_unit.name)
+                    f"*** WARNING ***\n No gradients have been defined for equipment {self.thermal_unit.name}. \n "
+                    "Please check the value of `maximum_gradient`."
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
@@ -4188,23 +4055,17 @@ class ThermalOptimization(OptimisationModel):
                     (i.e. [startDate, endOptimizationDate]).
         """
         self.set_solver_specific_parameters_as_string(
-            "MIPRELSTOP {} PRESOLVE {} MAXTIME {}".format(
-                self.parameters.duality_gap, int(self.parameters.presolve), self.parameters.time_out
-            )
+            f"MIPRELSTOP {self.parameters.duality_gap} PRESOLVE {int(self.parameters.presolve)} MAXTIME {self.parameters.time_out}"
         )
         if self.parameters.debug:
             lp_file_name = os.path.join(
-                self.parameters.output_folder, "{}_price_{}.lp".format(self.thermal_unit.name, self.price_type)
+                self.parameters.output_folder, f"{self.thermal_unit.name}_price_{self.price_type}.lp"
             )
             self.export_model(lp_file_name)
 
         self.solve(self.parameters.solver_time_out.total_minutes())
 
-        ###############
-        #
-        # STEP 5 : Return the results
-        #
-        ###############
+        """STEP 5 : Return the results"""
 
         # Export the results
         # Final step : export the results of the program. We initialize a dictionnary that will store the results.
@@ -4225,10 +4086,10 @@ class ThermalOptimization(OptimisationModel):
         # provides no output
         if self.parameters.verbose:
             if abs(q_star.min() - 0.0) <= 1e-6 and abs(q_star.max() - 0.0) <= 1e-6:
-                zero_output_message = """*** Info ***
-                The optimal solution for the unit {} is such that the unit remains offline and
+                zero_output_message = f"""*** Info ***
+                The optimal solution for the unit {self.thermal_unit.name} is such that the unit remains offline and
                 delivers no power output.
-                """.format(self.thermal_unit.name)
+                """
                 cfg.logger.info(zero_output_message)
 
         # contractedDifference.
@@ -4437,5 +4298,5 @@ class ThermalOptimization(OptimisationModel):
                     # Enforce eq. (37)
                     self.add_constraint(
                         sum(q[t] for t in matching_steps) <= upper_bound * time_step.total_days() * len(matching_steps),
-                        "energy_limit_of_{}_at_{}".format(thermal_unit.name, date),
+                        f"energy_limit_of_{thermal_unit.name}_at_{date}",
                     )

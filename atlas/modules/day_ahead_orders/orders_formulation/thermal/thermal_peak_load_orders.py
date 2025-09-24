@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas import Order, OrderCoupling, Equipment
+from atlas import Equipment, Order, OrderCoupling
 from atlas.enum import CouplingType, OrderType, Product, ThermalStrategy
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
@@ -209,9 +209,7 @@ class ThermalPeakLoadOrders:
                         q_min=(1 - parameters.imposed_proportional_reserves_penalty)
                         * manual_reserves_up_procured.get_value(t),
                         price=unit.VariableCost.get_value(t) + parameters.manual_unprocured_reserves_penalty,
-                        link_name="PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{}_for_unit_{}".format(
-                            t, unit.name
-                        ),
+                        link_name=f"PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
 
         return None

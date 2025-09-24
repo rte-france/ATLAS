@@ -6,13 +6,13 @@ This file is part of the ATLAS project.
 """
 
 import os
-from typing import Any
+from typing import Any, Literal
 
 from pendulum.duration import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
-from atlas import Equipment, OptimisationModel, generate_datetimes
 import atlas.config as cfg
+from atlas import Equipment, OptimisationModel, generate_datetimes
 from atlas.enum import SolverEnum
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
