@@ -110,10 +110,10 @@ class ThermalBaseLoadOrders:
             raise ValueError("Wrong equipment type for the thermic optimization program.")
 
         # Parameters from the unit
-        T_on = int(max(1, math.ceil(unit.minimum_time_on.total_minutes() / parameters.time_step)))
-        T_off = int(max(1, math.ceil(unit.minimum_time_off.total_minutes() / parameters.time_step)))
-        T_start = int(math.floor(unit.startup_duration.total_minutes() / parameters.time_step))
-        T_stop = int(math.floor(unit.shutdown_duration.total_minutes() / parameters.time_step))
+        T_on = int(max(1, math.ceil(unit.minimum_time_on.total_minutes() / parameters.time_step.total_minutes())))
+        T_off = int(max(1, math.ceil(unit.minimum_time_off.total_minutes() / parameters.time_step.total_minutes())))
+        T_start = int(math.floor(unit.startup_duration.total_minutes() / parameters.time_step.total_minutes()))
+        T_stop = int(math.floor(unit.shutdown_duration.total_minutes() / parameters.time_step.total_minutes()))
 
         # MaximumPower of the unit
         maximum_power = unit.maximum_power
@@ -199,13 +199,13 @@ class ThermalBaseLoadOrders:
 
                 # See if the spell between the end of the start up and the beginning of the shutdown is greater than T_on
                 if (end_of_shutdown - started_at_t).total_minutes() >= 0 and int(
-                    math.floor((stopped_at_t - end_of_start_up).total_minutes() / parameters.time_step)
+                    math.floor((stopped_at_t - end_of_start_up).total_minutes() / parameters.time_step.total_minutes())
                 ) < T_on:
                     inconsistent = True
                     return states_sequence, inconsistent
                 # See if the spell between the end of the shutdown and the beginning of the shutdown is greater than T_off
                 elif (end_of_shutdown - started_at_t).total_minutes() < 0 and int(
-                    math.floor((started_at_t - end_of_shutdown).total_minutes() / parameters.time_step)
+                    math.floor((started_at_t - end_of_shutdown).total_minutes() / parameters.time_step.total_minutes())
                 ) < T_off:
                     inconsistent = True
                     return states_sequence, inconsistent

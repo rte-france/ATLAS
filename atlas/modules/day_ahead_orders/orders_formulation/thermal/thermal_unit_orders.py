@@ -75,8 +75,8 @@ class ThermalUnitOrders:
         ) + unit.rr_down_procured.get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
 
         ## Get the unit-specific parameters:
-        T_start = int(math.floor(unit.startup_duration.total_minutes() / parameters.time_step))
-        T_stop = int(math.floor(unit.shutdown_duration.total_minutes() / parameters.time_step))
+        T_start = int(math.floor(unit.startup_duration.total_minutes() / parameters.time_step.total_minutes()))
+        T_stop = int(math.floor(unit.shutdown_duration.total_minutes() / parameters.time_step.total_minutes()))
         q_min = unit.minimum_power.max()
 
         ## See whether the unit will bid inflexible orders over the whole orders_time sequence:

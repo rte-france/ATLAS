@@ -246,9 +246,11 @@ class ThermalIntermediateLoadOrders:
         """
 
         # Compute T_stable, T_start and T_stop : will be used to see which states will be incorporated
-        T_start = int(math.floor(unit.startup_duration.total_minutes() / parameters.time_step))
-        T_stop = int(math.floor(unit.shutdown_duration.total_minutes() / parameters.time_step))
-        T_stable = int(math.ceil(unit.minimum_stable_power_duration.total_minutes() / parameters.time_step))
+        T_start = int(math.floor(unit.startup_duration.total_minutes() / parameters.time_step.total_minutes()))
+        T_stop = int(math.floor(unit.shutdown_duration.total_minutes() / parameters.time_step.total_minutes()))
+        T_stable = int(
+            math.ceil(unit.minimum_stable_power_duration.total_minutes() / parameters.time_step.total_minutes())
+        )
 
         # Since states are mutually exclusive, we need to sum them in order to collapse them on a single time series.
 
