@@ -36,21 +36,18 @@ class ThermalOptimization(OptimisationModel):
         thermal_unit: Thermal,
         prices,
         price_type,
-        solver_name: SolverEnum | str,
     ):
         """
         :param parameters: a DayAheadOrdersParameters instance
         :param thermal_unit: a Thermal instance
         :param prices: a price timeseries based on which optimization will be conducted.
         :param price_type: the price_type
-        :param solver_name: the solver name
         """
-        super().__init__(solver_name)
-        self.parameters = parameters
-        self.model = OptimisationModel(
+        super().__init__(
             solver_name=parameters.solver.upper(),
             name="Optimization program for thermal unit {}".format(thermal_unit.name),
         )
+        self.parameters = parameters
         if self.solver_name != SolverEnum.XPRESS:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
             raise ValueError(
@@ -294,7 +291,7 @@ class ThermalOptimization(OptimisationModel):
         #    - contracted difference which corresponds to max(procured - provided, 0).
         # Define the main optimization variable. Bounds : O and self.q_upper
         for t in self.time_frame:
-            self.q[t] = self.model.add_continuous_variable(
+            self.q[t] = self.add_continuous_variable(
                 "power_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_upper.get_value(t),
@@ -303,31 +300,31 @@ class ThermalOptimization(OptimisationModel):
         # Define the reserves variables
         # reserves_up and reserves_down are defined no matter the value of self.T_stable. Only the type of reserves it encompasses changes.
         for t in self.time_frame:
-            self.reserves_up[t] = self.model.add_continuous_variable(
+            self.reserves_up[t] = self.add_continuous_variable(
                 "reservesUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_upper.get_value(t),
             )
 
-            self.reserves_down[t] = self.model.add_continuous_variable(
+            self.reserves_down[t] = self.add_continuous_variable(
                 "reservesDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_upper.get_value(t),
             )
 
-            self.unprovided_reserves_up[t] = self.model.add_continuous_variable(
+            self.unprovided_reserves_up[t] = self.add_continuous_variable(
                 "unprovidedReservesUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_upper.get_value(t),
             )
 
-            self.unprovided_reserves_down[t] = self.model.add_continuous_variable(
+            self.unprovided_reserves_down[t] = self.add_continuous_variable(
                 "unprovidedReservesDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_upper.get_value(t),
             )
 
-            self.relaxed_reserves[t] = self.model.add_continuous_variable(
+            self.relaxed_reserves[t] = self.add_continuous_variable(
                 "relaxedReserves_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_lower.get_value(t),
@@ -335,13 +332,13 @@ class ThermalOptimization(OptimisationModel):
 
         # create the automatedReserves control variables.
         for t in self.time_frame:
-            self.automated_reserves_up[t] = self.model.add_continuous_variable(
+            self.automated_reserves_up[t] = self.add_continuous_variable(
                 "automatedReservesUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.maximum_automated,
             )
 
-            self.automated_reserves_down[t] = self.model.add_continuous_variable(
+            self.automated_reserves_down[t] = self.add_continuous_variable(
                 "automatedReservesDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.maximum_automated,
@@ -350,12 +347,12 @@ class ThermalOptimization(OptimisationModel):
         # Create the contractedDifference variables. These variables are implemented as control variables will be included in the
         # objective function and constrained by constraint (40).
         for t in self.time_frame:
-            self.contracted_difference_up[t] = self.model.add_continuous_variable(
+            self.contracted_difference_up[t] = self.add_continuous_variable(
                 "contractedDifferenceUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_upper.get_value(t),
             )
-            self.contracted_difference_down[t] = self.model.add_continuous_variable(
+            self.contracted_difference_down[t] = self.add_continuous_variable(
                 "contractedDifferenceDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_upper.get_value(t),
@@ -363,12 +360,12 @@ class ThermalOptimization(OptimisationModel):
 
         # Automated contracted difference variables. These variables will be constrained by equation (39).
         for t in self.time_frame:
-            self.automated_contracted_difference_up[t] = self.model.add_continuous_variable(
+            self.automated_contracted_difference_up[t] = self.add_continuous_variable(
                 "automatedContractedDifferenceUp_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_upper.get_value(t),
             )
-            self.automated_contracted_difference_down[t] = self.model.add_continuous_variable(
+            self.automated_contracted_difference_down[t] = self.add_continuous_variable(
                 "automatedContractedDifferenceDown_equip_{}_at_{}".format(self.thermal_unit.name, t),
                 0,
                 self.q_upper.get_value(t),
@@ -381,11 +378,9 @@ class ThermalOptimization(OptimisationModel):
 
         # Create the state variables for each time step over the extended time frame.
         for t in self.time_frame:
-            self.OFF[t] = self.model.add_boolean_variable("OFF_equip_{}_at_{}".format(self.thermal_unit.name, t))
-            self.ON_UP[t] = self.model.add_boolean_variable("ON_UP_equip_{}_at_{}".format(self.thermal_unit.name, t))
-            self.ON_DOWN[t] = self.model.add_boolean_variable(
-                "ON_DOWN_equip_{}_at_{}".format(self.thermal_unit.name, t)
-            )
+            self.OFF[t] = self.add_boolean_variable("OFF_equip_{}_at_{}".format(self.thermal_unit.name, t))
+            self.ON_UP[t] = self.add_boolean_variable("ON_UP_equip_{}_at_{}".format(self.thermal_unit.name, t))
+            self.ON_DOWN[t] = self.add_boolean_variable("ON_DOWN_equip_{}_at_{}".format(self.thermal_unit.name, t))
 
         # 1.2.2. 'Conditional' state variables : defined only if a certain criteria on T is met.
         if self.T_start >= 1:
@@ -394,9 +389,7 @@ class ThermalOptimization(OptimisationModel):
 
             # Define the START state variable.
             for t in self.time_frame:
-                self.START[t] = self.model.add_boolean_variable(
-                    "START_equip_{}_at_{}".format(self.thermal_unit.name, t)
-                )
+                self.START[t] = self.add_boolean_variable("START_equip_{}_at_{}".format(self.thermal_unit.name, t))
 
         if self.T_stop >= 1:
             # Define the stop_time_steps range.
@@ -404,25 +397,23 @@ class ThermalOptimization(OptimisationModel):
 
             # Define the STOP state variable
             for t in self.time_frame:
-                self.STOP[t] = self.model.add_boolean_variable("STOP_equip_{}_at_{}".format(self.thermal_unit.name, t))
+                self.STOP[t] = self.add_boolean_variable("STOP_equip_{}_at_{}".format(self.thermal_unit.name, t))
 
         if self.T_stable >= 1:
             self.start_date_minus_one = self.parameters.start_date - self.parameters.time_step
             for t in self.time_frame:
-                self.ON_FLAT[t] = self.model.add_boolean_variable(
-                    "ON_FLAT_equip_{}_at_{}".format(self.thermal_unit.name, t)
-                )
+                self.ON_FLAT[t] = self.add_boolean_variable("ON_FLAT_equip_{}_at_{}".format(self.thermal_unit.name, t))
 
             # For the time step startDate - 1, create optimization avariables for ON_FLAT, ON_UP and ON_DOWN
-            self.ON_FLAT[self.start_date_minus_one] = self.model.add_boolean_variable(
+            self.ON_FLAT[self.start_date_minus_one] = self.add_boolean_variable(
                 "ON_FLAT_equip_{}_at_{}".format(self.thermal_unit.name, self.start_date_minus_one)
             )
 
-            self.ON_DOWN[self.start_date_minus_one] = self.model.add_boolean_variable(
+            self.ON_DOWN[self.start_date_minus_one] = self.add_boolean_variable(
                 "ON_DOWN_equip_{}_at_{}".format(self.thermal_unit.name, self.start_date_minus_one)
             )
 
-            self.ON_UP[self.start_date_minus_one] = self.model.add_boolean_variable(
+            self.ON_UP[self.start_date_minus_one] = self.add_boolean_variable(
                 "ON_UP_equip_{}_at_{}".format(self.thermal_unit.name, self.start_date_minus_one)
             )
 
@@ -434,11 +425,11 @@ class ThermalOptimization(OptimisationModel):
 
         # 1.3.1. Create the auxiliary variables that will always be defined
         for t in self.time_frame:
-            self.turned_on[t] = self.model.add_continuous_variable(
+            self.turned_on[t] = self.add_continuous_variable(
                 "turned_on_equip_{}_at_{}".format(self.thermal_unit.name, t), 0, 1
             )
 
-            self.turned_off[t] = self.model.add_continuous_variable(
+            self.turned_off[t] = self.add_continuous_variable(
                 "turned_off_equip_{}_at_{}".format(self.thermal_unit.name, t), 0, 1
             )
 
@@ -460,34 +451,34 @@ class ThermalOptimization(OptimisationModel):
 
             for t in self.time_frame_union_minus_one:
                 # Define the auxiliary variables of this state.
-                self.stable[t] = self.model.add_continuous_variable(
+                self.stable[t] = self.add_continuous_variable(
                     "stable_at_{}_equip_{}".format(t, self.thermal_unit.name), 0, 1
                 )
-                self.entered_up[t] = self.model.add_continuous_variable(
+                self.entered_up[t] = self.add_continuous_variable(
                     "entered_up_at_{}_equip_{}".format(t, self.thermal_unit.name), 0, 1
                 )
-                self.entered_down[t] = self.model.add_continuous_variable(
+                self.entered_down[t] = self.add_continuous_variable(
                     "entered_down_at_{}_equip_{}".format(t, self.thermal_unit.name), 0, 1
                 )
 
             for t in self.time_frame:
                 # Initialize the gradient auxiliaries.
-                self.U[t] = self.model.add_continuous_variable(
+                self.U[t] = self.add_continuous_variable(
                     "UP_grad_at_{}_equip_{}".format(t, self.thermal_unit.name),
                     self.Q_min,
                     self.Q_max,
                 )
-                self.D[t] = self.model.add_continuous_variable(
+                self.D[t] = self.add_continuous_variable(
                     "DOWN_grad_at_{}_equip_{}".format(t, self.thermal_unit.name),
                     self.Q_min,
                     self.Q_max,
                 )
-                self.tilde_U[t] = self.model.add_continuous_variable(
+                self.tilde_U[t] = self.add_continuous_variable(
                     "aux_up_grad_at_{}_equip_{}".format(t, self.thermal_unit.name),
                     self.Q_min,
                     self.Q_max,
                 )
-                self.tilde_D[t] = self.model.add_continuous_variable(
+                self.tilde_D[t] = self.add_continuous_variable(
                     "aux_down_grad_at_{}_equip_{}".format(t, self.thermal_unit.name),
                     self.Q_min,
                     self.Q_max,
@@ -498,7 +489,7 @@ class ThermalOptimization(OptimisationModel):
         # Set-up the objective function given by eq. (2) in the documentation.
         # If self.T_stable = 0, we don't need to include automatedContractedReservesUp and automatedContractedReservesDown to the objective function.
         # otherwise we need to include them.
-        self.model.add_objective(
+        self.add_objective(
             objective_expr=(
                 sum(
                     self.q[t]
@@ -640,16 +631,16 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on the indicator that the unit has started on t
             # Enforces equation (3)
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
-                self.model.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
 
                 # Constraints on turned_off
             # STOP is not defined in this case, so we enforce equation (4)
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_off[t] <= 1 - self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_off[t] <= self.OFF[t])
-                self.model.add_constraint(self.turned_off[t] >= self.OFF[t] - self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= 1 - self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= self.OFF[t])
+                self.add_constraint(self.turned_off[t] >= self.OFF[t] - self.OFF[t - self.parameters.time_step])
 
             # C. CONSTRAINTS ON THE STATE VARIABLES
 
@@ -657,7 +648,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 # Defined over the whole time frame
                 # Enforces eq. (9)
-                self.model.add_constraint(self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] == 1)
+                self.add_constraint(self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] == 1)
 
             # Transitions:
             # None. All transitions are allowed
@@ -671,7 +662,7 @@ class ThermalOptimization(OptimisationModel):
                         time_steps
                     ):  # Add the constraints given by eq. (31), here T_start = 0 so t - s - T_start = t - s
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s] <= self.ON_UP[t] + self.ON_DOWN[t],
                             "minimum_time_ON_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -687,7 +678,7 @@ class ThermalOptimization(OptimisationModel):
                         s
                     ) in time_steps:  # Add the constraints given by eq. (32), here T_stop = 0 so t - s - T_stop = t - s
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s] <= self.OFF[t],
                             "minimum_time_OFF_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -704,7 +695,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
             self.create_contracted_diff_constraints(
-                self.model,
                 self.time_frame,
                 self.contracted_difference_up,
                 self.reserves_up_procured,
@@ -722,7 +712,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Upward and downward "fill up" constraints.
             self.create_fill_up_constraints(
-                self.model,
                 self.time_frame,
                 self.q,
                 self.reserves_up,
@@ -739,25 +728,25 @@ class ThermalOptimization(OptimisationModel):
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.relaxed_reserves[t] <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eq. (44))
             for t in self.time_frame:
-                self.model.add_constraint(self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t]))
-                self.model.add_constraint(self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t]))
-                self.model.add_constraint(self.reserves_up[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t]))
-                self.model.add_constraint(self.reserves_down[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t]))
+                self.add_constraint(self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t]))
+                self.add_constraint(self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t]))
+                self.add_constraint(self.reserves_up[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t]))
+                self.add_constraint(self.reserves_down[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t]))
 
                 # Power output
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t] >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t]),
                     "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Lower bound (eq. 33)
 
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t] <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t]),
                     "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Upper bound (eq. 34)
@@ -767,14 +756,14 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. 35):
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q * self.ON_UP[t] + self.delta_q_unconstrained * self.turned_on[t_next],
                         "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. 37) :
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= -self.delta_q * self.ON_DOWN[t] - self.delta_q_unconstrained * self.turned_off[t_next],
                         "downward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
@@ -785,14 +774,14 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. 36)
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q_unconstrained * self.ON_UP[t]
                         + self.delta_q_unconstrained * self.turned_on[t_next]
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. 38)
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= -self.delta_q_unconstrained * self.ON_DOWN[t]
                         - self.delta_q_unconstrained * self.turned_off[t_next]
@@ -804,9 +793,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.create_daily_energy_constraint(
-                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
-            )
+            self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
     def _combination_2(self):
         """Combination 2 : T_stop >= 1, self.T_stable = T_start = 0"""
@@ -820,7 +807,7 @@ class ThermalOptimization(OptimisationModel):
             # Define the down_to_stop auxiliary, which is used only in this combination and in combination 7.
             down_to_stop = {}
             for t in self.time_frame:
-                down_to_stop[t] = self.model.add_continuous_variable(
+                down_to_stop[t] = self.add_continuous_variable(
                     "down_to_stop_equip_{}_at_{}".format(self.thermal_unit.name, t), 0, 1
                 )
 
@@ -930,9 +917,9 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on the indicator that the unit has started on t
             # Enforces eq. (3)
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
-                self.model.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(
+                self.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
+                self.add_constraint(
                     self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t],
                     "constraints_defining_turned_on_{}".format(t),
                 )
@@ -940,9 +927,9 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on turned_off
             # Enforces eq. (5) since the STOP state is defined in this case.
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_off[t] <= 1 - self.STOP[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_off[t] <= self.STOP[t])
-                self.model.add_constraint(
+                self.add_constraint(self.turned_off[t] <= 1 - self.STOP[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= self.STOP[t])
+                self.add_constraint(
                     self.turned_off[t] >= self.STOP[t] - self.STOP[t - self.parameters.time_step],
                     "constraints_defining_turned_off_{}".format(t),
                 )
@@ -950,9 +937,9 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on down_to_stop (eq. (20))
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
-                self.model.add_constraint(down_to_stop[t] <= self.STOP[t])
-                self.model.add_constraint(down_to_stop[t] <= self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(down_to_stop[t] >= self.STOP[t] + self.ON_DOWN[t_minus_one] - 1)
+                self.add_constraint(down_to_stop[t] <= self.STOP[t])
+                self.add_constraint(down_to_stop[t] <= self.ON_DOWN[t_minus_one])
+                self.add_constraint(down_to_stop[t] >= self.STOP[t] + self.ON_DOWN[t_minus_one] - 1)
 
             # C. CONSTRAINTS ON THE STATE VARIABLES
 
@@ -960,7 +947,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 # Defined over the whole time frame
                 # Enforces eq. (9).
-                self.model.add_constraint(
+                self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.STOP[t] == 1,
                     "mutual_exclusion_at_{}".format(t),
                 )
@@ -970,11 +957,11 @@ class ThermalOptimization(OptimisationModel):
             # Direct transitions from ON_UP and ON_DOWN to OFF are forbidden.
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
-                self.model.add_constraint(self.STOP[t_minus_one] + self.ON_UP[t] <= 1)  # Eq. (13)
-                self.model.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)  # Eq. (13)
-                self.model.add_constraint(self.OFF[t_minus_one] + self.STOP[t] <= 1)  # Eq. (12)
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.OFF[t] <= 1)  # Eq. (18)
-                self.model.add_constraint(
+                self.add_constraint(self.STOP[t_minus_one] + self.ON_UP[t] <= 1)  # Eq. (13)
+                self.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)  # Eq. (13)
+                self.add_constraint(self.OFF[t_minus_one] + self.STOP[t] <= 1)  # Eq. (12)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.OFF[t] <= 1)  # Eq. (18)
+                self.add_constraint(
                     self.ON_DOWN[t_minus_one] + self.OFF[t] <= 1,
                     "transitions_constraints_at_{}".format(t),
                 )  # Eq. (18)
@@ -983,7 +970,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 t_minus_T_stop = t - self.T_stop * self.parameters.time_step
                 # Implement equation (19)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.turned_off[t_minus_T_stop] + self.STOP[t] <= 1,
                     "eviction_constraint_at_{}".format(t),
                 )
@@ -996,7 +983,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Implement eq. (31), with T_start = 0
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s] <= self.ON_UP[t] + self.ON_DOWN[t],
                             "minimum_time_ON_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -1014,7 +1001,7 @@ class ThermalOptimization(OptimisationModel):
                             t - s * self.parameters.time_step - self.T_stop * self.parameters.time_step
                         )  # Shift the index because the OFF is formally
                         # considered when entering the STOP state.
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s_minus_T_stop] <= self.OFF[t],
                             "minimum_time_OFF_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -1028,7 +1015,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in self.stop_time_steps:
                         # Implement eq. (24)
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s] <= self.STOP[t],
                             "shutdown_ramp_of_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -1049,7 +1036,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
             self.create_contracted_diff_constraints(
-                self.model,
                 self.time_frame,
                 self.contracted_difference_up,
                 self.reserves_up_procured,
@@ -1067,7 +1053,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Upward and downward "fill up" constraints.
             self.create_fill_up_constraints(
-                self.model,
                 self.time_frame,
                 self.q,
                 self.reserves_up,
@@ -1084,34 +1069,32 @@ class ThermalOptimization(OptimisationModel):
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.relaxed_reserves[t] <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eq. (44))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
                 )
-                self.model.add_constraint(
-                    self.reserves_up[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t] - self.STOP[t])
-                )
-                self.model.add_constraint(
+                self.add_constraint(self.reserves_up[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t] - self.STOP[t]))
+                self.add_constraint(
                     self.reserves_down[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t] - self.STOP[t])
                 )
 
             # Power output
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t]
                     >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t])
                     + self.turned_off[t] * (q_min - q_step),
                     "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Lower bound (eq. 33)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t]
                     <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t])
                     + self.STOP[t] * q_min
@@ -1123,7 +1106,7 @@ class ThermalOptimization(OptimisationModel):
                 for t in self.gradients_time_frame:  # The gradients are defined only up to T-1.
                     t_next = t + self.parameters.time_step  # Get the next time step
                     # Constrained upward gradient (eq. (35))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= (
                             self.delta_q * self.ON_UP[t]
@@ -1135,7 +1118,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Constrained downward gradient (eq. (37))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q * self.ON_DOWN[t]
@@ -1150,7 +1133,7 @@ class ThermalOptimization(OptimisationModel):
                 for t in self.gradients_time_frame:
                     t_next = t + self.parameters.time_step  # Get the next time step
                     # Unconstrained upward gradient (eq. (36))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= (
                             self.delta_q_unconstrained * self.ON_UP[t]
@@ -1162,7 +1145,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Unconstrained downward gradient (eq. (38))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q_unconstrained * self.ON_DOWN[t]
@@ -1180,9 +1163,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.create_daily_energy_constraint(
-                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
-            )
+            self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
     def _combination_3(self):
         """Combination 3 : T_stop = 0, self.T_stable >= 1 T_start = 0"""
@@ -1361,38 +1342,34 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on the indicator that the unit has started on t (turned_on, sec. 6.1.1)
             # Enforces eq. (3)
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
-                self.model.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
 
                 # Constraints on turned_off
             # Enforces eq. (4) as there is no STOP state in this case.
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_off[t] <= 1 - self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_off[t] <= self.OFF[t])
-                self.model.add_constraint(self.turned_off[t] >= self.OFF[t] - self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= 1 - self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= self.OFF[t])
+                self.add_constraint(self.turned_off[t] >= self.OFF[t] - self.OFF[t - self.parameters.time_step])
 
             # stable auxiliary variable
             # Enforces eq. (6)
             for t in self.time_frame_union_minus_one:
-                self.model.add_constraint(self.stable[t] <= 1 - self.ON_FLAT[t - self.parameters.time_step])
-                self.model.add_constraint(self.stable[t] <= self.ON_FLAT[t])
-                self.model.add_constraint(
-                    self.stable[t] >= self.ON_FLAT[t] - self.ON_FLAT[t - self.parameters.time_step]
-                )
+                self.add_constraint(self.stable[t] <= 1 - self.ON_FLAT[t - self.parameters.time_step])
+                self.add_constraint(self.stable[t] <= self.ON_FLAT[t])
+                self.add_constraint(self.stable[t] >= self.ON_FLAT[t] - self.ON_FLAT[t - self.parameters.time_step])
 
             # entered_up and entered_down auxiliaries
             for t in self.time_frame_union_minus_one:
                 # entered_up (eq. (7))
-                self.model.add_constraint(self.entered_up[t] <= 1 - self.ON_UP[t - self.parameters.time_step])
-                self.model.add_constraint(self.entered_up[t] <= self.ON_UP[t])
-                self.model.add_constraint(
-                    self.entered_up[t] >= self.ON_UP[t] - self.ON_UP[t - self.parameters.time_step]
-                )
+                self.add_constraint(self.entered_up[t] <= 1 - self.ON_UP[t - self.parameters.time_step])
+                self.add_constraint(self.entered_up[t] <= self.ON_UP[t])
+                self.add_constraint(self.entered_up[t] >= self.ON_UP[t] - self.ON_UP[t - self.parameters.time_step])
                 # entered_down (eq. (8))
-                self.model.add_constraint(self.entered_down[t] <= 1 - self.ON_DOWN[t - self.parameters.time_step])
-                self.model.add_constraint(self.entered_down[t] <= self.ON_DOWN[t])
-                self.model.add_constraint(
+                self.add_constraint(self.entered_down[t] <= 1 - self.ON_DOWN[t - self.parameters.time_step])
+                self.add_constraint(self.entered_down[t] <= self.ON_DOWN[t])
+                self.add_constraint(
                     self.entered_down[t] >= self.ON_DOWN[t] - self.ON_DOWN[t - self.parameters.time_step]
                 )
 
@@ -1405,23 +1382,23 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:  # Loop in all the time_frame but startDate.
                 t_minus_one = t - self.parameters.time_step
                 # tilde_U (eq. (28))
-                self.model.add_constraint(self.tilde_U[t] <= self.Q_max * self.ON_UP[t_minus_one])
-                self.model.add_constraint(self.tilde_U[t] >= self.Q_min * self.ON_UP[t_minus_one])
-                self.model.add_constraint(
+                self.add_constraint(self.tilde_U[t] <= self.Q_max * self.ON_UP[t_minus_one])
+                self.add_constraint(self.tilde_U[t] >= self.Q_min * self.ON_UP[t_minus_one])
+                self.add_constraint(
                     self.tilde_U[t] <= self.q[t] - self.q[t_minus_one] - self.Q_min * (1 - self.ON_UP[t_minus_one])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.tilde_U[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_UP[t_minus_one]),
                     "VALUE_of_tilde_UP_at_{}".format(t),
                 )
 
                 # tilde_D (eq. (30))
-                self.model.add_constraint(self.tilde_D[t] <= self.Q_max * self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(self.tilde_D[t] >= self.Q_min * self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(
+                self.add_constraint(self.tilde_D[t] <= self.Q_max * self.ON_DOWN[t_minus_one])
+                self.add_constraint(self.tilde_D[t] >= self.Q_min * self.ON_DOWN[t_minus_one])
+                self.add_constraint(
                     self.tilde_D[t] <= self.q[t] - self.q[t_minus_one] - self.Q_min * (1 - self.ON_DOWN[t_minus_one])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.tilde_D[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_DOWN[t_minus_one]),
                     "VALUE_of_tilde_DOWN_at_{}".format(t),
                 )
@@ -1430,18 +1407,18 @@ class ThermalOptimization(OptimisationModel):
             # These variables wil be added to the gradient constraints.
             for t in self.time_frame:
                 # U (eq. (27))
-                self.model.add_constraint(self.U[t] <= self.Q_max * self.ON_UP[t])
-                self.model.add_constraint(self.U[t] >= self.Q_min * self.ON_UP[t])
-                self.model.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
-                self.model.add_constraint(
+                self.add_constraint(self.U[t] <= self.Q_max * self.ON_UP[t])
+                self.add_constraint(self.U[t] >= self.Q_min * self.ON_UP[t])
+                self.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
+                self.add_constraint(
                     self.U[t] >= self.tilde_U[t] - self.Q_max * (1 - self.ON_UP[t]),
                     "VALUE_of_UP_at_{}".format(t),
                 )
                 # D (eq. (29))
-                self.model.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
-                self.model.add_constraint(self.D[t] >= self.Q_min * self.ON_DOWN[t])
-                self.model.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
-                self.model.add_constraint(
+                self.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
+                self.add_constraint(self.D[t] >= self.Q_min * self.ON_DOWN[t])
+                self.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
+                self.add_constraint(
                     self.D[t] >= self.tilde_D[t] - self.Q_max * (1 - self.ON_DOWN[t]),
                     "VALUE_of_DOWN_at_{}".format(t),
                 )
@@ -1452,7 +1429,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame_union_minus_one:
                 # Defined over the whole time frame.
                 # Enforces eq. (9)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t] == 1,
                     "mutual_exclusion_at_{}".format(t),
                 )
@@ -1462,8 +1439,8 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame_union_minus_one:
                 t_minus_one = t - self.parameters.time_step
                 # Implement eq. (25).
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.ON_DOWN[t] <= 1)
-                self.model.add_constraint(
+                self.add_constraint(self.ON_UP[t_minus_one] + self.ON_DOWN[t] <= 1)
+                self.add_constraint(
                     self.ON_DOWN[t_minus_one] + self.ON_UP[t] <= 1,
                     "transitions_constraints_at_{}".format(t),
                 )
@@ -1476,7 +1453,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Enforces eq. (31), with T_start = 0
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s] <= self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t],
                             "minimum_time_ON_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -1490,7 +1467,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Enforces eq. (32) with T_stop = 0
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s] <= self.OFF[t],
                             "minimum_time_OFF_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -1504,7 +1481,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Enforces eq. (26)
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.stable[t_minus_s] <= self.ON_FLAT[t],
                             "minimum_time_STABLE_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -1521,7 +1498,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
             self.create_contracted_diff_constraints(
-                self.model,
                 self.time_frame,
                 self.contracted_difference_up,
                 self.reserves_up_procured,
@@ -1539,7 +1515,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Upward and downward "fill up" constraints.
             self.create_fill_up_constraints(
-                self.model,
                 self.time_frame,
                 self.q,
                 self.reserves_up,
@@ -1556,32 +1531,32 @@ class ThermalOptimization(OptimisationModel):
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.relaxed_reserves[t]
                     <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_FLAT[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eqs. (44) and (45))
             for t in self.time_frame:
-                self.model.add_constraint(self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t]))
-                self.model.add_constraint(self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t]))
-                self.model.add_constraint(
+                self.add_constraint(self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t]))
+                self.add_constraint(self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t]))
+                self.add_constraint(
                     self.reserves_up[t]
                     <= self.q_upper.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t] - self.OFF[t])
                 )  # for compacity, implements both eq (44) and (45)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_down[t]
                     <= self.q_upper.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t] - self.OFF[t])
                 )
 
             # Power output
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t] >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t]),
                     "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Lower bound (eq. (33))
 
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t] <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t]),
                     "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Upper bound (eq. (34))
@@ -1591,7 +1566,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q * self.entered_up[t]
                         + self.U[t]
@@ -1601,7 +1576,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downard constrained gradient (eq. (37))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= -self.delta_q * self.entered_down[t]
                         + self.U[t]
@@ -1615,7 +1590,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q_unconstrained * self.entered_up[t]
                         + self.U[t]
@@ -1625,7 +1600,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= -self.delta_q_unconstrained * self.entered_down[t]
                         + self.U[t]
@@ -1641,9 +1616,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.create_daily_energy_constraint(
-                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
-            )
+            self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
     def _combination_4(self):
         """Combination 4 : T_start >= 1, self.T_stable = T_stop = 0"""
@@ -1752,9 +1725,9 @@ class ThermalOptimization(OptimisationModel):
             # which is detected when OFF[t-1] = 1 and OFF[t] = 0
             # This amounts to be turned on when the unit enters the START state as in eq. (3)
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
-                self.model.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(
+                self.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
+                self.add_constraint(
                     self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t],
                     "constraints_defining_turned_on_{}".format(t),
                 )
@@ -1762,9 +1735,9 @@ class ThermalOptimization(OptimisationModel):
                 # Constraints on turned_off
             # Defined here when entering the OFF state as in eq. (4) because T_stop = 0
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_off[t] <= 1 - self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_off[t] <= self.OFF[t])
-                self.model.add_constraint(
+                self.add_constraint(self.turned_off[t] <= 1 - self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= self.OFF[t])
+                self.add_constraint(
                     self.turned_off[t] >= self.OFF[t] - self.OFF[t - self.parameters.time_step],
                     "constraints_defining_turned_off_{}".format(t),
                 )
@@ -1775,7 +1748,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 # Defined over the whole time frame
                 # Enforces eq. (9)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.START[t] == 1,
                     "mutual_exclusion_at_{}".format(t),
                 )
@@ -1785,11 +1758,11 @@ class ThermalOptimization(OptimisationModel):
             # Direct transitions from OFF to ON_UP and ON_DOWN are forbidden.
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.START[t] <= 1)  # eq. (10)
-                self.model.add_constraint(self.ON_DOWN[t_minus_one] + self.START[t] <= 1)  # eq. (10)
-                self.model.add_constraint(self.START[t_minus_one] + self.OFF[t] <= 1)  # eq. (11)
-                self.model.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)  # eq. (15)
-                self.model.add_constraint(
+                self.add_constraint(self.ON_UP[t_minus_one] + self.START[t] <= 1)  # eq. (10)
+                self.add_constraint(self.ON_DOWN[t_minus_one] + self.START[t] <= 1)  # eq. (10)
+                self.add_constraint(self.START[t_minus_one] + self.OFF[t] <= 1)  # eq. (11)
+                self.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)  # eq. (15)
+                self.add_constraint(
                     self.OFF[t_minus_one] + self.ON_DOWN[t] <= 1,
                     "transitions_constraints_at_{}".format(t),
                 )  # eq. (15)
@@ -1798,7 +1771,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 t_minus_T_start = t - self.T_start * self.parameters.time_step
                 # Implement eqution (16)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.turned_on[t_minus_T_start] + self.START[t] <= 1,
                     "eviction_constraint_at_{}".format(t),
                 )
@@ -1813,7 +1786,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s_minus_T_start = (
                             t - s * self.parameters.time_step - self.T_start * self.parameters.time_step
                         )
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s_minus_T_start] <= self.ON_UP[t] + self.ON_DOWN[t],
                             "minimum_time_ON_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -1827,7 +1800,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Enforce eq. (32) with T_stop = 0
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s] <= self.OFF[t],
                             "minimum_time_OFF_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -1840,7 +1813,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in self.start_time_steps:
                         t_minus_s = t - s * self.parameters.time_step
                         # Enforce eq. (17)
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s] <= self.START[t],
                             "startup_ramp_of_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -1861,7 +1834,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
             self.create_contracted_diff_constraints(
-                self.model,
                 self.time_frame,
                 self.contracted_difference_up,
                 self.reserves_up_procured,
@@ -1879,7 +1851,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Upward and downward "fill up" constraints.
             self.create_fill_up_constraints(
-                self.model,
                 self.time_frame,
                 self.q,
                 self.reserves_up,
@@ -1896,32 +1867,32 @@ class ThermalOptimization(OptimisationModel):
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.relaxed_reserves[t] <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eq. (44))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_up[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t] - self.START[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_down[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t] - self.START[t])
                 )
 
             # Power output
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t] >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t]),
                     "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Lower bound (eq. (33))
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t] <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t]) + self.START[t] * q_min,
                     "upper_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Upper bound (eq. (34))
@@ -1933,14 +1904,14 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q * self.ON_UP[t] + self.turned_on[t_next] * q_step + self.START[t] * q_step,
                         "upward_gradient_of_{}_at_{}".format(self.thermal_unit.name, t),
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. (37))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= -self.delta_q * self.ON_DOWN[t]
                         + self.turned_on[t_next] * q_step
@@ -1954,7 +1925,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q_unconstrained * self.ON_UP[t]
                         + self.turned_on[t_next] * q_step
@@ -1963,7 +1934,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q_unconstrained * self.ON_DOWN[t]
@@ -1980,9 +1951,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.create_daily_energy_constraint(
-                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
-            )
+            self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
     def _combination_5(self):
         """Combination 5 : T_start =0, self.T_stable = T_stop >= 1"""
@@ -2006,7 +1975,7 @@ class ThermalOptimization(OptimisationModel):
             # flat_down_stop
             flat_down_stop = {}
             for t in self.time_frame:
-                flat_down_stop[t] = self.model.add_continuous_variable(
+                flat_down_stop[t] = self.add_continuous_variable(
                     "flat_down_stop_at_{}_equip_{}".format(t, self.thermal_unit.name),
                     0,
                     1,
@@ -2014,7 +1983,7 @@ class ThermalOptimization(OptimisationModel):
 
             DD = {}
             for t in self.gradients_time_frame:
-                DD[t] = self.model.add_continuous_variable(
+                DD[t] = self.add_continuous_variable(
                     "DD_at_{}_equip_{}".format(t, self.thermal_unit.name), self.Q_min, self.Q_max
                 )
 
@@ -2206,49 +2175,45 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on the indicator that the unit has started on t
             # Enforces eq. (3)
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
-                self.model.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
 
                 # Constraints on turned_off
             # Enforces eq. (5) as there a STOP state in this case.
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_off[t] <= 1 - self.STOP[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_off[t] <= self.STOP[t])
-                self.model.add_constraint(self.turned_off[t] >= self.STOP[t] - self.STOP[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= 1 - self.STOP[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= self.STOP[t])
+                self.add_constraint(self.turned_off[t] >= self.STOP[t] - self.STOP[t - self.parameters.time_step])
 
             # stable auxiliary variable
             # Enforces eq. (6)
             for t in self.time_frame_union_minus_one:
-                self.model.add_constraint(self.stable[t] <= 1 - self.ON_FLAT[t - self.parameters.time_step])
-                self.model.add_constraint(self.stable[t] <= self.ON_FLAT[t])
-                self.model.add_constraint(
-                    self.stable[t] >= self.ON_FLAT[t] - self.ON_FLAT[t - self.parameters.time_step]
-                )
+                self.add_constraint(self.stable[t] <= 1 - self.ON_FLAT[t - self.parameters.time_step])
+                self.add_constraint(self.stable[t] <= self.ON_FLAT[t])
+                self.add_constraint(self.stable[t] >= self.ON_FLAT[t] - self.ON_FLAT[t - self.parameters.time_step])
 
             # flat_down_stop auxiliary (eq. (22))
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
                 t_minus_two = t - 2 * self.parameters.time_step
-                self.model.add_constraint(flat_down_stop[t] <= self.STOP[t])
-                self.model.add_constraint(flat_down_stop[t] <= self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(flat_down_stop[t] <= self.ON_FLAT[t_minus_two])
-                self.model.add_constraint(
+                self.add_constraint(flat_down_stop[t] <= self.STOP[t])
+                self.add_constraint(flat_down_stop[t] <= self.ON_DOWN[t_minus_one])
+                self.add_constraint(flat_down_stop[t] <= self.ON_FLAT[t_minus_two])
+                self.add_constraint(
                     flat_down_stop[t] >= self.STOP[t] + self.ON_DOWN[t_minus_one] + self.ON_FLAT[t_minus_two] - 2
                 )
 
             # entered_up and entered_down auxiliaries
             for t in self.time_frame_union_minus_one:
                 # entered_up (eq. (7))
-                self.model.add_constraint(self.entered_up[t] <= 1 - self.ON_UP[t - self.parameters.time_step])
-                self.model.add_constraint(self.entered_up[t] <= self.ON_UP[t])
-                self.model.add_constraint(
-                    self.entered_up[t] >= self.ON_UP[t] - self.ON_UP[t - self.parameters.time_step]
-                )
+                self.add_constraint(self.entered_up[t] <= 1 - self.ON_UP[t - self.parameters.time_step])
+                self.add_constraint(self.entered_up[t] <= self.ON_UP[t])
+                self.add_constraint(self.entered_up[t] >= self.ON_UP[t] - self.ON_UP[t - self.parameters.time_step])
                 # entered_down (eq. (8))
-                self.model.add_constraint(self.entered_down[t] <= 1 - self.ON_DOWN[t - self.parameters.time_step])
-                self.model.add_constraint(self.entered_down[t] <= self.ON_DOWN[t])
-                self.model.add_constraint(
+                self.add_constraint(self.entered_down[t] <= 1 - self.ON_DOWN[t - self.parameters.time_step])
+                self.add_constraint(self.entered_down[t] <= self.ON_DOWN[t])
+                self.add_constraint(
                     self.entered_down[t] >= self.ON_DOWN[t] - self.ON_DOWN[t - self.parameters.time_step]
                 )
 
@@ -2261,23 +2226,23 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:  # Loop in all the time_frame but startDate.
                 t_minus_one = t - self.parameters.time_step
                 # tilde_U (eq. (28))
-                self.model.add_constraint(self.tilde_U[t] <= self.Q_max * self.ON_UP[t_minus_one])
-                self.model.add_constraint(self.tilde_U[t] >= self.Q_min * self.ON_UP[t_minus_one])
-                self.model.add_constraint(
+                self.add_constraint(self.tilde_U[t] <= self.Q_max * self.ON_UP[t_minus_one])
+                self.add_constraint(self.tilde_U[t] >= self.Q_min * self.ON_UP[t_minus_one])
+                self.add_constraint(
                     self.tilde_U[t] <= self.q[t] - self.q[t_minus_one] - self.Q_min * (1 - self.ON_UP[t_minus_one])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.tilde_U[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_UP[t_minus_one]),
                     "VALUE_of_tilde_UP_at_{}".format(t),
                 )
 
                 # tilde_D (eq. (30))
-                self.model.add_constraint(self.tilde_D[t] <= self.Q_max * self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(self.tilde_D[t] >= self.Q_min * self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(
+                self.add_constraint(self.tilde_D[t] <= self.Q_max * self.ON_DOWN[t_minus_one])
+                self.add_constraint(self.tilde_D[t] >= self.Q_min * self.ON_DOWN[t_minus_one])
+                self.add_constraint(
                     self.tilde_D[t] <= self.q[t] - self.q[t_minus_one] - self.Q_min * (1 - self.ON_DOWN[t_minus_one])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.tilde_D[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_DOWN[t_minus_one]),
                     "VALUE_of_tilde_DOWN_at_{}".format(t),
                 )
@@ -2286,18 +2251,18 @@ class ThermalOptimization(OptimisationModel):
             # These variables wil be added to the gradient constraints.
             for t in self.time_frame:
                 # U (eq. (27))
-                self.model.add_constraint(self.U[t] <= self.Q_max * self.ON_UP[t])
-                self.model.add_constraint(self.U[t] >= self.Q_min * self.ON_UP[t])
-                self.model.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
-                self.model.add_constraint(
+                self.add_constraint(self.U[t] <= self.Q_max * self.ON_UP[t])
+                self.add_constraint(self.U[t] >= self.Q_min * self.ON_UP[t])
+                self.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
+                self.add_constraint(
                     self.U[t] >= self.tilde_U[t] - self.Q_max * (1 - self.ON_UP[t]),
                     "VALUE_of_UP_at_{}".format(t),
                 )
                 # D (eq. (29))
-                self.model.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
-                self.model.add_constraint(self.D[t] >= self.Q_min * self.ON_DOWN[t])
-                self.model.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
-                self.model.add_constraint(
+                self.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
+                self.add_constraint(self.D[t] >= self.Q_min * self.ON_DOWN[t])
+                self.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
+                self.add_constraint(
                     self.D[t] >= self.tilde_D[t] - self.Q_max * (1 - self.ON_DOWN[t]),
                     "VALUE_of_DOWN_at_{}".format(t),
                 )
@@ -2305,10 +2270,10 @@ class ThermalOptimization(OptimisationModel):
             # DD Gradient auxiliary (eq. (23))
             for t in self.gradients_time_frame:
                 t_plus_one = t + self.parameters.time_step
-                self.model.add_constraint(DD[t] <= self.Q_max * self.STOP[t_plus_one])
-                self.model.add_constraint(DD[t] >= self.Q_min * self.STOP[t_plus_one])
-                self.model.add_constraint(DD[t] <= self.D[t] - self.Q_min * (1 - self.STOP[t_plus_one]))
-                self.model.add_constraint(
+                self.add_constraint(DD[t] <= self.Q_max * self.STOP[t_plus_one])
+                self.add_constraint(DD[t] >= self.Q_min * self.STOP[t_plus_one])
+                self.add_constraint(DD[t] <= self.D[t] - self.Q_min * (1 - self.STOP[t_plus_one]))
+                self.add_constraint(
                     DD[t] >= self.D[t] - self.Q_max * (1 - self.STOP[t_plus_one]),
                     "DD_gradient_auxiliary_at_{}".format(t),
                 )
@@ -2319,7 +2284,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame_union_minus_one:
                 # Defined over the whole time frame.
                 # Enforces eq. (9)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t] + self.STOP[t] == 1,
                     "mutual_exclusion_at_{}".format(t),
                 )
@@ -2333,21 +2298,21 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame_union_minus_one:
                 t_minus_one = t - self.parameters.time_step
                 # Implement eq. (25)
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.ON_DOWN[t] <= 1)
-                self.model.add_constraint(self.ON_DOWN[t_minus_one] + self.ON_UP[t] <= 1)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.ON_DOWN[t] <= 1)
+                self.add_constraint(self.ON_DOWN[t_minus_one] + self.ON_UP[t] <= 1)
                 # Eq (13)
-                self.model.add_constraint(self.STOP[t_minus_one] + self.ON_FLAT[t] <= 1)
-                self.model.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)
-                self.model.add_constraint(
+                self.add_constraint(self.STOP[t_minus_one] + self.ON_FLAT[t] <= 1)
+                self.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)
+                self.add_constraint(
                     self.STOP[t_minus_one] + self.ON_UP[t] <= 1,
                     "transitions_constraints_on_timeFrame_union_minus_one_at_{}".format(t),
                 )
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
                 # ON_UP to STOP transition (eq. (21))
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.STOP[t] <= 1)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.STOP[t] <= 1)
                 # Eq. (12)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.OFF[t_minus_one] + self.STOP[t] <= 1,
                     "transitions_constraints_at_{}".format(t),
                 )
@@ -2358,7 +2323,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 t_minus_T_stop = t - self.T_stop * self.parameters.time_step
                 # Implements equation (19)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.turned_off[t_minus_T_stop] + self.STOP[t] <= 1,
                     "eviction_constraint_at_{}".format(t),
                 )
@@ -2371,7 +2336,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Enforces eq. (31), with T_start = 0
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s] <= self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t],
                             "minimum_time_ON_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -2387,7 +2352,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s_minus_T_stop = (
                             t - s * self.parameters.time_step - self.T_stop * self.parameters.time_step
                         )
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s_minus_T_stop] <= self.OFF[t],
                             "minimum_time_OFF_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -2401,7 +2366,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Enforces eq. (26)
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.stable[t_minus_s] <= self.ON_FLAT[t],
                             "minimum_time_STABLE_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -2414,7 +2379,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in self.stop_time_steps:
                         t_minus_s = t - s * self.parameters.time_step
                         # Enforces eq. (24)
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s] <= self.STOP[t],
                             "shutdown_ramp_of_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -2435,7 +2400,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
             self.create_contracted_diff_constraints(
-                self.model,
                 self.time_frame,
                 self.contracted_difference_up,
                 self.reserves_up_procured,
@@ -2453,7 +2417,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Upward and downward "fill up" constraints.
             self.create_fill_up_constraints(
-                self.model,
                 self.time_frame,
                 self.q,
                 self.reserves_up,
@@ -2470,39 +2433,39 @@ class ThermalOptimization(OptimisationModel):
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.relaxed_reserves[t]
                     <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_FLAT[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eqs. (44) and (45))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_up[t]
                     <= self.q_upper.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t] - self.OFF[t] - self.STOP[t])
                 )
                 # for compacity, implements both eq (44) and (45)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_down[t]
                     <= self.q_upper.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t] - self.OFF[t] - self.STOP[t])
                 )
 
             # Power output
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t]
                     >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + self.turned_off[t] * (q_min - q_step),
                     "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Lower bound (eq. (33))
 
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t]
                     <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + self.STOP[t] * q_min
@@ -2516,7 +2479,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= (
                             self.delta_q * self.entered_up[t]
@@ -2531,7 +2494,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. (37))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q * self.entered_down[t]
@@ -2550,7 +2513,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= (
                             self.delta_q_unconstrained * self.entered_up[t]
@@ -2564,7 +2527,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q_unconstrained * self.entered_down[t]
@@ -2585,9 +2548,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.create_daily_energy_constraint(
-                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
-            )
+            self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
     def _combination_6(self):
         """Combination 6 : T_stop =0, self.T_stable = T_start >= 1"""
@@ -2776,38 +2737,34 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on the indicator that the unit has started on t
             # Enforces eq. (3)
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
-                self.model.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
 
                 # Constraints on turned_off
             # Enforces eq. (4) as there is no STOP state in this case.
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_off[t] <= 1 - self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_off[t] <= self.OFF[t])
-                self.model.add_constraint(self.turned_off[t] >= self.OFF[t] - self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= 1 - self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= self.OFF[t])
+                self.add_constraint(self.turned_off[t] >= self.OFF[t] - self.OFF[t - self.parameters.time_step])
 
             # stable auxiliary variable
             # Enforces eq. (6)
             for t in self.time_frame_union_minus_one:
-                self.model.add_constraint(self.stable[t] <= 1 - self.ON_FLAT[t - self.parameters.time_step])
-                self.model.add_constraint(self.stable[t] <= self.ON_FLAT[t])
-                self.model.add_constraint(
-                    self.stable[t] >= self.ON_FLAT[t] - self.ON_FLAT[t - self.parameters.time_step]
-                )
+                self.add_constraint(self.stable[t] <= 1 - self.ON_FLAT[t - self.parameters.time_step])
+                self.add_constraint(self.stable[t] <= self.ON_FLAT[t])
+                self.add_constraint(self.stable[t] >= self.ON_FLAT[t] - self.ON_FLAT[t - self.parameters.time_step])
 
             # entered_up and entered_down auxiliaries
             for t in self.time_frame_union_minus_one:
                 # entered_up (eq. (7))
-                self.model.add_constraint(self.entered_up[t] <= 1 - self.ON_UP[t - self.parameters.time_step])
-                self.model.add_constraint(self.entered_up[t] <= self.ON_UP[t])
-                self.model.add_constraint(
-                    self.entered_up[t] >= self.ON_UP[t] - self.ON_UP[t - self.parameters.time_step]
-                )
+                self.add_constraint(self.entered_up[t] <= 1 - self.ON_UP[t - self.parameters.time_step])
+                self.add_constraint(self.entered_up[t] <= self.ON_UP[t])
+                self.add_constraint(self.entered_up[t] >= self.ON_UP[t] - self.ON_UP[t - self.parameters.time_step])
                 # entered_down (eq. (8))
-                self.model.add_constraint(self.entered_down[t] <= 1 - self.ON_DOWN[t - self.parameters.time_step])
-                self.model.add_constraint(self.entered_down[t] <= self.ON_DOWN[t])
-                self.model.add_constraint(
+                self.add_constraint(self.entered_down[t] <= 1 - self.ON_DOWN[t - self.parameters.time_step])
+                self.add_constraint(self.entered_down[t] <= self.ON_DOWN[t])
+                self.add_constraint(
                     self.entered_down[t] >= self.ON_DOWN[t] - self.ON_DOWN[t - self.parameters.time_step]
                 )
 
@@ -2820,23 +2777,23 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:  # Loop in all the time_frame but startDate.
                 t_minus_one = t - self.parameters.time_step
                 # tilde_U (eq. (28))
-                self.model.add_constraint(self.tilde_U[t] <= self.Q_max * self.ON_UP[t_minus_one])
-                self.model.add_constraint(self.tilde_U[t] >= self.Q_min * self.ON_UP[t_minus_one])
-                self.model.add_constraint(
+                self.add_constraint(self.tilde_U[t] <= self.Q_max * self.ON_UP[t_minus_one])
+                self.add_constraint(self.tilde_U[t] >= self.Q_min * self.ON_UP[t_minus_one])
+                self.add_constraint(
                     self.tilde_U[t] <= self.q[t] - self.q[t_minus_one] - self.Q_min * (1 - self.ON_UP[t_minus_one])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.tilde_U[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_UP[t_minus_one]),
                     "VALUE_of_tilde_UP_at_{}".format(t),
                 )
 
                 # tilde_D (eq. (30))
-                self.model.add_constraint(self.tilde_D[t] <= self.Q_max * self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(self.tilde_D[t] >= self.Q_min * self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(
+                self.add_constraint(self.tilde_D[t] <= self.Q_max * self.ON_DOWN[t_minus_one])
+                self.add_constraint(self.tilde_D[t] >= self.Q_min * self.ON_DOWN[t_minus_one])
+                self.add_constraint(
                     self.tilde_D[t] <= self.q[t] - self.q[t_minus_one] - self.Q_min * (1 - self.ON_DOWN[t_minus_one])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.tilde_D[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_DOWN[t_minus_one]),
                     "VALUE_of_tilde_DOWN_at_{}".format(t),
                 )
@@ -2845,18 +2802,18 @@ class ThermalOptimization(OptimisationModel):
             # These variables wil be added to the gradient constraints.
             for t in self.time_frame:
                 # U (eq. (27))
-                self.model.add_constraint(self.U[t] <= self.Q_max * self.ON_UP[t])
-                self.model.add_constraint(self.U[t] >= self.Q_min * self.ON_UP[t])
-                self.model.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
-                self.model.add_constraint(
+                self.add_constraint(self.U[t] <= self.Q_max * self.ON_UP[t])
+                self.add_constraint(self.U[t] >= self.Q_min * self.ON_UP[t])
+                self.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
+                self.add_constraint(
                     self.U[t] >= self.tilde_U[t] - self.Q_max * (1 - self.ON_UP[t]),
                     "VALUE_of_UP_at_{}".format(t),
                 )
                 # D (eq. (29))
-                self.model.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
-                self.model.add_constraint(self.D[t] >= self.Q_min * self.ON_DOWN[t])
-                self.model.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
-                self.model.add_constraint(
+                self.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
+                self.add_constraint(self.D[t] >= self.Q_min * self.ON_DOWN[t])
+                self.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
+                self.add_constraint(
                     self.D[t] >= self.tilde_D[t] - self.Q_max * (1 - self.ON_DOWN[t]),
                     "VALUE_of_DOWN_at_{}".format(t),
                 )
@@ -2867,7 +2824,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame_union_minus_one:
                 # Defined over the whole time frame.
                 # Enforces eq. (9)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t] + self.START[t] == 1,
                     "mutual_exclusion_at_{}".format(t),
                 )
@@ -2877,22 +2834,22 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame_union_minus_one:
                 t_minus_one = t - self.parameters.time_step
                 # Implement eq. (25).
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.ON_DOWN[t] <= 1)
-                self.model.add_constraint(self.ON_DOWN[t_minus_one] + self.ON_UP[t] <= 1)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.ON_DOWN[t] <= 1)
+                self.add_constraint(self.ON_DOWN[t_minus_one] + self.ON_UP[t] <= 1)
 
             # Constraints involving START and OFF are only defined on the time_frame time frame.
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
                 # Eq. (10)
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.START[t] <= 1)
-                self.model.add_constraint(self.ON_DOWN[t_minus_one] + self.START[t] <= 1)
-                self.model.add_constraint(self.ON_FLAT[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.ON_DOWN[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.ON_FLAT[t_minus_one] + self.START[t] <= 1)
                 # Eq. (11)
-                self.model.add_constraint(self.START[t_minus_one] + self.OFF[t] <= 1)
+                self.add_constraint(self.START[t_minus_one] + self.OFF[t] <= 1)
                 # Eq. (15)
-                self.model.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)
-                self.model.add_constraint(self.OFF[t_minus_one] + self.ON_DOWN[t] <= 1)
-                self.model.add_constraint(
+                self.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)
+                self.add_constraint(self.OFF[t_minus_one] + self.ON_DOWN[t] <= 1)
+                self.add_constraint(
                     self.OFF[t_minus_one] + self.ON_FLAT[t] <= 1,
                     "transitions_constraints_at_{}".format(t),
                 )
@@ -2902,7 +2859,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 t_minus_T_start = t - self.T_start * self.parameters.time_step
                 # Implement equation (16)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.turned_on[t_minus_T_start] + self.START[t] <= 1,
                     "eviction_constraint_at_{}".format(t),
                 )
@@ -2917,7 +2874,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s_minus_T_start = (
                             t - s * self.parameters.time_step - self.T_start * self.parameters.time_step
                         )
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s_minus_T_start]
                             <= self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t],
                             "minimum_time_ON_{}_at_{}_for_{}".format(
@@ -2932,7 +2889,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Enforces eq. (32) with T_stop = 0
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s] <= self.OFF[t],
                             "minimum_time_OFF_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -2946,7 +2903,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Enforces eq. (26)
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.stable[t_minus_s] <= self.ON_FLAT[t],
                             "minimum_time_STABLE_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -2959,7 +2916,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in self.start_time_steps:
                         t_minus_s = t - s * self.parameters.time_step
                         # Enforces eq. (17)
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s] <= self.START[t],
                             "start_up_ramp_of_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -2980,7 +2937,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
             self.create_contracted_diff_constraints(
-                self.model,
                 self.time_frame,
                 self.contracted_difference_up,
                 self.reserves_up_procured,
@@ -2998,7 +2954,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Upward and downward "fill up" constraints.
             self.create_fill_up_constraints(
-                self.model,
                 self.time_frame,
                 self.q,
                 self.reserves_up,
@@ -3015,36 +2970,36 @@ class ThermalOptimization(OptimisationModel):
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.relaxed_reserves[t]
                     <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_FLAT[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eqs. (44) and (45))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_up[t]
                     <= self.q_upper.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t] - self.OFF[t] - self.START[t])
                 )
                 # for compacity, implements both eq (44) and (45)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_down[t]
                     <= self.q_upper.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t] - self.OFF[t] - self.START[t])
                 )
 
             # Power output
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t] >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t]),
                     "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Lower bound (eq. (33))
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t]
                     <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + self.START[t] * q_min,
@@ -3056,7 +3011,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q * self.entered_up[t]
                         + self.U[t]
@@ -3067,7 +3022,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downard constrained gradient (eq. (37))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q * self.entered_down[t]
@@ -3085,7 +3040,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= self.delta_q_unconstrained * self.entered_up[t]
                         + self.U[t]
@@ -3096,7 +3051,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q_unconstrained * self.entered_down[t]
@@ -3116,9 +3071,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.create_daily_energy_constraint(
-                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
-            )
+            self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
     def _combination_7(self):
         """Combination 7 : T_stop >= 1, self.T_stable = 0 T_start >= 1"""
@@ -3132,7 +3085,7 @@ class ThermalOptimization(OptimisationModel):
             # Define the down_to_stop auxiliary, which is used in this combination and in combination 2
             down_to_stop = {}
             for t in self.time_frame:
-                down_to_stop[t] = self.model.add_continuous_variable(
+                down_to_stop[t] = self.add_continuous_variable(
                     "down_to_stop_equip_{}_at_{}".format(self.thermal_unit.name, t), 0, 1
                 )
 
@@ -3260,9 +3213,9 @@ class ThermalOptimization(OptimisationModel):
             # Amounts to leaving the OFF state, due to the mutual exclusion and transition constraints.
             # Enforces eq (3).
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
-                self.model.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(
+                self.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
+                self.add_constraint(
                     self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t],
                     "constraints_defining_turned_on_{}".format(t),
                 )
@@ -3270,9 +3223,9 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on turned_off
             # Defined here when entering the STOP state as in eq. (5) because T_stop > 0
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_off[t] <= 1 - self.STOP[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_off[t] <= self.STOP[t])
-                self.model.add_constraint(
+                self.add_constraint(self.turned_off[t] <= 1 - self.STOP[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= self.STOP[t])
+                self.add_constraint(
                     self.turned_off[t] >= self.STOP[t] - self.STOP[t - self.parameters.time_step],
                     "constraints_defining_turned_off_{}".format(t),
                 )
@@ -3280,9 +3233,9 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on down_to_stop (eq. (20))
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
-                self.model.add_constraint(down_to_stop[t] <= self.STOP[t])
-                self.model.add_constraint(down_to_stop[t] <= self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(down_to_stop[t] >= self.STOP[t] + self.ON_DOWN[t_minus_one] - 1)
+                self.add_constraint(down_to_stop[t] <= self.STOP[t])
+                self.add_constraint(down_to_stop[t] <= self.ON_DOWN[t_minus_one])
+                self.add_constraint(down_to_stop[t] >= self.STOP[t] + self.ON_DOWN[t_minus_one] - 1)
 
             # C. CONSTRAINTS ON THE STATE VARIABLES
 
@@ -3290,7 +3243,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 # Defined over the whole time frame
                 # Enforces eq. (9)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.STOP[t] + self.START[t] == 1,
                     "mutual_exclusion_at_{}".format(t),
                 )
@@ -3303,24 +3256,24 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
                 # STOP to ON (eq. (13))
-                self.model.add_constraint(self.STOP[t_minus_one] + self.ON_UP[t] <= 1)
-                self.model.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)
+                self.add_constraint(self.STOP[t_minus_one] + self.ON_UP[t] <= 1)
+                self.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)
                 # OFF to STOP (eq. (12))
-                self.model.add_constraint(self.OFF[t_minus_one] + self.STOP[t] <= 1)
+                self.add_constraint(self.OFF[t_minus_one] + self.STOP[t] <= 1)
                 # ON to OFF (eq.(18) )
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.OFF[t] <= 1)
-                self.model.add_constraint(self.ON_DOWN[t_minus_one] + self.OFF[t] <= 1)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.OFF[t] <= 1)
+                self.add_constraint(self.ON_DOWN[t_minus_one] + self.OFF[t] <= 1)
                 # ON to START (eq. (10))
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.START[t] <= 1)
-                self.model.add_constraint(self.ON_DOWN[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.ON_DOWN[t_minus_one] + self.START[t] <= 1)
                 # START to OFF (eq. (11))
-                self.model.add_constraint(self.START[t_minus_one] + self.OFF[t] <= 1)
+                self.add_constraint(self.START[t_minus_one] + self.OFF[t] <= 1)
                 # START to STOP and STOP to START (eq. (14))
-                self.model.add_constraint(self.START[t_minus_one] + self.STOP[t] <= 1)
-                self.model.add_constraint(self.STOP[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.START[t_minus_one] + self.STOP[t] <= 1)
+                self.add_constraint(self.STOP[t_minus_one] + self.START[t] <= 1)
                 # OFF to ON (eq. (15))
-                self.model.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)
-                self.model.add_constraint(
+                self.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)
+                self.add_constraint(
                     self.OFF[t_minus_one] + self.ON_DOWN[t] <= 1,
                     "transitions_constraints_at_{}".format(t),
                 )
@@ -3332,12 +3285,12 @@ class ThermalOptimization(OptimisationModel):
                 t_minus_T_stop = t - self.T_stop * self.parameters.time_step
                 # Add the constraints.
                 # Implements equation (16)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.turned_on[t_minus_T_start] + self.START[t] <= 1,
                     "START_eviction_constraint_at_{}".format(t),
                 )
                 # Implements equation (19)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.turned_off[t_minus_T_stop] + self.STOP[t] <= 1,
                     "STOP_eviction_constraint_at_{}".format(t),
                 )
@@ -3352,7 +3305,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s_minus_T_start = (
                             t - s * self.parameters.time_step - self.T_start * self.parameters.time_step
                         )
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s_minus_T_start] <= self.ON_UP[t] + self.ON_DOWN[t],
                             "minimum_time_ON_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -3369,7 +3322,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s_minus_T_stop = (
                             t - s * self.parameters.time_step - self.T_stop * self.parameters.time_step
                         )
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s_minus_T_stop] <= self.OFF[t],
                             "minimum_time_OFF_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -3382,7 +3335,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in self.stop_time_steps:
                         # Enforces eq. (24)
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s] <= self.STOP[t],
                             "shutdown_ramp_of_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -3395,7 +3348,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in self.start_time_steps:
                         # Enforces eq. (17)
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s] <= self.START[t],
                             "start_up_ramp_of_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -3417,7 +3370,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
             self.create_contracted_diff_constraints(
-                self.model,
                 self.time_frame,
                 self.contracted_difference_up,
                 self.reserves_up_procured,
@@ -3435,7 +3387,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Upward and downward "fill up" constraints.
             self.create_fill_up_constraints(
-                self.model,
                 self.time_frame,
                 self.q,
                 self.reserves_up,
@@ -3452,38 +3403,38 @@ class ThermalOptimization(OptimisationModel):
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.relaxed_reserves[t] <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eq. (44))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_up[t]
                     <= self.maximum_automated * (1 - self.OFF[t] - self.START[t] - self.STOP[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_down[t]
                     <= self.maximum_automated * (1 - self.OFF[t] - self.START[t] - self.STOP[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_up[t] <= self.q_upper.get_value(t) * (1 - self.OFF[t] - self.START[t] - self.STOP[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_down[t]
                     <= self.q_upper.get_value(t) * (1 - self.OFF[t] - self.START[t] - self.STOP[t])
                 )
 
             # Power output
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t]
                     >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t])
                     + self.turned_off[t] * (q_min - q_step_down),
                     "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )
                 # Lower bound (eq. (33))
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t]
                     <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t])
                     + self.STOP[t] * q_min
@@ -3500,7 +3451,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= (
                             self.delta_q * self.ON_UP[t]
@@ -3513,7 +3464,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. (37))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q * self.ON_DOWN[t]
@@ -3530,7 +3481,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step
 
                     # Upward unconstrained gradient (eq. (36))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= (
                             self.delta_q_unconstrained * self.ON_UP[t]
@@ -3543,7 +3494,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q_unconstrained * self.ON_DOWN[t]
@@ -3562,9 +3513,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.create_daily_energy_constraint(
-                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
-            )
+            self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
     def _combination_8(self):
         """Combination 8 : T_start = self.T_stable = T_stop >= 1"""
@@ -3591,7 +3540,7 @@ class ThermalOptimization(OptimisationModel):
             # flat_down_stop
             flat_down_stop = {}
             for t in self.time_frame:
-                flat_down_stop[t] = self.model.add_continuous_variable(
+                flat_down_stop[t] = self.add_continuous_variable(
                     "flat_down_stop_at_{}_equip_{}".format(t, self.thermal_unit.name),
                     0,
                     1,
@@ -3599,7 +3548,7 @@ class ThermalOptimization(OptimisationModel):
 
             DD = {}
             for t in self.gradients_time_frame:
-                DD[t] = self.model.add_continuous_variable(
+                DD[t] = self.add_continuous_variable(
                     "DD_{}_equip_{}".format(t, self.thermal_unit.name), self.Q_min, self.Q_max
                 )
 
@@ -3802,49 +3751,45 @@ class ThermalOptimization(OptimisationModel):
             # Constraints on the indicator that the unit has started on t
             # Enforces eq. (3)
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
-                self.model.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= 1 - self.OFF[t])
+                self.add_constraint(self.turned_on[t] <= self.OFF[t - self.parameters.time_step])
+                self.add_constraint(self.turned_on[t] >= self.OFF[t - self.parameters.time_step] - self.OFF[t])
 
                 # Constraints on turned_off
             # Enforces eq. (5)
             for t in self.time_frame:
-                self.model.add_constraint(self.turned_off[t] <= 1 - self.STOP[t - self.parameters.time_step])
-                self.model.add_constraint(self.turned_off[t] <= self.STOP[t])
-                self.model.add_constraint(self.turned_off[t] >= self.STOP[t] - self.STOP[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= 1 - self.STOP[t - self.parameters.time_step])
+                self.add_constraint(self.turned_off[t] <= self.STOP[t])
+                self.add_constraint(self.turned_off[t] >= self.STOP[t] - self.STOP[t - self.parameters.time_step])
 
             # stable auxiliary variable
             # Enforces eq. (6)
             for t in self.time_frame_union_minus_one:
-                self.model.add_constraint(self.stable[t] <= 1 - self.ON_FLAT[t - self.parameters.time_step])
-                self.model.add_constraint(self.stable[t] <= self.ON_FLAT[t])
-                self.model.add_constraint(
-                    self.stable[t] >= self.ON_FLAT[t] - self.ON_FLAT[t - self.parameters.time_step]
-                )
+                self.add_constraint(self.stable[t] <= 1 - self.ON_FLAT[t - self.parameters.time_step])
+                self.add_constraint(self.stable[t] <= self.ON_FLAT[t])
+                self.add_constraint(self.stable[t] >= self.ON_FLAT[t] - self.ON_FLAT[t - self.parameters.time_step])
 
             # flat_down_stop auxiliary (eq. (22))
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
                 t_minus_two = t - 2 * self.parameters.time_step
-                self.model.add_constraint(flat_down_stop[t] <= self.STOP[t])
-                self.model.add_constraint(flat_down_stop[t] <= self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(flat_down_stop[t] <= self.ON_FLAT[t_minus_two])
-                self.model.add_constraint(
+                self.add_constraint(flat_down_stop[t] <= self.STOP[t])
+                self.add_constraint(flat_down_stop[t] <= self.ON_DOWN[t_minus_one])
+                self.add_constraint(flat_down_stop[t] <= self.ON_FLAT[t_minus_two])
+                self.add_constraint(
                     flat_down_stop[t] >= self.STOP[t] + self.ON_DOWN[t_minus_one] + self.ON_FLAT[t_minus_two] - 2
                 )
 
             # entered_up and entered_down auxiliaries (defined in sections 6.1.4 and 6.1.5)
             for t in self.time_frame_union_minus_one:
                 # entered_up (eq. (7))
-                self.model.add_constraint(self.entered_up[t] <= 1 - self.ON_UP[t - self.parameters.time_step])
-                self.model.add_constraint(self.entered_up[t] <= self.ON_UP[t])
-                self.model.add_constraint(
-                    self.entered_up[t] >= self.ON_UP[t] - self.ON_UP[t - self.parameters.time_step]
-                )
+                self.add_constraint(self.entered_up[t] <= 1 - self.ON_UP[t - self.parameters.time_step])
+                self.add_constraint(self.entered_up[t] <= self.ON_UP[t])
+                self.add_constraint(self.entered_up[t] >= self.ON_UP[t] - self.ON_UP[t - self.parameters.time_step])
                 # entered_down (eq. (8))
-                self.model.add_constraint(self.entered_down[t] <= 1 - self.ON_DOWN[t - self.parameters.time_step])
-                self.model.add_constraint(self.entered_down[t] <= self.ON_DOWN[t])
-                self.model.add_constraint(
+                self.add_constraint(self.entered_down[t] <= 1 - self.ON_DOWN[t - self.parameters.time_step])
+                self.add_constraint(self.entered_down[t] <= self.ON_DOWN[t])
+                self.add_constraint(
                     self.entered_down[t] >= self.ON_DOWN[t] - self.ON_DOWN[t - self.parameters.time_step]
                 )
 
@@ -3857,23 +3802,23 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame:  # Loop in all the time_frame but startDate.
                 t_minus_one = t - self.parameters.time_step
                 # tilde_U (eq. (28))
-                self.model.add_constraint(self.tilde_U[t] <= self.Q_max * self.ON_UP[t_minus_one])
-                self.model.add_constraint(self.tilde_U[t] >= self.Q_min * self.ON_UP[t_minus_one])
-                self.model.add_constraint(
+                self.add_constraint(self.tilde_U[t] <= self.Q_max * self.ON_UP[t_minus_one])
+                self.add_constraint(self.tilde_U[t] >= self.Q_min * self.ON_UP[t_minus_one])
+                self.add_constraint(
                     self.tilde_U[t] <= self.q[t] - self.q[t_minus_one] - self.Q_min * (1 - self.ON_UP[t_minus_one])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.tilde_U[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_UP[t_minus_one]),
                     "VALUE_of_tilde_UP_at_{}".format(t),
                 )
 
                 # tilde_D (eq. (30))
-                self.model.add_constraint(self.tilde_D[t] <= self.Q_max * self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(self.tilde_D[t] >= self.Q_min * self.ON_DOWN[t_minus_one])
-                self.model.add_constraint(
+                self.add_constraint(self.tilde_D[t] <= self.Q_max * self.ON_DOWN[t_minus_one])
+                self.add_constraint(self.tilde_D[t] >= self.Q_min * self.ON_DOWN[t_minus_one])
+                self.add_constraint(
                     self.tilde_D[t] <= self.q[t] - self.q[t_minus_one] - self.Q_min * (1 - self.ON_DOWN[t_minus_one])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.tilde_D[t] >= self.q[t] - self.q[t_minus_one] - self.Q_max * (1 - self.ON_DOWN[t_minus_one]),
                     "VALUE_of_tilde_DOWN_at_{}".format(t),
                 )
@@ -3882,18 +3827,18 @@ class ThermalOptimization(OptimisationModel):
             # These variables wil be added to the gradient constraints.
             for t in self.time_frame:
                 # U (eq. (27))
-                self.model.add_constraint(self.U[t] <= self.Q_max * self.ON_UP[t])
-                self.model.add_constraint(self.U[t] >= self.Q_min * self.ON_UP[t])
-                self.model.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
-                self.model.add_constraint(
+                self.add_constraint(self.U[t] <= self.Q_max * self.ON_UP[t])
+                self.add_constraint(self.U[t] >= self.Q_min * self.ON_UP[t])
+                self.add_constraint(self.U[t] <= self.tilde_U[t] - self.Q_min * (1 - self.ON_UP[t]))
+                self.add_constraint(
                     self.U[t] >= self.tilde_U[t] - self.Q_max * (1 - self.ON_UP[t]),
                     "VALUE_of_UP_at_{}".format(t),
                 )
                 # D (eq. (29))
-                self.model.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
-                self.model.add_constraint(self.D[t] >= self.Q_min * self.ON_DOWN[t])
-                self.model.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
-                self.model.add_constraint(
+                self.add_constraint(self.D[t] <= self.Q_max * self.ON_DOWN[t])
+                self.add_constraint(self.D[t] >= self.Q_min * self.ON_DOWN[t])
+                self.add_constraint(self.D[t] <= self.tilde_D[t] - self.Q_min * (1 - self.ON_DOWN[t]))
+                self.add_constraint(
                     self.D[t] >= self.tilde_D[t] - self.Q_max * (1 - self.ON_DOWN[t]),
                     "VALUE_of_DOWN_at_{}".format(t),
                 )
@@ -3901,10 +3846,10 @@ class ThermalOptimization(OptimisationModel):
             # DD Gradient auxiliary (eq. (23))
             for t in self.gradients_time_frame:
                 t_plus_one = t + self.parameters.time_step
-                self.model.add_constraint(DD[t] <= self.Q_max * self.STOP[t_plus_one])
-                self.model.add_constraint(DD[t] >= self.Q_min * self.STOP[t_plus_one])
-                self.model.add_constraint(DD[t] <= self.D[t] - self.Q_min * (1 - self.STOP[t_plus_one]))
-                self.model.add_constraint(
+                self.add_constraint(DD[t] <= self.Q_max * self.STOP[t_plus_one])
+                self.add_constraint(DD[t] >= self.Q_min * self.STOP[t_plus_one])
+                self.add_constraint(DD[t] <= self.D[t] - self.Q_min * (1 - self.STOP[t_plus_one]))
+                self.add_constraint(
                     DD[t] >= self.D[t] - self.Q_max * (1 - self.STOP[t_plus_one]),
                     "DD_gradient_auxiliary_at_{}".format(t),
                 )
@@ -3915,7 +3860,7 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame_union_minus_one:
                 # Defined over the whole time frame.
                 # Enforces eq. (9)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.OFF[t] + self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t] + self.STOP[t] + self.START[t] == 1,
                     "mutual_exclusion_at_{}".format(t),
                 )
@@ -3933,34 +3878,34 @@ class ThermalOptimization(OptimisationModel):
             for t in self.time_frame_union_minus_one:
                 t_minus_one = t - self.parameters.time_step
                 # Implement eq. (25).
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.ON_DOWN[t] <= 1)
-                self.model.add_constraint(self.ON_DOWN[t_minus_one] + self.ON_UP[t] <= 1)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.ON_DOWN[t] <= 1)
+                self.add_constraint(self.ON_DOWN[t_minus_one] + self.ON_UP[t] <= 1)
                 # STOP to ON (eq. (13))
-                self.model.add_constraint(self.STOP[t_minus_one] + self.ON_FLAT[t] <= 1)
-                self.model.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)
-                self.model.add_constraint(
+                self.add_constraint(self.STOP[t_minus_one] + self.ON_FLAT[t] <= 1)
+                self.add_constraint(self.STOP[t_minus_one] + self.ON_DOWN[t] <= 1)
+                self.add_constraint(
                     self.STOP[t_minus_one] + self.ON_UP[t] <= 1,
                     "transitions_constraints_on_timeFrame_union_minus_one_at_{}".format(t),
                 )
             for t in self.time_frame:
                 t_minus_one = t - self.parameters.time_step
                 # ON_UP to STOP transition (eq. (21))
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.STOP[t] <= 1)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.STOP[t] <= 1)
                 # OFF to STOP (eq. (13)).
-                self.model.add_constraint(self.OFF[t_minus_one] + self.STOP[t] <= 1)
+                self.add_constraint(self.OFF[t_minus_one] + self.STOP[t] <= 1)
                 # ON to START (eq. (10))
-                self.model.add_constraint(self.ON_UP[t_minus_one] + self.START[t] <= 1)
-                self.model.add_constraint(self.ON_DOWN[t_minus_one] + self.START[t] <= 1)
-                self.model.add_constraint(self.ON_FLAT[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.ON_UP[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.ON_DOWN[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.ON_FLAT[t_minus_one] + self.START[t] <= 1)
                 # START to OFF (eq. (11))
-                self.model.add_constraint(self.START[t_minus_one] + self.OFF[t] <= 1)
+                self.add_constraint(self.START[t_minus_one] + self.OFF[t] <= 1)
                 # START to STOP and STOP to START (eq. (14))
-                self.model.add_constraint(self.START[t_minus_one] + self.STOP[t] <= 1)
-                self.model.add_constraint(self.STOP[t_minus_one] + self.START[t] <= 1)
+                self.add_constraint(self.START[t_minus_one] + self.STOP[t] <= 1)
+                self.add_constraint(self.STOP[t_minus_one] + self.START[t] <= 1)
                 # OFF to ON (eq. (15))
-                self.model.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)
-                self.model.add_constraint(self.OFF[t_minus_one] + self.ON_FLAT[t] <= 1)
-                self.model.add_constraint(
+                self.add_constraint(self.OFF[t_minus_one] + self.ON_UP[t] <= 1)
+                self.add_constraint(self.OFF[t_minus_one] + self.ON_FLAT[t] <= 1)
+                self.add_constraint(
                     self.OFF[t_minus_one] + self.ON_DOWN[t] <= 1,
                     "transitions_constraints_at_{}".format(t),
                 )
@@ -3973,12 +3918,12 @@ class ThermalOptimization(OptimisationModel):
                 t_minus_T_stop = t - self.T_stop * self.parameters.time_step
                 t_minus_T_start = t - self.T_start * self.parameters.time_step
                 # Implements equation (19)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.turned_off[t_minus_T_stop] + self.STOP[t] <= 1,
                     "STOP_eviction_constraint_at_{}".format(t),
                 )
                 # Implements equation (16)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.turned_on[t_minus_T_start] + self.START[t] <= 1,
                     "START_eviction_constraint_at_{}".format(t),
                 )
@@ -3993,7 +3938,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s_minus_T_start = (
                             t - s * self.parameters.time_step - self.T_start * self.parameters.time_step
                         )
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s_minus_T_start]
                             <= self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t],
                             "minimum_time_ON_{}_at_{}_for_{}".format(
@@ -4010,7 +3955,7 @@ class ThermalOptimization(OptimisationModel):
                         t_minus_s_minus_T_stop = (
                             t - s * self.parameters.time_step - self.T_stop * self.parameters.time_step
                         )
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s_minus_T_stop] <= self.OFF[t],
                             "minimum_time_OFF_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -4024,7 +3969,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in time_steps:
                         # Enforces eq. (26)
                         t_minus_s = t - s * self.parameters.time_step
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.stable[t_minus_s] <= self.ON_FLAT[t],
                             "minimum_time_STABLE_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -4037,7 +3982,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in self.stop_time_steps:
                         t_minus_s = t - s * self.parameters.time_step
                         # Enforces eq. (24)
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_off[t_minus_s] <= self.STOP[t],
                             "shutdown_ramp_of_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -4050,7 +3995,7 @@ class ThermalOptimization(OptimisationModel):
                     for s in self.start_time_steps:
                         t_minus_s = t - s * self.parameters.time_step
                         # Enforces eq. (17)
-                        self.model.add_constraint(
+                        self.add_constraint(
                             self.turned_on[t_minus_s] <= self.START[t],
                             "start_up_ramp_of_{}_at_{}_for_{}".format(
                                 self.thermal_unit.name,
@@ -4072,7 +4017,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
             self.create_contracted_diff_constraints(
-                self.model,
                 self.time_frame,
                 self.contracted_difference_up,
                 self.reserves_up_procured,
@@ -4090,7 +4034,6 @@ class ThermalOptimization(OptimisationModel):
 
             # Upward and downward "fill up" constraints.
             self.create_fill_up_constraints(
-                self.model,
                 self.time_frame,
                 self.q,
                 self.reserves_up,
@@ -4107,28 +4050,28 @@ class ThermalOptimization(OptimisationModel):
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.relaxed_reserves[t]
                     <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_FLAT[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eqs. (44) and (45))
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_up[t]
                     <= self.maximum_automated * (1 - self.OFF[t] - self.START[t] - self.STOP[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.automated_reserves_down[t]
                     <= self.maximum_automated * (1 - self.OFF[t] - self.START[t] - self.STOP[t])
                 )
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_up[t]
                     <= self.q_upper.get_value(t)
                     * (1 - self.ON_UP[t] - self.ON_DOWN[t] - self.OFF[t] - self.START[t] - self.STOP[t])
                 )
                 # for compacity, implements both eq (44) and (45)
-                self.model.add_constraint(
+                self.add_constraint(
                     self.reserves_down[t]
                     <= self.q_upper.get_value(t)
                     * (1 - self.ON_UP[t] - self.ON_DOWN[t] - self.OFF[t] - self.START[t] - self.STOP[t])
@@ -4136,13 +4079,13 @@ class ThermalOptimization(OptimisationModel):
 
             # Power output
             for t in self.time_frame:
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t]
                     >= self.q_lower.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + self.turned_off[t] * (q_min - q_step_down),
                     "lower_bound_of_{}_at_{}".format(self.thermal_unit.name, t),
                 )  # Lower bound (eq. (33))
-                self.model.add_constraint(
+                self.add_constraint(
                     self.q[t]
                     <= self.q_upper.get_value(t) * (self.ON_UP[t] + self.ON_DOWN[t] + self.ON_FLAT[t])
                     + (self.STOP[t] + self.START[t]) * q_min
@@ -4156,7 +4099,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward constrained gradient (eq. (35))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= (
                             self.delta_q * self.entered_up[t]
@@ -4172,7 +4115,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downward constrained gradient (eq. (37))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q * self.entered_down[t]
@@ -4193,7 +4136,7 @@ class ThermalOptimization(OptimisationModel):
                     t_next = t + self.parameters.time_step  # Get the next time step
 
                     # Upward unconstrained gradient (eq. (36))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         <= (
                             self.delta_q_unconstrained * self.entered_up[t]
@@ -4209,7 +4152,7 @@ class ThermalOptimization(OptimisationModel):
                     )  # Upward gradient
 
                     # Downward unconstrained gradient (eq. (38))
-                    self.model.add_constraint(
+                    self.add_constraint(
                         self.q[t_next] - self.q[t]
                         >= (
                             -self.delta_q_unconstrained * self.entered_down[t]
@@ -4232,9 +4175,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 raise ValueError("Missing gradients for thermic units.")
 
-            self.create_daily_energy_constraint(
-                self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
-            )
+            self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
     def solve_thermal_optimization_program(self):
         """
@@ -4246,7 +4187,7 @@ class ThermalOptimization(OptimisationModel):
                     All these results are returned in the form of a TimeSeries object ranging over the optimization period
                     (i.e. [startDate, endOptimizationDate]).
         """
-        self.model.set_solver_specific_parameters_as_string(
+        self.set_solver_specific_parameters_as_string(
             "MIPRELSTOP {} PRESOLVE {} MAXTIME {}".format(
                 self.parameters.duality_gap, int(self.parameters.presolve), self.parameters.time_out
             )
@@ -4255,9 +4196,9 @@ class ThermalOptimization(OptimisationModel):
             lp_file_name = os.path.join(
                 self.parameters.output_folder, "{}_price_{}.lp".format(self.thermal_unit.name, self.price_type)
             )
-            self.model.export_model(lp_file_name)
+            self.export_model(lp_file_name)
 
-        self.model.solve(self.parameters.solver_time_out.total_minutes())
+        self.solve(self.parameters.solver_time_out.total_minutes())
 
         ###############
         #
@@ -4393,7 +4334,6 @@ class ThermalOptimization(OptimisationModel):
 
     def create_fill_up_constraints(
         self,
-        model: OptimisationModel,
         time_frame: list[pendulum.DateTime],
         q: dict,
         reserves_up: dict,
@@ -4409,16 +4349,16 @@ class ThermalOptimization(OptimisationModel):
     ):
         """Upward and downward "fill up" constraints"""
         for t in time_frame:
-            model.add_constraint(
+            self.add_constraint(
                 q[t] + reserves_up[t] + automated_reserves_up[t] + unprovided_reserves_up[t]
                 <= q_upper.get_value(t) + epsilon
             )  # Upward constraint - eq. (41)
-            model.add_constraint(
+            self.add_constraint(
                 q[t] + reserves_up[t] + automated_reserves_up[t] + unprovided_reserves_up[t]
                 >= q_upper.get_value(t) - epsilon
             )  # Upward constraint - eq. (41)
 
-            model.add_constraint(
+            self.add_constraint(
                 (
                     q[t]
                     - reserves_down[t]
@@ -4428,7 +4368,7 @@ class ThermalOptimization(OptimisationModel):
                 )
                 <= q_lower.get_value(t) + epsilon
             )  # Downward constraint - eq. (42)
-            model.add_constraint(
+            self.add_constraint(
                 (
                     q[t]
                     - reserves_down[t]
@@ -4441,7 +4381,6 @@ class ThermalOptimization(OptimisationModel):
 
     def create_contracted_diff_constraints(
         self,
-        model: OptimisationModel,
         time_frame: list[pendulum.DateTime],
         contracted_difference_up: dict,
         reserves_up_procured: Timeseries,
@@ -4459,27 +4398,20 @@ class ThermalOptimization(OptimisationModel):
         """Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))"""
         for t in time_frame:
             # contractedDifference
-            model.add_constraint(contracted_difference_up[t] >= reserves_up_procured.get_value(t) - reserves_up[t])
-            model.add_constraint(
-                contracted_difference_down[t] >= reserves_down_procured.get_value(t) - reserves_down[t]
-            )
+            self.add_constraint(contracted_difference_up[t] >= reserves_up_procured.get_value(t) - reserves_up[t])
+            self.add_constraint(contracted_difference_down[t] >= reserves_down_procured.get_value(t) - reserves_down[t])
             # automatedContractedDifference
-            model.add_constraint(
+            self.add_constraint(
                 automated_contracted_difference_up[t]
                 >= feasible_automated_reserves_up_procured[t] - automated_reserves_up[t]
             )
-            model.add_constraint(
+            self.add_constraint(
                 automated_contracted_difference_down[t]
                 >= feasible_automated_reserves_down_procured[t] - automated_reserves_down[t]
             )
 
     def create_daily_energy_constraint(
-        self,
-        model: OptimisationModel,
-        thermal_unit: Thermal,
-        time_frame: list[pendulum.DateTime],
-        time_step: Duration,
-        q: dict,
+        self, thermal_unit: Thermal, time_frame: list[pendulum.DateTime], time_step: Duration, q: dict
     ):
         # Energy limits
         if thermal_unit.has_daily_energy_constraint:
@@ -4503,7 +4435,7 @@ class ThermalOptimization(OptimisationModel):
 
                 if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
                     # Enforce eq. (37)
-                    model.add_constraint(
+                    self.add_constraint(
                         sum(q[t] for t in matching_steps) <= upper_bound * time_step.total_days() * len(matching_steps),
                         "energy_limit_of_{}_at_{}".format(thermal_unit.name, date),
                     )

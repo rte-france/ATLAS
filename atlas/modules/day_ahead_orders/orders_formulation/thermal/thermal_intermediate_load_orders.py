@@ -400,7 +400,7 @@ class ThermalIntermediateLoadOrders:
             # Solve three times the optimization program, one for each price curve
             # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
-                model = ThermalOptimization(parameters, unit, price, value, SolverEnum.XPRESS)
+                model = ThermalOptimization(parameters, unit, price, value)
                 res = model.solve_thermal_optimization_program()
                 results[unit.name][value] = res
 
