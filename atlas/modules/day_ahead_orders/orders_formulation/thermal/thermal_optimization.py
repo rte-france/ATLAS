@@ -21,6 +21,15 @@ from pendulum._pendulum import Duration
 
 
 class ThermalOptimization(OptimisationModel):
+    """
+    This class modelize the optimization program associated to the thermic units. It only
+    performs the optimization for one unit, passed as an argument.
+    Optimization is done over the extended optimization period, ie between start_date - epsilon
+    and end_optimization_date + epsilon where epsilon is an additional time corresponding to
+    the maximum between the minimum duration time and the startup duration.
+    Optimization is done with respect to a given price sequence given.
+    """
+
     def __init__(
         self,
         parameters: DayAheadOrdersParameters,
@@ -29,6 +38,13 @@ class ThermalOptimization(OptimisationModel):
         price_type,
         solver_name: SolverEnum | str,
     ):
+        """
+        :param parameters: a DayAheadOrdersParameters instance
+        :param thermal_unit: a Thermal instance
+        :param prices: a price timeseries based on which optimization will be conducted.
+        :param price_type: the price_type
+        :param solver_name: the solver name
+        """
         super().__init__(solver_name)
         self.parameters = parameters
         self.model = OptimisationModel(
@@ -111,14 +127,10 @@ class ThermalOptimization(OptimisationModel):
         self._initial_setup()
         self.step_1()
         self.create_objective_function("maximize")
+        self.create_constraints_and_init_conitions()
 
     def _initial_setup(self):
-        # ---------------------------------------------------#
-        #                                                    #
-        # STEP 0 : Retrieve the parameters of the program    #
-        #          and set up the time frame                 #
-        #                                                    #
-        # ---------------------------------------------------#
+        """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
 
         # Sanity check on the startDate and the endDate. A warning message is sent to the user if the startDate is later
         # than the endDate.
@@ -274,12 +286,7 @@ class ThermalOptimization(OptimisationModel):
         self.delta_q_unconstrained = self.thermal_unit.maximum_power.max()
 
     def step_1(self):
-        # -------------------------------------------------------------------#
-        #                                                                    #
-        # STEP 1 : Definition of the state, auxiliary and control variables  #
-        #          over the time_frame.                                      #
-        #                                                                    #
-        # -------------------------------------------------------------------#
+        """STEP 1 : Definition of the state, auxiliary and control variables over the time_frame."""
 
         # 1.1. Control variables :
         #    - the power output of the unit
@@ -487,13 +494,7 @@ class ThermalOptimization(OptimisationModel):
                 )
 
     def create_objective_function(self, direction: Literal["maximize", "minimize"] = "maximize"):
-        """Creation of objective function"""
-        # -----------------------------#
-        #                              #
-        # STEP 2 : Objective function  #
-        #                              #
-        # -----------------------------#
-
+        """STEP 2 : Creation of objective function"""
         # Set-up the objective function given by eq. (2) in the documentation.
         # If self.T_stable = 0, we don't need to include automatedContractedReservesUp and automatedContractedReservesDown to the objective function.
         # otherwise we need to include them.
@@ -519,37 +520,9 @@ class ThermalOptimization(OptimisationModel):
             direction=direction,
         )
 
-    def solve_thermal_optimization_program(
-        self, thermal_unit: Thermal, prices, price_type, parameters: DayAheadOrdersParameters
-    ):
+    def create_constraints_and_init_conitions(self):
         """
-        This function solves the optimization program associated to the thermic units. It only
-        performs the optimization for one unit, passed as an argument.
-        Optimization is done over the extended optimization period, ie between StartDate - epsilon
-        and endOptimizationDate + epsilon where epsilon is an additional time corresponding to
-        the maximum between the minimum duration time and the startup duration.
-        Optimization is done with respect to a price sequence given as an argument.
-
-        Arguments:
-        - `thermal_unit`: an Thermal instance.
-        - `prices`: a price timeseries based on which optimization will be conducted.
-        - `parameters` a DayAheadOrdersParameters.
-
-        Returns:
-        - `results`: a dictionnary containing the optimal values of the decision variables,
-        namely :
-            . q*, the optimal power output
-            . ON_.*, OFF*, START* and STOP* (when relevant), the optimal values of the state variables
-        All these results are returned in the form of a TimeSeries object ranging over the optimization period
-        (i.e. [startDate, endOptimizationDate]).
-        """
-
-        # ---------------------------------------------#
-        #                                             #
-        # STEP 3 : Constraints and initial conditions #
-        #                                             #
-        # ---------------------------------------------#
-
+        STEP 3 : Constraints and initial conditions
         # Constraints and initial conditions are defined based on state and auxiliary variables.
         # Since these variables are not necessarily defined, in the following we go through all
         # 8 possible combinations of state and auxiliary variables and write the corresponding
@@ -557,16 +530,18 @@ class ThermalOptimization(OptimisationModel):
         #
         # Initial conditions are defined on the previous_time_frame, constraints on the state and
         # control variables are defined on the time_frame.
+        """
+        self._combination_1()
+        self._combination_2()
+        self._combination_3()
+        self._combination_4()
+        self._combination_5()
+        self._combination_6()
+        self._combination_7()
+        self._combination_8()
 
-        # --------------------------------------------------------------------------------------------- #
-        ################# ------ Constraints and initial conditions combinations ------ #################
-        # --------------------------------------------------------------------------------------------- #
-
-        # ---------------------------------------------------------#
-        #                                                         #
-        ##### Combination 1 : T_stop = self.T_stable = T_start = 0 #####
-        #                                                         #
-        # ---------------------------------------------------------#
+    def _combination_1(self):
+        """Combination 1 : T_stop = self.T_stable = T_start = 0"""
 
         if self.T_stop == 0 and self.T_start == 0 and self.T_stable == 0:
             # In this case, there are three state variables and two auxiliary variables.
@@ -833,11 +808,8 @@ class ThermalOptimization(OptimisationModel):
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
-        # -------------------------------------------------------------#
-        #                                                             #
-        ##### Combination 2 : T_stop >= 1, self.T_stable = T_start = 0 #####
-        #                                                             #
-        # -------------------------------------------------------------#
+    def _combination_2(self):
+        """Combination 2 : T_stop >= 1, self.T_stable = T_start = 0"""
 
         if self.T_stop >= 1 and self.T_start == 0 and self.T_stable == 0:
             # In this case, there are four state variables and three auxiliary variables.
@@ -916,7 +888,8 @@ class ThermalOptimization(OptimisationModel):
                         self.STOP[t] = 0
                         self.ON_DOWN[t] = 1
                         self.ON_UP[t] = (
-                            1  # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
+                            1
+                            # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
                         )
                         # stable constraint at this point.
                     elif last_power.get_value(t) > 0:
@@ -1211,11 +1184,8 @@ class ThermalOptimization(OptimisationModel):
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
-        # -------------------------------------------------------------#
-        #                                                             #
-        #### Combination 3 : T_stop = 0, self.T_stable >= 1 T_start = 0 ####
-        #                                                             #
-        # -------------------------------------------------------------#
+    def _combination_3(self):
+        """Combination 3 : T_stop = 0, self.T_stable >= 1 T_start = 0"""
 
         if self.T_stop == 0 and self.T_start == 0 and self.T_stable >= 1:
             # In this case, there are four state variables and the following auxiliary variables :
@@ -1675,11 +1645,8 @@ class ThermalOptimization(OptimisationModel):
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
-        # -------------------------------------------------------------#
-        #                                                             #
-        ##### Combination 4 : T_start >= 1, self.T_stable = T_stop = 0 #####
-        #                                                             #
-        # -------------------------------------------------------------#
+    def _combination_4(self):
+        """Combination 4 : T_start >= 1, self.T_stable = T_stop = 0"""
 
         if self.T_start >= 1 and self.T_stop == 0 and self.T_stable == 0:
             # In this case, there are four state variables and two auxiliary variables.
@@ -1747,7 +1714,8 @@ class ThermalOptimization(OptimisationModel):
                         self.START[t] = 0
                         self.ON_DOWN[t] = 1
                         self.ON_UP[t] = (
-                            1  # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
+                            1
+                            # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
                         )
                         # stable constraint at this point.
                     elif last_power.get_value(t) > 0:
@@ -2016,11 +1984,8 @@ class ThermalOptimization(OptimisationModel):
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
-        # -------------------------------------------------------------#
-        #                                                             #
-        ###   Combination 5 : T_start =0, self.T_stable = T_stop >= 1    ###
-        #                                                             #
-        # -------------------------------------------------------------#
+    def _combination_5(self):
+        """Combination 5 : T_start =0, self.T_stable = T_stop >= 1"""
 
         if self.T_stop >= 1 and self.T_start == 0 and self.T_stable >= 1:
             # In this case, there are four state variables and the following auxiliary variables :
@@ -2624,11 +2589,8 @@ class ThermalOptimization(OptimisationModel):
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
-        # -------------------------------------------------------------#
-        #                                                              #
-        ###   Combination 6 : T_stop =0, self.T_stable = T_start >= 1     ###
-        #                                                              #
-        # -------------------------------------------------------------#
+    def _combination_6(self):
+        """Combination 6 : T_stop =0, self.T_stable = T_start >= 1"""
 
         if self.T_stop == 0 and self.T_start >= 1 and self.T_stable >= 1:
             # In this case, there are five state variables and the following auxiliary variables :
@@ -3158,11 +3120,8 @@ class ThermalOptimization(OptimisationModel):
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
-        # -------------------------------------------------------------#
-        #                                                              #
-        ### Combination 7 : T_stop >= 1, self.T_stable = 0 T_start >= 1   ###
-        #                                                              #
-        # -------------------------------------------------------------#
+    def _combination_7(self):
+        """Combination 7 : T_stop >= 1, self.T_stable = 0 T_start >= 1"""
 
         if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable == 0:
             # In this case, there are five state variables and two auxiliary variables.
@@ -3242,7 +3201,8 @@ class ThermalOptimization(OptimisationModel):
                         self.START[t] = 0
                         self.ON_DOWN[t] = 1
                         self.ON_UP[t] = (
-                            1  # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
+                            1
+                            # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
                         )
                         # stable constraint at this point.
                     elif (
@@ -3606,11 +3566,8 @@ class ThermalOptimization(OptimisationModel):
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
-        # -------------------------------------------------------------#
-        #                                                              #
-        ####   Combination 8 : T_start = self.T_stable = T_stop >= 1     ####
-        #                                                              #
-        # -------------------------------------------------------------#
+    def _combination_8(self):
+        """Combination 8 : T_start = self.T_stable = T_stop >= 1"""
 
         if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable >= 1:
             # In this case, there are six state variables and the following auxiliary variables :
@@ -4279,12 +4236,16 @@ class ThermalOptimization(OptimisationModel):
                 self.model, self.thermal_unit, self.time_frame, self.parameters.time_step, self.q
             )
 
-        ###############
-        #
-        # STEP 4 : Solving the problem
-        #
-        ###############
-
+    def solve_thermal_optimization_program(self):
+        """
+        STEP 4 : Solving the problem
+        :return: - `results`: a dictionnary containing the optimal values of the decision variables,
+                    namely :
+                        . q*, the optimal power output
+                        . ON_.*, OFF*, START* and STOP* (when relevant), the optimal values of the state variables
+                    All these results are returned in the form of a TimeSeries object ranging over the optimization period
+                    (i.e. [startDate, endOptimizationDate]).
+        """
         self.model.set_solver_specific_parameters_as_string(
             "MIPRELSTOP {} PRESOLVE {} MAXTIME {}".format(
                 self.parameters.duality_gap, int(self.parameters.presolve), self.parameters.time_out

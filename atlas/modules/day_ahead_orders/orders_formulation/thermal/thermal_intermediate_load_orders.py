@@ -12,7 +12,7 @@ from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
 from atlas import OrderCoupling, Thermal
-from atlas.enum import CouplingType, ThermalStrategy
+from atlas.enum import CouplingType, ThermalStrategy, SolverEnum
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
@@ -400,8 +400,8 @@ class ThermalIntermediateLoadOrders:
             # Solve three times the optimization program, one for each price curve
             # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
-                model = ThermalOptimization(unit, price, value, parameters)
-                res = model.solve_thermal_optimization_program(unit, price, value, parameters)
+                model = ThermalOptimization(parameters, unit, price, value, SolverEnum.XPRESS)
+                res = model.solve_thermal_optimization_program()
                 results[unit.name][value] = res
 
                 # Store state sequences in the output marker
