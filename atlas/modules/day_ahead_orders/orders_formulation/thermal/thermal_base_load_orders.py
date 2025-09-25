@@ -86,7 +86,7 @@ class ThermalBaseLoadOrders:
         - 3 if the unit is in its shutdown phase at t
 
         The sequence of states is computed over the extended time frame, retrieved with the input parameters.
-        For the baseload unit, the extentedTimeFrame corresponds to startDate - T_traceback * TimeStep , ... , endDate + T_traceback * TimeStep
+        For the baseload unit, the extentedTimeFrame corresponds to start_date - T_traceback * time_step , ... , end_date + T_traceback * time_step
 
         REMARK : if there are more than one start up and one shutdown over the period, the program will be considered as inconsistent.
 
@@ -254,7 +254,7 @@ class ThermalBaseLoadOrders:
 
         # Based on these time steps, deduce the intervals.
         # The intervals bounds are retrieved by comparing the total minutes between to time steps :
-        # if the total number of minutes is greater that TimeStep, then the time steps i and i+1 correspond to bounds of two distinct intervals
+        # if the total number of minutes is greater that time_step, then the time steps i and i+1 correspond to bounds of two distinct intervals
         intervals = []
         if online_at_t:
             intervals.append(online_at_t[0])
