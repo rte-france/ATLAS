@@ -143,6 +143,10 @@ class DayAheadOrdersParameters(AbstractParameters):
     def penultimate_date(self) -> DateTime:
         return self.end_date - self.time_step
 
+    @cached_property
+    def end_optimization_date(self) -> DateTime:
+        return self.end_date + self.thermic_additional_hours
+
     @field_validator(
         "phs_additional_hours",
         "ev_additional_hours",
