@@ -112,6 +112,8 @@ class ThermalOptimization(OptimisationModel):
         self.tilde_U = {}
         self.D = {}  # This variable will be implemented in the gradient and bound the downward gradient
         self.tilde_D = {}
+        self.last_power = None
+        self.last_date = None
 
         # Power gradients
         # Definition of the gradients_time_frame : starts at start_date - time_step and goes until T-1
@@ -255,6 +257,15 @@ class ThermalOptimization(OptimisationModel):
             # Define the extendedTimeFrame, ranging from the last element of the previous_time_frame to end_optimization_date.
         # We also start from 1 in order to exclude start_date from the previous_time_frame.
         self.extended_start_date = self.previous_time_frame[-1]  # Last date in the previous_time_frame
+
+        # Retrieve the values of the Power attribute over previous_time_frame
+        self.last_power = self.thermal_unit.power.get_forecast(
+            self.parameters.execution_date,
+            self.extended_start_date,
+            self.parameters.start_date - self.parameters.time_step,
+        )  # Extract the time series corresponding to the previous period
+
+        self.last_date = self.last_power.last_date()  # get the last date with a recorded value
 
         # Set-up the power bounds : copy maximum- and minimum_power
         # because q_lower and q_upper may be modified afterwards.
@@ -559,21 +570,13 @@ class ThermalOptimization(OptimisationModel):
 
             # A. INITIAL CONDITIONS
 
-            # Retrieve the values of the Power attribute over previous_time_frame
-            last_power = self.thermal_unit.power.get_forecast(
-                self.parameters.execution_date,
-                self.extended_start_date,
-                self.parameters.start_date - self.parameters.time_step,
-            )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date()  # get the last date with a recorded value
-
             # See if the program needs to be initialized as DayZero or not
-            if len(last_power) == 0:
+            if len(self.last_power) == 0:
                 # Initialization of the program as DayZero and warn the user
                 if self.parameters.verbose:
                     cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
                 day_zero = True  # Boolean to keep track of the status
-            elif last_date != self.parameters.start_date - self.parameters.time_step:
+            elif self.last_date != self.parameters.start_date - self.parameters.time_step:
                 # last_date doesn't match start_date - time_step (i.e. t_{-1},
                 # so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
@@ -606,13 +609,13 @@ class ThermalOptimization(OptimisationModel):
             else:
                 # Initial condition on the power output
                 for t in self.previous_time_frame:
-                    self.q[t] = last_power.get_value(t)
+                    self.q[t] = self.last_power.get_value(t)
 
                 # Initial conditions on the state variables
                 # Only need to set one value, the mutual exclusion constraint being defined over the
                 # whole extended time frame.
                 for t in self.previous_time_frame:
-                    if last_power.get_value(t) > 0:
+                    if self.last_power.get_value(t) > 0:
                         self.OFF[t] = 0
                         self.ON_DOWN[t] = 1
                         self.ON_UP[t] = 1
@@ -821,21 +824,13 @@ class ThermalOptimization(OptimisationModel):
 
             # A. INITIAL CONDITIONS
 
-            # Retrieve the values of the Power attribute over previous_time_frame
-            last_power = self.thermal_unit.power.get_forecast(
-                self.parameters.execution_date,
-                self.extended_start_date,
-                self.parameters.start_date - self.parameters.time_step,
-            )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date()  # get the last date with a recorded value
-
             # See if the program needs to be initialized as DayZero or not
-            if len(last_power) == 0:
+            if len(self.last_power) == 0:
                 # Initialization of the program as DayZero and warn the user
                 if self.parameters.verbose:
                     cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
                 day_zero = True  # Boolean to keep track of the status
-            elif last_date != self.parameters.start_date - self.parameters.time_step:
+            elif self.last_date != self.parameters.start_date - self.parameters.time_step:
                 # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
@@ -869,14 +864,14 @@ class ThermalOptimization(OptimisationModel):
             else:
                 # Initial condition on the power output
                 for t in self.previous_time_frame:
-                    self.q[t] = last_power.get_value(t)
+                    self.q[t] = self.last_power.get_value(t)
 
                 # Initial conditions on the state variables
                 # Only need to set one value, the mutual exclusion constraint being defined over the
                 # whole extended time frame.
                 for t in self.previous_time_frame:
                     # There are now three cases : either q_t >= q_min, 0 < q_t < q_min or q_t = 0
-                    if last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
+                    if self.last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
                         self.OFF[t] = 0
                         self.STOP[t] = 0
                         self.ON_DOWN[t] = 1
@@ -885,7 +880,7 @@ class ThermalOptimization(OptimisationModel):
                             # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
                         )
                         # stable constraint at this point.
-                    elif last_power.get_value(t) > 0:
+                    elif self.last_power.get_value(t) > 0:
                         self.STOP[t] = 1
                         self.OFF[t] = 0
                         self.ON_UP[t] = 0
@@ -1177,21 +1172,13 @@ class ThermalOptimization(OptimisationModel):
             # Define the start_date - 2 time steps.
             start_date_minus_two = self.parameters.start_date - 2 * self.parameters.time_step
 
-            # Retrieve the values of the Power attribute over previous_time_frame
-            last_power = self.thermal_unit.power.get_forecast(
-                self.parameters.execution_date,
-                self.extended_start_date,
-                self.parameters.start_date - self.parameters.time_step,
-            )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date()  # get the last date with a recorded value
-
             # See if the program needs to be initialized as DayZero or not
-            if len(last_power) == 0:
+            if len(self.last_power) == 0:
                 # Initialization of the program as DayZero and warn the user
                 if self.parameters.verbose:
                     cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
                 day_zero = True  # Boolean to keep track of the status
-            elif last_date != self.parameters.start_date - self.parameters.time_step:
+            elif self.last_date != self.parameters.start_date - self.parameters.time_step:
                 # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
@@ -1238,11 +1225,11 @@ class ThermalOptimization(OptimisationModel):
 
                 # Initial condition on the power output
                 for t in self.previous_time_frame:
-                    self.q[t] = last_power.get_value(t)
+                    self.q[t] = self.last_power.get_value(t)
 
                 # Initial conditions on the state variables OFF/ON
                 for t in self.previous_time_frame:
-                    if last_power.get_value(t) > 0:
+                    if self.last_power.get_value(t) > 0:
                         self.OFF[t] = 0  # Only the OFF variable is initialized. ON_FLAT, ON_DOWN and ON_UP will be
                         # initialized afterwards.
                     else:
@@ -1608,21 +1595,13 @@ class ThermalOptimization(OptimisationModel):
 
             # A. INITIAL CONDITIONS
 
-            # Retrieve the values of the Power attribute over previous_time_frame
-            last_power = self.thermal_unit.power.get_forecast(
-                self.parameters.execution_date,
-                self.extended_start_date,
-                self.parameters.start_date - self.parameters.time_step,
-            )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date()  # get the last date with a recorded value
-
             # See if the program needs to be initialized as DayZero or not
-            if len(last_power) == 0:
+            if len(self.last_power) == 0:
                 # Initialization of the program as DayZero and warn the user
                 if self.parameters.verbose:
                     cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
                 day_zero = True  # Boolean to keep track of the status
-            elif last_date != self.parameters.start_date - self.parameters.time_step:
+            elif self.last_date != self.parameters.start_date - self.parameters.time_step:
                 # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
@@ -1655,12 +1634,12 @@ class ThermalOptimization(OptimisationModel):
             else:
                 # Initial condition on the power output
                 for t in self.previous_time_frame:
-                    self.q[t] = last_power.get_value(t)
+                    self.q[t] = self.last_power.get_value(t)
 
                 # Initial conditions on the state variables
                 for t in self.previous_time_frame:
                     # There are now three cases : either q_t >= q_min, 0 < q_t < q_min or q_t = 0
-                    if last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
+                    if self.last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
                         self.OFF[t] = 0
                         self.START[t] = 0
                         self.ON_DOWN[t] = 1
@@ -1669,7 +1648,7 @@ class ThermalOptimization(OptimisationModel):
                             # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
                         )
                         # stable constraint at this point.
-                    elif last_power.get_value(t) > 0:
+                    elif self.last_power.get_value(t) > 0:
                         self.START[t] = 1
                         self.OFF[t] = 0
                         self.ON_UP[t] = 0
@@ -1958,21 +1937,13 @@ class ThermalOptimization(OptimisationModel):
             # Define the start_date - 2 time steps.
             start_date_minus_two = self.parameters.start_date - 2 * self.parameters.time_step
 
-            # Retrieve the values of the Power attribute over previous_time_frame
-            last_power = self.thermal_unit.power.get_forecast(
-                self.parameters.execution_date,
-                self.extended_start_date,
-                self.parameters.start_date - self.parameters.time_step,
-            )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date()  # get the last date with a recorded value
-
             # See if the program needs to be initialized as DayZero or not
-            if len(last_power) == 0:
+            if len(self.last_power) == 0:
                 # Initialization of the program as DayZero and warn the user
                 if self.parameters.verbose:
                     cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
                 day_zero = True  # Boolean to keep track of the status
-            elif last_date != self.parameters.start_date - self.parameters.time_step:
+            elif self.last_date != self.parameters.start_date - self.parameters.time_step:
                 # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
@@ -2021,17 +1992,17 @@ class ThermalOptimization(OptimisationModel):
 
                 # Initial condition on the power output
                 for t in self.previous_time_frame:
-                    self.q[t] = last_power.get_value(t)
+                    self.q[t] = self.last_power.get_value(t)
 
                 # Initial conditions on the state variables OFF/ON
                 for t in self.previous_time_frame:
-                    if last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
+                    if self.last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
                         self.OFF[t] = (
                             0  # Only the OFF and STOP variables are initialized. ON_FLAT, ON_DOWN and ON_UP will be
                         )
                         # initialized afterwards.
                         self.STOP[t] = 0
-                    elif last_power.get_value(t) > 0:
+                    elif self.last_power.get_value(t) > 0:
                         self.OFF[t] = 0
                         self.STOP[t] = 1
                         if not t == self.start_date_minus_one:
@@ -2516,21 +2487,13 @@ class ThermalOptimization(OptimisationModel):
             # Define the start_date - 2 time steps.
             start_date_minus_two = self.parameters.start_date - 2 * self.parameters.time_step
 
-            # Retrieve the values of the Power attribute over previous_time_frame
-            last_power = self.thermal_unit.power.get_forecast(
-                self.parameters.execution_date,
-                self.extended_start_date,
-                self.parameters.start_date - self.parameters.time_step,
-            )  # Extract the time series corresponding to the previous period
-            last_date = last_power.last_date()  # get the last date with a recorded value
-
             # See if the program needs to be initialized as DayZero or not
-            if len(last_power) == 0:
+            if len(self.last_power) == 0:
                 # Initialization of the program as DayZero and warn the user
                 if self.parameters.verbose:
                     cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
                 day_zero = True  # Boolean to keep track of the status
-            elif last_date != self.parameters.start_date - self.parameters.time_step:
+            elif self.last_date != self.parameters.start_date - self.parameters.time_step:
                 # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
@@ -2578,17 +2541,17 @@ class ThermalOptimization(OptimisationModel):
 
                 # Initial condition on the power output
                 for t in self.previous_time_frame:
-                    self.q[t] = last_power.get_value(t)
+                    self.q[t] = self.last_power.get_value(t)
 
                 # Initial conditions on the state variables.
                 # The initialization is done in two times. If we are not at start_date_minus_one and not ON,
                 # we initialize all the state variables, otherwise an additional loop will be done to
                 # initialize the ON state variables from start_date_minus_two.
                 for t in self.previous_time_frame:
-                    if last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
+                    if self.last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
                         self.OFF[t] = 0
                         self.START[t] = 0
-                    elif last_power.get_value(t) > 0:
+                    elif self.last_power.get_value(t) > 0:
                         self.OFF[t] = 0
                         self.START[t] = 1
                         if not t == self.start_date_minus_one:
@@ -3021,22 +2984,13 @@ class ThermalOptimization(OptimisationModel):
 
             # A. INITIAL CONDITIONS
 
-            # Retrieve the values of the Power attribute over previous_time_frame
-            last_power = self.thermal_unit.power.get_forecast(
-                self.parameters.execution_date,
-                self.extended_start_date,
-                self.parameters.start_date - self.parameters.time_step,
-            )  # Extract the time series corresponding to the previous period
-
-            last_date = last_power.last_date()  # get the last date with a recorded value
-
             # See if the program needs to be initialized as DayZero or not
-            if len(last_power) == 0:
+            if len(self.last_power) == 0:
                 # Initialization of the program as DayZero and warn the user
                 if self.parameters.verbose:
                     cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
                 day_zero = True  # Boolean to keep track of the status
-            elif last_date != self.parameters.start_date - self.parameters.time_step:
+            elif self.last_date != self.parameters.start_date - self.parameters.time_step:
                 # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 if self.parameters.verbose:
                     cfg.logger.warning(
@@ -3071,12 +3025,12 @@ class ThermalOptimization(OptimisationModel):
             else:
                 # Initial condition on the power output
                 for t in self.previous_time_frame:
-                    self.q[t] = last_power.get_value(t)
+                    self.q[t] = self.last_power.get_value(t)
 
                 # Initial conditions on the state variables
                 for t in self.previous_time_frame:
                     # There are now three cases : either q_t >= q_min, 0 < q_t < q_min or q_t = 0
-                    if last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
+                    if self.last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
                         self.OFF[t] = 0
                         self.STOP[t] = 0
                         self.START[t] = 0
@@ -3087,7 +3041,7 @@ class ThermalOptimization(OptimisationModel):
                         )
                         # stable constraint at this point.
                     elif (
-                        last_power.get_value(t) > 0
+                        self.last_power.get_value(t) > 0
                     ):  # We will below see whether the unit was being turned on or turned off.
                         self.STOP[t] = 1
                         self.START[t] = 1
@@ -3467,21 +3421,12 @@ class ThermalOptimization(OptimisationModel):
             # Define the start_date - 2 time steps.
             start_date_minus_two = self.parameters.start_date - 2 * self.parameters.time_step
 
-            # Retrieve the values of the Power attribute over previous_time_frame
-            last_power = self.thermal_unit.power.get_forecast(
-                self.parameters.execution_date,
-                self.extended_start_date,
-                self.parameters.start_date - self.parameters.time_step,
-            )  # Extract the time series corresponding to the previous period
-
-            last_date = last_power.last_date()  # get the last date with a recorded value
-
             # See if the program needs to be initialized as DayZero or not
-            if len(last_power) == 0:
+            if len(self.last_power) == 0:
                 # Initialization of the program as DayZero and warn the user
                 cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
                 day_zero = True  # Boolean to keep track of the status
-            elif last_date != self.parameters.start_date - self.parameters.time_step:
+            elif self.last_date != self.parameters.start_date - self.parameters.time_step:
                 # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
                 cfg.logger.warning(
                     f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
@@ -3529,18 +3474,18 @@ class ThermalOptimization(OptimisationModel):
 
                 # Initial condition on the power output
                 for t in self.previous_time_frame:
-                    self.q[t] = last_power.get_value(t)
+                    self.q[t] = self.last_power.get_value(t)
 
                 # Initial conditions on the state variables OFF/ON
                 for t in self.previous_time_frame:
-                    if last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
+                    if self.last_power.get_value(t) >= self.thermal_unit.minimum_power.get_value(t):
                         self.OFF[t] = (
                             0  # Only the OFF and STOP variables are initialized. ON_FLAT, ON_DOWN and ON_UP will be
                         )
                         # initialized afterwards.
                         self.STOP[t] = 0
                         self.START[t] = 0
-                    elif last_power.get_value(t) > 0:
+                    elif self.last_power.get_value(t) > 0:
                         self.OFF[t] = 0
                         self.STOP[t] = 1  # Set both START and STOP at 1 for now, will be distinguished afterwards.
                         self.START[t] = 1
