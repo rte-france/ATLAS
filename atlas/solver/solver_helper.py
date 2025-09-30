@@ -139,13 +139,13 @@ class SolverHelper:
         """
         solver = pywraplp.Solver.CreateSolver(solver_name)
         for name, variable_dict in sorted(model_dict["variables"].items()):
-            SolverHelper.var_from_dict_test(name, variable_dict, True if name in model_dict["binaries"] else False, solver)
+            SolverHelper.var_from_dict_mc(name, variable_dict, True if name in model_dict["binaries"] else False, solver)
         for binary_name in sorted(model_dict["binaries"]):
             if not solver.LookupVariable(binary_name):
                 solver.IntVar(0, 1, binary_name)
         for ct_name, ct_parameters in sorted(model_dict["constraints"].items()):
-            SolverHelper.constraint_from_dict_test(ct_name, ct_parameters, solver)
-        SolverHelper.objective_from_dict_test(model_dict["objectives"], solver)
+            SolverHelper.constraint_from_dict_mc(ct_name, ct_parameters, solver)
+        SolverHelper.objective_from_dict_mc(model_dict["objectives"], solver)
 
         return solver
 
