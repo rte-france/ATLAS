@@ -611,12 +611,11 @@ class Clearing(OptimisationModel):
                 n_borders_with_losses += 1
         return n_borders_with_losses
 
-
     def retrieve_local_balances(self) -> dict[tuple[str, int], float]:
         """
 
         :return: A dictionary containing the accepted amounts of power for each orders of each market area
-        :rtype: dict[str, str, float]
+        :rtype: dict[tuple[str, str], float]
         """
         local_balances = {}
         for market_area_name in self.input_dataset.mc_market_areas:
@@ -625,12 +624,9 @@ class Clearing(OptimisationModel):
                 local_balances[market_area_name, time_index] = self.get_variable(accepted_power_name).solution_value()
         return local_balances
 
-
-    def retrieve_accepted_powers(self) -> dict[tuple[str, str], float]:
+    def retrieve_accepted_powers(self) -> dict[tuple[str, int], float]:
         """
-
-        :return: A dictionary containing the accepted amounts of power for each orders of each market area
-        :rtype: dict[str, str, float]
+        :rtype: dict[tuple[str, str], float]
         """
         accepted_powers = {}
         for mc_market_area in self.input_dataset.mc_market_areas.values():
@@ -638,3 +634,16 @@ class Clearing(OptimisationModel):
                 accepted_power_name = constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
                 accepted_powers[mc_order.market_area.name, mc_order.name] = self.get_variable(accepted_power_name).solution_value()
         return accepted_powers
+
+    def retrieve_saturated_critical_branch(self) -> dict[tuple[str, int], float]:
+        """
+        :rtype: dict[tuple[str, str], float]
+        """
+        saturated_critical_branch = {}
+        for time_index, _ in enumerate(self.input_dataset.times):
+            for critical_branch_name in self.input_dataset.mc_critical_branches:
+                critical_branch_saturation = self.get_constraint_slack_value(constants.constraint_3_6_2_constraint_name(
+                    critical_branch_name, time_index)
+                )
+                saturated_critical_branch[critical_branch_name, time_index] = critical_branch_saturation
+        return saturated_critical_branch
