@@ -3,6 +3,8 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+from atlas.modules.market_clearing.models.order_mc import OrderMC
+
 
 ##################################
 # Clearing Constants
@@ -194,50 +196,57 @@ def border_exchanges_constraint_name(border_name: str, time_index: int) -> str:
 
 # First Pricing model
 # Variables
-"""
-def price_on_group(price_group: str) -> str:
-    return f"price_on_group_{price_group.rank}_at_{price_group.time_index}"
+
+def price_on_group_variable_name(id: int, time_index: int) -> str:
+    return f"price_on_group_{id}_at_{time_index}"
 
 
-def positive_price_on_group(price_group: str) -> str:
-    return f"positive_price_on_group_{price_group.rank}_at_{price_group.time_index}"
+def positive_price_on_group_variable_name(id: int, time_index: int) -> str:
+    return f"positive_price_on_group_{id}_at_{time_index}"
 
 
-def negative_price_on_group(price_group: str) -> str:
-    return f"negative_price_on_group_{price_group.rank}_at_{price_group.time_index}"
+def negative_price_on_group_variable_name(id: int, time_index: int) -> str:
+    return f"negative_price_on_group_{id}_at_{time_index}"
 
 
-def positive_price_diff_on_group(price_group: str, other_price_group: str) -> str:
-    return f"positive_price_diff_of_groups_{price_group.rank}_and_{other_price_group.rank}_at_{other_price_group.time_index}"
+def shadow_price_variable_name(critical_branch_name: str, time_index: int) -> str:
+    return f"shadow_price_on_cb_{critical_branch_name}_at_{time_index}"
 
 
-def negative_price_diff_on_group(price_group: str, other_price_group: str) -> str:
-    return f"negative_price_diff_of_groups_{price_group.rank}_and_{other_price_group.rank}_at_{other_price_group.time_index}"
+def positive_price_diff_on_group_variable_name(id: int, other_id: int, time_index: int) -> str:
+    return f"positive_price_diff_of_groups_{id}_and_{other_id}_at_{time_index}"
+
+
+def negative_price_diff_on_group_variable_name(id: int, other_id: int, time_index: int) -> str:
+    return f"negative_price_diff_of_groups_{id}_and_{other_id}_at_{time_index}"
 
 
 # Constraints
+def shadow_price_constraint_name(critical_branch_name: str, time_index: int) -> str:
+    return f"Complementarity_shadow_price_t_{time_index}_cb_{critical_branch_name}"
+
 def adverse_flow_constraint_name(border_name: str, time_index: int) -> str:
     return f"prevent_adv_flow_on_{border_name}_at_{time_index}"
 
 
-def absolute_price_group_constraint_name(price_group: str, time_index: int) -> str:
-    return f"Price_pos_neg_group_{price_group.rank}_t_{time_index}"
+def absolute_price_group_constraint_name(id: int, time_index: int) -> str:
+    return f"Price_pos_neg_group_{id}_t_{time_index}"
 
 
-def positive_slack_branch_load_constraint_name(price_group: str, other_price_group: str, time_index: int) -> str:
-    return f"Pos_slack_branch_load_btw_{price_group.rank}_{other_price_group.rank}_at_{time_index}"
+def positive_slack_branch_load_constraint_name(id: int, other_id: int, time_index: int) -> str:
+    return f"Pos_slack_branch_load_btw_{id}_{other_id}_at_{time_index}"
 
 
-def negative_slack_branch_load_constraint_name(price_group: str, other_price_group: str, time_index: int) -> str:
-    return f"Neg_slack_branch_load_btw_{price_group.rank}_{other_price_group.rank}_at_{time_index}"
+def negative_slack_branch_load_constraint_name(id: int, other_id: int, time_index: int) -> str:
+    return f"Neg_slack_branch_load_btw_{id}_{other_id}_at_{time_index}"
 
 
-def price_ptdf_constraint_name(price_group: str, other_price_group: str, time_index: int) -> str:
-    return f"price_ptdf_time_{time_index}_areas_{price_group.rank}-{other_price_group.rank}"
+def price_ptdf_constraint_name(id: int, other_id: int, time_index: int) -> str:
+    return f"price_ptdf_time_{time_index}_areas_{id}-{other_id}"
 
 
-def price_difference_constraint_name(price_group: str, other_price_group: str, time_index: int) -> str:
-    return f"def_price_diff_groups_{price_group.rank}_and_{other_price_group.rank}_at_{time_index}"
+def price_difference_constraint_name(id: int, other_id: int, time_index: int) -> str:
+    return f"def_price_diff_groups_{id}_and_{other_id}_at_{time_index}"
 
 
 def linked_bids_surplus_constraint_name(index_lo: int) -> str:
@@ -252,12 +261,12 @@ def negative_parent_child_surplus_constraint_name(index_pc: int) -> str:
     return f"neg_surplus_parent_PC_{index_pc}"
 
 
-def pos_surplus_order_constraint_name(order: OrderMC, market_area_name: str, time_index: int) -> str:
-    return f"pos_surplus_order_{order.id}_area_{market_area_name}_eqpt_{order.eqpt_name}_t_{time_index}"
+def pos_surplus_order_constraint_name(order_name: str, equipment_name: str, market_area_name: str, time_index: int) -> str:
+    return f"pos_surplus_order_{order_name}_area_{market_area_name}_eqpt_{equipment_name}_t_{time_index}"
 
 
-def null_marginal_order_constraint_name(order: OrderMC, market_area_name: str, time_index: int) -> str:
-    return f"s_null_marginal_order_{order.id}_area_{market_area_name}_eqpt_{order.eqpt_name}_t_{time_index}"
+def null_marginal_order_constraint_name(order_name: str, equipment_name: str, market_area_name: str, time_index: int) -> str:
+    return f"s_null_marginal_order_{order_name}_area_{market_area_name}_eqpt_{equipment_name}_t_{time_index}"
 
 
 # Second Pricing model
@@ -289,8 +298,8 @@ def delta_p_pc(index_pc: int) -> str:
     return f"delta_p_PC_{index_pc}"
 
 
-def delta_p_order(order: OrderMC, market_area_name: str, time_index: int) -> str:
-    return f"delta_p_order_{order.id}_area_{market_area_name}_eqpt_{order.eqpt_name}_t_{time_index}"
+def delta_p_order(order_name: str, equipment_name: str, market_area_name: str, time_index: int) -> str:
+    return f"delta_p_order_{order_name}_area_{market_area_name}_eqpt_{equipment_name}_t_{time_index}"
 
 
 # Constraints
@@ -302,6 +311,6 @@ def paradoxical_delta_p_pc_constraint_name(index_pc: int) -> str:
     return f"paradoxical_delta_p_PC_{index_pc}"
 
 
-def paradoxical_delta_p_order_constraint_name(order: OrderMC, market_area_name: str, time_index: int) -> str:
-    return f"paradoxial_delta_p_order_{order.id}_area_{market_area_name}_eqpt_{order.eqpt_name}_t_{time_index}"
-"""
+def paradoxical_delta_p_order_constraint_name(order_name: str, equipment_name: str, market_area_name: str, time_index: int) -> str:
+    return f"paradoxial_delta_p_order_{order_name}_area_{market_area_name}_eqpt_{equipment_name}_t_{time_index}"
+
