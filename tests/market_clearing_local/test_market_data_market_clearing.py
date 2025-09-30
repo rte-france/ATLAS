@@ -9,6 +9,7 @@ import os
 import pickle
 import re
 from pathlib import Path
+from collections import OrderedDict
 
 import pandas as pd
 import pendulum
@@ -208,12 +209,21 @@ def compare_timeseries_to_dict(timeseries: Timeseries, _dict: dict[str, float]):
 
 
 @pytest.mark.skip(reason="No data available")
-def test_market_data():
-    path = "C:/Users/aboutet/Documents/atlas 2/ATLAS/data/market_clearing_prometheus/MarketClearing input v1.3 FB_2"
-    parameters_path = os.path.join(path, "parameters.yml")
-    dataset_path = os.path.join(path, "atlas-dataset")
-    pkl_path = os.path.join(path, "raw_data.pkl")
-    expected_data_path = os.path.join(path, "market_data_export")
+@pytest.mark.parametrize(
+    "dataset_name",
+    [
+        "MarketClearing input v1.3 FB_1",
+        "MarketClearing input v1.3 FB_2",
+        "MarketClearing input v1.3 ATC_1",
+        "MarketClearing input v1.3 ATC_2"
+    ]
+)
+def test_input(dataset_name):
+    path = Path("C:/Users/aboutet/Documents/atlas 2/ATLAS/data/market_clearing_prometheus/") / dataset_name
+    parameters_path = path / "parameters.yml"
+    dataset_path = path / "atlas-dataset"
+    pkl_path = path / "raw_data.pkl"
+    expected_data_path = path / "market_data_export"
 
     mc_module = MarketClearingModule()
     if os.path.exists(pkl_path):
