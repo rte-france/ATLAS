@@ -168,7 +168,7 @@ class ExchangesFixing(OptimisationModel):
             exchanges_sum.append(
                 border_sign * self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
             )
-        return exchanges_sum
+        return sum(exchanges_sum)
 
     def create_absolute_timed_exchanges_constraints(self, is_atc: bool):
         for time_index, _ in enumerate(self.input_dataset.times):
@@ -267,3 +267,14 @@ class ExchangesFixing(OptimisationModel):
             if mc_market_border.loss_factor and mc_market_border.loss_factor > 0.0:
                 n_borders_with_losses += 1
         return n_borders_with_losses
+
+    def retrieve_border_exchanges(self) -> dict[tuple[str, int], float]:
+        """
+        :rtype: dict[tuple[str, str], float]
+        """
+        border_exchanges = {}
+        for time_index, _ in enumerate(self.input_dataset.times):
+            for border_name in self.input_dataset.mc_market_borders.keys():
+                border_exchange_name = constants.border_exchange_variable_name(border_name, time_index)
+                border_exchanges[border_name, time_index] = self.get_variable(border_exchange_name).solution_value()
+        return border_exchanges
