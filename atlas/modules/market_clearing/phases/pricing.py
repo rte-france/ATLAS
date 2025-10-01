@@ -123,14 +123,24 @@ class Pricing(OptimisationModel):
 
     def build_third_variables(self):
         """Create all variables for the third pricing phase model"""
+        self.create_delta_price_lo_variables()
+        self.create_delta_price_pc_variables()
 
     def build_third_constraints(self):
         """Create all constraints for the third pricing phase model"""
+        self.deactivate_positive_surplus_lo_constraints()
+        self.deactivate_negative_surplus_pc_constraints()
+        self.deactivate_positive_surplus_pc_constraints()
+        self.deactivate_positive_surplus_order_constraints()
+        self.create_paradoxical_delta_price_lo_constraints()
+        self.create_paradoxical_delta_price_pc_constraints()
+        self.create_paradoxical_delta_price_order_constraints()
 
     def build_third_objective(self):
         """Create objective function for the third pricing phase model"""
-        objective = []
-        self.solver.Maximize(sum(objective))
+        self.create_paradoxical_lo_objective()
+        self.create_paradoxical_pc_objective()
+        self.create_paradoxical_order_objective()
 
     ##################################
     # Variables
@@ -587,6 +597,179 @@ class Pricing(OptimisationModel):
                 objective.append(self.parameters.paradoxically_rejected_penalty_N *
                                  (price_group.min_rejected_sale + price_group.max_rejected_buy))
         return self.add_objective(sum(objective), direction="minimize")
+
+    # Pricing 3
+    def create_delta_price_lo_variables(self):
+        for index_lo in self.dict_linked_orders:
+            self.add_continuous_variable(constants.delta_p_lo(index_lo), 0, float("inf"))
+
+    def create_delta_price_pc_variables(self):
+        for index_pc in self.dict_parent_child_orders:
+            self.add_continuous_variable(constants.delta_p_pc(index_pc), 0, float("inf"))
+
+    def create_delta_price_order_variables(self):
+        for mc_order in self.input_dataset.mc_orders.values():
+            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+                if mc_order.id_with_status is None or mc_order.parent_child_id is not None:
+                    continue
+                time_index = 0
+                for time_index, time in enumerate(self.input_dataset.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                    self.add_continuous_variable(constants.delta_p_order(mc_order.name, equipment_name,
+                                                                         mc_order.market_area.name, time_index),
+                                                 0, float("inf"))
+
+    def deactivate_positive_surplus_lo_constraints(self):
+        for index_lo in self.dict_linked_orders:
+            constraint = self.get_constraint(constants.linked_bids_surplus_constraint_name(index_lo))
+            constraint.Deactivate()
+
+    def deactivate_negative_surplus_pc_constraints(self):
+        for index_pc in self.dict_parent_child_orders:
+            constraint = self.get_constraint(constants.negative_parent_child_surplus_constraint_name(index_pc))
+            constraint.Deactivate()
+
+    def deactivate_positive_surplus_pc_constraints(self):
+        for index_pc, (_, children_orders) in self.dict_parent_child_orders.items():
+            for order in children_orders:
+                mc_order = self.input_dataset.mc_orders[order.name]
+                time_index = 0
+                for time_index, time in enumerate(self.parameters.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+                constraint = self.get_constraint(constants.positive_parent_child_surplus_constraint_name(mc_order.child_id, mc_order.full_pc_id, time_index))
+                constraint.Deactivate()
+
+    def deactivate_positive_surplus_order_constraints(self):
+        for mc_order in self.input_dataset.mc_orders.values():
+            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+                if mc_order.id_with_status is None or mc_order.parent_child_id is not None:
+                    continue
+                time_index = 0
+                for time_index, time in enumerate(self.input_dataset.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                    constraint = self.get_constraint(
+                        constants.pos_surplus_order_constraint_name(mc_order.name, equipment_name,
+                                                                    mc_order.market_area.name, time_index))
+                    constraint.Deactivate()
+
+    def create_paradoxical_delta_price_order_constraints(self):
+        for mc_order in self.input_dataset.mc_orders.values():
+            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+                if mc_order.id_with_status is None or mc_order.parent_child_id is not None:
+                    continue
+
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    time_index = 0
+                    for time_index, time in enumerate(self.input_dataset.times):
+                        if time == mc_order.start_datetime:
+                            time_index = time_index
+                            break
+                    local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
+                                                                                       time_index))
+                    coeff_sale = 1 if mc_order.is_sale else -1
+                    opposite_delta_p = coeff_sale * (mc_order   .price - local_price)
+                    equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                    paradoxical_delta_p = self.get_variable(constants.delta_p_order(mc_order.name, equipment_name,
+                                                                         mc_order.market_area.name, time_index))
+                    self.add_constraint(paradoxical_delta_p >= opposite_delta_p,
+                                        constants.paradoxical_delta_p_order_constraint_name(mc_order.name, equipment_name,
+                                                                         mc_order.market_area.name, time_index))
+
+    def create_paradoxical_lo_objective(self):
+        objective = []
+        for index_lo in self.dict_linked_orders:
+            delta_p = self.get_variable(constants.delta_p_lo(index_lo))
+            objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
+        return self.add_objective(sum(objective), direction="minimize")
+
+    def create_paradoxical_pc_objective(self):
+        objective = []
+        for index_pc in self.dict_parent_child_orders:
+            delta_p = self.get_variable(constants.delta_p_pc(index_pc))
+            objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
+        return self.add_objective(sum(objective), direction="minimize")
+
+    def create_paradoxical_order_objective(self):
+        objective = []
+        for mc_order in self.input_dataset.mc_orders.values():
+            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+                if mc_order.id_with_status is None or mc_order.parent_child_id is not None:
+                    continue
+                time_index = 0
+                for time_index, time in enumerate(self.input_dataset.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                    delta_p = self.get_variable(constants.delta_p_order(mc_order.name, equipment_name,
+                                                                         mc_order.market_area.name, time_index))
+                    objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
+        return self.add_objective(sum(objective), direction="minimize")
+
+    def create_paradoxical_delta_price_pc_constraints(self):
+        for index_pc, (parent_orders, children_orders) in self.dict_parent_child_orders.items():
+            paradoxical_delta_p = self.get_variable(constants.delta_p_lo(index_pc))
+            opposite_delta_p = 0.0
+            for order in parent_orders + children_orders:
+                mc_order = self.input_dataset.mc_orders[order.name]
+                time_index = 0
+                for time_index, time in enumerate(self.parameters.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+                local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
+                                                                                       time_index))
+                coeff_sale = 1 if mc_order.is_sale else -1
+
+                # If order is accepted, add its delta P to the overall paradoxical delta P of this group of linked orders
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    opposite_delta_p += coeff_sale * (mc_order.price - local_price)
+
+            self.add_constraint(paradoxical_delta_p >= opposite_delta_p,
+                                constants.paradoxical_delta_p_lo_constraint_name(index_pc))
+
+    def create_paradoxical_delta_price_lo_constraints(self):
+        for index_lo, orders in self.dict_linked_orders.items():
+            paradoxical_delta_p = self.get_variable(constants.delta_p_lo(index_lo))
+            opposite_delta_p = 0
+            for order in orders:
+                mc_order = self.input_dataset.mc_orders[order.name]
+                time_index = 0
+                for time_index, time in enumerate(self.parameters.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+                local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
+                                                                                       time_index))
+                coeff_sale = 1 if mc_order.is_sale else -1
+
+                # If order is accepted, add its delta P to the overall paradoxical delta P of this group of linked orders
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    opposite_delta_p += coeff_sale * (mc_order.price - local_price)
+
+
+            self.add_constraint(paradoxical_delta_p >= opposite_delta_p,
+                                constants.paradoxical_delta_p_lo_constraint_name(index_lo))
 
     def convert_time_index_to_time(self, time_index: int) -> pendulum.DateTime:
         return self.parameters.start_date + time_index * self.parameters.time_step

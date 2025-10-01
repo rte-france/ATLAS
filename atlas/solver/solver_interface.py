@@ -208,6 +208,20 @@ class OptimisationModel:
         self._solver.Add(constraint_expr, name)
         self._constraints_name.add(name)
 
+    def get_constraint(self, name: str) -> Any:
+        """
+        Get a constraint object by name for use in expressions.
+
+        :param name: Constraint name
+        :type name: str
+        :return: OR-Tools constraint object
+        :rtype: pywraplp.Constraint
+        :raises ValueError: If constraint doesn't exist
+        """
+        if name not in self._constraints_name:
+            raise ValueError(f"Constraint '{name}' not found")
+        return self._solver.LookupConstraint(name)
+
     def add_objective(
         self,
         objective_expr: Any,
