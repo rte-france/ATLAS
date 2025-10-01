@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME
+from atlas.enum import CouplingType
 from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
@@ -133,21 +134,21 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 if order.name not in mc_orders:
                     continue
                 mc_order = mc_orders[order.name]
-                if order_coupling.coupling_type == "EXCLUSION":
+                if order_coupling.coupling_type == CouplingType.EXCLUSION:
                     mc_order.id_with_status = True
                     mc_order.is_mutually_excluding = True
-                if order_coupling.coupling_type == "IDENTICAL_VOLUME":
+                if order_coupling.coupling_type == CouplingType.IDENTICAL_VOLUME:
                     mc_order.is_linked = True
                     mc_order.link_id = order_coupling.name
-                if order_coupling.coupling_type == "IDENTICAL_RATIO":
+                if order_coupling.coupling_type == CouplingType.IDENTICAL_RATIO:
                     mc_order.is_linked = True
                     mc_order.link_id = order_coupling.name
                 # Uncomment to enforce the PC constraint
-                if order_coupling.coupling_type == "PARENT_CHILDREN":
+                if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
                     mc_order.is_parent_children = True
                     mc_order.id_with_status = True
                     mc_order.parent_child_id = order_coupling.name
-                if order_coupling.coupling_type == "COMPLEMENT":
+                if order_coupling.coupling_type == CouplingType.COMPLEMENT:
                     mc_order.is_linked = True
                     mc_order.link_id = order_coupling.name
             if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
