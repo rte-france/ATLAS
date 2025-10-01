@@ -8,3 +8,5 @@ class PriceGroup:
         self.market_area_names = []
         self.max_price = float("inf")
         self.min_price = -float("inf")
+        min_rejected_sale = None
+        max_rejected_buy = None

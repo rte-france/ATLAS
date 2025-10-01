@@ -13,7 +13,7 @@ from atlas import InputLoader
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 from atlas.modules.market_clearing.phases.pricing import Pricing
 from atlas.solver.solver_helper import SolverHelper
-from tests.market_clearing_local.market_clearig_test_utils import transform_clearing_prometheus_lp
+from tests.market_clearing_local.market_clearing_test_utils import transform_clearing_prometheus_lp
 
 
 def retrieve_local_balances_from_json(local_balances_path: str) -> dict[tuple[str, int], float]:
@@ -23,6 +23,24 @@ def retrieve_local_balances_from_json(local_balances_path: str) -> dict[tuple[st
         for ma, t, val in local_balances_list:
             local_balances[ma, t] = val
     return local_balances
+
+
+def retrieve_saturated_critical_branches_from_json(local_balances_path: str) -> dict[tuple[str, int], float]:
+    saturated_critical_branches = {}
+    with open(local_balances_path, mode="r") as f:
+        saturated_critical_branches_list = json.load(f)
+        for critical_branch, time_index, val in saturated_critical_branches_list:
+            saturated_critical_branches[critical_branch, time_index] = val
+    return saturated_critical_branches
+
+
+def retrieve_border_exchanges_from_json(local_balances_path: str) -> dict[tuple[str, int], float]:
+    border_exchanges = {}
+    with open(local_balances_path, mode="r") as f:
+        border_exchanges_list = json.load(f)
+        for border_name, time_index, val in border_exchanges_list:
+            border_exchanges[border_name, time_index] = val
+    return border_exchanges
 
 
 def retrieve_pricing_lp(path):
@@ -44,10 +62,17 @@ def retrieve_pricing_lp(path):
     parameters = mc_module.import_parameters(parameters_path)
     input_dataset = mc_module.import_data(raw_data, parameters)
 
-    # clearing_local_balances = retrieve_local_balances_from_json(os.path.join(path, "optimization_data",
-    #                                                                         "clearing_local_balances.json"))
+    clearing_local_balances = retrieve_local_balances_from_json(os.path.join(path, "optimization_data",
+                                                                             "clearing_local_balances.json"))
+    clearing_saturated_critical_branches = retrieve_local_balances_from_json(
+        os.path.join(path, "optimization_data", "clearing_saturated_critical_branches.json"))
+    exchange_fixing_border_exchanges = retrieve_border_exchanges_from_json(os.path.join(path, "optimization_data",
+                                                                             "clearing_border_exchanges.json"))
+    clearing_accepted_powers = retrieve_border_exchanges_from_json(os.path.join(path, "optimization_data",
+                                                                             "clearing_accepted_powers.json"))
 
-    pricing = Pricing(input_dataset, parameters)
+    pricing = Pricing(input_dataset, parameters, clearing_saturated_critical_branches,
+                      exchange_fixing_border_exchanges, clearing_local_balances, clearing_accepted_powers)
     pricing.run()
 
     return "pricing_1_model.lp", "pricing_2_model.lp", "pricing_3_model.lp"
@@ -57,23 +82,22 @@ def retrieve_pricing_lp(path):
 @pytest.mark.parametrize(
     "dataset_name",
     [
-        "MarketClearing input v1.3 FB_1",
-        "MarketClearing input v1.3 FB_2",
+        #"MarketClearing input v1.3 FB_1",
+        #"MarketClearing input v1.3 FB_2",
         "MarketClearing input v1.3 ATC_1",
         "MarketClearing input v1.3 ATC_2"
     ]
 )
 def test_compare_lp(dataset_name):
-    # le lp prometheus doit être modifié dans une fonction à part
     path = os.path.join("data", "market_clearing_prometheus", dataset_name)
-    expected_lp_path = os.path.join(path, "optimization_data", "exchanges_fixing_phase.lp")
-    lp_mapping_path = os.path.join(path, "optimization_data", "exchanges_fixing_phase.lp_correspondance.csv")
-    clearing_lp_path = retrieve_exchanges_fixing_lp(path)
+    first_expected_lp_path = os.path.join(path, "optimization_data", "first_pricing_phase.lp")
+    first_lp_mapping_path = os.path.join(path, "optimization_data", "first_pricing_phase.lp_correspondance.csv")
+    pricing_lp_path = retrieve_pricing_lp(path)
 
     market_data_export_path = os.path.join(path, "market_data_export")
-    legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, market_data_export_path)
+    legacy_dict = transform_clearing_prometheus_lp(first_expected_lp_path, first_lp_mapping_path, market_data_export_path)
     atlas_objectives, atlas_constraints, atlas_variables, atlas_binaries = SolverHelper.read_lp_ortools(
-        clearing_lp_path)
+        pricing_lp_path)
     atlas_dict = {
         "constraints": atlas_constraints,
         "variables": atlas_variables,

@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 from pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
+from atlas.models.market.market_area import MarketArea
 from atlas.enum import OrderType, Product
 from atlas.logging import logger
 from atlas.models.market.order import Order
@@ -15,6 +16,7 @@ from atlas.modules.market_clearing.market_clearing_parameters import MarketClear
 
 class OrderMC(Order):
     # Override of parent class  attributes that were None
+    market_area: MarketArea
     execution_date: DateTime
     start_date: DateTime
     end_date: DateTime

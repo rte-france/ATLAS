@@ -220,6 +220,8 @@ def positive_price_diff_on_group_variable_name(id: int, other_id: int, time_inde
 def negative_price_diff_on_group_variable_name(id: int, other_id: int, time_index: int) -> str:
     return f"negative_price_diff_of_groups_{id}_and_{other_id}_at_{time_index}"
 
+def link_child_to_pc(index_child: int, index_pc: int):
+    return f"link_s_child_{index_child}_PC_{index_pc}"
 
 # Constraints
 def shadow_price_constraint_name(critical_branch_name: str, time_index: int) -> str:
@@ -284,8 +286,8 @@ def pos_min_rej_sale_group_constraint_name(current_index: int, time_index: int) 
     return f"pos_min_rej_sale_group_{current_index}_at_{time_index}"
 
 
-def pos_min_rej_buy_group_constraint_name(current_index: int, time_index: int) -> str:
-    return f"pos_min_rej_buy_group_{current_index}_at_{time_index}"
+def pos_max_rej_buy_group_constraint_name(current_index: int, time_index: int) -> str:
+    return f"pos_max_rej_buy_group_{current_index}_at_{time_index}"
 
 
 # Third Pricing model

@@ -1,12 +1,15 @@
 import pendulum
 
 import atlas.modules.market_clearing.market_clearing_constants as constants
-from atlas import OptimisationModel
+from atlas import OptimisationModel, Order, Equipment
+from atlas.config import logger
+from atlas.enum import CouplingType, ComplementDirection
 from atlas.modules.market_clearing.PriceGroup import PriceGroup
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
 from atlas.modules.market_clearing.models.market_border_mc import MarketBorderMC, DEFAULT_MIN_FLOW
+from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
 
 
 class Pricing(OptimisationModel):
@@ -25,6 +28,9 @@ class Pricing(OptimisationModel):
         self.clearing_local_balances = clearing_local_balances
         self.clearing_accepted_powers = clearing_accepted_powers
         self.price_groups = self.create_price_groups()
+        self.dict_circular_children_bids = self.get_circular_parent_child_sets()
+        self.dict_linked_orders = self.compute_linked_bids_sets()
+        self.dict_parent_child_orders = self.compute_parent_child_sets()
         self.first_pricing = None
         self.second_pricing = None
         self.third_pricing = None
@@ -43,12 +49,14 @@ class Pricing(OptimisationModel):
         self.export_model("pricing_3_model.lp")
 
     def build_first(self):
+        self.instantiate_order_group_index()
         self.build_first_variables()
         self.build_first_constraints()
         self.build_first_objective()
 
     def build_first_variables(self):
         """Create all variables for the first pricing phase model"""
+        # Define surplus on the corresponding sets
         self.create_price_variables()
         self.create_positive_price_variables()
         self.create_negative_price_variables()
@@ -58,6 +66,7 @@ class Pricing(OptimisationModel):
             self.create_positive_slack_branch_load_variables()
             self.create_negative_slack_branch_load_variables()
         self.create_shadow_price_variables()
+        self.create_link_child_to_pc_variables()
 
     def build_first_constraints(self):
         """Create all constraints for the first pricing phase model"""
@@ -69,10 +78,13 @@ class Pricing(OptimisationModel):
             self.create_branch_load_constraint()
         self.create_add_price_difference_constraint()
         self.create_shadow_price_constraints()
+        self.create_linked_bid_surplus_constraints()
+        self.create_parent_child_surplus_constraints()
+        self.create_pos_surplus_order_constraints()
+        self.create_null_marginal_order_constraints()
 
     def build_first_objective(self):
         """Create objective function for the first pricing phase model"""
-        objective = []
         if self.parameters.market_price_penalty_alpha:
             self.create_groups_prices_objective()
         if self.parameters.market_price_penalty_beta:
@@ -80,23 +92,29 @@ class Pricing(OptimisationModel):
         if not self.input_dataset.is_atc and self.parameters.fb_branch_load_slack_penalty:
             self.create_branch_load_objective()
         self.create_groups_price_diff_objective()
-        self.solver.Maximize(sum(objective))
 
     def build_second(self):
+        # Update PriceGroup
+        self.update_price_bound()
+        self.compute_min_max_rejected_sale_buy()
         self.build_second_variables()
+        # If the order is accepted, check if it is partially accepted. If so, delete the marginal surplus constraint.
         self.build_second_constraints()
         self.build_second_objective()
 
     def build_second_variables(self):
         """Create all variables for the second pricing phase model"""
+        self.create_surplus_rejected_variables()
 
     def build_second_constraints(self):
         """Create all constraints for the exchange fixing phase model"""
+        self.deactivate_null_marginal_order_constraint()
+        self.create_min_surplus_rejected_sale_constraints()
+        self.create_max_surplus_rejected_buy_constraints()
 
     def build_second_objective(self):
         """Create objective function for the second pricing phase model"""
-        objective = []
-        self.solver.Maximize(sum(objective))
+        self.create_surplus_objective()
 
     def build_third(self):
         self.build_third_variables()
@@ -117,6 +135,16 @@ class Pricing(OptimisationModel):
     ##################################
     # Variables
     ##################################
+    def create_link_child_to_pc_variables(self):
+        for index_pc, (parent_orders, child_orders) in self.dict_parent_child_orders.items():
+            index_child = 0
+            for child_order in child_orders:
+                child_mc_order = self.input_dataset.mc_orders[child_order.name]
+                local_cleared_power = self.clearing_accepted_powers[child_mc_order.market_area.name, child_mc_order.name]
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    self.add_continuous_variable(constants.link_child_to_pc(index_child, index_pc),
+                                                 0, float("inf"))
+
     def create_price_variables(self):
         for time_index, _time in enumerate(self.input_dataset.times):
             for price_group in self.price_groups[time_index]:
@@ -212,6 +240,138 @@ class Pricing(OptimisationModel):
     ##################################
     # Constraints
     ##################################
+    def create_linked_bid_surplus_constraints(self):
+        for index_lo, orders in self.dict_linked_orders.items():
+            logger.debug(f"Surplus for : {index_lo}")
+            surplus = 0
+            for order in orders:
+                mc_order = self.input_dataset.mc_orders[order.name]
+                time_index = 0
+                for time_index, time in enumerate(self.input_dataset.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+                local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index, time_index))
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+                coeff_sale = 1 if mc_order.is_sale else -1
+
+                # If order is accepted, add its surplus to the overall surplus of this group of linked orders
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    surplus += coeff_sale * local_cleared_power * (local_price - mc_order.price)
+
+            self.add_constraint(
+                surplus >= 0.0,
+                constants.linked_bids_surplus_constraint_name(index_lo),
+            )
+
+    # Global parent_child bids' surplus
+    def create_parent_child_surplus_constraints(self):
+        for index_pc, (parent_orders, child_orders) in self.dict_parent_child_orders.items():
+            logger.debug(f"Surplus for PC {index_pc}")
+
+            index_child = 0
+            sum_children_link_surplus = 0
+
+            # Setting constraints individually for child orders
+            for child_order in child_orders:
+                child_mc_order = self.input_dataset.mc_orders[child_order.name]
+                time_index = 0
+                for time_index, time in enumerate(self.input_dataset.times):
+                    if time == child_mc_order.start_datetime:
+                        time_index = time_index
+                        break
+
+                local_price = self.get_variable(constants.price_on_group_variable_name(child_mc_order.group_index,
+                                                                                       time_index))
+                local_cleared_power = self.clearing_accepted_powers[child_mc_order.market_area.name, child_mc_order.name]
+                coeff_sale = 1 if child_mc_order.is_sale else -1
+
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    link_surplus = self.get_variable(constants.link_child_to_pc(index_child, index_pc))
+                    sum_children_link_surplus += link_surplus
+                    logger.debug(f"surplus child {index_child} PC {index_pc}")
+                    self.add_constraint(
+                        (coeff_sale * local_cleared_power * (local_price - child_mc_order.price) - link_surplus)
+                        >= 0.0,
+                        constants.positive_parent_child_surplus_constraint_name(index_child, index_pc, time_index),
+                    )
+                    index_child += 1
+
+            # Then set global constraint on parents
+            surplus = 0
+            for parent_order in parent_orders:
+                parent_mc_order = self.input_dataset.mc_orders[parent_order.name]
+                time_index = 0
+                for time_index, time in enumerate(self.input_dataset.times):
+                    if time == parent_mc_order.start_datetime:
+                        time_index = time_index
+                        break
+
+                local_price = self.get_variable(constants.price_on_group_variable_name(parent_mc_order.group_index,
+                                                                                       time_index))
+                local_cleared_power = self.clearing_accepted_powers[parent_mc_order.market_area.name, parent_mc_order.name]
+                coeff_sale = 1 if parent_mc_order.is_sale else -1
+
+                # If order is accepted, add its surplus to the overall surplus of this group of linked orders
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    surplus += coeff_sale * local_cleared_power * (local_price - parent_order.price)
+            logger.debug(f"Surplus parent PC {index_pc}")
+            self.add_constraint(
+                surplus + sum_children_link_surplus >= 0.0,
+                constants.negative_parent_child_surplus_constraint_name(index_pc),
+            )
+
+    def create_pos_surplus_order_constraints(self):
+        for mc_order in self.input_dataset.mc_orders.values():
+            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+                time_index = 0
+                for time_index, time in enumerate(self.input_dataset.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+
+                local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
+                                                                                       time_index))
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    coeff_sale = 1 if mc_order.is_sale else -1
+                    equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                    self.add_constraint(
+                        coeff_sale * local_cleared_power * (local_price - mc_order.price) >= 0.0,
+                        constants.pos_surplus_order_constraint_name(mc_order.name, equipment_name,
+                                                                    mc_order.market_area.name, time_index),
+                    )
+
+    def create_null_marginal_order_constraints(self):
+        for mc_order in self.input_dataset.mc_orders.values():
+            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+                time_index = 0
+                for time_index, time in enumerate(self.parameters.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+
+                local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
+                                                                                       time_index))
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    coeff_sale = 1 if mc_order.is_sale else -1
+                    equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                    # MARGINAL SURPLUS: if the bid is not linked and marginally accepted, its surplus should be null
+                    if not mc_order.is_linked:
+                        if (
+                            abs(local_cleared_power - mc_order.min_power) >= self.parameters.allowed_round_off_error
+                            and abs(local_cleared_power - mc_order.max_power) >= self.parameters.allowed_round_off_error
+                        ):
+                            constraint_name = constants.null_marginal_order_constraint_name(
+                                mc_order.name, equipment_name, mc_order.market_area.name, time_index)
+                            self.add_constraint(
+                                coeff_sale * local_cleared_power * (local_price - mc_order.price) == 0.0,
+                                constraint_name
+                            )
+
     def create_shadow_price_constraints(self):
         for time_index, _time in enumerate(self.input_dataset.times):
             for critical_branch_name in self.input_dataset.mc_critical_branches:
@@ -316,7 +476,7 @@ class Pricing(OptimisationModel):
             for price_group in self.price_groups[time_index]:
                 price = self.get_variable(constants.price_on_group_variable_name(price_group.id, time_index))
                 objective.append(self.parameters.market_price_penalty_alpha * price)
-        return self.add_objective(sum(objective), direction="maximize")
+        return self.add_objective(sum(objective), direction="minimize")
 
     def create_absolute_price_objective(self):
         objective = []
@@ -327,7 +487,7 @@ class Pricing(OptimisationModel):
                 negative_price = self.get_variable(
                     constants.negative_price_on_group_variable_name(price_group.id, time_index))
                 objective.append(self.parameters.market_price_penalty_beta * (positive_price - negative_price))
-        return self.add_objective(sum(objective), direction="maximize")
+        return self.add_objective(sum(objective), direction="minimize")
 
     def create_branch_load_objective(self):
         objective = []
@@ -345,7 +505,7 @@ class Pricing(OptimisationModel):
                         price_groups[i].id, price_groups[j].id, time_index))
                     objective.append(self.parameters.fb_branch_load_slack_penalty *
                                      (positive_load_slack - negative_load_slack))
-        return self.add_objective(sum(objective), direction="maximize")
+        return self.add_objective(sum(objective), direction="minimize")
 
     def create_groups_price_diff_objective(self):
         objective = []
@@ -361,7 +521,72 @@ class Pricing(OptimisationModel):
                             price_groups[i].id, price_groups[j].id, time_index))
                     objective.append(self.parameters.fb_branch_load_slack_penalty *
                                      (positive_price_diff - negative_price_diff))
-        return self.add_objective(sum(objective), direction="maximize")
+        return self.add_objective(sum(objective), direction="minimize")
+
+    # Second Pricing variables
+    def create_surplus_rejected_variables(self):
+        for price_group_list in self.price_groups.values():
+            for price_group in price_group_list:
+                self.add_continuous_variable(
+                    constants.worst_rej_sale_group(price_group.id, price_group.time_index),
+                    0.0,
+                    float("inf"),
+                )
+                self.add_continuous_variable(
+                    constants.worst_rej_buy_group(price_group.id, price_group.time_index),
+                    0.0,
+                    float("inf"),
+                )
+
+    def deactivate_null_marginal_order_constraint(self):
+        for mc_order in self.input_dataset.mc_orders.values():
+            if mc_order.full_link_id is None and mc_order.parent_child_id is None:
+                time_index = 0
+                for time_index, time in enumerate(self.parameters.times):
+                    if time == mc_order.start_datetime:
+                        time_index = time_index
+                        break
+
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                    # MARGINAL SURPLUS: if the bid is not linked and marginally accepted, its surplus should be null
+                    if not mc_order.is_linked:
+                        if (
+                            abs(local_cleared_power - mc_order.min_power) >= self.parameters.allowed_round_off_error
+                            and abs(local_cleared_power - mc_order.max_power) >= self.parameters.allowed_round_off_error
+                        ):
+                            constraint_name = constants.null_marginal_order_constraint_name(
+                                mc_order.name, equipment_name, mc_order.market_area.name, time_index)
+                            constraint = self.get_constraint(constraint_name)
+                            constraint.Deactivate()
+
+    def create_min_surplus_rejected_sale_constraints(self):
+        for time_index, price_groups in self.price_groups:
+            for price_group in price_groups:
+                current_price = self.get_variable(constants.price_on_group_variable_name(price_group.id, price_group.time_index))
+
+                logger.debug(f"New bounds : {current_price.lb()}, {current_price.ub()}")
+                self.add_constraint(price_group.min_rejected_sale - (current_price - price_group.min_rejected_sale)
+                    >= 0.0, constants.pos_min_rej_sale_group_constraint_name(price_group.id, price_group.time_index))
+
+    def create_max_surplus_rejected_buy_constraints(self):
+        for time_index, price_groups in self.price_groups:
+            for price_group in price_groups:
+                current_price = self.get_variable(constants.price_on_group_variable_name(price_group.id, price_group.time_index))
+
+                logger.debug(f"New bounds : {current_price.lb()}, {current_price.ub()}")
+                self.add_constraint(price_group.max_rejected_buy - (current_price - price_group.max_rejected_buy)
+                    >= 0.0, constants.pos_max_rej_buy_group_constraint_name(price_group.id, price_group.time_index))
+
+    def create_surplus_objective(self):
+        objective = []
+        for time_index, price_groups in self.price_groups:
+            for price_group in price_groups:
+                objective.append(self.parameters.paradoxically_rejected_penalty_N *
+                                 (price_group.min_rejected_sale + price_group.max_rejected_buy))
+        return self.add_objective(sum(objective), direction="minimize")
 
     def convert_time_index_to_time(self, time_index: int) -> pendulum.DateTime:
         return self.parameters.start_date + time_index * self.parameters.time_step
@@ -535,3 +760,208 @@ class Pricing(OptimisationModel):
             else:
                 price_group.min_price = max(price_group.min_price, max_accepted_sale_price)
                 price_group.max_price = min(price_group.max_price, min_accepted_purchase_price)
+
+    # Surplus constraints
+    # Utils
+    # Finds the price group of a given order and fills its attribute
+    def instantiate_order_group_index(self):
+        for price_group_list in self.price_groups.values():
+            for price_group in price_group_list:
+                for market_area_name in price_group.market_area_names:
+                    for order_name, mc_order in self.input_dataset.mc_market_areas[market_area_name].values():
+                        mc_order.group_index = price_group.id
+
+    # Defines the global circular parent_child sets and stores them in a dictionary
+    def get_circular_parent_child_sets(self):
+        dict_circular_children_bids = {}
+        index_pc_t = 0
+
+        # Step 1 - Filling the dictionary with unique circular PC linked sets
+        for order_coupling_name, mc_order_coupling in self.input_dataset.mc_order_couplings.items():
+            # TODO un oc de type PARENT_CHILDREN fait forcément partie d'un circular parent children coupling ?
+            if mc_order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
+                list_children = [mc_order_coupling.orders[0]]
+                circular_orders = self.get_circular_children(mc_order_coupling, list_children)
+                if len(circular_orders) > 1:
+                    if circular_orders not in dict_circular_children_bids.values():
+                        dict_circular_children_bids[index_pc_t] = circular_orders
+                        index_pc_t += 1
+
+        # Step 2 - Attributing this unique ID to each order present within a set
+        for index_pc_t, orders in dict_circular_children_bids.items():
+            for order in orders:
+                mc_order = self.input_dataset.mc_orders[order.name]
+                if mc_order.circular_pc_id is None:
+                    mc_order.circular_pc_id = index_pc_t
+
+        logger.debug(f"'Circular parent child bids sets are : {dict_circular_children_bids}")
+        return dict_circular_children_bids
+
+    # Recursively gets all the children from circular parent_child couplings
+    def get_circular_children(self, mc_order_coupling: OrderCouplingMC, orders: list[Order]):
+        parent_order, child_order = mc_order_coupling.orders[:1]
+        child_mc_order = self.input_dataset.mc_orders[child_order.name]
+
+        # A parent/child link is considered transitive when the child is also a parent elsewhere
+        if child_mc_order.is_parent:
+            # If child is parent and has not yet been browsed, continue
+            if child_order not in orders:
+                orders.append(child_order)
+                mc_order_coupling_child_order = self.input_dataset.mc_order_couplings[child_mc_order.parent_id]
+                return self.get_circular_children(mc_order_coupling_child_order, orders)
+            # The child has already been browsed as parent (in case of circular Parent/child links), stop.
+            else:
+                return set(orders)
+        # The child is not a parent, the transitive parent/child link stops here
+        else:
+            return set(orders)
+
+    def update_price_bound(self):
+        for price_group_list in self.price_groups.values():
+            for price_group in price_group_list:
+                price_group.max_price = float("inf")
+                price_group.min_price = -float("inf")
+                self.compute_price_bounds(price_group, 2)
+                logger.debug(
+                    f"Updating price variables for group {(price_group.time_index, price_group.id)} with bounds "
+                    f"{price_group.min_price} and {price_group.max_price}")
+                price_group_variable = self.get_variable(constants.price_on_group_variable_name(price_group.id,
+                                                                                                price_group.time_index))
+                price_group_variable.SetLb(price_group.min_price)
+                price_group_variable.SetUb(price_group.max_price)
+
+    # Defining linked bids sets
+    # Finds global links between orders (including circular parent_child links), defines the resulting sets and stores
+    # them in a dictionnary
+    def compute_linked_bids_sets(self):
+        dict_linked_bids = {}
+        index_lo = 0
+
+        # Step 1 - Filling the dict with "LINK" coupling types
+        # i.e. Identical volume, Identical ratio and complement coupling forcing a minimum accepted quantity
+        for mc_order_coupling in self.input_dataset.mc_order_couplings:
+            if (mc_order_coupling.coupling_type == CouplingType.IDENTICAL_VOLUME or
+                    mc_order_coupling.coupling_type == CouplingType.IDENTICAL_RATIO):
+                orders = mc_order_coupling.orders
+                for order in orders:
+                    mc_order = self.input_dataset.mc_orders[order.name]
+                    mc_order.full_link_id = index_lo
+                    # Check if the order is also linked by a circular parent_child link, if so, add the parent_child orders as well
+                    if mc_order.circular_pc_id is not None:
+                        orders.extend(self.dict_circular_children_bids[mc_order.circular_pc_id])
+                dict_linked_bids[index_lo] = list(set(orders))
+
+            index_lo += 1
+
+            if mc_order_coupling.coupling_type == CouplingType.COMPLEMENT:
+                list_order_direction = []
+                for order in mc_order_coupling.orders:
+                    mc_order = self.input_dataset.mc_orders[order.name]
+                    if mc_order.is_sale:
+                        list_order_direction.append(-1)
+                    else:
+                        list_order_direction.append(1)
+                order_direction = list(set(list_order_direction))
+
+                if len(order_direction) > 1 or mc_order_coupling.complement_direction == ComplementDirection.EqualTo:
+                    dict_linked_bids[index_lo] = mc_order_coupling.orders
+                    index_lo += 1
+
+                if len(order_direction) == 1:
+                    bool_is_buy = order_direction[0]
+                    if bool_is_buy * mc_order_coupling.complement_energy >= 0:
+                        if bool_is_buy == -1 and mc_order_coupling.complement_direction == ComplementDirection.LesserThan:
+                            dict_linked_bids[index_lo] = mc_order_coupling.orders
+                            index_lo += 1
+                        if bool_is_buy == 1 and mc_order_coupling.complement_direction == ComplementDirection.GreaterThan:
+                            dict_linked_bids[index_lo] = mc_order_coupling.orders
+                            index_lo += 1
+
+        # Step 2 - Instantiating full_link_id on concerned orders
+        for index_lo in dict_linked_bids:
+            for order in dict_linked_bids[index_lo]:
+                mc_order = self.input_dataset.mc_orders[order.name]
+                if mc_order.full_link_id is None:
+                    mc_order.full_link_id = index_lo
+
+        logger.debug(f"Dict linked bids before instantiating parent_child links : {dict_linked_bids}")
+
+        return dict_linked_bids
+
+    # Defining global parent_child sets
+    # Gets all the children from a parent set containing several parent orders
+    def get_children(self, parent_orders: list[Order]) -> list[Order]:
+        list_children = []
+        for order in parent_orders:
+            mc_order = self.input_dataset.mc_orders[order.name]
+            for mc_order_coupling in self.input_dataset.mc_order_couplings:
+                if mc_order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
+                    market_area_name = self.input_dataset.mc_orders[mc_order_coupling.order[0].name].market_area.name
+                    if mc_order.market_area.name == market_area_name and order.name == mc_order_coupling.orders[0].name:
+                        if mc_order_coupling.orders[1] not in parent_orders:
+                            list_children.append(mc_order_coupling.orders[1])
+        return list(set(list_children))
+
+    # Finds global parent_child links between orders (including the links between parents to merge them as a single parent),
+    # defines the resulting sets and stores them in a dictionary
+    def compute_parent_child_sets(self):
+        dict_parent_child_orders = {}
+        index_pc = 0
+        for mc_order_coupling in self.input_dataset.mc_order_couplings:
+            if mc_order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
+                parent_order, child_order = mc_order_coupling.orders[:1]
+                parent_mc_order = self.input_dataset.mc_orders[parent_order.name]
+
+                # Check if the parent is linked to other bids to consider them as parent as well
+                if parent_mc_order.full_link_id is not None:
+                    if parent_mc_order.full_link_id in self.dict_linked_orders:
+                        parent_link_orders = self.dict_linked_orders[parent_order.full_link_id]
+                        child_orders = self.get_children(parent_link_orders)
+                        dict_parent_child_orders[index_pc] = (parent_link_orders, child_orders)
+                        self.dict_linked_orders.pop(parent_order.full_link_id)
+                    else:
+                        # One parent has already been browsed and enabled to gather all the parent orders into one set
+                        continue
+                else:
+                    parent_orders = [parent_order]
+                    dict_parent_child_orders[index_pc] = (parent_orders, sorted(child_orders))
+                index_pc += 1
+
+        for index_pc in dict_parent_child_orders:
+            parent_orders = dict_parent_child_orders[index_pc][0]
+            children_orders = dict_parent_child_orders[index_pc][1]
+            for order in parent_orders:
+                mc_order = self.input_dataset.mc_orders[order.name]
+                if mc_order.full_PC_id is None:
+                    mc_order.full_PC_id = index_pc
+            id_child = 0
+            for order in children_orders:
+                mc_order = self.input_dataset.mc_orders[order.name]
+                if mc_order.full_PC_id is None:
+                    mc_order.full_PC_id = index_pc
+                if mc_order.child_id is None:
+                    mc_order.child_id = id_child
+                id_child += 1
+
+        logger.debug(f"Final linked bids dict : {self.dict_linked_orders}")
+        logger.debug(f"Final parent_child bids dict : {dict_parent_child_orders}")
+
+        return dict_parent_child_orders
+
+    def compute_min_max_rejected_sale_buy(self):
+        for time_index, price_groups in self.price_groups.items():
+            for price_group in price_groups:
+                price_group.min_rejected_sale = -float("inf")
+                price_group.max_rejected_buy = float("inf")
+                for market_area_name in price_group.market_area_names:
+                    mc_market_area = self.input_dataset.mc_market_areas[market_area_name]
+
+                    for mc_order in mc_market_area.mc_orders:
+                        local_acc_power = self.clearing_accepted_powers[market_area_name, mc_order.name]
+                        # Keep only rejected orders
+                        if abs(local_acc_power) < self.parameters.allowed_round_off_error:
+                            if mc_order.is_sale:
+                                price_group.min_rejected_sale = min(mc_order.price, price_group.min_rejected_sale)
+                            else:
+                                price_group.max_rejected_buy = min(mc_order.price, price_group.max_rejected_buy)
+                logger.debug(f"Worst rejected : {price_group.min_rejected_sale}, {price_group.max_rejected_buy}")

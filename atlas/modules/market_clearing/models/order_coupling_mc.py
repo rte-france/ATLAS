@@ -13,3 +13,4 @@ class OrderCouplingMC(OrderCoupling):
     orders: list[Order]
     coupling_type: CouplingType
     complement_direction: ComplementDirection | None
+    complement_energy: float
