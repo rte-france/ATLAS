@@ -38,6 +38,8 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             for i in range(0, total_minutes // int(self.parameters.time_step.total_minutes()))
         ]
 
+        self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
+
         order_couplings = [cast(OrderCoupling, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]]]
         self.mc_order_couplings = self.get_order_couplings(order_couplings)
         orders = [cast(Order, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Order]]]
@@ -148,6 +150,12 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 if order_coupling.coupling_type == "COMPLEMENT":
                     mc_order.is_linked = True
                     mc_order.link_id = order_coupling.name
+            if order_coupling.coupling_type == CouplingType.PARENT_CHILDREN:
+                if len(order_coupling.orders) > 0:
+                    order = order_coupling.orders[0]
+                    mc_orders[order.name].is_parent = True
+                    mc_orders[order.name].parent_id = order_coupling.name
+
         return mc_orders
 
     def get_order_couplings(self, order_couplings: list[OrderCoupling]) -> dict[str, OrderCouplingMC]:
