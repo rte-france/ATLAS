@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 import math
 
+import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -87,10 +88,14 @@ class Hydraulic:
 
             if xmin:
                 xpmin = max(xmin, key=lambda x: int(x))
-                level_inf = equipment.storage_marginal_value.__getitem__(xpmin)
+                level_inf = equipment.storage_marginal_value.__getitem__(xpmin).upsample(
+                    frequency=pendulum.Duration(hours=1)
+                )
             if xmax:
                 xpmax = min(xmax, key=lambda x: int(x))
-                level_sup = equipment.storage_marginal_value.__getitem__(xpmax)
+                level_sup = equipment.storage_marginal_value.__getitem__(xpmax).upsample(
+                    frequency=pendulum.Duration(hours=1)
+                )
             if xmin and xmax:
                 weight_inf = (int(xpmax) - energy_level) / (int(xpmax) - int(xpmin))
                 weight_sup = (energy_level - int(xpmin)) / (int(xpmax) - int(xpmin))
