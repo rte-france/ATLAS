@@ -449,6 +449,11 @@ class Timeseries:
         return self.timeseries.select("time").to_series().to_list()
 
     @property
+    def values(self) -> list[float]:
+        """Returns the Timeseries values"""
+        return self.timeseries.select("value").to_series().to_list()
+
+    @property
     def timestep(self) -> pendulum.Duration | None:
         """Return the frequency string of the timeseries index."""
         return self.frequency
