@@ -48,7 +48,7 @@ class ThermalUnitOrders:
         # Determine if the unit is offline or not. A sufficient condition is that the online_timeframe doesn't contain a 1
         # since by construction the unit is ON for at least one time step.
         # JL excludes an online sequence with an incomplete start-up ramp. For now, we will leave it as such.
-        offline = True if 0 in online_timeframe.values() else False
+        offline = True if 0 in online_timeframe.values else False
 
         # If the unit is offline, no orders are formulated.
         if offline:
@@ -87,7 +87,7 @@ class ThermalUnitOrders:
 
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
-        startup = True if 2 in online_timeframe.values() else False
+        startup = True if 2 in online_timeframe.values else False
         # if T_start > 0:
         #     startup = True if 2 in online_timeframe.Values else False
         # else:
@@ -100,7 +100,7 @@ class ThermalUnitOrders:
 
         ## See whether the ramps are complete or not
         T_startSD_in_sim = False
-        if 3 in online_timeframe.values():
+        if 3 in online_timeframe.values:
             for t in list(online_timeframe.index())[:-1]:
                 t_next = t + parameters.time_step
                 if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 2:
