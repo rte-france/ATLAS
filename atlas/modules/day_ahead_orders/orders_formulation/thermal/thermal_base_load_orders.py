@@ -269,15 +269,15 @@ class ThermalBaseLoadOrders:
         # If the unit is online over the whole orders_time time frame, then only one interval is generated
         # Otherwise all intervals are generated, using the fact that by construction, there is an even
         # number of time steps in the intervals list.
-        list_of_online_timeframes = [Timeseries]
+        list_of_online_timeframes: list[Timeseries] = []
         if intervals:
             intervals.sort()
             for i in range(int(len(intervals) / 2)):
-                window = states_sequence.slice_with_offset(intervals[2 * i], intervals[2 * i + 1])
+                window = states_sequence.slice(intervals[2 * i], intervals[2 * i + 1])
                 window.name = case
-                list_of_online_timeframes.append(window)
 
-            # Sanity check : remove potentials duplicates
-            list_of_online_timeframes = list(dict.fromkeys(list_of_online_timeframes))
+                # don't add duplicates
+                if all(window != ts for ts in list_of_online_timeframes):
+                    list_of_online_timeframes.append(window)
 
         return list_of_online_timeframes
