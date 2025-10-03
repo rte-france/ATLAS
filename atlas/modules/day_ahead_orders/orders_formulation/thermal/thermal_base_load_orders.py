@@ -129,7 +129,9 @@ class ThermalBaseLoadOrders:
         extended_time_frame = generate_datetimes(extended_start_date, extended_end_date, parameters.time_step)
 
         # Initialize the output time series
-        states_sequence = Timeseries.from_index(extended_start_date, parameters.start_date, extended_end_date, 0)
+        states_sequence = Timeseries.from_index(
+            start_date=extended_start_date, frequency=parameters.time_step, end_date=extended_end_date, default_value=0
+        )
 
         # Iterate trough the unit's maximum_power and based on the current value, determine whether the unit
         for t in extended_time_frame:
