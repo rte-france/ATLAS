@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 import math
 
+import pendulum
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -249,10 +250,7 @@ class ThermalBaseLoadOrders:
         # Get the time steps for which the unit is online (defined as a non-zero state):
         # Consistency of the online states wrt the minimum duration is ensured by definition of the
         # determine_baseload_states_sequence function.
-        online_at_t = []
-        for t in orders_time:
-            if states_sequence.get_value(t) != 0:
-                online_at_t.append(t)
+        online_at_t = [pendulum.instance(dt) for dt in set(orders_time).intersection(states_sequence.index)]
 
         # Based on these time steps, deduce the intervals.
         # The intervals bounds are retrieved by comparing the total minutes between to time steps :
