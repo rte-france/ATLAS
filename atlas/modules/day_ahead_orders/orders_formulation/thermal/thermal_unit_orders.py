@@ -80,10 +80,7 @@ class ThermalUnitOrders:
         q_min = unit.minimum_power.max()
 
         ## See whether the unit will bid inflexible orders over the whole orders_time sequence:
-        null_minimum_power = True
-        for t in orders_time:
-            if unit.minimum_power.get_value(t) != 0:
-                null_minimum_power = False
+        null_minimum_power = all(p in unit.minimum_power.index for p in orders_time)
 
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
