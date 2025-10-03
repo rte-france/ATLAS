@@ -101,7 +101,7 @@ class ThermalUnitOrders:
         ## See whether the ramps are complete or not
         T_startSD_in_sim = False
         if 3 in online_timeframe.values:
-            for t in list(online_timeframe.index())[:-1]:
+            for t in list(online_timeframe.index)[:-1]:
                 t_next = t + parameters.time_step
                 if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 2:
                     # passage from 1 to 3 in sequence, indicating the beginning of a shutdown
@@ -109,7 +109,7 @@ class ThermalUnitOrders:
 
         T_endSU_in_sim = False
         if startup:
-            for t in list(online_timeframe.index())[:-1]:
+            for t in list(online_timeframe.index)[:-1]:
                 t_next = t + parameters.time_step
                 if online_timeframe.get_value(t) - online_timeframe.get_value(t_next) == 1:
                     # passage from 2 to 1 in sequence, indicating the end of a startup
@@ -195,7 +195,7 @@ class ThermalUnitOrders:
                     stop_time_frame = [t for t in stop_time_frame if t not in overlapping_time_steps]
 
         ## Inflexible timeframe
-        inflexible_time_frame = online_timeframe.index()
+        inflexible_time_frame = online_timeframe.index
 
         # Formulate orders only if the unit is online
 
