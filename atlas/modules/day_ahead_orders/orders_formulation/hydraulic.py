@@ -108,9 +108,10 @@ class Hydraulic:
                 complement_direction=ComplementDirection.GreaterThan,
             )
 
-            if len(equipment.minimum_energy.slice(parameters.start_date, parameters.end_date)) > 0:
+            if len(equipment.minimum_energy.slice(parameters.start_date, parameters.end_date, "both", False)) > 0:
                 coupling_instance.complement_energy = -(
-                    energy_level - equipment.minimum_energy.slice(parameters.start_date, parameters.end_date).min()
+                    energy_level
+                    - equipment.minimum_energy.slice(parameters.start_date, parameters.end_date, "both", False).min()
                 )
             else:
                 coupling_instance.complement_energy = -(

@@ -226,7 +226,7 @@ class ThermalBaseLoadOrders:
 
     @staticmethod
     def extract_online_sequences(
-        states_sequence: Timeseries, orders_time: list[DateTime], parameters: DayAheadOrdersParameters, case=""
+        states_sequence: Timeseries, orders_time: list[DateTime], parameters: DayAheadOrdersParameters, case: str = ""
     ) -> list[Timeseries]:
         """
         A helper function that extracts online sequence based on a thermal unit states sequence.
@@ -273,11 +273,13 @@ class ThermalBaseLoadOrders:
         if intervals:
             intervals.sort()
             for i in range(int(len(intervals) / 2)):
-                window = states_sequence.slice(intervals[2 * i], intervals[2 * i + 1])
+                window = states_sequence.slice(intervals[2 * i], intervals[2 * i + 1], "both", False)
                 window.name = case
 
                 # don't add duplicates
-                if all(window != ts for ts in list_of_online_timeframes):
+                if len(list_of_online_timeframes) == 0:
+                    list_of_online_timeframes.append(window)
+                elif all(window != ts for ts in list_of_online_timeframes):
                     list_of_online_timeframes.append(window)
 
         return list_of_online_timeframes
