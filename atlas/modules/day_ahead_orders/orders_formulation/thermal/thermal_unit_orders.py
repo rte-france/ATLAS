@@ -61,18 +61,40 @@ class ThermalUnitOrders:
 
         # Configuration of variables for orders' formulation
         ## Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements
-        automated_reserves_up_procured = unit.afrr_up_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
-        ) + unit.fcr_up_procured.get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
-        automated_reserves_down_procured = unit.afrr_down_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
-        ) + unit.fcr_down_procured.get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
-        manual_reserves_up_procured = unit.mfrr_up_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
-        ) + unit.rr_up_procured.get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
-        manual_reserves_down_procured = unit.mfrr_down_procured.get_forecast(
-            parameters.execution_date, parameters.start_date, parameters.end_date
-        ) + unit.rr_down_procured.get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
+
+        automated_reserves_up_procured = Timeseries.from_index(
+            parameters.start_date, parameters.time_step, parameters.end_date, 0
+        )
+        automated_reserves_down_procured = Timeseries.from_index(
+            parameters.start_date, parameters.time_step, parameters.end_date, 0
+        )
+        manual_reserves_up_procured = Timeseries.from_index(
+            parameters.start_date, parameters.time_step, parameters.end_date, 0
+        )
+        manual_reserves_down_procured = Timeseries.from_index(
+            parameters.start_date, parameters.time_step, parameters.end_date, 0
+        )
+
+        if unit.afrr_up_procured and unit.fcr_up_procured:
+            automated_reserves_up_procured = unit.afrr_up_procured.get_forecast(
+                parameters.execution_date, parameters.start_date, parameters.end_date
+            ) + unit.fcr_up_procured.get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
+        if unit.afrr_down_procured and unit.fcr_down_procured:
+            automated_reserves_down_procured = unit.afrr_down_procured.get_forecast(
+                parameters.execution_date, parameters.start_date, parameters.end_date
+            ) + unit.fcr_down_procured.get_forecast(
+                parameters.execution_date, parameters.start_date, parameters.end_date
+            )
+        if unit.mfrr_up_procured and unit.rr_up_procured:
+            manual_reserves_up_procured = unit.mfrr_up_procured.get_forecast(
+                parameters.execution_date, parameters.start_date, parameters.end_date
+            ) + unit.rr_up_procured.get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
+        if unit.mfrr_down_procured and unit.rr_down_procured:
+            manual_reserves_down_procured = unit.mfrr_down_procured.get_forecast(
+                parameters.execution_date, parameters.start_date, parameters.end_date
+            ) + unit.rr_down_procured.get_forecast(
+                parameters.execution_date, parameters.start_date, parameters.end_date
+            )
 
         ## Get the unit-specific parameters:
         T_start = int(math.floor(unit.startup_duration.total_minutes() / parameters.time_step.total_minutes()))

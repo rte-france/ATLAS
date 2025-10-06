@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas import Equipment, Order, OrderCoupling
+from atlas import Equipment, Order, OrderCoupling, Timeseries
 from atlas.enum import CouplingType, OrderType, Product, ThermalStrategy
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
@@ -42,22 +42,43 @@ class ThermalPeakLoadOrders:
 
         for unit in equipments_list:
             # Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements
-            automated_reserves_up_procured = unit.afrr_up_procured.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
-            ) + unit.fcr_up_procured.get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
-            automated_reserves_down_procured = unit.afrr_down_procured.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
-            ) + unit.fcr_down_procured.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
+            automated_reserves_up_procured = Timeseries.from_index(
+                parameters.start_date, parameters.time_step, parameters.end_date, 0
             )
-            manual_reserves_up_procured = unit.mfrr_up_procured.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
-            ) + unit.rr_up_procured.get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
-            manual_reserves_down_procured = unit.mfrr_down_procured.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
-            ) + unit.rr_down_procured.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
+            automated_reserves_down_procured = Timeseries.from_index(
+                parameters.start_date, parameters.time_step, parameters.end_date, 0
             )
+            manual_reserves_up_procured = Timeseries.from_index(
+                parameters.start_date, parameters.time_step, parameters.end_date, 0
+            )
+            manual_reserves_down_procured = Timeseries.from_index(
+                parameters.start_date, parameters.time_step, parameters.end_date, 0
+            )
+
+            if unit.afrr_up_procured and unit.fcr_up_procured:
+                automated_reserves_up_procured = unit.afrr_up_procured.get_forecast(
+                    parameters.execution_date, parameters.start_date, parameters.end_date
+                ) + unit.fcr_up_procured.get_forecast(
+                    parameters.execution_date, parameters.start_date, parameters.end_date
+                )
+            if unit.afrr_down_procured and unit.fcr_down_procured:
+                automated_reserves_down_procured = unit.afrr_down_procured.get_forecast(
+                    parameters.execution_date, parameters.start_date, parameters.end_date
+                ) + unit.fcr_down_procured.get_forecast(
+                    parameters.execution_date, parameters.start_date, parameters.end_date
+                )
+            if unit.mfrr_up_procured and unit.rr_up_procured:
+                manual_reserves_up_procured = unit.mfrr_up_procured.get_forecast(
+                    parameters.execution_date, parameters.start_date, parameters.end_date
+                ) + unit.rr_up_procured.get_forecast(
+                    parameters.execution_date, parameters.start_date, parameters.end_date
+                )
+            if unit.mfrr_down_procured and unit.rr_down_procured:
+                manual_reserves_down_procured = unit.mfrr_down_procured.get_forecast(
+                    parameters.execution_date, parameters.start_date, parameters.end_date
+                ) + unit.rr_down_procured.get_forecast(
+                    parameters.execution_date, parameters.start_date, parameters.end_date
+                )
 
             for t in orders_time:
                 # MaximumPower is used to store planned or forced outages (value at 0), in which cases it might be lower than MinimumPower

@@ -142,30 +142,46 @@ class ThermalOptimization(OptimisationModel):
             raise ValueError("Improper dates")
 
         # Get the parameters of the unit
-        fcr_up_procured = self.thermal_unit.fcr_up_procured.get_forecast(
-            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
-        )
-        fcr_down_procured = self.thermal_unit.fcr_down_procured.get_forecast(
-            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
-        )
-        afrr_up_procured = self.thermal_unit.afrr_up_procured.get_forecast(
-            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
-        )
-        afrr_down_procured = self.thermal_unit.afrr_down_procured.get_forecast(
-            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
-        )
-        mfrr_up_procured = self.thermal_unit.mfrr_up_procured.get_forecast(
-            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
-        )
-        mfrr_down_procured = self.thermal_unit.mfrr_down_procured.get_forecast(
-            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
-        )
-        rr_up_procured = self.thermal_unit.rr_up_procured.get_forecast(
-            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
-        )
-        rr_down_procured = self.thermal_unit.rr_down_procured.get_forecast(
-            self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
-        )
+        fcr_up_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
+        fcr_down_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
+        afrr_up_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
+        afrr_down_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
+        mfrr_up_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
+        mfrr_down_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
+        rr_up_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
+        rr_down_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
+        if self.thermal_unit.fcr_up_procured:
+            fcr_up_procured = self.thermal_unit.fcr_up_procured.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+            )
+        if self.thermal_unit.fcr_down_procured:
+            fcr_down_procured = self.thermal_unit.fcr_down_procured.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+            )
+        if self.thermal_unit.afrr_up_procured:
+            afrr_up_procured = self.thermal_unit.afrr_up_procured.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+            )
+        if self.thermal_unit.afrr_down_procured:
+            afrr_down_procured = self.thermal_unit.afrr_down_procured.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+            )
+        if self.thermal_unit.mfrr_up_procured:
+            mfrr_up_procured = self.thermal_unit.mfrr_up_procured.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+            )
+        if self.thermal_unit.mfrr_down_procured:
+            mfrr_down_procured = self.thermal_unit.mfrr_down_procured.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+            )
+        if self.thermal_unit.rr_up_procured:
+            rr_up_procured = self.thermal_unit.rr_up_procured.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+            )
+        if self.thermal_unit.rr_down_procured:
+            rr_down_procured = self.thermal_unit.rr_down_procured.get_forecast(
+                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+            )
 
         # Check that the minimum_stable_power_duration is smaller than the minimumTimeOn
         # if not thermal_unit.minimum_stable_power_duration <= thermal_unit.minimum_time_on:
