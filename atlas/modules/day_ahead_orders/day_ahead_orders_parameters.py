@@ -127,7 +127,7 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Discretization step of the simulated time interval, expressed as a string giving an integer "
         "number of minutes",
     )
-    price_forecasts_types: str = Field(
+    price_forecasts_types: list[str] = Field(
         ["Medium", "High", "Low"],
         description="List of available PriceForecasts in the input data, separated by ';'. The default value should "
         "always include 'Medium'.",

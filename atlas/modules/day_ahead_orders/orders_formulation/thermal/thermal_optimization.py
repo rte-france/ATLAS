@@ -142,14 +142,30 @@ class ThermalOptimization(OptimisationModel):
             raise ValueError("Improper dates")
 
         # Get the parameters of the unit
-        fcr_up_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
-        fcr_down_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
-        afrr_up_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
-        afrr_down_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
-        mfrr_up_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
-        mfrr_down_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
-        rr_up_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
-        rr_down_procured = Timeseries.from_index(parameters.start_date, parameters.time_step, parameters.end_date, 0)
+        fcr_up_procured = Timeseries.from_index(
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+        )
+        fcr_down_procured = Timeseries.from_index(
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+        )
+        afrr_up_procured = Timeseries.from_index(
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+        )
+        afrr_down_procured = Timeseries.from_index(
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+        )
+        mfrr_up_procured = Timeseries.from_index(
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+        )
+        mfrr_down_procured = Timeseries.from_index(
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+        )
+        rr_up_procured = Timeseries.from_index(
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+        )
+        rr_down_procured = Timeseries.from_index(
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+        )
         if self.thermal_unit.fcr_up_procured:
             fcr_up_procured = self.thermal_unit.fcr_up_procured.get_forecast(
                 self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
@@ -203,7 +219,7 @@ class ThermalOptimization(OptimisationModel):
 
         # Conversion of the equipment-specific parameters in terms of time step.
         # All T_.'s are integers (by definition).
-        if self.thermal_unit.minimum_time_on > 0:
+        if self.thermal_unit.minimum_time_on.total_hours() > 0:
             self.T_on = (
                 int(
                     max(
@@ -219,7 +235,7 @@ class ThermalOptimization(OptimisationModel):
         else:
             self.T_on = 0
 
-        if self.thermal_unit.minimum_time_off > 0:
+        if self.thermal_unit.minimum_time_off.total_hours() > 0:
             self.T_off = (
                 int(
                     max(

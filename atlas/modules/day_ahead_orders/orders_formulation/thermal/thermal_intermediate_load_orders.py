@@ -67,7 +67,7 @@ class ThermalIntermediateLoadOrders:
 
                 # Extract the list of online time frames
                 list_of_online_timeframes = ThermalBaseLoadOrders.extract_online_sequences(
-                    thermal_unit, states_sequence, orders_time, parameters, case=case
+                    thermal_unit, states_sequence, orders_time, parameters, case
                 )
 
                 # Formulate the orders over each online timeframe.
@@ -261,7 +261,7 @@ class ThermalIntermediateLoadOrders:
         )
 
         # Now add the conditional states if relevant :
-        if min(T_stable, unit.minimum_time_on) >= 2:
+        if min(T_stable, int(unit.minimum_time_on.total_hours())) >= 2:
             states_sequence += res[unit.name][case]["ON_FLAT"]
 
         if T_start > 0:

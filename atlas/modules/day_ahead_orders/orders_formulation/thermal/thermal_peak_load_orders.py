@@ -101,7 +101,7 @@ class ThermalPeakLoadOrders:
 
                 if generate_inflexible_order:
                     # Compute the price
-                    Q = minimum_power * (1.0 if unit.minimum_time_on == 0.0 else unit.minimum_time_on)
+                    Q = minimum_power * (1.0 if unit.minimum_time_on.total_hours() == 0.0 else unit.minimum_time_on)
                     price = unit.startup_cost.get_value(t) / Q + unit.variable_cost.get_value(t)
 
                     # Create the instance
