@@ -144,9 +144,9 @@ class ThermalUnitOrders:
         K_start, K_stop = 0, 0
         i, j = 0, 0
         for t in orders_time:
-            if online_timeframe.get_value(t) == 2:
+            if t in online_timeframe.index and online_timeframe.get_value(t) == 2:
                 i += 1
-            elif online_timeframe.get_value(t) == 3:
+            elif t in online_timeframe.index and online_timeframe.get_value(t) == 3:
                 j += 1
 
         # Update the values
@@ -160,11 +160,11 @@ class ThermalUnitOrders:
         # Getting the starting date of the time frames.
         if K_start > 0 or K_stop > 0:
             for t in orders_time:
-                if online_timeframe.get_value(t) == 2:
+                if t in online_timeframe.index and online_timeframe.get_value(t) == 2:
                     begin_of_startTimeFrame = t
                     break
             for t in orders_time:
-                if online_timeframe.get_value(t) == 3:
+                if t in online_timeframe.index and online_timeframe.get_value(t) == 3:
                     begin_of_stopTimeFrame = t
                     break
 
@@ -195,7 +195,7 @@ class ThermalUnitOrders:
         # to be removed from the flexible_time_frame.
         flexible_time_frame = []
         for t in orders_time:
-            if online_timeframe.get_value(t) == 1:
+            if t in online_timeframe.index and online_timeframe.get_value(t) == 1:
                 flexible_time_frame.append(t)
 
         # Sanity check : the flexible_time_frame only contains timestamps within the orders_time time frame.
