@@ -88,12 +88,12 @@ class Hydraulic:
 
             if xmin:
                 xpmin = max(xmin, key=lambda x: int(x))
-                level_inf = equipment.storage_marginal_value.__getitem__(xpmin).upsample(
+                level_inf = equipment.storage_marginal_value.select(xpmin).upsample(
                     frequency=pendulum.Duration(hours=1)
                 )
             if xmax:
                 xpmax = min(xmax, key=lambda x: int(x))
-                level_sup = equipment.storage_marginal_value.__getitem__(xpmax).upsample(
+                level_sup = equipment.storage_marginal_value.select(xpmax).upsample(
                     frequency=pendulum.Duration(hours=1)
                 )
             if xmin and xmax:
