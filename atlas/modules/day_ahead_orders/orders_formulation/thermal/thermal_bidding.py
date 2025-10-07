@@ -92,7 +92,7 @@ class ThermalBidding:
     ):
         da_sell_submitted_volumes = {
             equipment.name: Timeseries.from_index(
-                parameters.start_date, parameters.timestep, parameters.end_date, default_value=0
+                parameters.start_date, parameters.time_step, parameters.end_date, default_value=0
             )
             for equipment in dataset.thermal
         }
@@ -175,7 +175,7 @@ class ThermalBidding:
                         coupled_order,
                         unit_order_coupling_list,
                         Timeseries.from_index(
-                            parameters.start_date, parameters.timestep, parameters.end_date, default_value=0
+                            parameters.start_date, parameters.time_step, parameters.end_date, default_value=0
                         ),
                         already_considered_orders_n,
                     )
