@@ -16,6 +16,7 @@ from atlas.math.timeseries import Timeseries
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
+
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -58,10 +59,8 @@ class ThermalInitialConditions:
         else:
             # Non-dayZero case: Initialize based on power history
             for time in initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     last_power = power_history.get_value(time)
-                    min_power = self.thermal_unit.minimum_power.get_value(time)
-
                     # Get variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
                     on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
@@ -74,13 +73,11 @@ class ThermalInitialConditions:
                     model.add_constraint(power_level_var == last_power, f"init_power_{self.thermal_unit.name}_{time}")
 
                     # Set state variables based on power level
-                    if last_power >= min_power:
-                        # Unit is ON and producing at or above minimum power
-                        model.add_constraint(off_var == 0, f"init_off_{self.thermal_unit.name}_{time}")
-                        # Note: ON_UP/ON_DOWN/ON_FLAT will be determined by power trend analysis
-                    elif last_power > 0:
+                    if last_power > 0:
                         # Unit is ON but below minimum power (could be starting or stopping)
                         model.add_constraint(off_var == 0, f"init_off_{self.thermal_unit.name}_{time}")
+                        model.add_constraint(on_up_var == 1, f"init_on_up_{self.thermal_unit.name}_{time}")
+                        model.add_constraint(on_down_var == 1, f"init_on_down_{self.thermal_unit.name}_{time}")
                     else:
                         # Unit is completely OFF
                         model.add_constraint(off_var == 1, f"init_off_{self.thermal_unit.name}_{time}")
@@ -94,7 +91,7 @@ class ThermalInitialConditions:
                     # Reconstruct transitions for non-initial times
                     if time != extended_start_date:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
 
                             # Detect turn off: units going from ON to OFF
@@ -149,9 +146,9 @@ class ThermalInitialConditions:
         else:
             # Non-dayZero case: Initialize based on power history
             for time in initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     last_power = power_history.get_value(time)
-                    min_power = self.minimum_power.get_value(time)
+                    min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
@@ -194,7 +191,7 @@ class ThermalInitialConditions:
                     # Reconstruct transitions for non-initial times
                     if time != extended_start_date:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
 
                             # Detect transitions based on state changes
@@ -285,7 +282,7 @@ class ThermalInitialConditions:
         else:
             # Non-dayZero case: Initialize based on power history
             for time in initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     last_power = power_history.get_value(time)
 
                     # Get variables
@@ -310,7 +307,7 @@ class ThermalInitialConditions:
                     # Reconstruct transitions for non-initial times
                     if time != extended_start_date:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
 
                             # Detect turn off: was ON -> now OFF
@@ -327,11 +324,11 @@ class ThermalInitialConditions:
 
             # Handle stable-specific variables for non-dayZero
             for time in stable_initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     current_power = power_history.get_value(time)
                     next_time = time + parameters.timestep
                     next_power = (
-                        power_history.get_value(next_time) if next_time in power_history.time_index else current_power
+                        power_history.get_value(next_time) if next_time in power_history.index else current_power
                     )
 
                     # Get stable state variables
@@ -369,13 +366,13 @@ class ThermalInitialConditions:
                         # Detect state transitions for non-initial times
                         if time != extended_start_date:
                             prev_time = time - parameters.timestep
-                            if prev_time in power_history.time_index:
+                            if prev_time in power_history.index:
                                 # Detect entering FLAT state
                                 prev_next_time = prev_time + parameters.timestep
                                 prev_power = power_history.get_value(prev_time)
                                 prev_next_power = (
                                     power_history.get_value(prev_next_time)
-                                    if prev_next_time in power_history.time_index
+                                    if prev_next_time in power_history.index
                                     else prev_power
                                 )
 
@@ -410,10 +407,7 @@ class ThermalInitialConditions:
                 start_date_minus_one = parameters.start_date - parameters.timestep
                 start_date_minus_two = parameters.start_date - 2 * parameters.timestep
 
-                if (
-                    start_date_minus_one in power_history.time_index
-                    and start_date_minus_two in power_history.time_index
-                ):
+                if start_date_minus_one in power_history.index and start_date_minus_two in power_history.index:
                     power_minus_one = power_history.get_value(start_date_minus_one)
                     power_minus_two = power_history.get_value(start_date_minus_two)
 
@@ -477,9 +471,9 @@ class ThermalInitialConditions:
         else:
             # Non-dayZero case: Initialize based on power history
             for time in initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     last_power = power_history.get_value(time)
-                    min_power = self.minimum_power.get_value(time)
+                    min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
@@ -520,7 +514,7 @@ class ThermalInitialConditions:
                     # Reconstruct transitions for non-initial times
                     if time != extended_start_date:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
 
                             # Detect turn off: unit goes to OFF state
@@ -609,9 +603,9 @@ class ThermalInitialConditions:
         else:
             # Non-dayZero case: Initialize based on power history
             for time in initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     last_power = power_history.get_value(time)
-                    min_power = self.minimum_power.get_value(time)
+                    min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
@@ -648,9 +642,9 @@ class ThermalInitialConditions:
                     # Reconstruct transitions for non-initial times
                     if time != extended_start_date:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
-                            prev_min_power = self.minimum_power.get_value(prev_time)
+                            prev_min_power = self.thermal_unit.minimum_power.get_value(prev_time)
 
                             # Detect turn off: entering STOP state
                             if prev_power >= prev_min_power and 0 < last_power < min_power:
@@ -666,13 +660,13 @@ class ThermalInitialConditions:
 
             # Handle stable-specific variables for non-dayZero
             for i, time in enumerate(stable_initial_times):
-                if time in power_history.time_index:
+                if time in power_history.index:
                     current_power = power_history.get_value(time)
                     next_time = time + parameters.timestep
                     next_power = (
-                        power_history.get_value(next_time) if next_time in power_history.time_index else current_power
+                        power_history.get_value(next_time) if next_time in power_history.index else current_power
                     )
-                    min_power = self.minimum_power.get_value(time)
+                    min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get stable state variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
@@ -722,16 +716,16 @@ class ThermalInitialConditions:
                         # Detect state transitions for non-initial times
                         if time != extended_start_date and current_power > 0:
                             prev_time = time - parameters.timestep
-                            if prev_time in power_history.time_index:
+                            if prev_time in power_history.index:
                                 # Detect entering FLAT state
                                 prev_next_time = prev_time + parameters.timestep
                                 prev_power = power_history.get_value(prev_time)
                                 prev_next_power = (
                                     power_history.get_value(prev_next_time)
-                                    if prev_next_time in power_history.time_index
+                                    if prev_next_time in power_history.index
                                     else prev_power
                                 )
-                                prev_min_power = self.minimum_power.get_value(prev_time)
+                                prev_min_power = self.thermal_unit.minimum_power.get_value(prev_time)
 
                                 prev_was_flat = prev_power == prev_next_power and prev_power >= prev_min_power
                                 current_is_flat = current_power == next_power and current_power >= min_power
@@ -766,11 +760,11 @@ class ThermalInitialConditions:
                         time_minus_1 = time - parameters.timestep
                         time_minus_2 = time - 2 * parameters.timestep
 
-                        if time_minus_1 in power_history.time_index and time_minus_2 in power_history.time_index:
+                        if time_minus_1 in power_history.index and time_minus_2 in power_history.index:
                             power_minus_1 = power_history.get_value(time_minus_1)
                             power_minus_2 = power_history.get_value(time_minus_2)
-                            min_power_minus_1 = self.minimum_power.get_value(time_minus_1)
-                            min_power_minus_2 = self.minimum_power.get_value(time_minus_2)
+                            min_power_minus_1 = self.thermal_unit.minimum_power.get_value(time_minus_1)
+                            min_power_minus_2 = self.thermal_unit.minimum_power.get_value(time_minus_2)
 
                             # Get next powers for trend analysis
                             next_time_minus_1 = time_minus_1 + parameters.timestep
@@ -778,12 +772,12 @@ class ThermalInitialConditions:
 
                             next_power_minus_1 = (
                                 power_history.get_value(next_time_minus_1)
-                                if next_time_minus_1 in power_history.time_index
+                                if next_time_minus_1 in power_history.index
                                 else power_minus_1
                             )
                             next_power_minus_2 = (
                                 power_history.get_value(next_time_minus_2)
-                                if next_time_minus_2 in power_history.time_index
+                                if next_time_minus_2 in power_history.index
                                 else power_minus_2
                             )
 
@@ -816,14 +810,11 @@ class ThermalInitialConditions:
                 start_date_minus_two = parameters.start_date - 2 * parameters.timestep
                 start_date_minus_three = parameters.start_date - 3 * parameters.timestep
 
-                if (
-                    start_date_minus_one in power_history.time_index
-                    and start_date_minus_two in power_history.time_index
-                ):
+                if start_date_minus_one in power_history.index and start_date_minus_two in power_history.index:
                     power_minus_one = power_history.get_value(start_date_minus_one)
                     power_minus_two = power_history.get_value(start_date_minus_two)
-                    min_power_minus_one = self.minimum_power.get_value(start_date_minus_one)
-                    min_power_minus_two = self.minimum_power.get_value(start_date_minus_two)
+                    min_power_minus_one = self.thermal_unit.minimum_power.get_value(start_date_minus_one)
+                    min_power_minus_two = self.thermal_unit.minimum_power.get_value(start_date_minus_two)
 
                     # Get gradient auxiliary variables
                     u_var = model.get_variable(f"UP_grad_at_{start_date_minus_one}_for_e_{self.thermal_unit.name}")
@@ -857,15 +848,15 @@ class ThermalInitialConditions:
                         model.add_constraint(d_var == 0, f"init_d_grad_{self.thermal_unit.name}_{start_date_minus_one}")
 
                     # Initialize flat_down_stop for start_date_minus_one
-                    if start_date_minus_three in power_history.time_index:
+                    if start_date_minus_three in power_history.index:
                         power_minus_three = power_history.get_value(start_date_minus_three)
-                        min_power_minus_three = self.minimum_power.get_value(start_date_minus_three)
+                        min_power_minus_three = self.thermal_unit.minimum_power.get_value(start_date_minus_three)
 
                         # Get next power for trend analysis at time minus 3
                         next_time_minus_three = start_date_minus_three + parameters.timestep
                         next_power_minus_three = (
                             power_history.get_value(next_time_minus_three)
-                            if next_time_minus_three in power_history.time_index
+                            if next_time_minus_three in power_history.index
                             else power_minus_three
                         )
 
@@ -963,9 +954,9 @@ class ThermalInitialConditions:
         else:
             # Non-dayZero case: Initialize based on power history
             for time in initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     last_power = power_history.get_value(time)
-                    min_power = self.minimum_power.get_value(time)
+                    min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
@@ -998,7 +989,7 @@ class ThermalInitialConditions:
                     # Reconstruct transitions for non-initial times
                     if time != extended_start_date:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
 
                             # Detect turn off: unit goes to OFF state
@@ -1015,13 +1006,13 @@ class ThermalInitialConditions:
 
             # Handle stable-specific variables for non-dayZero
             for time in stable_initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     current_power = power_history.get_value(time)
                     next_time = time + parameters.timestep
                     next_power = (
-                        power_history.get_value(next_time) if next_time in power_history.time_index else current_power
+                        power_history.get_value(next_time) if next_time in power_history.index else current_power
                     )
-                    min_power = self.minimum_power.get_value(time)
+                    min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get stable state variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
@@ -1070,16 +1061,16 @@ class ThermalInitialConditions:
                         # Detect state transitions for non-initial times
                         if time != extended_start_date and current_power >= min_power:
                             prev_time = time - parameters.timestep
-                            if prev_time in power_history.time_index:
+                            if prev_time in power_history.index:
                                 # Detect entering FLAT state
                                 prev_next_time = prev_time + parameters.timestep
                                 prev_power = power_history.get_value(prev_time)
                                 prev_next_power = (
                                     power_history.get_value(prev_next_time)
-                                    if prev_next_time in power_history.time_index
+                                    if prev_next_time in power_history.index
                                     else prev_power
                                 )
-                                prev_min_power = self.minimum_power.get_value(prev_time)
+                                prev_min_power = self.thermal_unit.minimum_power.get_value(prev_time)
 
                                 prev_was_flat = prev_power == prev_next_power and prev_power >= prev_min_power
                                 current_is_flat = current_power == next_power and current_power >= min_power
@@ -1112,14 +1103,11 @@ class ThermalInitialConditions:
                 start_date_minus_one = parameters.start_date - parameters.timestep
                 start_date_minus_two = parameters.start_date - 2 * parameters.timestep
 
-                if (
-                    start_date_minus_one in power_history.time_index
-                    and start_date_minus_two in power_history.time_index
-                ):
+                if start_date_minus_one in power_history.index and start_date_minus_two in power_history.index:
                     power_minus_one = power_history.get_value(start_date_minus_one)
                     power_minus_two = power_history.get_value(start_date_minus_two)
-                    min_power_minus_one = self.minimum_power.get_value(start_date_minus_one)
-                    min_power_minus_two = self.minimum_power.get_value(start_date_minus_two)
+                    min_power_minus_one = self.thermal_unit.minimum_power.get_value(start_date_minus_one)
+                    min_power_minus_two = self.thermal_unit.minimum_power.get_value(start_date_minus_two)
 
                     # Get gradient auxiliary variables
                     u_var = model.get_variable(f"UP_grad_at_{start_date_minus_one}_for_e_{self.thermal_unit.name}")
@@ -1193,9 +1181,9 @@ class ThermalInitialConditions:
         else:
             # Non-dayZero case: Initialize based on power history
             for time in initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     last_power = power_history.get_value(time)
-                    min_power = self.minimum_power.get_value(time)
+                    min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
@@ -1244,7 +1232,7 @@ class ThermalInitialConditions:
                     # Distinguish between startup and shutdown for intermediate power levels
                     if time != extended_start_date and 0 < last_power < min_power:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
 
                             # If power is increasing, we are starting up
@@ -1260,9 +1248,9 @@ class ThermalInitialConditions:
                     # Reconstruct transitions for non-initial times
                     if time != extended_start_date:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
-                            prev_min_power = self.minimum_power.get_value(prev_time)
+                            prev_min_power = self.thermal_unit.minimum_power.get_value(prev_time)
 
                             # Detect turn off: entering STOP state
                             if prev_power >= prev_min_power and 0 < last_power < min_power and last_power < prev_power:
@@ -1362,9 +1350,9 @@ class ThermalInitialConditions:
         else:
             # Non-dayZero case: Initialize based on power history
             for time in initial_times:
-                if time in power_history.time_index:
+                if time in power_history.index:
                     last_power = power_history.get_value(time)
-                    min_power = self.minimum_power.get_value(time)
+                    min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
@@ -1402,7 +1390,7 @@ class ThermalInitialConditions:
                     # Distinguish between startup and shutdown for intermediate power levels
                     if time != extended_start_date and 0 < last_power < min_power:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
 
                             # If power is increasing, we are starting up
@@ -1418,7 +1406,7 @@ class ThermalInitialConditions:
                     # Reconstruct transitions for non-initial times
                     if time != extended_start_date:
                         prev_time = time - parameters.timestep
-                        if prev_time in power_history.time_index:
+                        if prev_time in power_history.index:
                             prev_power = power_history.get_value(prev_time)
 
                             # Detect turn off: entering STOP state
@@ -1435,13 +1423,13 @@ class ThermalInitialConditions:
 
             # Handle stable-specific variables for non-dayZero
             for i, time in enumerate(stable_initial_times):
-                if time in power_history.time_index:
+                if time in power_history.index:
                     current_power = power_history.get_value(time)
                     next_time = time + parameters.timestep
                     next_power = (
-                        power_history.get_value(next_time) if next_time in power_history.time_index else current_power
+                        power_history.get_value(next_time) if next_time in power_history.index else current_power
                     )
-                    min_power = self.minimum_power.get_value(time)
+                    min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get stable state variables
                     off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
@@ -1492,16 +1480,16 @@ class ThermalInitialConditions:
                         # Detect state transitions for non-initial times
                         if time != extended_start_date and current_power >= min_power:
                             prev_time = time - parameters.timestep
-                            if prev_time in power_history.time_index:
+                            if prev_time in power_history.index:
                                 # Detect entering FLAT state
                                 prev_next_time = prev_time + parameters.timestep
                                 prev_power = power_history.get_value(prev_time)
                                 prev_next_power = (
                                     power_history.get_value(prev_next_time)
-                                    if prev_next_time in power_history.time_index
+                                    if prev_next_time in power_history.index
                                     else prev_power
                                 )
-                                prev_min_power = self.minimum_power.get_value(prev_time)
+                                prev_min_power = self.thermal_unit.minimum_power.get_value(prev_time)
 
                                 prev_was_flat = prev_power == prev_next_power and prev_power >= prev_min_power
                                 current_is_flat = current_power == next_power and current_power >= min_power
@@ -1535,11 +1523,11 @@ class ThermalInitialConditions:
                         time_minus_1 = time - parameters.timestep
                         time_minus_2 = time - 2 * parameters.timestep
 
-                        if time_minus_1 in power_history.time_index and time_minus_2 in power_history.time_index:
+                        if time_minus_1 in power_history.index and time_minus_2 in power_history.index:
                             power_minus_1 = power_history.get_value(time_minus_1)
                             power_minus_2 = power_history.get_value(time_minus_2)
-                            min_power_minus_1 = self.minimum_power.get_value(time_minus_1)
-                            min_power_minus_2 = self.minimum_power.get_value(time_minus_2)
+                            min_power_minus_1 = self.thermal_unit.minimum_power.get_value(time_minus_1)
+                            min_power_minus_2 = self.thermal_unit.minimum_power.get_value(time_minus_2)
 
                             # Get next powers for trend analysis
                             next_time_minus_1 = time_minus_1 + parameters.timestep
@@ -1547,12 +1535,12 @@ class ThermalInitialConditions:
 
                             next_power_minus_1 = (
                                 power_history.get_value(next_time_minus_1)
-                                if next_time_minus_1 in power_history.time_index
+                                if next_time_minus_1 in power_history.index
                                 else power_minus_1
                             )
                             next_power_minus_2 = (
                                 power_history.get_value(next_time_minus_2)
-                                if next_time_minus_2 in power_history.time_index
+                                if next_time_minus_2 in power_history.index
                                 else power_minus_2
                             )
 
@@ -1594,14 +1582,11 @@ class ThermalInitialConditions:
                 start_date_minus_two = parameters.start_date - 2 * parameters.timestep
                 start_date_minus_three = parameters.start_date - 3 * parameters.timestep
 
-                if (
-                    start_date_minus_one in power_history.time_index
-                    and start_date_minus_two in power_history.time_index
-                ):
+                if start_date_minus_one in power_history.index and start_date_minus_two in power_history.index:
                     power_minus_one = power_history.get_value(start_date_minus_one)
                     power_minus_two = power_history.get_value(start_date_minus_two)
-                    min_power_minus_one = self.minimum_power.get_value(start_date_minus_one)
-                    min_power_minus_two = self.minimum_power.get_value(start_date_minus_two)
+                    min_power_minus_one = self.thermal_unit.minimum_power.get_value(start_date_minus_one)
+                    min_power_minus_two = self.thermal_unit.minimum_power.get_value(start_date_minus_two)
 
                     # Get gradient auxiliary variables
                     u_var = model.get_variable(f"UP_grad_at_{start_date_minus_one}_for_e_{self.thermal_unit.name}")
@@ -1635,15 +1620,15 @@ class ThermalInitialConditions:
                         model.add_constraint(d_var == 0, f"init_d_grad_{self.thermal_unit.name}_{start_date_minus_one}")
 
                     # Initialize flat_down_stop for start_date_minus_one
-                    if start_date_minus_three in power_history.time_index:
+                    if start_date_minus_three in power_history.index:
                         power_minus_three = power_history.get_value(start_date_minus_three)
-                        min_power_minus_three = self.minimum_power.get_value(start_date_minus_three)
+                        min_power_minus_three = self.thermal_unit.minimum_power.get_value(start_date_minus_three)
 
                         # Get next power for trend analysis at time minus 3
                         next_time_minus_three = start_date_minus_three + parameters.timestep
                         next_power_minus_three = (
                             power_history.get_value(next_time_minus_three)
-                            if next_time_minus_three in power_history.time_index
+                            if next_time_minus_three in power_history.index
                             else power_minus_three
                         )
 
