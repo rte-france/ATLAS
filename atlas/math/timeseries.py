@@ -1009,5 +1009,16 @@ class Timeseries:
         :rtype: DateTime or None
         """
         if len(self.timeseries) > 0:
-            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").to_series().to_list()[0]))
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").head(1).item()))
+        return None
+
+    def last_date(self) -> pendulum.DateTime | None:
+        """
+        Return the last date in the Timeseries index.
+
+        :return: The last date in the Timeseries index
+        :rtype: DateTime or None
+        """
+        if len(self.timeseries) > 0:
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").tail(1).item()))
         return None
