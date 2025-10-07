@@ -609,6 +609,12 @@ class TestTimeseriesBasicOperations:
 
         assert sample_ts == sample_ts_copy
 
+    def test_first_date(self, sample_ts):
+        assert sample_ts.first_date() == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+
+    def test_last_date(self, sample_ts):
+        assert sample_ts.last_date() == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+
 
 class TestTimeseriesManipulation:
     """Test time series manipulation methods."""
