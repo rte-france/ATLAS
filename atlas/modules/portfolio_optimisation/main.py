@@ -138,7 +138,7 @@ class PortfolioOptimisationOrchestrator:
 
         # try:
         model.build_model(max_optimisation_times)
-        model.export_model("po.lp")
+        model.export_model(f"po_{portfolio.name}.lp")
         model.optimise()
         return model
 
