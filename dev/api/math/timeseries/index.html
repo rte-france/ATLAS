@@ -1008,6 +1008,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#atlas.Timeseries.last_date" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;last_date
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#atlas.Timeseries.max" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;max
@@ -1973,6 +1982,15 @@
   <a href="#atlas.Timeseries.interpolate" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;interpolate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#atlas.Timeseries.last_date" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;last_date
     </span>
   </a>
   
@@ -3785,7 +3803,7 @@ interpolation methods.</p>
 </span><span id="__span-0-1009"><a id="__codelineno-0-1009" name="__codelineno-0-1009"></a><span class="sd">    :rtype: DateTime or None</span>
 </span><span id="__span-0-1010"><a id="__codelineno-0-1010" name="__codelineno-0-1010"></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="__span-0-1011"><a id="__codelineno-0-1011" name="__codelineno-0-1011"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">timeseries</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span id="__span-0-1012"><a id="__codelineno-0-1012" name="__codelineno-0-1012"></a>        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">pendulum</span><span class="o">.</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">pendulum</span><span class="o">.</span><span class="n">instance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">timeseries</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to_series</span><span class="p">()</span><span class="o">.</span><span class="n">to_list</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+</span><span id="__span-0-1012"><a id="__codelineno-0-1012" name="__codelineno-0-1012"></a>        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">pendulum</span><span class="o">.</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">pendulum</span><span class="o">.</span><span class="n">instance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">timeseries</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
 </span><span id="__span-0-1013"><a id="__codelineno-0-1013" name="__codelineno-0-1013"></a>    <span class="k">return</span> <span class="kc">None</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
@@ -5319,6 +5337,72 @@ interpolation methods.</p>
 </span><span id="__span-0-905"><a id="__codelineno-0-905" name="__codelineno-0-905"></a>        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Unsupported interpolation method, use &#39;linear&#39; or &#39;constant&#39;&quot;</span><span class="p">)</span>
 </span><span id="__span-0-906"><a id="__codelineno-0-906" name="__codelineno-0-906"></a>
 </span><span id="__span-0-907"><a id="__codelineno-0-907" name="__codelineno-0-907"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_inplace</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">inplace</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="atlas.Timeseries.last_date" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">last_date</span>
+
+
+<a href="#atlas.Timeseries.last_date" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">last_date</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="pendulum.DateTime">DateTime</span></span> <span class="o">|</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return the last date in the Timeseries index.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>DateTime | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The last date in the Timeseries index</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>atlas/math/timeseries.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1015">1015</a></span>
+<span class="normal"><a href="#__codelineno-0-1016">1016</a></span>
+<span class="normal"><a href="#__codelineno-0-1017">1017</a></span>
+<span class="normal"><a href="#__codelineno-0-1018">1018</a></span>
+<span class="normal"><a href="#__codelineno-0-1019">1019</a></span>
+<span class="normal"><a href="#__codelineno-0-1020">1020</a></span>
+<span class="normal"><a href="#__codelineno-0-1021">1021</a></span>
+<span class="normal"><a href="#__codelineno-0-1022">1022</a></span>
+<span class="normal"><a href="#__codelineno-0-1023">1023</a></span>
+<span class="normal"><a href="#__codelineno-0-1024">1024</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1015"><a id="__codelineno-0-1015" name="__codelineno-0-1015"></a><span class="k">def</span><span class="w"> </span><span class="nf">last_date</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pendulum</span><span class="o">.</span><span class="n">DateTime</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-1016"><a id="__codelineno-0-1016" name="__codelineno-0-1016"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="__span-0-1017"><a id="__codelineno-0-1017" name="__codelineno-0-1017"></a><span class="sd">    Return the last date in the Timeseries index.</span>
+</span><span id="__span-0-1018"><a id="__codelineno-0-1018" name="__codelineno-0-1018"></a>
+</span><span id="__span-0-1019"><a id="__codelineno-0-1019" name="__codelineno-0-1019"></a><span class="sd">    :return: The last date in the Timeseries index</span>
+</span><span id="__span-0-1020"><a id="__codelineno-0-1020" name="__codelineno-0-1020"></a><span class="sd">    :rtype: DateTime or None</span>
+</span><span id="__span-0-1021"><a id="__codelineno-0-1021" name="__codelineno-0-1021"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-1022"><a id="__codelineno-0-1022" name="__codelineno-0-1022"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">timeseries</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="__span-0-1023"><a id="__codelineno-0-1023" name="__codelineno-0-1023"></a>        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">pendulum</span><span class="o">.</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">pendulum</span><span class="o">.</span><span class="n">instance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">timeseries</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tail</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
+</span><span id="__span-0-1024"><a id="__codelineno-0-1024" name="__codelineno-0-1024"></a>    <span class="k">return</span> <span class="kc">None</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
