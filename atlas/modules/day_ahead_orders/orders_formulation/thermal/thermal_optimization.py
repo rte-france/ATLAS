@@ -291,11 +291,19 @@ class ThermalOptimization(OptimisationModel):
         self.extended_start_date = self.previous_time_frame[-1]  # Last date in the previous_time_frame
 
         # Retrieve the values of the Power attribute over previous_time_frame
-        self.last_power = self.thermal_unit.power.get_forecast(
-            self.parameters.execution_date,
-            self.extended_start_date,
-            self.parameters.start_date - self.parameters.time_step,
-        )  # Extract the time series corresponding to the previous period
+        if self.thermal_unit.power:
+            self.last_power = self.thermal_unit.power.get_forecast(
+                self.parameters.execution_date,
+                self.extended_start_date,
+                self.parameters.start_date - self.parameters.time_step,
+            )  # Extract the time series corresponding to the previous period
+        else:
+            self.last_power = Timeseries.from_index(
+                self.extended_start_date,
+                self.parameters.time_step,
+                self.parameters.start_date - self.parameters.time_step,
+                0,
+            )
 
         self.last_date = self.last_power.last_date()  # get the last date with a recorded value
 
