@@ -335,12 +335,16 @@ class ThermalOptimization(OptimisationModel):
         # Populate the time series and retrieve the infeasible automated reserve procurements.
         for t in self.time_frame:
             # retrieve the feasible part in the feasible time series
-            self.feasible_automated_reserves_up_procured[t] = min(
-                afrr_up_procured.get_value(t), self.thermal_unit.maximum_afrr
-            ) + min(fcr_up_procured.get_value(t), self.thermal_unit.maximum_fcr)
-            self.feasible_automated_reserves_down_procured[t] = min(
-                afrr_down_procured.get_value(t), self.thermal_unit.maximum_afrr
-            ) + min(fcr_down_procured.get_value(t), self.thermal_unit.maximum_fcr)
+            self.feasible_automated_reserves_up_procured.set_value(
+                t,
+                min(afrr_up_procured.get_value(t), self.thermal_unit.maximum_afrr)
+                + min(fcr_up_procured.get_value(t), self.thermal_unit.maximum_fcr),
+            )
+            self.feasible_automated_reserves_down_procured.set_value(
+                t,
+                min(afrr_down_procured.get_value(t), self.thermal_unit.maximum_afrr)
+                + min(fcr_down_procured.get_value(t), self.thermal_unit.maximum_fcr),
+            )
 
             # retrieve and save the infeasible part
             self.automated_unsupplied_reserves += (
@@ -4272,11 +4276,11 @@ class ThermalOptimization(OptimisationModel):
             # automatedContractedDifference
             self.add_constraint(
                 automated_contracted_difference_up[t]
-                >= feasible_automated_reserves_up_procured[t] - automated_reserves_up[t]
+                >= feasible_automated_reserves_up_procured.get_value(t) - automated_reserves_up[t]
             )
             self.add_constraint(
                 automated_contracted_difference_down[t]
-                >= feasible_automated_reserves_down_procured[t] - automated_reserves_down[t]
+                >= feasible_automated_reserves_down_procured.get_value(t) - automated_reserves_down[t]
             )
 
     def create_daily_energy_constraint(
