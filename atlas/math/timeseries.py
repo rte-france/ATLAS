@@ -185,8 +185,8 @@ class Timeseries:
 
         if not isinstance(timeseries, Timeseries):
             raise TypeError("Input has to be a timeseries object, if using a dataframe, use 'from_dataframe' ")
-        if default_value:
-            df = timeseries.dataframe.with_columns(pl.lit(0).alias("value"))
+        if default_value is not None:
+            df = timeseries.dataframe.with_columns(pl.lit(default_value).alias("value"))
             return cls(df, timezone=timeseries.timezone)
         else:
             return cls(timeseries)
