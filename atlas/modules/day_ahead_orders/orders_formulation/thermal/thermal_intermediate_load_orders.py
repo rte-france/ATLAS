@@ -407,14 +407,10 @@ class ThermalIntermediateLoadOrders:
                 results[unit.name][value] = res
 
                 # Store state sequences in the output marker
-                local_time_index = res["OFF"].index()
-                # TODO
-                new_sequence_ts = API.TimeSeries.NewTimeSeries(
-                    f"State_sequence_of_{unit.Name}_{value}_price",
-                    API.TimeSeries.Constant,
-                    "Integer",
-                    local_time_index,
-                    0,
+                local_time_index = res["OFF"].index
+
+                new_sequence_ts = Timeseries.from_index(
+                    parameters.start_date, parameters.time_step, parameters.end_date, default_value=0
                 )
 
                 for time in local_time_index:

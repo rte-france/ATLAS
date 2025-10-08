@@ -143,28 +143,28 @@ class ThermalOptimization(OptimisationModel):
 
         # Get the parameters of the unit
         fcr_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_optimization_date, 0
         )
         fcr_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_optimization_date, 0
         )
         afrr_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_optimization_date, 0
         )
         afrr_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_optimization_date, 0
         )
         mfrr_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_optimization_date, 0
         )
         mfrr_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_optimization_date, 0
         )
         rr_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_optimization_date, 0
         )
         rr_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.time_step, self.parameters.end_optimization_date, 0
         )
         if self.thermal_unit.fcr_up_procured:
             fcr_up_procured = self.thermal_unit.fcr_up_procured.get_forecast(
@@ -358,7 +358,7 @@ class ThermalOptimization(OptimisationModel):
             cfg.logger.info(f"automated unsupplied reserves : {self.automated_unsupplied_reserves}")
 
         # Set-up the power gradients
-        self.delta_q = self.thermal_unit.maximum_gradient * self.parameters.time_step
+        self.delta_q = self.thermal_unit.maximum_gradient * self.parameters.time_step.total_minutes()
         self.delta_q_unconstrained = self.thermal_unit.maximum_power.max()
 
     def define_initial_parameters(self):
@@ -4067,7 +4067,7 @@ class ThermalOptimization(OptimisationModel):
                     (i.e. [start_date, end_optimization_date]).
         """
         self.set_solver_specific_parameters_as_string(
-            f"MIPRELSTOP {self.parameters.duality_gap} PRESOLVE {int(self.parameters.presolve)} MAXTIME {self.parameters.time_out}"
+            f"MIPRELSTOP {self.parameters.solver_duality_gap} PRESOLVE {int(self.parameters.use_presolve)} MAXTIME {self.parameters.solver_time_out}"
         )
         if self.parameters.debug:
             lp_file_name = os.path.join(
@@ -4092,7 +4092,7 @@ class ThermalOptimization(OptimisationModel):
 
         results["q"] = {}
         for t in self.time_frame:
-            q_star[t] = self.q[t].solution_value()
+            q_star.set_value(t, self.q[t].solution_value())
 
         # If verbose is activated, inform the user if the optimal program is such that the unit
         # provides no output
@@ -4131,12 +4131,16 @@ class ThermalOptimization(OptimisationModel):
         results["automated_contracted_difference_down"] = {}
         # Populate the time series
         for t in self.time_frame:
-            contracted_difference_up_star[t] = self.contracted_difference_up[t].solution_value()
-            contracted_difference_down_star[t] = self.contracted_difference_down[t].solution_value()
+            contracted_difference_up_star.set_value(t, self.contracted_difference_up[t].solution_value())
+            contracted_difference_down_star.set_value(t, self.contracted_difference_down[t].solution_value())
         # Populate the automatedDifference time series
         for t in self.time_frame:
-            automated_contracted_difference_up_star[t] = self.automated_contracted_difference_up[t].solution_value()
-            automated_contracted_difference_down_star[t] = self.automated_contracted_difference_down[t].solution_value()
+            automated_contracted_difference_up_star.set_value(
+                t, self.automated_contracted_difference_up[t].solution_value()
+            )
+            automated_contracted_difference_down_star.set_value(
+                t, self.automated_contracted_difference_down[t].solution_value()
+            )
 
         # Populate the dictionnary
         results["q"] = q_star
@@ -4165,9 +4169,9 @@ class ThermalOptimization(OptimisationModel):
 
         # Populate the time series
         for t in self.time_frame:
-            ON_UP_star[t] = self.ON_UP[t].solution_value()
-            ON_DOWN_star[t] = self.ON_DOWN[t].solution_value()
-            OFF_star[t] = self.OFF[t].solution_value()
+            ON_UP_star.set_value(t, self.ON_UP[t].solution_value())
+            ON_DOWN_star.set_value(t, self.ON_DOWN[t].solution_value())
+            OFF_star.set_value(t, self.OFF[t].solution_value())
 
         # Populate the dictionnary
         results["ON_UP"] = ON_UP_star
@@ -4182,7 +4186,7 @@ class ThermalOptimization(OptimisationModel):
             # Add the keys in the dictionnary
             results["START"] = {}
             for t in self.time_frame:
-                START_star[t] = self.START[t].solution_value()
+                START_star.set_value(t, self.START[t].solution_value())
                 # Add the time series to the dictionnary.
             results["START"] = START_star
         if self.T_stop >= 1:
@@ -4191,7 +4195,7 @@ class ThermalOptimization(OptimisationModel):
             )
             results["STOP"] = {}
             for t in self.time_frame:
-                STOP_star[t] = self.STOP[t].solution_value()
+                STOP_star.set_value(t, self.STOP[t].solution_value())
             # Add the time series to the dictionnary.
             results["STOP"] = STOP_star
         if self.T_stable >= 1:
@@ -4200,7 +4204,7 @@ class ThermalOptimization(OptimisationModel):
             )
             results["ON_FLAT"] = {}
             for t in self.time_frame:
-                ON_FLAT_star[t] = self.ON_FLAT[t].solution_value()
+                ON_FLAT_star.set_value(t, self.ON_FLAT[t].solution_value())
             results["ON_FLAT"] = ON_FLAT_star
 
         return results
