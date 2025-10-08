@@ -57,6 +57,6 @@ if __name__ == "__main__":
     replace_patterns_in_column("Portfolio_generator_es.lp_correspondance.csv")
 
     SolverHelper.rebuild_lp_with_real_names("po.lp", "Portfolio_generator_es.lp_correspondance.csv", "po_renamed.lp")
-    atlas_lp = SolverHelper.read_lp_ortools("po.lp")
+    atlas_lp = SolverHelper.read_lp_ortools("po_renamed.lp")
     legacy_lp = SolverHelper.read_lp_legacy("po_legacy.lp")
     contraints, variables, objective = SolverHelper.compare_lp_problems(atlas_lp, legacy_lp)

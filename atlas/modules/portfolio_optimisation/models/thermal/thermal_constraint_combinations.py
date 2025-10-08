@@ -201,12 +201,12 @@ class ThermalConstraintCombinations:
         relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{self.thermal_unit.name}_{time}")
 
         # Power bounds and parameters
-        q_upper = self.maximum_power.get_value(time)
-        q_lower = self.minimum_power.get_value(time)
+        q_upper = self.thermal_unit.maximum_power.get_value(time)
+        q_lower = self.thermal_unit.minimum_power.get_value(time)
         maximum_automated = get_maximum_automated(self)
 
         # Shutdown gradient parameters
-        q_min = self.minimum_power.max()  # Get the minimum power without reserve requirements
+        q_min = self.thermal_unit.minimum_power.max()  # Get the minimum power without reserve requirements
         q_step = q_min / self._T_stop
 
         # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
@@ -390,8 +390,8 @@ class ThermalConstraintCombinations:
         relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{self.thermal_unit.name}_{time}")
 
         # Power bounds
-        q_upper = self.maximum_power.get_value(time)
-        q_lower = self.minimum_power.get_value(time)
+        q_upper = self.thermal_unit.maximum_power.get_value(time)
+        q_lower = self.thermal_unit.minimum_power.get_value(time)
         maximum_automated = get_maximum_automated(self)
 
         # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
@@ -592,12 +592,12 @@ class ThermalConstraintCombinations:
         relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{self.thermal_unit.name}_{time}")
 
         # Power bounds and startup parameters
-        q_upper = self.maximum_power.get_value(time)
-        q_lower = self.minimum_power.get_value(time)
+        q_upper = self.thermal_unit.maximum_power.get_value(time)
+        q_lower = self.thermal_unit.minimum_power.get_value(time)
         maximum_automated = get_maximum_automated(self)
 
         # Startup gradient parameters
-        q_min = self.minimum_power.max()  # Get the minimum power without reserve requirements
+        q_min = self.thermal_unit.minimum_power.max()  # Get the minimum power without reserve requirements
         q_step = q_min / self._T_start
 
         # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
@@ -786,12 +786,12 @@ class ThermalConstraintCombinations:
         relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{self.thermal_unit.name}_{time}")
 
         # Power bounds and shutdown parameters
-        q_upper = self.maximum_power.get_value(time)
-        q_lower = self.minimum_power.get_value(time)
+        q_upper = self.thermal_unit.maximum_power.get_value(time)
+        q_lower = self.thermal_unit.minimum_power.get_value(time)
         maximum_automated = get_maximum_automated(self)
 
         # Shutdown gradient parameters
-        q_min = self.minimum_power.max()
+        q_min = self.thermal_unit.minimum_power.max()
         q_step = q_min / self._T_stop
 
         # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
@@ -1071,12 +1071,12 @@ class ThermalConstraintCombinations:
         relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{self.thermal_unit.name}_{time}")
 
         # Power bounds and startup parameters
-        q_upper = self.maximum_power.get_value(time)
-        q_lower = self.minimum_power.get_value(time)
+        q_upper = self.thermal_unit.maximum_power.get_value(time)
+        q_lower = self.thermal_unit.minimum_power.get_value(time)
         maximum_automated = get_maximum_automated(self)
 
         # Startup gradient parameters
-        q_min = self.minimum_power.max()
+        q_min = self.thermal_unit.minimum_power.max()
         q_step = q_min / self._T_start
 
         # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
@@ -1320,12 +1320,12 @@ class ThermalConstraintCombinations:
         relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{self.thermal_unit.name}_{time}")
 
         # Power bounds and gradient parameters
-        q_upper = self.maximum_power.get_value(time)
-        q_lower = self.minimum_power.get_value(time)
+        q_upper = self.thermal_unit.maximum_power.get_value(time)
+        q_lower = self.thermal_unit.minimum_power.get_value(time)
         maximum_automated = get_maximum_automated(self)
 
         # Dual gradient parameters for startup and shutdown
-        q_min = self.minimum_power.max()
+        q_min = self.thermal_unit.minimum_power.max()
         q_step_up = q_min / self._T_start  # Startup gradient step
         q_step_down = q_min / self._T_stop  # Shutdown gradient step
 
@@ -1572,12 +1572,12 @@ class ThermalConstraintCombinations:
         relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{self.thermal_unit.name}_{time}")
 
         # Power bounds and gradient parameters
-        q_upper = self.maximum_power.get_value(time)
-        q_lower = self.minimum_power.get_value(time)
+        q_upper = self.thermal_unit.maximum_power.get_value(time)
+        q_lower = self.thermal_unit.minimum_power.get_value(time)
         maximum_automated = get_maximum_automated(self)
 
         # Dual gradient parameters for startup and shutdown
-        q_min = self.minimum_power.max()
+        q_min = self.thermal_unit.minimum_power.max()
         q_step_up = q_min / self._T_start  # Startup gradient step
         q_step_down = q_min / self._T_stop  # Shutdown gradient step
 
