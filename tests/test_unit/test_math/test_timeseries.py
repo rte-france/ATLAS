@@ -108,6 +108,17 @@ class TestTimeseriesInit:
         ts2 = Timeseries.from_index(start, freq, end, default_value=[1.0, 2.0, 3.0], timezone="UTC")
         assert ts2.dataframe["value"].to_list() == [1.0, 2.0, 3.0]
 
+    def test_from_timeseries(self):
+        start = "2025-01-01 00:00:00"
+        end = "2025-01-01 02:00:00"
+        freq = "1h"
+        ts1 = Timeseries.from_index(start, freq, end, default_value=5.0, timezone="UTC")
+        ts2 = Timeseries.from_timeseries(ts1)
+        ts3 = Timeseries.from_timeseries(ts1, 0.0)
+
+        assert ts1 == ts2
+        assert ts1 != ts3
+
     def test_init_with_dict(self):
         """Test initialization with a dictionary."""
         data = {
