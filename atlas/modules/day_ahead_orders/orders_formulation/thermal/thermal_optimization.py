@@ -4067,7 +4067,7 @@ class ThermalOptimization(OptimisationModel):
                     (i.e. [start_date, end_optimization_date]).
         """
         self.set_solver_specific_parameters_as_string(
-            f"MIPRELSTOP {self.parameters.solver_duality_gap} PRESOLVE {int(self.parameters.use_presolve)} MAXTIME {self.parameters.solver_time_out}"
+            f"MIPRELSTOP {self.parameters.solver_duality_gap} PRESOLVE {int(self.parameters.use_presolve)} MAXTIME {self.parameters.solver_time_out.total_seconds()}"
         )
         if self.parameters.debug:
             lp_file_name = os.path.join(

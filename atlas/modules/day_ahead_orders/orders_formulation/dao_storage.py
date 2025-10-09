@@ -39,7 +39,7 @@ class DAOStorage:
         model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor, "maximize")
         model.create_constraints(initial_stock)
         model.set_solver_specific_parameters_as_string(
-            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_minutes()}"
+            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_seconds()}"
         )
 
         # Solving the problem
@@ -93,7 +93,7 @@ class DAOStorage:
         model.create_objective_function(power_fragments, smoothing_factor, "maximize")
         model.create_constraints(initial_stock, power_fragments)
         model.set_solver_specific_parameters_as_string(
-            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_minutes()}"
+            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_seconds()}"
         )
 
         # Solving the problem
