@@ -43,8 +43,8 @@ class DayAheadOrdersInputDataset(AbstractDataset[DayAheadOrdersParameters]):
         self.solar = raw_data[INVERSE_MODEL_MAPPING_NAME[Solar]]
         self.thermal = raw_data[INVERSE_MODEL_MAPPING_NAME[Thermal]]
         self.other_non_dispatchable = raw_data[INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable]]
-        self.order: list[BusinessModel] = []
-        self.order_coupling: list[BusinessModel] = []
+        self.order: list[Order] = []
+        self.order_coupling: list[OrderCoupling] = []
         self.load = raw_data[INVERSE_MODEL_MAPPING_NAME[Load]]
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:

@@ -98,21 +98,21 @@ class ThermalBidding:
         }
 
         # Getting only relevant orders
-        list_of_relevant_orders_intermediate = []
+        list_of_relevant_orders_intermediate: list[Order] = []
         for order in dataset.order:
             if (
-                order.Product == Product.DayAhead
+                order.product == Product.DayAhead
                 and type(order.equipment).__name__ == "Thermal"
                 and order.start_date in orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
-                    da_sell_submitted_volumes[order.equipment.name][order.start_date] += order.qmax
+                    da_sell_submitted_volumes[order.equipment.name].add_value_at(order.start_date, order.qmax)
                 else:
                     list_of_relevant_orders_intermediate.append(order)
 
         # --- Intermediate ---
         # Creation of a reversed dic of all coupling in which a given order is involved
-        unit_order_coupling_list = {str: list}
+        unit_order_coupling_list: dict[str, list] = {}
         for coupling_instance in dataset.order_coupling:
             for order_index, order in enumerate(coupling_instance.orders):
                 if order not in list_of_relevant_orders_intermediate:
@@ -187,7 +187,7 @@ class ThermalBidding:
         # Uncoupled orders or orders coupled to non exclusive groups (COMPLEMENT for instance)
         for order in list_of_relevant_orders_intermediate:
             if not already_considered_orders[order.name]:
-                da_sell_submitted_volumes[order.equipment.name][order.start_date] += order.qmax
+                da_sell_submitted_volumes[order.equipment.name].add_value_at(order.start_date, order.qmax)
 
         # --- Export ---
         for equipment in dataset.thermal:
@@ -229,7 +229,7 @@ class ThermalBidding:
                         return current_programm, already_considered_orders_n
 
         # Else, we add it to the current programm
-        current_programm[current_order.start_date] += current_order.qmax
+        current_programm.add_value_at(current_order.start_date, current_order.qmax)
         already_considered_orders_n.append(current_order.name)
 
         # Then, we search for connected orders

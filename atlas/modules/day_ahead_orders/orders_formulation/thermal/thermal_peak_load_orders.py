@@ -81,10 +81,12 @@ class ThermalPeakLoadOrders:
                 )
 
             for t in orders_time:
+                # Reads the minimum power and decides whether an inflexible order should be generated or not
+                minimum_power = unit.minimum_power.get_value(t) if unit.minimum_power is not None else 0
+                generate_inflexible_order = minimum_power > 0
+
                 # MaximumPower is used to store planned or forced outages (value at 0), in which cases it might be lower than MinimumPower
-                if unit.maximum_power.get_value(t) == 0.0 or unit.maximum_power.get_value(
-                    t
-                ) < unit.minimum_power.get_value(t):
+                if unit.maximum_power.get_value(t) == 0.0 or unit.maximum_power.get_value(t) < minimum_power:
                     if parameters.verbose:
                         cfg.logger.warning(
                             f"*** WARNING ***\n MaximumPower is nul or lower than MinimumPower for unit {unit.name} at time {str(t)}. "
@@ -95,10 +97,7 @@ class ThermalPeakLoadOrders:
                 # Inflexible order
                 # ================
 
-                # Reads the minimum power and decides whether an inflexible order should be generated or not
-                minimum_power = unit.minimum_power.get_value(t)
-                generate_inflexible_order = minimum_power > 0
-
+                inflexible_order = None
                 if generate_inflexible_order:
                     # Compute the price
                     Q = minimum_power * (1.0 if unit.minimum_time_on.total_hours() == 0.0 else unit.minimum_time_on)
@@ -128,7 +127,7 @@ class ThermalPeakLoadOrders:
                 # Compute the maximum power of the flexible order
                 q_max = (
                     unit.maximum_power.get_value(t)
-                    - unit.minimum_power.get_value(t)
+                    - minimum_power
                     - manual_reserves_down_procured.get_value(t)
                     - manual_reserves_up_procured.get_value(t)
                     - automated_reserves_down_procured.get_value(t)
@@ -268,7 +267,7 @@ class ThermalPeakLoadOrders:
 
         if generate_inflexible_order:
             # Parent-children link between the flexible and inflexible parts
-            link = OrderCoupling(name=link_name)
+            link = OrderCoupling(name=link_name, orders=[])
             link.coupling_type = CouplingType.PARENT_CHILDREN
             # add the two orders
             link.orders.append(inflexible_order)  # add the parent

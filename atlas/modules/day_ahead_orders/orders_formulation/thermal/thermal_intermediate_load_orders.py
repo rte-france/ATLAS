@@ -8,10 +8,8 @@ This file is part of the ATLAS project.
 import itertools
 import math
 
-from pydantic_extra_types.pendulum_dt import DateTime
-
 import atlas.config as cfg
-from atlas import OrderCoupling, Thermal
+from atlas import OrderCoupling, Thermal, ScenarioMatrix
 from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
@@ -19,6 +17,7 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimization
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
+from pydantic_extra_types.pendulum_dt import DateTime
 
 
 class ThermalIntermediateLoadOrders:
@@ -67,7 +66,7 @@ class ThermalIntermediateLoadOrders:
 
                 # Extract the list of online time frames
                 list_of_online_timeframes = ThermalBaseLoadOrders.extract_online_sequences(
-                    thermal_unit, states_sequence, orders_time, parameters, case
+                    states_sequence, orders_time, parameters, case
                 )
 
                 # Formulate the orders over each online timeframe.
@@ -130,6 +129,7 @@ class ThermalIntermediateLoadOrders:
                             coupling = OrderCoupling(
                                 name=f"EXCLUSION_link_between_orders_{order_1.name}_and_{order_2.name}",
                                 coupling_type=CouplingType.EXCLUSION,
+                                orders=[],
                             )
                             coupling.orders.append(order_1)
                             coupling.orders.append(order_2)
@@ -162,7 +162,12 @@ class ThermalIntermediateLoadOrders:
         scenarios_names = results[thermal_unit.name].keys()
 
         # See whether the unit has a minimum_stable_power_duration
-        has_flat = True if min(thermal_unit.minimum_stable_power_duration, thermal_unit.minimum_time_on) >= 2 else False
+        has_flat = (
+            True
+            if min(thermal_unit.minimum_stable_power_duration.total_hours(), thermal_unit.minimum_time_on.total_hours())
+            >= 2
+            else False
+        )
 
         # For each price curve, we collapse all ON states. This is why we needed to know whether the unit has
         # two or three ON states. Due to the mutual exclusion constraint, the resulting serie will take values in {0,1} only.
@@ -257,7 +262,7 @@ class ThermalIntermediateLoadOrders:
         # Baseline : the unit is OFF or ON_UP (or ON_DOWN)
         # Multiply OFF by 0 because this state is encoded as 0 in the states_sequence
         states_sequence = (
-            0 * res[unit.name][case]["OFF"] + res[unit.name][case]["ON_UP"] + res[unit.name][case]["ON_DOWN"]
+            res[unit.name][case]["OFF"].__mul__(0.0) + res[unit.name][case]["ON_UP"] + res[unit.name][case]["ON_DOWN"]
         )
 
         # Now add the conditional states if relevant :
@@ -266,11 +271,11 @@ class ThermalIntermediateLoadOrders:
 
         if T_start > 0:
             # Encoded as 2 in states_sequence.
-            states_sequence += 2 * res[unit.name][case]["START"]
+            states_sequence += res[unit.name][case]["START"].__mul__(2.0)
 
         if T_stop > 0:
             # Encoded as 3 in states_sequence
-            states_sequence += 3 * res[unit.name][case]["STOP"]
+            states_sequence += res[unit.name][case]["STOP"].__mul__(3.0)
 
         # Edit the states_sequence properties
         states_sequence.name = f"states sequence for unit {unit.name} under scenario {case}"
@@ -441,9 +446,8 @@ class ThermalIntermediateLoadOrders:
                             new_sequence_ts.set_value(time, 6)
                             continue
 
-                unit.state_sequence.add(
-                    f"{parameters.execution_date}-{value.upper()}_DAO",
-                    new_sequence_ts,
-                )
+                if unit.state_sequence is None:
+                    unit.state_sequence = ScenarioMatrix()
+                unit.state_sequence.add(new_sequence_ts, f"{parameters.execution_date}-{value.upper()}_DAO")
 
         return results

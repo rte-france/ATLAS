@@ -486,6 +486,7 @@ class ThermalUnitOrders:
             coupling = OrderCoupling(
                 name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{date}_with_scenario_{case}",
                 coupling_type=CouplingType.IDENTICAL_RATIO,
+                orders=[],
             )
             for order in inflexible_orders:
                 coupling.orders.append(order)
@@ -510,6 +511,7 @@ class ThermalUnitOrders:
         link_flexible_inflexible = OrderCoupling(
             name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
             coupling_type=CouplingType.PARENT_CHILDREN,
+            orders=[],
         )
         # add the two orders
         link_flexible_inflexible.orders.append(parent_bid)
