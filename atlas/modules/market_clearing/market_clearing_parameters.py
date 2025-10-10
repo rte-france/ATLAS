@@ -135,7 +135,7 @@ class MarketClearingParameters(AbstractParameters):
         "Typical values: 0.001, 0.0001 or 0.00001 : default value is 0.001",
     )
     fb_branch_load_slack_penalty: float = Field(
-        200,
+        1,
         description="Penalty coefficient favoring the minimization of slacks on flow-based branch load constraints "
         "during the pricing phase : default value is 200",
     )

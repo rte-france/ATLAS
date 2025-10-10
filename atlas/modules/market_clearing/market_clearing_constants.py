@@ -3,6 +3,8 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+import pendulum
+
 from atlas.modules.market_clearing.models.order_mc import OrderMC
 
 
@@ -231,8 +233,8 @@ def adverse_flow_constraint_name(border_name: str, time_index: int) -> str:
     return f"prevent_adv_flow_on_{border_name}_at_{time_index}"
 
 
-def absolute_price_group_constraint_name(id: int, time_index: int) -> str:
-    return f"Price_pos_neg_group_{id}_t_{time_index}"
+def absolute_price_group_constraint_name(id: int, time: pendulum.DateTime) -> str:
+    return f"Price_pos_neg_group_{id}_t_{time.format('DD_MM_YYYY_HH_mm_ss')}"
 
 
 def positive_slack_branch_load_constraint_name(id: int, other_id: int, time_index: int) -> str:
@@ -247,8 +249,8 @@ def price_ptdf_constraint_name(id: int, other_id: int, time_index: int) -> str:
     return f"price_ptdf_time_{time_index}_areas_{id}-{other_id}"
 
 
-def price_difference_constraint_name(id: int, other_id: int, time_index: int) -> str:
-    return f"def_price_diff_groups_{id}_and_{other_id}_at_{time_index}"
+def price_difference_constraint_name(id: int, other_id: int, time: pendulum.DateTime) -> str:
+    return f"def_price_diff_groups_{id}_and_{other_id}_at_{time.format('DD_MM_YYYY_HH_mm_ss')}"
 
 
 def linked_bids_surplus_constraint_name(index_lo: int) -> str:
@@ -300,8 +302,8 @@ def delta_p_pc(index_pc: int) -> str:
     return f"delta_p_PC_{index_pc}"
 
 
-def delta_p_order(order_name: str, equipment_name: str, market_area_name: str, time_index: int) -> str:
-    return f"delta_p_order_{order_name}_area_{market_area_name}_eqpt_{equipment_name}_t_{time_index}"
+def delta_p_order(order_name: str, market_area_name: str, time_index: int) -> str:
+    return f"delta_p_order_{order_name}_area_{market_area_name}_t_{time_index}"
 
 
 # Constraints
@@ -313,6 +315,6 @@ def paradoxical_delta_p_pc_constraint_name(index_pc: int) -> str:
     return f"paradoxical_delta_p_PC_{index_pc}"
 
 
-def paradoxical_delta_p_order_constraint_name(order_name: str, equipment_name: str, market_area_name: str, time_index: int) -> str:
-    return f"paradoxial_delta_p_order_{order_name}_area_{market_area_name}_eqpt_{equipment_name}_t_{time_index}"
+def paradoxical_delta_p_order_constraint_name(order_name: str, market_area_name: str, time_index: int) -> str:
+    return f"paradoxical_delta_p_order_{order_name}_area_{market_area_name}_t_{time_index}"
 

@@ -155,7 +155,10 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 if len(order_coupling.orders) > 0:
                     order = order_coupling.orders[0]
                     mc_orders[order.name].is_parent = True
-                    mc_orders[order.name].parent_id = order_coupling.name
+                    if mc_orders[order.name].order_coupling_parent_ids is None:
+                        mc_orders[order.name].order_coupling_parent_ids = [order_coupling.name]
+                    else:
+                        mc_orders[order.name].order_coupling_parent_ids.append(order_coupling.name)
 
         return mc_orders
 

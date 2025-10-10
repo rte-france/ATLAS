@@ -31,13 +31,14 @@ class OrderMC(Order):
     is_linked: bool = False
     link_id: str | None = None
     group_index: int | None = None
+    time_index: int | None = None
     is_parent_children: bool = False
     parent_child_id: str | None = None
     full_link_id: int | None = None
     full_pc_id: int | None = None
     child_id: str | None = None
     is_parent: bool = False
-    parent_id: bool = False
+    order_coupling_parent_ids: list[str] | None = None
     circular_pc_id: int | None = None
 
     # Attributes from market clearing parameter
@@ -116,3 +117,13 @@ class OrderMC(Order):
             return False
 
         return True
+
+    # Useful for pricing only
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        if isinstance(other, Order) and other.name == self.name:
+            return True
+        return False
+    ##########################

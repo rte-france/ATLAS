@@ -43,11 +43,11 @@ class MarketClearingModule(
         clearing.run()
         # Launch Exchange Fixing phase
         exchange_fixing = ExchangesFixing(input_dataset, parameters)
-        exchange_fixing.run(clearing)
+        exchange_fixing.run(clearing.retrieve_local_balances())
         # Launch Pricing phase
         market_prices: dict[str, list[float]] = {}  # retrieve from pricing
         marginal_fixing = MarginalFixing(input_dataset, parameters)
-        marginal_fixing.run(clearing.retrieve_accepted_powers(), market_prices)
+        marginal_fixing.run(clearing.retrieve_local_balances(), market_prices)
         return MarketClearingOutputDataset()
 
     def validates_results(
