@@ -34,8 +34,8 @@ class ThermalPO(Thermal):
 
     maximum_fcr: float
     maximum_afrr: float
-    minimum_power: Timeseries | LazyTimeseries
-    maximum_power: Timeseries | LazyTimeseries
+    # minimum_power: Timeseries | LazyTimeseries
+    # maximum_power: Timeseries | LazyTimeseries
     variable_cost: Timeseries | LazyTimeseries
     # startup_cost: Timeseries | LazyTimeseries
     maximum_gradient: float = 0.0  # MW/min ramping rate

@@ -96,6 +96,8 @@ class PortfolioOptimisationOrchestrator:
             for portfolio in input_dataset.portfolios:
                 cfg.logger.debug(f"Processing portfolio {portfolio.name} for individual equipment optimisation")
                 for equipment_type, list_equipment in portfolio.equipments.items():
+                    if equipment_type == "thermal":  # TODO
+                        continue
                     for equipment in list_equipment:
                         equipment_portfolio = PortfolioPO(
                             name=equipment.name,
