@@ -4090,7 +4090,6 @@ class ThermalOptimization(OptimisationModel):
             self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
         )
 
-        results["q"] = {}
         for t in self.time_frame:
             q_star.set_value(t, self.q[t].solution_value())
 
@@ -4115,9 +4114,7 @@ class ThermalOptimization(OptimisationModel):
         contracted_difference_down_star = Timeseries.from_index(
             self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
         )
-        # Initialize the dictionnary keys
-        results["contracted_difference_up"] = {}
-        results["contracted_difference_down"] = {}
+
         # Add the automatedDifference
         # Create the time series
         automated_contracted_difference_up_star = Timeseries.from_index(
@@ -4126,9 +4123,7 @@ class ThermalOptimization(OptimisationModel):
         automated_contracted_difference_down_star = Timeseries.from_index(
             self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
         )
-        # Initialize the dictionnary keys
-        results["automated_contracted_difference_up"] = {}
-        results["automated_contracted_difference_down"] = {}
+
         # Populate the time series
         for t in self.time_frame:
             contracted_difference_up_star.set_value(t, self.contracted_difference_up[t].solution_value())
@@ -4161,11 +4156,6 @@ class ThermalOptimization(OptimisationModel):
         OFF_star = Timeseries.from_index(
             self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
         )
-
-        # Initialize the corresponding keys in the dictionnary
-        results["ON_UP"] = {}
-        results["ON_DOWN"] = {}
-        results["OFF"] = {}
 
         # Populate the time series
         for t in self.time_frame:
