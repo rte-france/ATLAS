@@ -32,31 +32,29 @@ def new_lp():
 
 
 def test_read_lp_ortools(lp_ortools):
-    objectives, constraints, variables, binaries = SolverHelper.read_lp_ortools(lp_ortools)
-    assert len(objectives) == 1
-    assert len(constraints) == 3
-    assert len(variables) == 4
-    assert len(binaries) == 1
+    result = SolverHelper.read_lp_ortools(lp_ortools)
+    assert len(result["objectives"]) == 1
+    assert len(result["constraints"]) == 3
+    assert len(result["variables"]) == 4
+    assert len(result["binaries"]) == 1
 
 
 def test_read_lp_legacy(lp_legacy):
-    objectives, constraints, variables, binaries = SolverHelper.read_lp_legacy(lp_legacy)
-    assert len(objectives) == 2
-    assert len(constraints) == 3
-    assert len(variables) == 0
-    assert len(binaries) == 1
+    result = SolverHelper.read_lp_legacy(lp_legacy)
+    assert len(result["objectives"]) == 2
+    assert len(result["constraints"]) == 3
+    assert len(result["variables"]) == 0
+    assert len(result["binaries"]) == 1
 
 
 def test_rebuild_lp(lp_legacy, lp_legacy_match_file, new_lp):
     # rebuild lp with matching file, restoring complete variable names, instead of shortened ones.
     SolverHelper.rebuild_lp_with_real_names(lp_legacy, lp_legacy_match_file, new_lp)
     # Check that both lp are the same
-    objectives_original, constraints_original, variables_original, binaries_original = SolverHelper.read_lp_legacy(
-        lp_legacy
-    )
-    objectives_new, constraints_new, variables_new, binaries_new = SolverHelper.read_lp_legacy(new_lp)
+    result_original = SolverHelper.read_lp_legacy(lp_legacy)
+    result_new = SolverHelper.read_lp_legacy(new_lp)
 
-    assert len(objectives_original) == len(objectives_new)
-    assert len(constraints_original) == len(constraints_new)
-    assert len(variables_original) == len(variables_new)
-    assert len(binaries_original) == len(binaries_new)
+    assert len(result_original["objectives"]) == len(result_new["objectives"])
+    assert len(result_original["constraints"]) == len(result_new["constraints"])
+    assert len(result_original["variables"]) == len(result_new["variables"])
+    assert len(result_original["binaries"]) == len(result_new["binaries"])
