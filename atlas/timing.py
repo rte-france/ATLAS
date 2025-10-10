@@ -11,9 +11,9 @@ from contextlib import contextmanager
 from datetime import datetime
 
 import pendulum
-from pendulum import DateTime
 import polars as pl
 import pytz
+from pendulum import DateTime
 
 
 def datetime_to_pendulum(fmt: str) -> str:

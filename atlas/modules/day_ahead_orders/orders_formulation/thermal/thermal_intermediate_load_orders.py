@@ -8,8 +8,10 @@ This file is part of the ATLAS project.
 import itertools
 import math
 
+from pydantic_extra_types.pendulum_dt import DateTime
+
 import atlas.config as cfg
-from atlas import OrderCoupling, Thermal, ScenarioMatrix
+from atlas import OrderCoupling, ScenarioMatrix, Thermal
 from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
@@ -17,7 +19,6 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimization
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
-from pydantic_extra_types.pendulum_dt import DateTime
 
 
 class ThermalIntermediateLoadOrders:
@@ -352,7 +353,9 @@ class ThermalIntermediateLoadOrders:
         return is_overlapping
 
     @staticmethod
-    def solve_optimization_programs(equipments_list: Thermal, parameters: DayAheadOrdersParameters) -> dict:
+    def solve_optimization_programs(
+        equipments_list: Thermal, parameters: DayAheadOrdersParameters
+    ) -> dict[str, dict[str, Timeseries]]:
         """
         Solves the optimization programs for a list of equipment given the three price curves.
 
@@ -367,15 +370,15 @@ class ThermalIntermediateLoadOrders:
         """
 
         # create a dictionary that will store the program's outcomes.
-        results = {}
+        results: dict[str, dict[str, Timeseries]] = {}
 
-        for unit, i in zip(equipments_list, range(len(equipments_list)), strict=False):
+        for unit in equipments_list:
             # Initialize a key with the unit's name.
             results[unit.name] = {}
 
             # Retrieve the price forecasts types, extract the corresponding time series and store it in a list
             price_types = parameters.price_forecasts_types
-            prices = []
+            prices: list[Timeseries] = []
 
             for price_type in price_types:
                 if price_type == "Low":

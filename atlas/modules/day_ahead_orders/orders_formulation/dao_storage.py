@@ -60,7 +60,7 @@ class DAOStorage:
     @staticmethod
     def optimize_battery(
         equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters
-    ) -> tuple[dict[Any, Any], dict[Any, Any]]:
+    ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
         """
         Optimization function for Battery and PHS units
         :param equipment: equipment
@@ -101,8 +101,8 @@ class DAOStorage:
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [StartDate, EndDate]
-        Qvv = {}
-        Qaa = {}
+        Qvv: dict[DateTime, float] = {}
+        Qaa: dict[DateTime, float] = {}
         for t in model.time_frame:
             if t >= parameters.end_date:
                 break
@@ -114,7 +114,7 @@ class DAOStorage:
     @staticmethod
     def price_calculation(
         equipment: Equipment, Qv: dict, Qa: dict, parameters: DayAheadOrdersParameters
-    ) -> tuple[Any, Any]:
+    ) -> tuple[float, float]:
         """------ Price computation ------"""
         P_a_max = 0
         P_v_min = 0
@@ -130,12 +130,12 @@ class DAOStorage:
 
         # Check if either Qv or Qa is empty (i.e. contains only 0)
         Qv_empty = True
-        for qv_key, qv_value in Qv.items():
+        for qv_value in Qv.values():
             if qv_value != 0:
                 Qv_empty = False
 
         Qa_empty = True
-        for qa_key, qa_value in Qa.items():
+        for qa_value in Qa.values():
             if qa_value != 0:
                 Qa_empty = False
 

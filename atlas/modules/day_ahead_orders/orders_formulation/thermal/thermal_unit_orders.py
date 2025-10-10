@@ -27,7 +27,7 @@ class ThermalUnitOrders:
         dataset: DayAheadOrdersInputDataset,
         parameters: DayAheadOrdersParameters,
         case="",
-    ):
+    ) -> None:
         """
         Formulate orders for one thermic power plant.
 
@@ -142,16 +142,16 @@ class ThermalUnitOrders:
 
         # Compute K_start and K_stop
         K_start, K_stop = 0, 0
-        i, j = 0, 0
+        m, n = 0, 0
         for t in orders_time:
             if t in online_timeframe.index and online_timeframe.get_value(t) == 2:
-                i += 1
+                m += 1
             elif t in online_timeframe.index and online_timeframe.get_value(t) == 3:
-                j += 1
+                n += 1
 
         # Update the values
-        K_start += i
-        K_stop += j
+        K_start += m
+        K_stop += n
 
         ## Definition of the time frames.
         ### Ramping timeframes: by construction, the associated start_time_frame and stop_time_frame
@@ -224,7 +224,7 @@ class ThermalUnitOrders:
         #                                                         #
         # ------------------------------------------------------- #
         # Loop over the flexible_time_frame to create the flexible orders first, formulated no matter what.
-        for t, i in zip(flexible_time_frame, range(len(flexible_time_frame)), strict=False):
+        for t in flexible_time_frame:
             # Part 1: flexible order
             # Compute the maximum amount to be offered.
             q_max = (
@@ -444,7 +444,7 @@ class ThermalUnitOrders:
                     Q += q_sell
 
             # Part 3: inflexible orders at Pmin
-            for t, i in zip(flexible_time_frame, range(len(flexible_time_frame)), strict=False):
+            for t in flexible_time_frame:
                 # Initialize the inflexible order object.
                 bid_output = Order(
                     name=f"order_at_{t}_for_unit_{unit.name}_under_price_{case}",
@@ -506,7 +506,7 @@ class ThermalUnitOrders:
     @staticmethod
     def create_parent_child_link(
         dataset: DayAheadOrdersInputDataset, parent_bid: Order, child_bid: Order, case: str, unit: Thermal, t: DateTime
-    ):
+    ) -> None:
         # Add parent-children link between the flexible and inflexible parts
         link_flexible_inflexible = OrderCoupling(
             name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
