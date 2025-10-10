@@ -23,7 +23,7 @@ class BatteryModel(DAOBaseModel):
     ):
         super().__init__(parameters, solver_name, name, equipment, optimization_period)
 
-    def create_constraints(self, initial_stock: float | None, power_fragments: int):
+    def create_constraints(self, initial_stock: float | None, power_fragments: int) -> None:
         """
         Creation of constraints
         :param initial_stock: initial stock

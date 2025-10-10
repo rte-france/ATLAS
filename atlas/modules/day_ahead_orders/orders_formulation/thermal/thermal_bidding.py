@@ -49,7 +49,7 @@ class ThermalBidding:
     @staticmethod
     def formulate_thermal_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    ) -> None:
         """
         This wrapper function formulates orders for all thermic units.
 
@@ -84,12 +84,10 @@ class ThermalBidding:
         ThermalBidding.computeDASellSubmittedVolumes(dataset, orders_time, parameters)
         cfg.logger.info("End of computation.")
 
-        return None
-
     @staticmethod
     def computeDASellSubmittedVolumes(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    ) -> None:
         da_sell_submitted_volumes = {
             equipment.name: Timeseries.from_index(
                 parameters.start_date, parameters.time_step, parameters.end_date, default_value=0

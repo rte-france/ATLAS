@@ -25,7 +25,7 @@ class ThermalBaseLoadOrders:
     @staticmethod
     def formulate_thermal_baseload_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    ) -> None:
         """
         This function formulates offers for the thermic baseload units.
         Baseload units are identified thanks to an attribute of the thermic class.
@@ -68,8 +68,6 @@ class ThermalBaseLoadOrders:
             # Formulate the orders over each online timeframe.
             for online_timeframe in list_of_online_timeframes:
                 ThermalUnitOrders.formulate_unit_orders(online_timeframe, unit, orders_time, dataset, parameters)
-
-        return None
 
     # ------ Sequences identification functions ------
     # These functions aim at identifying or classifying state sequences of a unit

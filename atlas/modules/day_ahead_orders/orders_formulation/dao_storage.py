@@ -5,8 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any
-
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -23,7 +21,7 @@ class DAOStorage:
     @staticmethod
     def optimize_ev(
         equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters
-    ) -> tuple[dict[Any, Any], dict[Any, Any]]:
+    ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
         """
         Optimization function for ElectricVehicle units
         :param equipment: equipment
@@ -47,8 +45,8 @@ class DAOStorage:
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [StartDate, EndDate]
-        Qvv = {}
-        Qaa = {}
+        Qvv: dict[DateTime, float] = {}
+        Qaa: dict[DateTime, float] = {}
         for t in model.time_frame:
             if t >= parameters.end_date:
                 break
@@ -335,7 +333,7 @@ class DAOStorage:
         parameters: DayAheadOrdersParameters,
         dataset,
         coupling_instance: OrderCoupling,
-    ):
+    ) -> None:
         order = Order(
             name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{equipment.name}",
             equipment=equipment,

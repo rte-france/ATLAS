@@ -75,5 +75,3 @@ class NonDispatchable:
                     end_date=t + parameters.time_step,
                 )
                 dataset.order.append(bid_output)
-
-        return None

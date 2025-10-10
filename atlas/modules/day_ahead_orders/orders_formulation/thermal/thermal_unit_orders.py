@@ -501,8 +501,6 @@ class ThermalUnitOrders:
                 else:
                     order.price -= amortized_cost
 
-        return None
-
     @staticmethod
     def create_parent_child_link(
         dataset: DayAheadOrdersInputDataset, parent_bid: Order, child_bid: Order, case: str, unit: Thermal, t: DateTime

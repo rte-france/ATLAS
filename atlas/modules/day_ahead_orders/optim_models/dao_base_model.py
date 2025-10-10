@@ -60,7 +60,7 @@ class DAOBaseModel(OptimisationModel):
         # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
         self.is_sell: dict[DateTime, Any] = {}
 
-    def create_decision_variables(self, nb_fragments: int):
+    def create_decision_variables(self, nb_fragments: int) -> None:
         """Creation of decision variables"""
 
         for t in self.time_frame:
@@ -76,7 +76,7 @@ class DAOBaseModel(OptimisationModel):
 
     def create_objective_function(
         self, nb_fragments: int, smoothing_factor: float, direction: Literal["maximize", "minimize"] = "maximize"
-    ):
+    ) -> None:
         """Creation of objective function"""
 
         # The objective function is the total profit over the optimisation period

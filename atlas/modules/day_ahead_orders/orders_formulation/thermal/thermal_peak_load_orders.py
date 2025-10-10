@@ -19,7 +19,7 @@ class ThermalPeakLoadOrders:
     @staticmethod
     def formulate_thermal_peak_load_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    ) -> None:
         """
         This function formulates orders for the thermic peak load units. Such orders
         have the particularity of being time-independent, so there is no link between
@@ -232,8 +232,6 @@ class ThermalPeakLoadOrders:
                         link_name=f"PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
 
-        return None
-
     @staticmethod
     def create_order_and_link(
         dataset: DayAheadOrdersInputDataset,
@@ -247,7 +245,7 @@ class ThermalPeakLoadOrders:
         q_min: float,
         price: float,
         link_name: str,
-    ):
+    ) -> None:
         order = Order(
             name=order_name,
             market_area=unit.portfolio.market_area,

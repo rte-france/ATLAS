@@ -18,7 +18,7 @@ class WindPV:
     @staticmethod
     def formulate_wind_and_pv_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    ) -> None:
         """
         This function formulates wind and pv orders. Orders are priced at the variable cost
         `PropCost`. This can be assimilated to a `plug-in` strategy implied by
@@ -95,5 +95,3 @@ class WindPV:
                         end_date=str(t + parameters.time_step),
                     )
                     dataset.order.append(bid_output)
-
-        return None

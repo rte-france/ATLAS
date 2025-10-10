@@ -26,7 +26,7 @@ class ThermalIntermediateLoadOrders:
     @staticmethod
     def formulate_thermal_intermediate_load_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    ) -> None:
         """
         This function formulates orders for the thermic intermediate load units.
         Intermediate load units are identified from an attribute of the thermic class.
@@ -135,8 +135,6 @@ class ThermalIntermediateLoadOrders:
                             coupling.orders.append(order_1)
                             coupling.orders.append(order_2)
                             dataset.order_coupling.append(coupling)
-
-        return None
 
     @staticmethod
     def get_unique_cases(results: dict, thermal_unit: Thermal) -> list[str]:
@@ -284,7 +282,7 @@ class ThermalIntermediateLoadOrders:
         return states_sequence
 
     @staticmethod
-    def get_overlapping_timeframes(online_timeframes: list):
+    def get_overlapping_timeframes(online_timeframes: list[Timeseries]) -> list[tuple[Timeseries]]:
         """
         Given a list of timeframes, returns the subset of overlapping timeframes.
 
@@ -297,7 +295,7 @@ class ThermalIntermediateLoadOrders:
         # print "DEBUG : Overlapping timeframes"
 
         # Initialize the output
-        overlapping_blocks = []
+        overlapping_blocks: list[tuple[Timeseries]] = []
 
         # Test the potential overlaps
         for pair in itertools.combinations(online_timeframes, 2):
@@ -377,7 +375,7 @@ class ThermalIntermediateLoadOrders:
             results[unit.name] = {}
 
             # Retrieve the price forecasts types, extract the corresponding time series and store it in a list
-            price_types = parameters.price_forecasts_types
+            price_types: list[str] = parameters.price_forecasts_types
             prices: list[Timeseries] = []
 
             for price_type in price_types:

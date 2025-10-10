@@ -22,7 +22,7 @@ class Hydraulic:
     @staticmethod
     def formulate_hydraulic_orders(
         dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ):
+    ) -> None:
         """
         This function formulates the hydraulic reservoir offers.
 
@@ -182,5 +182,3 @@ class Hydraulic:
                 equipment.da_sell_submitted_volume = submitted_volumes
             else:
                 equipment.da_sell_submitted_volume += submitted_volumes
-
-        return None

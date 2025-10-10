@@ -129,7 +129,7 @@ class ThermalOptimization(OptimisationModel):
         self.create_objective_function("maximize")
         self.create_constraints_and_init_conitions()
 
-    def _initial_setup(self):
+    def _initial_setup(self) -> None:
         """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
 
         # Sanity check on the start_date and the end_date. A warning message is sent to the user if the start_date is later
@@ -557,7 +557,7 @@ class ThermalOptimization(OptimisationModel):
                     self.Q_max,
                 )
 
-    def create_objective_function(self, direction: Literal["maximize", "minimize"] = "maximize"):
+    def create_objective_function(self, direction: Literal["maximize", "minimize"] = "maximize") -> None:
         """STEP 2 : Creation of objective function"""
         # Set-up the objective function given by eq. (2) in the documentation.
         # If self.T_stable = 0, we don't need to include automatedContractedReservesUp and automatedContractedReservesDown to the objective function.
@@ -584,7 +584,7 @@ class ThermalOptimization(OptimisationModel):
             direction=direction,
         )
 
-    def create_constraints_and_init_conitions(self):
+    def create_constraints_and_init_conitions(self) -> None:
         """
         STEP 3 : Constraints and initial conditions
         # Constraints and initial conditions are defined based on state and auxiliary variables.
@@ -604,7 +604,7 @@ class ThermalOptimization(OptimisationModel):
         self._combination_7()
         self._combination_8()
 
-    def _combination_1(self):
+    def _combination_1(self) -> None:
         """Combination 1 : T_stop = self.T_stable = T_start = 0"""
 
         if self.T_stop == 0 and self.T_start == 0 and self.T_stable == 0:
@@ -850,7 +850,7 @@ class ThermalOptimization(OptimisationModel):
 
             self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
-    def _combination_2(self):
+    def _combination_2(self) -> None:
         """Combination 2 : T_stop >= 1, self.T_stable = T_start = 0"""
 
         if self.T_stop >= 1 and self.T_start == 0 and self.T_stable == 0:
@@ -1198,7 +1198,7 @@ class ThermalOptimization(OptimisationModel):
 
             self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
-    def _combination_3(self):
+    def _combination_3(self) -> None:
         """Combination 3 : T_stop = 0, self.T_stable >= 1 T_start = 0"""
 
         if self.T_stop == 0 and self.T_start == 0 and self.T_stable >= 1:
@@ -1629,7 +1629,7 @@ class ThermalOptimization(OptimisationModel):
 
             self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
-    def _combination_4(self):
+    def _combination_4(self) -> None:
         """Combination 4 : T_start >= 1, self.T_stable = T_stop = 0"""
 
         if self.T_start >= 1 and self.T_stop == 0 and self.T_stable == 0:
@@ -1942,7 +1942,7 @@ class ThermalOptimization(OptimisationModel):
 
             self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
-    def _combination_5(self):
+    def _combination_5(self) -> None:
         """Combination 5 : T_start =0, self.T_stable = T_stop >= 1"""
 
         if self.T_stop >= 1 and self.T_start == 0 and self.T_stable >= 1:
@@ -2513,7 +2513,7 @@ class ThermalOptimization(OptimisationModel):
 
             self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
-    def _combination_6(self):
+    def _combination_6(self) -> None:
         """Combination 6 : T_stop =0, self.T_stable = T_start >= 1"""
 
         if self.T_stop == 0 and self.T_start >= 1 and self.T_stable >= 1:
@@ -3010,7 +3010,7 @@ class ThermalOptimization(OptimisationModel):
 
             self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
-    def _combination_7(self):
+    def _combination_7(self) -> None:
         """Combination 7 : T_stop >= 1, self.T_stable = 0 T_start >= 1"""
 
         if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable == 0:
@@ -3425,7 +3425,7 @@ class ThermalOptimization(OptimisationModel):
 
             self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
-    def _combination_8(self):
+    def _combination_8(self) -> None:
         """Combination 8 : T_start = self.T_stable = T_stop >= 1"""
 
         if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable >= 1:
@@ -4056,7 +4056,7 @@ class ThermalOptimization(OptimisationModel):
 
             self.create_daily_energy_constraint(self.thermal_unit, self.time_frame, self.parameters.time_step, self.q)
 
-    def solve_thermal_optimization_program(self):
+    def solve_thermal_optimization_program(self) -> dict[str, Timeseries]:
         """
         STEP 4 : Solving the problem
         :return: - `results`: a dictionnary containing the optimal values of the decision variables,
@@ -4083,7 +4083,7 @@ class ThermalOptimization(OptimisationModel):
         # Final step : export the results of the program. We initialize a dictionnary that will store the results.
         # This dictionnary is returned to the user.
         # Initialize the dictionnary
-        results = {}
+        results: dict[str, Timeseries] = {}
 
         # Power output
         q_star = Timeseries.from_index(
@@ -4271,7 +4271,7 @@ class ThermalOptimization(OptimisationModel):
         automated_contracted_difference_down: dict,
         feasible_automated_reserves_down_procured: Timeseries,
         automated_reserves_down: dict,
-    ):
+    ) -> None:
         """Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))"""
         for t in time_frame:
             # contractedDifference
@@ -4289,7 +4289,7 @@ class ThermalOptimization(OptimisationModel):
 
     def create_daily_energy_constraint(
         self, thermal_unit: Thermal, time_frame: list[pendulum.DateTime], time_step: Duration, q: dict
-    ):
+    ) -> None:
         # Energy limits
         if thermal_unit.has_daily_energy_constraint:
             days_in_time_frame = []
