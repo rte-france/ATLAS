@@ -222,6 +222,25 @@ class OptimisationModel:
             raise ValueError(f"Constraint '{name}' not found")
         return self._solver.LookupConstraint(name)
 
+    def deactivate_constraint(self, name: str) -> Any:
+        """
+        Deactivate a constraint object by name.
+        The bounds are set to (-inf, +inf)
+
+        :param name: Constraint name
+        :type name: str
+        :return: OR-Tools constraint object to deactivate
+        :rtype: pywraplp.Constraint
+        :raises ValueError: If constraint doesn't exist
+        """
+        try:
+            constraint = self.get_constraint(name)
+            constraint.SetBounds(-float("inf"), float("inf"))
+            return constraint
+        except ValueError as e:
+            logger.debug(e)
+            return None
+
     def add_objective(
         self,
         objective_expr: Any,
