@@ -541,8 +541,9 @@ class SolverHelper:
                     variables[var_name] = [float(lb), float(ub)]
 
             elif section == "binary":
-                var_name = line
-                binaries.append(var_name)
+                var_name = line.strip()
+                if var_name:  # Only add non-empty variable names
+                    binaries.append(var_name)
 
         return {"objectives": objectives, "constraints": constraints, "variables": variables, "binaries": binaries}
 
@@ -833,7 +834,7 @@ class SolverHelper:
                 # Dict format: check if it has variables (more than just LB/UB)
                 if len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys()):
                     _constraints1[k] = v
-            elif isinstance(v, (list, tuple)):
+            elif isinstance(v, list | tuple):
                 # List format: check if it has more than 2 elements (LB, UB, variables...)
                 if len(v) > 2:
                     _constraints1[k] = v
@@ -843,7 +844,7 @@ class SolverHelper:
                 # Dict format: check if it has variables (more than just LB/UB)
                 if len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys()):
                     _constraints2[k] = v
-            elif isinstance(v, (list, tuple)):
+            elif isinstance(v, list | tuple):
                 # List format: check if it has more than 2 elements (LB, UB, variables...)
                 if len(v) > 2:
                     _constraints2[k] = v
@@ -859,7 +860,7 @@ class SolverHelper:
                     # Handle different constraint formats
                     if isinstance(c1, dict):
                         lb1, ub1 = c1.get("LB"), c1.get("UB")
-                    elif isinstance(c1, (list, tuple)) and len(c1) >= 2:
+                    elif isinstance(c1, list | tuple) and len(c1) >= 2:
                         lb1, ub1 = c1[0], c1[1]
                     else:
                         lb1, ub1 = None, None
@@ -871,7 +872,7 @@ class SolverHelper:
                     # Handle different constraint formats
                     if isinstance(c2, dict):
                         lb2, ub2 = c2.get("LB"), c2.get("UB")
-                    elif isinstance(c2, (list, tuple)) and len(c2) >= 2:
+                    elif isinstance(c2, list | tuple) and len(c2) >= 2:
                         lb2, ub2 = c2[0], c2[1]
                     else:
                         lb2, ub2 = None, None
@@ -899,12 +900,12 @@ class SolverHelper:
 
                         if isinstance(c1, dict):
                             vars1 = {k: v for k, v in c1.items() if k not in ["LB", "UB"]}
-                        elif isinstance(c1, (list, tuple)) and len(c1) > 2:
+                        elif isinstance(c1, list | tuple) and len(c1) > 2:
                             vars1 = {var: coeff for var, coeff in c1[2:] if isinstance(var, str)}
 
                         if isinstance(c2, dict):
                             vars2 = {k: v for k, v in c2.items() if k not in ["LB", "UB"]}
-                        elif isinstance(c2, (list, tuple)) and len(c2) > 2:
+                        elif isinstance(c2, list | tuple) and len(c2) > 2:
                             vars2 = {var: coeff for var, coeff in c2[2:] if isinstance(var, str)}
 
                         all_vars = set(vars1.keys()) | set(vars2.keys())
@@ -920,20 +921,20 @@ class SolverHelper:
                 f.write(f"{constraint_name},{lb1},{ub1},{lb2},{ub2},{status}\n")
 
     @staticmethod
-    def compare_lp_problems_simple(
-        pb1, pb2, output_dir=".", pb1_name="Before", pb2_name="After", tolerance=1e-5, normalize_names=True
+    def compare_lp_problems(
+        pb1, pb2, output_dir=".", pb1_name="Legacy", pb2_name="Atlas", tolerance=1e-5, normalize_names=True
     ):
         """
-        Compare two LP problems and export differences to CSV files
+        Compare two LP problems, export differences to CSV files, and generate an overall summary report
 
         :param pb1: dict. First LP problem (from read_lp_* methods)
         :param pb2: dict. Second LP problem (from read_lp_* methods)
-        :param output_dir: str or Path. Directory to save CSV files
-        :param pb1_name: str. Name for first problem
+        :param output_dir: str or Path. Directory to save CSV files and report
+        :param pb1_name: str. Name for first problem (reference for percentages)
         :param pb2_name: str. Name for second problem
         :param tolerance: float. Tolerance for numerical comparisons
         :param normalize_names: bool. Whether to normalize variable/constraint names (remove trailing colons, etc.)
-        :return: dict with summary information
+        :return: dict with detailed statistics
         """
         from pathlib import Path
 
@@ -950,91 +951,27 @@ class SolverHelper:
             pb1, pb2, output_dir / "constraint_differences.csv", pb1_name, pb2_name, tolerance, normalize_names
         )
 
-        # Basic summary
-        summary = {
-            "total_constraints_pb1": len([k for k, v in pb1["constraints"].items() if len(v) > 2]),
-            "total_constraints_pb2": len([k for k, v in pb2["constraints"].items() if len(v) > 2]),
-            "total_variables_pb1": len(pb1["variables"]),
-            "total_variables_pb2": len(pb2["variables"]),
-            "total_objective_terms_pb1": len(pb1["objectives"]),
-            "total_objective_terms_pb2": len(pb2["objectives"]),
-        }
-
-        print(f"LP comparison completed. CSV files saved in {output_dir}/")
-        print("- objective_differences.csv")
-        print("- variable_differences.csv")
-        print("- constraint_differences.csv")
-
-        return summary
-
-    @staticmethod
-    def generate_overall_summary_report(
-        pb1, pb2, output_dir=".", pb1_name="Legacy", pb2_name="Atlas", tolerance=1e-5, normalize_names=True
-    ):
-        """
-        Generate an overall summary report with percentages for LP comparison
-        
-        :param pb1: dict. First LP problem (legacy/reference)
-        :param pb2: dict. Second LP problem (atlas/new)
-        :param output_dir: str or Path. Directory to save the report
-        :param pb1_name: str. Name for first problem (reference for percentages)
-        :param pb2_name: str. Name for second problem
-        :param tolerance: float. Tolerance for numerical comparisons
-        :param normalize_names: bool. Whether to normalize variable/constraint names
-        :return: dict with detailed statistics
-        """
-        from pathlib import Path
-        
-        output_dir = Path(output_dir)
-        
-        # Helper function to calculate statistics from CSV
-        def analyze_csv_file(csv_path, item_type):
-            if not csv_path.exists():
-                return {"identical": 0, "modified": 0, "only_legacy": 0, "only_atlas": 0, "total": 0}
-            
-            with open(csv_path, 'r') as f:
-                lines = f.readlines()[1:]  # Skip header
-            
-            stats = {"identical": 0, "modified": 0, "only_legacy": 0, "only_atlas": 0}
-            
-            for line in lines:
-                if line.strip():
-                    parts = line.strip().split(',')
-                    status = parts[-1].lower()  # Status is last column
-                    
-                    if status == "identical":
-                        stats["identical"] += 1
-                    elif status == "modified":
-                        stats["modified"] += 1
-                    elif f"only in {pb1_name.lower()}" in status:
-                        stats["only_legacy"] += 1
-                    elif f"only in {pb2_name.lower()}" in status:
-                        stats["only_atlas"] += 1
-            
-            stats["total"] = sum(stats.values())
-            return stats
-
         # Normalize names for analysis
         if normalize_names:
             obj1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["objectives"].items()}
             obj2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["objectives"].items()}
-            
+
             vars1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["variables"].items()}
             vars2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["variables"].items()}
-            
+
             # Filter constraints with variables
             constraints1 = {}
             constraints2 = {}
             for k, v in pb1["constraints"].items():
                 if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
                     constraints1[SolverHelper.normalize_variable_name(k)] = v
-                elif isinstance(v, (list, tuple)) and len(v) > 2:
+                elif isinstance(v, list | tuple) and len(v) > 2:
                     constraints1[SolverHelper.normalize_variable_name(k)] = v
-                    
+
             for k, v in pb2["constraints"].items():
                 if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
                     constraints2[SolverHelper.normalize_variable_name(k)] = v
-                elif isinstance(v, (list, tuple)) and len(v) > 2:
+                elif isinstance(v, list | tuple) and len(v) > 2:
                     constraints2[SolverHelper.normalize_variable_name(k)] = v
         else:
             obj1, obj2 = pb1["objectives"], pb2["objectives"]
@@ -1049,7 +986,7 @@ class SolverHelper:
             modified = 0
             only_legacy = 0
             only_atlas = 0
-            
+
             for item in all_items:
                 if item not in dict1:
                     only_atlas += 1
@@ -1063,51 +1000,46 @@ class SolverHelper:
                 elif item_type == "variables":
                     lb1, ub1 = dict1[item]
                     lb2, ub2 = dict2[item]
-                    if (abs(lb1 - lb2) <= tolerance and abs(ub1 - ub2) <= tolerance):
+                    if abs(lb1 - lb2) <= tolerance and abs(ub1 - ub2) <= tolerance:
                         identical += 1
                     else:
                         modified += 1
                 else:  # constraints
                     # Simplified constraint comparison - in practice you'd want more detailed logic
                     identical += 1  # This would need proper implementation
-                    
+
             total_legacy = len(dict1)
             return {
                 "identical": identical,
-                "modified": modified, 
+                "modified": modified,
                 "only_legacy": only_legacy,
                 "only_atlas": only_atlas,
                 "total_legacy": total_legacy,
-                "total_atlas": len(dict2)
+                "total_atlas": len(dict2),
             }
 
         # Get statistics
         obj_stats = calculate_direct_stats(obj1, obj2, "objectives")
         var_stats = calculate_direct_stats(vars1, vars2, "variables")
         const_stats = calculate_direct_stats(constraints1, constraints2, "constraints")
-        
+
         # Calculate percentages based on legacy (pb1) as reference
         def calc_percentages(stats):
             total_legacy = stats["total_legacy"]
             if total_legacy == 0:
-                return {
-                    "identical_pct": 0.0,
-                    "modified_pct": 0.0,
-                    "only_legacy_pct": 0.0,
-                    "extra_atlas_pct": 0.0
-                }
-            
+                return {"identical_pct": 0.0, "modified_pct": 0.0, "only_legacy_pct": 0.0, "extra_atlas_pct": 0.0}
+
             return {
                 "identical_pct": round(stats["identical"] / total_legacy * 100, 2),
                 "modified_pct": round(stats["modified"] / total_legacy * 100, 2),
                 "only_legacy_pct": round(stats["only_legacy"] / total_legacy * 100, 2),
-                "extra_atlas_pct": round(stats["only_atlas"] / total_legacy * 100, 2)
+                "extra_atlas_pct": round(stats["only_atlas"] / total_legacy * 100, 2),
             }
-        
+
         obj_pct = calc_percentages(obj_stats)
         var_pct = calc_percentages(var_stats)
         const_pct = calc_percentages(const_stats)
-        
+
         # Create summary report
         summary = {
             "objectives": {
@@ -1117,16 +1049,16 @@ class SolverHelper:
                 "modified": obj_stats["modified"],
                 "only_legacy": obj_stats["only_legacy"],
                 "only_atlas": obj_stats["only_atlas"],
-                **obj_pct
+                **obj_pct,
             },
             "variables": {
                 "total_legacy": var_stats["total_legacy"],
-                "total_atlas": var_stats["total_atlas"], 
+                "total_atlas": var_stats["total_atlas"],
                 "identical": var_stats["identical"],
                 "modified": var_stats["modified"],
                 "only_legacy": var_stats["only_legacy"],
                 "only_atlas": var_stats["only_atlas"],
-                **var_pct
+                **var_pct,
             },
             "constraints": {
                 "total_legacy": const_stats["total_legacy"],
@@ -1135,17 +1067,17 @@ class SolverHelper:
                 "modified": const_stats["modified"],
                 "only_legacy": const_stats["only_legacy"],
                 "only_atlas": const_stats["only_atlas"],
-                **const_pct
-            }
+                **const_pct,
+            },
         }
-        
+
         # Write summary report to file
         report_file = output_dir / "overall_summary_report.txt"
-        with open(report_file, 'w') as f:
+        with open(report_file, "w") as f:
             f.write("=" * 60 + "\n")
             f.write("LP COMPARISON OVERALL SUMMARY REPORT\n")
             f.write("=" * 60 + "\n\n")
-            
+
             for category in ["objectives", "variables", "constraints"]:
                 stats = summary[category]
                 f.write(f"{category.upper()}:\n")
@@ -1155,10 +1087,11 @@ class SolverHelper:
                 f.write(f"Identical: {stats['identical']} ({stats['identical_pct']}%)\n")
                 f.write(f"Modified: {stats['modified']} ({stats['modified_pct']}%)\n")
                 f.write(f"Only in {pb1_name}: {stats['only_legacy']} ({stats['only_legacy_pct']}%)\n")
-                f.write(f"Extra in {pb2_name}: {stats['only_atlas']} ({stats['extra_atlas_pct']}% of {pb1_name} total)\n")
+                f.write(
+                    f"Extra in {pb2_name}: {stats['only_atlas']} ({stats['extra_atlas_pct']}% of {pb1_name} total)\n"
+                )
                 f.write("\n")
-        
-        print(f"Overall summary report saved to: {report_file}")
+
         return summary
 
     @staticmethod
