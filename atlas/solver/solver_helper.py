@@ -921,20 +921,20 @@ class SolverHelper:
                 f.write(f"{constraint_name},{lb1},{ub1},{lb2},{ub2},{status}\n")
 
     @staticmethod
-    def compare_lp_problems_simple(
-        pb1, pb2, output_dir=".", pb1_name="Before", pb2_name="After", tolerance=1e-5, normalize_names=True
+    def compare_lp_problems(
+        pb1, pb2, output_dir=".", pb1_name="Legacy", pb2_name="Atlas", tolerance=1e-5, normalize_names=True
     ):
         """
-        Compare two LP problems and export differences to CSV files
+        Compare two LP problems, export differences to CSV files, and generate an overall summary report
 
         :param pb1: dict. First LP problem (from read_lp_* methods)
         :param pb2: dict. Second LP problem (from read_lp_* methods)
-        :param output_dir: str or Path. Directory to save CSV files
-        :param pb1_name: str. Name for first problem
+        :param output_dir: str or Path. Directory to save CSV files and report
+        :param pb1_name: str. Name for first problem (reference for percentages)
         :param pb2_name: str. Name for second problem
         :param tolerance: float. Tolerance for numerical comparisons
         :param normalize_names: bool. Whether to normalize variable/constraint names (remove trailing colons, etc.)
-        :return: dict with summary information
+        :return: dict with detailed statistics
         """
         from pathlib import Path
 
@@ -950,37 +950,6 @@ class SolverHelper:
         SolverHelper.export_constraint_differences_csv(
             pb1, pb2, output_dir / "constraint_differences.csv", pb1_name, pb2_name, tolerance, normalize_names
         )
-
-        # Basic summary
-        summary = {
-            "total_constraints_pb1": len([k for k, v in pb1["constraints"].items() if len(v) > 2]),
-            "total_constraints_pb2": len([k for k, v in pb2["constraints"].items() if len(v) > 2]),
-            "total_variables_pb1": len(pb1["variables"]),
-            "total_variables_pb2": len(pb2["variables"]),
-            "total_objective_terms_pb1": len(pb1["objectives"]),
-            "total_objective_terms_pb2": len(pb2["objectives"]),
-        }
-
-        return summary
-
-    @staticmethod
-    def generate_overall_summary_report(
-        pb1, pb2, output_dir=".", pb1_name="Legacy", pb2_name="Atlas", tolerance=1e-5, normalize_names=True
-    ):
-        """
-        Generate an overall summary report with percentages for LP comparison
-
-        :param pb1: dict. First LP problem (legacy/reference)
-        :param pb2: dict. Second LP problem (atlas/new)
-        :param output_dir: str or Path. Directory to save the report
-        :param pb1_name: str. Name for first problem (reference for percentages)
-        :param pb2_name: str. Name for second problem
-        :param tolerance: float. Tolerance for numerical comparisons
-        :param normalize_names: bool. Whether to normalize variable/constraint names
-        :return: dict with detailed statistics
-        """
-
-        output_dir = Path(output_dir)
 
         # Normalize names for analysis
         if normalize_names:
