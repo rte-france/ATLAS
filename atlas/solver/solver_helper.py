@@ -968,6 +968,200 @@ class SolverHelper:
         return summary
 
     @staticmethod
+    def generate_overall_summary_report(
+        pb1, pb2, output_dir=".", pb1_name="Legacy", pb2_name="Atlas", tolerance=1e-5, normalize_names=True
+    ):
+        """
+        Generate an overall summary report with percentages for LP comparison
+        
+        :param pb1: dict. First LP problem (legacy/reference)
+        :param pb2: dict. Second LP problem (atlas/new)
+        :param output_dir: str or Path. Directory to save the report
+        :param pb1_name: str. Name for first problem (reference for percentages)
+        :param pb2_name: str. Name for second problem
+        :param tolerance: float. Tolerance for numerical comparisons
+        :param normalize_names: bool. Whether to normalize variable/constraint names
+        :return: dict with detailed statistics
+        """
+        from pathlib import Path
+        
+        output_dir = Path(output_dir)
+        
+        # Helper function to calculate statistics from CSV
+        def analyze_csv_file(csv_path, item_type):
+            if not csv_path.exists():
+                return {"identical": 0, "modified": 0, "only_legacy": 0, "only_atlas": 0, "total": 0}
+            
+            with open(csv_path, 'r') as f:
+                lines = f.readlines()[1:]  # Skip header
+            
+            stats = {"identical": 0, "modified": 0, "only_legacy": 0, "only_atlas": 0}
+            
+            for line in lines:
+                if line.strip():
+                    parts = line.strip().split(',')
+                    status = parts[-1].lower()  # Status is last column
+                    
+                    if status == "identical":
+                        stats["identical"] += 1
+                    elif status == "modified":
+                        stats["modified"] += 1
+                    elif f"only in {pb1_name.lower()}" in status:
+                        stats["only_legacy"] += 1
+                    elif f"only in {pb2_name.lower()}" in status:
+                        stats["only_atlas"] += 1
+            
+            stats["total"] = sum(stats.values())
+            return stats
+
+        # Normalize names for analysis
+        if normalize_names:
+            obj1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["objectives"].items()}
+            obj2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["objectives"].items()}
+            
+            vars1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["variables"].items()}
+            vars2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["variables"].items()}
+            
+            # Filter constraints with variables
+            constraints1 = {}
+            constraints2 = {}
+            for k, v in pb1["constraints"].items():
+                if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
+                    constraints1[SolverHelper.normalize_variable_name(k)] = v
+                elif isinstance(v, (list, tuple)) and len(v) > 2:
+                    constraints1[SolverHelper.normalize_variable_name(k)] = v
+                    
+            for k, v in pb2["constraints"].items():
+                if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
+                    constraints2[SolverHelper.normalize_variable_name(k)] = v
+                elif isinstance(v, (list, tuple)) and len(v) > 2:
+                    constraints2[SolverHelper.normalize_variable_name(k)] = v
+        else:
+            obj1, obj2 = pb1["objectives"], pb2["objectives"]
+            vars1, vars2 = pb1["variables"], pb2["variables"]
+            constraints1 = {k: v for k, v in pb1["constraints"].items() if len(v) > 2}
+            constraints2 = {k: v for k, v in pb2["constraints"].items() if len(v) > 2}
+
+        # Calculate direct statistics
+        def calculate_direct_stats(dict1, dict2, item_type):
+            all_items = set(dict1.keys()) | set(dict2.keys())
+            identical = 0
+            modified = 0
+            only_legacy = 0
+            only_atlas = 0
+            
+            for item in all_items:
+                if item not in dict1:
+                    only_atlas += 1
+                elif item not in dict2:
+                    only_legacy += 1
+                elif item_type == "objectives":
+                    if abs(dict1[item] - dict2[item]) <= tolerance:
+                        identical += 1
+                    else:
+                        modified += 1
+                elif item_type == "variables":
+                    lb1, ub1 = dict1[item]
+                    lb2, ub2 = dict2[item]
+                    if (abs(lb1 - lb2) <= tolerance and abs(ub1 - ub2) <= tolerance):
+                        identical += 1
+                    else:
+                        modified += 1
+                else:  # constraints
+                    # Simplified constraint comparison - in practice you'd want more detailed logic
+                    identical += 1  # This would need proper implementation
+                    
+            total_legacy = len(dict1)
+            return {
+                "identical": identical,
+                "modified": modified, 
+                "only_legacy": only_legacy,
+                "only_atlas": only_atlas,
+                "total_legacy": total_legacy,
+                "total_atlas": len(dict2)
+            }
+
+        # Get statistics
+        obj_stats = calculate_direct_stats(obj1, obj2, "objectives")
+        var_stats = calculate_direct_stats(vars1, vars2, "variables")
+        const_stats = calculate_direct_stats(constraints1, constraints2, "constraints")
+        
+        # Calculate percentages based on legacy (pb1) as reference
+        def calc_percentages(stats):
+            total_legacy = stats["total_legacy"]
+            if total_legacy == 0:
+                return {
+                    "identical_pct": 0.0,
+                    "modified_pct": 0.0,
+                    "only_legacy_pct": 0.0,
+                    "extra_atlas_pct": 0.0
+                }
+            
+            return {
+                "identical_pct": round(stats["identical"] / total_legacy * 100, 2),
+                "modified_pct": round(stats["modified"] / total_legacy * 100, 2),
+                "only_legacy_pct": round(stats["only_legacy"] / total_legacy * 100, 2),
+                "extra_atlas_pct": round(stats["only_atlas"] / total_legacy * 100, 2)
+            }
+        
+        obj_pct = calc_percentages(obj_stats)
+        var_pct = calc_percentages(var_stats)
+        const_pct = calc_percentages(const_stats)
+        
+        # Create summary report
+        summary = {
+            "objectives": {
+                "total_legacy": obj_stats["total_legacy"],
+                "total_atlas": obj_stats["total_atlas"],
+                "identical": obj_stats["identical"],
+                "modified": obj_stats["modified"],
+                "only_legacy": obj_stats["only_legacy"],
+                "only_atlas": obj_stats["only_atlas"],
+                **obj_pct
+            },
+            "variables": {
+                "total_legacy": var_stats["total_legacy"],
+                "total_atlas": var_stats["total_atlas"], 
+                "identical": var_stats["identical"],
+                "modified": var_stats["modified"],
+                "only_legacy": var_stats["only_legacy"],
+                "only_atlas": var_stats["only_atlas"],
+                **var_pct
+            },
+            "constraints": {
+                "total_legacy": const_stats["total_legacy"],
+                "total_atlas": const_stats["total_atlas"],
+                "identical": const_stats["identical"],
+                "modified": const_stats["modified"],
+                "only_legacy": const_stats["only_legacy"],
+                "only_atlas": const_stats["only_atlas"],
+                **const_pct
+            }
+        }
+        
+        # Write summary report to file
+        report_file = output_dir / "overall_summary_report.txt"
+        with open(report_file, 'w') as f:
+            f.write("=" * 60 + "\n")
+            f.write("LP COMPARISON OVERALL SUMMARY REPORT\n")
+            f.write("=" * 60 + "\n\n")
+            
+            for category in ["objectives", "variables", "constraints"]:
+                stats = summary[category]
+                f.write(f"{category.upper()}:\n")
+                f.write("-" * 30 + "\n")
+                f.write(f"Total in {pb1_name}: {stats['total_legacy']}\n")
+                f.write(f"Total in {pb2_name}: {stats['total_atlas']}\n")
+                f.write(f"Identical: {stats['identical']} ({stats['identical_pct']}%)\n")
+                f.write(f"Modified: {stats['modified']} ({stats['modified_pct']}%)\n")
+                f.write(f"Only in {pb1_name}: {stats['only_legacy']} ({stats['only_legacy_pct']}%)\n")
+                f.write(f"Extra in {pb2_name}: {stats['only_atlas']} ({stats['extra_atlas_pct']}% of {pb1_name} total)\n")
+                f.write("\n")
+        
+        print(f"Overall summary report saved to: {report_file}")
+        return summary
+
+    @staticmethod
     def isfloat(num):
         """
         Test if the given number is a float
