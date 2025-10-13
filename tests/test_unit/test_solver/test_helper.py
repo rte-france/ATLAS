@@ -43,7 +43,7 @@ def test_read_lp_legacy(lp_legacy):
     result = SolverHelper.read_lp_legacy(lp_legacy)
     assert len(result["objectives"]) == 2
     assert len(result["constraints"]) == 3
-    assert len(result["variables"]) == 0
+    assert len(result["variables"]) == 1  # Binary variables are now included in variables
     assert len(result["binaries"]) == 1
 
 
