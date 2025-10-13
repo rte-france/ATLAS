@@ -979,36 +979,8 @@ class SolverHelper:
         :param normalize_names: bool. Whether to normalize variable/constraint names
         :return: dict with detailed statistics
         """
-        from pathlib import Path
 
         output_dir = Path(output_dir)
-
-        # Helper function to calculate statistics from CSV
-        def analyze_csv_file(csv_path, item_type):
-            if not csv_path.exists():
-                return {"identical": 0, "modified": 0, "only_legacy": 0, "only_atlas": 0, "total": 0}
-
-            with open(csv_path) as f:
-                lines = f.readlines()[1:]  # Skip header
-
-            stats = {"identical": 0, "modified": 0, "only_legacy": 0, "only_atlas": 0}
-
-            for line in lines:
-                if line.strip():
-                    parts = line.strip().split(",")
-                    status = parts[-1].lower()  # Status is last column
-
-                    if status == "identical":
-                        stats["identical"] += 1
-                    elif status == "modified":
-                        stats["modified"] += 1
-                    elif f"only in {pb1_name.lower()}" in status:
-                        stats["only_legacy"] += 1
-                    elif f"only in {pb2_name.lower()}" in status:
-                        stats["only_atlas"] += 1
-
-            stats["total"] = sum(stats.values())
-            return stats
 
         # Normalize names for analysis
         if normalize_names:
