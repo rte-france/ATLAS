@@ -1024,13 +1024,13 @@ class SolverHelper:
             for k, v in pb1["constraints"].items():
                 if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
                     constraints1[SolverHelper.normalize_variable_name(k)] = v
-                elif isinstance(v, (list, tuple)) and len(v) > 2:
+                elif isinstance(v, list | tuple) and len(v) > 2:
                     constraints1[SolverHelper.normalize_variable_name(k)] = v
 
             for k, v in pb2["constraints"].items():
                 if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
                     constraints2[SolverHelper.normalize_variable_name(k)] = v
-                elif isinstance(v, (list, tuple)) and len(v) > 2:
+                elif isinstance(v, list | tuple) and len(v) > 2:
                     constraints2[SolverHelper.normalize_variable_name(k)] = v
         else:
             obj1, obj2 = pb1["objectives"], pb2["objectives"]
