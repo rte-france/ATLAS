@@ -541,8 +541,9 @@ class SolverHelper:
                     variables[var_name] = [float(lb), float(ub)]
 
             elif section == "binary":
-                var_name = line
-                binaries.append(var_name)
+                var_name = line.strip()
+                if var_name:  # Only add non-empty variable names
+                    binaries.append(var_name)
 
         return {"objectives": objectives, "constraints": constraints, "variables": variables, "binaries": binaries}
 
@@ -833,7 +834,7 @@ class SolverHelper:
                 # Dict format: check if it has variables (more than just LB/UB)
                 if len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys()):
                     _constraints1[k] = v
-            elif isinstance(v, (list, tuple)):
+            elif isinstance(v, list | tuple):
                 # List format: check if it has more than 2 elements (LB, UB, variables...)
                 if len(v) > 2:
                     _constraints1[k] = v
@@ -843,7 +844,7 @@ class SolverHelper:
                 # Dict format: check if it has variables (more than just LB/UB)
                 if len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys()):
                     _constraints2[k] = v
-            elif isinstance(v, (list, tuple)):
+            elif isinstance(v, list | tuple):
                 # List format: check if it has more than 2 elements (LB, UB, variables...)
                 if len(v) > 2:
                     _constraints2[k] = v
@@ -859,7 +860,7 @@ class SolverHelper:
                     # Handle different constraint formats
                     if isinstance(c1, dict):
                         lb1, ub1 = c1.get("LB"), c1.get("UB")
-                    elif isinstance(c1, (list, tuple)) and len(c1) >= 2:
+                    elif isinstance(c1, list | tuple) and len(c1) >= 2:
                         lb1, ub1 = c1[0], c1[1]
                     else:
                         lb1, ub1 = None, None
@@ -871,7 +872,7 @@ class SolverHelper:
                     # Handle different constraint formats
                     if isinstance(c2, dict):
                         lb2, ub2 = c2.get("LB"), c2.get("UB")
-                    elif isinstance(c2, (list, tuple)) and len(c2) >= 2:
+                    elif isinstance(c2, list | tuple) and len(c2) >= 2:
                         lb2, ub2 = c2[0], c2[1]
                     else:
                         lb2, ub2 = None, None
@@ -899,12 +900,12 @@ class SolverHelper:
 
                         if isinstance(c1, dict):
                             vars1 = {k: v for k, v in c1.items() if k not in ["LB", "UB"]}
-                        elif isinstance(c1, (list, tuple)) and len(c1) > 2:
+                        elif isinstance(c1, list | tuple) and len(c1) > 2:
                             vars1 = {var: coeff for var, coeff in c1[2:] if isinstance(var, str)}
 
                         if isinstance(c2, dict):
                             vars2 = {k: v for k, v in c2.items() if k not in ["LB", "UB"]}
-                        elif isinstance(c2, (list, tuple)) and len(c2) > 2:
+                        elif isinstance(c2, list | tuple) and len(c2) > 2:
                             vars2 = {var: coeff for var, coeff in c2[2:] if isinstance(var, str)}
 
                         all_vars = set(vars1.keys()) | set(vars2.keys())
@@ -959,11 +960,6 @@ class SolverHelper:
             "total_objective_terms_pb1": len(pb1["objectives"]),
             "total_objective_terms_pb2": len(pb2["objectives"]),
         }
-
-        print(f"LP comparison completed. CSV files saved in {output_dir}/")
-        print("- objective_differences.csv")
-        print("- variable_differences.csv")
-        print("- constraint_differences.csv")
 
         return summary
 
@@ -1155,7 +1151,6 @@ class SolverHelper:
                 )
                 f.write("\n")
 
-        print(f"Overall summary report saved to: {report_file}")
         return summary
 
     @staticmethod
