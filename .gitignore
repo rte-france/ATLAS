@@ -185,6 +185,7 @@ data/
 *.pkl
 *.yml
 *.yaml
+*.txt
 
 # Notebooks
 polars_vs_pandas.ipynb

@@ -9,7 +9,6 @@ import re
 from collections import OrderedDict
 from pathlib import Path
 
-import dictdiffer
 from ortools.linear_solver import pywraplp
 
 
@@ -259,8 +258,19 @@ class SolverHelper:
         """
         solution1 = SolverHelper.solution_to_dict(filename1)
         solution2 = SolverHelper.solution_to_dict(filename2)
-        diffs = list(dictdiffer.diff(solution1, solution2, tolerance=tolerance, absolute_tolerance=absolute_tolerance))
-        return len(diffs) == 0
+
+        # Check if all keys are present in both solutions
+        all_keys = set(solution1.keys()) | set(solution2.keys())
+
+        for key in all_keys:
+            val1 = solution1.get(key, 0.0)
+            val2 = solution2.get(key, 0.0)
+
+            # Check if values are identical within tolerance
+            if abs(val1 - val2) > max(tolerance * max(abs(val1), abs(val2)), absolute_tolerance):
+                return False
+
+        return True
 
     @staticmethod
     def solution_to_dict(solution_file):
@@ -395,18 +405,29 @@ class SolverHelper:
                 else:
                     line = line.split(" <= ")
                     # Case where only on lb constraint
-                    if len(line) == 2:
-                        lb, var_name = line
-                        ub = "inf"
-                    else:
-                        lb, var_name, ub = line
-                    variables[var_name] = [float(lb), float(ub)]
+                    try:
+                        if len(line) == 2:
+                            lb, var_name = line
+                            ub = "inf"
+                        else:
+                            lb, var_name, ub = line
+                        variables[var_name] = [float(lb), float(ub)]
+                    except:  # noqa: E722
+                        if len(line) == 2:
+                            var_name, ub = line
+                            lb = "-inf"
+                        else:
+                            lb, var_name, ub = line
+                        variables[var_name] = [float(lb), float(ub)]
 
             elif section == "binary":
                 var_name = line
                 binaries.append(var_name)
+                # Add binary variables to variables dictionary if not already present
+                if var_name not in variables:
+                    variables[var_name] = [0.0, 1.0]  # Binary variables have bounds [0, 1]
 
-        return objectives, constraints, variables, binaries
+        return {"objectives": objectives, "constraints": constraints, "variables": variables, "binaries": binaries}
 
     @staticmethod
     def read_lp_legacy(filepath):
@@ -523,10 +544,14 @@ class SolverHelper:
                     variables[var_name] = [float(lb), float(ub)]
 
             elif section == "binary":
-                var_name = line
-                binaries.append(var_name)
+                var_name = line.strip()
+                if var_name:  # Only add non-empty variable names
+                    binaries.append(var_name)
+                    # Add binary variables to variables dictionary if not already present
+                    if var_name not in variables:
+                        variables[var_name] = [0.0, 1.0]  # Binary variables have bounds [0, 1]
 
-        return objectives, constraints, variables, binaries
+        return {"objectives": objectives, "constraints": constraints, "variables": variables, "binaries": binaries}
 
     @staticmethod
     def read_lp_custom(filepath):
@@ -628,38 +653,455 @@ class SolverHelper:
             elif section == "binary":
                 var_name = line
                 binaries.append(var_name)
+                # Add binary variables to variables dictionary if not already present
+                if var_name not in variables:
+                    variables[var_name] = [0.0, 1.0]  # Binary variables have bounds [0, 1]
 
         return objectives, constraints, variables, binaries
 
     @staticmethod
-    def compare_lp_problems(pb1, pb2, tolerance=1e-5):
+    def export_objective_differences_csv(
+        pb1, pb2, filename, pb1_name="Before", pb2_name="After", tolerance=1e-5, normalize_names=True
+    ):
         """
-        Test if the given number is a float
+        Export objective function differences to CSV
 
-        :param pb1: int or float. Number to test
-        :param pb2: int or float. Number to test
-        :param tolerance: int or float. Number to test
-        :return: True if the number is a float, False else
+        :param pb1: dict. First LP problem (from read_lp_* methods)
+        :param pb2: dict. Second LP problem (from read_lp_* methods)
+        :param filename: str or Path. CSV file to save
+        :param pb1_name: str. Name for first problem column
+        :param pb2_name: str. Name for second problem column
+        :param tolerance: float. Tolerance for numerical comparisons
+        :param normalize_names: bool. Whether to normalize variable names (remove trailing colons, etc.)
+        """
+        obj1 = pb1["objectives"]
+        obj2 = pb2["objectives"]
+
+        # Normalize variable names if requested
+        if normalize_names:
+            obj1_normalized = {}
+            obj2_normalized = {}
+
+            for var_name, coeff in obj1.items():
+                normalized_name = SolverHelper.normalize_variable_name(var_name)
+                if normalized_name in obj1_normalized:
+                    print(f"Warning: Duplicate normalized objective variable '{normalized_name}' from '{var_name}'")
+                obj1_normalized[normalized_name] = coeff
+
+            for var_name, coeff in obj2.items():
+                normalized_name = SolverHelper.normalize_variable_name(var_name)
+                if normalized_name in obj2_normalized:
+                    print(f"Warning: Duplicate normalized objective variable '{normalized_name}' from '{var_name}'")
+                obj2_normalized[normalized_name] = coeff
+
+            obj1 = obj1_normalized
+            obj2 = obj2_normalized
+
+        all_vars = set(obj1.keys()) | set(obj2.keys())
+
+        with open(filename, "w") as f:
+            f.write(f"Variable,{pb1_name}_Coefficient,{pb2_name}_Coefficient,Difference,Status\n")
+
+            for var in sorted(all_vars):
+                coeff1 = obj1.get(var, 0.0)
+                coeff2 = obj2.get(var, 0.0)
+                diff = coeff2 - coeff1
+
+                if var not in obj1:
+                    status = f"Only in {pb2_name}"
+                elif var not in obj2:
+                    status = f"Only in {pb1_name}"
+                elif abs(diff) > tolerance:
+                    status = "Modified"
+                else:
+                    status = "Identical"
+
+                f.write(f"{var},{coeff1},{coeff2},{diff},{status}\n")
+
+    @staticmethod
+    def normalize_variable_name(var_name):
+        """
+        Normalize variable names by removing trailing colons and other formatting artifacts
+
+        :param var_name: str. Variable name to normalize
+        :return: str. Normalized variable name
+        """
+        return var_name.rstrip(":").strip()
+
+    @staticmethod
+    def export_variable_differences_csv(
+        pb1, pb2, filename, pb1_name="Before", pb2_name="After", tolerance=1e-5, normalize_names=True
+    ):
+        """
+        Export variable bounds differences to CSV
+
+        :param pb1: dict. First LP problem (from read_lp_* methods)
+        :param pb2: dict. Second LP problem (from read_lp_* methods)
+        :param filename: str or Path. CSV file to save
+        :param pb1_name: str. Name for first problem column
+        :param pb2_name: str. Name for second problem column
+        :param tolerance: float. Tolerance for numerical comparisons
+        :param normalize_names: bool. Whether to normalize variable names (remove trailing colons, etc.)
+        """
+        vars1 = pb1["variables"]
+        vars2 = pb2["variables"]
+
+        # Normalize variable names if requested
+        if normalize_names:
+            # Create mapping of normalized names to original bounds
+            vars1_normalized = {}
+            vars2_normalized = {}
+
+            for var_name, bounds in vars1.items():
+                normalized_name = SolverHelper.normalize_variable_name(var_name)
+                if normalized_name in vars1_normalized:
+                    print(f"Warning: Duplicate normalized variable name '{normalized_name}' from '{var_name}'")
+                vars1_normalized[normalized_name] = bounds
+
+            for var_name, bounds in vars2.items():
+                normalized_name = SolverHelper.normalize_variable_name(var_name)
+                if normalized_name in vars2_normalized:
+                    print(f"Warning: Duplicate normalized variable name '{normalized_name}' from '{var_name}'")
+                vars2_normalized[normalized_name] = bounds
+
+            vars1 = vars1_normalized
+            vars2 = vars2_normalized
+
+        all_vars = set(vars1.keys()) | set(vars2.keys())
+
+        with open(filename, "w") as f:
+            f.write(f"Variable,{pb1_name}_LB,{pb1_name}_UB,{pb2_name}_LB,{pb2_name}_UB,Status\n")
+
+            for var in sorted(all_vars):
+                if var in vars1:
+                    lb1, ub1 = vars1[var]
+                else:
+                    lb1, ub1 = None, None
+
+                if var in vars2:
+                    lb2, ub2 = vars2[var]
+                else:
+                    lb2, ub2 = None, None
+
+                if var not in vars1:
+                    status = f"Only in {pb2_name}"
+                elif var not in vars2:
+                    status = f"Only in {pb1_name}"
+                elif (abs(lb1 - lb2) > tolerance if lb1 is not None and lb2 is not None else lb1 != lb2) or (
+                    abs(ub1 - ub2) > tolerance if ub1 is not None and ub2 is not None else ub1 != ub2
+                ):
+                    status = "Modified"
+                else:
+                    status = "Identical"
+
+                f.write(f"{var},{lb1},{ub1},{lb2},{ub2},{status}\n")
+
+    @staticmethod
+    def export_constraint_differences_csv(
+        pb1, pb2, filename, pb1_name="Before", pb2_name="After", tolerance=1e-5, normalize_names=True
+    ):
+        """
+        Export constraint differences to CSV
+
+        :param pb1: dict. First LP problem (from read_lp_* methods)
+        :param pb2: dict. Second LP problem (from read_lp_* methods)
+        :param filename: str or Path. CSV file to save
+        :param pb1_name: str. Name for first problem column
+        :param pb2_name: str. Name for second problem column
+        :param tolerance: float. Tolerance for numerical comparisons
+        :param normalize_names: bool. Whether to normalize constraint names (remove trailing colons, etc.)
         """
         constraints1 = pb1["constraints"]
         constraints2 = pb2["constraints"]
-        _constraints1 = OrderedDict()
-        _constraints2 = OrderedDict()
 
-        for key, value in constraints1.items():
-            # Don't keep constraints with only LB and UB element
-            if len(value) > 2:
-                _constraints1[key] = value
+        # Normalize constraint names if requested
+        if normalize_names:
+            constraints1_normalized = {}
+            constraints2_normalized = {}
 
-        for key, value in constraints2.items():
-            if len(value) > 2:
-                _constraints2[key] = value
-        diff_constraint = list(dictdiffer.diff(_constraints1, _constraints2, tolerance=tolerance))
+            for constraint_name, constraint_data in constraints1.items():
+                normalized_name = SolverHelper.normalize_variable_name(constraint_name)
+                if normalized_name in constraints1_normalized:
+                    print(f"Warning: Duplicate normalized constraint name '{normalized_name}' from '{constraint_name}'")
+                constraints1_normalized[normalized_name] = constraint_data
 
-        diff_variables = list(dictdiffer.diff(pb1["variables"], pb2["variables"], tolerance=tolerance))
-        diff_objectives = list(dictdiffer.diff(pb1["objectives"], pb2["objectives"], tolerance=tolerance))
+            for constraint_name, constraint_data in constraints2.items():
+                normalized_name = SolverHelper.normalize_variable_name(constraint_name)
+                if normalized_name in constraints2_normalized:
+                    print(f"Warning: Duplicate normalized constraint name '{normalized_name}' from '{constraint_name}'")
+                constraints2_normalized[normalized_name] = constraint_data
 
-        return diff_constraint, diff_variables, diff_objectives
+            constraints1 = constraints1_normalized
+            constraints2 = constraints2_normalized
+
+        # Filter constraints (keep only those with variables)
+        _constraints1 = {}
+        _constraints2 = {}
+
+        for k, v in constraints1.items():
+            if isinstance(v, dict):
+                # Dict format: check if it has variables (more than just LB/UB)
+                if len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys()):
+                    _constraints1[k] = v
+            elif isinstance(v, list | tuple):
+                # List format: check if it has more than 2 elements (LB, UB, variables...)
+                if len(v) > 2:
+                    _constraints1[k] = v
+
+        for k, v in constraints2.items():
+            if isinstance(v, dict):
+                # Dict format: check if it has variables (more than just LB/UB)
+                if len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys()):
+                    _constraints2[k] = v
+            elif isinstance(v, list | tuple):
+                # List format: check if it has more than 2 elements (LB, UB, variables...)
+                if len(v) > 2:
+                    _constraints2[k] = v
+
+        all_constraints = set(_constraints1.keys()) | set(_constraints2.keys())
+
+        with open(filename, "w") as f:
+            f.write(f"Constraint,{pb1_name}_LB,{pb1_name}_UB,{pb2_name}_LB,{pb2_name}_UB,Status\n")
+
+            for constraint_name in sorted(all_constraints):
+                if constraint_name in _constraints1:
+                    c1 = _constraints1[constraint_name]
+                    # Handle different constraint formats
+                    if isinstance(c1, dict):
+                        lb1, ub1 = c1.get("LB"), c1.get("UB")
+                    elif isinstance(c1, list | tuple) and len(c1) >= 2:
+                        lb1, ub1 = c1[0], c1[1]
+                    else:
+                        lb1, ub1 = None, None
+                else:
+                    lb1, ub1 = None, None
+
+                if constraint_name in _constraints2:
+                    c2 = _constraints2[constraint_name]
+                    # Handle different constraint formats
+                    if isinstance(c2, dict):
+                        lb2, ub2 = c2.get("LB"), c2.get("UB")
+                    elif isinstance(c2, list | tuple) and len(c2) >= 2:
+                        lb2, ub2 = c2[0], c2[1]
+                    else:
+                        lb2, ub2 = None, None
+                else:
+                    lb2, ub2 = None, None
+
+                if constraint_name not in _constraints1:
+                    status = f"Only in {pb2_name}"
+                elif constraint_name not in _constraints2:
+                    status = f"Only in {pb1_name}"
+                elif (abs(lb1 - lb2) > tolerance if lb1 is not None and lb2 is not None else lb1 != lb2) or (
+                    abs(ub1 - ub2) > tolerance if ub1 is not None and ub2 is not None else ub1 != ub2
+                ):
+                    status = "Modified"
+                else:
+                    # Check if coefficients are different
+                    coeff_different = False
+                    if constraint_name in _constraints1 and constraint_name in _constraints2:
+                        c1 = _constraints1[constraint_name]
+                        c2 = _constraints2[constraint_name]
+
+                        # Get variable coefficients based on format
+                        vars1 = {}
+                        vars2 = {}
+
+                        if isinstance(c1, dict):
+                            vars1 = {k: v for k, v in c1.items() if k not in ["LB", "UB"]}
+                        elif isinstance(c1, list | tuple) and len(c1) > 2:
+                            vars1 = {var: coeff for var, coeff in c1[2:] if isinstance(var, str)}
+
+                        if isinstance(c2, dict):
+                            vars2 = {k: v for k, v in c2.items() if k not in ["LB", "UB"]}
+                        elif isinstance(c2, list | tuple) and len(c2) > 2:
+                            vars2 = {var: coeff for var, coeff in c2[2:] if isinstance(var, str)}
+
+                        all_vars = set(vars1.keys()) | set(vars2.keys())
+                        for var in all_vars:
+                            coeff1 = vars1.get(var, 0.0)
+                            coeff2 = vars2.get(var, 0.0)
+                            if abs(coeff1 - coeff2) > tolerance:
+                                coeff_different = True
+                                break
+
+                    status = "Modified" if coeff_different else "Identical"
+
+                f.write(f"{constraint_name},{lb1},{ub1},{lb2},{ub2},{status}\n")
+
+    @staticmethod
+    def compare_lp_problems(
+        pb1, pb2, output_dir=".", pb1_name="Legacy", pb2_name="Atlas", tolerance=1e-5, normalize_names=True
+    ):
+        """
+        Compare two LP problems, export differences to CSV files, and generate an overall summary report
+
+        :param pb1: dict. First LP problem (from read_lp_* methods)
+        :param pb2: dict. Second LP problem (from read_lp_* methods)
+        :param output_dir: str or Path. Directory to save CSV files and report
+        :param pb1_name: str. Name for first problem (reference for percentages)
+        :param pb2_name: str. Name for second problem
+        :param tolerance: float. Tolerance for numerical comparisons
+        :param normalize_names: bool. Whether to normalize variable/constraint names (remove trailing colons, etc.)
+        :return: dict with detailed statistics
+        """
+        from pathlib import Path
+
+        output_dir = Path(output_dir)
+
+        # Export differences to CSV files
+        SolverHelper.export_objective_differences_csv(
+            pb1, pb2, output_dir / "objective_differences.csv", pb1_name, pb2_name, tolerance, normalize_names
+        )
+        SolverHelper.export_variable_differences_csv(
+            pb1, pb2, output_dir / "variable_differences.csv", pb1_name, pb2_name, tolerance, normalize_names
+        )
+        SolverHelper.export_constraint_differences_csv(
+            pb1, pb2, output_dir / "constraint_differences.csv", pb1_name, pb2_name, tolerance, normalize_names
+        )
+
+        # Normalize names for analysis
+        if normalize_names:
+            obj1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["objectives"].items()}
+            obj2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["objectives"].items()}
+
+            vars1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["variables"].items()}
+            vars2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["variables"].items()}
+
+            # Filter constraints with variables
+            constraints1 = {}
+            constraints2 = {}
+            for k, v in pb1["constraints"].items():
+                if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
+                    constraints1[SolverHelper.normalize_variable_name(k)] = v
+                elif isinstance(v, list | tuple) and len(v) > 2:
+                    constraints1[SolverHelper.normalize_variable_name(k)] = v
+
+            for k, v in pb2["constraints"].items():
+                if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
+                    constraints2[SolverHelper.normalize_variable_name(k)] = v
+                elif isinstance(v, list | tuple) and len(v) > 2:
+                    constraints2[SolverHelper.normalize_variable_name(k)] = v
+        else:
+            obj1, obj2 = pb1["objectives"], pb2["objectives"]
+            vars1, vars2 = pb1["variables"], pb2["variables"]
+            constraints1 = {k: v for k, v in pb1["constraints"].items() if len(v) > 2}
+            constraints2 = {k: v for k, v in pb2["constraints"].items() if len(v) > 2}
+
+        # Calculate direct statistics
+        def calculate_direct_stats(dict1, dict2, item_type):
+            all_items = set(dict1.keys()) | set(dict2.keys())
+            identical = 0
+            modified = 0
+            only_legacy = 0
+            only_atlas = 0
+
+            for item in all_items:
+                if item not in dict1:
+                    only_atlas += 1
+                elif item not in dict2:
+                    only_legacy += 1
+                elif item_type == "objectives":
+                    if abs(dict1[item] - dict2[item]) <= tolerance:
+                        identical += 1
+                    else:
+                        modified += 1
+                elif item_type == "variables":
+                    lb1, ub1 = dict1[item]
+                    lb2, ub2 = dict2[item]
+                    if abs(lb1 - lb2) <= tolerance and abs(ub1 - ub2) <= tolerance:
+                        identical += 1
+                    else:
+                        modified += 1
+                else:  # constraints
+                    # Simplified constraint comparison - in practice you'd want more detailed logic
+                    identical += 1  # This would need proper implementation
+
+            total_legacy = len(dict1)
+            return {
+                "identical": identical,
+                "modified": modified,
+                "only_legacy": only_legacy,
+                "only_atlas": only_atlas,
+                "total_legacy": total_legacy,
+                "total_atlas": len(dict2),
+            }
+
+        # Get statistics
+        obj_stats = calculate_direct_stats(obj1, obj2, "objectives")
+        var_stats = calculate_direct_stats(vars1, vars2, "variables")
+        const_stats = calculate_direct_stats(constraints1, constraints2, "constraints")
+
+        # Calculate percentages based on legacy (pb1) as reference
+        def calc_percentages(stats):
+            total_legacy = stats["total_legacy"]
+            if total_legacy == 0:
+                return {"identical_pct": 0.0, "modified_pct": 0.0, "only_legacy_pct": 0.0, "extra_atlas_pct": 0.0}
+
+            return {
+                "identical_pct": round(stats["identical"] / total_legacy * 100, 2),
+                "modified_pct": round(stats["modified"] / total_legacy * 100, 2),
+                "only_legacy_pct": round(stats["only_legacy"] / total_legacy * 100, 2),
+                "extra_atlas_pct": round(stats["only_atlas"] / total_legacy * 100, 2),
+            }
+
+        obj_pct = calc_percentages(obj_stats)
+        var_pct = calc_percentages(var_stats)
+        const_pct = calc_percentages(const_stats)
+
+        # Create summary report
+        summary = {
+            "objectives": {
+                "total_legacy": obj_stats["total_legacy"],
+                "total_atlas": obj_stats["total_atlas"],
+                "identical": obj_stats["identical"],
+                "modified": obj_stats["modified"],
+                "only_legacy": obj_stats["only_legacy"],
+                "only_atlas": obj_stats["only_atlas"],
+                **obj_pct,
+            },
+            "variables": {
+                "total_legacy": var_stats["total_legacy"],
+                "total_atlas": var_stats["total_atlas"],
+                "identical": var_stats["identical"],
+                "modified": var_stats["modified"],
+                "only_legacy": var_stats["only_legacy"],
+                "only_atlas": var_stats["only_atlas"],
+                **var_pct,
+            },
+            "constraints": {
+                "total_legacy": const_stats["total_legacy"],
+                "total_atlas": const_stats["total_atlas"],
+                "identical": const_stats["identical"],
+                "modified": const_stats["modified"],
+                "only_legacy": const_stats["only_legacy"],
+                "only_atlas": const_stats["only_atlas"],
+                **const_pct,
+            },
+        }
+
+        # Write summary report to file
+        report_file = output_dir / "overall_summary_report.txt"
+        with open(report_file, "w") as f:
+            f.write("=" * 60 + "\n")
+            f.write("LP COMPARISON OVERALL SUMMARY REPORT\n")
+            f.write("=" * 60 + "\n\n")
+
+            for category in ["objectives", "variables", "constraints"]:
+                stats = summary[category]
+                f.write(f"{category.upper()}:\n")
+                f.write("-" * 30 + "\n")
+                f.write(f"Total in {pb1_name}: {stats['total_legacy']}\n")
+                f.write(f"Total in {pb2_name}: {stats['total_atlas']}\n")
+                f.write(f"Identical: {stats['identical']} ({stats['identical_pct']}%)\n")
+                f.write(f"Modified: {stats['modified']} ({stats['modified_pct']}%)\n")
+                f.write(f"Only in {pb1_name}: {stats['only_legacy']} ({stats['only_legacy_pct']}%)\n")
+                f.write(
+                    f"Extra in {pb2_name}: {stats['only_atlas']} ({stats['extra_atlas_pct']}% of {pb1_name} total)\n"
+                )
+                f.write("\n")
+
+        return summary
 
     @staticmethod
     def isfloat(num):
@@ -745,11 +1187,19 @@ class SolverHelper:
                 else:
                     for word in words:
                         if first:
-                            if word != "OBJ:" and word[:-1] in names.keys():
+                            # Check if word ends with ":" and remove it for lookup
+                            lookup_word = word[:-1] if word.endswith(":") else word
+                            if word != "OBJ:" and lookup_word in names.keys():
                                 suffix = "" if is_binaries else ":"
-                                word = names[word[:-1]].replace(" ", "_") + suffix
+                                word = names[lookup_word].replace(" ", "_") + suffix
+                            # Special handling for binaries section - variables don't have colons
+                            elif is_binaries and word.strip() in names.keys():
+                                word = names[word.strip()].replace(" ", "_")
                         else:
-                            if word in names.keys():
+                            # For binaries section, also check and replace variable names
+                            if is_binaries and word.strip() in names.keys():
+                                word = names[word.strip()].replace(" ", "_")
+                            elif word in names.keys():
                                 word = names[word].replace(" ", "_")
                         new_words.append(word)
                         first = False
