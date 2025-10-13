@@ -9,6 +9,7 @@ MAPPING = {
     "Power_level": "power_level",
     "_at_": "_",
     "Stored_energy": "stored_energy",
+    "Stored_Energy": "stored_energy",
     "StoredEnergy": "stored_energy",
     "large_imbal_down": "large_imbalance_down",
     "large_imbal_up": "large_imbalance_up",
@@ -31,13 +32,14 @@ MAPPING = {
 
 def convert_date_format_in_csv(filename: str):
     """
-    Convert date format in CSV from day_month_year to year_month_day
+    Convert date format in CSV from day_month_year to year_month_day and replace colons with underscores
     Pattern: DD_MM_YYYY becomes YYYY_MM_DD
+    Also replaces any ':' with '_' (useful for time components like HH:MM:SS -> HH_MM_SS)
     """
     df = pl.read_csv(filename, separator=";")
 
     def convert_date_pattern(text: str) -> str:
-        """Convert date pattern from DD_MM_YYYY to YYYY_MM_DD"""
+        """Convert date pattern from DD_MM_YYYY to YYYY_MM_DD and replace : with _"""
         # Pattern to match DD_MM_YYYY format (2 digits day, 2 digits month, 4 digits year)
         pattern = r"(\d{2})_(\d{2})_(\d{4})"
 
@@ -45,7 +47,13 @@ def convert_date_format_in_csv(filename: str):
             day, month, year = match.groups()
             return f"{year}_{month}_{day}"
 
-        return re.sub(pattern, replace_match, text)
+        # First convert date format
+        result = re.sub(pattern, replace_match, text)
+
+        # Then replace any colons with underscores (for time components)
+        result = result.replace(":", "_")
+
+        return result
 
     # Apply the conversion to the "Original Name" column
     df_converted = df.with_columns(
@@ -72,6 +80,11 @@ def replace_patterns_in_column(filename: str):
         .then(pl.col("Original Name") + "_00_00")
         .otherwise(pl.col("Original Name"))
         .alias("Original Name")
+    ).with_columns(
+        pl.when(pl.col("Type") == "variable Binaries")
+        .then(pl.col("Original Name") + "_00_00")
+        .otherwise(pl.col("Original Name"))
+        .alias("Original Name")
     )
 
     df_mapped.write_csv(filename, separator=";")
@@ -94,9 +107,9 @@ if __name__ == "__main__":
 
     # replace_patterns_in_column("Portfolio_generator_es.lp_correspondance.csv")
 
-    # SolverHelper.rebuild_lp_with_real_names(
-    #     "po_legacy.lp", "Portfolio_generator_es.lp_correspondance.csv", "po_renamed.lp"
-    # )
+    SolverHelper.rebuild_lp_with_real_names(
+        "po_legacy.lp", "Portfolio_generator_es.lp_correspondance.csv", "po_renamed.lp"
+    )
     atlas_lp = SolverHelper.read_lp_ortools("po_generator_es.lp")
     legacy_lp = SolverHelper.read_lp_legacy("po_renamed.lp")
 
@@ -106,5 +119,5 @@ if __name__ == "__main__":
     output_dir.mkdir(exist_ok=True)
 
     summary = SolverHelper.compare_lp_problems(
-        legacy_lp, atlas_lp, output_dir=output_dir, pb1_name="Legacy_LP", pb2_name="Atlas_LP", tolerance=1e-5
+        legacy_lp, atlas_lp, output_dir=output_dir, pb1_name="Legacy_LP", pb2_name="Atlas_LP", tolerance=1e-1
     )

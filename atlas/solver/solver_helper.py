@@ -423,6 +423,9 @@ class SolverHelper:
             elif section == "binary":
                 var_name = line
                 binaries.append(var_name)
+                # Add binary variables to variables dictionary if not already present
+                if var_name not in variables:
+                    variables[var_name] = [0.0, 1.0]  # Binary variables have bounds [0, 1]
 
         return {"objectives": objectives, "constraints": constraints, "variables": variables, "binaries": binaries}
 
@@ -544,6 +547,9 @@ class SolverHelper:
                 var_name = line.strip()
                 if var_name:  # Only add non-empty variable names
                     binaries.append(var_name)
+                    # Add binary variables to variables dictionary if not already present
+                    if var_name not in variables:
+                        variables[var_name] = [0.0, 1.0]  # Binary variables have bounds [0, 1]
 
         return {"objectives": objectives, "constraints": constraints, "variables": variables, "binaries": binaries}
 
@@ -647,6 +653,9 @@ class SolverHelper:
             elif section == "binary":
                 var_name = line
                 binaries.append(var_name)
+                # Add binary variables to variables dictionary if not already present
+                if var_name not in variables:
+                    variables[var_name] = [0.0, 1.0]  # Binary variables have bounds [0, 1]
 
         return objectives, constraints, variables, binaries
 
@@ -1183,8 +1192,14 @@ class SolverHelper:
                             if word != "OBJ:" and lookup_word in names.keys():
                                 suffix = "" if is_binaries else ":"
                                 word = names[lookup_word].replace(" ", "_") + suffix
+                            # Special handling for binaries section - variables don't have colons
+                            elif is_binaries and word.strip() in names.keys():
+                                word = names[word.strip()].replace(" ", "_")
                         else:
-                            if word in names.keys():
+                            # For binaries section, also check and replace variable names
+                            if is_binaries and word.strip() in names.keys():
+                                word = names[word.strip()].replace(" ", "_")
+                            elif word in names.keys():
                                 word = names[word].replace(" ", "_")
                         new_words.append(word)
                         first = False
