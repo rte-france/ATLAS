@@ -12,6 +12,7 @@ from typing import Literal
 
 import pendulum
 from pendulum._pendulum import Duration
+from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
 from atlas import OptimisationModel, generate_datetimes
@@ -35,8 +36,8 @@ class ThermalOptimization(OptimisationModel):
         self,
         parameters: DayAheadOrdersParameters,
         thermal_unit: Thermal,
-        prices,
-        price_type,
+        prices: Timeseries,
+        price_type: str,
     ):
         """
         :param parameters: a DayAheadOrdersParameters instance
@@ -59,61 +60,67 @@ class ThermalOptimization(OptimisationModel):
             cfg.logger.error(f"*** WARNING ***\n Equipement {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
         self.thermal_unit = thermal_unit
-        self.prices = prices
-        self.price_type = price_type
-        self.T_on = None
-        self.T_off = None
-        self.T_stable = None
-        self.time_frame = list[pendulum.DateTime]
-        self.T_start = None
-        self.T_stop = None
-        self.previous_time_frame = []
-        self.extended_start_date = None
-        self.q_lower = None
-        self.q_upper = None
-        self.maximum_automated = None
-        self.reserves_up_procured = None
-        self.reserves_down_procured = None
-        self.feasible_automated_reserves_up_procured = None
-        self.feasible_automated_reserves_down_procured = None
-        self.automated_unsupplied_reserves = 0
-        self.delta_q = None
-        self.delta_q_unconstrained = None
-        self.q = {}
-        self.reserves_up = {}
-        self.reserves_down = {}
-        self.unprovided_reserves_up = {}
-        self.unprovided_reserves_down = {}
-        self.relaxed_reserves = {}
-        self.automated_reserves_up = {}
-        self.automated_reserves_down = {}
-        self.contracted_difference_up = {}
-        self.contracted_difference_down = {}
-        self.automated_contracted_difference_up = {}
-        self.automated_contracted_difference_down = {}
-        self.OFF = {}
-        self.ON_DOWN = {}
-        self.ON_UP = {}
+        self.prices: Timeseries = prices
+        self.price_type: str = price_type
+        self.T_on: int = None
+        self.T_off: int = None
+        self.T_stable: int = None
+        self.time_frame: list[DateTime] = []
+        self.T_start: int = None
+        self.T_stop: int = None
+        self.previous_time_frame: list[DateTime] = []
+        self.extended_start_date: DateTime = None
+        self.q_lower: Timeseries = None
+        self.q_upper: Timeseries = None
+        self.maximum_automated: float = None
+        self.reserves_up_procured: Timeseries = None
+        self.reserves_down_procured: Timeseries = None
+        self.feasible_automated_reserves_up_procured: Timeseries = None
+        self.feasible_automated_reserves_down_procured: Timeseries = None
+        self.automated_unsupplied_reserves: float = 0
+        self.delta_q: float = None
+        self.delta_q_unconstrained: float = None
+        self.q: dict[DateTime, Any] = {}
+        self.reserves_up: dict[DateTime, Any] = {}
+        self.reserves_down: dict[DateTime, Any] = {}
+        self.unprovided_reserves_up: dict[DateTime, Any] = {}
+        self.unprovided_reserves_down: dict[DateTime, Any] = {}
+        self.relaxed_reserves: dict[DateTime, Any] = {}
+        self.automated_reserves_up: dict[DateTime, Any] = {}
+        self.automated_reserves_down: dict[DateTime, Any] = {}
+        self.contracted_difference_up: dict[DateTime, Any] = {}
+        self.contracted_difference_down: dict[DateTime, Any] = {}
+        self.automated_contracted_difference_up: dict[DateTime, Any] = {}
+        self.automated_contracted_difference_down: dict[DateTime, Any] = {}
+        self.OFF: dict[DateTime, Any] = {}
+        self.ON_DOWN: dict[DateTime, Any] = {}
+        self.ON_UP: dict[DateTime, Any] = {}
         self.start_time_steps = None
         self.stop_time_steps = None
-        self.START = {}
-        self.STOP = {}
-        self.start_date_minus_one = None
-        self.ON_FLAT = {}
-        self.turned_on = {}  # Corresponding to the variable defined in sec. 6.1.1
-        self.turned_off = {}  # Corresponding to the variable defined in sec. 6.1.2
-        self.time_frame_union_minus_one = None
-        self.Q_max = None
-        self.Q_min = None
-        self.stable = {}  # This auxiliary variable indicates when the unit enters the FLAT state
-        self.entered_up = {}  # This variable replaces ON_UP in the definition of the gradient and will bound the gradient for only one time step
-        self.entered_down = {}  # Same as single_on_up but for on down
-        self.U = {}  # This variable will be implemented in the gradient and bound the upward gradient
-        self.tilde_U = {}
-        self.D = {}  # This variable will be implemented in the gradient and bound the downward gradient
-        self.tilde_D = {}
-        self.last_power = None
-        self.last_date = None
+        self.START: dict[DateTime, Any] = {}
+        self.STOP: dict[DateTime, Any] = {}
+        self.start_date_minus_one: DateTime = None
+        self.ON_FLAT: dict[DateTime, Any] = {}
+        self.turned_on: dict[DateTime, Any] = {}  # Corresponding to the variable defined in sec. 6.1.1
+        self.turned_off: dict[DateTime, Any] = {}  # Corresponding to the variable defined in sec. 6.1.2
+        self.time_frame_union_minus_one: list[DateTime] = None
+        self.Q_max: float = None
+        self.Q_min: float = None
+        self.stable: dict[DateTime, Any] = {}  # This auxiliary variable indicates when the unit enters the FLAT state
+        self.entered_up: dict[
+            DateTime, Any
+        ] = {}  # This variable replaces ON_UP in the definition of the gradient and will bound the gradient for only one time step
+        self.entered_down: dict[DateTime, Any] = {}  # Same as single_on_up but for on down
+        self.U: dict[
+            DateTime, Any
+        ] = {}  # This variable will be implemented in the gradient and bound the upward gradient
+        self.tilde_U: dict[DateTime, Any] = {}
+        self.D: dict[
+            DateTime, Any
+        ] = {}  # This variable will be implemented in the gradient and bound the downward gradient
+        self.tilde_D: dict[DateTime, Any] = {}
+        self.last_power: Timeseries = None
+        self.last_date: DateTime = None
 
         # Power gradients
         # Definition of the gradients_time_frame : starts at start_date - time_step and goes until T-1
@@ -128,6 +135,7 @@ class ThermalOptimization(OptimisationModel):
         self.define_initial_parameters()
         self.create_objective_function("maximize")
         self.create_constraints_and_init_conitions()
+        print()
 
     def _initial_setup(self) -> None:
         """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
@@ -4201,7 +4209,7 @@ class ThermalOptimization(OptimisationModel):
 
     def create_fill_up_constraints(
         self,
-        time_frame: list[pendulum.DateTime],
+        time_frame: list[DateTime],
         q: dict,
         reserves_up: dict,
         automated_reserves_up: dict,
@@ -4248,7 +4256,7 @@ class ThermalOptimization(OptimisationModel):
 
     def create_contracted_diff_constraints(
         self,
-        time_frame: list[pendulum.DateTime],
+        time_frame: list[DateTime],
         contracted_difference_up: dict,
         reserves_up_procured: Timeseries,
         reserves_up: dict,
@@ -4278,7 +4286,7 @@ class ThermalOptimization(OptimisationModel):
             )
 
     def create_daily_energy_constraint(
-        self, thermal_unit: Thermal, time_frame: list[pendulum.DateTime], time_step: Duration, q: dict
+        self, thermal_unit: Thermal, time_frame: list[DateTime], time_step: Duration, q: dict
     ) -> None:
         # Energy limits
         if thermal_unit.has_daily_energy_constraint:
