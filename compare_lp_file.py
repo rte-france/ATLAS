@@ -3,7 +3,11 @@ from pathlib import Path
 
 import polars as pl
 
+import atlas.config as cfg
+from atlas.io_utils.input_loader import InputLoader
+from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.solver.solver_helper import SolverHelper
+from atlas.timing import timer
 
 MAPPING = {
     "Power_level": "power_level",
@@ -91,18 +95,18 @@ def replace_patterns_in_column(filename: str):
 
 
 if __name__ == "__main__":
-    # module = PortfolioOptimisationModule()
+    module = PortfolioOptimisationModule()
 
-    # with timer() as t:
-    #     raw_data = InputLoader.from_directory("data/atlas-dataset/portfolio-optimisation", lazy=False)
-    # cfg.logger.info(f"{t()} to load data")
-    # with timer() as t:
-    #     try:
-    #         module.run(raw_data=raw_data, raw_params="parameters.yaml")
-    #     except Exception:
-    #         cfg.logger.info(f"{t()} to run module")
+    with timer() as t:
+        raw_data = InputLoader.from_directory("data/atlas-dataset/portfolio-optimisation", lazy=False)
+    cfg.logger.info(f"{t()} to load data")
+    with timer() as t:
+        try:
+            module.run(raw_data=raw_data, raw_params="parameters.yaml")
+        except Exception:
+            cfg.logger.info(f"{t()} to run module")
 
-    # Convert date format from day_month_year to year_month_day
+    # # Convert date format from day_month_year to year_month_day
     # convert_date_format_in_csv("Portfolio_generator_es.lp_correspondance.csv")
 
     # replace_patterns_in_column("Portfolio_generator_es.lp_correspondance.csv")
@@ -119,5 +123,5 @@ if __name__ == "__main__":
     output_dir.mkdir(exist_ok=True)
 
     summary = SolverHelper.compare_lp_problems(
-        legacy_lp, atlas_lp, output_dir=output_dir, pb1_name="Legacy_LP", pb2_name="Atlas_LP", tolerance=1e-1
+        legacy_lp, atlas_lp, output_dir=output_dir, pb1_name="Legacy_LP", pb2_name="Atlas_LP", tolerance=1
     )

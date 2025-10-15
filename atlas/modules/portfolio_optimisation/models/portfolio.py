@@ -44,9 +44,9 @@ class PortfolioPO(Portfolio):
         if time in parameters.target_times:
             cfg.logger.debug(f"Adding variables for portfolio :{self.name} at time {time}")
             residual_energy = self._compute_residual_energy(time, parameters)
-            maximum_power, maximum_energy = self._compute_power_and_energy(time, parameters)
+            maximum_power = self._compute_maximum_power(time, parameters)
 
-            self._add_imbalance_variables(model, time, residual_energy, maximum_energy, parameters)
+            self._add_imbalance_variables(model, time, residual_energy, maximum_power, parameters)
             self._add_contract_difference_variables(model, time, maximum_power)
         else:
             cfg.logger.debug(f"Skipping variables adding for portfolio :{self.name} at non-target time {time}")
@@ -63,7 +63,7 @@ class PortfolioPO(Portfolio):
     def _add_reserves_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
     ):
-        reserve_equipment_types = ["storage", "wind", "solar", "hydro"]  # thermal has to be in TODO
+        reserve_equipment_types = ["storage", "wind", "solar", "hydro", "thermal"]
 
         sum_reserves_up_var = sum(
             model.get_variable(f"reserves_up_{obj.name}_{time}")
@@ -239,11 +239,11 @@ class PortfolioPO(Portfolio):
         model: OptimisationModel,
         time: DateTime,
         residual_energy: float,
-        maximum_energy: float,
+        maximum_power: float,
         parameters: PortfolioOptimisationParameters,
     ):
         """Add imbalance variables to the optimization model."""
-        small_imbalance_limit = maximum_energy * parameters.small_imbalance_size
+        small_imbalance_limit = maximum_power * parameters.small_imbalance_size
         max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
 
         model.add_continuous_variable(
@@ -321,12 +321,12 @@ class PortfolioPO(Portfolio):
                     if var is not None:
                         total_power += var
 
-        # Thermal equipment - uses thermal_op_times TODO
-        # if "thermal" in self.equipments and time in parameters.thermal_op_times:
-        #     for obj in cast(list, self.equipments["thermal"]):
-        #         var = model.get_variable(f"{obj.name}_power_level_{time}")
-        #         if var is not None:
-        #             total_power += var
+        # Thermal equipment - uses thermal_op_times
+        if "thermal" in self.equipments and time in parameters.thermal_op_times:
+            for obj in cast(list, self.equipments["thermal"]):
+                var = model.get_variable(f"{obj.name}_power_level_{time}")
+                if var is not None:
+                    total_power += var
 
         if "storage" in self.equipments:
             storage_equipment = cast(list[StoragePO], self.equipments["storage"])
@@ -353,23 +353,20 @@ class PortfolioPO(Portfolio):
             + self._compute_dispatchable_residual_energy(time, parameters)
         )
 
-    def _compute_power_and_energy(
+    def _compute_maximum_power(
         self,
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
-    ) -> tuple[float, float]:
+    ) -> float:
         """Compute maximum power and energy metrics for all times."""
         sum_maximum_power: float = 0
-        sum_max_energy: float = 0
-        equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
+        equipment_types = ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]
 
         for equipment_type in equipment_types:
             for obj in self.equipments.get(equipment_type, []):
-                power = get_maximum_power(obj, time, parameters.execution_date)
-                sum_maximum_power += power
-                sum_max_energy += abs(power)
+                sum_maximum_power += get_maximum_power(obj, time, parameters.execution_date)
 
-        return sum_maximum_power, sum_max_energy
+        return sum_maximum_power
 
     def _compute_dispatchable_residual_energy(
         self, time: DateTime, parameters: PortfolioOptimisationParameters
@@ -428,7 +425,7 @@ class PortfolioPO(Portfolio):
     ) -> list[Any]:
         power_level_variables: list[Any] = []
 
-        for obj in portfolio["load"] + portfolio["wind"] + portfolio["solar"]:
+        for obj in portfolio.get("load", []) + portfolio.get("wind", []) + portfolio.get("solar", []):
             power_level_variables.append(model.get_variable(f"{obj.name}_power_level_{time}"))
 
         return power_level_variables
@@ -442,7 +439,7 @@ class PortfolioPO(Portfolio):
         sum_automated_reserves_up: float = 0
         sum_automated_reserves_down: float = 0
 
-        equipment_types = ["dispatchable_load", "wind", "solar", "hydro", "storage"]  # thermal to add TODO
+        equipment_types = ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]
 
         for equipment_type in equipment_types:
             for obj in self.equipments.get(equipment_type, []):

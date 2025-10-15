@@ -258,7 +258,7 @@ class StoragePO(Storage):
 
                     if nb_fragment == 1 and n == 0:
                         model.add_objective(
-                            -power_level_sell_n_var * price_forecast - power_level_buy_n_var * price_forecast,
+                            -(power_level_sell_n_var + power_level_buy_n_var) * price_forecast,
                             direction="minimize",
                         )
                     else:
@@ -300,6 +300,6 @@ class StoragePO(Storage):
                     parameters.init_battery_time,
                 )
                 .dataframe.select("time")
-                .to_series()
-                .to_list()[0]
+                .head(1)
+                .item()
             )

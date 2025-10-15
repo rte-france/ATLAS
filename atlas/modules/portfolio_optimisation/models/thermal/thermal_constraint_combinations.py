@@ -741,8 +741,6 @@ class ThermalConstraintCombinations:
     def add_combination_5_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
     ) -> None:
-        """Combination 5: T_stable >= 1, T_stop = T_start = 0"""
-        # TODO: Move implementation from thermal.py
         """Combination 5: T_start = 0, T_stable >= 1, T_stop >= 1"""
         prev_time = time - parameters.timestep
 

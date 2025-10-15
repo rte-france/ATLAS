@@ -34,7 +34,7 @@ class WindPO(Wind):
 
             model.add_continuous_variable(
                 name=f"{self.name}_power_level_{time}",
-                lower_bound=min_power,
+                lower_bound=0,
                 upper_bound=max_power,
             )
 
