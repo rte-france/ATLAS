@@ -10,7 +10,6 @@
 ## Objective
 
 
-- j'ai une difference donc sur les fragments suivants, la différence est d'un facteur constant pour chaque n (checker le `smoothing_factor`)
 - j'ai un facteur constant qui s'applique et qui explique la différence sur les coefficients de `generator_es_small_imbalance_down` et `generator_es_small_imbalance_up` de l'ordre de 1.05
 
 ## Contraintes

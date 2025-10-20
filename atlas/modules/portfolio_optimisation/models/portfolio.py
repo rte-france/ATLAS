@@ -315,8 +315,8 @@ class PortfolioPO(Portfolio):
                             total_power += var
 
             # Load equipment - uses target_times
-            if "load" in self.equipments:
-                for obj in cast(list, self.equipments["load"]):
+            if "dispatchable_load" in self.equipments:
+                for obj in cast(list, self.equipments["dispatchable_load"]):
                     var = model.get_variable(f"{obj.name}_power_level_{time}")
                     if var is not None:
                         total_power += var
@@ -360,11 +360,10 @@ class PortfolioPO(Portfolio):
     ) -> float:
         """Compute maximum power and energy metrics for all times."""
         sum_maximum_power: float = 0
-        equipment_types = ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]
 
-        for equipment_type in equipment_types:
+        for equipment_type in ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]:
             for obj in self.equipments.get(equipment_type, []):
-                sum_maximum_power += get_maximum_power(obj, time, parameters.execution_date)
+                sum_maximum_power += abs(get_maximum_power(obj, time, parameters.execution_date))
 
         return sum_maximum_power
 
@@ -373,12 +372,18 @@ class PortfolioPO(Portfolio):
     ) -> float:
         """Compute residual energy for dispatchable equipment."""
         residual_energy: float = 0
-        equipment_types = ["dispatchable_load", "wind", "solar", "thermal", "hydro", "storage"]
 
-        for equipment_type in equipment_types:
+        for equipment_type in self.equipments.keys():
             for obj in self.equipments.get(equipment_type, []):
                 upstream_energy = get_upstream_energy(obj, time, parameters)
-                residual_energy += upstream_energy
+                if equipment_type in ["non_dispatchable_load", "other_non_dispatchable", "dipatchable_load"]:
+                    last_forecast = obj.maximum_power_forecast.get_forecast(
+                        parameters.execution_date, parameters.start_date, parameters.end_date
+                    ).get_value(time)
+                    optimal_dispatch = min(last_forecast, upstream_energy)
+                    residual_energy += upstream_energy - optimal_dispatch
+                else:
+                    residual_energy += upstream_energy
 
         return residual_energy
 
@@ -425,7 +430,7 @@ class PortfolioPO(Portfolio):
     ) -> list[Any]:
         power_level_variables: list[Any] = []
 
-        for obj in portfolio.get("load", []) + portfolio.get("wind", []) + portfolio.get("solar", []):
+        for obj in portfolio.get("dispatchable_load", []) + portfolio.get("wind", []) + portfolio.get("solar", []):
             power_level_variables.append(model.get_variable(f"{obj.name}_power_level_{time}"))
 
         return power_level_variables

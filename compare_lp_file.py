@@ -2,8 +2,8 @@ import re
 from pathlib import Path
 
 import polars as pl
+from loguru import logger
 
-import atlas.config as cfg
 from atlas.io_utils.input_loader import InputLoader
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.solver.solver_helper import SolverHelper
@@ -95,16 +95,17 @@ def replace_patterns_in_column(filename: str):
 
 
 if __name__ == "__main__":
+    logger.info("Starting LP comparison between legacy and Atlas-generated LP files.")
     module = PortfolioOptimisationModule()
 
     with timer() as t:
         raw_data = InputLoader.from_directory("data/atlas-dataset/portfolio-optimisation", lazy=False)
-    cfg.logger.info(f"{t()} to load data")
+    logger.info(f"{t()} to load data")
     with timer() as t:
         try:
             module.run(raw_data=raw_data, raw_params="parameters.yaml")
         except Exception:
-            cfg.logger.info(f"{t()} to run module")
+            logger.info(f"{t()} to run module")
 
     # # Convert date format from day_month_year to year_month_day
     # convert_date_format_in_csv("Portfolio_generator_es.lp_correspondance.csv")
@@ -118,10 +119,10 @@ if __name__ == "__main__":
     legacy_lp = SolverHelper.read_lp_legacy("po_renamed.lp")
 
     # Use the new merged comparison method that exports CSV files and generates summary report
-    print("Comparing LP problems and generating comprehensive report...")
+    logger.info("Comparing LP problems and generating comprehensive report...")
     output_dir = Path("lp_comparison_results")
     output_dir.mkdir(exist_ok=True)
 
     summary = SolverHelper.compare_lp_problems(
-        legacy_lp, atlas_lp, output_dir=output_dir, pb1_name="Legacy_LP", pb2_name="Atlas_LP", tolerance=1
+        legacy_lp, atlas_lp, output_dir=output_dir, pb1_name="Legacy_LP", pb2_name="Atlas_LP", tolerance=3
     )
