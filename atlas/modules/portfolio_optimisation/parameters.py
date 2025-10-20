@@ -238,10 +238,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
         return generate_datetimes(self.start_date, end, self.timestep)
 
     @property
-    def thermal_optimization_period(self) -> int:
-        return len(self.target_times) + int(self.thermal_additional_hours / self.timestep)
-
-    @property
     def thermal_op_times(self) -> list[DateTime]:
         end = self.adjusted_end_date + self.thermal_additional_hours
         return generate_datetimes(self.start_date, end, self.timestep)

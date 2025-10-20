@@ -180,11 +180,7 @@ class ThermalPO(Thermal):
 
             # Power level variable (only for thermal optimization times)
             model.add_continuous_variable(f"{self.name}_power_level_{time}", 0.0, maximum_power)
-            model.add_continuous_variable(f"{self.name}_power_level_above_maxAvail_{time}", 0.0, maximum_power)
-            model.add_continuous_variable(f"{self.name}_power_level_below_minAvail_{time}", 0.0, maximum_power)
 
-            # Reserve variables using utility function
-            # This creates: reserves_up_{name}_{time}, reserves_down_{name}_{time}, etc.
             add_reserve_variables(
                 model=model,
                 name=self.name,
@@ -268,8 +264,6 @@ class ThermalPO(Thermal):
             power_history: Historical power data for initial conditions (None for dayZero)
         """
 
-        self._compute_time_parameters(parameters)
-
         # Create initial condition time frame
         T_traceback = max(self._T_on + self._T_start, self._T_off + self._T_stop)
         initial_times: list[DateTime] = []
@@ -291,7 +285,7 @@ class ThermalPO(Thermal):
         day_zero = power_history is None
         if power_history is not None:
             last_time = parameters.start_date - parameters.timestep
-            if hasattr(power_history, "time_index") and last_time not in power_history.time_index:
+            if hasattr(power_history, "index") and last_time not in power_history.index:
                 day_zero = True
 
         # Add initial condition constraints based on combination using mapping
