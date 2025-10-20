@@ -376,7 +376,7 @@ class PortfolioPO(Portfolio):
         for equipment_type in self.equipments.keys():
             for obj in self.equipments.get(equipment_type, []):
                 upstream_energy = get_upstream_energy(obj, time, parameters)
-                if equipment_type in ["non_dispatchable_load", "other_non_dispatchable", "dipatchable_load"]:
+                if equipment_type in ["non_dispatchable_load", "other_non_dispatchable", "dispatchable_load"]:
                     last_forecast = obj.maximum_power_forecast.get_forecast(
                         parameters.execution_date, parameters.start_date, parameters.end_date
                     ).get_value(time)
