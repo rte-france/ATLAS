@@ -179,9 +179,9 @@ class ThermalPO(Thermal):
             maximum_automated = get_maximum_automated(self)
 
             # Power level variable (only for thermal optimization times)
-            model.add_continuous_variable(f"{self.name}_p_lev_{time}", 0.0, maximum_power)
-            model.add_continuous_variable(f"{self.name}_p_lev_above_maxAvail_{time}", 0.0, maximum_power)
-            model.add_continuous_variable(f"{self.name}_p_lev_below_minAvail_{time}", 0.0, maximum_power)
+            model.add_continuous_variable(f"{self.name}_power_level_{time}", 0.0, maximum_power)
+            model.add_continuous_variable(f"{self.name}_power_level_above_maxAvail_{time}", 0.0, maximum_power)
+            model.add_continuous_variable(f"{self.name}_power_level_below_minAvail_{time}", 0.0, maximum_power)
 
             # Reserve variables using utility function
             # This creates: reserves_up_{name}_{time}, reserves_down_{name}_{time}, etc.
@@ -242,7 +242,7 @@ class ThermalPO(Thermal):
 
         # Variable cost term: cost * power * time_step / 60
         variable_cost = self.variable_cost.get_value(time)
-        power_level_var = model.get_variable(f"{self.name}_p_lev_{time}")
+        power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
         model.add_objective(variable_cost * power_level_var * parameters.timestep.total_hours(), "minimize")
 
         if len(parameters.target_times) > 0 and time not in parameters.target_times:

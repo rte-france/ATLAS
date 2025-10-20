@@ -39,13 +39,13 @@ class ThermalConstraintCombinations:
         on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
         turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
         turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
-        power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
+        power_level_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{time}")
 
         # Previous time variables
         off_prev_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{prev_time}")
         on_up_prev_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{prev_time}")
         on_down_prev_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{prev_time}")
-        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{prev_time}")
+        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{prev_time}")
 
         # Reserve variables
         reserves_up_var = model.get_variable(f"reserves_up_{self.thermal_unit.name}_{time}")
@@ -182,14 +182,14 @@ class ThermalConstraintCombinations:
         turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
         turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
         down_to_stop_var = model.get_variable(f"down_to_stop_grad_{time}_{self.thermal_unit.name}")
-        power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
+        power_level_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{time}")
 
         # Previous time variables
         off_prev_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{prev_time}")
         on_up_prev_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{prev_time}")
         on_down_prev_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{prev_time}")
         stop_prev_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{prev_time}")
-        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{prev_time}")
+        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{prev_time}")
 
         # Reserve variables
         reserves_up_var = model.get_variable(f"reserves_up_{self.thermal_unit.name}_{time}")
@@ -365,7 +365,7 @@ class ThermalConstraintCombinations:
         stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
         entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
         entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
-        power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
+        power_level_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{time}")
 
         # Gradient auxiliary variables
         up_grad_var = model.get_variable(f"UP_grad_{time}_for_{self.thermal_unit.name}")
@@ -378,7 +378,7 @@ class ThermalConstraintCombinations:
         on_up_prev_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{prev_time}")
         on_down_prev_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{prev_time}")
         on_flat_prev_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{prev_time}")
-        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{prev_time}")
+        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{prev_time}")
 
         # Reserve variables
         reserves_up_var = model.get_variable(f"reserves_up_{self.thermal_unit.name}_{time}")
@@ -573,14 +573,14 @@ class ThermalConstraintCombinations:
         start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
         turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
         turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
-        power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
+        power_level_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{time}")
 
         # Previous time variables
         off_prev_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{prev_time}")
         on_up_prev_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{prev_time}")
         on_down_prev_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{prev_time}")
         start_prev_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{prev_time}")
-        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{prev_time}")
+        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{prev_time}")
 
         # Reserve variables
         reserves_up_var = model.get_variable(f"reserves_up_{self.thermal_unit.name}_{time}")
@@ -756,7 +756,7 @@ class ThermalConstraintCombinations:
         entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
         entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
         flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{self.thermal_unit.name}")
-        power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
+        power_level_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{time}")
 
         # Gradient auxiliary variables
         up_grad_var = model.get_variable(f"UP_grad_{time}_for_{self.thermal_unit.name}")
@@ -771,7 +771,7 @@ class ThermalConstraintCombinations:
         on_down_prev_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{prev_time}")
         on_flat_prev_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{prev_time}")
         stop_prev_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{prev_time}")
-        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{prev_time}")
+        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{prev_time}")
         down_grad_prev_var = model.get_variable(f"DOWN_grad_{prev_time}_{self.thermal_unit.name}")
 
         # Reserve variables
@@ -1041,7 +1041,7 @@ class ThermalConstraintCombinations:
         stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
         entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
         entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
-        power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
+        power_level_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{time}")
 
         # Gradient auxiliary variables
         up_grad_var = model.get_variable(f"UP_grad_{time}_for_{self.thermal_unit.name}")
@@ -1055,7 +1055,7 @@ class ThermalConstraintCombinations:
         on_down_prev_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{prev_time}")
         on_flat_prev_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{prev_time}")
         start_prev_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{prev_time}")
-        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{prev_time}")
+        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{prev_time}")
         up_grad_prev_var = model.get_variable(f"UP_grad_{prev_time}_for_{self.thermal_unit.name}")
         down_grad_prev_var = model.get_variable(f"DOWN_grad_{prev_time}_{self.thermal_unit.name}")
 
@@ -1298,7 +1298,7 @@ class ThermalConstraintCombinations:
         turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
         turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
         down_to_stop_var = model.get_variable(f"down_to_stop_grad_{time}_{self.thermal_unit.name}")
-        power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
+        power_level_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{time}")
 
         # Previous time variables
         off_prev_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{prev_time}")
@@ -1306,7 +1306,7 @@ class ThermalConstraintCombinations:
         on_down_prev_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{prev_time}")
         start_prev_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{prev_time}")
         stop_prev_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{prev_time}")
-        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{prev_time}")
+        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{prev_time}")
 
         # Reserve variables
         reserves_up_var = model.get_variable(f"reserves_up_{self.thermal_unit.name}_{time}")
@@ -1536,7 +1536,7 @@ class ThermalConstraintCombinations:
         entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
         entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
         flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{self.thermal_unit.name}")
-        power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
+        power_level_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{time}")
 
         # Gradient auxiliary variables
         up_grad_var = model.get_variable(f"UP_grad_{time}_for_{self.thermal_unit.name}")
@@ -1551,7 +1551,7 @@ class ThermalConstraintCombinations:
         on_flat_prev_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{prev_time}")
         start_prev_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{prev_time}")
         stop_prev_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{prev_time}")
-        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{prev_time}")
+        power_prev_var = model.get_variable(f"{self.thermal_unit.name}_power_level_{prev_time}")
         up_grad_prev_var = model.get_variable(f"UP_grad_{prev_time}_for_{self.thermal_unit.name}")
         down_grad_prev_var = model.get_variable(f"DOWN_grad_{prev_time}_{self.thermal_unit.name}")
         dd_grad_prev_var = model.get_variable(f"DD_grad_{prev_time}_{self.thermal_unit.name}")
