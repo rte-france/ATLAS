@@ -833,28 +833,28 @@ class TestGetForecast:
         return Timeseries.from_values(pendulum.datetime(2025, 1, 1, start, 0, 0), freq, values)
 
     @pytest.fixture
-    def ts_1_hour_at_0_with_8_values(self):
+    def ts_1_hour_0_with_8_values(self):
         return TestGetForecast.retrieve_ts(0, "1h", [1, 2, 3, 4, 5, 6, 7, 8])
 
     @pytest.fixture
-    def ts_30_min_at_0_with_4_values(self):
+    def ts_30_min_0_with_4_values(self):
         return TestGetForecast.retrieve_ts(0, "30m", [1, 2, 3, 4])
 
     @pytest.fixture
-    def ts_30_min_at_1_with_4_values(self):
+    def ts_30_min_1_with_4_values(self):
         return TestGetForecast.retrieve_ts(1, "30m", [11, 12, 13, 14])
 
     @pytest.fixture
-    def ts_15_min_at_1_with_8_values(self):
+    def ts_15_min_1_with_8_values(self):
         return TestGetForecast.retrieve_ts(1, "15m", [11, 12, 13, 14, 15, 16, 17, 18])
 
     @pytest.fixture
-    def ts_30_min_at_2_with_4_values(self):
+    def ts_30_min_2_with_4_values(self):
         return TestGetForecast.retrieve_ts(2, "30m", [21, 22, 23, 24])
 
-    def test_with_one_ts(self, ts_30_min_at_0_with_4_values):
+    def test_with_one_ts(self, ts_30_min_0_with_4_values):
         forecast_matrix = ForecastingMatrix()
-        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_30_min_0_with_4_values, pendulum.DateTime(2025, 1, 1))
 
         start_date = pendulum.datetime(2025, 1, 1, 0)
         end_date = pendulum.datetime(2025, 1, 1, 1, 30)
@@ -872,9 +872,9 @@ class TestGetForecast:
 
         assert result.dataframe.equals(expected_result)
 
-    def test_with_one_ts_end_date_inferior(self, ts_30_min_at_0_with_4_values):
+    def test_with_one_ts_end_date_inferior(self, ts_30_min_0_with_4_values):
         forecast_matrix = ForecastingMatrix()
-        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_30_min_0_with_4_values, pendulum.DateTime(2025, 1, 1))
 
         start_date = pendulum.datetime(2025, 1, 1, 0)
         end_date = pendulum.datetime(2025, 1, 1, 2, 30)
@@ -896,9 +896,9 @@ class TestGetForecast:
         with pytest.raises(KeyError):
             result.get_value(pendulum.datetime(2025, 1, 1, 2, 30))
 
-    def test_with_one_ts_start_date_superior(self, ts_30_min_at_0_with_4_values):
+    def test_with_one_ts_start_date_superior(self, ts_30_min_0_with_4_values):
         forecast_matrix = ForecastingMatrix()
-        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_30_min_0_with_4_values, pendulum.DateTime(2025, 1, 1))
 
         start_date = pendulum.datetime(2024, 12, 31, 23)
         end_date = pendulum.datetime(2025, 1, 1, 1, 30)
@@ -922,9 +922,9 @@ class TestGetForecast:
         with pytest.raises(KeyError):
             result.get_value(pendulum.datetime(2025, 1, 1, 2, 30))
 
-    def test_with_one_ts_and_lower_frequency(self, ts_30_min_at_0_with_4_values):
+    def test_with_one_ts_and_lower_frequency(self, ts_30_min_0_with_4_values):
         forecast_matrix = ForecastingMatrix()
-        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_30_min_0_with_4_values, pendulum.DateTime(2025, 1, 1))
 
         start_date = pendulum.datetime(2025, 1, 1, 0)
         end_date = pendulum.datetime(2025, 1, 1, 1, 30)
@@ -942,9 +942,9 @@ class TestGetForecast:
 
         assert result.dataframe.equals(expected_result)
 
-    def test_with_one_ts_and_lower_frequency_and_too_short(self, ts_30_min_at_0_with_4_values):
+    def test_with_one_ts_and_lower_frequency_and_too_short(self, ts_30_min_0_with_4_values):
         forecast_matrix = ForecastingMatrix()
-        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_30_min_0_with_4_values, pendulum.DateTime(2025, 1, 1))
 
         start_date = pendulum.datetime(2025, 1, 1, 0, 30)
         end_date = pendulum.datetime(2025, 1, 1, 2, 30)
@@ -968,12 +968,12 @@ class TestGetForecast:
 
     def test_with_two_ts_with_different_frequency_first_one_is_longer(
         self,
-        ts_1_hour_at_0_with_8_values,
-        ts_15_min_at_1_with_8_values,
+        ts_1_hour_0_with_8_values,
+        ts_15_min_1_with_8_values,
     ):
         forecast_matrix = ForecastingMatrix()
-        forecast_matrix.add(ts_1_hour_at_0_with_8_values, pendulum.DateTime(2025, 1, 1))
-        forecast_matrix.add(ts_15_min_at_1_with_8_values, pendulum.DateTime(2025, 1, 1, 1))
+        forecast_matrix.add(ts_1_hour_0_with_8_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_15_min_1_with_8_values, pendulum.DateTime(2025, 1, 1, 1))
 
         start_date = pendulum.datetime(2025, 1, 1, 0, 30)
         end_date = pendulum.datetime(2025, 1, 1, 3, 30)
@@ -993,14 +993,14 @@ class TestGetForecast:
 
     def test_get_forecast(
         self,
-        ts_30_min_at_0_with_4_values,
-        ts_30_min_at_1_with_4_values,
-        ts_30_min_at_2_with_4_values,
+        ts_30_min_0_with_4_values,
+        ts_30_min_1_with_4_values,
+        ts_30_min_2_with_4_values,
     ):
         forecast_matrix = ForecastingMatrix()
-        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
-        forecast_matrix.add(ts_30_min_at_1_with_4_values, pendulum.DateTime(2025, 1, 1, 1))
-        forecast_matrix.add(ts_30_min_at_2_with_4_values, pendulum.DateTime(2025, 1, 1, 2))
+        forecast_matrix.add(ts_30_min_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_30_min_1_with_4_values, pendulum.DateTime(2025, 1, 1, 1))
+        forecast_matrix.add(ts_30_min_2_with_4_values, pendulum.DateTime(2025, 1, 1, 2))
 
         start_date = pendulum.datetime(2025, 1, 1, 0, 30)
         end_date = pendulum.datetime(2025, 1, 1, 3, 30)
@@ -1019,14 +1019,14 @@ class TestGetForecast:
 
     def test_get_forecast_with_different_frequency(
         self,
-        ts_30_min_at_0_with_4_values,
-        ts_15_min_at_1_with_8_values,
-        ts_30_min_at_2_with_4_values,
+        ts_30_min_0_with_4_values,
+        ts_15_min_1_with_8_values,
+        ts_30_min_2_with_4_values,
     ):
         forecast_matrix = ForecastingMatrix()
-        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
-        forecast_matrix.add(ts_15_min_at_1_with_8_values, pendulum.DateTime(2025, 1, 1, 1))
-        forecast_matrix.add(ts_30_min_at_2_with_4_values, pendulum.DateTime(2025, 1, 1, 2))
+        forecast_matrix.add(ts_30_min_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_15_min_1_with_8_values, pendulum.DateTime(2025, 1, 1, 1))
+        forecast_matrix.add(ts_30_min_2_with_4_values, pendulum.DateTime(2025, 1, 1, 2))
 
         start_date = pendulum.datetime(2025, 1, 1, 0, 30)
         end_date = pendulum.datetime(2025, 1, 1, 3, 30)
@@ -1057,10 +1057,10 @@ class TestGetForecast:
 
         assert result.dataframe.equals(expected_result)
 
-    def test_get_forecast_with_fist_one_longer(self, ts_1_hour_at_0_with_8_values, ts_30_min_at_2_with_4_values):
+    def test_get_forecast_with_fist_one_longer(self, ts_1_hour_0_with_8_values, ts_30_min_2_with_4_values):
         forecast_matrix = ForecastingMatrix()
-        forecast_matrix.add(ts_1_hour_at_0_with_8_values, pendulum.DateTime(2025, 1, 1))
-        forecast_matrix.add(ts_30_min_at_2_with_4_values, pendulum.DateTime(2025, 1, 1, 2))
+        forecast_matrix.add(ts_1_hour_0_with_8_values, pendulum.DateTime(2025, 1, 1))
+        forecast_matrix.add(ts_30_min_2_with_4_values, pendulum.DateTime(2025, 1, 1, 2))
 
         start_date = pendulum.datetime(2025, 1, 1, 0, 30)
         end_date = pendulum.datetime(2025, 1, 1, 4, 30)

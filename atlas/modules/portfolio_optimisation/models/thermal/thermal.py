@@ -131,47 +131,47 @@ class ThermalPO(Thermal):
         # Always defined state variables for optimization time frame
         if time in parameters.thermal_op_times:
             # Binary state variables
-            model.add_boolean_variable(f"OFF_var_e_{self.name}_at_{time}")
-            model.add_boolean_variable(f"ON_UP_var_e_{self.name}_at_{time}")
-            model.add_boolean_variable(f"ON_DOWN_var_e_{self.name}_at_{time}")
+            model.add_boolean_variable(f"OFF_var_{self.name}_{time}")
+            model.add_boolean_variable(f"ON_UP_var_{self.name}_{time}")
+            model.add_boolean_variable(f"ON_DOWN_var_{self.name}_{time}")
 
             # Auxiliary binary variables for transitions
-            model.add_boolean_variable(f"t_on_of_e_{self.name}_at_{time}")
-            model.add_boolean_variable(f"t_off_of_e_{self.name}_at_{time}")
+            model.add_boolean_variable(f"t_on_of_{self.name}_{time}")
+            model.add_boolean_variable(f"t_off_of_{self.name}_{time}")
 
             # Conditional state variables based on time constraints
             if self._T_start >= 1:
-                model.add_boolean_variable(f"ON_START_e_{self.name}_at_{time}")
+                model.add_boolean_variable(f"ON_START_{self.name}_{time}")
 
             if self._T_stop >= 1:
-                model.add_boolean_variable(f"STOP_e_{self.name}_at_{time}")
+                model.add_boolean_variable(f"STOP_{self.name}_{time}")
 
             if self._T_stable >= 1:
-                model.add_boolean_variable(f"ON_FLAT_e_{self.name}_at_{time}")
-                model.add_boolean_variable(f"stable_at_{time}_e_{self.name}")
-                model.add_boolean_variable(f"entered_up_at_{time}_e_{self.name}")
-                model.add_boolean_variable(f"entered_down_at_{time}_e_{self.name}")
+                model.add_boolean_variable(f"ON_FLAT_{self.name}_{time}")
+                model.add_boolean_variable(f"stable_{time}_{self.name}")
+                model.add_boolean_variable(f"entered_up_{time}_{self.name}")
+                model.add_boolean_variable(f"entered_down_{time}_{self.name}")
 
                 # Gradient auxiliary variables for stable case
                 max_power = self.maximum_power.max()
-                model.add_continuous_variable(f"UP_grad_at_{time}_for_e_{self.name}", -max_power, max_power)
-                model.add_continuous_variable(f"aux_up_grad_at_{time}_e_{self.name}", -max_power, max_power)
-                model.add_continuous_variable(f"DOWN_grad_at_{time}_e_{self.name}", -max_power, max_power)
-                model.add_continuous_variable(f"aux_down_grad_at_{time}_e_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"UP_grad_{time}_for_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"aux_up_grad_{time}_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"DOWN_grad_{time}_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"aux_down_grad_{time}_{self.name}", -max_power, max_power)
 
             # Specific combinations for additional auxiliary variables
             if self._T_stop >= 1 and self._T_start == 0 and self._T_stable == 0:
-                model.add_boolean_variable(f"down_to_stop_grad_at_{time}_e_{self.name}")
+                model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}")
 
             if self._T_stop >= 1 and self._T_stable >= 1:
-                model.add_boolean_variable(f"flat_down_stop_at_{time}_e_{self.name}")
+                model.add_boolean_variable(f"flat_down_stop_{time}_{self.name}")
 
             if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
                 max_power = self.maximum_power.max()
-                model.add_continuous_variable(f"DD_grad_at_{time}_e_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"DD_grad_{time}_{self.name}", -max_power, max_power)
 
             if self._T_stop >= 1 and self._T_start >= 1 and self._T_stable == 0:
-                model.add_boolean_variable(f"down_to_stop_grad_at_{time}_e_{self.name}")
+                model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}")
 
             # Power and reserve variables
             maximum_power = self.maximum_power.get_value(time)
@@ -251,7 +251,7 @@ class ThermalPO(Thermal):
         # Startup cost term: startup_cost * turned_on
         if self.startup_cost is not None:
             startup_cost = self.startup_cost.get_value(time)
-            turned_on_var = model.get_variable(f"t_on_of_e_{self.name}_at_{time}")
+            turned_on_var = model.get_variable(f"t_on_of_{self.name}_{time}")
             model.add_objective(startup_cost * turned_on_var, "minimize")
 
     def add_initial_conditions(

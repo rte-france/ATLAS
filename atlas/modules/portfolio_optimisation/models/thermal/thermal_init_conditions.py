@@ -42,11 +42,11 @@ class ThermalInitialConditions:
             # DayZero case: All units start OFF
             for time in initial_times:
                 # Get state variables
-                off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                 power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                 # Fix state variables using equality constraints
@@ -62,11 +62,11 @@ class ThermalInitialConditions:
                 if time in power_history.index:
                     last_power = power_history.get_value(time)
                     # Get variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                    turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                    turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                    on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                    turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                    turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                     power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                     # Fix power level to historical value
@@ -121,13 +121,13 @@ class ThermalInitialConditions:
             # DayZero case: All units start OFF
             for time in initial_times:
                 # Get state variables
-                off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
-                down_to_stop_var = model.get_variable(f"down_to_stop_grad_at_{time}_e_{self.thermal_unit.name}")
+                off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
+                down_to_stop_var = model.get_variable(f"down_to_stop_grad_{time}_{self.thermal_unit.name}")
                 power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                 # Fix state variables using equality constraints
@@ -151,13 +151,13 @@ class ThermalInitialConditions:
                     min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                    stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                    turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                    turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
-                    down_to_stop_var = model.get_variable(f"down_to_stop_grad_at_{time}_e_{self.thermal_unit.name}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                    on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                    stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                    turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                    turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
+                    down_to_stop_var = model.get_variable(f"down_to_stop_grad_{time}_{self.thermal_unit.name}")
                     power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                     # Fix power level to historical value
@@ -232,9 +232,9 @@ class ThermalInitialConditions:
             # DayZero case: All units start OFF
             for time in initial_times:
                 # Get state variables
-                off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                 power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                 # Fix state variables using equality constraints
@@ -250,12 +250,12 @@ class ThermalInitialConditions:
             # Initialize stable-specific variables for dayZero
             for time in stable_initial_times:
                 # Get stable state variables
-                on_flat_var = model.get_variable(f"ON_FLAT_e_{self.thermal_unit.name}_at_{time}")
-                on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                stable_var = model.get_variable(f"stable_at_{time}_e_{self.thermal_unit.name}")
-                entered_up_var = model.get_variable(f"entered_up_at_{time}_e_{self.thermal_unit.name}")
-                entered_down_var = model.get_variable(f"entered_down_at_{time}_e_{self.thermal_unit.name}")
+                on_flat_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{time}")
+                on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
+                entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
+                entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
 
                 # Fix stable state variables
                 model.add_constraint(on_flat_var == 0, f"init_on_flat_{self.thermal_unit.name}_{time}")
@@ -269,10 +269,10 @@ class ThermalInitialConditions:
 
             # Initialize gradient auxiliaries to 0 for dayZero
             for time in initial_times:
-                u_var = model.get_variable(f"UP_grad_at_{time}_for_e_{self.thermal_unit.name}")
-                d_var = model.get_variable(f"DOWN_grad_at_{time}_e_{self.thermal_unit.name}")
-                tilde_u_var = model.get_variable(f"aux_up_grad_at_{time}_e_{self.thermal_unit.name}")
-                tilde_d_var = model.get_variable(f"aux_down_grad_at_{time}_e_{self.thermal_unit.name}")
+                u_var = model.get_variable(f"UP_grad_{time}_for_{self.thermal_unit.name}")
+                d_var = model.get_variable(f"DOWN_grad_{time}_{self.thermal_unit.name}")
+                tilde_u_var = model.get_variable(f"aux_up_grad_{time}_{self.thermal_unit.name}")
+                tilde_d_var = model.get_variable(f"aux_down_grad_{time}_{self.thermal_unit.name}")
 
                 model.add_constraint(u_var == 0, f"init_u_grad_{self.thermal_unit.name}_{time}")
                 model.add_constraint(d_var == 0, f"init_d_grad_{self.thermal_unit.name}_{time}")
@@ -286,9 +286,9 @@ class ThermalInitialConditions:
                     last_power = power_history.get_value(time)
 
                     # Get variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                    turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                    turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                     power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                     # Fix power level to historical value
@@ -332,12 +332,12 @@ class ThermalInitialConditions:
                     )
 
                     # Get stable state variables
-                    on_flat_var = model.get_variable(f"ON_FLAT_e_{self.thermal_unit.name}_at_{time}")
-                    on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                    stable_var = model.get_variable(f"stable_at_{time}_e_{self.thermal_unit.name}")
-                    entered_up_var = model.get_variable(f"entered_up_at_{time}_e_{self.thermal_unit.name}")
-                    entered_down_var = model.get_variable(f"entered_down_at_{time}_e_{self.thermal_unit.name}")
+                    on_flat_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{time}")
+                    on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                    on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                    stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
+                    entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
+                    entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
 
                     # Initialize auxiliary variables to 0
                     model.add_constraint(stable_var == 0, f"init_stable_{self.thermal_unit.name}_{time}")
@@ -345,7 +345,7 @@ class ThermalInitialConditions:
                     model.add_constraint(entered_down_var == 0, f"init_entered_down_{self.thermal_unit.name}_{time}")
 
                     # Set stable state variables based on power trend (only if unit is ON)
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
                     if current_power > 0:
                         if current_power < next_power:
                             # Power is increasing
@@ -412,8 +412,8 @@ class ThermalInitialConditions:
                     power_minus_two = power_history.get_value(start_date_minus_two)
 
                     # Get gradient auxiliary variables
-                    u_var = model.get_variable(f"UP_grad_at_{start_date_minus_one}_for_e_{self.thermal_unit.name}")
-                    d_var = model.get_variable(f"DOWN_grad_at_{start_date_minus_one}_e_{self.thermal_unit.name}")
+                    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_for_{self.thermal_unit.name}")
+                    d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{self.thermal_unit.name}")
 
                     # Calculate gradient values based on power trend
                     power_diff = power_minus_one - power_minus_two
@@ -448,12 +448,12 @@ class ThermalInitialConditions:
             # DayZero case: All units start OFF
             for time in initial_times:
                 # Get state variables
-                off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                 power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                 # Fix state variables using equality constraints
@@ -476,12 +476,12 @@ class ThermalInitialConditions:
                     min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                    start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                    turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                    turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                    on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                    start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                    turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                    turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                     power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                     # Fix power level to historical value
@@ -549,11 +549,11 @@ class ThermalInitialConditions:
             # DayZero case: All units start OFF
             for time in initial_times:
                 # Get state variables
-                off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
-                flat_down_stop_var = model.get_variable(f"flat_down_stop_at_{time}_e_{self.thermal_unit.name}")
+                off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
+                flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{self.thermal_unit.name}")
                 power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                 # Fix state variables using equality constraints
@@ -571,12 +571,12 @@ class ThermalInitialConditions:
             # Initialize stable-specific variables for dayZero
             for time in stable_initial_times:
                 # Get stable state variables
-                on_flat_var = model.get_variable(f"ON_FLAT_e_{self.thermal_unit.name}_at_{time}")
-                on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                stable_var = model.get_variable(f"stable_at_{time}_e_{self.thermal_unit.name}")
-                entered_up_var = model.get_variable(f"entered_up_at_{time}_e_{self.thermal_unit.name}")
-                entered_down_var = model.get_variable(f"entered_down_at_{time}_e_{self.thermal_unit.name}")
+                on_flat_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{time}")
+                on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
+                entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
+                entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
 
                 # Fix stable state variables
                 model.add_constraint(on_flat_var == 0, f"init_on_flat_{self.thermal_unit.name}_{time}")
@@ -590,10 +590,10 @@ class ThermalInitialConditions:
 
             # Initialize gradient auxiliaries to 0 for dayZero
             for time in initial_times:
-                u_var = model.get_variable(f"UP_grad_at_{time}_for_e_{self.thermal_unit.name}")
-                d_var = model.get_variable(f"DOWN_grad_at_{time}_e_{self.thermal_unit.name}")
-                tilde_u_var = model.get_variable(f"aux_up_grad_at_{time}_e_{self.thermal_unit.name}")
-                tilde_d_var = model.get_variable(f"aux_down_grad_at_{time}_e_{self.thermal_unit.name}")
+                u_var = model.get_variable(f"UP_grad_{time}_for_{self.thermal_unit.name}")
+                d_var = model.get_variable(f"DOWN_grad_{time}_{self.thermal_unit.name}")
+                tilde_u_var = model.get_variable(f"aux_up_grad_{time}_{self.thermal_unit.name}")
+                tilde_d_var = model.get_variable(f"aux_down_grad_{time}_{self.thermal_unit.name}")
 
                 model.add_constraint(u_var == 0, f"init_u_grad_{self.thermal_unit.name}_{time}")
                 model.add_constraint(d_var == 0, f"init_d_grad_{self.thermal_unit.name}_{time}")
@@ -608,11 +608,11 @@ class ThermalInitialConditions:
                     min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                    turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                    turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
-                    flat_down_stop_var = model.get_variable(f"flat_down_stop_at_{time}_e_{self.thermal_unit.name}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                    turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                    turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
+                    flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{self.thermal_unit.name}")
                     power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                     # Fix power level to historical value
@@ -669,15 +669,15 @@ class ThermalInitialConditions:
                     min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get stable state variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                    on_flat_var = model.get_variable(f"ON_FLAT_e_{self.thermal_unit.name}_at_{time}")
-                    on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                    stable_var = model.get_variable(f"stable_at_{time}_e_{self.thermal_unit.name}")
-                    entered_up_var = model.get_variable(f"entered_up_at_{time}_e_{self.thermal_unit.name}")
-                    entered_down_var = model.get_variable(f"entered_down_at_{time}_e_{self.thermal_unit.name}")
-                    flat_down_stop_var = model.get_variable(f"flat_down_stop_at_{time}_e_{self.thermal_unit.name}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                    on_flat_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{time}")
+                    on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                    on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                    stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
+                    entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
+                    entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
+                    flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{self.thermal_unit.name}")
 
                     # Initialize auxiliary variables to 0
                     model.add_constraint(stable_var == 0, f"init_stable_{self.thermal_unit.name}_{time}")
@@ -817,8 +817,8 @@ class ThermalInitialConditions:
                     min_power_minus_two = self.thermal_unit.minimum_power.get_value(start_date_minus_two)
 
                     # Get gradient auxiliary variables
-                    u_var = model.get_variable(f"UP_grad_at_{start_date_minus_one}_for_e_{self.thermal_unit.name}")
-                    d_var = model.get_variable(f"DOWN_grad_at_{start_date_minus_one}_e_{self.thermal_unit.name}")
+                    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_for_{self.thermal_unit.name}")
+                    d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{self.thermal_unit.name}")
 
                     # Calculate gradient values based on power trend
                     power_diff = power_minus_one - power_minus_two
@@ -876,7 +876,7 @@ class ThermalInitialConditions:
 
                         flat_down_stop_value = (stop_component + on_down_component + on_flat_component) // 3
                         flat_down_stop_var = model.get_variable(
-                            f"flat_down_stop_at_{start_date_minus_one}_e_{self.thermal_unit.name}"
+                            f"flat_down_stop_{start_date_minus_one}_{self.thermal_unit.name}"
                         )
                         model.add_constraint(
                             flat_down_stop_var == flat_down_stop_value,
@@ -902,10 +902,10 @@ class ThermalInitialConditions:
             # DayZero case: All units start OFF
             for time in initial_times:
                 # Get state variables
-                off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                 power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                 # Fix state variables using equality constraints
@@ -922,12 +922,12 @@ class ThermalInitialConditions:
             # Initialize stable-specific variables for dayZero
             for time in stable_initial_times:
                 # Get stable state variables
-                on_flat_var = model.get_variable(f"ON_FLAT_e_{self.thermal_unit.name}_at_{time}")
-                on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                stable_var = model.get_variable(f"stable_at_{time}_e_{self.thermal_unit.name}")
-                entered_up_var = model.get_variable(f"entered_up_at_{time}_e_{self.thermal_unit.name}")
-                entered_down_var = model.get_variable(f"entered_down_at_{time}_e_{self.thermal_unit.name}")
+                on_flat_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{time}")
+                on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
+                entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
+                entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
 
                 # Fix stable state variables
                 model.add_constraint(on_flat_var == 0, f"init_on_flat_{self.thermal_unit.name}_{time}")
@@ -941,10 +941,10 @@ class ThermalInitialConditions:
 
             # Initialize gradient auxiliaries to 0 for dayZero
             for time in initial_times:
-                u_var = model.get_variable(f"UP_grad_at_{time}_for_e_{self.thermal_unit.name}")
-                d_var = model.get_variable(f"DOWN_grad_at_{time}_e_{self.thermal_unit.name}")
-                tilde_u_var = model.get_variable(f"aux_up_grad_at_{time}_e_{self.thermal_unit.name}")
-                tilde_d_var = model.get_variable(f"aux_down_grad_at_{time}_e_{self.thermal_unit.name}")
+                u_var = model.get_variable(f"UP_grad_{time}_for_{self.thermal_unit.name}")
+                d_var = model.get_variable(f"DOWN_grad_{time}_{self.thermal_unit.name}")
+                tilde_u_var = model.get_variable(f"aux_up_grad_{time}_{self.thermal_unit.name}")
+                tilde_d_var = model.get_variable(f"aux_down_grad_{time}_{self.thermal_unit.name}")
 
                 model.add_constraint(u_var == 0, f"init_u_grad_{self.thermal_unit.name}_{time}")
                 model.add_constraint(d_var == 0, f"init_d_grad_{self.thermal_unit.name}_{time}")
@@ -959,10 +959,10 @@ class ThermalInitialConditions:
                     min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                    turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                    turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                    turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                    turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                     power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                     # Fix power level to historical value
@@ -1015,14 +1015,14 @@ class ThermalInitialConditions:
                     min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get stable state variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                    on_flat_var = model.get_variable(f"ON_FLAT_e_{self.thermal_unit.name}_at_{time}")
-                    on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                    stable_var = model.get_variable(f"stable_at_{time}_e_{self.thermal_unit.name}")
-                    entered_up_var = model.get_variable(f"entered_up_at_{time}_e_{self.thermal_unit.name}")
-                    entered_down_var = model.get_variable(f"entered_down_at_{time}_e_{self.thermal_unit.name}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                    on_flat_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{time}")
+                    on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                    on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                    stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
+                    entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
+                    entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
 
                     # Initialize auxiliary variables to 0
                     model.add_constraint(stable_var == 0, f"init_stable_{self.thermal_unit.name}_{time}")
@@ -1110,8 +1110,8 @@ class ThermalInitialConditions:
                     min_power_minus_two = self.thermal_unit.minimum_power.get_value(start_date_minus_two)
 
                     # Get gradient auxiliary variables
-                    u_var = model.get_variable(f"UP_grad_at_{start_date_minus_one}_for_e_{self.thermal_unit.name}")
-                    d_var = model.get_variable(f"DOWN_grad_at_{start_date_minus_one}_e_{self.thermal_unit.name}")
+                    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_for_{self.thermal_unit.name}")
+                    d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{self.thermal_unit.name}")
 
                     # Calculate gradient values based on power trend
                     power_diff = power_minus_one - power_minus_two
@@ -1154,14 +1154,14 @@ class ThermalInitialConditions:
             # DayZero case: All units start OFF
             for time in initial_times:
                 # Get state variables
-                off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
-                down_to_stop_var = model.get_variable(f"down_to_stop_grad_at_{time}_e_{self.thermal_unit.name}")
+                off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
+                down_to_stop_var = model.get_variable(f"down_to_stop_grad_{time}_{self.thermal_unit.name}")
                 power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                 # Fix state variables using equality constraints
@@ -1186,14 +1186,14 @@ class ThermalInitialConditions:
                     min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                    start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                    on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                    turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                    turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
-                    down_to_stop_var = model.get_variable(f"down_to_stop_grad_at_{time}_e_{self.thermal_unit.name}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                    start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                    on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                    on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                    turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                    turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
+                    down_to_stop_var = model.get_variable(f"down_to_stop_grad_{time}_{self.thermal_unit.name}")
                     power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                     # Fix power level to historical value
@@ -1294,11 +1294,11 @@ class ThermalInitialConditions:
             # DayZero case: All units start OFF
             for time in initial_times:
                 # Get state variables
-                off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                 power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                 # Fix state variables using equality constraints
@@ -1316,13 +1316,13 @@ class ThermalInitialConditions:
             # Initialize stable-specific variables for dayZero
             for time in stable_initial_times:
                 # Get stable state variables
-                on_flat_var = model.get_variable(f"ON_FLAT_e_{self.thermal_unit.name}_at_{time}")
-                on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                stable_var = model.get_variable(f"stable_at_{time}_e_{self.thermal_unit.name}")
-                entered_up_var = model.get_variable(f"entered_up_at_{time}_e_{self.thermal_unit.name}")
-                entered_down_var = model.get_variable(f"entered_down_at_{time}_e_{self.thermal_unit.name}")
-                flat_down_stop_var = model.get_variable(f"flat_down_stop_at_{time}_e_{self.thermal_unit.name}")
+                on_flat_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{time}")
+                on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
+                entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
+                entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
+                flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{self.thermal_unit.name}")
 
                 # Fix stable state variables
                 model.add_constraint(on_flat_var == 0, f"init_on_flat_{self.thermal_unit.name}_{time}")
@@ -1337,10 +1337,10 @@ class ThermalInitialConditions:
 
             # Initialize gradient auxiliaries to 0 for dayZero
             for time in initial_times:
-                u_var = model.get_variable(f"UP_grad_at_{time}_for_e_{self.thermal_unit.name}")
-                d_var = model.get_variable(f"DOWN_grad_at_{time}_e_{self.thermal_unit.name}")
-                tilde_u_var = model.get_variable(f"aux_up_grad_at_{time}_e_{self.thermal_unit.name}")
-                tilde_d_var = model.get_variable(f"aux_down_grad_at_{time}_e_{self.thermal_unit.name}")
+                u_var = model.get_variable(f"UP_grad_{time}_for_{self.thermal_unit.name}")
+                d_var = model.get_variable(f"DOWN_grad_{time}_{self.thermal_unit.name}")
+                tilde_u_var = model.get_variable(f"aux_up_grad_{time}_{self.thermal_unit.name}")
+                tilde_d_var = model.get_variable(f"aux_down_grad_{time}_{self.thermal_unit.name}")
 
                 model.add_constraint(u_var == 0, f"init_u_grad_{self.thermal_unit.name}_{time}")
                 model.add_constraint(d_var == 0, f"init_d_grad_{self.thermal_unit.name}_{time}")
@@ -1355,11 +1355,11 @@ class ThermalInitialConditions:
                     min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                    start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                    turned_on_var = model.get_variable(f"t_on_of_e_{self.thermal_unit.name}_at_{time}")
-                    turned_off_var = model.get_variable(f"t_off_of_e_{self.thermal_unit.name}_at_{time}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                    start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                    turned_on_var = model.get_variable(f"t_on_of_{self.thermal_unit.name}_{time}")
+                    turned_off_var = model.get_variable(f"t_off_of_{self.thermal_unit.name}_{time}")
                     power_level_var = model.get_variable(f"{self.thermal_unit.name}_p_lev_{time}")
 
                     # Fix power level to historical value
@@ -1432,16 +1432,16 @@ class ThermalInitialConditions:
                     min_power = self.thermal_unit.minimum_power.get_value(time)
 
                     # Get stable state variables
-                    off_var = model.get_variable(f"OFF_var_e_{self.thermal_unit.name}_at_{time}")
-                    start_var = model.get_variable(f"ON_START_e_{self.thermal_unit.name}_at_{time}")
-                    stop_var = model.get_variable(f"STOP_e_{self.thermal_unit.name}_at_{time}")
-                    on_flat_var = model.get_variable(f"ON_FLAT_e_{self.thermal_unit.name}_at_{time}")
-                    on_up_var = model.get_variable(f"ON_UP_var_e_{self.thermal_unit.name}_at_{time}")
-                    on_down_var = model.get_variable(f"ON_DOWN_var_e_{self.thermal_unit.name}_at_{time}")
-                    stable_var = model.get_variable(f"stable_at_{time}_e_{self.thermal_unit.name}")
-                    entered_up_var = model.get_variable(f"entered_up_at_{time}_e_{self.thermal_unit.name}")
-                    entered_down_var = model.get_variable(f"entered_down_at_{time}_e_{self.thermal_unit.name}")
-                    flat_down_stop_var = model.get_variable(f"flat_down_stop_at_{time}_e_{self.thermal_unit.name}")
+                    off_var = model.get_variable(f"OFF_var_{self.thermal_unit.name}_{time}")
+                    start_var = model.get_variable(f"ON_START_{self.thermal_unit.name}_{time}")
+                    stop_var = model.get_variable(f"STOP_{self.thermal_unit.name}_{time}")
+                    on_flat_var = model.get_variable(f"ON_FLAT_{self.thermal_unit.name}_{time}")
+                    on_up_var = model.get_variable(f"ON_UP_var_{self.thermal_unit.name}_{time}")
+                    on_down_var = model.get_variable(f"ON_DOWN_var_{self.thermal_unit.name}_{time}")
+                    stable_var = model.get_variable(f"stable_{time}_{self.thermal_unit.name}")
+                    entered_up_var = model.get_variable(f"entered_up_{time}_{self.thermal_unit.name}")
+                    entered_down_var = model.get_variable(f"entered_down_{time}_{self.thermal_unit.name}")
+                    flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{self.thermal_unit.name}")
 
                     # Initialize auxiliary variables to 0
                     model.add_constraint(stable_var == 0, f"init_stable_{self.thermal_unit.name}_{time}")
@@ -1589,8 +1589,8 @@ class ThermalInitialConditions:
                     min_power_minus_two = self.thermal_unit.minimum_power.get_value(start_date_minus_two)
 
                     # Get gradient auxiliary variables
-                    u_var = model.get_variable(f"UP_grad_at_{start_date_minus_one}_for_e_{self.thermal_unit.name}")
-                    d_var = model.get_variable(f"DOWN_grad_at_{start_date_minus_one}_e_{self.thermal_unit.name}")
+                    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_for_{self.thermal_unit.name}")
+                    d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{self.thermal_unit.name}")
 
                     # Calculate gradient values based on power trend
                     power_diff = power_minus_one - power_minus_two
@@ -1657,7 +1657,7 @@ class ThermalInitialConditions:
 
                         flat_down_stop_value = (stop_component + on_down_component + on_flat_component) // 3
                         flat_down_stop_var = model.get_variable(
-                            f"flat_down_stop_at_{start_date_minus_one}_e_{self.thermal_unit.name}"
+                            f"flat_down_stop_{start_date_minus_one}_{self.thermal_unit.name}"
                         )
                         model.add_constraint(
                             flat_down_stop_var == flat_down_stop_value,
