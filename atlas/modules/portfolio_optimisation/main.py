@@ -28,56 +28,28 @@ class PortfolioOptimisationModel(OptimisationModel):
         """Build the optimization model by adding variables, constraints, and objectives."""
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 
-        # Collect all required timestamps (optimization + thermal initial conditions)
-        all_required_times = list(max_optimisation_times)
+        for thermal in self.portfolio.equipments["thermal"]:
+            thermal.add_initial_conditions(self, self.parameters)
 
-        # Add thermal initial condition times
-        from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
-
-        for equipment_type in self.portfolio.equipments:
-            equipment_list = self.portfolio.equipments.get(equipment_type, [])
-            for equipment in cast(list[EquipmentPO], equipment_list):
-                if isinstance(equipment, ThermalPO):
-                    initial_times = equipment.get_required_initial_times(self.parameters)
-                    all_required_times.extend(initial_times)
-
-        # Remove duplicates and sort chronologically
-        all_required_times = sorted(set(all_required_times))
-
-        cfg.logger.debug(
-            f"Processing {len(all_required_times)} timestamps total ({len(max_optimisation_times)} optimization + thermal initial conditions)"
-        )
-
-        for time in all_required_times:
+        for time in max_optimisation_times:
             cfg.logger.debug(f"Building optimisation model at time: {time}..")
 
-            # Only add portfolio-level variables/constraints for optimization times
-            if time in max_optimisation_times:
-                self.portfolio.add_variables(self, time, self.parameters)
-                price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
-            else:
-                price_forecast = None
+            self.portfolio.add_variables(self, time, self.parameters)
+            price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
 
             for equipment_type in self.portfolio.equipments:
                 equipment_list = self.portfolio.equipments.get(equipment_type, [])
 
                 for equipment in cast(list[EquipmentPO], equipment_list):
                     # Add variables for optimization times
-                    if time in max_optimisation_times:
-                        equipment.add_variables(self, time, self.parameters)
-                        equipment.add_constraints(time, self, self.parameters)
-                        equipment.add_objective(
-                            model=self, time=time, parameters=self.parameters, price_forecast=price_forecast or 0.0
-                        )
+                    equipment.add_variables(self, time, self.parameters)
+                    equipment.add_constraints(self, time, self.parameters)
+                    equipment.add_objective(
+                        model=self, time=time, parameters=self.parameters, price_forecast=price_forecast or 0.0
+                    )
 
-                    # Add initial conditions for all timestamps (method will filter internally)
-                    if hasattr(equipment, "add_initial_conditions"):
-                        equipment.add_initial_conditions(self, self.parameters, time)
-
-            # Only add portfolio-level constraints for optimization times
-            if time in max_optimisation_times:
-                self.portfolio.add_constraints(time, self, self.parameters)
-                self.portfolio.add_objective(self, time, self.parameters)
+            self.portfolio.add_constraints(self, time, self.parameters)
+            self.portfolio.add_objective(self, time, self.parameters)
 
             cfg.logger.debug(f"Completed optimisation model at time: {time}")
 

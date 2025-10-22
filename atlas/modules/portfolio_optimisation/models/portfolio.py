@@ -51,7 +51,7 @@ class PortfolioPO(Portfolio):
         else:
             cfg.logger.debug(f"Skipping variables adding for portfolio :{self.name} at non-target time {time}")
 
-    def add_constraints(self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+    def add_constraints(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         if time in parameters.target_times:
             cfg.logger.debug(f"Adding constraints for portfolio :{self.name}")
             self._add_global_constraints(time, model, parameters)

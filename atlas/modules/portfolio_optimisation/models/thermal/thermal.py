@@ -132,8 +132,6 @@ class ThermalPO(Thermal):
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for complex thermal unit commitment."""
 
-        self._compute_time_parameters(parameters)
-
         # Always defined state variables for optimization time frame
         if time in parameters.thermal_op_times:
             # Binary state variables
@@ -201,8 +199,8 @@ class ThermalPO(Thermal):
 
     def add_constraints(
         self,
-        time: DateTime,
         model: OptimisationModel,
+        time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
         """Add constraints based on the determined combination."""
@@ -253,7 +251,9 @@ class ThermalPO(Thermal):
             turned_on_var = model.get_variable(f"t_on_of_{self.name}_{time}")
             model.add_objective(startup_cost * turned_on_var, "minimize")
 
-    def get_required_initial_times(self, parameters: PortfolioOptimisationParameters) -> list[DateTime]:
+    def get_required_initial_times(
+        self, parameters: PortfolioOptimisationParameters
+    ) -> tuple[list[DateTime], list[DateTime]]:
         """
         Get the list of initial condition timestamps required for this thermal unit.
 
@@ -263,22 +263,26 @@ class ThermalPO(Thermal):
         Returns:
             List of initial condition timestamps
         """
-        T_traceback = max(self._T_on + self._T_start, self._T_off + self._T_stop)
-        initial_times: list[DateTime] = []
+        self.T_traceback = max(self._T_on + self._T_start, self._T_off + self._T_stop)
 
-        if T_traceback > 0:
-            for k in range(T_traceback, 0, -1):
+        initial_times: list[DateTime] = []
+        stable_initial_times: list[DateTime] = []
+
+        if self.T_traceback > 0:
+            for k in range(self.T_traceback, 0, -1):
                 initial_times.append(parameters.start_date - k * parameters.timestep)
         else:
             initial_times.append(parameters.start_date - parameters.timestep)
 
-        return initial_times
+        for k in range(self.T_traceback, 1, -1):
+            stable_initial_times.append(parameters.start_date - k * parameters.time_step)
+
+        return initial_times, stable_initial_times
 
     def add_initial_conditions(
         self,
         model: OptimisationModel,
         parameters: PortfolioOptimisationParameters,
-        current_time: DateTime,
     ):
         """
         Add initial conditions for thermal unit at a specific timestamp.
@@ -286,37 +290,32 @@ class ThermalPO(Thermal):
         Args:
             model: Optimization model
             parameters: Portfolio optimization parameters
-            current_time: Current timestamp to process
+            time: Current timestamp to process
         """
-        # Get required initial times for this thermal unit
-        initial_times = self.get_required_initial_times(parameters)
+        self._compute_time_parameters(parameters)
 
-        # Only process if current_time is in our initial times
-        if current_time not in initial_times:
-            return
+        initial_times, stable_initial_times = self.get_required_initial_times(parameters)
 
-        # Initialize shared data on first call
-        if not hasattr(self, "_initial_conditions_data"):
-            power_timeseries = (
-                self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
-                if self.power is not None
-                else None
-            )
-            extended_start_date = initial_times[0]
+        power_timeseries = (
+            self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
+            if self.power is not None
+            else None
+        )
+        extended_start_date = initial_times[0]
 
-            # Determine if this is dayZero initialization
-            day_zero = power_timeseries is None
-            if power_timeseries is not None:
-                last_time = parameters.start_date - parameters.timestep
-                if hasattr(power_timeseries, "index") and last_time not in power_timeseries.index:
-                    day_zero = True
+        # Determine if this is dayZero initialization
+        day_zero = power_timeseries is None
+        if power_timeseries is not None:
+            last_time = parameters.start_date - parameters.timestep
+            if last_time not in power_timeseries.index:
+                day_zero = True
 
-            self._initial_conditions_data = {
-                "initial_times": initial_times,
-                "extended_start_date": extended_start_date,
-                "power_timeseries": power_timeseries,
-                "day_zero": day_zero,
-            }
+        initial_conditions_data = {
+            "initial_times": initial_times,
+            "extended_start_date": extended_start_date,
+            "power_timeseries": power_timeseries,
+            "day_zero": day_zero,
+        }
 
         # Get initial condition function based on combination
         initial_condition_functions = {
@@ -339,10 +338,9 @@ class ThermalPO(Thermal):
             self,
             model,
             parameters,
-            current_time,
-            self._initial_conditions_data["extended_start_date"],
-            self._initial_conditions_data["power_timeseries"],
-            self._initial_conditions_data["day_zero"],
+            initial_conditions_data["extended_start_date"],
+            initial_conditions_data["power_timeseries"],
+            initial_conditions_data["day_zero"],
         )
 
     @model_validator(mode="after")

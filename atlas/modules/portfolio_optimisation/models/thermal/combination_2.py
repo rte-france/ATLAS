@@ -37,7 +37,7 @@ def add_initial_conditions(
     power_timeseries: Timeseries | None,
     day_zero: bool,
 ) -> None:
-    """Combination 2: T_stop=True, T_start=False, T_stable=False"""
+    """Combination 2: T_stop>=1, T_start=0, T_stable=0"""
 
     if day_zero:
         # DayZero case: All units start OFF

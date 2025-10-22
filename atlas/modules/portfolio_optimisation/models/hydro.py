@@ -80,8 +80,8 @@ class HydroPO(Hydro):
 
     def add_constraints(
         self,
-        time: DateTime,
         model: OptimisationModel,
+        time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
         """

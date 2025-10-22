@@ -36,7 +36,7 @@ def add_initial_conditions(
     power_timeseries: Timeseries | None,
     day_zero: bool,
 ) -> None:
-    """Combination 3: T_stop=False, T_start=True, T_stable=False"""
+    """Combination 3: T_stop=0, T_start>=1, T_stable=0"""
     if day_zero:
         # DayZero case: All units start OFF
         initialize_day_zero_core(thermal_unit, model, current_time)

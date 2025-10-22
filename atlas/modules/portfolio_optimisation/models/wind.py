@@ -54,8 +54,8 @@ class WindPO(Wind):
 
     def add_constraints(
         self,
-        time: DateTime,
         model: OptimisationModel,
+        time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
         """

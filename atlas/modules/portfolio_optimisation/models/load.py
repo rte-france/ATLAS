@@ -35,7 +35,7 @@ class LoadPO(Load):
         else:
             cfg.logger.debug(f"Skipping variables for load unit {self.name} at non-target time {time}")
 
-    def add_constraints(self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters):
+    def add_constraints(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """
         This function adds constraints related to load equipments.
         """
