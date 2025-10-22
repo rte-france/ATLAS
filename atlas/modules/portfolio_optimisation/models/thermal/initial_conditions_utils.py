@@ -14,7 +14,6 @@ from pendulum import DateTime
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 
-from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -57,7 +56,7 @@ def initialize_day_zero_on_states(
     """
     Initialize ON_UP and ON_DOWN state variables for day zero.
 
-    Used by combinations 1, 2, 4, 8 (combinations without stable constraints).
+    For T_stable = 0
 
     Args:
         thermal_unit: The thermal unit to initialize
@@ -79,7 +78,7 @@ def initialize_day_zero_stop_state(
     """
     Initialize STOP state variable for day zero.
 
-    Used by combinations 2, 5, 6, 8 (T_stop >= 1).
+    For T_stop >= 1
 
     Args:
         thermal_unit: The thermal unit to initialize
@@ -98,7 +97,7 @@ def initialize_day_zero_start_state(
     """
     Initialize START state variable for day zero.
 
-    Used by combinations 4, 6, 7, 8 (T_start >= 1).
+    For T_start >= 1.
 
     Args:
         thermal_unit: The thermal unit to initialize
@@ -117,7 +116,7 @@ def initialize_day_zero_down_to_stop(
     """
     Initialize down_to_stop gradient variable for day zero.
 
-    Used by combinations 2, 8 (T_stop >= 1 without stable constraints).
+    T_stop >= 1 and T_stable = 0.
 
     Args:
         thermal_unit: The thermal unit to initialize
@@ -136,7 +135,7 @@ def initialize_day_zero_gradient_vars(
     """
     Initialize gradient auxiliary variables for day zero.
 
-    Used by combinations 3, 5, 6, 7, 8 (T_stable >= 1).
+    T_stable >= 1.
 
     Args:
         thermal_unit: The thermal unit to initialize
@@ -157,14 +156,12 @@ def initialize_day_zero_gradient_vars(
 def initialize_day_zero_stable_vars(
     thermal_unit: ThermalPO,
     model: OptimisationModel,
-    parameters: PortfolioOptimisationParameters,
     time: DateTime,
 ) -> None:
     """
     Initialize stable state variables for day zero.
 
-    Used by combinations 3, 5, 6, 7, 8 (T_stable >= 1).
-    Only initializes if not the last timestep.
+    T_stable >= 1. For stable timeframe.
 
     Args:
         thermal_unit: The thermal unit to initialize
@@ -172,25 +169,23 @@ def initialize_day_zero_stable_vars(
         parameters: Portfolio optimization parameters
         time: The current time step
     """
-    next_time = time + parameters.timestep
-    if next_time <= parameters.end_date:
-        # Get stable state variables
-        on_flat_var = model.get_variable(f"ON_FLAT_{thermal_unit.name}_{time}")
-        on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{time}")
-        on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
-        stable_var = model.get_variable(f"stable_{time}_{thermal_unit.name}")
-        entered_up_var = model.get_variable(f"entered_up_{time}_{thermal_unit.name}")
-        entered_down_var = model.get_variable(f"entered_down_{time}_{thermal_unit.name}")
 
-        # Fix stable state variables
-        model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
-        model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
-        model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
+    on_flat_var = model.get_variable(f"ON_FLAT_{thermal_unit.name}_{time}")
+    on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{time}")
+    on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
+    stable_var = model.get_variable(f"stable_{time}_{thermal_unit.name}")
+    entered_up_var = model.get_variable(f"entered_up_{time}_{thermal_unit.name}")
+    entered_down_var = model.get_variable(f"entered_down_{time}_{thermal_unit.name}")
 
-        # Fix stable auxiliary variables
-        model.add_constraint(stable_var == 0, f"init_stable_{thermal_unit.name}_{time}")
-        model.add_constraint(entered_up_var == 0, f"init_entered_up_{thermal_unit.name}_{time}")
-        model.add_constraint(entered_down_var == 0, f"init_entered_down_{thermal_unit.name}_{time}")
+    # Fix stable state variables
+    model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
+    model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
+    model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
+
+    # Fix stable auxiliary variables
+    model.add_constraint(stable_var == 0, f"init_stable_{thermal_unit.name}_{time}")
+    model.add_constraint(entered_up_var == 0, f"init_entered_up_{thermal_unit.name}_{time}")
+    model.add_constraint(entered_down_var == 0, f"init_entered_down_{thermal_unit.name}_{time}")
 
 
 def initialize_day_zero_flat_down_stop(
@@ -201,7 +196,7 @@ def initialize_day_zero_flat_down_stop(
     """
     Initialize flat_down_stop variable for day zero.
 
-    Used by combinations 5, 6, 8 (T_stop >= 1 with T_stable >= 1).
+    T_stop >= 1, T_stable >= 1.
 
     Args:
         thermal_unit: The thermal unit to initialize
@@ -210,27 +205,3 @@ def initialize_day_zero_flat_down_stop(
     """
     flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{thermal_unit.name}")
     model.add_constraint(flat_down_stop_var == 0, f"init_flat_down_stop_{thermal_unit.name}_{time}")
-
-
-def initialize_day_zero_flat_down_stop_in_stable(
-    thermal_unit: ThermalPO,
-    model: OptimisationModel,
-    parameters: PortfolioOptimisationParameters,
-    time: DateTime,
-) -> None:
-    """
-    Initialize flat_down_stop variable inside stable variables section for day zero.
-
-    Used by combination 8 (T_stop >= 1, T_start >= 1, T_stable >= 1).
-    This is added to the stable variables initialization section.
-
-    Args:
-        thermal_unit: The thermal unit to initialize
-        model: The optimization model
-        parameters: Portfolio optimization parameters
-        time: The current time step
-    """
-    next_time = time + parameters.timestep
-    if next_time <= parameters.end_date:
-        flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{thermal_unit.name}")
-        model.add_constraint(flat_down_stop_var == 0, f"init_flat_down_stop_{thermal_unit.name}_{time}")
