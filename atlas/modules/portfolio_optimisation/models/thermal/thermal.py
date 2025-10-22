@@ -297,7 +297,7 @@ class ThermalPO(Thermal):
 
         # Initialize shared data on first call
         if not hasattr(self, "_initial_conditions_data"):
-            power_history = (
+            power_timeseries = (
                 self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
                 if self.power is not None
                 else None
@@ -305,16 +305,16 @@ class ThermalPO(Thermal):
             extended_start_date = initial_times[0]
 
             # Determine if this is dayZero initialization
-            day_zero = power_history is None
-            if power_history is not None:
+            day_zero = power_timeseries is None
+            if power_timeseries is not None:
                 last_time = parameters.start_date - parameters.timestep
-                if hasattr(power_history, "index") and last_time not in power_history.index:
+                if hasattr(power_timeseries, "index") and last_time not in power_timeseries.index:
                     day_zero = True
 
             self._initial_conditions_data = {
                 "initial_times": initial_times,
                 "extended_start_date": extended_start_date,
-                "power_history": power_history,
+                "power_timeseries": power_timeseries,
                 "day_zero": day_zero,
             }
 
@@ -341,7 +341,7 @@ class ThermalPO(Thermal):
             parameters,
             current_time,
             self._initial_conditions_data["extended_start_date"],
-            self._initial_conditions_data["power_history"],
+            self._initial_conditions_data["power_timeseries"],
             self._initial_conditions_data["day_zero"],
         )
 

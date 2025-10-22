@@ -17,6 +17,10 @@ from atlas.math.timeseries import Timeseries
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 
+from atlas.modules.portfolio_optimisation.models.thermal.initial_conditions_utils import (
+    initialize_day_zero_core,
+    initialize_day_zero_on_states,
+)
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.solver.solver_interface import OptimisationModel
@@ -28,31 +32,18 @@ def add_initial_conditions(
     parameters: PortfolioOptimisationParameters,
     current_time: DateTime,
     extended_start_date: DateTime,
-    power_history: Timeseries | None,
+    power_timeseries: Timeseries | None,
     day_zero: bool,
 ) -> None:
     """Combination 1: T_stop=False, T_start=False, T_stable=False"""
     if day_zero:
         # DayZero case: All units start OFF
-        # Get state variables
-        off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{current_time}")
-        on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{current_time}")
-        on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{current_time}")
-        turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{current_time}")
-        turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{current_time}")
-        power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{current_time}")
-
-        # Fix state variables using equality constraints
-        model.add_constraint(off_var == 1, f"init_off_{thermal_unit.name}_{current_time}")
-        model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{current_time}")
-        model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{current_time}")
-        model.add_constraint(turned_on_var == 0, f"init_turned_on_{thermal_unit.name}_{current_time}")
-        model.add_constraint(turned_off_var == 0, f"init_turned_off_{thermal_unit.name}_{current_time}")
-        model.add_constraint(power_level_var == 0, f"init_power_{thermal_unit.name}_{current_time}")
+        initialize_day_zero_core(thermal_unit, model, current_time)
+        initialize_day_zero_on_states(thermal_unit, model, current_time)
     else:
         # Non-dayZero case: Initialize based on power history
-        if current_time in power_history.index:
-            last_power = power_history.get_value(current_time)
+        if current_time in power_timeseries.index:
+            last_power = power_timeseries.get_value(current_time)
             # Get variables
             off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{current_time}")
             on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{current_time}")
@@ -83,8 +74,8 @@ def add_initial_conditions(
             # Reconstruct transitions for non-initial times
             if current_time != extended_start_date:
                 prev_time = current_time - parameters.timestep
-                if prev_time in power_history.index:
-                    prev_power = power_history.get_value(prev_time)
+                if prev_time in power_timeseries.index:
+                    prev_power = power_timeseries.get_value(prev_time)
 
                     # Detect turn off: units going from ON to OFF
                     if prev_power > 0 and last_power == 0:
