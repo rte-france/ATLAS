@@ -174,7 +174,7 @@ def generate_datetimes(
     if end_date < start_date:
         raise ValueError("End date has to be after start date")
     elif end_date == start_date:
-        return []
+        return [start_date]
     else:
         step = get_duration(freq)
         return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]

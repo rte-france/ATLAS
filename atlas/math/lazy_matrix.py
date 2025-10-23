@@ -15,6 +15,7 @@ import pandas as pd
 import polars as pl
 
 from atlas.io_utils.utils import scan_data_file
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone
@@ -113,7 +114,7 @@ class LazyMatrix:
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
         index: str,
     ) -> None:
         """
@@ -128,10 +129,12 @@ class LazyMatrix:
         if index in self.indexes:
             raise KeyError(f"Index {index} already exists in the matrix.")
 
-        if not isinstance(timeseries, Timeseries):
-            timeseries = Timeseries(timeseries)
-
-        lazy_ts = timeseries.to_frame(engine="polars").rename({"value": index}).lazy()  # type: ignore [operator]
+        if isinstance(timeseries, LazyTimeseries):
+            lazy_ts = timeseries.lazyframe
+        elif isinstance(timeseries, pl.LazyFrame):
+            lazy_ts = timeseries
+        else:
+            lazy_ts = Timeseries(timeseries).to_frame(engine="polars").rename({"value": index}).lazy()  # type: ignore [operator]
 
         # Join with the existing matrix
         self.matrix = self.matrix.join(
@@ -160,6 +163,22 @@ class LazyMatrix:
 
         # Update indexes
         self.indexes = self._get_indexes()
+
+    def replace(
+        self,
+        index: str,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+    ) -> None:
+        """
+        Replace a Timeseries in the matrix and keep indexes sorted.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
+        """
+        self.delete(index=index)
+        self.add(timeseries=timeseries, index=index)
 
     def select(self, index: str) -> Timeseries:
         """

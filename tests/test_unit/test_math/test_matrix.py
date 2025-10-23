@@ -154,6 +154,32 @@ def test_add_dict(sample_polars_df):
     assert "scenario3" in matrix.indexes
 
 
+def test_add_polars_dataframe(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    new_df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+            "scenario3": [9, 10, 11, 12],
+        }
+    )
+    matrix.add(new_df, "scenario3")
+    assert "scenario3" in matrix.indexes
+    assert len(matrix.indexes) == 3
+
+
+def test_add_pandas_dataframe(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    new_df = pd.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+            "scenario3": [9, 10, 11, 12],
+        }
+    )
+    matrix.add(new_df, "scenario3")
+    assert "scenario3" in matrix.indexes
+    assert len(matrix.indexes) == 3
+
+
 def test_delete_existing(sample_polars_df):
     matrix = Matrix(sample_polars_df)
     matrix.delete("scenario1")
@@ -164,6 +190,45 @@ def test_delete_non_existing(sample_polars_df):
     matrix = Matrix(sample_polars_df)
     with pytest.raises(KeyError, match="No timeseries to delete"):
         matrix.delete("non_existing")
+
+
+def test_delete_all_scenarios(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+    initial_count = len(matrix.indexes)
+
+    # Delete all scenarios
+    for index in matrix.indexes.copy():
+        matrix.delete(index)
+
+    assert len(matrix.indexes) == 0
+    assert matrix.matrix.shape == (3, 1)  # Only time column remains
+    assert matrix.matrix.columns == ["time"]
+
+
+def test_delete_and_readd(sample_polars_df):
+    matrix = Matrix(sample_polars_df)
+
+    # Delete scenario1
+    matrix.delete("scenario1")
+    assert "scenario1" not in matrix.indexes
+    assert len(matrix.indexes) == 1
+
+    # Re-add scenario1 with different data
+    new_ts = Timeseries(
+        pl.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=4, freq="D"),
+                "value": [100, 200, 300, 400],
+            }
+        )
+    )
+    matrix.add(new_ts, "scenario1")
+    assert "scenario1" in matrix.indexes
+    assert len(matrix.indexes) == 2
+
+    # Verify the new data
+    retrieved_ts = matrix["scenario1"]
+    assert retrieved_ts.to_frame().select("value").to_pandas()["value"].iloc[0] == 100
 
 
 def test_get_matrix(sample_polars_df):
@@ -347,3 +412,161 @@ def test_matrix_plot_returns_valid_figure(sample_polars_df):
     slider_steps = sliders[0]["steps"]
     assert len(slider_steps) == 2
     assert all("label" in step for step in slider_steps)
+
+
+def test_add_different_time_ranges():
+    # Test adding timeseries with different time ranges
+    initial_df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [1, 2, 3],
+        }
+    )
+    matrix = Matrix(initial_df)
+
+    # Add timeseries with different time range
+    new_ts = Timeseries(
+        pl.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-02", periods=4, freq="D"),  # Different start and length
+                "value": [10, 20, 30, 40],
+            }
+        )
+    )
+    matrix.add(new_ts, "scenario2")
+
+    assert "scenario2" in matrix.indexes
+    # The matrix should contain the union of both time ranges
+    assert matrix.matrix.shape[0] == 5  # 2025-01-01 to 2025-01-05
+
+
+def test_add_empty_timeseries():
+    initial_df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [1, 2, 3],
+        }
+    )
+    matrix = Matrix(initial_df)
+
+    # Add empty timeseries
+    empty_ts = Timeseries(
+        pl.DataFrame(
+            {
+                "time": pd.date_range(start="2025-01-01", periods=0, freq="D"),
+                "value": [],
+            },
+            schema={"time": pl.Datetime, "value": pl.Float64},
+        )
+    )
+
+    matrix.add(empty_ts, "empty_scenario")
+    assert "empty_scenario" in matrix.indexes
+    # The matrix should still have the original 3 rows
+    assert matrix.matrix.shape[0] == 3
+
+
+def test_scenario_matrix_set_frequency_upsample():
+    """Test upsampling scenario matrix from daily to hourly frequency."""
+    # Create daily data
+    df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [10.0, 20.0, 30.0],
+            "scenario2": [100.0, 200.0, 300.0],
+        }
+    )
+    sm = ScenarioMatrix(df)
+
+    # Upsample to hourly (should interpolate)
+    result = sm.set_frequency("1h", inplace=False)
+
+    # Should have 24*2 + 1 = 49 hours (from start of day 1 to start of day 3)
+    assert result.matrix.shape[0] == 49
+    assert "scenario1" in result.indexes
+    assert "scenario2" in result.indexes
+
+    # Check that original is unchanged (inplace=False)
+    assert sm.matrix.shape[0] == 3
+
+
+def test_scenario_matrix_set_frequency_downsample():
+    """Test downsampling scenario matrix from hourly to daily frequency."""
+    # Create hourly data for 2 days
+    hourly_times = pd.date_range(start="2025-01-01", periods=48, freq="h")
+    df = pl.DataFrame(
+        {
+            "time": hourly_times,
+            "scenario1": list(range(48)),  # 0, 1, 2, ..., 47
+            "scenario2": [x * 2 for x in range(48)],  # 0, 2, 4, ..., 94
+        }
+    )
+    sm = ScenarioMatrix(df)
+
+    # Downsample to daily (should aggregate by mean)
+    result = sm.set_frequency("1d", inplace=False)
+
+    # Should have 2 days
+    assert result.matrix.shape[0] == 2
+    assert "scenario1" in result.indexes
+    assert "scenario2" in result.indexes
+
+    # Check that values are averaged correctly
+    # First day: mean of 0-23 = 11.5, Second day: mean of 24-47 = 35.5
+    values1 = result.matrix.select("scenario1").to_series().to_list()
+    assert abs(values1[0] - 11.5) < 0.001
+    assert abs(values1[1] - 35.5) < 0.001
+
+
+def test_scenario_matrix_set_frequency_same():
+    """Test set_frequency with same frequency (should return unchanged)."""
+    df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [10.0, 20.0, 30.0],
+            "scenario2": [100.0, 200.0, 300.0],
+        }
+    )
+    sm = ScenarioMatrix(df)
+
+    # Set to same frequency
+    result = sm.set_frequency("1d", inplace=False)
+
+    # Should be unchanged
+    assert result.matrix.shape[0] == 3
+    assert result.matrix.equals(sm.matrix)
+
+
+def test_scenario_matrix_set_frequency_inplace():
+    """Test set_frequency with inplace=True."""
+    df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=24, freq="h"),
+            "scenario1": list(range(24)),
+            "scenario2": [x * 2 for x in range(24)],
+        }
+    )
+    sm = ScenarioMatrix(df)
+    original_shape = sm.matrix.shape
+
+    # Downsample inplace
+    result = sm.set_frequency("1d", inplace=True)
+
+    # Should return self and modify original
+    assert result is sm
+    assert sm.matrix.shape[0] == 1  # One day
+    assert sm.matrix.shape != original_shape
+
+
+def test_scenario_matrix_set_frequency_empty():
+    """Test set_frequency on empty matrix."""
+    # Create empty matrix with at least one scenario column to satisfy validation
+    df = pl.DataFrame(
+        {"time": [], "scenario1": []}, schema={"time": pl.Datetime("us", time_zone="UTC"), "scenario1": pl.Float64()}
+    )
+    sm = ScenarioMatrix(df)
+
+    result = sm.set_frequency("1h", inplace=False)
+
+    assert result.matrix.shape[0] == 0
+    assert len(result.indexes) == 1  # Has scenario1 column

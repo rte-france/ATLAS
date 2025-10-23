@@ -108,6 +108,17 @@ class TestTimeseriesInit:
         ts2 = Timeseries.from_index(start, freq, end, default_value=[1.0, 2.0, 3.0], timezone="UTC")
         assert ts2.dataframe["value"].to_list() == [1.0, 2.0, 3.0]
 
+    def test_from_timeseries(self):
+        start = "2025-01-01 00:00:00"
+        end = "2025-01-01 02:00:00"
+        freq = "1h"
+        ts1 = Timeseries.from_index(start, freq, end, default_value=5.0, timezone="UTC")
+        ts2 = Timeseries.from_timeseries(ts1)
+        ts3 = Timeseries.from_timeseries(ts1, 0.0)
+
+        assert ts1 == ts2
+        assert ts1 != ts3
+
     def test_init_with_dict(self):
         """Test initialization with a dictionary."""
         data = {
@@ -609,6 +620,12 @@ class TestTimeseriesBasicOperations:
 
         assert sample_ts == sample_ts_copy
 
+    def test_first_date(self, sample_ts):
+        assert sample_ts.first_date() == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+
+    def test_last_date(self, sample_ts):
+        assert sample_ts.last_date() == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+
 
 class TestTimeseriesManipulation:
     """Test time series manipulation methods."""
@@ -789,6 +806,23 @@ class TestTimeseriesManipulation:
     def test_filter_invalid(self, sample_ts):
         with pytest.raises(NotImplementedError):
             result = sample_ts.filter(2, inplace=False)
+
+    def test_slice_with_datetime(self, sample_ts):
+        result = sample_ts.slice(datetime(2023, 1, 1, 1, 0, 0), datetime(2023, 1, 1, 2, 0, 0), inplace=False)
+        result_exclude = sample_ts.slice(
+            datetime(2023, 1, 1, 1, 0, 0), datetime(2023, 1, 1, 3, 0, 0), closed="none", inplace=False
+        )
+        assert len(result) == 2
+        assert result["value"][0] == 20
+        assert result["value"][1] == 30
+        assert len(result_exclude) == 1
+        assert result_exclude["value"][0] == 30
+
+    def test_slice_with_int(self, sample_ts):
+        result = sample_ts.slice_with_offset(1, 2, inplace=False)
+        assert len(result) == 2
+        assert result["value"][0] == 20
+        assert result["value"][1] == 30
 
     def test_get_value(self):
         """Test getting a value at a specific timestamp."""

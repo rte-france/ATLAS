@@ -11,13 +11,14 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import pendulum
 import polars as pl
 
 from atlas.io_utils.utils import scan_data_file
 from atlas.math.timeseries import Timeseries
-from atlas.timing import check_timezone
+from atlas.timing import build_datetime, check_timezone
 
 
 class LazyTimeseries:
@@ -89,6 +90,11 @@ class LazyTimeseries:
         """
         return self.timeseries
 
+    @property
+    def index(self) -> list[datetime]:
+        """Returns the LazyTimeseries indexes"""
+        return self.timeseries.select("time").collect().to_series().to_list()
+
     @classmethod
     def from_file(
         cls,
@@ -150,7 +156,7 @@ class LazyTimeseries:
 
     def filter(
         self,
-        item: list[datetime | pendulum.DateTime | str] | datetime | pendulum.DateTime | str,
+        item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> LazyTimeseries:
@@ -196,6 +202,52 @@ class LazyTimeseries:
         else:
             return LazyTimeseries(df, timezone=self.timezone)
 
+    def slice(
+        self,
+        start_bound: datetime | pendulum.DateTime | str,
+        end_bound: datetime | pendulum.DateTime | str,
+        closed: Literal["left", "right", "both", "none"] = "both",
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """Get a slice of the Timeseries
+
+        :param start_bound: Datetime to filter the Timeseries
+        :param end_bound: Datetime to filter the Timeseries
+        :param closed : {'both', 'left', 'right', 'none'}
+            Define which sides of the interval are closed (inclusive).
+        :param inplace: Whether to modify the current instance, defaults to True
+        :return: The Timeseries object
+        """
+        date_start = build_datetime(start_bound).in_tz(self.timezone)
+        date_end = build_datetime(end_bound).in_tz(self.timezone)
+        df = self.timeseries.filter(pl.col("time").is_between(date_start, date_end, closed))
+
+        if inplace:
+            self.timeseries = df
+            return self
+        else:
+            return LazyTimeseries(df, timezone=self.timezone)
+
+    def slice_with_offset(
+        self,
+        offset: int,
+        length: int | None = None,
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """Get a slice of the Timeseries
+
+        :param offset: Start index. Negative indexing is supported.
+        :param length: Length of the slice. If set to `None`, all rows starting at the offset will be selected.
+        :param inplace: Whether to modify the current instance, defaults to True
+        :return: The Timeseries object
+        """
+        df = self.timeseries.slice(offset, length)
+        if inplace:
+            self.timeseries = df
+            return self
+        else:
+            return LazyTimeseries(df, timezone=self.timezone)
+
     def max(self) -> float:
         """Return the max value column.
 
@@ -211,3 +263,48 @@ class LazyTimeseries:
         :rtype: float
         """
         return self.collect().min()
+
+    def __len__(self) -> int:
+        """Return the number of rows in the LazyTimeseries.
+
+        :return: The number of rows
+        :rtype: int
+        """
+        return self.collect().__len__()
+
+    def set_frequency(self, frequency: str | pendulum.Duration, inplace: bool = True) -> LazyTimeseries:
+        """
+        Change the frequency (timestep) of the lazy time series.
+
+        :param frequency: The desired frequency. Can be a string (e.g., '1d', '15m') or a `pendulum.Duration`.
+        :type frequency: str or pendulum.Duration
+        :param inplace: If True, modifies the object in place. If False, returns a new modified object.
+        :type inplace: bool
+        :return: The resampled lazy time series, either modified in place or as a new object.
+        :rtype: LazyTimeseries
+        """
+
+        resampled_ts = self.collect().set_frequency(frequency, inplace=False)
+
+        if inplace:
+            self.timeseries = resampled_ts.to_lazy()
+            return self
+        else:
+            return LazyTimeseries(resampled_ts.to_lazy(), timezone=self.timezone)
+
+    def abs(self, inplace: bool = True) -> LazyTimeseries:
+        """
+        Compute the absolute value of each value in the time series.
+
+        :param inplace: If True, modifies the object in place. If False, returns a new modified object.
+        :type inplace: bool
+        :return: The LazyTimeseries with absolute values, either modified in place or as a new object.
+        :rtype: LazyTimeseries
+        """
+        df = self.timeseries.with_columns(pl.col("value").abs())
+
+        if inplace:
+            self.timeseries = df
+            return self
+        else:
+            return LazyTimeseries(df, timezone=self.timezone)

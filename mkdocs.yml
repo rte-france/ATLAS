@@ -92,6 +92,7 @@ nav:
     - Welcome to Atlas: index.md
     - Getting Started: getting_started.md
     - Contributing: contributing.md
+    - Release Process: release_process.md
     - Changelog: changelog.md
     - Authors: authors.md
   - Concepts:
@@ -121,7 +122,6 @@ nav:
 extra:
   version:
     provider: mike
-    default: 0.1.0
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/rte-france/ATLAS

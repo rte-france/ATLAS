@@ -185,8 +185,8 @@ class Timeseries:
 
         if not isinstance(timeseries, Timeseries):
             raise TypeError("Input has to be a timeseries object, if using a dataframe, use 'from_dataframe' ")
-        if default_value:
-            df = timeseries.dataframe.with_columns(pl.lit(0).alias("value"))
+        if default_value is not None:
+            df = timeseries.dataframe.with_columns(pl.lit(default_value).alias("value"))
             return cls(df, timezone=timeseries.timezone)
         else:
             return cls(timeseries)
@@ -447,6 +447,11 @@ class Timeseries:
     def index(self) -> list[datetime]:
         """Returns the Timeseries indexes"""
         return self.timeseries.select("time").to_series().to_list()
+
+    @property
+    def values(self) -> list[float]:
+        """Returns the Timeseries values"""
+        return self.timeseries.select("value").to_series().to_list()
 
     @property
     def timestep(self) -> pendulum.Duration | None:
@@ -754,7 +759,7 @@ class Timeseries:
 
     def filter(
         self,
-        item: list[datetime | pendulum.DateTime | str] | datetime | pendulum.DateTime | str,
+        item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> Timeseries:
@@ -794,6 +799,44 @@ class Timeseries:
         else:
             raise NotImplementedError("Invalid filter formatting")
 
+        return self._return_inplace(df, inplace)
+
+    def slice(
+        self,
+        start_bound: datetime | pendulum.DateTime | str,
+        end_bound: datetime | pendulum.DateTime | str,
+        closed: Literal["left", "right", "both", "none"] = "both",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """Get a slice of the Timeseries
+
+        :param start_bound: Datetime to filter the Timeseries
+        :param end_bound: Datetime to filter the Timeseries
+        :param closed : {'both', 'left', 'right', 'none'}
+            Define which sides of the interval are closed (inclusive).
+        :param inplace: Whether to modify the current instance, defaults to True
+        :return: The Timeseries object
+        """
+        date_start = build_datetime(start_bound).in_tz(self.timezone)
+        date_end = build_datetime(end_bound).in_tz(self.timezone)
+        df = self.timeseries.filter(pl.col("time").is_between(date_start, date_end, closed))
+
+        return self._return_inplace(df, inplace)
+
+    def slice_with_offset(
+        self,
+        offset: int,
+        length: int | None = None,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """Get a slice of the Timeseries
+
+        :param offset: Start index. Negative indexing is supported.
+        :param length: Length of the slice. If set to `None`, all rows starting at the offset will be selected.
+        :param inplace: Whether to modify the current instance, defaults to True
+        :return: The Timeseries object
+        """
+        df = self.timeseries.slice(offset, length)
         return self._return_inplace(df, inplace)
 
     def max(self) -> float:  # type:ignore[return]
@@ -966,5 +1009,16 @@ class Timeseries:
         :rtype: DateTime or None
         """
         if len(self.timeseries) > 0:
-            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").to_series().to_list()[0]))
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").head(1).item()))
+        return None
+
+    def last_date(self) -> pendulum.DateTime | None:
+        """
+        Return the last date in the Timeseries index.
+
+        :return: The last date in the Timeseries index
+        :rtype: DateTime or None
+        """
+        if len(self.timeseries) > 0:
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").tail(1).item()))
         return None

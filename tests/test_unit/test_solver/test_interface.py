@@ -72,7 +72,7 @@ class TestOptimisationModel:
 
         # Test with default bounds
         model.add_continuous_variable("y")
-        mock_solver.NumVar.assert_called_with(0.0, float("inf"), "y")
+        mock_solver.NumVar.assert_called_with(float("-inf"), float("inf"), "y")
 
         # Test duplicate variable
         with pytest.raises(ValueError, match="Variable 'x' already exists"):

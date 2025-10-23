@@ -185,6 +185,7 @@ data/
 *.pkl
 *.yml
 *.yaml
+*.txt
 
 # Notebooks
 polars_vs_pandas.ipynb
@@ -193,4 +194,5 @@ test.ipynb
 # scripts
 commit.sh
 test.py
+parameters.yaml
 CLAUDE.md

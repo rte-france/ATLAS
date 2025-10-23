@@ -10,16 +10,21 @@ from typing import Any
 
 import pendulum
 from pendulum import duration
-from pendulum.duration import Duration as PendulumDuration
+from pendulum.duration import Duration
 from pydantic import ValidationError
-from pydantic_extra_types.pendulum_dt import Duration
 
 
 def parse_list_float(value: Any) -> list[float] | None:
     """Parse list attributes with proper error handling."""
     if value is None:
         return None
-
+    if isinstance(value, list):
+        if all(isinstance(v, float) for v in value):
+            return value
+        else:
+            raise ValidationError(
+                f"All elements in the list must be of type float. Got: {value}",
+            )
     try:
         return list(map(float, value.split(":")))
     except Exception as e:
@@ -32,7 +37,7 @@ def convert_to_duration(
     value: Any,
     default_unit: str = "hours",
     allow_zero: bool = True,
-) -> pendulum.Duration | Duration | None:
+) -> pendulum.Duration | None:
     """
     Simple conversion of numeric values and Duration objects to Duration.
 
@@ -56,7 +61,7 @@ def convert_to_duration(
         return None
 
     # Handle existing Duration objects
-    if isinstance(value, Duration | PendulumDuration):
+    if isinstance(value, Duration):
         duration_obj = value
     elif isinstance(value, int | float):
         # Numeric value with default unit
@@ -107,7 +112,7 @@ def duration_validator(
             return duration_validator(default_unit="minutes")(v)
     """
 
-    def validator(value: Any) -> pendulum.Duration | Duration | None:
+    def validator(value: Any) -> pendulum.Duration | None:
         return convert_to_duration(
             value,
             default_unit=default_unit,
