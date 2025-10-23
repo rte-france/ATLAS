@@ -252,9 +252,9 @@ def initialize_gradient_initial_conditions(
 def initialize_flat_down_stop_initial_conditions(
     thermal_unit: ThermalPO,
     model: OptimisationModel,
-    start_date_minus_one: DateTime = None,
-    start_date_minus_two: DateTime = None,
-    start_date_minus_three: DateTime = None,
+    start_date_minus_one: DateTime,
+    start_date_minus_two: DateTime,
+    start_date_minus_three: DateTime,
 ) -> None:
     """
     Initialize flat_down_stop variable based on historical power data.
