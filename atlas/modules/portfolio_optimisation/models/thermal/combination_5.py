@@ -19,8 +19,12 @@ if TYPE_CHECKING:
 
 from atlas.modules.portfolio_optimisation.models.thermal.initial_conditions_utils import (
     initialize_day_zero_core,
+    initialize_day_zero_flat_down_stop,
     initialize_day_zero_gradient_vars,
     initialize_day_zero_stable_vars,
+    initialize_day_zero_stop_state,
+    initialize_flat_down_stop_initial_conditions,
+    initialize_gradient_initial_conditions,
 )
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -31,21 +35,27 @@ def add_initial_conditions(
     thermal_unit: ThermalPO,
     model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
-    time: DateTime,
     extended_start_date: DateTime,
     power_timeseries: Timeseries | None,
     day_zero: bool,
+    **kwargs,
 ) -> None:
-    """Combination 5: T_stop=0, T_start>=1, T_stable>=1"""
+    """Combination 5: T_stop>=1, T_start=0, T_stable>=1"""
     if day_zero:
-        # DayZero case: All units start OFF
-        initialize_day_zero_core(thermal_unit, model, time)
-        initialize_day_zero_stable_vars(thermal_unit, model, time)
-        initialize_day_zero_gradient_vars(thermal_unit, model, time)
+        for time in kwargs.get("initial_times", []):
+            initialize_day_zero_core(thermal_unit, model, time)
+            initialize_day_zero_gradient_vars(thermal_unit, model, time)
+            initialize_day_zero_flat_down_stop(thermal_unit, model, time)
+            initialize_day_zero_stop_state(thermal_unit, model, time)
+
+        for time in kwargs.get("stable_initial_times", []):
+            initialize_day_zero_stable_vars(thermal_unit, model, time)
+
+        initialize_gradient_initial_conditions(thermal_unit, model, power_timeseries, parameters)
 
     else:
         # Non-dayZero case: Initialize based on power history
-        if time in power_timeseries.index:
+        for time in kwargs.get("initial_times", []):
             last_power = power_timeseries.get_value(time)
             min_power = thermal_unit.minimum_power.get_value(time)
 
@@ -55,10 +65,6 @@ def add_initial_conditions(
             turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
             turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
             flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{thermal_unit.name}")
-            power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
-
-            # Fix power level to historical value
-            model.add_constraint(power_level_var == last_power, f"init_power_{thermal_unit.name}_{time}")
 
             # Set state variables based on power level relative to minimum power
             if last_power >= min_power:
@@ -82,24 +88,24 @@ def add_initial_conditions(
             # Reconstruct transitions for non-initial times
             if time != extended_start_date:
                 prev_time = time - parameters.timestep
-                if prev_time in power_timeseries.index:
-                    prev_power = power_timeseries.get_value(prev_time)
-                    prev_min_power = thermal_unit.minimum_power.get_value(prev_time)
-
-                    # Detect turn off: entering STOP state
-                    if prev_power >= prev_min_power and 0 < last_power < min_power:
-                        model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
-
-                    # Detect turn on: exiting OFF state
-                    elif prev_power == 0 and last_power > 0:
-                        model.add_constraint(turned_on_var == 1, f"init_turned_on_{thermal_unit.name}_{time}")
+                if (
+                    model.get_constraint_bounds(f"init_stop_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_stop_{thermal_unit.name}_{prev_time}").lower_bound
+                    == 1
+                ):
+                    model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
+                # Detect turn on: unit enters START state (from OFF to startup)
+                elif (
+                    model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{prev_time}").lower_bound
+                    == -1
+                ):
+                    model.add_constraint(turned_on_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
 
         # Handle stable-specific variables for non-dayZero (only if not the last timestep)
-        next_time = time + parameters.timestep
-        if time in power_timeseries.index and next_time <= parameters.end_date:
+        for idx, time in enumerate(kwargs.get("stable_initial_times", [])):
             current_power = power_timeseries.get_value(time)
-            next_power = power_timeseries.get_value(next_time) if next_time in power_timeseries.index else current_power
-            min_power = thermal_unit.minimum_power.get_value(time)
+            next_power = power_timeseries.get_value(time + parameters.timestep)
 
             # Get stable state variables
             off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
@@ -112,39 +118,84 @@ def add_initial_conditions(
             entered_down_var = model.get_variable(f"entered_down_{time}_{thermal_unit.name}")
             flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{thermal_unit.name}")
 
-            # Initialize auxiliary variables to 0
             model.add_constraint(stable_var == 0, f"init_stable_{thermal_unit.name}_{time}")
             model.add_constraint(entered_up_var == 0, f"init_entered_up_{thermal_unit.name}_{time}")
             model.add_constraint(entered_down_var == 0, f"init_entered_down_{thermal_unit.name}_{time}")
 
             # Set stable state variables based on unit state
-            if current_power == 0:
+            if model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{time}") == 0:
                 # Unit is OFF
-                model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
-                model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
-                model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
-            elif current_power > 0 and current_power < min_power:
-                # Unit is in STOP state - no UP/DOWN/FLAT allowed
-                model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
-                model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
-                model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
-            else:
-                # Unit is ON and above minimum power - determine trend
-                if current_power < next_power:
-                    # Power is increasing
-                    model.add_constraint(on_up_var == 1, f"init_on_up_{thermal_unit.name}_{time}")
+                if model.get_constraint_bounds(f"init_stop_{thermal_unit.name}_{time}") == 1:
+                    model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
                     model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
                     model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
-                elif current_power > next_power:
-                    # Power is decreasing
-                    model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
-                    model.add_constraint(on_down_var == 1, f"init_on_down_{thermal_unit.name}_{time}")
-                    model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
+
                 else:
-                    # Power is stable
-                    model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
-                    model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
-                    model.add_constraint(on_flat_var == 1, f"init_on_flat_{thermal_unit.name}_{time}")
+                    # Unit is ON and above minimum power - determine trend
+                    if current_power < next_power:
+                        # Power is increasing
+                        model.add_constraint(on_up_var == 1, f"init_on_up_{thermal_unit.name}_{time}")
+                        model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
+                        model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
+                    elif current_power > next_power:
+                        # Power is decreasing
+                        model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
+                        model.add_constraint(on_down_var == 1, f"init_on_down_{thermal_unit.name}_{time}")
+                        model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
+                    else:
+                        # Power is stable
+                        model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
+                        model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
+                        model.add_constraint(on_flat_var == 1, f"init_on_flat_{thermal_unit.name}_{time}")
+            else:
+                # Unit is OFF - all ON states are 0
+                model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
+                model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
+                model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
+
+            if (
+                time != extended_start_date
+                and model.get_constraint_bounds(f"init_on_{thermal_unit.name}_{time}").lower_bound == 1
+            ):
+                prev_time = time - parameters.timestep
+                if (
+                    model.get_constraint_bounds(f"init_on_flat_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_on_flat_{thermal_unit.name}_{prev_time}").lower_bound
+                    == 1
+                ):
+                    model.add_constraint(stable_var == 1, f"init_stable_{thermal_unit.name}_{time}")
+
+                if (
+                    model.get_constraint_bounds(f"init_on_up_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_on_up_{thermal_unit.name}_{prev_time}").lower_bound
+                    == 1
+                ):
+                    model.add_constraint(entered_up_var == 1, f"init_entered_up_{thermal_unit.name}_{time}")
+
+                if (
+                    model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{prev_time}").lower_bound
+                    == 1
+                ):
+                    model.add_constraint(entered_down_var == 1, f"init_entered_down_{thermal_unit.name}_{time}")
+
+            if idx >= 2:
+                initialize_flat_down_stop_initial_conditions(
+                    thermal_unit,
+                    model,
+                    time - parameters.timestep,
+                    time - 2 * parameters.timestep,
+                    time - 3 * parameters.timestep,
+                )
+
+        initialize_gradient_initial_conditions(thermal_unit, model, power_timeseries, parameters)
+        initialize_flat_down_stop_initial_conditions(
+            thermal_unit,
+            model,
+            parameters.start_date - parameters.timestep,
+            parameters.start_date - 2 * parameters.timestep,
+            parameters.start_date - 3 * parameters.timestep,
+        )
 
 
 def add_constraints(

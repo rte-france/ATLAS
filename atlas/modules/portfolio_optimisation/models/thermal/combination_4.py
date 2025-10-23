@@ -36,7 +36,7 @@ def add_initial_conditions(
     day_zero: bool,
     **kwargs,
 ) -> None:
-    """Combination 4: T_start>=1, T_stop=0, T_stable=0"""
+    """Combination 4: T_stop=0, T_start>=1, T_stable=0"""
     if day_zero:
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(thermal_unit, model, time)

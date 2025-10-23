@@ -11,9 +11,12 @@ from typing import TYPE_CHECKING
 
 from pendulum import DateTime
 
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 
+from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -208,7 +211,10 @@ def initialize_day_zero_flat_down_stop(
 
 
 def initialize_gradient_initial_conditions(
-    thermal_unit: ThermalPO, model: OptimisationModel, power_timeseries, parameters
+    thermal_unit: ThermalPO,
+    model: OptimisationModel,
+    power_timeseries: Timeseries,
+    parameters: PortfolioOptimisationParameters,
 ) -> None:
     """
     Initialize gradient variables based on historical power data.
@@ -241,3 +247,31 @@ def initialize_gradient_initial_conditions(
         model.add_constraint(d_var == power_diff, f"init_d_grad_{thermal_unit.name}_{start_date_minus_one}")
     else:
         model.add_constraint(d_var == 0, f"init_d_grad_{thermal_unit.name}_{start_date_minus_one}")
+
+
+def initialize_flat_down_stop_initial_conditions(
+    thermal_unit: ThermalPO,
+    model: OptimisationModel,
+    start_date_minus_one: DateTime = None,
+    start_date_minus_two: DateTime = None,
+    start_date_minus_three: DateTime = None,
+) -> None:
+    """
+    Initialize flat_down_stop variable based on historical power data.
+    For T_stop >= 1 and T_stable >= 1.
+    """
+
+    flat_down_stop_var = model.get_variable(f"flat_down_stop_{start_date_minus_one}_{thermal_unit.name}")
+
+    model.add_constraint(
+        flat_down_stop_var
+        == int(
+            (
+                model.get_constraint_bounds(f"init_stop_{thermal_unit.name}_{start_date_minus_one}").lower_bound
+                + model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{start_date_minus_two}").lower_bound
+                + model.get_constraint_bounds(f"init_on_flat_{thermal_unit.name}_{start_date_minus_three}").lower_bound
+            )
+            / 3
+        ),
+        f"init_flat_down_stop_{thermal_unit.name}_{start_date_minus_one}",
+    )
