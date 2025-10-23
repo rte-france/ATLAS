@@ -30,7 +30,6 @@ def add_initial_conditions(
     thermal_unit: ThermalPO,
     model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
-    time: DateTime,
     extended_start_date: DateTime,
     power_timeseries: Timeseries | None,
     day_zero: bool,
@@ -51,20 +50,16 @@ def add_initial_conditions(
             on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
             turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
             turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
-            power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
-
-            # Fix power level to historical value
-            model.add_constraint(power_level_var == last_power, f"init_power_{thermal_unit.name}_{time}")
 
             # Set state variables based on power level
             if last_power > 0:
                 # Unit is ON
-                model.add_constraint(off_var == 0, f"off_{thermal_unit.name}_{time}")
+                model.add_constraint(off_var == 0, f"init_off_{thermal_unit.name}_{time}")
                 model.add_constraint(on_up_var == 1, f"init_on_up_{thermal_unit.name}_{time}")
                 model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
             else:
                 # Unit is completely OFF
-                model.add_constraint(off_var == 1, f"off_{thermal_unit.name}_{time}")
+                model.add_constraint(off_var == 1, f"init_off_{thermal_unit.name}_{time}")
                 model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
                 model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
 
@@ -77,16 +72,16 @@ def add_initial_conditions(
                 prev_time = time - parameters.timestep
                 # Detect turn off: units going from ON to OFF
                 if (
-                    model.get_constraint_bounds(f"off_{thermal_unit.name}_{time}").lower_bound
-                    - model.get_constraint_bounds(f"off_{thermal_unit.name}_{prev_time}").lower_bound
+                    model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{prev_time}").lower_bound
                     == 1
                 ):
                     model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
 
                 # Detect turn on: units going from OFF to ON
                 elif (
-                    model.get_constraint_bounds(f"off_{thermal_unit.name}_{time}").lower_bound
-                    - model.get_constraint_bounds(f"off_{thermal_unit.name}_{prev_time}").lower_bound
+                    model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{prev_time}").lower_bound
                     == -1
                 ):
                     model.add_constraint(turned_on_var == 1, f"init_turned_on_{thermal_unit.name}_{time}")

@@ -32,7 +32,6 @@ def add_initial_conditions(
     thermal_unit: ThermalPO,
     model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
-    time: DateTime,
     extended_start_date: DateTime,
     power_timeseries: Timeseries | None,
     day_zero: bool,
@@ -60,10 +59,6 @@ def add_initial_conditions(
             turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
             turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
             down_to_stop_var = model.get_variable(f"down_to_stop_grad_{time}_{thermal_unit.name}")
-            power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
-
-            # Fix power level to historical value
-            model.add_constraint(power_level_var == last_power, f"init_power_{thermal_unit.name}_{time}")
 
             # Set state variables based on power level relative to minimum power
             if last_power >= min_power:
