@@ -34,12 +34,13 @@ def add_initial_conditions(
     extended_start_date: DateTime,
     power_timeseries: Timeseries | None,
     day_zero: bool,
+    *kwargs,
 ) -> None:
     """Combination 1: T_stop=0, T_start=0, T_stable=0"""
     if day_zero:
-        # DayZero case: All units start OFF
-        initialize_day_zero_core(thermal_unit, model, time)
-        initialize_day_zero_on_states(thermal_unit, model, time)
+        for time in kwargs.get("initial_times", []):
+            initialize_day_zero_core(thermal_unit, model, time)
+            initialize_day_zero_on_states(thermal_unit, model, time)
     else:
         # Non-dayZero case: Initialize based on power history
         if time in power_timeseries.index:

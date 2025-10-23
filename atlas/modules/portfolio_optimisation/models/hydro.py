@@ -117,6 +117,7 @@ class HydroPO(Hydro):
                     stored_energy_var
                     == self.get_initial_level(parameters).get_value(parameters.start_date - parameters.timestep)
                     - power_level_fragment_sum_var * parameters.timestep.total_hours()
+                    + self.inflows.get_value(time) / parameters.timestep.total_days()
                 )
 
             else:
@@ -126,7 +127,9 @@ class HydroPO(Hydro):
 
                 model.add_constraint(
                     stored_energy_var
-                    == previous_stored_energy_var - power_level_fragment_sum_var * parameters.timestep.total_hours()
+                    == previous_stored_energy_var
+                    - power_level_fragment_sum_var * parameters.timestep.total_hours()
+                    + self.inflows.get_value(time) / parameters.timestep.total_days()
                 )
 
                 reserve_stored_energy_up_var = model.get_variable(
