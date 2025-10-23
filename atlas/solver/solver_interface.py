@@ -17,6 +17,19 @@ from atlas.enum import SolverEnum, SolverStatus
 from atlas.timing import timer
 
 
+class ConstraintBounds(BaseModel):
+    """Container for constraint bounds.
+
+    :param lower_bound: The lower bound of the constraint
+    :type lower_bound: float
+    :param upper_bound: The upper bound of the constraint
+    :type upper_bound: float
+    """
+
+    lower_bound: float
+    upper_bound: float
+
+
 class SolutionInfo(BaseModel):
     """Container for optimization solution information.
 
@@ -182,6 +195,36 @@ class OptimisationModel:
         if name not in self._variables_name:
             raise ValueError(f"Variable '{name}' not found")
         return self._solver.LookupVariable(name)
+
+    def get_constraint(self, name: str) -> Any:
+        """
+        Get a constraint object by name for use in expressions.
+
+        :param name: Constraint name
+        :type name: str
+        :return: OR-Tools constraint object
+        :rtype: pywraplp.Constraint
+        :raises ValueError: If constraint doesn't exist
+        """
+        if name not in self._constraints_name:
+            raise ValueError(f"Constraint '{name}' not found")
+        return self._solver.LookupConstraint(name)
+
+    def get_constraint_bounds(self, name: str) -> ConstraintBounds:
+        """
+        Get the bounds of a constraint by name.
+
+        :param name: Constraint name
+        :type name: str
+        :return: Tuple containing (lower_bound, upper_bound)
+        :rtype: ConstraintBounds
+        :raises ValueError: If constraint doesn't exist
+        """
+        constraint = self.get_constraint(name)
+        return ConstraintBounds(
+            lower_bound=constraint.lb(),
+            upper_bound=constraint.ub(),
+        )
 
     def add_constraint(self, constraint_expr: Any, name: str | None = None) -> None:
         """

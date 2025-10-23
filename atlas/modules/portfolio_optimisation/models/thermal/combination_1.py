@@ -43,7 +43,7 @@ def add_initial_conditions(
             initialize_day_zero_on_states(thermal_unit, model, time)
     else:
         # Non-dayZero case: Initialize based on power history
-        if time in power_timeseries.index:
+        for time in kwargs.get("initial_times", []):
             last_power = power_timeseries.get_value(time)
             # Get variables
             off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
@@ -59,12 +59,12 @@ def add_initial_conditions(
             # Set state variables based on power level
             if last_power > 0:
                 # Unit is ON
-                model.add_constraint(off_var == 0, f"init_off_{thermal_unit.name}_{time}")
+                model.add_constraint(off_var == 0, f"off_{thermal_unit.name}_{time}")
                 model.add_constraint(on_up_var == 1, f"init_on_up_{thermal_unit.name}_{time}")
                 model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
             else:
                 # Unit is completely OFF
-                model.add_constraint(off_var == 1, f"init_off_{thermal_unit.name}_{time}")
+                model.add_constraint(off_var == 1, f"off_{thermal_unit.name}_{time}")
                 model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
                 model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
 
@@ -75,16 +75,21 @@ def add_initial_conditions(
             # Reconstruct transitions for non-initial times
             if time != extended_start_date:
                 prev_time = time - parameters.timestep
-                if prev_time in power_timeseries.index:
-                    prev_power = power_timeseries.get_value(prev_time)
+                # Detect turn off: units going from ON to OFF
+                if (
+                    model.get_constraint_bounds(f"off_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"off_{thermal_unit.name}_{prev_time}").lower_bound
+                    == 1
+                ):
+                    model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
 
-                    # Detect turn off: units going from ON to OFF
-                    if prev_power > 0 and last_power == 0:
-                        model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
-
-                    # Detect turn on: units going from OFF to ON
-                    elif prev_power == 0 and last_power > 0:
-                        model.add_constraint(turned_on_var == 1, f"init_turned_on_{thermal_unit.name}_{time}")
+                # Detect turn on: units going from OFF to ON
+                elif (
+                    model.get_constraint_bounds(f"off_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"off_{thermal_unit.name}_{prev_time}").lower_bound
+                    == -1
+                ):
+                    model.add_constraint(turned_on_var == 1, f"init_turned_on_{thermal_unit.name}_{time}")
 
 
 def add_constraints(

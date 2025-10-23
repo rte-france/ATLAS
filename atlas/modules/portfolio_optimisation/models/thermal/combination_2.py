@@ -36,18 +36,19 @@ def add_initial_conditions(
     extended_start_date: DateTime,
     power_timeseries: Timeseries | None,
     day_zero: bool,
+    **kwargs,
 ) -> None:
     """Combination 2: T_stop>=1, T_start=0, T_stable=0"""
 
     if day_zero:
-        # DayZero case: All units start OFF
-        initialize_day_zero_core(thermal_unit, model, time)
-        initialize_day_zero_on_states(thermal_unit, model, time)
-        initialize_day_zero_stop_state(thermal_unit, model, time)
-        initialize_day_zero_down_to_stop(thermal_unit, model, time)
+        for time in kwargs.get("initial_times", []):
+            initialize_day_zero_core(thermal_unit, model, time)
+            initialize_day_zero_on_states(thermal_unit, model, time)
+            initialize_day_zero_stop_state(thermal_unit, model, time)
+            initialize_day_zero_down_to_stop(thermal_unit, model, time)
     else:
         # Non-dayZero case: Initialize based on power history
-        if time in power_timeseries.index:
+        for time in kwargs.get("initial_times", []):
             last_power = power_timeseries.get_value(time)
             min_power = thermal_unit.minimum_power.get_value(time)
 
@@ -89,24 +90,33 @@ def add_initial_conditions(
             model.add_constraint(turned_off_var == 0, f"init_turned_off_{thermal_unit.name}_{time}")
             model.add_constraint(down_to_stop_var == 0, f"init_down_to_stop_{thermal_unit.name}_{time}")
 
-            # Reconstruct transitions for non-initial times
             if time != extended_start_date:
                 prev_time = time - parameters.timestep
-                if prev_time in power_timeseries.index:
-                    prev_power = power_timeseries.get_value(prev_time)
 
-                    # Detect transitions based on state changes
-                    # Turn off: entering STOP state
-                    if prev_power >= min_power and 0 < last_power < min_power:
-                        model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
+                # Detect transitions based on state changes
+                # Turn off: entering STOP state
+                if (
+                    model.get_constraint_bounds(f"init_stop_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_stop_{thermal_unit.name}_{prev_time}").lower_bound
+                    == 1
+                ):
+                    model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
 
-                    # Turn on: exiting OFF state
-                    elif prev_power == 0 and last_power > 0:
-                        model.add_constraint(turned_on_var == 1, f"init_turned_on_{thermal_unit.name}_{time}")
+                # Turn on: exiting OFF state
+                elif (
+                    model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{time}").lower_bound
+                    == -1
+                ):
+                    model.add_constraint(turned_on_var == 1, f"init_turned_on_{thermal_unit.name}_{time}")
 
-                    # Transition from ON_DOWN to STOP (down_to_stop)
-                    elif prev_power > min_power and 0 < last_power < min_power:
-                        model.add_constraint(down_to_stop_var == 1, f"init_down_to_stop_{thermal_unit.name}_{time}")
+                # Transition from ON_DOWN to STOP (down_to_stop)
+                elif (
+                    model.get_constraint_bounds(f"init_stop_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{time}").lower_bound
+                    == 0
+                ):
+                    model.add_constraint(down_to_stop_var == 1, f"init_down_to_stop_{thermal_unit.name}_{time}")
 
 
 def add_constraints(
