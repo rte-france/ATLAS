@@ -19,10 +19,8 @@ if TYPE_CHECKING:
 
 from atlas.modules.portfolio_optimisation.models.thermal.initial_conditions_utils import (
     initialize_day_zero_core,
-    initialize_day_zero_down_to_stop,
     initialize_day_zero_on_states,
     initialize_day_zero_start_state,
-    initialize_day_zero_stop_state,
 )
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -33,23 +31,20 @@ def add_initial_conditions(
     thermal_unit: ThermalPO,
     model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
-    time: DateTime,
     extended_start_date: DateTime,
     power_timeseries: Timeseries | None,
     day_zero: bool,
+    **kwargs,
 ) -> None:
-    """Combination 4: T_stop>=1, T_start>=1, T_stable=0"""
+    """Combination 4: T_start>=1, T_stop=0, T_stable=0"""
     if day_zero:
-        # DayZero case: All units start OFF
-        initialize_day_zero_core(thermal_unit, model, time)
-        initialize_day_zero_on_states(thermal_unit, model, time)
-        initialize_day_zero_stop_state(thermal_unit, model, time)
-        initialize_day_zero_down_to_stop(thermal_unit, model, time)
-        initialize_day_zero_start_state(thermal_unit, model, time)
+        for time in kwargs.get("initial_times", []):
+            initialize_day_zero_core(thermal_unit, model, time)
+            initialize_day_zero_on_states(thermal_unit, model, time)
+            initialize_day_zero_start_state(thermal_unit, model, time)
 
     else:
-        # Non-dayZero case: Initialize based on power history
-        if time in power_timeseries.index:
+        for time in kwargs.get("initial_times", []):
             last_power = power_timeseries.get_value(time)
             min_power = thermal_unit.minimum_power.get_value(time)
 
@@ -60,10 +55,6 @@ def add_initial_conditions(
             start_var = model.get_variable(f"ON_START_{thermal_unit.name}_{time}")
             turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
             turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
-            power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
-
-            # Fix power level to historical value
-            model.add_constraint(power_level_var == last_power, f"init_power_{thermal_unit.name}_{time}")
 
             # Set state variables based on power level relative to minimum power
             if last_power >= min_power:
@@ -92,16 +83,21 @@ def add_initial_conditions(
             # Reconstruct transitions for non-initial times
             if time != extended_start_date:
                 prev_time = time - parameters.timestep
-                if prev_time in power_timeseries.index:
-                    prev_power = power_timeseries.get_value(prev_time)
 
-                    # Detect turn off: unit goes to OFF state
-                    if prev_power > 0 and last_power == 0:
-                        model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
-
-                    # Detect turn on: unit enters START state (from OFF to startup)
-                    elif prev_power == 0 and last_power > 0:
-                        model.add_constraint(turned_on_var == 1, f"init_turned_on_{thermal_unit.name}_{time}")
+                # Detect turn off: unit goes to OFF state
+                if (
+                    model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{prev_time}").lower_bound
+                    == 1
+                ):
+                    model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
+                # Detect turn on: unit enters START state (from OFF to startup)
+                elif (
+                    model.get_constraint_bounds(f"init_start_{thermal_unit.name}_{time}").lower_bound
+                    - model.get_constraint_bounds(f"init_start_{thermal_unit.name}_{prev_time}").lower_bound
+                    == 1
+                ):
+                    model.add_constraint(turned_on_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
 
 
 def add_constraints(

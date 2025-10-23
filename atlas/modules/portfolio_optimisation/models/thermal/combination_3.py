@@ -21,6 +21,7 @@ from atlas.modules.portfolio_optimisation.models.thermal.initial_conditions_util
     initialize_day_zero_core,
     initialize_day_zero_gradient_vars,
     initialize_day_zero_stable_vars,
+    initialize_gradient_initial_conditions,
 )
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -44,6 +45,8 @@ def add_initial_conditions(
 
         for time in kwargs.get("stable_initial_times", []):
             initialize_day_zero_stable_vars(thermal_unit, model, time)
+
+        initialize_gradient_initial_conditions(thermal_unit, model, power_timeseries, parameters)
 
     else:
         for time in kwargs.get("initial_times", []):
@@ -147,35 +150,7 @@ def add_initial_conditions(
                     ):
                         model.add_constraint(entered_down_var == 1, f"init_entered_down_{thermal_unit.name}_{time}")
 
-        start_date_minus_one = parameters.start_date - parameters.timestep
-        start_date_minus_two = parameters.start_date - 2 * parameters.timestep
-
-        power_minus_one = power_timeseries.get_value(start_date_minus_one)
-        power_minus_two = power_timeseries.get_value(start_date_minus_two)
-
-        u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_for_{thermal_unit.name}")
-        d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{thermal_unit.name}")
-
-        # Calculate gradient values based on power trend
-        power_diff = power_minus_one - power_minus_two
-
-        # U gradient: only non-zero if unit was in UP state at both time steps
-        if model.get_constraint_bounds(f"init_on_up_{thermal_unit.name}_{start_date_minus_one}").lower_bound == 1 and (
-            model.get_constraint_bounds(f"init_on_up_{thermal_unit.name}_{start_date_minus_two}").lower_bound == 1
-        ):
-            model.add_constraint(u_var == power_diff, f"init_u_grad_{thermal_unit.name}_{start_date_minus_one}")
-        else:
-            model.add_constraint(u_var == 0, f"init_u_grad_{thermal_unit.name}_{start_date_minus_one}")
-
-        # D gradient: only non-zero if unit was in DOWN state at both time steps
-        if model.get_constraint_bounds(
-            f"init_on_down_{thermal_unit.name}_{start_date_minus_one}"
-        ).lower_bound == 1 and (
-            model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{start_date_minus_two}").lower_bound == 1
-        ):
-            model.add_constraint(d_var == power_diff, f"init_d_grad_{thermal_unit.name}_{start_date_minus_one}")
-        else:
-            model.add_constraint(d_var == 0, f"init_d_grad_{thermal_unit.name}_{start_date_minus_one}")
+        initialize_gradient_initial_conditions(thermal_unit, model, power_timeseries, parameters)
 
 
 def add_constraints(

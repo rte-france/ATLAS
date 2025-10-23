@@ -205,3 +205,39 @@ def initialize_day_zero_flat_down_stop(
     """
     flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{thermal_unit.name}")
     model.add_constraint(flat_down_stop_var == 0, f"init_flat_down_stop_{thermal_unit.name}_{time}")
+
+
+def initialize_gradient_initial_conditions(
+    thermal_unit: ThermalPO, model: OptimisationModel, power_timeseries, parameters
+) -> None:
+    """
+    Initialize gradient variables based on historical power data.
+    For T_stable >= 1.
+    """
+    start_date_minus_one = parameters.start_date - parameters.timestep
+    start_date_minus_two = parameters.start_date - 2 * parameters.timestep
+
+    power_minus_one = power_timeseries.get_value(start_date_minus_one)
+    power_minus_two = power_timeseries.get_value(start_date_minus_two)
+
+    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_for_{thermal_unit.name}")
+    d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{thermal_unit.name}")
+
+    # Calculate gradient values based on power trend
+    power_diff = power_minus_one - power_minus_two
+
+    # U gradient: only non-zero if unit was in UP state at both time steps
+    if model.get_constraint_bounds(f"init_on_up_{thermal_unit.name}_{start_date_minus_one}").lower_bound == 1 and (
+        model.get_constraint_bounds(f"init_on_up_{thermal_unit.name}_{start_date_minus_two}").lower_bound == 1
+    ):
+        model.add_constraint(u_var == power_diff, f"init_u_grad_{thermal_unit.name}_{start_date_minus_one}")
+    else:
+        model.add_constraint(u_var == 0, f"init_u_grad_{thermal_unit.name}_{start_date_minus_one}")
+
+    # D gradient: only non-zero if unit was in DOWN state at both time steps
+    if model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{start_date_minus_one}").lower_bound == 1 and (
+        model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{start_date_minus_two}").lower_bound == 1
+    ):
+        model.add_constraint(d_var == power_diff, f"init_d_grad_{thermal_unit.name}_{start_date_minus_one}")
+    else:
+        model.add_constraint(d_var == 0, f"init_d_grad_{thermal_unit.name}_{start_date_minus_one}")
