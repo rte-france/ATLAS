@@ -33,7 +33,7 @@ def add_initial_conditions(
     extended_start_date: DateTime,
     power_timeseries: Timeseries | None,
     day_zero: bool,
-    *kwargs,
+    **kwargs,
 ) -> None:
     """Combination 1: T_stop=0, T_start=0, T_stable=0"""
     if day_zero:

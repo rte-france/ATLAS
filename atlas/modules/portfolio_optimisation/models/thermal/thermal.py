@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
 from pendulum import DateTime
 from pydantic import model_validator
@@ -66,6 +67,7 @@ class ThermalPO(Thermal):
     _Delta_Q: float = 0.0
     _Delta_Q_unconstrained: float = 0.0
     _combination: int = 1  # Which constraint combination to use (1-8)
+    T_traceback: int = 0
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""
@@ -251,7 +253,7 @@ class ThermalPO(Thermal):
             turned_on_var = model.get_variable(f"t_on_of_{self.name}_{time}")
             model.add_objective(startup_cost * turned_on_var, "minimize")
 
-    def get_required_initial_times(
+    def get_initial_time_window(
         self, parameters: PortfolioOptimisationParameters
     ) -> tuple[list[DateTime], list[DateTime]]:
         """
@@ -275,7 +277,7 @@ class ThermalPO(Thermal):
             initial_times.append(parameters.start_date - parameters.timestep)
 
         for k in range(self.T_traceback, 1, -1):
-            stable_initial_times.append(parameters.start_date - k * parameters.time_step)
+            stable_initial_times.append(parameters.start_date - k * parameters.timestep)
 
         return initial_times, stable_initial_times
 
@@ -294,7 +296,7 @@ class ThermalPO(Thermal):
         """
         self._compute_time_parameters(parameters)
 
-        initial_times, stable_initial_times = self.get_required_initial_times(parameters)
+        initial_times, stable_initial_times = self.get_initial_time_window(parameters)
 
         power_timeseries = (
             self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
@@ -309,7 +311,13 @@ class ThermalPO(Thermal):
                 day_zero = True
 
         # Get initial condition function based on combination
-        initial_condition_functions = {
+        initial_condition_functions: dict[
+            int,
+            Callable[
+                [ThermalPO, OptimisationModel, PortfolioOptimisationParameters, DateTime, Timeseries | None, bool],
+                None,
+            ],
+        ] = {
             1: combination_1.add_initial_conditions,
             2: combination_2.add_initial_conditions,
             3: combination_3.add_initial_conditions,
