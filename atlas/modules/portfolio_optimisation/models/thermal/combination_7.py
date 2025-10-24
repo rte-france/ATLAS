@@ -32,7 +32,6 @@ def add_initial_conditions(
     thermal_unit: ThermalPO,
     model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
-    time: DateTime,
     extended_start_date: DateTime,
     power_timeseries: Timeseries | None,
     day_zero: bool,

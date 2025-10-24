@@ -301,21 +301,12 @@ class ThermalPO(Thermal):
             if self.power is not None
             else None
         )
-        extended_start_date = initial_times[0]
 
         # Determine if this is dayZero initialization
         day_zero = power_timeseries is None
         if power_timeseries is not None:
-            last_time = parameters.start_date - parameters.timestep
-            if last_time not in power_timeseries.index:
+            if parameters.start_date - parameters.timestep != power_timeseries.last_date():
                 day_zero = True
-
-        initial_conditions_data = {
-            "initial_times": initial_times,
-            "extended_start_date": extended_start_date,
-            "power_timeseries": power_timeseries,
-            "day_zero": day_zero,
-        }
 
         # Get initial condition function based on combination
         initial_condition_functions = {
@@ -335,12 +326,14 @@ class ThermalPO(Thermal):
 
         # Call the function with single timestamp
         initial_condition_function(
-            self,
-            model,
-            parameters,
-            initial_conditions_data["extended_start_date"],
-            initial_conditions_data["power_timeseries"],
-            initial_conditions_data["day_zero"],
+            thermal_unit=self,
+            model=model,
+            parameters=parameters,
+            extended_start_date=initial_times[0],
+            power_timeseries=power_timeseries,
+            day_zero=day_zero,
+            initial_times=initial_times,
+            stable_initial_times=stable_initial_times,
         )
 
     @model_validator(mode="after")
