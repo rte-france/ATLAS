@@ -4,12 +4,14 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field
+from pendulum import Duration, duration
+from pydantic import Field, field_validator
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
+from atlas.validators import hours_validator
 
 
 class Solar(Equipment):
@@ -39,3 +41,14 @@ class Solar(Equipment):
     curtailed_power: Timeseries | LazyTimeseries | None = None
     da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
     maximum_curtailment_ratio: Timeseries | LazyTimeseries | None = None
+
+    additional_hours: Duration = Field(
+        default_factory=lambda: duration(hours=0),
+        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
+    )
+
+    @field_validator("additional_hours", mode="before")
+    @classmethod
+    def convert_hours_to_duration(cls, v):
+        """Convert various duration formats to Duration objects (hours default)."""
+        return hours_validator(v)

@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 from pydantic import model_validator
 
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -29,6 +29,7 @@ from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisatio
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
+from atlas.timing import generate_datetimes
 
 
 class ThermalPO(Thermal):
@@ -280,6 +281,12 @@ class ThermalPO(Thermal):
             stable_initial_times.append(parameters.start_date - k * parameters.timestep)
 
         return initial_times, stable_initial_times
+
+    def get_optimisation_time_window(
+        self, start_date: DateTime, end_date: DateTime, timestep: Duration
+    ) -> list[DateTime]:
+        """Get optimisation time windows based on additional hours."""
+        return generate_datetimes(start=start_date, end=end_date + self.additional_hours, freq=timestep)
 
     def add_initial_conditions(
         self,

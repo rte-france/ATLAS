@@ -8,9 +8,20 @@ This file is part of the ATLAS project.
 from itertools import groupby
 from typing import cast
 
+from pendulum import DateTime
+
 from atlas import BusinessModel, Portfolio
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enum import LoadType
+from atlas.models.control_block import ControlBlock
+from atlas.models.equipment.hydro import Hydro
+from atlas.models.equipment.load import Load
+from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.models.equipment.solar import Solar
+from atlas.models.equipment.storage import Storage
+from atlas.models.equipment.thermal import Thermal
+from atlas.models.equipment.wind import Wind
+from atlas.models.market.market_area import MarketArea
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
@@ -58,8 +69,28 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
         self.portfolios: list[PortfolioPO] = []
         self.portfolios_manual_activation: list[PortfolioPO] = []
+        self.time_windows: dict[str, list[DateTime]] = {}
 
         self._create_portfolios()
+        self._get_optimisation_time_window()
+
+    def _get_optimisation_time_window(self) -> None:
+        """Get the longest optimisation time periods across all portfolios."""
+        self.time_windows = {
+            p.name: max(
+                (
+                    e.get_optimisation_time_window(
+                        start_date=self.parameters.start_date,
+                        end_date=self.parameters.end_date,
+                        timestep=self.parameters.timestep,
+                    )
+                    for eqs in p.equipments.values()
+                    for e in eqs
+                ),
+                key=lambda tw: tw[-1],
+            )
+            for p in self.portfolios + self.portfolios_manual_activation
+        }
 
     def _create_portfolios(self):
         """Collect and classify all equipment into PortfolioPO objects with manual activation handling"""
@@ -122,4 +153,4 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
         """Return list of business model classes used in this dataset."""
-        return []
+        return [Thermal, Load, Hydro, Storage, Wind, Solar, Portfolio, MarketArea, ControlBlock, OtherNonDispatchable]

@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.enum import StorageType
@@ -15,6 +15,7 @@ from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisatio
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
+from atlas.timing import generate_datetimes
 
 
 class StoragePO(Storage):
@@ -303,3 +304,9 @@ class StoragePO(Storage):
                 .head(1)
                 .item()
             )
+
+    def get_optimisation_time_window(
+        self, start_date: DateTime, end_date: DateTime, timestep: Duration
+    ) -> list[DateTime]:
+        """Get optimisation time windows based on additional hours."""
+        return generate_datetimes(start=start_date, end=end_date + self.additional_hours, freq=timestep)

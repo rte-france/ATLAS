@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from pendulum import duration
 from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
@@ -91,6 +92,11 @@ class Thermal(Equipment):
     maximum_power: Timeseries | LazyTimeseries | None = None
     minimum_power: Timeseries | LazyTimeseries | None = None
 
+    additional_hours: Duration = Field(
+        default_factory=lambda: duration(hours=12),
+        description="Default optimization period in hours for thermal equipment",
+    )
+
     @field_validator(
         "minimum_stable_power_duration",
         "minimum_time_off",
@@ -98,6 +104,7 @@ class Thermal(Equipment):
         "outage_mean_duration",
         "shutdown_duration",
         "startup_duration",
+        "additional_hours",
         mode="before",
     )
     @classmethod

@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.enum import LoadType
@@ -15,6 +15,7 @@ from atlas.models.equipment.load import Load
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
 from atlas.solver.solver_interface import OptimisationModel
+from atlas.timing import generate_datetimes
 
 
 class LoadPO(Load):
@@ -70,3 +71,9 @@ class LoadPO(Load):
                 )
         else:
             cfg.logger.debug(f"Skipping objective for load unit {self.name} at non-target time {time}")
+
+    def get_optimisation_time_window(
+        self, start_date: DateTime, end_date: DateTime, timestep: Duration
+    ) -> list[DateTime]:
+        """Get optimisation time windows based on additional hours."""
+        return generate_datetimes(start=start_date, end=end_date + self.additional_hours, freq=timestep)

@@ -24,14 +24,14 @@ class PortfolioOptimisationModel(OptimisationModel):
         self.portfolio = portfolio
         self.parameters = parameters
 
-    def build_model(self) -> None:
+    def build_model(self, time_window: list[DateTime]) -> None:
         """Build the optimization model by adding variables, constraints, and objectives."""
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 
         for thermal in self.portfolio.equipments["thermal"]:
             thermal.add_initial_conditions(self, self.parameters)
 
-        for time in self.get_optimisation_time_window(self):
+        for time in time_window:
             cfg.logger.debug(f"Building optimisation model at time: {time}..")
 
             self.portfolio.add_variables(self, time, self.parameters)
@@ -67,15 +67,6 @@ class PortfolioOptimisationModel(OptimisationModel):
             cfg.logger.error(f"Optimisation failed for portfolio {self.portfolio.name}: {e}")
             raise
 
-    def get_optimisation_time_window(self) -> list[DateTime]:
-        """Get the longest optimisation time periods across all portfolios."""
-        return max(
-            t
-            for equipments in self.portfolio.equipments.values()
-            for equipment in equipments
-            for t in equipment.get_optimisation_time_window(self.parameters)
-        )
-
 
 class PortfolioOptimisationOrchestrator:
     """Orchestrates optimization across multiple portfolios."""
@@ -95,8 +86,7 @@ class PortfolioOptimisationOrchestrator:
         if self.parameters.is_portfolio_bidding:
             for portfolio in input_dataset.portfolios:
                 models[portfolio.name] = self._optimise_portfolio(
-                    portfolio=portfolio,
-                    max_optimisation_times=input_dataset.max_optimisation_times,
+                    portfolio=portfolio, time_window=input_dataset.time_windows[portfolio.name]
                 )
             for portfolio in input_dataset.portfolios_manual_activation:
                 models[portfolio.name] = self._optimise_portfolio_manual_activated(portfolio=portfolio)
@@ -119,8 +109,7 @@ class PortfolioOptimisationOrchestrator:
                         )
 
                         models[portfolio.name] = self._optimise_portfolio(
-                            portfolio=equipment_portfolio,
-                            max_optimisation_times=input_dataset.max_optimisation_times,
+                            portfolio=equipment_portfolio, time_window=input_dataset.time_windows[portfolio.name]
                         )
 
             for portfolio_manual in input_dataset.portfolios_manual_activation:
@@ -137,13 +126,13 @@ class PortfolioOptimisationOrchestrator:
                             portfolio=equipment_portfolio
                         )
 
-    def _optimise_portfolio(self, portfolio: PortfolioPO) -> PortfolioOptimisationModel:
+    def _optimise_portfolio(self, portfolio: PortfolioPO, time_window: list[DateTime]) -> PortfolioOptimisationModel:
         """run a single portfolio using PortfolioOptimisationModel."""
 
         model = PortfolioOptimisationModel(portfolio, self.parameters)
 
         # try:
-        model.build_model()
+        model.build_model(time_window)
         model.export_model(f"po_{portfolio.name}.lp")
         model.optimise()
         return model
