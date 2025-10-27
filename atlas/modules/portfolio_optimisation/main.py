@@ -28,7 +28,7 @@ class PortfolioOptimisationModel(OptimisationModel):
         """Build the optimization model by adding variables, constraints, and objectives."""
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 
-        for thermal in self.portfolio.equipments["thermal"]:
+        for thermal in self.portfolio.equipments.get("thermal", []):
             thermal.add_initial_conditions(self, self.parameters)
 
         for time in time_window:

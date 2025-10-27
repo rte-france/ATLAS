@@ -29,7 +29,6 @@ from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import O
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.solar import SolarPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import (
@@ -54,7 +53,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
             "storage": [StoragePO.model_validate(storage.model_dump()) for storage in input_data.get("storage", [])],
             "hydro": [HydroPO.model_validate(hydro.model_dump()) for hydro in input_data.get("hydro", [])],
             "solar": [SolarPO.model_validate(solar.model_dump()) for solar in input_data.get("solar", [])],
-            "thermal": [ThermalPO.model_validate(thermal.model_dump()) for thermal in input_data.get("thermal", [])],
+            # "thermal": [ThermalPO.model_validate(thermal.model_dump()) for thermal in input_data.get("thermal", [])],
             "other_non_dispatchable": [
                 OtherNonDispatchablePO.model_validate(other.model_dump())
                 for other in input_data.get("other_non_dispatchable", [])

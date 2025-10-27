@@ -29,7 +29,7 @@ class WindPO(Wind):
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for solar and wind equipment."""
-        if time in parameters.target_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for wind unit {self.name} at time {time}")
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power

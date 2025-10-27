@@ -238,8 +238,7 @@ class StoragePO(Storage):
             cfg.logger.debug(f"Skipping objective for storage unit {self.name} - maximum energy is 0")
             return None
 
-        storage_optimisation_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
-        if time in storage_optimisation_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for storage unit {self.name} at time {time}")
             power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
             power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")

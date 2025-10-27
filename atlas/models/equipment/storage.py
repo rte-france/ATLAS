@@ -108,7 +108,7 @@ class Storage(Equipment):
             if self.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
                 return duration(hours=144)
             elif self.storage_type == StorageType.BATTERY:
-                return duration(hours=12)
+                return duration(hours=48)
             if self.storage_type == StorageType.ELECTRIC_VEHICLE:
                 return duration(hours=144)
         else:
