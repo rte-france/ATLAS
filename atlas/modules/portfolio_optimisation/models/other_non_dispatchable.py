@@ -16,6 +16,8 @@ from atlas.timing import generate_datetimes
 class OtherNonDispatchablePO(OtherNonDispatchable):
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
 
+    optimisation_time_window: list[DateTime] = []
+
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for non dispatchable equipment."""
         pass
@@ -44,4 +46,8 @@ class OtherNonDispatchablePO(OtherNonDispatchable):
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
         """Get optimisation time windows based on additional hours."""
-        return generate_datetimes(start=start_date, end=end_date + self.additional_hours, freq=timestep)
+
+        self.optimisation_time_window = generate_datetimes(
+            start=start_date, end=end_date + self.additional_hours, freq=timestep
+        )
+        return self.optimisation_time_window

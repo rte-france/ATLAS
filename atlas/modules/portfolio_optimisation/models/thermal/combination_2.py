@@ -268,7 +268,7 @@ def add_constraints(
     )
 
     # Power gradients with shutdown considerations
-    if time in parameters.thermal_op_times[:-1]:  # Not the last time step
+    if time in thermal_unit.optimisation_time_window[:-1]:  # Not the last time step
         if thermal_unit._Delta_Q > 0:  # Finite gradient
             # Upward gradient
             model.add_constraint(

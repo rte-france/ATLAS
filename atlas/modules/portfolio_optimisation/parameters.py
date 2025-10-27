@@ -232,37 +232,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
         return generate_datetimes(self.start_date, self.adjusted_end_date, self.timestep)
 
     @property
-    def renewables_load_op_times(self) -> list[DateTime]:
-        """Datetime index for the main optimization period (with additional hours)."""
-        end = self.adjusted_end_date + self.additional_hours
-        return generate_datetimes(self.start_date, end, self.timestep)
-
-    @property
-    def thermal_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date + self.thermal_additional_hours
-        return generate_datetimes(self.start_date, end, self.timestep)
-
-    @property
-    def hydraulic_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date + self.hydraulic_additional_hours
-        return generate_datetimes(self.start_date, end, self.timestep)
-
-    @property
-    def battery_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date + self.battery_additional_hours
-        return generate_datetimes(self.start_date, end, self.timestep)
-
-    @property
-    def phs_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date + self.pumped_hydraulic_storage_additional_hours
-        return generate_datetimes(self.start_date, end, self.timestep)
-
-    @property
-    def ev_op_times(self) -> list[DateTime]:
-        end = self.adjusted_end_date + self.electric_vehicle_additional_hours
-        return generate_datetimes(self.start_date, end, self.timestep)
-
-    @property
     def init_battery_time(self) -> DateTime:
         """Datetime for the initial battery state (start_date - timestep)."""
         return self.start_date - self.timestep
@@ -271,17 +240,14 @@ class PortfolioOptimisationParameters(AbstractParameters):
     def storage_mapping(self):
         storage_mapping: dict[StorageType, dict[str, list[DateTime] | int | float]] = {
             StorageType.BATTERY: {
-                "optimisation_times": self.battery_op_times,
                 "nb_fragment": self.battery_number_of_fragments,
                 "smoothing_factor": self.battery_smoothing_factor,
             },
             StorageType.PUMPED_HYDRAULIC_STORAGE: {
-                "optimisation_times": self.phs_op_times,
                 "nb_fragment": self.pumped_hydraulic_number_of_fragments,
                 "smoothing_factor": self.pumped_hydraulic_smoothing_factor,
             },
             StorageType.ELECTRIC_VEHICLE: {
-                "optimisation_times": self.ev_op_times,
                 "nb_fragment": self.electric_vehicle_number_of_fragments,
                 "smoothing_factor": self.electric_vehicle_smoothing_factor,
             },

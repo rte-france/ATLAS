@@ -27,9 +27,11 @@ class SolarPO(Solar):
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     # variable_cost: Timeseries | LazyTimeseries
 
+    optimisation_time_window: list[DateTime] = []
+
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for solar and wind equipment."""
-        if time in parameters.target_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for solar unit {self.name} at time {time}")
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
@@ -64,7 +66,7 @@ class SolarPO(Solar):
         """
         This function formulates the photovoltaic equipments constraints.
         """
-        if time in parameters.target_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for solar unit {self.name} at time {time}")
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
@@ -88,7 +90,7 @@ class SolarPO(Solar):
     def add_objective(
         self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters, **kwargs
     ):
-        if time in parameters.target_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for solar unit {self.name} at time {time}")
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             model.add_objective(
@@ -102,4 +104,8 @@ class SolarPO(Solar):
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
         """Get optimisation time windows based on additional hours."""
-        return generate_datetimes(start=start_date, end=end_date + self.additional_hours, freq=timestep)
+
+        self.optimisation_time_window = generate_datetimes(
+            start=start_date, end=end_date + self.additional_hours, freq=timestep
+        )
+        return self.optimisation_time_window

@@ -17,11 +17,9 @@ from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
-from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_reserve, get_upstream_energy
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
@@ -297,50 +295,23 @@ class PortfolioPO(Portfolio):
         """Get the sum of all power level variables for a specific time."""
         total_power = 0
 
-        # Hydro equipment - uses hydraulic_op_times and fragment variables
-        if "hydro" in self.equipments and time in parameters.hydraulic_op_times:
-            for obj in cast(list[HydroPO], self.equipments["hydro"]):
-                for category in obj.fragment_data.keys():
-                    var = model.get_variable(f"{obj.name}_power_level_frag_{category}_{time}")
-                    if var is not None:
-                        total_power += var
+        for object_type in self.equipments.keys():
+            for obj in self.equipments[object_type]:
+                if time in obj.optimisation_time_window:
+                    if object_type == "storage":
+                        sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
+                        buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
+                        total_power += sell_var + buy_var
 
-        # Solar and Wind equipment - uses target_times
-        if time in parameters.target_times:
-            for equipment_type in ["solar", "wind"]:
-                if equipment_type in self.equipments:
-                    for obj in cast(list, self.equipments[equipment_type]):
-                        var = model.get_variable(f"{obj.name}_power_level_{time}")
-                        if var is not None:
+                    elif object_type == "hydro":
+                        for category in obj.fragment_data.keys():
+                            var = model.get_variable(f"{obj.name}_power_level_frag_{category}_{time}")
                             total_power += var
-
-            # Load equipment - uses target_times
-            if "dispatchable_load" in self.equipments:
-                for obj in cast(list, self.equipments["dispatchable_load"]):
-                    var = model.get_variable(f"{obj.name}_power_level_{time}")
-                    if var is not None:
+                    elif object_type == "other_non_dispatchable":
+                        continue
+                    else:
+                        var = model.get_variable(f"{obj.name}_power_level_{time}")
                         total_power += var
-
-        # Thermal equipment - uses thermal_op_times
-        if "thermal" in self.equipments and time in parameters.thermal_op_times:
-            for obj in cast(list, self.equipments["thermal"]):
-                var = model.get_variable(f"{obj.name}_power_level_{time}")
-                if var is not None:
-                    total_power += var
-
-        if "storage" in self.equipments:
-            storage_equipment = cast(list[StoragePO], self.equipments["storage"])
-            for storage_obj in storage_equipment:
-                optimisation_times = parameters.storage_mapping[storage_obj.storage_type].get("optimisation_times", [])
-                if time in optimisation_times:
-                    # Storage has both sell and buy power levels
-                    sell_var = model.get_variable(f"{storage_obj.name}_power_level_sell_{time}")
-                    buy_var = model.get_variable(f"{storage_obj.name}_power_level_buy_{time}")
-
-                    if sell_var is not None:
-                        total_power += sell_var
-                    if buy_var is not None:
-                        total_power += buy_var
 
         return total_power
 

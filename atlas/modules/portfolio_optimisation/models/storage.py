@@ -29,14 +29,14 @@ class StoragePO(Storage):
     charge_efficiency: float
     maximum_energy: Timeseries | LazyTimeseries
 
+    optimisation_time_window: list[DateTime] = []
+
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for storage equipment."""
-        storage_optimisation_times: list[DateTime] = parameters.storage_mapping[self.storage_type].get(
-            "optimisation_times", []
-        )
+
         nbr_fragment: int = parameters.storage_mapping[self.storage_type]["nb_fragment"]
 
-        if time in storage_optimisation_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for storage unit {self.name} at time {time}")
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
@@ -102,9 +102,8 @@ class StoragePO(Storage):
         if self.maximum_energy.max() <= 0:
             cfg.logger.debug(f"Skipping constraints for storage unit {self.name} - maximum energy is 0")
             return None
-        storage_optimisation_times = parameters.storage_mapping[self.storage_type].get("optimisation_times", [])
 
-        if time in storage_optimisation_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for storage unit {self.name} at time {time}")
             prev_time = time - parameters.timestep
             automated_reserves_up_var = model.get_variable(f"automated_reserves_up_{self.name}_{time}")
@@ -206,8 +205,8 @@ class StoragePO(Storage):
                     + (displacement_energy - displacement_energy_prev)
                 )
                 model.add_constraint(
-                    sum(-power_level_buy_var for _ in storage_optimisation_times) * self.charge_efficiency
-                    == sum(power_level_sell_var for _ in storage_optimisation_times) / self.discharge_efficiency
+                    sum(-power_level_buy_var for _ in self.optimisation_time_window) * self.charge_efficiency
+                    == sum(power_level_sell_var for _ in self.optimisation_time_window) / self.discharge_efficiency
                 )
 
             else:
@@ -309,4 +308,8 @@ class StoragePO(Storage):
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
         """Get optimisation time windows based on additional hours."""
-        return generate_datetimes(start=start_date, end=end_date + self.additional_hours, freq=timestep)
+
+        self.optimisation_time_window = generate_datetimes(
+            start=start_date, end=end_date + self.additional_hours, freq=timestep
+        )
+        return self.optimisation_time_window

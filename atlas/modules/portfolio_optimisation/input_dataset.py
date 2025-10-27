@@ -81,7 +81,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                 (
                     e.get_optimisation_time_window(
                         start_date=self.parameters.start_date,
-                        end_date=self.parameters.end_date,
+                        end_date=self.parameters.end_date - self.parameters.timestep,
                         timestep=self.parameters.timestep,
                     )
                     for eqs in p.equipments.values()

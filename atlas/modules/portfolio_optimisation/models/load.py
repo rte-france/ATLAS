@@ -22,9 +22,11 @@ class LoadPO(Load):
     load_type: LoadType
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
 
+    optimisation_time_window: list[DateTime] = []
+
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for load equipment."""
-        if time in parameters.target_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for load unit {self.name} at time {time}")
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
 
@@ -40,7 +42,7 @@ class LoadPO(Load):
         """
         This function adds constraints related to load equipments.
         """
-        if time in parameters.target_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for load unit {self.name} at time {time}")
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
@@ -57,7 +59,7 @@ class LoadPO(Load):
         price_forecast: float,
         parameters: PortfolioOptimisationParameters,
     ):
-        if time in parameters.target_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for load unit {self.name} at time {time}")
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             if self.load_type == LoadType.POWER_TO_GAS:
@@ -76,4 +78,8 @@ class LoadPO(Load):
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
         """Get optimisation time windows based on additional hours."""
-        return generate_datetimes(start=start_date, end=end_date + self.additional_hours, freq=timestep)
+
+        self.optimisation_time_window = generate_datetimes(
+            start=start_date, end=end_date + self.additional_hours, freq=timestep
+        )
+        return self.optimisation_time_window

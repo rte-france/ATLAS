@@ -348,7 +348,7 @@ def add_constraints(
 
     # DD Gradient auxiliary - eq. (23)
     # Detects if unit is to be stopped at t+1 after being in DOWN state at t and t-1
-    if time in parameters.thermal_op_times[:-1]:  # Not the last time step
+    if time in thermal_unit.optimisation_time_window[:-1]:  # Not the last time step
         model.add_constraint(dd_grad_prev_var <= q_upper * stop_var)
         model.add_constraint(dd_grad_prev_var >= q_lower * stop_var)
         model.add_constraint(dd_grad_prev_var <= down_grad_prev_var - q_lower * (1 - stop_var))
@@ -500,7 +500,7 @@ def add_constraints(
     )
 
     # Power gradients with all auxiliary variables - most complex gradient logic
-    if time in parameters.thermal_op_times[:-1]:  # Not the last time step
+    if time in thermal_unit.optimisation_time_window[:-1]:  # Not the last time step
         if thermal_unit._Delta_Q > 0:  # Finite gradient
             # Upward gradient - eq. (33)
             model.add_constraint(

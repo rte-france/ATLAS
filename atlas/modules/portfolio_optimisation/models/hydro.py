@@ -32,9 +32,11 @@ class HydroPO(Hydro):
     initial_level: Timeseries | LazyTimeseries
     storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix
 
+    optimisation_time_window: list[DateTime] = []
+
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for hydro equipment."""
-        if time in parameters.hydraulic_op_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for hydro unit {self.name} at time {time}")
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
@@ -88,7 +90,7 @@ class HydroPO(Hydro):
         """
         This function formulates the hydraulic reservoir offers.
         """
-        if time in parameters.hydraulic_op_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for hydro unit {self.name} at time {time}")
 
             maximum_energy = self.maximum_energy.get_value(time)
@@ -112,7 +114,7 @@ class HydroPO(Hydro):
                 model.get_variable(f"{self.name}_power_level_frag_{category}_{time}") for category in self.fragment_data
             )
 
-        if time in parameters.target_times:
+        if time in self.optimisation_time_window:
             if time == parameters.start_date:
                 model.add_constraint(
                     stored_energy_var
@@ -153,7 +155,7 @@ class HydroPO(Hydro):
         price_forecast: float = 0.0,
         **kwargs,
     ):
-        if time in parameters.hydraulic_op_times:
+        if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for hydro unit {self.name} at time {time}")
             for k in range(len(self.fragment_data.keys())):
                 fragment_price = self.compute_fragment_prices(time, k, parameters)
@@ -296,4 +298,8 @@ class HydroPO(Hydro):
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
         """Get optimisation time windows based on additional hours."""
-        return generate_datetimes(start=start_date, end=end_date + self.additional_hours, freq=timestep)
+
+        self.optimisation_time_window = generate_datetimes(
+            start=start_date, end=end_date + self.additional_hours, freq=timestep
+        )
+        return self.optimisation_time_window

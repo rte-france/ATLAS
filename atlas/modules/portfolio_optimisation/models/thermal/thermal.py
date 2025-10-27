@@ -70,6 +70,8 @@ class ThermalPO(Thermal):
     _combination: int = 1  # Which constraint combination to use (1-8)
     T_traceback: int = 0
 
+    optimisation_time_window: list[DateTime] = []
+
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""
 
@@ -136,7 +138,7 @@ class ThermalPO(Thermal):
         """Build variables for complex thermal unit commitment."""
 
         # Always defined state variables for optimization time frame
-        if time in parameters.thermal_op_times:
+        if time in self.optimisation_time_window:
             # Binary state variables
             model.add_boolean_variable(f"OFF_var_{self.name}_{time}")
             model.add_boolean_variable(f"ON_UP_var_{self.name}_{time}")
@@ -182,6 +184,13 @@ class ThermalPO(Thermal):
 
             # Power and reserve variables
             maximum_power = self.maximum_power.get_value(time)
+            if self.minimum_power is None:
+                self.minimum_power = Timeseries.from_index(
+                    start_date=parameters.start_date,
+                    end_date=parameters.end_date,
+                    frequency=parameters.timestep,
+                    default_value=0,
+                )
             minimum_power = self.minimum_power.get_value(time)
             maximum_automated = get_maximum_automated(self)
 
@@ -207,12 +216,8 @@ class ThermalPO(Thermal):
         parameters: PortfolioOptimisationParameters,
     ):
         """Add constraints based on the determined combination."""
-        if time not in parameters.thermal_op_times:
+        if time not in self.optimisation_time_window:
             return
-
-        if not hasattr(self, "_initial_conditions_added"):
-            self.add_initial_conditions(model, parameters)
-            self._initial_conditions_added = True
 
         # Delegate to the appropriate combination method
         constraint_functions = {
@@ -237,7 +242,7 @@ class ThermalPO(Thermal):
         parameters: PortfolioOptimisationParameters,
     ):
         """Add objective function terms for thermal equipment."""
-        if time not in parameters.thermal_op_times:
+        if time not in self.optimisation_time_window:
             return
 
         # Variable cost term: cost * power * time_step / 60
@@ -286,7 +291,66 @@ class ThermalPO(Thermal):
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
         """Get optimisation time windows based on additional hours."""
-        return generate_datetimes(start=start_date, end=end_date + self.additional_hours, freq=timestep)
+
+        self.optimisation_time_window = generate_datetimes(
+            start=start_date, end=end_date + self.additional_hours, freq=timestep
+        )
+        return self.optimisation_time_window
+
+    def add_initial_variables(
+        self, model: OptimisationModel, initial_times: list[DateTime], stable_initial_times: list[DateTime]
+    ):
+        """
+        Add initial variables for thermal unit at a specific timestamp.
+
+        Args:
+            model: Optimization model
+            parameters: Portfolio optimization parameters
+            initial_times: List of initial timestamps to process
+            stable_initial_times: List of stable initial timestamps to process
+        """
+
+        for time in initial_times:
+            # Binary state variables
+            model.add_boolean_variable(f"OFF_var_{self.name}_{time}")
+            model.add_boolean_variable(f"ON_UP_var_{self.name}_{time}")
+            model.add_boolean_variable(f"ON_DOWN_var_{self.name}_{time}")
+
+            # Auxiliary binary variables for transitions
+            model.add_boolean_variable(f"t_on_of_{self.name}_{time}")
+            model.add_boolean_variable(f"t_off_of_{self.name}_{time}")
+
+            model.add_continuous_variable(f"{self.name}_power_level_{time}", 0.0, self.maximum_power.max())
+
+            # Conditional state variables based on time constraints
+            if self._T_start >= 1:
+                model.add_boolean_variable(f"ON_START_{self.name}_{time}")
+
+            if self._T_stop >= 1:
+                model.add_boolean_variable(f"STOP_{self.name}_{time}")
+
+            if self._T_stop >= 1 and self._T_stable >= 1:
+                model.add_boolean_variable(f"flat_down_stop_{time}_{self.name}")
+
+            if self._T_stop >= 1 and self._T_start == 0 and self._T_stable == 0:
+                model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}")
+
+            if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
+                max_power = self.maximum_power.max()
+                model.add_continuous_variable(f"DD_grad_{time}_{self.name}", -max_power, max_power)
+
+            if self._T_stable >= 1:
+                # Gradient auxiliary variables for stable case
+                max_power = self.maximum_power.max()
+                model.add_continuous_variable(f"UP_grad_{time}_for_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"DOWN_grad_{time}_{self.name}", -max_power, max_power)
+
+        for time in stable_initial_times:
+            if self._T_stable >= 1:
+                model.add_boolean_variable(f"ON_FLAT_{self.name}_{time}")
+                model.add_boolean_variable(f"stable_{time}_{self.name}")
+                model.add_boolean_variable(f"entered_up_{time}_{self.name}")
+                model.add_boolean_variable(f"entered_down_{time}_{self.name}")
 
     def add_initial_conditions(
         self,
@@ -304,6 +368,8 @@ class ThermalPO(Thermal):
         self._compute_time_parameters(parameters)
 
         initial_times, stable_initial_times = self.get_initial_time_window(parameters)
+
+        self.add_initial_variables(model, initial_times, stable_initial_times)
 
         power_timeseries = (
             self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])

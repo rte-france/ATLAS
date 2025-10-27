@@ -88,7 +88,10 @@ def add_initial_conditions(
 
 
 def add_constraints(
-    thermal_unit: ThermalPO, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    thermal_unit: ThermalPO,
+    time: DateTime,
+    model: OptimisationModel,
+    parameters: PortfolioOptimisationParameters,
 ) -> None:
     """Add constraints for Combination 1: T_stop = T_stable = T_start = 0
 
@@ -209,7 +212,7 @@ def add_constraints(
     model.add_constraint(power_level_var <= q_upper * (on_up_var + on_down_var))
 
     # Power gradients (if not the last time step)
-    if time in parameters.thermal_op_times[:-1]:  # Not the last time step
+    if time in thermal_unit.optimisation_time_window[:-1]:  # Not the last time step
         if thermal_unit._Delta_Q > 0:  # Finite gradient
             # Upward gradient
             model.add_constraint(
