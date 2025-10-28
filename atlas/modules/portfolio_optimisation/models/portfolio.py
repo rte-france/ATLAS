@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any, cast
+from typing import cast
 
 from pendulum import DateTime, Duration
 
@@ -13,7 +13,6 @@ from atlas.enum import MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.equipment import Equipment
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
@@ -120,7 +119,7 @@ class PortfolioPO(Portfolio):
         # Power balance constraint
         residual_energy = self._compute_residual_energy(time, parameters)
         max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
-        sum_power_variables = self._get_sum_power_level_variables(model, time, parameters)
+        sum_power_variables = self._get_sum_power_level_variables(model, time)
         small_imbalance_up_var = model.get_variable(f"{self.name}_small_imbalance_up_{time}")
         large_imbalance_up_var = model.get_variable(f"{self.name}_large_imbalance_up_{time}")
         small_imbalance_down_var = model.get_variable(f"{self.name}_small_imbalance_down_{time}")
@@ -290,7 +289,6 @@ class PortfolioPO(Portfolio):
         self,
         model: OptimisationModel,
         time: DateTime,
-        parameters: PortfolioOptimisationParameters,
     ) -> float:
         """Get the sum of all power level variables for a specific time."""
         total_power = 0
@@ -395,16 +393,6 @@ class PortfolioPO(Portfolio):
             residual_energy += upstream_bought_energy - optimal_dispatch
 
         return residual_energy
-
-    def _get_power_level_variables(
-        self, time: DateTime, model: OptimisationModel, portfolio: dict[str, list[type[Equipment]]]
-    ) -> list[Any]:
-        power_level_variables: list[Any] = []
-
-        for obj in portfolio.get("dispatchable_load", []) + portfolio.get("wind", []) + portfolio.get("solar", []):
-            power_level_variables.append(model.get_variable(f"{obj.name}_power_level_{time}"))
-
-        return power_level_variables
 
     def _compute_reserves_time(
         self, time: DateTime, parameters: PortfolioOptimisationParameters
