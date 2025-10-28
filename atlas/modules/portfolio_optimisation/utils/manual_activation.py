@@ -327,7 +327,7 @@ def _finalize_power_update(
 
     # Update equipment power
     if parameters.use_forecast:
-        cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_po_orders).add(
+        cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_po_for_orders).add(
             new_power, parameters.execution_date
         )
     else:
