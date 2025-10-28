@@ -56,7 +56,7 @@ def add_initial_conditions(
     else:
         # Non-dayZero case: Initialize based on power history
         for time in kwargs.get("initial_times", []):
-            last_power = power_timeseries.get_value(time)
+            power_at_time = power_timeseries.get_value(time)
             min_power = thermal_unit.minimum_power.get_value(time)
 
             # Get variables
@@ -67,12 +67,12 @@ def add_initial_conditions(
             turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
 
             # Set state variables based on power level relative to minimum power
-            if last_power >= min_power:
+            if power_at_time >= min_power:
                 # Unit is ON and above minimum power (normal operation)
                 model.add_constraint(off_var == 0, f"init_off_{thermal_unit.name}_{time}")
                 model.add_constraint(start_var == 0, f"init_start_{thermal_unit.name}_{time}")
                 model.add_constraint(stop_var == 0, f"init_stop_{thermal_unit.name}_{time}")
-            elif last_power > 0:
+            elif power_at_time > 0:
                 # Unit is ON but below minimum power (startup or shutdown phase)
                 # Initially set both START and STOP to 1, distinguish later based on trend
                 model.add_constraint(off_var == 0, f"init_off_{thermal_unit.name}_{time}")
@@ -95,11 +95,11 @@ def add_initial_conditions(
                 time != extended_start_date
                 and model.get_constraint_bounds(f"init_start_{thermal_unit.name}_{time}").lower_bound == 1
             ):
-                if last_power > prev_power:
+                if power_at_time > prev_power:
                     model.add_constraint(stop_var == 0, f"init_stop_{thermal_unit.name}_{time}")
                     model.add_constraint(start_var == 1, f"init_start_{thermal_unit.name}_{time}")
 
-                elif last_power < prev_power:
+                elif power_at_time < prev_power:
                     model.add_constraint(stop_var == 1, f"init_stop_{thermal_unit.name}_{time}")
                     model.add_constraint(start_var == 0, f"init_start_{thermal_unit.name}_{time}")
 

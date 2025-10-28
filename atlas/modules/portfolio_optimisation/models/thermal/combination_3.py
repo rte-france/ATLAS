@@ -50,7 +50,7 @@ def add_initial_conditions(
 
     else:
         for time in kwargs.get("initial_times", []):
-            last_power = power_timeseries.get_value(time)
+            power_at_time = power_timeseries.get_value(time)
 
             # Get variables
             off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
@@ -58,7 +58,7 @@ def add_initial_conditions(
             turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
 
             # Set OFF state based on power level
-            if last_power > 0:
+            if power_at_time > 0:
                 model.add_constraint(off_var == 0, f"init_off_{thermal_unit.name}_{time}")
             else:
                 model.add_constraint(off_var == 1, f"init_off_{thermal_unit.name}_{time}")

@@ -51,7 +51,7 @@ def add_initial_conditions(
     else:
         # Non-dayZero case: Initialize based on power history
         for time in kwargs.get("initial_times", []):
-            last_power = power_timeseries.get_value(time)
+            power_at_time = power_timeseries.get_value(time)
             min_power = thermal_unit.minimum_power.get_value(time)
 
             # Get variables
@@ -61,11 +61,11 @@ def add_initial_conditions(
             turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
 
             # Set state variables based on power level relative to minimum power
-            if last_power >= min_power:
+            if power_at_time >= min_power:
                 # Unit is ON and above minimum power
                 model.add_constraint(off_var == 0, f"init_off_{thermal_unit.name}_{time}")
                 model.add_constraint(start_var == 0, f"init_start_{thermal_unit.name}_{time}")
-            elif last_power > 0:
+            elif power_at_time > 0:
                 # Unit is ON but below minimum power (in startup phase)
                 model.add_constraint(off_var == 0, f"init_off_{thermal_unit.name}_{time}")
                 model.add_constraint(start_var == 1, f"init_start_{thermal_unit.name}_{time}")
