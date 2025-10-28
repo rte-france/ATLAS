@@ -145,7 +145,7 @@ def initialize_day_zero_gradient_vars(
         model: The optimization model
         time: The current time step
     """
-    u_var = model.get_variable(f"UP_grad_{time}_for_{thermal_unit.name}")
+    u_var = model.get_variable(f"UP_grad_{time}_{thermal_unit.name}")
     d_var = model.get_variable(f"DOWN_grad_{time}_{thermal_unit.name}")
     tilde_u_var = model.get_variable(f"aux_up_grad_{time}_{thermal_unit.name}")
     tilde_d_var = model.get_variable(f"aux_down_grad_{time}_{thermal_unit.name}")
@@ -226,7 +226,7 @@ def initialize_gradient_initial_conditions(
     power_minus_one = power_timeseries.get_value(start_date_minus_one)
     power_minus_two = power_timeseries.get_value(start_date_minus_two)
 
-    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_for_{thermal_unit.name}")
+    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_{thermal_unit.name}")
     d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{thermal_unit.name}")
 
     # Calculate gradient values based on power trend

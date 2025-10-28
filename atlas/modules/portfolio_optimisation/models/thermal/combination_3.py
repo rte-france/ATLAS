@@ -184,7 +184,7 @@ def add_constraints(
     power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
 
     # Gradient auxiliary variables
-    up_grad_var = model.get_variable(f"UP_grad_{time}_for_{thermal_unit.name}")
+    up_grad_var = model.get_variable(f"UP_grad_{time}_{thermal_unit.name}")
     aux_up_grad_var = model.get_variable(f"aux_up_grad_{time}_{thermal_unit.name}")
     down_grad_var = model.get_variable(f"DOWN_grad_{time}_{thermal_unit.name}")
     aux_down_grad_var = model.get_variable(f"aux_down_grad_{time}_{thermal_unit.name}")

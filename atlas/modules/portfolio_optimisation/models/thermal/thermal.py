@@ -139,6 +139,11 @@ class ThermalPO(Thermal):
 
         # Always defined state variables for optimization time frame
         if time in self.optimisation_time_window:
+            if time == self.optimisation_time_window[0]:
+                if self._T_stable >= 1:
+                    model.add_boolean_variable(f"ON_FLAT_{self.name}_{time - parameters.timestep}")
+                    model.add_boolean_variable(f"stable_{time - parameters.timestep}_{self.name}")
+
             # Binary state variables
             model.add_boolean_variable(f"OFF_var_{self.name}_{time}")
             model.add_boolean_variable(f"ON_UP_var_{self.name}_{time}")
@@ -163,7 +168,7 @@ class ThermalPO(Thermal):
 
                 # Gradient auxiliary variables for stable case
                 max_power = self.maximum_power.max()
-                model.add_continuous_variable(f"UP_grad_{time}_for_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"UP_grad_{time}_{self.name}", -max_power, max_power)
                 model.add_continuous_variable(f"aux_up_grad_{time}_{self.name}", -max_power, max_power)
                 model.add_continuous_variable(f"DOWN_grad_{time}_{self.name}", -max_power, max_power)
                 model.add_continuous_variable(f"aux_down_grad_{time}_{self.name}", -max_power, max_power)
@@ -186,8 +191,8 @@ class ThermalPO(Thermal):
             maximum_power = self.maximum_power.get_value(time)
             if self.minimum_power is None:
                 self.minimum_power = Timeseries.from_index(
-                    start_date=parameters.start_date,
-                    end_date=parameters.end_date,
+                    start_date=self.optimisation_time_window[0],
+                    end_date=self.optimisation_time_window[-1],
                     frequency=parameters.timestep,
                     default_value=0,
                 )
@@ -332,7 +337,7 @@ class ThermalPO(Thermal):
             if self._T_stop >= 1 and self._T_stable >= 1:
                 model.add_boolean_variable(f"flat_down_stop_{time}_{self.name}")
 
-            if self._T_stop >= 1 and self._T_start == 0 and self._T_stable == 0:
+            if self._T_stop >= 1 and self._T_stable == 0:
                 model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}")
 
             if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
@@ -342,11 +347,13 @@ class ThermalPO(Thermal):
             if self._T_stable >= 1:
                 # Gradient auxiliary variables for stable case
                 max_power = self.maximum_power.max()
-                model.add_continuous_variable(f"UP_grad_{time}_for_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"UP_grad_{time}_{self.name}", -max_power, max_power)
                 model.add_continuous_variable(f"DOWN_grad_{time}_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"aux_up_grad_{time}_{self.name}", -max_power, max_power)
+                model.add_continuous_variable(f"aux_down_grad_{time}_{self.name}", -max_power, max_power)
 
-        for time in stable_initial_times:
-            if self._T_stable >= 1:
+        if self._T_stable >= 1:
+            for time in stable_initial_times:
                 model.add_boolean_variable(f"ON_FLAT_{self.name}_{time}")
                 model.add_boolean_variable(f"stable_{time}_{self.name}")
                 model.add_boolean_variable(f"entered_up_{time}_{self.name}")

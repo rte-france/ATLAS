@@ -6,13 +6,11 @@ This file is part of the ATLAS project.
 """
 
 from itertools import groupby
-from typing import cast
 
 from pendulum import DateTime
 
 from atlas import BusinessModel, Portfolio
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.enum import LoadType
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
@@ -23,13 +21,9 @@ from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
-from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
-from atlas.modules.portfolio_optimisation.models.solar import SolarPO
-from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.models.wind import WindPO
+from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     is_excluded_market_area,
@@ -49,21 +43,21 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         loads: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in input_data.get("load", [])]
 
         self.equipments: dict[str, list[EquipmentPO]] = {
-            "wind": [WindPO.model_validate(wind.model_dump()) for wind in input_data.get("wind", [])],
-            "storage": [StoragePO.model_validate(storage.model_dump()) for storage in input_data.get("storage", [])],
-            "hydro": [HydroPO.model_validate(hydro.model_dump()) for hydro in input_data.get("hydro", [])],
-            "solar": [SolarPO.model_validate(solar.model_dump()) for solar in input_data.get("solar", [])],
-            # "thermal": [ThermalPO.model_validate(thermal.model_dump()) for thermal in input_data.get("thermal", [])],
-            "other_non_dispatchable": [
-                OtherNonDispatchablePO.model_validate(other.model_dump())
-                for other in input_data.get("other_non_dispatchable", [])
-            ],
-            "dispatchable_load": cast(
-                list[EquipmentPO], [load for load in loads if load.load_type == LoadType.POWER_TO_GAS]
-            ),
-            "non_dispatchable_load": cast(
-                list[EquipmentPO], [load for load in loads if load.load_type != LoadType.POWER_TO_GAS]
-            ),
+            # "wind": [WindPO.model_validate(wind.model_dump()) for wind in input_data.get("wind", [])],
+            # "storage": [StoragePO.model_validate(storage.model_dump()) for storage in input_data.get("storage", [])],
+            # "hydro": [HydroPO.model_validate(hydro.model_dump()) for hydro in input_data.get("hydro", [])],
+            # "solar": [SolarPO.model_validate(solar.model_dump()) for solar in input_data.get("solar", [])],
+            "thermal": [ThermalPO.model_validate(thermal.model_dump()) for thermal in input_data.get("thermal", [])],
+            # "other_non_dispatchable": [
+            #     OtherNonDispatchablePO.model_validate(other.model_dump())
+            #     for other in input_data.get("other_non_dispatchable", [])
+            # ],
+            # "dispatchable_load": cast(
+            #     list[EquipmentPO], [load for load in loads if load.load_type == LoadType.POWER_TO_GAS]
+            # ),
+            # "non_dispatchable_load": cast(
+            #     list[EquipmentPO], [load for load in loads if load.load_type != LoadType.POWER_TO_GAS]
+            # ),
         }
 
         self.portfolios: list[PortfolioPO] = []

@@ -247,7 +247,7 @@ def add_constraints(
     power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
 
     # Gradient auxiliary variables
-    up_grad_var = model.get_variable(f"UP_grad_{time}_for_{thermal_unit.name}")
+    up_grad_var = model.get_variable(f"UP_grad_{time}_{thermal_unit.name}")
     aux_up_grad_var = model.get_variable(f"aux_up_grad_{time}_{thermal_unit.name}")
     down_grad_var = model.get_variable(f"DOWN_grad_{time}_{thermal_unit.name}")
     aux_down_grad_var = model.get_variable(f"aux_down_grad_{time}_{thermal_unit.name}")
@@ -260,7 +260,7 @@ def add_constraints(
     start_prev_var = model.get_variable(f"ON_START_{thermal_unit.name}_{prev_time}")
     stop_prev_var = model.get_variable(f"STOP_{thermal_unit.name}_{prev_time}")
     power_prev_var = model.get_variable(f"{thermal_unit.name}_power_level_{prev_time}")
-    up_grad_prev_var = model.get_variable(f"UP_grad_{prev_time}_for_{thermal_unit.name}")
+    up_grad_prev_var = model.get_variable(f"UP_grad_{prev_time}_{thermal_unit.name}")
     down_grad_prev_var = model.get_variable(f"DOWN_grad_{prev_time}_{thermal_unit.name}")
     dd_grad_prev_var = model.get_variable(f"DD_grad_{prev_time}_{thermal_unit.name}")
 
