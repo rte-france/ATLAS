@@ -12,6 +12,7 @@ import atlas.config as cfg
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
@@ -29,7 +30,7 @@ class PortfolioOptimisationModel(OptimisationModel):
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 
         for thermal in self.portfolio.equipments.get("thermal", []):
-            thermal.add_initial_conditions(self, self.parameters)
+            cast(ThermalPO, thermal).add_initial_conditions(self, self.parameters)
 
         for time in time_window:
             cfg.logger.debug(f"Building optimisation model at time: {time}..")

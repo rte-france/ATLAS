@@ -44,7 +44,7 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
 
     @abstractmethod
     def import_data(
-        self, raw_data: dict[str, list[type[BusinessModel]]], parameters: module_parameters_type_var
+        self, raw_data: dict[str, list[BusinessModel]], parameters: module_parameters_type_var
     ) -> input_dataset_type_var:
         """Imports data using business objects and parameters."""
 
@@ -76,7 +76,7 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
     ) -> None:
         """Exports results."""
 
-    def run(self, raw_data: dict[str, list[type[BusinessModel]]], raw_params: dict[str, Any] | str | Path) -> None:
+    def run(self, raw_data: dict[str, list[BusinessModel]], raw_params: dict[str, Any] | str | Path) -> None:
         """Orchestrates the preparation and execution of the module.
         Should not be overridden in subclass
         """

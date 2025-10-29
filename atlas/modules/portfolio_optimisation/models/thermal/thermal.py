@@ -391,13 +391,9 @@ class ThermalPO(Thermal):
                 day_zero = True
 
         # Get initial condition function based on combination
-        initial_condition_functions: dict[
-            int,
-            Callable[
-                [ThermalPO, OptimisationModel, PortfolioOptimisationParameters, DateTime, Timeseries | None, bool],
-                None,
-            ],
-        ] = {
+        # Type: functions accept thermal_unit, model, parameters, extended_start_date,
+        # power_timeseries, day_zero, and **kwargs (initial_times, stable_initial_times)
+        initial_condition_functions: dict[int, Callable[..., None]] = {
             1: combination_1.add_initial_conditions,
             2: combination_2.add_initial_conditions,
             3: combination_3.add_initial_conditions,

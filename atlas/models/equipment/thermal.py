@@ -6,9 +6,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import duration
+from pendulum import Duration
 from pydantic import Field, field_validator
-from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enum import ThermalStrategy
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -93,7 +92,7 @@ class Thermal(Equipment):
     minimum_power: Timeseries | LazyTimeseries | None = None
 
     additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=12),
+        default_factory=lambda: Duration(hours=12),
         description="Default optimization period in hours for thermal equipment",
     )
 

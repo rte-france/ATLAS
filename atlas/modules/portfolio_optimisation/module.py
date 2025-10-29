@@ -33,7 +33,7 @@ class PortfolioOptimisationModule(
 
     def import_data(
         self,
-        raw_data: dict[str, list[type[BusinessModel]]],
+        raw_data: dict[str, list[BusinessModel]],
         parameters: PortfolioOptimisationParameters,
     ) -> PortfolioOptimisationInputDataset:
         """Imports data using business objects and parameters."""

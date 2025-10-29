@@ -47,17 +47,21 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        loads: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in input_data.get("load", [])]
+        loads: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in self.input_data.get("load", [])]
 
         self.equipments: dict[str, list[EquipmentPO]] = {
-            "wind": [WindPO.model_validate(wind.model_dump()) for wind in input_data.get("wind", [])],
-            "storage": [StoragePO.model_validate(storage.model_dump()) for storage in input_data.get("storage", [])],
-            "hydro": [HydroPO.model_validate(hydro.model_dump()) for hydro in input_data.get("hydro", [])],
-            "solar": [SolarPO.model_validate(solar.model_dump()) for solar in input_data.get("solar", [])],
-            "thermal": [ThermalPO.model_validate(thermal.model_dump()) for thermal in input_data.get("thermal", [])],
+            "wind": [WindPO.model_validate(wind.model_dump()) for wind in self.input_data.get("wind", [])],
+            "storage": [
+                StoragePO.model_validate(storage.model_dump()) for storage in self.input_data.get("storage", [])
+            ],
+            "hydro": [HydroPO.model_validate(hydro.model_dump()) for hydro in self.input_data.get("hydro", [])],
+            "solar": [SolarPO.model_validate(solar.model_dump()) for solar in self.input_data.get("solar", [])],
+            "thermal": [
+                ThermalPO.model_validate(thermal.model_dump()) for thermal in self.input_data.get("thermal", [])
+            ],
             "other_non_dispatchable": [
                 OtherNonDispatchablePO.model_validate(other.model_dump())
-                for other in input_data.get("other_non_dispatchable", [])
+                for other in self.input_data.get("other_non_dispatchable", [])
             ],
             "dispatchable_load": cast(
                 list[EquipmentPO], [load for load in loads if load.load_type == LoadType.POWER_TO_GAS]

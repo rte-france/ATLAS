@@ -4,9 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import duration
+from pendulum import Duration
 from pydantic import Field, computed_field, field_validator
-from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enum import StorageType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -100,16 +99,18 @@ class Storage(Equipment):
         """Convert various duration formats to Duration objects."""
         return hours_validator(v)
 
-    @computed_field
+    @computed_field  # type: ignore[misc]
     @property
     def additional_hours(self) -> Duration:
         """Get additional hours for optimization period."""
         if self.additional_hours_ is None:
             if self.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-                return duration(hours=144)
+                return Duration(hours=144)
             elif self.storage_type == StorageType.BATTERY:
-                return duration(hours=48)
-            if self.storage_type == StorageType.ELECTRIC_VEHICLE:
-                return duration(hours=144)
+                return Duration(hours=48)
+            elif self.storage_type == StorageType.ELECTRIC_VEHICLE:
+                return Duration(hours=144)
+            else:
+                return Duration(hours=48)  # default value
         else:
             return self.additional_hours_

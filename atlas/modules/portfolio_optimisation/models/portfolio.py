@@ -16,6 +16,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
@@ -302,7 +303,7 @@ class PortfolioPO(Portfolio):
                         total_power += sell_var + buy_var
 
                     elif object_type == "hydro":
-                        for category in obj.fragment_data.keys():
+                        for category in cast(HydroPO, obj).fragment_data.keys():
                             var = model.get_variable(f"{obj.name}_power_level_frag_{category}_{time}")
                             total_power += var
                     elif object_type == "other_non_dispatchable":
@@ -346,9 +347,13 @@ class PortfolioPO(Portfolio):
             for obj in self.equipments.get(equipment_type, []):
                 upstream_energy = get_upstream_energy(obj, time, parameters)
                 if equipment_type in ["non_dispatchable_load", "other_non_dispatchable", "dispatchable_load"]:
-                    last_forecast = obj.maximum_power_forecast.get_forecast(
-                        parameters.execution_date, parameters.start_date, parameters.end_date
-                    ).get_value(time)
+                    last_forecast = (
+                        cast(LoadPO | OtherNonDispatchablePO, obj)
+                        .maximum_power_forecast.get_forecast(
+                            parameters.execution_date, parameters.start_date, parameters.end_date
+                        )
+                        .get_value(time)
+                    )
                     optimal_dispatch = min(last_forecast, upstream_energy)
                     residual_energy += upstream_energy - optimal_dispatch
                 else:

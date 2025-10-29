@@ -116,11 +116,12 @@ class HydroPO(Hydro):
 
         if time in self.optimisation_time_window:
             if time == parameters.start_date:
+                inflow = self.inflows.get_value(time) if self.inflows is not None else 0
                 model.add_constraint(
                     stored_energy_var
                     == self.get_initial_level(parameters).get_value(parameters.start_date - parameters.timestep)
                     - power_level_fragment_sum_var * parameters.timestep.total_hours()
-                    + self.inflows.get_value(time) / parameters.timestep.total_days()
+                    + inflow / parameters.timestep.total_days()
                 )
 
             else:
@@ -128,11 +129,12 @@ class HydroPO(Hydro):
                     f"{self.name}_stored_energy_{time - parameters.timestep}"
                 )
 
+                inflow = self.inflows.get_value(time) if self.inflows is not None else 0
                 model.add_constraint(
                     stored_energy_var
                     == previous_stored_energy_var
                     - power_level_fragment_sum_var * parameters.timestep.total_hours()
-                    + self.inflows.get_value(time) / parameters.timestep.total_days()
+                    + inflow / parameters.timestep.total_days()
                 )
 
                 reserve_stored_energy_up_var = model.get_variable(
@@ -277,21 +279,19 @@ class HydroPO(Hydro):
                 )
 
             else:
+                filter_dates = cast(list[DateTime], [parameters.start_date - parameters.timestep, parameters.end_date])
                 return (
-                    self.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
+                    self.initial_level.filter(filter_dates)
                     if isinstance(self.initial_level, Timeseries)
-                    else self.initial_level.filter(
-                        [parameters.start_date - parameters.timestep, parameters.end_date]
-                    ).collect()
+                    else self.initial_level.filter(filter_dates).collect()
                 )
 
         else:
+            filter_dates = cast(list[DateTime], [parameters.start_date - parameters.timestep, parameters.end_date])
             return (
-                self.initial_level.filter([parameters.start_date - parameters.timestep, parameters.end_date])
+                self.initial_level.filter(filter_dates)
                 if isinstance(self.initial_level, Timeseries)
-                else self.initial_level.filter(
-                    [parameters.start_date - parameters.timestep, parameters.end_date]
-                ).collect()
+                else self.initial_level.filter(filter_dates).collect()
             )
 
     def get_optimisation_time_window(
