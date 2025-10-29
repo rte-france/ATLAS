@@ -95,7 +95,7 @@ class ElectricVehicleModel(DAOBaseModel):
             )
             self.add_constraint(
                 self.Qa[t]
-                <= (1 - self.is_sell[t] * self.equipment.is_v2g) * abs(self.equipment.maximum_power.get_value(t)),
+                <= (1 - self.is_sell[t] * self.equipment.is_v2g) * abs(self.equipment.minimum_power.get_value(t)),
                 f"Respect_Pmax_purchase_at_{t}",
             )
             self.add_constraint(self.Qv[t] >= 0, f"Respect_Pmin_sale_at_{t}")

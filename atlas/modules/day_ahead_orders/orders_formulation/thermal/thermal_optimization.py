@@ -135,7 +135,6 @@ class ThermalOptimization(OptimisationModel):
         self.define_initial_parameters()
         self.create_objective_function("maximize")
         self.create_constraints_and_init_conitions()
-        print()
 
     def _initial_setup(self) -> None:
         """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
