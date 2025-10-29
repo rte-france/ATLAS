@@ -316,37 +316,16 @@ class PortfolioPO(Portfolio):
 
     def _compute_residual_energy(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
         """Compute residual energy metrics for all times."""
+        residual_energy = 0.0
 
-        return (
-            self._compute_non_dispatchable_production_residual_energy(time, parameters)
-            + self._compute_non_dispatchable_load_residual_energy(time, parameters)
-            + self._compute_dispatchable_residual_energy(time, parameters)
-        )
+        # Equipment types that need forecast-based optimal dispatch calculation
+        forecast_based_types = ["non_dispatchable_load", "other_non_dispatchable", "dispatchable_load"]
 
-    def _compute_maximum_power(
-        self,
-        time: DateTime,
-        parameters: PortfolioOptimisationParameters,
-    ) -> float:
-        """Compute maximum power and energy metrics for all times."""
-        sum_maximum_power: float = 0
-
-        for equipment_type in ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]:
-            for obj in self.equipments.get(equipment_type, []):
-                sum_maximum_power += abs(get_maximum_power(obj, time, parameters.execution_date))
-
-        return sum_maximum_power
-
-    def _compute_dispatchable_residual_energy(
-        self, time: DateTime, parameters: PortfolioOptimisationParameters
-    ) -> float:
-        """Compute residual energy for dispatchable equipment."""
-        residual_energy: float = 0
-
-        for equipment_type in self.equipments.keys():
-            for obj in self.equipments.get(equipment_type, []):
+        for equipment_type, equipment_list in self.equipments.items():
+            for obj in equipment_list:
                 upstream_energy = get_upstream_energy(obj, time, parameters)
-                if equipment_type in ["non_dispatchable_load", "other_non_dispatchable", "dispatchable_load"]:
+
+                if equipment_type in forecast_based_types:
                     last_forecast = (
                         cast(LoadPO | OtherNonDispatchablePO, obj)
                         .maximum_power_forecast.get_forecast(
@@ -361,43 +340,19 @@ class PortfolioPO(Portfolio):
 
         return residual_energy
 
-    def _compute_non_dispatchable_production_residual_energy(
+    def _compute_maximum_power(
         self,
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ) -> float:
-        """Compute non-dispatchable production equipment residual energy"""
-        residual_energy = 0.0
+        """Compute maximum power and energy metrics for all times."""
+        sum_maximum_power: float = 0
 
-        for obj in cast(list[OtherNonDispatchablePO], self.equipments.get("other_non_dispatchable", [])):
-            last_forecast_ti = obj.maximum_power_forecast.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
-            ).get_value(time)
+        for equipment_type in ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]:
+            for obj in self.equipments.get(equipment_type, []):
+                sum_maximum_power += abs(get_maximum_power(obj, time, parameters.execution_date))
 
-            upstream_sold_energy = get_upstream_energy(obj, time, parameters)
-            optimal_dispatch = min(last_forecast_ti, upstream_sold_energy)
-            residual_energy += upstream_sold_energy - optimal_dispatch
-
-        return residual_energy
-
-    def _compute_non_dispatchable_load_residual_energy(
-        self,
-        time: DateTime,
-        parameters: PortfolioOptimisationParameters,
-    ) -> float:
-        """Compute non-dispatchable load equipment residual energy"""
-        residual_energy = 0.0
-
-        for obj in cast(list[LoadPO], self.equipments.get("non_dispatchable_load", [])):
-            last_forecast_ti = obj.maximum_power_forecast.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
-            ).get_value(time)
-
-            upstream_bought_energy = get_upstream_energy(obj, time, parameters)
-            optimal_dispatch = min(last_forecast_ti, upstream_bought_energy)
-            residual_energy += upstream_bought_energy - optimal_dispatch
-
-        return residual_energy
+        return sum_maximum_power
 
     def _compute_reserves_time(
         self, time: DateTime, parameters: PortfolioOptimisationParameters
