@@ -168,7 +168,7 @@ class PortfolioPO(Portfolio):
         large_imbalance_price_down: float,
         large_imbalance_price_up: float,
         timestep: Duration,
-    ):
+    ) -> None:
         """Get imbalance cost terms as OR-Tools expressions."""
 
         small_imbalance_up_var = model.get_variable(f"{self.name}_small_imbalance_up_{time}")
@@ -200,7 +200,7 @@ class PortfolioPO(Portfolio):
 
     def _add_reserve_penalty_terms(
         self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters
-    ):
+    ) -> None:
         """Get reserve penalty terms as OR-Tools expressions."""
 
         contracted_diff_up = model.get_variable(f"contracted_diff_up_{self.name}_{time}")
@@ -239,7 +239,7 @@ class PortfolioPO(Portfolio):
         residual_energy: float,
         maximum_power: float,
         parameters: PortfolioOptimisationParameters,
-    ):
+    ) -> None:
         """Add imbalance variables to the optimization model."""
         small_imbalance_limit = maximum_power * parameters.small_imbalance_size
         max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
@@ -266,25 +266,18 @@ class PortfolioPO(Portfolio):
         )
 
     def _add_contract_difference_variables(
-        self,
-        model: OptimisationModel,
-        time: DateTime,
-        maximum_power: float,
-    ):
+        self, model: OptimisationModel, time: DateTime, maximum_power: float
+    ) -> None:
         """Add contract difference variables to the optimization model."""
-        contract_vars = [
-            "contracted_diff_up",
-            "contracted_diff_down",
-            "automated_contracted_diff_up",
-            "automated_contracted_diff_down",
+        [
+            model.add_continuous_variable(name=f"{v}_{self.name}_{time}", lower_bound=0, upper_bound=maximum_power)
+            for v in [
+                "contracted_diff_up",
+                "contracted_diff_down",
+                "automated_contracted_diff_up",
+                "automated_contracted_diff_down",
+            ]
         ]
-
-        for var_type in contract_vars:
-            model.add_continuous_variable(
-                name=f"{var_type}_{self.name}_{time}",
-                lower_bound=0,
-                upper_bound=maximum_power,
-            )
 
     def _get_sum_power_level_variables(
         self,
@@ -340,19 +333,13 @@ class PortfolioPO(Portfolio):
 
         return residual_energy
 
-    def _compute_maximum_power(
-        self,
-        time: DateTime,
-        parameters: PortfolioOptimisationParameters,
-    ) -> float:
+    def _compute_maximum_power(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
         """Compute maximum power and energy metrics for all times."""
-        sum_maximum_power: float = 0
-
-        for equipment_type in ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]:
-            for obj in self.equipments.get(equipment_type, []):
-                sum_maximum_power += abs(get_maximum_power(obj, time, parameters.execution_date))
-
-        return sum_maximum_power
+        return sum(
+            abs(get_maximum_power(obj, time, parameters.execution_date))
+            for equipment_type in ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]
+            for obj in self.equipments.get(equipment_type, [])
+        )
 
     def _compute_reserves_time(
         self, time: DateTime, parameters: PortfolioOptimisationParameters
