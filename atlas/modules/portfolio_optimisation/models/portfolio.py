@@ -411,7 +411,7 @@ class PortfolioPO(Portfolio):
             for obj in self.equipments.get(equipment_type, [])
         ]
 
-        return tuple(sum(values) for values in zip(*all_reserves)) if all_reserves else (0.0, 0.0, 0.0, 0.0)
+        return tuple(sum(values) for values in zip(*all_reserves)) if all_reserves else (0.0, 0.0, 0.0, 0.0)  # noqa: B905
 
     def get_price_forecast(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float | None:
         """Get price forecast for given time based on market type and forecast settings."""
