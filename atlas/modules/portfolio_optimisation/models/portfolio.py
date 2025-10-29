@@ -403,33 +403,15 @@ class PortfolioPO(Portfolio):
         self, time: DateTime, parameters: PortfolioOptimisationParameters
     ) -> tuple[float, float, float, float]:
         """Compute reserves and power metrics for a specific time."""
-        sum_reserves_up: float = 0
-        sum_reserves_down: float = 0
-        sum_automated_reserves_up: float = 0
-        sum_automated_reserves_down: float = 0
-
         equipment_types = ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]
 
-        for equipment_type in equipment_types:
-            for obj in self.equipments.get(equipment_type, []):
-                (
-                    reserves_up,
-                    reserves_down,
-                    automated_reserves_up,
-                    automated_reserves_down,
-                ) = get_reserve(obj, time, parameters)
+        all_reserves = [
+            get_reserve(obj, time, parameters)
+            for equipment_type in equipment_types
+            for obj in self.equipments.get(equipment_type, [])
+        ]
 
-                sum_reserves_up += reserves_up
-                sum_reserves_down += reserves_down
-                sum_automated_reserves_up += automated_reserves_up
-                sum_automated_reserves_down += automated_reserves_down
-
-        return (
-            sum_reserves_up,
-            sum_reserves_down,
-            sum_automated_reserves_up,
-            sum_automated_reserves_down,
-        )
+        return tuple(sum(values) for values in zip(*all_reserves)) if all_reserves else (0.0, 0.0, 0.0, 0.0)
 
     def get_price_forecast(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float | None:
         """Get price forecast for given time based on market type and forecast settings."""
