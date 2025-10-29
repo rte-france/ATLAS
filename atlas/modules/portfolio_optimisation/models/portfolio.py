@@ -63,55 +63,34 @@ class PortfolioPO(Portfolio):
     ):
         reserve_equipment_types = ["storage", "wind", "solar", "hydro", "thermal"]
 
-        sum_reserves_up_var = sum(
-            model.get_variable(f"reserves_up_{obj.name}_{time}")
-            for t in reserve_equipment_types
-            if t in self.equipments
-            for obj in self.equipments[t]
-        )
-        sum_reserves_down_var = sum(
-            model.get_variable(f"reserves_down_{obj.name}_{time}")
-            for t in reserve_equipment_types
-            if t in self.equipments
-            for obj in self.equipments[t]
-        )
-        sum_automated_reserves_up_var = sum(
-            model.get_variable(f"automated_reserves_up_{obj.name}_{time}")
-            for t in reserve_equipment_types
-            if t in self.equipments
-            for obj in self.equipments[t]
-        )
-        sum_automated_reserves_down_var = sum(
-            model.get_variable(f"automated_reserves_down_{obj.name}_{time}")
-            for t in reserve_equipment_types
-            if t in self.equipments
-            for obj in self.equipments[t]
+        def sum_reserve_vars(reserve_type: str) -> float:
+            return sum(
+                model.get_variable(f"{reserve_type}_{obj.name}_{time}")
+                for t in reserve_equipment_types
+                if t in self.equipments
+                for obj in self.equipments[t]
+            )
+
+        # Compute all reserve sums
+        reserve_types = ["reserves_up", "reserves_down", "automated_reserves_up", "automated_reserves_down"]
+        sum_reserves = {r_type: sum_reserve_vars(r_type) for r_type in reserve_types}
+
+        # Get target reserve values
+        reserves_up, reserves_down, automated_reserves_up, automated_reserves_down = self._compute_reserves_time(
+            time, parameters
         )
 
-        (
-            reserves_up,
-            reserves_down,
-            automated_reserves_up,
-            automated_reserves_down,
-        ) = self._compute_reserves_time(time, parameters)
+        # Map reserve types to their target values and contracted variable names
+        constraints_config = [
+            ("contracted_diff_up", reserves_up, sum_reserves["reserves_up"]),
+            ("contracted_diff_down", reserves_down, sum_reserves["reserves_down"]),
+            ("automated_contracted_diff_up", automated_reserves_up, sum_reserves["automated_reserves_up"]),
+            ("automated_contracted_diff_down", automated_reserves_down, sum_reserves["automated_reserves_down"]),
+        ]
 
-        model.add_constraint(
-            model.get_variable(f"contracted_diff_up_{self.name}_{time}") >= reserves_up - sum_reserves_up_var
-        )
-
-        model.add_constraint(
-            model.get_variable(f"contracted_diff_down_{self.name}_{time}") >= reserves_down - sum_reserves_down_var
-        )
-
-        model.add_constraint(
-            model.get_variable(f"automated_contracted_diff_up_{self.name}_{time}")
-            >= automated_reserves_up - sum_automated_reserves_up_var
-        )
-
-        model.add_constraint(
-            model.get_variable(f"automated_contracted_diff_down_{self.name}_{time}")
-            >= automated_reserves_down - sum_automated_reserves_down_var
-        )
+        # Add all constraints
+        for var_name, target, sum_var in constraints_config:
+            model.add_constraint(model.get_variable(f"{var_name}_{self.name}_{time}") >= target - sum_var)
 
     def _add_global_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
@@ -269,15 +248,13 @@ class PortfolioPO(Portfolio):
         self, model: OptimisationModel, time: DateTime, maximum_power: float
     ) -> None:
         """Add contract difference variables to the optimization model."""
-        [
+        for v in [
+            "contracted_diff_up",
+            "contracted_diff_down",
+            "automated_contracted_diff_up",
+            "automated_contracted_diff_down",
+        ]:
             model.add_continuous_variable(name=f"{v}_{self.name}_{time}", lower_bound=0, upper_bound=maximum_power)
-            for v in [
-                "contracted_diff_up",
-                "contracted_diff_down",
-                "automated_contracted_diff_up",
-                "automated_contracted_diff_down",
-            ]
-        ]
 
     def _get_sum_power_level_variables(
         self,
