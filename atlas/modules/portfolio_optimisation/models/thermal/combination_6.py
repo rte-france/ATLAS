@@ -34,11 +34,22 @@ def add_initial_conditions(
     model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
     extended_start_date: DateTime,
-    power_timeseries: Timeseries | None,
     day_zero: bool,
     **kwargs,
 ) -> None:
-    """Combination 6: T_stop=0, T_start>=1, T_stable>=1"""
+    """Combination 6: T_stop=0, T_start>=1, T_stable>=1
+
+    Args:
+        thermal_unit: The thermal unit to initialize
+        model: The optimization model
+        parameters: Portfolio optimization parameters
+        extended_start_date: The extended start date for initialization
+        day_zero: Whether this is day zero (no historical data)
+        **kwargs: Additional arguments including:
+            - power_timeseries: Historical power data (optional for day_zero, required otherwise)
+            - initial_times: List of times to initialize
+            - stable_initial_times: List of stable times to initialize
+    """
     if day_zero:
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(thermal_unit, model, time)
@@ -50,6 +61,12 @@ def add_initial_conditions(
 
     else:
         # Non-dayZero case: Initialize based on power history
+        power_timeseries = kwargs.get("power_timeseries")
+        if not isinstance(power_timeseries, Timeseries):
+            raise ValueError("power_timeseries is required in kwargs when day_zero is False")
+        if thermal_unit.minimum_power is None:
+            raise ValueError("minimum_power is required when day_zero is False")
+
         for time in kwargs.get("initial_times", []):
             power_at_time = power_timeseries.get_value(time)
             min_power = thermal_unit.minimum_power.get_value(time)
@@ -194,6 +211,9 @@ def add_constraints(
         model: Optimization model to add constraints to
         parameters: Portfolio optimization parameters
     """
+    if thermal_unit.minimum_power is None or thermal_unit.maximum_power is None:
+        raise ValueError("minimum_power and maximum_power cannot be None")
+
     prev_time = time - parameters.timestep
 
     # Get variables
@@ -215,7 +235,6 @@ def add_constraints(
     on_down_prev_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{prev_time}")
     on_flat_prev_var = model.get_variable(f"ON_FLAT_{thermal_unit.name}_{prev_time}")
     stop_prev_var = model.get_variable(f"STOP_{thermal_unit.name}_{prev_time}")
-    power_prev_var = model.get_variable(f"{thermal_unit.name}_power_level_{prev_time}")
 
     # Reserve variables
     reserves_up_var = model.get_variable(f"reserves_up_{thermal_unit.name}_{time}")

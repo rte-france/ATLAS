@@ -33,12 +33,21 @@ def add_initial_conditions(
     model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
     extended_start_date: DateTime,
-    power_timeseries: Timeseries | None,
     day_zero: bool,
     **kwargs,
 ) -> None:
-    """Combination 2: T_stop>=1, T_start=0, T_stable=0"""
+    """Combination 2: T_stop>=1, T_start=0, T_stable=0
 
+    Args:
+        thermal_unit: The thermal unit to initialize
+        model: The optimization model
+        parameters: Portfolio optimization parameters
+        extended_start_date: The extended start date for initialization
+        day_zero: Whether this is day zero (no historical data)
+        **kwargs: Additional arguments including:
+            - power_timeseries: Historical power data (required if day_zero=False)
+            - initial_times: List of times to initialize
+    """
     if day_zero:
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(thermal_unit, model, time)
@@ -47,6 +56,12 @@ def add_initial_conditions(
             initialize_day_zero_down_to_stop(thermal_unit, model, time)
     else:
         # Non-dayZero case: Initialize based on power history
+        power_timeseries = kwargs.get("power_timeseries")
+        if not isinstance(power_timeseries, Timeseries):
+            raise ValueError("power_timeseries is required in kwargs when day_zero is False")
+        if thermal_unit.minimum_power is None:
+            raise ValueError("minimum_power is required when day_zero is False")
+
         for time in kwargs.get("initial_times", []):
             power_at_time = power_timeseries.get_value(time)
             min_power = thermal_unit.minimum_power.get_value(time)
@@ -130,6 +145,9 @@ def add_constraints(
         model: Optimization model to add constraints to
         parameters: Portfolio optimization parameters
     """
+    if thermal_unit.minimum_power is None or thermal_unit.maximum_power is None:
+        raise ValueError("minimum_power and maximum_power cannot be None")
+
     prev_time = time - parameters.timestep
 
     # Get variables

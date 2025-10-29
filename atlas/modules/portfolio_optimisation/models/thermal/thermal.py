@@ -414,8 +414,8 @@ class ThermalPO(Thermal):
             model=model,
             parameters=parameters,
             extended_start_date=initial_times[0],
-            power_timeseries=power_timeseries,
             day_zero=day_zero,
+            power_timeseries=power_timeseries,
             initial_times=initial_times,
             stable_initial_times=stable_initial_times,
         )

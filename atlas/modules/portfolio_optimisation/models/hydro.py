@@ -279,19 +279,29 @@ class HydroPO(Hydro):
                 )
 
             else:
-                filter_dates = cast(list[DateTime], [parameters.start_date - parameters.timestep, parameters.end_date])
                 return (
-                    self.initial_level.filter(filter_dates)
+                    self.initial_level.slice(
+                        start_bound=parameters.start_date - parameters.timestep,
+                        end_bound=parameters.end_date,
+                    )
                     if isinstance(self.initial_level, Timeseries)
-                    else self.initial_level.filter(filter_dates).collect()
+                    else self.initial_level.slice(
+                        start_bound=parameters.start_date - parameters.timestep,
+                        end_bound=parameters.end_date,
+                    ).collect()
                 )
 
         else:
-            filter_dates = cast(list[DateTime], [parameters.start_date - parameters.timestep, parameters.end_date])
             return (
-                self.initial_level.filter(filter_dates)
+                self.initial_level.slice(
+                    start_bound=parameters.start_date - parameters.timestep,
+                    end_bound=parameters.end_date,
+                )
                 if isinstance(self.initial_level, Timeseries)
-                else self.initial_level.filter(filter_dates).collect()
+                else self.initial_level.slice(
+                    start_bound=parameters.start_date - parameters.timestep,
+                    end_bound=parameters.end_date,
+                ).collect()
             )
 
     def get_optimisation_time_window(
