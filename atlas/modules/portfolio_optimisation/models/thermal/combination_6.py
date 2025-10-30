@@ -198,19 +198,7 @@ def add_initial_conditions(
 def add_constraints(
     thermal_unit: ThermalPO, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
 ) -> None:
-    """Add constraints for Combination 6: T_stop >= 1, T_stable >= 1, T_start = 0
-
-    This combination represents the scenario where:
-    - T_stop >= 1: Minimum stop time requirement (shutdown sequence)
-    - T_stable >= 1: Minimum stable operation time requirement
-    - T_start = 0: No minimum start time requirement
-
-    Args:
-        thermal_unit: The thermal unit to add constraints for
-        time: Current time step
-        model: Optimization model to add constraints to
-        parameters: Portfolio optimization parameters
-    """
+    """Add constraints for Combination 6: T_stop >= 1, T_stable >= 1, T_start >= 1"""
     if thermal_unit.minimum_power is None or thermal_unit.maximum_power is None:
         raise ValueError("minimum_power and maximum_power cannot be None")
 

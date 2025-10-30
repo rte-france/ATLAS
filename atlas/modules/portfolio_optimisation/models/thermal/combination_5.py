@@ -247,7 +247,6 @@ def add_constraints(
     down_grad_prev_var = model.get_variable(f"DOWN_grad_{prev_time}_{thermal_unit.name}")
     aux_down_grad_var = model.get_variable(f"aux_down_grad_{time}_{thermal_unit.name}")
     dd_grad_prev_var = model.get_variable(f"DD_grad_{prev_time}_{thermal_unit.name}")
-    dd_grad_var = model.get_variable(f"DD_grad_{time}_{thermal_unit.name}")
 
     off_prev_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{prev_time}")
     on_up_prev_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{prev_time}")
@@ -388,6 +387,20 @@ def add_constraints(
         <= max_power * (on_up_var + on_down_var + on_flat_var) + stop_var * q_min - turned_off_var * q_step
     )
 
+    model.add_constraint(aux_up_grad_var <= max_power * on_up_prev_var)
+    model.add_constraint(aux_up_grad_var >= min_power * on_down_prev_var)
+    model.add_constraint(aux_up_grad_var <= power_level_var - power_level_prev_var - min_power * (1 - on_up_prev_var))
+    model.add_constraint(aux_up_grad_var >= power_level_var - power_level_prev_var - max_power * (1 - on_up_prev_var))
+
+    model.add_constraint(aux_down_grad_var <= max_power * on_down_prev_var)
+    model.add_constraint(aux_down_grad_var >= min_power * on_down_prev_var)
+    model.add_constraint(
+        aux_down_grad_var <= power_level_var - power_level_prev_var - min_power * (1 - on_down_prev_var)
+    )
+    model.add_constraint(
+        aux_down_grad_var >= power_level_var - power_level_prev_var - max_power * (1 - on_down_prev_var)
+    )
+
     model.add_constraint(up_grad_var <= max_power * on_up_var)
     model.add_constraint(up_grad_var >= min_power * on_up_var)
     model.add_constraint(up_grad_var <= aux_up_grad_var - min_power * (1 - on_up_var))
@@ -421,6 +434,11 @@ def add_constraints(
         model.add_constraint(stop_2_prev_var + on_up_prev_var <= 1)
 
     if time in thermal_unit.optimisation_time_window[:-1]:
+        model.add_constraint(dd_grad_prev_var <= max_power * stop_var)
+        model.add_constraint(dd_grad_prev_var >= min_power * stop_var)
+        model.add_constraint(dd_grad_prev_var <= down_grad_prev_var - min_power * (1 - stop_var))
+        model.add_constraint(dd_grad_prev_var >= down_grad_prev_var - max_power * (1 - stop_var))
+
         if thermal_unit._Delta_Q > 0:
             model.add_constraint(
                 power_level_var - power_level_prev_var
