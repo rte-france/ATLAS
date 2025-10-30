@@ -12,6 +12,7 @@ from collections.abc import Callable
 from pendulum import DateTime, Duration
 from pydantic import model_validator
 
+import atlas.config as cfg
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
@@ -224,7 +225,6 @@ class ThermalPO(Thermal):
         if time not in self.optimisation_time_window:
             return
 
-        # Delegate to the appropriate combination method
         constraint_functions = {
             1: combination_1.add_constraints,
             2: combination_2.add_constraints,
@@ -235,6 +235,8 @@ class ThermalPO(Thermal):
             7: combination_7.add_constraints,
             8: combination_8.add_constraints,
         }
+
+        cfg.logger.debug(f"Adding constraints combination {self._combination} for {self.name}")
 
         constraint_function = constraint_functions.get(self._combination, combination_1.add_constraints)
         constraint_function(self, time, model, parameters)

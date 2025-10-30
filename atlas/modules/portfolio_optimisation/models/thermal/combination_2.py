@@ -132,19 +132,8 @@ def add_initial_conditions(
 def add_constraints(
     thermal_unit: ThermalPO, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
 ) -> None:
-    """Add constraints for Combination 2: T_stop >= 1, T_stable = T_start = 0
+    """Add constraints for Combination 2: T_stop >= 1, T_stable = T_start = 0"""
 
-    This combination represents the scenario where:
-    - T_stop >= 1: Minimum stop time requirement (shutdown sequence)
-    - T_stable = 0: No stable operation time requirement
-    - T_start = 0: No minimum start time requirement
-
-    Args:
-        thermal_unit: The thermal unit to add constraints for
-        time: Current time step
-        model: Optimization model to add constraints to
-        parameters: Portfolio optimization parameters
-    """
     if thermal_unit.minimum_power is None or thermal_unit.maximum_power is None:
         raise ValueError("minimum_power and maximum_power cannot be None")
 
@@ -205,10 +194,9 @@ def add_constraints(
     model.add_constraint(on_up_prev_var + off_var <= 1)
     model.add_constraint(on_down_prev_var + off_var <= 1)
 
-    if thermal_unit._T_stop > 1:
-        eviction_time = time - (thermal_unit._T_stop - 1) * parameters.timestep
-        turned_off_eviction_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{eviction_time}")
-        model.add_constraint(turned_off_eviction_var + stop_var <= 1)
+    eviction_time = time - (thermal_unit._T_stop - 1) * parameters.timestep
+    turned_off_eviction_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{eviction_time}")
+    model.add_constraint(turned_off_eviction_var + stop_var <= 1)
 
     if thermal_unit._T_on >= 2:
         for s in range(1, thermal_unit._T_on):
