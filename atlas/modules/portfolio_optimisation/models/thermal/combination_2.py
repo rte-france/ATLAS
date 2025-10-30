@@ -205,13 +205,11 @@ def add_constraints(
     model.add_constraint(on_up_prev_var + off_var <= 1)
     model.add_constraint(on_down_prev_var + off_var <= 1)
 
-    # Eviction constraint (equation 19)
     if thermal_unit._T_stop > 1:
         eviction_time = time - (thermal_unit._T_stop - 1) * parameters.timestep
         turned_off_eviction_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{eviction_time}")
         model.add_constraint(turned_off_eviction_var + stop_var <= 1)
 
-    # Minimum time constraints
     if thermal_unit._T_on >= 2:
         for s in range(1, thermal_unit._T_on):
             local_time = time - s * parameters.timestep
@@ -224,7 +222,6 @@ def add_constraints(
             turned_off_local_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{local_time}")
             model.add_constraint(turned_off_local_var <= off_var)
 
-    # Shutdown ramp constraints
     if thermal_unit._T_stop >= 2:
         for s in range(1, thermal_unit._T_stop - 1):
             local_time = time - s * parameters.timestep
@@ -257,25 +254,20 @@ def add_constraints(
         >= min_power - parameters.allowed_round_off_error
     )
 
-    # Relaxed reserve disabling condition
     model.add_constraint(relaxed_reserves_var <= min_power * (1 - on_up_var - on_down_var))
 
-    # Reserve availability constraints - now includes STOP state
     model.add_constraint(automated_reserves_up_var <= maximum_automated * (1 - off_var - stop_var))
     model.add_constraint(automated_reserves_down_var <= maximum_automated * (1 - off_var - stop_var))
     model.add_constraint(reserves_up_var <= max_power * (1 - off_var - stop_var))
     model.add_constraint(reserves_down_var <= max_power * (1 - off_var - stop_var))
 
-    # Power output bounds with shutdown gradient
     model.add_constraint(power_level_var >= min_power * (on_up_var + on_down_var) + turned_off_var * (q_min - q_step))
     model.add_constraint(
         power_level_var <= max_power * (on_up_var + on_down_var) + stop_var * q_min - turned_off_var * q_step
     )
 
-    # Power gradients with shutdown considerations
-    if time in thermal_unit.optimisation_time_window[:-1]:  # Not the last time step
-        if thermal_unit._Delta_Q > 0:  # Finite gradient
-            # Upward gradient
+    if time in thermal_unit.optimisation_time_window[:-1]:
+        if thermal_unit._Delta_Q > 0:
             model.add_constraint(
                 power_level_var - power_level_prev_var
                 <= thermal_unit._Delta_Q * on_up_prev_var
@@ -283,7 +275,7 @@ def add_constraints(
                 - stop_prev_var * q_step
                 + thermal_unit._Delta_Q_unconstrained * turned_on_var
             )
-            # Downward gradient
+
             model.add_constraint(
                 power_level_var - power_level_prev_var
                 >= -thermal_unit._Delta_Q * on_down_prev_var
@@ -291,7 +283,7 @@ def add_constraints(
                 - stop_prev_var * q_step
                 + down_to_stop_var * thermal_unit._Delta_Q
             )
-        elif thermal_unit._Delta_Q == 0:  # Infinite gradient
+        elif thermal_unit._Delta_Q == 0:
             model.add_constraint(
                 power_level_var - power_level_prev_var
                 <= thermal_unit._Delta_Q_unconstrained * on_up_prev_var

@@ -175,7 +175,7 @@ def add_initial_conditions(
 def add_constraints(
     thermal_unit: ThermalPO, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
 ) -> None:
-    """Add constraints for Combination 3: T_start >= 1, T_stop = T_stable = 0
+    """Add constraints for Combination 3: T_start = 0, T_stop = T_stable >= 1
 
     This combination represents the scenario where:
     - T_start >= 1: Minimum start time requirement (startup sequence)
@@ -217,6 +217,8 @@ def add_constraints(
     on_down_prev_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{prev_time}")
     on_flat_prev_var = model.get_variable(f"ON_FLAT_{thermal_unit.name}_{prev_time}")
     power_prev_var = model.get_variable(f"{thermal_unit.name}_power_level_{prev_time}")
+    on_up_prev_2_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{prev_time - parameters.timestep}")
+    on_down_prev_2_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{prev_time - parameters.timestep}")
 
     # Reserve variables
     reserves_up_var = model.get_variable(f"reserves_up_{thermal_unit.name}_{time}")
@@ -227,76 +229,60 @@ def add_constraints(
     unprovided_reserves_down_var = model.get_variable(f"unprovided_reserves_down_{thermal_unit.name}_{time}")
     relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{thermal_unit.name}_{time}")
 
-    # Power bounds
-    q_upper = thermal_unit.maximum_power.get_value(time)
-    q_lower = thermal_unit.minimum_power.get_value(time)
+    max_power = thermal_unit.maximum_power.get_value(time)
+    min_power = thermal_unit.minimum_power.get_value(time)
     maximum_automated = get_maximum_automated(thermal_unit)
 
-    # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
-
-    # Constraints on turned_on (sec. 6.1.1)
     model.add_constraint(turned_on_var <= 1 - off_var)
     model.add_constraint(turned_on_var <= off_prev_var)
     model.add_constraint(turned_on_var >= off_prev_var - off_var)
 
-    # Constraints on turned_off (sec. 6.1.2)
     model.add_constraint(turned_off_var <= 1 - off_prev_var)
     model.add_constraint(turned_off_var <= off_var)
     model.add_constraint(turned_off_var >= off_var - off_prev_var)
 
-    # Constraints on stable (sec. 6.1.3)
     model.add_constraint(stable_var <= 1 - on_flat_prev_var)
     model.add_constraint(stable_var <= on_flat_var)
     model.add_constraint(stable_var >= on_flat_var - on_flat_prev_var)
 
-    # Constraints on entered_up
     model.add_constraint(entered_up_var <= 1 - on_up_prev_var)
     model.add_constraint(entered_up_var <= on_up_var)
     model.add_constraint(entered_up_var >= on_up_var - on_up_prev_var)
 
-    # Constraints on entered_down
     model.add_constraint(entered_down_var <= 1 - on_down_prev_var)
     model.add_constraint(entered_down_var <= on_down_var)
     model.add_constraint(entered_down_var >= on_down_var - on_down_prev_var)
 
-    # UP and DOWN "semi-continuous" variables for the gradient
-    # First stage: tilde_U and tilde_D (aux_up_grad and aux_down_grad)
-    # tilde_U (aux_up_grad)
-    model.add_constraint(aux_up_grad_var <= q_upper * on_up_prev_var)
-    model.add_constraint(aux_up_grad_var >= q_lower * on_up_prev_var)
-    model.add_constraint(aux_up_grad_var <= power_level_var - power_prev_var - q_lower * (1 - on_up_prev_var))
-    model.add_constraint(aux_up_grad_var >= power_level_var - power_prev_var - q_upper * (1 - on_up_prev_var))
+    model.add_constraint(aux_up_grad_var <= max_power * on_up_prev_var)
+    model.add_constraint(aux_up_grad_var >= min_power * on_up_prev_var)
+    model.add_constraint(aux_up_grad_var <= power_level_var - power_prev_var - min_power * (1 - on_up_prev_var))
+    model.add_constraint(aux_up_grad_var >= power_level_var - power_prev_var - max_power * (1 - on_up_prev_var))
 
-    # tilde_D (aux_down_grad)
-    model.add_constraint(aux_down_grad_var <= q_upper * on_down_prev_var)
-    model.add_constraint(aux_down_grad_var >= q_lower * on_down_prev_var)
-    model.add_constraint(aux_down_grad_var <= power_level_var - power_prev_var - q_lower * (1 - on_down_prev_var))
-    model.add_constraint(aux_down_grad_var >= power_level_var - power_prev_var - q_upper * (1 - on_down_prev_var))
+    model.add_constraint(aux_down_grad_var <= max_power * on_down_prev_var)
+    model.add_constraint(aux_down_grad_var >= min_power * on_down_prev_var)
+    model.add_constraint(aux_down_grad_var <= power_level_var - power_prev_var - min_power * (1 - on_down_prev_var))
+    model.add_constraint(aux_down_grad_var >= power_level_var - power_prev_var - max_power * (1 - on_down_prev_var))
 
-    # Second stage: U and D (up_grad and down_grad)
-    # U (up_grad)
-    model.add_constraint(up_grad_var <= q_upper * on_up_var)
-    model.add_constraint(up_grad_var >= q_lower * on_up_var)
-    model.add_constraint(up_grad_var <= aux_up_grad_var - q_lower * (1 - on_up_var))
-    model.add_constraint(up_grad_var >= aux_up_grad_var - q_upper * (1 - on_up_var))
+    model.add_constraint(up_grad_var <= max_power * on_up_var)
+    model.add_constraint(up_grad_var >= min_power * on_up_var)
+    model.add_constraint(up_grad_var <= aux_up_grad_var - min_power * (1 - on_up_var))
+    model.add_constraint(up_grad_var >= aux_up_grad_var - max_power * (1 - on_up_var))
 
-    # D (down_grad)
-    model.add_constraint(down_grad_var <= q_upper * on_down_var)
-    model.add_constraint(down_grad_var >= q_lower * on_down_var)
-    model.add_constraint(down_grad_var <= aux_down_grad_var - q_lower * (1 - on_down_var))
-    model.add_constraint(down_grad_var >= aux_down_grad_var - q_upper * (1 - on_down_var))
+    model.add_constraint(down_grad_var <= max_power * on_down_var)
+    model.add_constraint(down_grad_var >= min_power * on_down_var)
+    model.add_constraint(down_grad_var <= aux_down_grad_var - min_power * (1 - on_down_var))
+    model.add_constraint(down_grad_var >= aux_down_grad_var - max_power * (1 - on_down_var))
 
-    # B. CONSTRAINTS ON THE STATE VARIABLES
-
-    # Mutual exclusion constraint - now includes ON_FLAT state
     model.add_constraint(off_var + on_up_var + on_down_var + on_flat_var == 1)
 
-    # Transition constraints
-    # UP-DOWN and DOWN-UP transitions are forbidden
     model.add_constraint(on_up_prev_var + on_down_var <= 1)
     model.add_constraint(on_down_prev_var + on_up_var <= 1)
 
-    # Minimum time constraints
+    if time == thermal_unit.optimisation_time_window[0]:
+        model.add_constraint(off_prev_var + on_up_prev_var + on_down_prev_var + on_flat_prev_var == 1)
+        model.add_constraint(on_up_prev_2_var + on_down_prev_var <= 1)
+        model.add_constraint(on_down_prev_2_var + on_up_prev_var <= 1)
+
     if thermal_unit._T_on >= 2:
         for s in range(1, thermal_unit._T_on):
             local_time = time - s * parameters.timestep
@@ -315,16 +301,13 @@ def add_constraints(
             stable_local_var = model.get_variable(f"stable_{local_time}_{thermal_unit.name}")
             model.add_constraint(stable_local_var <= on_flat_var)
 
-    # C. CONSTRAINTS ON THE CONTROL VARIABLE
-
-    # Reserve "fill up" constraints
     model.add_constraint(
         power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-        <= q_upper + parameters.allowed_round_off_error
+        <= max_power + parameters.allowed_round_off_error
     )
     model.add_constraint(
         power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-        >= q_upper - parameters.allowed_round_off_error
+        >= max_power - parameters.allowed_round_off_error
     )
 
     model.add_constraint(
@@ -333,7 +316,7 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        <= q_lower + parameters.allowed_round_off_error
+        <= min_power + parameters.allowed_round_off_error
     )
     model.add_constraint(
         power_level_var
@@ -341,27 +324,22 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        >= q_lower - parameters.allowed_round_off_error
+        >= min_power - parameters.allowed_round_off_error
     )
 
-    # Relaxed reserve disabling condition - includes ON_FLAT state
-    model.add_constraint(relaxed_reserves_var <= q_lower * (1 - on_up_var - on_flat_var - on_down_var))
+    model.add_constraint(relaxed_reserves_var <= min_power * (1 - on_up_var - on_flat_var - on_down_var))
 
-    # Reserve availability constraints
     model.add_constraint(automated_reserves_up_var <= maximum_automated * (1 - off_var))
     model.add_constraint(automated_reserves_down_var <= maximum_automated * (1 - off_var))
-    # Manual reserves only available in FLAT state (not during ramping)
-    model.add_constraint(reserves_up_var <= q_upper * (1 - off_var - on_up_var - on_down_var))
-    model.add_constraint(reserves_down_var <= q_upper * (1 - off_var - on_up_var - on_down_var))
 
-    # Power output bounds - includes ON_FLAT state
-    model.add_constraint(power_level_var >= q_lower * (on_up_var + on_down_var + on_flat_var))
-    model.add_constraint(power_level_var <= q_upper * (on_up_var + on_down_var + on_flat_var))
+    model.add_constraint(reserves_up_var <= max_power * (1 - off_var - on_up_var - on_down_var))
+    model.add_constraint(reserves_down_var <= max_power * (1 - off_var - on_up_var - on_down_var))
 
-    # Power gradients with gradient auxiliary variables
-    if time in thermal_unit.optimisation_time_window[:-1]:  # Not the last time step
-        if thermal_unit._Delta_Q > 0:  # Finite gradient
-            # Upward gradient
+    model.add_constraint(power_level_var >= min_power * (on_up_var + on_down_var + on_flat_var))
+    model.add_constraint(power_level_var <= max_power * (on_up_var + on_down_var + on_flat_var))
+
+    if time in thermal_unit.optimisation_time_window[:-1]:
+        if thermal_unit._Delta_Q > 0:
             model.add_constraint(
                 power_level_var - power_prev_var
                 <= thermal_unit._Delta_Q * entered_up_var
@@ -369,7 +347,7 @@ def add_constraints(
                 + down_grad_var
                 + thermal_unit._Delta_Q_unconstrained * turned_on_var
             )
-            # Downward gradient
+
             model.add_constraint(
                 power_level_var - power_prev_var
                 >= -thermal_unit._Delta_Q * entered_down_var
@@ -377,7 +355,7 @@ def add_constraints(
                 + down_grad_var
                 - thermal_unit._Delta_Q_unconstrained * turned_off_var
             )
-        elif thermal_unit._Delta_Q == 0:  # Infinite gradient
+        elif thermal_unit._Delta_Q == 0:
             model.add_constraint(
                 power_level_var - power_prev_var
                 <= thermal_unit._Delta_Q_unconstrained * entered_up_var
@@ -392,8 +370,3 @@ def add_constraints(
                 + down_grad_var
                 - thermal_unit._Delta_Q_unconstrained * turned_off_var
             )
-
-    # Daily energy constraints (if applicable)
-    if thermal_unit.has_daily_energy_constraint:
-        # This would need to be implemented at a higher level since it requires all time steps for a day
-        pass
