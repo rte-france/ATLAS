@@ -137,7 +137,7 @@ def add_constraints(
     off_prev_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{prev_time}")
     on_up_prev_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{prev_time}")
     on_down_prev_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{prev_time}")
-    power_prev_var = model.get_variable(f"{thermal_unit.name}_power_level_{prev_time}")
+    power_level_prev_var = model.get_variable(f"{thermal_unit.name}_power_level_{prev_time}")
 
     # Reserve variables
     reserves_up_var = model.get_variable(f"reserves_up_{thermal_unit.name}_{time}")
@@ -149,28 +149,20 @@ def add_constraints(
     relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{thermal_unit.name}_{time}")
 
     # Power bounds
-    q_upper = thermal_unit.maximum_power.get_value(time)
-    q_lower = thermal_unit.minimum_power.get_value(time)
+    max_power = thermal_unit.maximum_power.get_value(time)
+    min_power = thermal_unit.minimum_power.get_value(time)
     maximum_automated = get_maximum_automated(thermal_unit)
 
-    # A. CONSTRAINTS ON THE AUXILIARY VARIABLES
-
-    # Constraints on turned_on (sec. 6.1.1)
     model.add_constraint(turned_on_var <= 1 - off_var)
     model.add_constraint(turned_on_var <= off_prev_var)
     model.add_constraint(turned_on_var >= off_prev_var - off_var)
 
-    # Constraints on turned_off (sec. 6.1.2)
     model.add_constraint(turned_off_var <= 1 - off_prev_var)
     model.add_constraint(turned_off_var <= off_var)
     model.add_constraint(turned_off_var >= off_var - off_prev_var)
 
-    # B. CONSTRAINTS ON THE STATE VARIABLES
-
-    # Mutual exclusion constraint
     model.add_constraint(off_var + on_up_var + on_down_var == 1)
 
-    # Minimum time on and off constraints
     if thermal_unit._T_on >= 2:
         for s in range(1, thermal_unit._T_on):
             local_time = time - s * parameters.timestep
@@ -183,28 +175,22 @@ def add_constraints(
             turned_off_local_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{local_time}")
             model.add_constraint(turned_off_local_var <= off_var)
 
-    # C. CONSTRAINTS ON THE CONTROL VARIABLE
-
-    # Reserve "fill up" constraints
-
-    # Upward constraint
     model.add_constraint(
         power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-        <= q_upper + parameters.allowed_round_off_error
+        <= max_power + parameters.allowed_round_off_error
     )
     model.add_constraint(
         power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-        >= q_upper - parameters.allowed_round_off_error
+        >= max_power - parameters.allowed_round_off_error
     )
 
-    # Downward constraint
     model.add_constraint(
         power_level_var
         - reserves_down_var
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        <= q_lower + parameters.allowed_round_off_error
+        <= min_power + parameters.allowed_round_off_error
     )
     model.add_constraint(
         power_level_var
@@ -212,48 +198,39 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        >= q_lower - parameters.allowed_round_off_error
+        >= min_power - parameters.allowed_round_off_error
     )
 
-    # Relaxed reserve disabling condition
-    model.add_constraint(relaxed_reserves_var <= q_lower * (1 - on_up_var - on_down_var))
+    model.add_constraint(relaxed_reserves_var <= min_power * (1 - on_up_var - on_down_var))
 
-    # Reserve availability constraints
     model.add_constraint(automated_reserves_up_var <= maximum_automated * (1 - off_var))
     model.add_constraint(automated_reserves_down_var <= maximum_automated * (1 - off_var))
-    model.add_constraint(reserves_up_var <= q_upper * (1 - off_var))
-    model.add_constraint(reserves_down_var <= q_upper * (1 - off_var))
+    model.add_constraint(reserves_up_var <= max_power * (1 - off_var))
+    model.add_constraint(reserves_down_var <= max_power * (1 - off_var))
 
-    # Power output bounds
-    model.add_constraint(power_level_var >= q_lower * (on_up_var + on_down_var))
-    model.add_constraint(power_level_var <= q_upper * (on_up_var + on_down_var))
+    model.add_constraint(power_level_var >= min_power * (on_up_var + on_down_var))
+    model.add_constraint(power_level_var <= max_power * (on_up_var + on_down_var))
 
-    # Power gradients (if not the last time step)
-    if time in thermal_unit.optimisation_time_window[:-1]:  # Not the last time step
+    if time in thermal_unit.optimisation_time_window[:-1]:
         if thermal_unit._Delta_Q > 0:  # Finite gradient
             # Upward gradient
             model.add_constraint(
-                power_level_var - power_prev_var
+                power_level_var - power_level_prev_var
                 <= thermal_unit._Delta_Q * on_up_prev_var + thermal_unit._Delta_Q_unconstrained * turned_on_var
             )
             # Downward gradient
             model.add_constraint(
-                power_level_var - power_prev_var
+                power_level_var - power_level_prev_var
                 >= -thermal_unit._Delta_Q * on_down_prev_var - thermal_unit._Delta_Q_unconstrained * turned_off_var
             )
-        elif thermal_unit._Delta_Q == 0:  # Infinite gradient
+        elif thermal_unit._Delta_Q == 0:
             model.add_constraint(
-                power_level_var - power_prev_var
+                power_level_var - power_level_prev_var
                 <= thermal_unit._Delta_Q_unconstrained * on_up_prev_var
                 + thermal_unit._Delta_Q_unconstrained * turned_on_var
             )
             model.add_constraint(
-                power_level_var - power_prev_var
+                power_level_var - power_level_prev_var
                 >= -thermal_unit._Delta_Q_unconstrained * on_down_prev_var
                 - thermal_unit._Delta_Q_unconstrained * turned_off_var
             )
-
-    # Daily energy constraints (if applicable)
-    if thermal_unit.has_daily_energy_constraint:
-        # This would need to be implemented at a higher level since it requires all time steps for a day
-        pass
