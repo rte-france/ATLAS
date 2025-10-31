@@ -417,8 +417,7 @@ def add_constraints(
                 <= thermal_unit._Delta_Q * entered_up_prev_var
                 + up_grad_prev_var
                 + down_grad_prev_var
-                - q_step * turned_off_var
-                - stop_prev_var * q_step
+                - q_step * (turned_off_var + stop_prev_var)
                 + thermal_unit._Delta_Q_unconstrained * turned_on_var
                 - dd_grad_prev_var
             )
@@ -428,8 +427,7 @@ def add_constraints(
                 >= -thermal_unit._Delta_Q * entered_down_prev_var
                 + up_grad_prev_var
                 + down_grad_prev_var
-                - q_step * turned_off_var
-                - stop_prev_var * q_step
+                - q_step * (turned_off_var + stop_prev_var)
                 + thermal_unit._Delta_Q * flat_down_stop_var
                 - dd_grad_prev_var
             )
@@ -439,8 +437,7 @@ def add_constraints(
                 <= thermal_unit._Delta_Q_unconstrained * entered_up_prev_var
                 + up_grad_prev_var
                 + down_grad_prev_var
-                - q_step * turned_off_var
-                - stop_prev_var * q_step
+                - q_step * (turned_off_var + stop_prev_var)
                 + thermal_unit._Delta_Q_unconstrained * turned_on_var
             )
 
@@ -449,8 +446,7 @@ def add_constraints(
                 >= -thermal_unit._Delta_Q_unconstrained * entered_down_prev_var
                 + up_grad_prev_var
                 + down_grad_prev_var
-                - q_step * turned_off_var
-                - stop_prev_var * q_step
+                - q_step * (turned_off_var + stop_prev_var)
                 + flat_down_stop_var * thermal_unit._Delta_Q_unconstrained
                 - dd_grad_prev_var
             )
