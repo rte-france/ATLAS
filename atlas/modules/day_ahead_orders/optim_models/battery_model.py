@@ -33,22 +33,30 @@ class BatteryModel(DAOBaseModel):
         for t in self.time_frame:
             for i in range(power_fragments):
                 self.add_constraint(
-                    self.Qvf[t][i] * power_fragments <= self.equipment.maximum_power.get_value(t),
+                    self.get_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, i)) * power_fragments
+                    <= self.equipment.maximum_power.get_value(t),
                     f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
                 )
                 self.add_constraint(
-                    self.Qaf[t][i] * power_fragments <= abs(self.equipment.minimum_power.get_value(t)),
+                    self.get_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, i)) * power_fragments
+                    <= abs(self.equipment.minimum_power.get_value(t)),
                     f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
                 )
 
             # Total bought/sold energy at each time step is the sum of the fragments at time step
             self.add_constraint(
-                self.get_variable(DAOBaseModel.sold_at_key(t)) == sum(self.Qvf[t][i] for i in range(power_fragments)),
+                self.get_variable(DAOBaseModel.sold_at_key(t))
+                == sum(
+                    self.get_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, i)) for i in range(power_fragments)
+                ),
                 f"Evaluation_of_quantity_sold_at_{t}",
             )
             self.add_constraint(
                 self.get_variable(DAOBaseModel.purchased_at_key(t))
-                == sum(self.Qaf[t][i] for i in range(power_fragments)),
+                == sum(
+                    self.get_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, i))
+                    for i in range(power_fragments)
+                ),
                 f"Evaluation_of_quantity_purchased_at_{t}",
             )
 

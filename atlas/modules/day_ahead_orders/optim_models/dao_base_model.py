@@ -22,6 +22,8 @@ class DAOBaseModel(OptimisationModel):
     AMOUNT_PURCHASED_AT = "Amount_purchased_at_"
     IS_SELL_AT = "isSell_at_"
     STORED_ENERGY_AT = "StoredEnergy_at_"
+    AMOUNT_SOLD_IN_FRAGMENT = "Amount_sold_in_fragment_"
+    AMOUNT_PURCHASED_IN_FRAGMENT = "Amount_purchased_in_fragment_"
 
     def __init__(
         self,
@@ -53,9 +55,6 @@ class DAOBaseModel(OptimisationModel):
             self.parameters.end_date + self.optimizationPeriod - self.parameters.time_step,
             self.parameters.time_step,
         )
-        # Quantities bought and purchased in each fragment of power i at each time step
-        self.Qvf: dict[DateTime, Any] = {}
-        self.Qaf: dict[DateTime, Any] = {}
 
     @classmethod
     def sold_at_key(cls, t):
@@ -73,6 +72,14 @@ class DAOBaseModel(OptimisationModel):
     def stored_energy_at_key(cls, t):
         return f"{cls.STORED_ENERGY_AT}{t}"
 
+    @classmethod
+    def amount_sold_in_fragment_at_key(cls, t, i):
+        return f"{cls.AMOUNT_SOLD_IN_FRAGMENT}{i}_at_{t}"
+
+    @classmethod
+    def amount_purchased_in_fragment_at_key(cls, t, i):
+        return f"{cls.AMOUNT_PURCHASED_IN_FRAGMENT}{i}_at_{t}"
+
     def create_decision_variables(self, nb_fragments: int) -> None:
         """Creation of decision variables"""
 
@@ -85,12 +92,10 @@ class DAOBaseModel(OptimisationModel):
             # Energy stored in battery at each time step
             # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
             self.add_continuous_variable(DAOBaseModel.stored_energy_at_key(t), 0)
-
-            self.Qvf[t] = {}
-            self.Qaf[t] = {}
+            # Quantities bought and purchased in each fragment of power i at each time step
             for i in range(nb_fragments):
-                self.Qvf[t][i] = self.add_continuous_variable(f"Amount_sold_in_fragment_{i}_at_{t}", 0)
-                self.Qaf[t][i] = self.add_continuous_variable(f"Amount_purchased_in_fragment_{i}_at_{t}", 0)
+                self.add_continuous_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, i), 0)
+                self.add_continuous_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, i), 0)
 
     def create_objective_function(
         self, nb_fragments: int, smoothing_factor: float, direction: Literal["maximize", "minimize"] = "maximize"
@@ -101,8 +106,12 @@ class DAOBaseModel(OptimisationModel):
         if nb_fragments == 1:
             self.add_objective(
                 objective_expr=sum(
-                    self.price_forecast.get_value(t) * self.Qvf[t][0] * self.parameters.time_step.total_hours()
-                    - self.price_forecast.get_value(t) * self.Qaf[t][0] * self.parameters.time_step.total_hours()
+                    self.price_forecast.get_value(t)
+                    * self.get_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, 0))
+                    * self.parameters.time_step.total_hours()
+                    - self.price_forecast.get_value(t)
+                    * self.get_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, 0))
+                    * self.parameters.time_step.total_hours()
                     for t in self.time_frame
                 ),
                 direction=direction,
@@ -113,11 +122,11 @@ class DAOBaseModel(OptimisationModel):
                     sum(
                         self.price_forecast.get_value(t)
                         * (1 - i * smoothing_factor / (nb_fragments - 1))
-                        * self.Qvf[t][i]
+                        * self.get_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, i))
                         * self.parameters.time_step.total_hours()
                         - self.price_forecast.get_value(t)
                         * (1 + i * smoothing_factor / (nb_fragments - 1))
-                        * self.Qaf[t][i]
+                        * self.get_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, i))
                         * self.parameters.time_step.total_hours()
                         for i in range(nb_fragments)
                     )
