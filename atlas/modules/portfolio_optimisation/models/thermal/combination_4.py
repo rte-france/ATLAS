@@ -35,18 +35,7 @@ def add_initial_conditions(
     day_zero: bool,
     **kwargs,
 ) -> None:
-    """Combination 4: T_stop=0, T_start>=1, T_stable=0
-
-    Args:
-        thermal_unit: The thermal unit to initialize
-        model: The optimization model
-        parameters: Portfolio optimization parameters
-        extended_start_date: The extended start date for initialization
-        day_zero: Whether this is day zero (no historical data)
-        **kwargs: Additional arguments including:
-            - power_timeseries: Historical power data (required if day_zero=False)
-            - initial_times: List of times to initialize
-    """
+    """Combination 4: T_stop=0, T_start>=1, T_stable=0"""
     if day_zero:
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(thermal_unit, model, time)
