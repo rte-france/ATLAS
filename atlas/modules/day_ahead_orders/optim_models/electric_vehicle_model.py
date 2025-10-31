@@ -36,11 +36,13 @@ class ElectricVehicleModel(DAOBaseModel):
 
             # Total bought/sold energy at each tome step is the sum of the fragments at time step
             self.add_constraint(
-                self.Qv[t] == sum(self.Qvf[t][i] for i in range(self.parameters.ev_nb_fragments)),
+                self.get_variable(DAOBaseModel.sold_at_key(t))
+                == sum(self.Qvf[t][i] for i in range(self.parameters.ev_nb_fragments)),
                 f"Evaluation_of_quantity_sold_at_{t}",
             )
             self.add_constraint(
-                self.Qa[t] == sum(self.Qaf[t][i] for i in range(self.parameters.ev_nb_fragments)),
+                self.get_variable(DAOBaseModel.purchased_at_key(t))
+                == sum(self.Qaf[t][i] for i in range(self.parameters.ev_nb_fragments)),
                 f"Evaluation_of_quantity_purchased_at_{t}",
             )
 
@@ -56,8 +58,8 @@ class ElectricVehicleModel(DAOBaseModel):
                         )
                         + self.parameters.time_step.total_hours()
                         * (
-                            self.Qa[t] * self.equipment.charge_efficiency
-                            - self.Qv[t] / self.equipment.discharge_efficiency
+                            self.get_variable(DAOBaseModel.purchased_at_key(t)) * self.equipment.charge_efficiency
+                            - self.get_variable(DAOBaseModel.sold_at_key(t)) / self.equipment.discharge_efficiency
                         )
                         + (
                             self.equipment.displacement_energy.get_value(t)
@@ -77,8 +79,8 @@ class ElectricVehicleModel(DAOBaseModel):
                         )
                         + self.parameters.time_step.total_hours()
                         * (
-                            self.Qa[t] * self.equipment.charge_efficiency
-                            - self.Qv[t] / self.equipment.discharge_efficiency
+                            self.get_variable(DAOBaseModel.purchased_at_key(t)) * self.equipment.charge_efficiency
+                            - self.get_variable(DAOBaseModel.sold_at_key(t)) / self.equipment.discharge_efficiency
                         )
                         + (
                             self.equipment.displacement_energy.get_value(t)
@@ -90,16 +92,19 @@ class ElectricVehicleModel(DAOBaseModel):
 
             # Respect of system states constraints (isSell and is_v2g)
             self.add_constraint(
-                self.Qv[t] <= self.equipment.is_v2g * self.is_sell[t] * self.equipment.maximum_power.get_value(t),
+                self.get_variable(DAOBaseModel.sold_at_key(t))
+                <= self.equipment.is_v2g * self.is_sell[t] * self.equipment.maximum_power.get_value(t),
                 f"Respect_Pmax_sale_at_{t}",
             )
             self.add_constraint(
-                self.Qa[t]
+                self.get_variable(DAOBaseModel.purchased_at_key(t))
                 <= (1 - self.is_sell[t] * self.equipment.is_v2g) * abs(self.equipment.minimum_power.get_value(t)),
                 f"Respect_Pmax_purchase_at_{t}",
             )
-            self.add_constraint(self.Qv[t] >= 0, f"Respect_Pmin_sale_at_{t}")
-            self.add_constraint(self.Qa[t] >= 0, f"Respect_Pmin_purchase_at_{t}")
+            self.add_constraint(self.get_variable(DAOBaseModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
+            self.add_constraint(
+                self.get_variable(DAOBaseModel.purchased_at_key(t)) >= 0, f"Respect_Pmin_purchase_at_{t}"
+            )
 
             # Respect of minimum and maximum stoage level constraints
             self.add_constraint(
@@ -143,7 +148,8 @@ class ElectricVehicleModel(DAOBaseModel):
 
         # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
         self.add_constraint(
-            sum(self.Qa[t] for t in self.time_frame) * self.equipment.charge_efficiency
+            sum(self.get_variable(DAOBaseModel.purchased_at_key(t)) for t in self.time_frame)
+            * self.equipment.charge_efficiency
             >= (
                 self.equipment.displacement_energy.get_value(
                     self.parameters.end_date + self.optimizationPeriod - self.parameters.time_step

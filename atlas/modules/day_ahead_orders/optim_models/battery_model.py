@@ -43,11 +43,12 @@ class BatteryModel(DAOBaseModel):
 
             # Total bought/sold energy at each time step is the sum of the fragments at time step
             self.add_constraint(
-                self.Qv[t] == sum(self.Qvf[t][i] for i in range(power_fragments)),
+                self.get_variable(DAOBaseModel.sold_at_key(t)) == sum(self.Qvf[t][i] for i in range(power_fragments)),
                 f"Evaluation_of_quantity_sold_at_{t}",
             )
             self.add_constraint(
-                self.Qa[t] == sum(self.Qaf[t][i] for i in range(power_fragments)),
+                self.get_variable(DAOBaseModel.purchased_at_key(t))
+                == sum(self.Qaf[t][i] for i in range(power_fragments)),
                 f"Evaluation_of_quantity_purchased_at_{t}",
             )
 
@@ -59,8 +60,8 @@ class BatteryModel(DAOBaseModel):
                         initial_stock
                         + self.parameters.time_step.total_hours()
                         * (
-                            self.Qa[t] * self.equipment.charge_efficiency
-                            - self.Qv[t] / self.equipment.discharge_efficiency
+                            self.get_variable(DAOBaseModel.purchased_at_key(t)) * self.equipment.charge_efficiency
+                            - self.get_variable(DAOBaseModel.sold_at_key(t)) / self.equipment.discharge_efficiency
                         )
                     ),
                     f"Stock_tracking_at_{t + self.parameters.time_step}",
@@ -71,22 +72,27 @@ class BatteryModel(DAOBaseModel):
                     == self.stored_energy[t - self.parameters.time_step]
                     + self.parameters.time_step.total_hours()
                     * (
-                        self.Qa[t] * self.equipment.charge_efficiency - self.Qv[t] / self.equipment.discharge_efficiency
+                        self.get_variable(DAOBaseModel.purchased_at_key(t)) * self.equipment.charge_efficiency
+                        - self.get_variable(DAOBaseModel.sold_at_key(t)) / self.equipment.discharge_efficiency
                     ),
                     f"Stock_tracking_at_{t + self.parameters.time_step}",
                 )
 
             # Respect of system states constraints (isSell and isV2G)
             self.add_constraint(
-                self.Qv[t] <= self.is_sell[t] * self.equipment.maximum_power.get_value(t),
+                self.get_variable(DAOBaseModel.sold_at_key(t))
+                <= self.is_sell[t] * self.equipment.maximum_power.get_value(t),
                 f"Respect_Pmax_sale_at_{t}",
             )
             self.add_constraint(
-                self.Qa[t] <= (1 - self.is_sell[t]) * abs(self.equipment.minimum_power.get_value(t)),
+                self.get_variable(DAOBaseModel.purchased_at_key(t))
+                <= (1 - self.is_sell[t]) * abs(self.equipment.minimum_power.get_value(t)),
                 f"Respect_Pmax_purchase_at_{t}",
             )
-            self.add_constraint(self.Qv[t] >= 0, f"Respect_Pmin_sale_at_{t}")
-            self.add_constraint(self.Qa[t] >= 0, f"Respect_Pmin_purchase_at_{t}")
+            self.add_constraint(self.get_variable(DAOBaseModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
+            self.add_constraint(
+                self.get_variable(DAOBaseModel.purchased_at_key(t)) >= 0, f"Respect_Pmin_purchase_at_{t}"
+            )
 
             # Respect of minimum and maximum storage levels constraints
             self.add_constraint(
@@ -101,7 +107,9 @@ class BatteryModel(DAOBaseModel):
 
         # Respect of the balance between sales and purchases
         self.add_constraint(
-            sum(self.Qa[t] for t in self.time_frame) * self.equipment.charge_efficiency
-            == sum(self.Qv[t] for t in self.time_frame) / self.equipment.discharge_efficiency,
+            sum(self.get_variable(DAOBaseModel.purchased_at_key(t)) for t in self.time_frame)
+            * self.equipment.charge_efficiency
+            == sum(self.get_variable(DAOBaseModel.sold_at_key(t)) for t in self.time_frame)
+            / self.equipment.discharge_efficiency,
             "Respect_of_cycle_balance",
         )

@@ -18,6 +18,9 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadO
 
 
 class DAOBaseModel(OptimisationModel):
+    AMOUNT_SOLD_AT = "Amount_sold_at_"
+    AMOUNT_PURCHASED_AT = "Amount_purchased_at_"
+
     def __init__(
         self,
         parameters: DayAheadOrdersParameters,
@@ -48,9 +51,6 @@ class DAOBaseModel(OptimisationModel):
             self.parameters.end_date + self.optimizationPeriod - self.parameters.time_step,
             self.parameters.time_step,
         )
-        # Total quantities bought and purchased in the market at each time step
-        self.Qv: dict[DateTime, Any] = {}  # Qv: dict[Datetime, Any]
-        self.Qa: dict[DateTime, Any] = {}
         # Quantities bought and purchased in each fragment of power i at each time step
         self.Qvf: dict[DateTime, Any] = {}
         self.Qaf: dict[DateTime, Any] = {}
@@ -60,12 +60,22 @@ class DAOBaseModel(OptimisationModel):
         # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
         self.is_sell: dict[DateTime, Any] = {}
 
+    @classmethod
+    def sold_at_key(cls, t):
+        return f"{cls.AMOUNT_SOLD_AT}{t}"
+
+    @classmethod
+    def purchased_at_key(cls, t):
+        return f"{cls.AMOUNT_PURCHASED_AT}{t}"
+
     def create_decision_variables(self, nb_fragments: int) -> None:
         """Creation of decision variables"""
 
         for t in self.time_frame:
-            self.Qv[t] = self.add_continuous_variable(f"Amount_sold_at_{t}", 0)
-            self.Qa[t] = self.add_continuous_variable(f"Amount_purchased_at_{t}", 0)
+            # Total quantities bought and purchased in the market at each time step
+            self.add_continuous_variable(DAOBaseModel.sold_at_key(t), 0)
+            self.add_continuous_variable(DAOBaseModel.purchased_at_key(t), 0)
+
             self.is_sell[t] = self.add_boolean_variable(f"isSell_at_{t}")
             self.stored_energy[t] = self.add_continuous_variable(f"StoredEnergy_at_{t}", 0)
             self.Qvf[t] = {}
