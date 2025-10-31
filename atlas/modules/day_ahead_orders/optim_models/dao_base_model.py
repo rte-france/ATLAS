@@ -21,6 +21,7 @@ class DAOBaseModel(OptimisationModel):
     AMOUNT_SOLD_AT = "Amount_sold_at_"
     AMOUNT_PURCHASED_AT = "Amount_purchased_at_"
     IS_SELL_AT = "isSell_at_"
+    STORED_ENERGY_AT = "StoredEnergy_at_"
 
     def __init__(
         self,
@@ -55,9 +56,6 @@ class DAOBaseModel(OptimisationModel):
         # Quantities bought and purchased in each fragment of power i at each time step
         self.Qvf: dict[DateTime, Any] = {}
         self.Qaf: dict[DateTime, Any] = {}
-        # Energy stored in battery at each time step
-        # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
-        self.stored_energy: dict[DateTime, Any] = {}
 
     @classmethod
     def sold_at_key(cls, t):
@@ -71,6 +69,10 @@ class DAOBaseModel(OptimisationModel):
     def is_sell_at_key(cls, t):
         return f"{cls.IS_SELL_AT}{t}"
 
+    @classmethod
+    def stored_energy_at_key(cls, t):
+        return f"{cls.STORED_ENERGY_AT}{t}"
+
     def create_decision_variables(self, nb_fragments: int) -> None:
         """Creation of decision variables"""
 
@@ -80,7 +82,10 @@ class DAOBaseModel(OptimisationModel):
             self.add_continuous_variable(DAOBaseModel.purchased_at_key(t), 0)
             # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
             self.add_boolean_variable(DAOBaseModel.is_sell_at_key(t))
-            self.stored_energy[t] = self.add_continuous_variable(f"StoredEnergy_at_{t}", 0)
+            # Energy stored in battery at each time step
+            # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
+            self.add_continuous_variable(DAOBaseModel.stored_energy_at_key(t), 0)
+
             self.Qvf[t] = {}
             self.Qaf[t] = {}
             for i in range(nb_fragments):

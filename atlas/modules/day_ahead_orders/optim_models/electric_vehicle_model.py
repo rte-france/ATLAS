@@ -49,7 +49,7 @@ class ElectricVehicleModel(DAOBaseModel):
             # StoredEnergy tracking constraint, evaluates the stock at each time step
             if t == self.parameters.start_date:
                 self.add_constraint(
-                    self.stored_energy[t]
+                    self.get_variable(DAOBaseModel.stored_energy_at_key(t))
                     == (
                         initial_stock
                         * (
@@ -70,9 +70,9 @@ class ElectricVehicleModel(DAOBaseModel):
                 )
             else:
                 self.add_constraint(
-                    self.stored_energy[t]
+                    self.get_variable(DAOBaseModel.stored_energy_at_key(t))
                     == (
-                        self.stored_energy[t - self.parameters.time_step]
+                        self.get_variable(DAOBaseModel.stored_energy_at_key(t - self.parameters.time_step))
                         * (
                             self.equipment.maximum_energy.get_value(t)
                             / self.equipment.maximum_energy.get_value(t - self.parameters.time_step)
@@ -111,12 +111,12 @@ class ElectricVehicleModel(DAOBaseModel):
 
             # Respect of minimum and maximum stoage level constraints
             self.add_constraint(
-                self.stored_energy[t]
+                self.get_variable(DAOBaseModel.stored_energy_at_key(t))
                 >= self.equipment.minimum_state_of_charge.get_value(t) * self.equipment.maximum_energy.get_value(t),
                 f"Minimum_storage_level_constraint_at_{t}",
             )
             self.add_constraint(
-                self.stored_energy[t] <= self.equipment.maximum_energy.get_value(t),
+                self.get_variable(DAOBaseModel.stored_energy_at_key(t)) <= self.equipment.maximum_energy.get_value(t),
                 f"Maximum_storage_level_constraint_at_{t}",
             )
 
