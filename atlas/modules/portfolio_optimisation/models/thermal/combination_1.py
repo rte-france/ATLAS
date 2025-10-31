@@ -66,14 +66,12 @@ def add_initial_conditions(
                 model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
                 model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
 
-            # Initialize auxiliary variables to 0 (will be reconstructed from transitions)
             model.add_constraint(turned_on_var == 0, f"init_turned_on_{thermal_unit.name}_{time}")
             model.add_constraint(turned_off_var == 0, f"init_turned_off_{thermal_unit.name}_{time}")
 
-            # Reconstruct transitions for non-initial times
             if time != extended_start_date:
                 prev_time = time - parameters.timestep
-                # Detect turn off: units going from ON to OFF
+
                 if (
                     model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{time}").lower_bound
                     - model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{prev_time}").lower_bound
@@ -81,7 +79,6 @@ def add_initial_conditions(
                 ):
                     model.add_constraint(turned_off_var == 1, f"init_turned_off_{thermal_unit.name}_{time}")
 
-                # Detect turn on: units going from OFF to ON
                 elif (
                     model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{time}").lower_bound
                     - model.get_constraint_bounds(f"init_off_{thermal_unit.name}_{prev_time}").lower_bound
@@ -103,7 +100,6 @@ def add_constraints(
 
     prev_time = time - parameters.timestep
 
-    # Get variables
     off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
     on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{time}")
     on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
@@ -111,13 +107,11 @@ def add_constraints(
     turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
     power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
 
-    # Previous time variables
     off_prev_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{prev_time}")
     on_up_prev_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{prev_time}")
     on_down_prev_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{prev_time}")
     power_level_prev_var = model.get_variable(f"{thermal_unit.name}_power_level_{prev_time}")
 
-    # Reserve variables
     reserves_up_var = model.get_variable(f"reserves_up_{thermal_unit.name}_{time}")
     reserves_down_var = model.get_variable(f"reserves_down_{thermal_unit.name}_{time}")
     automated_reserves_up_var = model.get_variable(f"automated_reserves_up_{thermal_unit.name}_{time}")
@@ -126,7 +120,6 @@ def add_constraints(
     unprovided_reserves_down_var = model.get_variable(f"unprovided_reserves_down_{thermal_unit.name}_{time}")
     relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{thermal_unit.name}_{time}")
 
-    # Power bounds
     max_power = thermal_unit.maximum_power.get_value(time)
     min_power = thermal_unit.minimum_power.get_value(time)
     maximum_automated = get_maximum_automated(thermal_unit)

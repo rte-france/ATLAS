@@ -360,7 +360,7 @@ def add_constraints(
     )
 
     model.add_constraint(aux_up_grad_var <= max_power * on_up_prev_var)
-    model.add_constraint(aux_up_grad_var >= min_power * on_down_prev_var)
+    model.add_constraint(aux_up_grad_var >= min_power * on_up_prev_var)
     model.add_constraint(aux_up_grad_var <= power_level_var - power_level_prev_var - min_power * (1 - on_up_prev_var))
     model.add_constraint(aux_up_grad_var >= power_level_var - power_level_prev_var - max_power * (1 - on_up_prev_var))
 
