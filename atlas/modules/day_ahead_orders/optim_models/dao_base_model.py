@@ -20,6 +20,7 @@ from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadO
 class DAOBaseModel(OptimisationModel):
     AMOUNT_SOLD_AT = "Amount_sold_at_"
     AMOUNT_PURCHASED_AT = "Amount_purchased_at_"
+    IS_SELL_AT = "isSell_at_"
 
     def __init__(
         self,
@@ -57,8 +58,6 @@ class DAOBaseModel(OptimisationModel):
         # Energy stored in battery at each time step
         # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
         self.stored_energy: dict[DateTime, Any] = {}
-        # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
-        self.is_sell: dict[DateTime, Any] = {}
 
     @classmethod
     def sold_at_key(cls, t):
@@ -68,6 +67,10 @@ class DAOBaseModel(OptimisationModel):
     def purchased_at_key(cls, t):
         return f"{cls.AMOUNT_PURCHASED_AT}{t}"
 
+    @classmethod
+    def is_sell_at_key(cls, t):
+        return f"{cls.IS_SELL_AT}{t}"
+
     def create_decision_variables(self, nb_fragments: int) -> None:
         """Creation of decision variables"""
 
@@ -75,8 +78,8 @@ class DAOBaseModel(OptimisationModel):
             # Total quantities bought and purchased in the market at each time step
             self.add_continuous_variable(DAOBaseModel.sold_at_key(t), 0)
             self.add_continuous_variable(DAOBaseModel.purchased_at_key(t), 0)
-
-            self.is_sell[t] = self.add_boolean_variable(f"isSell_at_{t}")
+            # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
+            self.add_boolean_variable(DAOBaseModel.is_sell_at_key(t))
             self.stored_energy[t] = self.add_continuous_variable(f"StoredEnergy_at_{t}", 0)
             self.Qvf[t] = {}
             self.Qaf[t] = {}

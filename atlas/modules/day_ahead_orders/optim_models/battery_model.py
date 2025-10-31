@@ -81,12 +81,13 @@ class BatteryModel(DAOBaseModel):
             # Respect of system states constraints (isSell and isV2G)
             self.add_constraint(
                 self.get_variable(DAOBaseModel.sold_at_key(t))
-                <= self.is_sell[t] * self.equipment.maximum_power.get_value(t),
+                <= self.get_variable(DAOBaseModel.is_sell_at_key(t)) * self.equipment.maximum_power.get_value(t),
                 f"Respect_Pmax_sale_at_{t}",
             )
             self.add_constraint(
                 self.get_variable(DAOBaseModel.purchased_at_key(t))
-                <= (1 - self.is_sell[t]) * abs(self.equipment.minimum_power.get_value(t)),
+                <= (1 - self.get_variable(DAOBaseModel.is_sell_at_key(t)))
+                * abs(self.equipment.minimum_power.get_value(t)),
                 f"Respect_Pmax_purchase_at_{t}",
             )
             self.add_constraint(self.get_variable(DAOBaseModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
