@@ -41,6 +41,7 @@ class ThermalOptimization(OptimisationModel):
     AUTOMATED_RESERVES_DOWN_KEY = "automatedReservesDown_equip_"
     CONTRACTED_DIFFERENCE_UP_KEY = "contractedDifferenceUp_equip_"
     CONTRACTED_DIFFERENCE_DOWN_KEY = "contractedDifferenceDown_equip_"
+    AUTOMATED_CONTRACTED_DIFFERENCE_UP_KEY = "automatedContractedDifferenceUp_equip_"
 
     def __init__(
         self,
@@ -91,7 +92,6 @@ class ThermalOptimization(OptimisationModel):
         self.delta_q: float = None
         self.delta_q_unconstrained: float = None
         self.q: dict[DateTime, Any] = {}
-        self.automated_contracted_difference_up: dict[DateTime, Any] = {}
         self.automated_contracted_difference_down: dict[DateTime, Any] = {}
         self.OFF: dict[DateTime, Any] = {}
         self.ON_DOWN: dict[DateTime, Any] = {}
@@ -163,6 +163,9 @@ class ThermalOptimization(OptimisationModel):
 
     def contracted_difference_down_at(self, t):
         return f"{self.CONTRACTED_DIFFERENCE_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def automated_contracted_difference_up_at(self, t):
+        return f"{self.AUTOMATED_CONTRACTED_DIFFERENCE_UP_KEY}{self.thermal_unit.name}_at_{t}"
 
     def _initial_setup(self) -> None:
         """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
@@ -433,11 +436,7 @@ class ThermalOptimization(OptimisationModel):
 
         # Automated contracted difference variables. These variables will be constrained by equation (39).
         for t in self.time_frame:
-            self.automated_contracted_difference_up[t] = self.add_continuous_variable(
-                f"automatedContractedDifferenceUp_equip_{self.thermal_unit.name}_at_{t}",
-                0,
-                self.q_upper.get_value(t),
-            )
+            self.add_continuous_variable(self.automated_contracted_difference_up_at(t), 0, self.q_upper.get_value(t))
             self.automated_contracted_difference_down[t] = self.add_continuous_variable(
                 f"automatedContractedDifferenceDown_equip_{self.thermal_unit.name}_at_{t}",
                 0,
@@ -571,7 +570,10 @@ class ThermalOptimization(OptimisationModel):
                     )
                     - self.parameters.automated_unprocured_reserves_penalty
                     * (self.parameters.time_step.total_hours())
-                    * (self.automated_contracted_difference_up[t] + self.automated_contracted_difference_down[t])
+                    * (
+                        self.get_variable(self.automated_contracted_difference_up_at(t))
+                        + self.automated_contracted_difference_down[t]
+                    )
                     for t in self.time_frame
                 )
                 - self.parameters.automated_unprocured_reserves_penalty
@@ -750,7 +752,6 @@ class ThermalOptimization(OptimisationModel):
                 self.time_frame,
                 self.reserves_up_procured,
                 self.reserves_down_procured,
-                self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
@@ -1061,7 +1062,6 @@ class ThermalOptimization(OptimisationModel):
                 self.time_frame,
                 self.reserves_up_procured,
                 self.reserves_down_procured,
-                self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
@@ -1491,7 +1491,6 @@ class ThermalOptimization(OptimisationModel):
                 self.time_frame,
                 self.reserves_up_procured,
                 self.reserves_down_procured,
-                self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
@@ -1792,7 +1791,6 @@ class ThermalOptimization(OptimisationModel):
                 self.time_frame,
                 self.reserves_up_procured,
                 self.reserves_down_procured,
-                self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
@@ -2320,7 +2318,6 @@ class ThermalOptimization(OptimisationModel):
                 self.time_frame,
                 self.reserves_up_procured,
                 self.reserves_down_procured,
-                self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
@@ -2816,7 +2813,6 @@ class ThermalOptimization(OptimisationModel):
                 self.time_frame,
                 self.reserves_up_procured,
                 self.reserves_down_procured,
-                self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
@@ -3207,7 +3203,6 @@ class ThermalOptimization(OptimisationModel):
                 self.time_frame,
                 self.reserves_up_procured,
                 self.reserves_down_procured,
-                self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
@@ -3808,7 +3803,6 @@ class ThermalOptimization(OptimisationModel):
                 self.time_frame,
                 self.reserves_up_procured,
                 self.reserves_down_procured,
-                self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
@@ -4027,7 +4021,7 @@ class ThermalOptimization(OptimisationModel):
         # Populate the automatedDifference time series
         for t in self.time_frame:
             automated_contracted_difference_up_star.set_value(
-                t, self.automated_contracted_difference_up[t].solution_value()
+                t, self.get_variable(self.automated_contracted_difference_up_at(t)).solution_value()
             )
             automated_contracted_difference_down_star.set_value(
                 t, self.automated_contracted_difference_down[t].solution_value()
@@ -4141,7 +4135,6 @@ class ThermalOptimization(OptimisationModel):
         time_frame: list[DateTime],
         reserves_up_procured: Timeseries,
         reserves_down_procured: Timeseries,
-        automated_contracted_difference_up: dict,
         feasible_automated_reserves_up_procured: Timeseries,
         automated_contracted_difference_down: dict,
         feasible_automated_reserves_down_procured: Timeseries,
@@ -4159,7 +4152,7 @@ class ThermalOptimization(OptimisationModel):
             )
             # automatedContractedDifference
             self.add_constraint(
-                automated_contracted_difference_up[t]
+                self.get_variable(self.automated_contracted_difference_up_at(t))
                 >= feasible_automated_reserves_up_procured.get_value(t)
                 - self.get_variable(self.automated_reserves_up_at(t))
             )
