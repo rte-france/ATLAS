@@ -34,8 +34,9 @@ class ThermalOptimization(OptimisationModel):
 
     RESERVES_UP_EQUIP_KEY = "reservesUp_equip_"
     RESERVES_DOWN_EQUIP_KEY = "reservesDown_equip_"
-    UNPROVIDED_RESERVE_UP_KEY = "unprovidedReservesUp_equip_"
-    UNPROVIDED_RESERVE_DOWN_KEY = "unprovidedReservesDown_equip_"
+    UNPROVIDED_RESERVES_UP_KEY = "unprovidedReservesUp_equip_"
+    UNPROVIDED_RESERVES_DOWN_KEY = "unprovidedReservesDown_equip_"
+    RELAXED_RESERVES_KEY = "relaxedReserves_equip_"
 
     def __init__(
         self,
@@ -86,7 +87,6 @@ class ThermalOptimization(OptimisationModel):
         self.delta_q: float = None
         self.delta_q_unconstrained: float = None
         self.q: dict[DateTime, Any] = {}
-        self.relaxed_reserves: dict[DateTime, Any] = {}
         self.automated_reserves_up: dict[DateTime, Any] = {}
         self.automated_reserves_down: dict[DateTime, Any] = {}
         self.contracted_difference_up: dict[DateTime, Any] = {}
@@ -143,11 +143,14 @@ class ThermalOptimization(OptimisationModel):
     def reserves_down_equip_at(self, t):
         return f"{self.RESERVES_DOWN_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def unprovided_reserve_up_at(self, t):
-        return f"{self.UNPROVIDED_RESERVE_UP_KEY}{self.thermal_unit.name}_at_{t}"
+    def unprovided_reserves_up_at(self, t):
+        return f"{self.UNPROVIDED_RESERVES_UP_KEY}{self.thermal_unit.name}_at_{t}"
 
     def unprovided_reserve_down_at(self, t):
-        return f"{self.UNPROVIDED_RESERVE_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
+        return f"{self.UNPROVIDED_RESERVES_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def relaxed_reserves_at(self, t):
+        return f"{self.RELAXED_RESERVES_KEY}{self.thermal_unit.name}_at_{t}"
 
     def _initial_setup(self) -> None:
         """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
@@ -401,14 +404,9 @@ class ThermalOptimization(OptimisationModel):
         for t in self.time_frame:
             self.add_continuous_variable(self.reserves_up_equip_at(t), 0, self.q_upper.get_value(t))
             self.add_continuous_variable(self.reserves_down_equip_at(t), 0, self.q_upper.get_value(t))
-            self.add_continuous_variable(self.unprovided_reserve_up_at(t), 0, self.q_upper.get_value(t))
-            self.add_continuous_variable(self.unprovided_reserve_down_at(t), 0, self.q_upper.get_value(t))
-
-            self.relaxed_reserves[t] = self.add_continuous_variable(
-                f"relaxedReserves_equip_{self.thermal_unit.name}_at_{t}",
-                0,
-                self.q_lower.get_value(t),
-            )
+            self.add_continuous_variable(self.unprovided_reserves_up_at(t), 0, self.q_upper.get_value(t))
+            self.add_continuous_variable(self.unprovided_reserves_down_at(t), 0, self.q_upper.get_value(t))
+            self.add_continuous_variable(self.relaxed_reserves_at(t), 0, self.q_lower.get_value(t))
 
         # create the automatedReserves control variables.
         for t in self.time_frame:
@@ -772,14 +770,14 @@ class ThermalOptimization(OptimisationModel):
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
-                self.relaxed_reserves,
                 self.q_lower,
             )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.relaxed_reserves[t] <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
+                    self.get_variable(self.relaxed_reserves_at(t))
+                    <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eq. (44))
@@ -1089,14 +1087,14 @@ class ThermalOptimization(OptimisationModel):
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
-                self.relaxed_reserves,
                 self.q_lower,
             )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.relaxed_reserves[t] <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
+                    self.get_variable(self.relaxed_reserves_at(t))
+                    <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eq. (44))
@@ -1527,14 +1525,13 @@ class ThermalOptimization(OptimisationModel):
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
-                self.relaxed_reserves,
                 self.q_lower,
             )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.relaxed_reserves[t]
+                    self.get_variable(self.relaxed_reserves_at(t))
                     <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_FLAT[t] - self.ON_DOWN[t])
                 )
 
@@ -1835,14 +1832,14 @@ class ThermalOptimization(OptimisationModel):
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
-                self.relaxed_reserves,
                 self.q_lower,
             )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.relaxed_reserves[t] <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
+                    self.get_variable(self.relaxed_reserves_at(t))
+                    <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eq. (44))
@@ -2371,14 +2368,13 @@ class ThermalOptimization(OptimisationModel):
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
-                self.relaxed_reserves,
                 self.q_lower,
             )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.relaxed_reserves[t]
+                    self.get_variable(self.relaxed_reserves_at(t))
                     <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_FLAT[t] - self.ON_DOWN[t])
                 )
 
@@ -2876,14 +2872,13 @@ class ThermalOptimization(OptimisationModel):
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
-                self.relaxed_reserves,
                 self.q_lower,
             )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.relaxed_reserves[t]
+                    self.get_variable(self.relaxed_reserves_at(t))
                     <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_FLAT[t] - self.ON_DOWN[t])
                 )
 
@@ -3276,14 +3271,14 @@ class ThermalOptimization(OptimisationModel):
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
-                self.relaxed_reserves,
                 self.q_lower,
             )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.relaxed_reserves[t] <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
+                    self.get_variable(self.relaxed_reserves_at(t))
+                    <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_DOWN[t])
                 )
 
             # impossible commitment and stable reserves constraints (eq. (44))
@@ -3887,14 +3882,13 @@ class ThermalOptimization(OptimisationModel):
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
-                self.relaxed_reserves,
                 self.q_lower,
             )
 
             # relaxedReserve disabling condition (eq. (43))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.relaxed_reserves[t]
+                    self.get_variable(self.relaxed_reserves_at(t))
                     <= self.q_lower.get_value(t) * (1 - self.ON_UP[t] - self.ON_FLAT[t] - self.ON_DOWN[t])
                 )
 
@@ -4171,7 +4165,6 @@ class ThermalOptimization(OptimisationModel):
         q_upper: Timeseries,
         epsilon: float,
         automated_reserves_down: dict,
-        relaxed_reserves: dict,
         q_lower: Timeseries,
     ):
         """Upward and downward "fill up" constraints"""
@@ -4180,14 +4173,14 @@ class ThermalOptimization(OptimisationModel):
                 q[t]
                 + self.get_variable(self.reserves_up_equip_at(t))
                 + automated_reserves_up[t]
-                + self.get_variable(self.unprovided_reserve_up_at(t))
+                + self.get_variable(self.unprovided_reserves_up_at(t))
                 <= q_upper.get_value(t) + epsilon
             )  # Upward constraint - eq. (41)
             self.add_constraint(
                 q[t]
                 + self.get_variable(self.reserves_up_equip_at(t))
                 + automated_reserves_up[t]
-                + self.get_variable(self.unprovided_reserve_up_at(t))
+                + self.get_variable(self.unprovided_reserves_up_at(t))
                 >= q_upper.get_value(t) - epsilon
             )  # Upward constraint - eq. (41)
 
@@ -4196,8 +4189,8 @@ class ThermalOptimization(OptimisationModel):
                     q[t]
                     - self.get_variable(self.reserves_down_equip_at(t))
                     - automated_reserves_down[t]
-                    - self.get_variable(self.unprovided_reserve_down_at(t))
-                    + relaxed_reserves[t]
+                    - self.get_variable(self.unprovided_reserves_down_at(t))
+                    + self.get_variable(self.relaxed_reserves_at(t))
                 )
                 <= q_lower.get_value(t) + epsilon
             )  # Downward constraint - eq. (42)
@@ -4206,8 +4199,8 @@ class ThermalOptimization(OptimisationModel):
                     q[t]
                     - self.get_variable(self.reserves_down_equip_at(t))
                     - automated_reserves_down[t]
-                    - self.get_variable(self.unprovided_reserve_down_at(t))
-                    + relaxed_reserves[t]
+                    - self.get_variable(self.unprovided_reserves_down_at(t))
+                    + self.get_variable(self.relaxed_reserves_at(t))
                 )
                 >= q_lower.get_value(t) - epsilon
             )  # Downward constraint - eq. (42)
