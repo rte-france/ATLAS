@@ -37,6 +37,7 @@ class ThermalOptimization(OptimisationModel):
     UNPROVIDED_RESERVES_UP_KEY = "unprovidedReservesUp_equip_"
     UNPROVIDED_RESERVES_DOWN_KEY = "unprovidedReservesDown_equip_"
     RELAXED_RESERVES_KEY = "relaxedReserves_equip_"
+    AUTOMATED_RESERVES_UP_KEY = "automatedReservesUp_equip_"
 
     def __init__(
         self,
@@ -87,7 +88,6 @@ class ThermalOptimization(OptimisationModel):
         self.delta_q: float = None
         self.delta_q_unconstrained: float = None
         self.q: dict[DateTime, Any] = {}
-        self.automated_reserves_up: dict[DateTime, Any] = {}
         self.automated_reserves_down: dict[DateTime, Any] = {}
         self.contracted_difference_up: dict[DateTime, Any] = {}
         self.contracted_difference_down: dict[DateTime, Any] = {}
@@ -151,6 +151,9 @@ class ThermalOptimization(OptimisationModel):
 
     def relaxed_reserves_at(self, t):
         return f"{self.RELAXED_RESERVES_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def automated_reserves_up_at(self, t):
+        return f"{self.AUTOMATED_RESERVES_UP_KEY}{self.thermal_unit.name}_at_{t}"
 
     def _initial_setup(self) -> None:
         """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
@@ -410,11 +413,7 @@ class ThermalOptimization(OptimisationModel):
 
         # create the automatedReserves control variables.
         for t in self.time_frame:
-            self.automated_reserves_up[t] = self.add_continuous_variable(
-                f"automatedReservesUp_equip_{self.thermal_unit.name}_at_{t}",
-                0,
-                self.maximum_automated,
-            )
+            self.add_continuous_variable(self.automated_reserves_up_at(t), 0, self.maximum_automated)
 
             self.automated_reserves_down[t] = self.add_continuous_variable(
                 f"automatedReservesDown_equip_{self.thermal_unit.name}_at_{t}",
@@ -756,7 +755,6 @@ class ThermalOptimization(OptimisationModel):
                 self.reserves_down_procured,
                 self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
-                self.automated_reserves_up,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
                 self.automated_reserves_down,
@@ -766,7 +764,6 @@ class ThermalOptimization(OptimisationModel):
             self.create_fill_up_constraints(
                 self.time_frame,
                 self.q,
-                self.automated_reserves_up,
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
@@ -782,7 +779,9 @@ class ThermalOptimization(OptimisationModel):
 
             # impossible commitment and stable reserves constraints (eq. (44))
             for t in self.time_frame:
-                self.add_constraint(self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t]))
+                self.add_constraint(
+                    self.get_variable(self.automated_reserves_up_at(t)) <= self.maximum_automated * (1 - self.OFF[t])
+                )
                 self.add_constraint(self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t]))
                 self.add_constraint(
                     self.get_variable(self.reserves_up_equip_at(t)) <= self.q_upper.get_value(t) * (1 - self.OFF[t])
@@ -1073,7 +1072,6 @@ class ThermalOptimization(OptimisationModel):
                 self.reserves_down_procured,
                 self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
-                self.automated_reserves_up,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
                 self.automated_reserves_down,
@@ -1083,7 +1081,6 @@ class ThermalOptimization(OptimisationModel):
             self.create_fill_up_constraints(
                 self.time_frame,
                 self.q,
-                self.automated_reserves_up,
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
@@ -1100,7 +1097,8 @@ class ThermalOptimization(OptimisationModel):
             # impossible commitment and stable reserves constraints (eq. (44))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
+                    self.get_variable(self.automated_reserves_up_at(t))
+                    <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
                 )
                 self.add_constraint(
                     self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
@@ -1511,7 +1509,6 @@ class ThermalOptimization(OptimisationModel):
                 self.reserves_down_procured,
                 self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
-                self.automated_reserves_up,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
                 self.automated_reserves_down,
@@ -1521,7 +1518,6 @@ class ThermalOptimization(OptimisationModel):
             self.create_fill_up_constraints(
                 self.time_frame,
                 self.q,
-                self.automated_reserves_up,
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
@@ -1537,7 +1533,9 @@ class ThermalOptimization(OptimisationModel):
 
             # impossible commitment and stable reserves constraints (eqs. (44) and (45))
             for t in self.time_frame:
-                self.add_constraint(self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t]))
+                self.add_constraint(
+                    self.get_variable(self.automated_reserves_up_at(t)) <= self.maximum_automated * (1 - self.OFF[t])
+                )
                 self.add_constraint(self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t]))
                 self.add_constraint(
                     self.get_variable(self.reserves_up_equip_at(t))
@@ -1818,7 +1816,6 @@ class ThermalOptimization(OptimisationModel):
                 self.reserves_down_procured,
                 self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
-                self.automated_reserves_up,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
                 self.automated_reserves_down,
@@ -1828,7 +1825,6 @@ class ThermalOptimization(OptimisationModel):
             self.create_fill_up_constraints(
                 self.time_frame,
                 self.q,
-                self.automated_reserves_up,
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
@@ -1845,7 +1841,8 @@ class ThermalOptimization(OptimisationModel):
             # impossible commitment and stable reserves constraints (eq. (44))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
+                    self.get_variable(self.automated_reserves_up_at(t))
+                    <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
                 )
                 self.add_constraint(
                     self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
@@ -2354,7 +2351,6 @@ class ThermalOptimization(OptimisationModel):
                 self.reserves_down_procured,
                 self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
-                self.automated_reserves_up,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
                 self.automated_reserves_down,
@@ -2364,7 +2360,6 @@ class ThermalOptimization(OptimisationModel):
             self.create_fill_up_constraints(
                 self.time_frame,
                 self.q,
-                self.automated_reserves_up,
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
@@ -2381,7 +2376,8 @@ class ThermalOptimization(OptimisationModel):
             # impossible commitment and stable reserves constraints (eqs. (44) and (45))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
+                    self.get_variable(self.automated_reserves_up_at(t))
+                    <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
                 )
                 self.add_constraint(
                     self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t] - self.STOP[t])
@@ -2858,7 +2854,6 @@ class ThermalOptimization(OptimisationModel):
                 self.reserves_down_procured,
                 self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
-                self.automated_reserves_up,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
                 self.automated_reserves_down,
@@ -2868,7 +2863,6 @@ class ThermalOptimization(OptimisationModel):
             self.create_fill_up_constraints(
                 self.time_frame,
                 self.q,
-                self.automated_reserves_up,
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
@@ -2885,7 +2879,8 @@ class ThermalOptimization(OptimisationModel):
             # impossible commitment and stable reserves constraints (eqs. (44) and (45))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.automated_reserves_up[t] <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
+                    self.get_variable(self.automated_reserves_up_at(t))
+                    <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
                 )
                 self.add_constraint(
                     self.automated_reserves_down[t] <= self.maximum_automated * (1 - self.OFF[t] - self.START[t])
@@ -3257,7 +3252,6 @@ class ThermalOptimization(OptimisationModel):
                 self.reserves_down_procured,
                 self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
-                self.automated_reserves_up,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
                 self.automated_reserves_down,
@@ -3267,7 +3261,6 @@ class ThermalOptimization(OptimisationModel):
             self.create_fill_up_constraints(
                 self.time_frame,
                 self.q,
-                self.automated_reserves_up,
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
@@ -3284,7 +3277,7 @@ class ThermalOptimization(OptimisationModel):
             # impossible commitment and stable reserves constraints (eq. (44))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.automated_reserves_up[t]
+                    self.get_variable(self.automated_reserves_up_at(t))
                     <= self.maximum_automated * (1 - self.OFF[t] - self.START[t] - self.STOP[t])
                 )
                 self.add_constraint(
@@ -3868,7 +3861,6 @@ class ThermalOptimization(OptimisationModel):
                 self.reserves_down_procured,
                 self.automated_contracted_difference_up,
                 self.feasible_automated_reserves_up_procured,
-                self.automated_reserves_up,
                 self.automated_contracted_difference_down,
                 self.feasible_automated_reserves_down_procured,
                 self.automated_reserves_down,
@@ -3878,7 +3870,6 @@ class ThermalOptimization(OptimisationModel):
             self.create_fill_up_constraints(
                 self.time_frame,
                 self.q,
-                self.automated_reserves_up,
                 self.q_upper,
                 self.parameters.epsilon,
                 self.automated_reserves_down,
@@ -3895,7 +3886,7 @@ class ThermalOptimization(OptimisationModel):
             # impossible commitment and stable reserves constraints (eqs. (44) and (45))
             for t in self.time_frame:
                 self.add_constraint(
-                    self.automated_reserves_up[t]
+                    self.get_variable(self.automated_reserves_up_at(t))
                     <= self.maximum_automated * (1 - self.OFF[t] - self.START[t] - self.STOP[t])
                 )
                 self.add_constraint(
@@ -4161,7 +4152,6 @@ class ThermalOptimization(OptimisationModel):
         self,
         time_frame: list[DateTime],
         q: dict,
-        automated_reserves_up: dict,
         q_upper: Timeseries,
         epsilon: float,
         automated_reserves_down: dict,
@@ -4172,14 +4162,14 @@ class ThermalOptimization(OptimisationModel):
             self.add_constraint(
                 q[t]
                 + self.get_variable(self.reserves_up_equip_at(t))
-                + automated_reserves_up[t]
+                + self.get_variable(self.automated_reserves_up_at(t))
                 + self.get_variable(self.unprovided_reserves_up_at(t))
                 <= q_upper.get_value(t) + epsilon
             )  # Upward constraint - eq. (41)
             self.add_constraint(
                 q[t]
                 + self.get_variable(self.reserves_up_equip_at(t))
-                + automated_reserves_up[t]
+                + self.get_variable(self.automated_reserves_up_at(t))
                 + self.get_variable(self.unprovided_reserves_up_at(t))
                 >= q_upper.get_value(t) - epsilon
             )  # Upward constraint - eq. (41)
@@ -4214,7 +4204,6 @@ class ThermalOptimization(OptimisationModel):
         reserves_down_procured: Timeseries,
         automated_contracted_difference_up: dict,
         feasible_automated_reserves_up_procured: Timeseries,
-        automated_reserves_up: dict,
         automated_contracted_difference_down: dict,
         feasible_automated_reserves_down_procured: Timeseries,
         automated_reserves_down: dict,
@@ -4233,7 +4222,8 @@ class ThermalOptimization(OptimisationModel):
             # automatedContractedDifference
             self.add_constraint(
                 automated_contracted_difference_up[t]
-                >= feasible_automated_reserves_up_procured.get_value(t) - automated_reserves_up[t]
+                >= feasible_automated_reserves_up_procured.get_value(t)
+                - self.get_variable(self.automated_reserves_up_at(t))
             )
             self.add_constraint(
                 automated_contracted_difference_down[t]
