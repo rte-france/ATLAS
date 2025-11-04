@@ -1139,13 +1139,15 @@ class Pricing(OptimisationModel):
                         parent_link_orders = self.dict_linked_orders[parent_mc_order.full_link_id]
                         child_orders = self.get_children(parent_link_orders)
                         dict_parent_child_orders[index_pc] = (parent_link_orders, child_orders)
+                        # The initial parent set is removed from global linked sets
+                        # as it is now part of a global parent/child link
                         self.dict_linked_orders.pop(parent_mc_order.full_link_id)
                     else:
                         # One parent has already been browsed and enabled to gather all the parent orders into one set
                         continue
                 else:
                     parent_orders = [parent_order]
-                    dict_parent_child_orders[index_pc] = (parent_orders, child_orders)
+                    dict_parent_child_orders[index_pc] = (parent_orders, [child_order])
                 index_pc += 1
 
         for index_pc in dict_parent_child_orders:
@@ -1162,7 +1164,7 @@ class Pricing(OptimisationModel):
                     mc_order.full_pc_id = index_pc
                 if mc_order.child_id is None:
                     mc_order.child_id = id_child
-                id_child += 1
+                    id_child += 1
 
         logger.debug(f"Final linked bids dict : {self.dict_linked_orders}")
         logger.debug(f"Final parent_child bids dict : {dict_parent_child_orders}")
