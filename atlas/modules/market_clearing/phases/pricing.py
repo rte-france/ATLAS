@@ -1171,8 +1171,8 @@ class Pricing(OptimisationModel):
     def compute_min_max_rejected_sale_buy(self):
         for time_index, price_groups in self.price_groups.items():
             for price_group in price_groups:
-                price_group.min_rejected_sale = -float("inf")
-                price_group.max_rejected_buy = float("inf")
+                price_group.min_rejected_sale = float("inf")
+                price_group.max_rejected_buy = -float("inf")
                 for market_area_name in price_group.market_area_names:
                     mc_market_area = self.input_dataset.mc_market_areas[market_area_name]
 
@@ -1183,5 +1183,5 @@ class Pricing(OptimisationModel):
                             if mc_order.is_sale:
                                 price_group.min_rejected_sale = min(mc_order.price, price_group.min_rejected_sale)
                             else:
-                                price_group.max_rejected_buy = min(mc_order.price, price_group.max_rejected_buy)
+                                price_group.max_rejected_buy = max(mc_order.price, price_group.max_rejected_buy)
                 logger.debug(f"Worst rejected : {price_group.min_rejected_sale}, {price_group.max_rejected_buy}")
