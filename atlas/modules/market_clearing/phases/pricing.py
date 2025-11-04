@@ -635,36 +635,33 @@ class Pricing(OptimisationModel):
     def deactivate_positive_surplus_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
             if mc_order.full_link_id is None and mc_order.parent_child_id is None:
-                if mc_order.id_with_status is None or mc_order.parent_child_id is not None:
-                    continue
-                time_index = mc_order.time_index
-                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+                if mc_order.id_with_status is not None and mc_order.parent_child_id is None:
+                    local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
 
-                if local_cleared_power > self.parameters.allowed_round_off_error:
-                    equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
-                    constraint_name = constants.pos_surplus_order_constraint_name(mc_order.name, equipment_name,
-                                                                    mc_order.market_area.name, time_index)
-                    if constraint_name:
-                        self.deactivate_constraint(constraint_name)
+                    if local_cleared_power > self.parameters.allowed_round_off_error:
+                        equipment_name = mc_order.equipment.name if mc_order.equipment else "NA"
+                        constraint_name = constants.pos_surplus_order_constraint_name(mc_order.name, equipment_name,
+                                                                        mc_order.market_area.name, mc_order.time_index)
+                        if constraint_name:
+                            self.deactivate_constraint(constraint_name)
 
     def create_paradoxical_delta_price_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
             if mc_order.full_link_id is None and mc_order.parent_child_id is None:
-                if mc_order.id_with_status is None or mc_order.parent_child_id is not None:
-                    continue
+                if mc_order.id_with_status is not None and mc_order.parent_child_id is None:
 
-                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
-                if local_cleared_power > self.parameters.allowed_round_off_error:
-                    time_index = mc_order.time_index
-                    local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
-                                                                                       time_index))
-                    coeff_sale = 1 if mc_order.is_sale else -1
-                    opposite_delta_p = coeff_sale * (mc_order   .price - local_price)
-                    paradoxical_delta_p = self.get_variable(constants.delta_p_order(mc_order.name,
-                                                                         mc_order.market_area.name, time_index))
-                    self.add_constraint(paradoxical_delta_p >= opposite_delta_p,
-                                        constants.paradoxical_delta_p_order_constraint_name(mc_order.name,
-                                                                         mc_order.market_area.name, time_index))
+                    local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+                    if local_cleared_power > self.parameters.allowed_round_off_error:
+                        time_index = mc_order.time_index
+                        local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
+                                                                                           time_index))
+                        coeff_sale = 1 if mc_order.is_sale else -1
+                        opposite_delta_p = coeff_sale * (mc_order   .price - local_price)
+                        paradoxical_delta_p = self.get_variable(constants.delta_p_order(mc_order.name,
+                                                                             mc_order.market_area.name, time_index))
+                        self.add_constraint(paradoxical_delta_p >= opposite_delta_p,
+                                            constants.paradoxical_delta_p_order_constraint_name(mc_order.name,
+                                                                             mc_order.market_area.name, time_index))
 
     def create_paradoxical_lo_objective(self):
         objective = []
