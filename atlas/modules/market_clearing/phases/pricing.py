@@ -1021,8 +1021,8 @@ class Pricing(OptimisationModel):
             if mc_order_coupling.coupling_type == CouplingType.COMPLEMENT:
                 complement_coupling_list.append(mc_order_coupling)
                 continue
-            elif (mc_order_coupling.coupling_type == CouplingType.IDENTICAL_VOLUME or
-                  mc_order_coupling.coupling_type == CouplingType.IDENTICAL_RATIO):
+            elif not ((mc_order_coupling.coupling_type == CouplingType.IDENTICAL_VOLUME or
+                  mc_order_coupling.coupling_type == CouplingType.IDENTICAL_RATIO)):
                 continue
 
             idr_idv_coupling_infos[mc_order_coupling.name] = []
