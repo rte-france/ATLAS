@@ -276,6 +276,7 @@ class Pricing(OptimisationModel):
     # Global parent_child bids' surplus
     def create_parent_child_surplus_constraints(self):
         for index_pc, (parent_orders, child_orders) in self.dict_parent_child_orders.items():
+            index_child = 0
             logger.debug(f"Surplus for PC {index_pc}")
 
             sum_children_link_surplus = 0
@@ -291,7 +292,6 @@ class Pricing(OptimisationModel):
                 coeff_sale = 1 if child_mc_order.is_sale else -1
 
                 if local_cleared_power > self.parameters.allowed_round_off_error:
-                    index_child = child_mc_order.child_id
                     link_surplus = self.get_variable(constants.link_child_to_pc(index_child, index_pc))
                     sum_children_link_surplus += link_surplus
                     logger.debug(f"surplus child {index_child} PC {index_pc}")
