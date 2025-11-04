@@ -250,22 +250,18 @@ class ThermalPO(Thermal):
         parameters: PortfolioOptimisationParameters,
     ):
         """Add objective function terms for thermal equipment."""
-        if time not in self.optimisation_time_window:
-            return
+        if time in self.optimisation_time_window:
+            variable_cost = self.variable_cost.get_value(time)
+            power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
+            model.add_objective(variable_cost * power_level_var * parameters.timestep.total_hours(), "minimize")
 
-        # Variable cost term: cost * power * time_step / 60
-        variable_cost = self.variable_cost.get_value(time)
-        power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
-        model.add_objective(variable_cost * power_level_var * parameters.timestep.total_hours(), "minimize")
+            if len(parameters.target_times) > 0 and time not in parameters.target_times:
+                model.add_objective(-price_forecast * power_level_var * parameters.timestep.total_hours(), "minimize")
 
-        if len(parameters.target_times) > 0 and time not in parameters.target_times:
-            model.add_objective(-price_forecast * power_level_var * parameters.timestep.total_hours(), "minimize")
-
-        # Startup cost term: startup_cost * turned_on
-        if self.startup_cost is not None:
-            startup_cost = self.startup_cost.get_value(time)
-            turned_on_var = model.get_variable(f"t_on_of_{self.name}_{time}")
-            model.add_objective(startup_cost * turned_on_var, "minimize")
+            if self.startup_cost is not None:
+                startup_cost = self.startup_cost.get_value(time)
+                turned_on_var = model.get_variable(f"t_on_of_{self.name}_{time}")
+                model.add_objective(startup_cost * turned_on_var, "minimize")
 
     def get_initial_time_window(
         self, parameters: PortfolioOptimisationParameters
