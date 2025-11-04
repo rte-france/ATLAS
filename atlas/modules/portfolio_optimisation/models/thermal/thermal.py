@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
+import pendulum
 from pendulum import DateTime, Duration
 from pydantic import model_validator
 
@@ -271,12 +272,6 @@ class ThermalPO(Thermal):
     ) -> tuple[list[DateTime], list[DateTime]]:
         """
         Get the list of initial condition timestamps required for this thermal unit.
-
-        Args:
-            parameters: Portfolio optimization parameters
-
-        Returns:
-            List of initial condition timestamps
         """
         self.T_traceback = max(self._T_on + self._T_start, self._T_off + self._T_stop)
 
@@ -309,12 +304,6 @@ class ThermalPO(Thermal):
     ):
         """
         Add initial variables for thermal unit at a specific timestamp.
-
-        Args:
-            model: Optimization model
-            parameters: Portfolio optimization parameters
-            initial_times: List of initial timestamps to process
-            stable_initial_times: List of stable initial timestamps to process
         """
 
         for time in initial_times:
@@ -368,11 +357,6 @@ class ThermalPO(Thermal):
     ):
         """
         Add initial conditions for thermal unit at a specific timestamp.
-
-        Args:
-            model: Optimization model
-            parameters: Portfolio optimization parameters
-            time: Current timestamp to process
         """
         self._compute_time_parameters(parameters)
 
@@ -392,9 +376,6 @@ class ThermalPO(Thermal):
             if parameters.start_date - parameters.timestep != power_timeseries.last_date():
                 day_zero = True
 
-        # Get initial condition function based on combination
-        # Type: functions accept thermal_unit, model, parameters, extended_start_date,
-        # power_timeseries, day_zero, and **kwargs (initial_times, stable_initial_times)
         initial_condition_functions: dict[int, Callable[..., None]] = {
             1: combination_1.add_initial_conditions,
             2: combination_2.add_initial_conditions,
@@ -421,6 +402,23 @@ class ThermalPO(Thermal):
             initial_times=initial_times,
             stable_initial_times=stable_initial_times,
         )
+
+    def add_daily_energy_constraint(self, model: OptimisationModel, timestep: Duration):
+        if self.has_daily_energy_constraint:
+            days_in_optimes = sorted({pendulum.datetime(t.year, t.month, t.day) for t in self.optimisation_time_window})
+
+            for date in days_in_optimes:
+                matching_steps = [
+                    t
+                    for t in self.optimisation_time_window
+                    if (t.year == date.year and t.month == date.month and t.day == date.day)
+                ]
+
+                if matching_steps:
+                    constraint_expr = sum(
+                        model.get_variable(f"{self.name}_power_level_{t}") for t in matching_steps
+                    ) <= self.maximum_daily_energy.get_value(date) * timestep.total_days() * len(matching_steps)
+                    model.add_constraint(constraint_expr)
 
     @model_validator(mode="after")
     def validate_minimum_stable_power_duration(self) -> ThermalPO:

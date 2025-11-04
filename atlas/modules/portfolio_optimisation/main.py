@@ -52,6 +52,9 @@ class PortfolioOptimisationModel(OptimisationModel):
             self.portfolio.add_constraints(self, time, self.parameters)
             self.portfolio.add_objective(self, time, self.parameters)
 
+        for thermal in self.portfolio.equipments.get("thermal", []):
+            cast(ThermalPO, thermal).add_daily_energy_constraint(self, self.parameters.timestep)
+
             cfg.logger.debug(f"Completed optimisation model at time: {time}")
 
         cfg.logger.info(f"Completed optimisation model for portfolio: {self.portfolio.name}.")
