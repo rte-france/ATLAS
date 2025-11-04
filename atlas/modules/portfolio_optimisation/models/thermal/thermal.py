@@ -408,7 +408,7 @@ class ThermalPO(Thermal):
                     if (t.year == date.year and t.month == date.month and t.day == date.day)
                 ]
 
-                if matching_steps:
+                if matching_steps and self.maximum_daily_energy is not None:
                     constraint_expr = sum(
                         model.get_variable(f"{self.name}_power_level_{t}") for t in matching_steps
                     ) <= self.maximum_daily_energy.get_value(date) * timestep.total_days() * len(matching_steps)
