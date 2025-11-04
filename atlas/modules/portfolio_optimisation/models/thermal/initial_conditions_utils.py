@@ -39,7 +39,7 @@ def initialize_day_zero_core(
         time: The current time step
     """
     # Get core state variables (present in ALL combinations)
-    off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
+    off_var = model.get_variable(f"OFF_{thermal_unit.name}_{time}")
     turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
     turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
     power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
@@ -66,8 +66,8 @@ def initialize_day_zero_on_states(
         model: The optimization model
         time: The current time step
     """
-    on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{time}")
-    on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
+    on_up_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{time}")
+    on_down_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{time}")
 
     model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
     model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
@@ -174,8 +174,8 @@ def initialize_day_zero_stable_vars(
     """
 
     on_flat_var = model.get_variable(f"ON_FLAT_{thermal_unit.name}_{time}")
-    on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{time}")
-    on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
+    on_up_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{time}")
+    on_down_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{time}")
     stable_var = model.get_variable(f"stable_{time}_{thermal_unit.name}")
     entered_up_var = model.get_variable(f"entered_up_{time}_{thermal_unit.name}")
     entered_down_var = model.get_variable(f"entered_down_{time}_{thermal_unit.name}")

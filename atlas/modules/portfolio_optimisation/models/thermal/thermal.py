@@ -146,9 +146,9 @@ class ThermalPO(Thermal):
                     model.add_boolean_variable(f"stable_{time - parameters.timestep}_{self.name}")
 
             # Binary state variables
-            model.add_boolean_variable(f"OFF_var_{self.name}_{time}")
-            model.add_boolean_variable(f"ON_UP_var_{self.name}_{time}")
-            model.add_boolean_variable(f"ON_DOWN_var_{self.name}_{time}")
+            model.add_boolean_variable(f"OFF_{self.name}_{time}")
+            model.add_boolean_variable(f"ON_UP_{self.name}_{time}")
+            model.add_boolean_variable(f"ON_DOWN_{self.name}_{time}")
 
             # Auxiliary binary variables for transitions
             model.add_boolean_variable(f"t_on_of_{self.name}_{time}")
@@ -319,9 +319,9 @@ class ThermalPO(Thermal):
 
         for time in initial_times:
             # Binary state variables
-            model.add_boolean_variable(f"OFF_var_{self.name}_{time}")
-            model.add_boolean_variable(f"ON_UP_var_{self.name}_{time}")
-            model.add_boolean_variable(f"ON_DOWN_var_{self.name}_{time}")
+            model.add_boolean_variable(f"OFF_{self.name}_{time}")
+            model.add_boolean_variable(f"ON_UP_{self.name}_{time}")
+            model.add_boolean_variable(f"ON_DOWN_{self.name}_{time}")
 
             # Auxiliary binary variables for transitions
             model.add_boolean_variable(f"t_on_of_{self.name}_{time}")

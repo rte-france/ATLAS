@@ -48,9 +48,9 @@ def add_initial_conditions(
         for time in kwargs.get("initial_times", []):
             power_at_time = power_timeseries.get_value(time)
             # Get variables
-            off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
-            on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{time}")
-            on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
+            off_var = model.get_variable(f"OFF_{thermal_unit.name}_{time}")
+            on_up_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{time}")
+            on_down_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{time}")
             turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
             turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
 
@@ -100,16 +100,16 @@ def add_constraints(
 
     prev_time = time - parameters.timestep
 
-    off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
-    on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{time}")
-    on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
+    off_var = model.get_variable(f"OFF_{thermal_unit.name}_{time}")
+    on_up_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{time}")
+    on_down_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{time}")
     turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
     turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
     power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
 
-    off_prev_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{prev_time}")
-    on_up_prev_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{prev_time}")
-    on_down_prev_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{prev_time}")
+    off_prev_var = model.get_variable(f"OFF_{thermal_unit.name}_{prev_time}")
+    on_up_prev_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{prev_time}")
+    on_down_prev_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{prev_time}")
     power_level_prev_var = model.get_variable(f"{thermal_unit.name}_power_level_{prev_time}")
 
     reserves_up_var = model.get_variable(f"reserves_up_{thermal_unit.name}_{time}")

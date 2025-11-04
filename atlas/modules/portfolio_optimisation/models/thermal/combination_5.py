@@ -66,7 +66,7 @@ def add_initial_conditions(
             power_at_time = power_timeseries.get_value(time)
             min_power = thermal_unit.minimum_power.get_value(time)
 
-            off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
+            off_var = model.get_variable(f"OFF_{thermal_unit.name}_{time}")
             stop_var = model.get_variable(f"STOP_{thermal_unit.name}_{time}")
             turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
             turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
@@ -106,11 +106,11 @@ def add_initial_conditions(
             current_power = power_timeseries.get_value(time)
             next_power = power_timeseries.get_value(time + parameters.timestep)
 
-            off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
+            off_var = model.get_variable(f"OFF_{thermal_unit.name}_{time}")
             stop_var = model.get_variable(f"STOP_{thermal_unit.name}_{time}")
             on_flat_var = model.get_variable(f"ON_FLAT_{thermal_unit.name}_{time}")
-            on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{time}")
-            on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
+            on_up_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{time}")
+            on_down_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{time}")
             stable_var = model.get_variable(f"stable_{time}_{thermal_unit.name}")
             entered_up_var = model.get_variable(f"entered_up_{time}_{thermal_unit.name}")
             entered_down_var = model.get_variable(f"entered_down_{time}_{thermal_unit.name}")
@@ -199,9 +199,9 @@ def add_constraints(
     prev_time = time - parameters.timestep
 
     # Get variables
-    off_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{time}")
-    on_up_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{time}")
-    on_down_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{time}")
+    off_var = model.get_variable(f"OFF_{thermal_unit.name}_{time}")
+    on_up_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{time}")
+    on_down_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{time}")
     on_flat_var = model.get_variable(f"ON_FLAT_{thermal_unit.name}_{time}")
     stop_var = model.get_variable(f"STOP_{thermal_unit.name}_{time}")
     turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
@@ -220,11 +220,11 @@ def add_constraints(
     aux_down_grad_var = model.get_variable(f"aux_down_grad_{time}_{thermal_unit.name}")
     dd_grad_prev_var = model.get_variable(f"DD_grad_{prev_time}_{thermal_unit.name}")
 
-    off_prev_var = model.get_variable(f"OFF_var_{thermal_unit.name}_{prev_time}")
-    on_up_prev_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{prev_time}")
-    on_up_2_prev_var = model.get_variable(f"ON_UP_var_{thermal_unit.name}_{prev_time - parameters.timestep}")
-    on_down_prev_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{prev_time}")
-    on_down_2_prev_var = model.get_variable(f"ON_DOWN_var_{thermal_unit.name}_{prev_time - parameters.timestep}")
+    off_prev_var = model.get_variable(f"OFF_{thermal_unit.name}_{prev_time}")
+    on_up_prev_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{prev_time}")
+    on_up_2_prev_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{prev_time - parameters.timestep}")
+    on_down_prev_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{prev_time}")
+    on_down_2_prev_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{prev_time - parameters.timestep}")
     on_flat_prev_var = model.get_variable(f"ON_FLAT_{thermal_unit.name}_{prev_time}")
     stop_prev_var = model.get_variable(f"STOP_{thermal_unit.name}_{prev_time}")
     stop_2_prev_var = model.get_variable(f"STOP_{thermal_unit.name}_{prev_time - parameters.timestep}")
