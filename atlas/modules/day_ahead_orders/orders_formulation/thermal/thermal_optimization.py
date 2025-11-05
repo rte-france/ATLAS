@@ -42,6 +42,7 @@ class ThermalOptimization(OptimisationModel):
     CONTRACTED_DIFFERENCE_DOWN_KEY = "contractedDifferenceDown_equip_"
     AUTOMATED_CONTRACTED_DIFFERENCE_UP_KEY = "automatedContractedDifferenceUp_equip_"
     AUTOMATED_CONTRACTED_DIFFERENCE_DOWN_KEY = "automatedContractedDifferenceDown_equip_"
+    AUX_UP_GRAD_AT_KEY = "aux_up_grad_at_"
     AUX_DOWN_GRAD_AT_KEY = "aux_down_grad_at_"
 
     def __init__(
@@ -115,7 +116,6 @@ class ThermalOptimization(OptimisationModel):
         self.U: dict[
             DateTime, Any
         ] = {}  # This variable will be implemented in the gradient and bound the upward gradient
-        self.tilde_U: dict[DateTime, Any] = {}
         self.D: dict[
             DateTime, Any
         ] = {}  # This variable will be implemented in the gradient and bound the downward gradient
@@ -169,8 +169,11 @@ class ThermalOptimization(OptimisationModel):
     def automated_contracted_difference_down_at(self, t):
         return f"{self.AUTOMATED_CONTRACTED_DIFFERENCE_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def aux_down_grad_at_(self, t):
+    def aux_down_grad_at(self, t):
         return f"{self.AUX_DOWN_GRAD_AT_KEY}{t}_equip_{self.thermal_unit.name}"
+
+    def aux_up_grad_at(self, t):
+        return f"{self.AUX_UP_GRAD_AT_KEY}{t}_equip_{self.thermal_unit.name}"
 
     def _initial_setup(self) -> None:
         """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
@@ -540,13 +543,13 @@ class ThermalOptimization(OptimisationModel):
                     self.Q_min,
                     self.Q_max,
                 )
-                self.tilde_U[t] = self.add_continuous_variable(
-                    f"aux_up_grad_at_{t}_equip_{self.thermal_unit.name}",
+                self.add_continuous_variable(
+                    self.aux_up_grad_at(t),
                     self.Q_min,
                     self.Q_max,
                 )
                 self.add_continuous_variable(
-                    self.aux_down_grad_at_(t),
+                    self.aux_down_grad_at(t),
                     self.Q_min,
                     self.Q_max,
                 )

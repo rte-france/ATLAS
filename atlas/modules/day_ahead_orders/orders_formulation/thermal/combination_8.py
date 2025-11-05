@@ -262,25 +262,27 @@ def execute(model: ThermalOptimization, day_zero: bool) -> None:
     for t in model.time_frame:  # Loop in all the time_frame but start_date.
         t_minus_one = t - model.parameters.time_step
         # tilde_U (eq. (28))
-        model.add_constraint(model.tilde_U[t] <= model.Q_max * model.ON_UP[t_minus_one])
-        model.add_constraint(model.tilde_U[t] >= model.Q_min * model.ON_UP[t_minus_one])
+        model.add_constraint(model.get_variable(model.aux_up_grad_at(t)) <= model.Q_max * model.ON_UP[t_minus_one])
+        model.add_constraint(model.get_variable(model.aux_up_grad_at(t)) >= model.Q_min * model.ON_UP[t_minus_one])
         model.add_constraint(
-            model.tilde_U[t] <= model.q[t] - model.q[t_minus_one] - model.Q_min * (1 - model.ON_UP[t_minus_one])
+            model.get_variable(model.aux_up_grad_at(t))
+            <= model.q[t] - model.q[t_minus_one] - model.Q_min * (1 - model.ON_UP[t_minus_one])
         )
         model.add_constraint(
-            model.tilde_U[t] >= model.q[t] - model.q[t_minus_one] - model.Q_max * (1 - model.ON_UP[t_minus_one]),
+            model.get_variable(model.aux_up_grad_at(t))
+            >= model.q[t] - model.q[t_minus_one] - model.Q_max * (1 - model.ON_UP[t_minus_one]),
             f"VALUE_of_tilde_UP_at_{t}",
         )
 
         # tilde_D (eq. (30))
-        model.add_constraint(model.get_variable(self.aux_down_grad_at_(t)) <= model.Q_max * model.ON_DOWN[t_minus_one])
-        model.add_constraint(model.get_variable(self.aux_down_grad_at_(t)) >= model.Q_min * model.ON_DOWN[t_minus_one])
+        model.add_constraint(model.get_variable(model.aux_down_grad_at(t)) <= model.Q_max * model.ON_DOWN[t_minus_one])
+        model.add_constraint(model.get_variable(model.aux_down_grad_at(t)) >= model.Q_min * model.ON_DOWN[t_minus_one])
         model.add_constraint(
-            model.get_variable(self.aux_down_grad_at_(t))
+            model.get_variable(model.aux_down_grad_at(t))
             <= model.q[t] - model.q[t_minus_one] - model.Q_min * (1 - model.ON_DOWN[t_minus_one])
         )
         model.add_constraint(
-            model.get_variable(self.aux_down_grad_at_(t))
+            model.get_variable(model.aux_down_grad_at(t))
             >= model.q[t] - model.q[t_minus_one] - model.Q_max * (1 - model.ON_DOWN[t_minus_one]),
             f"VALUE_of_tilde_DOWN_at_{t}",
         )
@@ -291,19 +293,21 @@ def execute(model: ThermalOptimization, day_zero: bool) -> None:
         # U (eq. (27))
         model.add_constraint(model.U[t] <= model.Q_max * model.ON_UP[t])
         model.add_constraint(model.U[t] >= model.Q_min * model.ON_UP[t])
-        model.add_constraint(model.U[t] <= model.tilde_U[t] - model.Q_min * (1 - model.ON_UP[t]))
         model.add_constraint(
-            model.U[t] >= model.tilde_U[t] - model.Q_max * (1 - model.ON_UP[t]),
+            model.U[t] <= model.get_variable(model.aux_up_grad_at(t)) - model.Q_min * (1 - model.ON_UP[t])
+        )
+        model.add_constraint(
+            model.U[t] >= model.get_variable(model.aux_up_grad_at(t)) - model.Q_max * (1 - model.ON_UP[t]),
             f"VALUE_of_UP_at_{t}",
         )
         # D (eq. (29))
         model.add_constraint(model.D[t] <= model.Q_max * model.ON_DOWN[t])
         model.add_constraint(model.D[t] >= model.Q_min * model.ON_DOWN[t])
         model.add_constraint(
-            model.D[t] <= model.get_variable(self.aux_down_grad_at_(t)) - model.Q_min * (1 - model.ON_DOWN[t])
+            model.D[t] <= model.get_variable(model.aux_down_grad_at(t)) - model.Q_min * (1 - model.ON_DOWN[t])
         )
         model.add_constraint(
-            model.D[t] >= model.get_variable(self.aux_down_grad_at_(t)) - model.Q_max * (1 - model.ON_DOWN[t]),
+            model.D[t] >= model.get_variable(model.aux_down_grad_at(t)) - model.Q_max * (1 - model.ON_DOWN[t]),
             f"VALUE_of_DOWN_at_{t}",
         )
 
