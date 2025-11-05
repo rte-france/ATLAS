@@ -42,6 +42,7 @@ class ThermalOptimization(OptimisationModel):
     CONTRACTED_DIFFERENCE_DOWN_KEY = "contractedDifferenceDown_equip_"
     AUTOMATED_CONTRACTED_DIFFERENCE_UP_KEY = "automatedContractedDifferenceUp_equip_"
     AUTOMATED_CONTRACTED_DIFFERENCE_DOWN_KEY = "automatedContractedDifferenceDown_equip_"
+    AUX_DOWN_GRAD_AT_KEY = "aux_down_grad_at_"
 
     def __init__(
         self,
@@ -118,7 +119,6 @@ class ThermalOptimization(OptimisationModel):
         self.D: dict[
             DateTime, Any
         ] = {}  # This variable will be implemented in the gradient and bound the downward gradient
-        self.tilde_D: dict[DateTime, Any] = {}
         self.last_power: Timeseries = None
         self.last_date: DateTime = None
 
@@ -168,6 +168,9 @@ class ThermalOptimization(OptimisationModel):
 
     def automated_contracted_difference_down_at(self, t):
         return f"{self.AUTOMATED_CONTRACTED_DIFFERENCE_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def aux_down_grad_at_(self, t):
+        return f"{self.AUX_DOWN_GRAD_AT_KEY}{t}_equip_{self.thermal_unit.name}"
 
     def _initial_setup(self) -> None:
         """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
@@ -542,8 +545,8 @@ class ThermalOptimization(OptimisationModel):
                     self.Q_min,
                     self.Q_max,
                 )
-                self.tilde_D[t] = self.add_continuous_variable(
-                    f"aux_down_grad_at_{t}_equip_{self.thermal_unit.name}",
+                self.add_continuous_variable(
+                    self.aux_down_grad_at_(t),
                     self.Q_min,
                     self.Q_max,
                 )
