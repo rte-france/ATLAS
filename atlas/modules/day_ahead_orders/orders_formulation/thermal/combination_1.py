@@ -15,25 +15,7 @@ def execute(model: ThermalOptimization) -> None:
     # and finally the constraints on the power output.
     # A. INITIAL CONDITIONS
 
-    # See if the program needs to be initialized as DayZero or not
-    if len(model.last_power) == 0:
-        # Initialization of the program as DayZero and warn the user
-        if model.parameters.verbose:
-            cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
-        day_zero = True  # Boolean to keep track of the status
-    elif model.last_date != model.parameters.start_date - model.parameters.time_step:
-        # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
-        if model.parameters.verbose:
-            cfg.logger.warning(
-                f"***WARNING***\n The last_date found in Power of equipement {model.thermal_unit.name} "
-                "does not match the start_date of the current program. \n "
-                "The program will be initialized as DayZero."
-            )
-        day_zero = True
-    else:
-        day_zero = False
-        # Setting up the initial conditions of the program
-    if day_zero:
+    if model.is_day_zero():
         # Remind the user how the program has been initialized
         if model.parameters.verbose:
             cfg.logger.info(f"Initial conditions of unit {model.thermal_unit.name} have been set as in equation (47).")

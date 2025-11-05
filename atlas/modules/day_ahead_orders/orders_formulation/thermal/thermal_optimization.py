@@ -867,3 +867,24 @@ class ThermalOptimization(OptimisationModel):
                         sum(q[t] for t in matching_steps) <= upper_bound * time_step.total_days() * len(matching_steps),
                         f"energy_limit_of_{thermal_unit.name}_at_{date}",
                     )
+
+    def is_day_zero(self):
+        # See if the program needs to be initialized as DayZero or not
+        if len(self.last_power) == 0:
+            # Initialization of the program as DayZero and warn the user
+            if self.parameters.verbose:
+                cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
+            day_zero = True  # Boolean to keep track of the status
+        elif self.last_date != self.parameters.start_date - self.parameters.time_step:
+            # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
+            if self.parameters.verbose:
+                cfg.logger.warning(
+                    f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
+                    "does not match the start_date of the current program. \n "
+                    "The program will be initialized as DayZero."
+                )
+            day_zero = True
+        else:
+            day_zero = False
+            # Setting up the initial conditions of the program
+        return day_zero
