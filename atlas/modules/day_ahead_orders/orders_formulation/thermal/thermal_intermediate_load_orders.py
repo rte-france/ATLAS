@@ -409,7 +409,7 @@ class ThermalIntermediateLoadOrders:
             # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
                 model = ThermalOptimization(parameters, unit, price, value)
-                res = model.solve_thermal_optimization_program()
+                res = model.solve_thermal_optimization()
                 results[unit.name][value] = res
 
                 # Store state sequences in the output marker

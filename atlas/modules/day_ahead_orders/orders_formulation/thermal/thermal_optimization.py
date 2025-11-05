@@ -144,7 +144,7 @@ class ThermalOptimization(OptimisationModel):
         self._initial_setup()
         self.define_initial_parameters()
         self.create_objective_function("maximize")
-        self.create_constraints_and_init_conitions()
+        self.create_constraints_and_init_conditions()
 
     def reserves_up_equip_at(self, t):
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -591,7 +591,7 @@ class ThermalOptimization(OptimisationModel):
             direction=direction,
         )
 
-    def create_constraints_and_init_conitions(self) -> None:
+    def create_constraints_and_init_conditions(self) -> None:
         """
         STEP 3 : Constraints and initial conditions
         # Constraints and initial conditions are defined based on state and auxiliary variables.
@@ -619,7 +619,7 @@ class ThermalOptimization(OptimisationModel):
         if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable >= 1:
             combination_8.execute(self)
 
-    def solve_thermal_optimization_program(self) -> dict[str, Timeseries]:
+    def solve_thermal_optimization(self) -> dict[str, Timeseries]:
         """
         STEP 4 : Solving the problem
         :return: - `results`: a dictionnary containing the optimal values of the decision variables,
