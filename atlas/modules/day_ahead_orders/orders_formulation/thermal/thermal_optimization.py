@@ -19,16 +19,6 @@ from atlas.enum import SolverEnum
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
-    combination_1,
-    combination_2,
-    combination_3,
-    combination_4,
-    combination_5,
-    combination_6,
-    combination_7,
-    combination_8,
-)
 
 
 class ThermalOptimization(OptimisationModel):
@@ -602,6 +592,17 @@ class ThermalOptimization(OptimisationModel):
         # Initial conditions are defined on the previous_time_frame, constraints on the state and
         # control variables are defined on the time_frame.
         """
+        from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
+            combination_1,
+            combination_2,
+            combination_3,
+            combination_4,
+            combination_5,
+            combination_6,
+            combination_7,
+            combination_8,
+        )
+
         if self.T_stop == 0 and self.T_start == 0 and self.T_stable == 0:
             combination_1.execute(self)
         if self.T_stop >= 1 and self.T_start == 0 and self.T_stable == 0:
