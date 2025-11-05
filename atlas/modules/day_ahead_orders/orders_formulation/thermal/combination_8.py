@@ -10,7 +10,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimizat
 import atlas.config as cfg
 
 
-def execute(model: ThermalOptimization) -> None:
+def execute(model: ThermalOptimization, day_zero: bool) -> None:
     """Combination 8 : T_start = model.T_stable = T_stop >= 1"""
     # In this case, there are six state variables and the following auxiliary variables :
     #     - turned_on[t] and turned_off[t], indicating whether the unit has been turned on or off
@@ -48,7 +48,7 @@ def execute(model: ThermalOptimization) -> None:
     # Define the start_date - 2 time steps.
     start_date_minus_two = model.parameters.start_date - 2 * model.parameters.time_step
 
-    if model.is_day_zero():
+    if day_zero:
         # Remind the user how the program has been initialized
         cfg.logger.info(f"Initial conditions of unit {model.thermal_unit.name} have been set as in equation (47).")
 

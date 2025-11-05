@@ -8,7 +8,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimizat
 import atlas.config as cfg
 
 
-def execute(model: ThermalOptimization) -> None:
+def execute(model: ThermalOptimization, day_zero: bool) -> None:
     """Combination 7 : T_stop >= 1, model.T_stable = 0 T_start >= 1"""
     # In this case, there are five state variables and two auxiliary variables.
     # We review the initial conditions, then the constraints on the state variables
@@ -22,7 +22,7 @@ def execute(model: ThermalOptimization) -> None:
 
     # A. INITIAL CONDITIONS
 
-    if model.is_day_zero():
+    if day_zero:
         # Remind the user how the program has been initialized
         if model.parameters.verbose:
             cfg.logger.info(f"Initial conditions of unit {model.thermal_unit.name} have been set as in equation (47).")

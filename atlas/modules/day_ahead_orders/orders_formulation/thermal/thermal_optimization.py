@@ -603,22 +603,23 @@ class ThermalOptimization(OptimisationModel):
             combination_8,
         )
 
+        day_zero = self.is_day_zero()
         if self.T_stop == 0 and self.T_start == 0 and self.T_stable == 0:
-            combination_1.execute(self)
+            combination_1.execute(self, day_zero)
         if self.T_stop >= 1 and self.T_start == 0 and self.T_stable == 0:
-            combination_2.execute(self)
+            combination_2.execute(self, day_zero)
         if self.T_stop == 0 and self.T_start == 0 and self.T_stable >= 1:
-            combination_3.execute(self)
+            combination_3.execute(self, day_zero)
         if self.T_start >= 1 and self.T_stop == 0 and self.T_stable == 0:
-            combination_4.execute(self)
+            combination_4.execute(self, day_zero)
         if self.T_stop >= 1 and self.T_start == 0 and self.T_stable >= 1:
-            combination_5.execute(self)
+            combination_5.execute(self, day_zero)
         if self.T_stop == 0 and self.T_start >= 1 and self.T_stable >= 1:
-            combination_6.execute(self)
+            combination_6.execute(self, day_zero)
         if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable == 0:
-            combination_7.execute(self)
+            combination_7.execute(self, day_zero)
         if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable >= 1:
-            combination_8.execute(self)
+            combination_8.execute(self, day_zero)
 
     def solve_thermal_optimization(self) -> dict[str, Timeseries]:
         """
