@@ -411,6 +411,9 @@ class ThermalIntermediateLoadOrders:
             # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
                 model = ThermalOptimizationModel(parameters, unit, price, value)
+                model.set_solver_specific_parameters_as_string(
+                    f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_seconds()}"
+                )
                 res = model.solve_thermal_optimization()
                 results[unit.name][value] = res
 

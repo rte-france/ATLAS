@@ -634,9 +634,6 @@ class ThermalOptimizationModel(OptimisationModel):
                     All these results are returned in the form of a TimeSeries object ranging over the optimization period
                     (i.e. [start_date, end_optimization_date]).
         """
-        self.set_solver_specific_parameters_as_string(
-            f"MIPRELSTOP {self.parameters.solver_duality_gap} PRESOLVE {int(self.parameters.use_presolve)} MAXTIME {self.parameters.solver_time_out.total_seconds()}"
-        )
         if self.parameters.debug:
             lp_file_name = os.path.join(
                 self.parameters.output_folder, f"{self.thermal_unit.name}_price_{self.price_type}.lp"
@@ -745,8 +742,6 @@ class ThermalOptimizationModel(OptimisationModel):
             START_star = Timeseries.from_index(
                 self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
             )
-            # Add the keys in the dictionnary
-            results["START"] = {}
             for t in self.time_frame:
                 START_star.set_value(t, self.START[t].solution_value())
                 # Add the time series to the dictionnary.
@@ -755,7 +750,6 @@ class ThermalOptimizationModel(OptimisationModel):
             STOP_star = Timeseries.from_index(
                 self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
             )
-            results["STOP"] = {}
             for t in self.time_frame:
                 STOP_star.set_value(t, self.STOP[t].solution_value())
             # Add the time series to the dictionnary.
@@ -764,7 +758,6 @@ class ThermalOptimizationModel(OptimisationModel):
             ON_FLAT_star = Timeseries.from_index(
                 self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
             )
-            results["ON_FLAT"] = {}
             for t in self.time_frame:
                 ON_FLAT_star.set_value(t, self.ON_FLAT[t].solution_value())
             results["ON_FLAT"] = ON_FLAT_star
