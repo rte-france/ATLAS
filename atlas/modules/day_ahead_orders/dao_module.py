@@ -12,9 +12,9 @@ import atlas.config as cfg
 from atlas import BusinessModel, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.abstract_class.abstract_parameters import module_parameters_type_var
-from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.day_ahead_orders_output_dataset import DayAheadOrdersOutputDataset
-from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.dao_load import DAOLoad
 from atlas.modules.day_ahead_orders.orders_formulation.dao_storage import DAOStorage
 from atlas.modules.day_ahead_orders.orders_formulation.hydraulic import Hydraulic

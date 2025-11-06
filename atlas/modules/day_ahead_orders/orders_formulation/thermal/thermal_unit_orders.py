@@ -13,8 +13,8 @@ import atlas.config as cfg
 from atlas import Order, OrderCoupling, Thermal, generate_datetimes
 from atlas.enum import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 
 
 class ThermalUnitOrders:

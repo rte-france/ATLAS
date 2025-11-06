@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pendulum.duration import Duration
 
 from atlas import Equipment
-from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 
 

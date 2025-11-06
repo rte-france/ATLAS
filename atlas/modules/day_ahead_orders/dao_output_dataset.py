@@ -7,8 +7,8 @@ This file is part of the ATLAS project.
 
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 
 
 class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):

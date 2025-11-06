@@ -14,10 +14,12 @@ import atlas.config as cfg
 from atlas import OrderCoupling, ScenarioMatrix, Thermal
 from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimizationModel
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization_model import (
+    ThermalOptimizationModel,
+)
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 
 

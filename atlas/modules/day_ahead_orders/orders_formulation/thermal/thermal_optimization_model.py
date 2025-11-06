@@ -18,7 +18,7 @@ from atlas import OptimisationModel, generate_datetimes
 from atlas.enum import SolverEnum
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
-from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 
 
 class ThermalOptimizationModel(OptimisationModel):
@@ -109,16 +109,13 @@ class ThermalOptimizationModel(OptimisationModel):
         self.Q_max: float = None
         self.Q_min: float = None
         self.stable: dict[DateTime, Any] = {}  # This auxiliary variable indicates when the unit enters the FLAT state
-        self.entered_up: dict[
-            DateTime, Any
-        ] = {}  # This variable replaces ON_UP in the definition of the gradient and will bound the gradient for only one time step
+        # This variable replaces ON_UP in the definition of the gradient and will bound the gradient for only one time step
+        self.entered_up: dict[DateTime, Any] = {}
         self.entered_down: dict[DateTime, Any] = {}  # Same as single_on_up but for on down
-        self.U: dict[
-            DateTime, Any
-        ] = {}  # This variable will be implemented in the gradient and bound the upward gradient
-        self.D: dict[
-            DateTime, Any
-        ] = {}  # This variable will be implemented in the gradient and bound the downward gradient
+        # This variable will be implemented in the gradient and bound the upward gradient
+        self.U: dict[DateTime, Any] = {}
+        # This variable will be implemented in the gradient and bound the downward gradient
+        self.D: dict[DateTime, Any] = {}
         self.last_power: Timeseries = None
         self.last_date: DateTime = None
 

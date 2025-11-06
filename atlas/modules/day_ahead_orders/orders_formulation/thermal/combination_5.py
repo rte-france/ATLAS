@@ -6,7 +6,9 @@ This file is part of the ATLAS project.
 
 import math
 
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimizationModel
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization_model import (
+    ThermalOptimizationModel,
+)
 import atlas.config as cfg
 
 
