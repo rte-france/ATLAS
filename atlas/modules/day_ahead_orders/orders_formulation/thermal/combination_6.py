@@ -4,11 +4,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimization
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimizationModel
 import atlas.config as cfg
 
 
-def execute(model: ThermalOptimization, day_zero: bool) -> None:
+def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     """Combination 6 : T_stop =0, model.T_stable = T_start >= 1"""
     # In this case, there are five state variables and the following auxiliary variables :
     #     - turned_on[t] and turned_off[t], indicating whether the unit has been turned on or off

@@ -21,7 +21,7 @@ from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
 
-class ThermalOptimization(OptimisationModel):
+class ThermalOptimizationModel(OptimisationModel):
     """
     This class modelize the optimization program associated to the thermic units. It only
     performs the optimization for one unit, passed as an argument.

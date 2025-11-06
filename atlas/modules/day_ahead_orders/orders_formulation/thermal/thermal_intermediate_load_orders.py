@@ -17,7 +17,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.day_ahead_orders_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimization
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization import ThermalOptimizationModel
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 
 
@@ -408,7 +408,7 @@ class ThermalIntermediateLoadOrders:
             # Solve three times the optimization program, one for each price curve
             # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
-                model = ThermalOptimization(parameters, unit, price, value)
+                model = ThermalOptimizationModel(parameters, unit, price, value)
                 res = model.solve_thermal_optimization()
                 results[unit.name][value] = res
 
