@@ -7,10 +7,10 @@ This file is part of the ATLAS project.
 
 from atlas import Equipment
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseModel
+from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 
 
-class ElectricVehicleModel(DAOBaseModel):
+class ElectricVehicleModel(StorageModel):
     def __init__(
         self,
         parameters: DayAheadOrdersParameters,
@@ -26,13 +26,13 @@ class ElectricVehicleModel(DAOBaseModel):
         for t in self.time_frame:
             for i in range(self.parameters.ev_nb_fragments):
                 self.add_constraint(
-                    self.get_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, i))
+                    self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
                     * self.parameters.ev_nb_fragments
                     <= self.equipment.maximum_power.get_value(t),
                     f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
                 )
                 self.add_constraint(
-                    self.get_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, i))
+                    self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
                     * self.parameters.ev_nb_fragments
                     <= abs(self.equipment.minimum_power.get_value(t)),
                     f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
@@ -40,17 +40,17 @@ class ElectricVehicleModel(DAOBaseModel):
 
             # Total bought/sold energy at each tome step is the sum of the fragments at time step
             self.add_constraint(
-                self.get_variable(DAOBaseModel.sold_at_key(t))
+                self.get_variable(StorageModel.sold_at_key(t))
                 == sum(
-                    self.get_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, i))
+                    self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
                     for i in range(self.parameters.ev_nb_fragments)
                 ),
                 f"Evaluation_of_quantity_sold_at_{t}",
             )
             self.add_constraint(
-                self.get_variable(DAOBaseModel.purchased_at_key(t))
+                self.get_variable(StorageModel.purchased_at_key(t))
                 == sum(
-                    self.get_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, i))
+                    self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
                     for i in range(self.parameters.ev_nb_fragments)
                 ),
                 f"Evaluation_of_quantity_purchased_at_{t}",
@@ -59,7 +59,7 @@ class ElectricVehicleModel(DAOBaseModel):
             # StoredEnergy tracking constraint, evaluates the stock at each time step
             if t == self.parameters.start_date:
                 self.add_constraint(
-                    self.get_variable(DAOBaseModel.stored_energy_at_key(t))
+                    self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (
                         initial_stock
                         * (
@@ -68,8 +68,8 @@ class ElectricVehicleModel(DAOBaseModel):
                         )
                         + self.parameters.time_step.total_hours()
                         * (
-                            self.get_variable(DAOBaseModel.purchased_at_key(t)) * self.equipment.charge_efficiency
-                            - self.get_variable(DAOBaseModel.sold_at_key(t)) / self.equipment.discharge_efficiency
+                            self.get_variable(StorageModel.purchased_at_key(t)) * self.equipment.charge_efficiency
+                            - self.get_variable(StorageModel.sold_at_key(t)) / self.equipment.discharge_efficiency
                         )
                         + (
                             self.equipment.displacement_energy.get_value(t)
@@ -80,17 +80,17 @@ class ElectricVehicleModel(DAOBaseModel):
                 )
             else:
                 self.add_constraint(
-                    self.get_variable(DAOBaseModel.stored_energy_at_key(t))
+                    self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (
-                        self.get_variable(DAOBaseModel.stored_energy_at_key(t - self.parameters.time_step))
+                        self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.time_step))
                         * (
                             self.equipment.maximum_energy.get_value(t)
                             / self.equipment.maximum_energy.get_value(t - self.parameters.time_step)
                         )
                         + self.parameters.time_step.total_hours()
                         * (
-                            self.get_variable(DAOBaseModel.purchased_at_key(t)) * self.equipment.charge_efficiency
-                            - self.get_variable(DAOBaseModel.sold_at_key(t)) / self.equipment.discharge_efficiency
+                            self.get_variable(StorageModel.purchased_at_key(t)) * self.equipment.charge_efficiency
+                            - self.get_variable(StorageModel.sold_at_key(t)) / self.equipment.discharge_efficiency
                         )
                         + (
                             self.equipment.displacement_energy.get_value(t)
@@ -102,31 +102,31 @@ class ElectricVehicleModel(DAOBaseModel):
 
             # Respect of system states constraints (isSell and is_v2g)
             self.add_constraint(
-                self.get_variable(DAOBaseModel.sold_at_key(t))
+                self.get_variable(StorageModel.sold_at_key(t))
                 <= self.equipment.is_v2g
-                * self.get_variable(DAOBaseModel.is_sell_at_key(t))
+                * self.get_variable(StorageModel.is_sell_at_key(t))
                 * self.equipment.maximum_power.get_value(t),
                 f"Respect_Pmax_sale_at_{t}",
             )
             self.add_constraint(
-                self.get_variable(DAOBaseModel.purchased_at_key(t))
-                <= (1 - self.get_variable(DAOBaseModel.is_sell_at_key(t)) * self.equipment.is_v2g)
+                self.get_variable(StorageModel.purchased_at_key(t))
+                <= (1 - self.get_variable(StorageModel.is_sell_at_key(t)) * self.equipment.is_v2g)
                 * abs(self.equipment.minimum_power.get_value(t)),
                 f"Respect_Pmax_purchase_at_{t}",
             )
-            self.add_constraint(self.get_variable(DAOBaseModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
+            self.add_constraint(self.get_variable(StorageModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
             self.add_constraint(
-                self.get_variable(DAOBaseModel.purchased_at_key(t)) >= 0, f"Respect_Pmin_purchase_at_{t}"
+                self.get_variable(StorageModel.purchased_at_key(t)) >= 0, f"Respect_Pmin_purchase_at_{t}"
             )
 
             # Respect of minimum and maximum stoage level constraints
             self.add_constraint(
-                self.get_variable(DAOBaseModel.stored_energy_at_key(t))
+                self.get_variable(StorageModel.stored_energy_at_key(t))
                 >= self.equipment.minimum_state_of_charge.get_value(t) * self.equipment.maximum_energy.get_value(t),
                 f"Minimum_storage_level_constraint_at_{t}",
             )
             self.add_constraint(
-                self.get_variable(DAOBaseModel.stored_energy_at_key(t)) <= self.equipment.maximum_energy.get_value(t),
+                self.get_variable(StorageModel.stored_energy_at_key(t)) <= self.equipment.maximum_energy.get_value(t),
                 f"Maximum_storage_level_constraint_at_{t}",
             )
 
@@ -161,7 +161,7 @@ class ElectricVehicleModel(DAOBaseModel):
 
         # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
         self.add_constraint(
-            sum(self.get_variable(DAOBaseModel.purchased_at_key(t)) for t in self.time_frame)
+            sum(self.get_variable(StorageModel.purchased_at_key(t)) for t in self.time_frame)
             * self.equipment.charge_efficiency
             >= (
                 self.equipment.displacement_energy.get_value(

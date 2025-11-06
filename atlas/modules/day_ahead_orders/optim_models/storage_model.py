@@ -17,7 +17,7 @@ from atlas.enum import SolverEnum
 from atlas.modules.day_ahead_orders.day_ahead_orders_parameters import DayAheadOrdersParameters
 
 
-class DAOBaseModel(OptimisationModel):
+class StorageModel(OptimisationModel):
     AMOUNT_SOLD_AT = "Amount_sold_at_"
     AMOUNT_PURCHASED_AT = "Amount_purchased_at_"
     IS_SELL_AT = "isSell_at_"
@@ -85,17 +85,17 @@ class DAOBaseModel(OptimisationModel):
 
         for t in self.time_frame:
             # Total quantities bought and purchased in the market at each time step
-            self.add_continuous_variable(DAOBaseModel.sold_at_key(t), 0)
-            self.add_continuous_variable(DAOBaseModel.purchased_at_key(t), 0)
+            self.add_continuous_variable(StorageModel.sold_at_key(t), 0)
+            self.add_continuous_variable(StorageModel.purchased_at_key(t), 0)
             # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
-            self.add_boolean_variable(DAOBaseModel.is_sell_at_key(t))
+            self.add_boolean_variable(StorageModel.is_sell_at_key(t))
             # Energy stored in battery at each time step
             # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
-            self.add_continuous_variable(DAOBaseModel.stored_energy_at_key(t), 0)
+            self.add_continuous_variable(StorageModel.stored_energy_at_key(t), 0)
             # Quantities bought and purchased in each fragment of power i at each time step
             for i in range(nb_fragments):
-                self.add_continuous_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, i), 0)
-                self.add_continuous_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, i), 0)
+                self.add_continuous_variable(StorageModel.amount_sold_in_fragment_at_key(t, i), 0)
+                self.add_continuous_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i), 0)
 
     def create_objective_function(
         self, nb_fragments: int, smoothing_factor: float, direction: Literal["maximize", "minimize"] = "maximize"
@@ -107,10 +107,10 @@ class DAOBaseModel(OptimisationModel):
             self.add_objective(
                 objective_expr=sum(
                     self.price_forecast.get_value(t)
-                    * self.get_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, 0))
+                    * self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, 0))
                     * self.parameters.time_step.total_hours()
                     - self.price_forecast.get_value(t)
-                    * self.get_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, 0))
+                    * self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, 0))
                     * self.parameters.time_step.total_hours()
                     for t in self.time_frame
                 ),
@@ -122,11 +122,11 @@ class DAOBaseModel(OptimisationModel):
                     sum(
                         self.price_forecast.get_value(t)
                         * (1 - i * smoothing_factor / (nb_fragments - 1))
-                        * self.get_variable(DAOBaseModel.amount_sold_in_fragment_at_key(t, i))
+                        * self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
                         * self.parameters.time_step.total_hours()
                         - self.price_forecast.get_value(t)
                         * (1 + i * smoothing_factor / (nb_fragments - 1))
-                        * self.get_variable(DAOBaseModel.amount_purchased_in_fragment_at_key(t, i))
+                        * self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
                         * self.parameters.time_step.total_hours()
                         for i in range(nb_fragments)
                     )

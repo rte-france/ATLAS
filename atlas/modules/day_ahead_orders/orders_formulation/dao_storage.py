@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.modules.day_ahead_orders.optim_models.dao_base_model import DAOBaseModel
+from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -51,8 +51,8 @@ class DAOStorage:
         for t in model.time_frame:
             if t >= parameters.end_date:
                 break
-            Qvv[t] = round(model.get_variable(DAOBaseModel.sold_at_key(t)).solution_value(), 2)
-            Qaa[t] = round(model.get_variable(DAOBaseModel.purchased_at_key(t)).solution_value(), 2)
+            Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
+            Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
 
         return Qvv, Qaa
 
@@ -105,8 +105,8 @@ class DAOStorage:
         for t in model.time_frame:
             if t >= parameters.end_date:
                 break
-            Qvv[t] = round(model.get_variable(DAOBaseModel.sold_at_key(t)).solution_value(), 2)
-            Qaa[t] = round(model.get_variable(DAOBaseModel.purchased_at_key(t)).solution_value(), 2)
+            Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
+            Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
 
         return Qvv, Qaa
 
