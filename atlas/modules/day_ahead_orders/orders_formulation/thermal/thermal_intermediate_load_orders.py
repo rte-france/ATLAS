@@ -7,6 +7,18 @@ This file is part of the ATLAS project.
 
 import itertools
 import math
+from typing import Callable
+
+from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
+    combination_1,
+    combination_2,
+    combination_3,
+    combination_4,
+    combination_5,
+    combination_6,
+    combination_7,
+    combination_8,
+)
 
 from pydantic_extra_types.pendulum_dt import DateTime
 
@@ -411,6 +423,26 @@ class ThermalIntermediateLoadOrders:
             # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
                 model = ThermalOptimizationModel(parameters, unit, price, value)
+                model.create_objective_function("maximize")
+                initial_condition_functions: dict[int, Callable[..., None]] = {
+                    1: combination_1.execute,
+                    2: combination_2.execute,
+                    3: combination_3.execute,
+                    4: combination_4.execute,
+                    5: combination_5.execute,
+                    6: combination_6.execute,
+                    7: combination_7.execute,
+                    8: combination_8.execute,
+                }
+                initial_condition_function = initial_condition_functions.get(
+                    model.determine_combination(), combination_1.execute
+                )
+
+                day_zero = model.is_day_zero()
+
+                # Call the function with single timestamp
+                initial_condition_function(model=model, day_zero=day_zero)
+
                 model.set_solver_specific_parameters_as_string(
                     f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_seconds()}"
                 )

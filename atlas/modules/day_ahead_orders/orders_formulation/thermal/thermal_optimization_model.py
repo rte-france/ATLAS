@@ -130,8 +130,6 @@ class ThermalOptimizationModel(OptimisationModel):
 
         self._initial_setup()
         self.define_initial_parameters()
-        self.create_objective_function("maximize")
-        self.create_constraints_and_init_conditions()
 
     def reserves_up_equip_at(self, t):
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -584,8 +582,8 @@ class ThermalOptimizationModel(OptimisationModel):
             direction=direction,
         )
 
-    def create_constraints_and_init_conditions(self) -> None:
-        """
+    def determine_combination(self) -> int:
+        """Determine which of the 8 constraint combinations to use.
         STEP 3 : Constraints and initial conditions
         # Constraints and initial conditions are defined based on state and auxiliary variables.
         # Since these variables are not necessarily defined, in the following we go through all
@@ -595,34 +593,24 @@ class ThermalOptimizationModel(OptimisationModel):
         # Initial conditions are defined on the previous_time_frame, constraints on the state and
         # control variables are defined on the time_frame.
         """
-        from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
-            combination_1,
-            combination_2,
-            combination_3,
-            combination_4,
-            combination_5,
-            combination_6,
-            combination_7,
-            combination_8,
-        )
-
-        day_zero = self.is_day_zero()
         if self.T_stop == 0 and self.T_start == 0 and self.T_stable == 0:
-            combination_1.execute(self, day_zero)
-        if self.T_stop >= 1 and self.T_start == 0 and self.T_stable == 0:
-            combination_2.execute(self, day_zero)
-        if self.T_stop == 0 and self.T_start == 0 and self.T_stable >= 1:
-            combination_3.execute(self, day_zero)
-        if self.T_start >= 1 and self.T_stop == 0 and self.T_stable == 0:
-            combination_4.execute(self, day_zero)
-        if self.T_stop >= 1 and self.T_start == 0 and self.T_stable >= 1:
-            combination_5.execute(self, day_zero)
-        if self.T_stop == 0 and self.T_start >= 1 and self.T_stable >= 1:
-            combination_6.execute(self, day_zero)
-        if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable == 0:
-            combination_7.execute(self, day_zero)
-        if self.T_stop >= 1 and self.T_start >= 1 and self.T_stable >= 1:
-            combination_8.execute(self, day_zero)
+            return 1
+        elif self.T_stop >= 1 and self.T_start == 0 and self.T_stable == 0:
+            return 2
+        elif self.T_stop == 0 and self.T_start == 0 and self.T_stable >= 1:
+            return 3
+        elif self.T_start >= 1 and self.T_stop == 0 and self.T_stable == 0:
+            return 4
+        elif self.T_stop >= 1 and self.T_start == 0 and self.T_stable >= 1:
+            return 5
+        elif self.T_stop == 0 and self.T_start >= 1 and self.T_stable >= 1:
+            return 6
+        elif self.T_stop >= 1 and self.T_start >= 1 and self.T_stable == 0:
+            return 7
+        elif self.T_stop >= 1 and self.T_start >= 1 and self.T_stable >= 1:
+            return 8
+        else:
+            return 1  # Default fallback
 
     def solve_thermal_optimization(self) -> dict[str, Timeseries]:
         """
