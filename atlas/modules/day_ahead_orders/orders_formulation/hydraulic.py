@@ -46,7 +46,7 @@ class Hydraulic:
         # Loop over the market players first.
         for equipment in hydraulic_units:
             # Retrieve volumes and prices of fragments
-            delta_wu = {}
+            delta_wu: dict[float, float] = {}
             for category in range(len(equipment.fragment_volumes)):
                 delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 

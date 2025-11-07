@@ -4,6 +4,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import Any
+from pydantic_extra_types.pendulum_dt import DateTime
+
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization_model import (
     ThermalOptimizationModel,
 )
@@ -18,7 +21,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
     # PREAMBLE
     # Define the down_to_stop auxiliary, which is used in this combination and in combination 2
-    down_to_stop = {}
+    down_to_stop: dict[DateTime, Any] = {}
     for t in model.time_frame:
         down_to_stop[t] = model.add_continuous_variable(f"down_to_stop_equip_{model.thermal_unit.name}_at_{t}", 0, 1)
 

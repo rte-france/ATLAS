@@ -5,7 +5,8 @@ This file is part of the ATLAS project.
 """
 
 import math
-
+from typing import Any
+from pydantic_extra_types.pendulum_dt import DateTime
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization_model import (
     ThermalOptimizationModel,
 )
@@ -30,7 +31,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # in the DOWN state at time steps t and t-1.
 
     # flat_down_stop
-    flat_down_stop = {}
+    flat_down_stop: dict[DateTime, Any] = {}
     for t in model.time_frame:
         flat_down_stop[t] = model.add_continuous_variable(
             f"flat_down_stop_at_{t}_equip_{model.thermal_unit.name}",
@@ -38,7 +39,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             1,
         )
 
-    DD = {}
+    DD: dict[DateTime, Any] = {}
     for t in model.gradients_time_frame:
         DD[t] = model.add_continuous_variable(f"DD_at_{t}_equip_{model.thermal_unit.name}", model.Q_min, model.Q_max)
 
