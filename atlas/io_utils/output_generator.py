@@ -7,19 +7,16 @@ Module that implements Output Generator Loader
 """
 
 from pathlib import Path
+from pydantic_extra_types.pendulum_dt import Duration
 
+import os
 import atlas.config as cfg
 from atlas.custom_errors import (
-    DataValidationError,
-    DirectoryStructureError,
-    FileParsingError,
-    InputLoaderError,
-    ObjectInstantiationError,
+    InputLoaderError
 )
-from atlas.io_utils.models import InputLoaderConfig
+from atlas.io_utils.models import OutputGeneratorConfig
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
-from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 
@@ -99,7 +96,7 @@ class OutputGenerator:
         try:
             cfg.logger.info(f"Exporting Atlas output to directory: {directory_path}")
 
-            config = InputLoaderConfig(
+            config = OutputGeneratorConfig(
                 directory_path=directory_path,
                 separator=separator,
                 timeseries_file_extension=timeseries_file_extension,
@@ -111,13 +108,39 @@ class OutputGenerator:
             scenario_matrix_dir = config.directory_path / "scenario_matrix"
             forecasting_matrix_dir = config.directory_path / "forecasting_matrix"
 
+            if not config.directory_path.is_dir():
+                try:
+                    os.mkdir(config.directory_path)
+                except PermissionError:
+                    print(f"Permission denied: Unable to create '{config.directory_path}'.")
+            if not objects_dir.is_dir():
+                try:
+                    os.mkdir(objects_dir)
+                except PermissionError:
+                    print(f"Permission denied: Unable to create '{objects_dir}'.")
+            if not timeseries_dir.is_dir():
+                try:
+                    os.mkdir(timeseries_dir)
+                except PermissionError:
+                    print(f"Permission denied: Unable to create '{timeseries_dir}'.")
+            if not scenario_matrix_dir.is_dir():
+                try:
+                    os.mkdir(scenario_matrix_dir)
+                except PermissionError:
+                    print(f"Permission denied: Unable to create '{scenario_matrix_dir}'.")
+            if not forecasting_matrix_dir.is_dir():
+                try:
+                    os.mkdir(forecasting_matrix_dir)
+                except PermissionError:
+                    print(f"Permission denied: Unable to create '{forecasting_matrix_dir}'.")
+
             for object_key, object_values in dataset.items():
                 file_name = object_key + ".csv"
                 file_path = objects_dir / file_name
                 rows = []
 
                 # Generate first row
-                columns_name = object_values[0].model_dump().keys()
+                columns_name = list(object_values[0].model_dump().keys())
                 columns_name.remove("name")
                 columns_name.sort()
                 rows.append("name")
@@ -128,9 +151,6 @@ class OutputGenerator:
                 # Compute other rows
                 idx_next_row = 0
                 for value in object_values:
-                    if isinstance(value, BusinessModel):
-                        continue
-
                     dump_value = value.model_dump()
                     rows.append(dump_value["name"])
                     idx_next_row += 1
@@ -140,23 +160,54 @@ class OutputGenerator:
                         if dump_value[field_name] is None:
                             continue
                         elif isinstance(dump_value[field_name], Timeseries):
+                            dir_path = timeseries_dir / object_key
+                            if not dir_path.is_dir():
+                                try:
+                                    os.mkdir(dir_path)
+                                except PermissionError:
+                                    print(f"Permission denied: Unable to create '{dir_path}'.")
                             dump_value[field_name].to_file(
-                                timeseries_dir / object_key / dump_value["name"] + config.timeseries_file_extension,
-                                config.timeseries_file_extension,
+                                dir_path / (dump_value["name"] + config.timeseries_file_extension),
+                                config.timeseries_file_extension.replace(".", ""),
                                 config.separator)
                             rows[idx_next_row] += "timeseries"
                         elif isinstance(dump_value[field_name], ForecastingMatrix):
+                            dir_path = forecasting_matrix_dir / object_key
+                            if not dir_path.is_dir():
+                                try:
+                                    os.mkdir(dir_path)
+                                except PermissionError:
+                                    print(f"Permission denied: Unable to create '{dir_path}'.")
                             dump_value[field_name].to_file(
-                                forecasting_matrix_dir / object_key / dump_value["name"] + config.matrix_file_extension,
-                                config.matrix_file_extension,
+                                dir_path / (dump_value["name"] + config.matrix_file_extension),
+                                config.matrix_file_extension.replace(".", ""),
                                 config.separator)
                             rows[idx_next_row] += "forecasting_matrix"
                         elif isinstance(dump_value[field_name], ScenarioMatrix):
+                            dir_path = scenario_matrix_dir / object_key
+                            if not dir_path.is_dir():
+                                try:
+                                    os.mkdir(dir_path)
+                                except PermissionError:
+                                    print(f"Permission denied: Unable to create '{dir_path}'.")
                             dump_value[field_name].to_file(
-                                scenario_matrix_dir / object_key / dump_value["name"] + config.matrix_file_extension,
-                                config.matrix_file_extension,
+                                dir_path / (dump_value["name"] + config.matrix_file_extension),
+                                config.matrix_file_extension.replace(".", ""),
                                 config.separator)
                             rows[idx_next_row] += "scenario_matrix"
+                        elif isinstance(dump_value[field_name], bool):
+                            if dump_value[field_name]:
+                                rows[idx_next_row] += "1"
+                            else:
+                                rows[idx_next_row] += "0"
+                        elif isinstance(dump_value[field_name], str):
+                            rows[idx_next_row] += dump_value[field_name]
+                        elif isinstance(dump_value[field_name], int) or isinstance(dump_value[field_name], float):
+                            rows[idx_next_row] += str(dump_value[field_name])
+                        elif isinstance(dump_value[field_name], Duration):
+                            rows[idx_next_row] += dump_value[field_name].to_iso8601_string()
+                        elif isinstance(dump_value[field_name], dict):
+                            rows[idx_next_row] += str(dump_value[field_name]["name"])
                         else:
                             rows[idx_next_row] += str(dump_value[field_name])
 
