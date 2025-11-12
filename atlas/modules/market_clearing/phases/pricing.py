@@ -383,13 +383,25 @@ class Pricing(OptimisationModel):
     def create_adverse_flow_constraint(self):
         for time_index, _time in enumerate(self.input_dataset.times):
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
+                border_exchange = self.clearing_border_exchanges[border_name, time_index]
+                if abs(border_exchange) < self.parameters.allowed_round_off_error:
+                    continue
+                price_in, price_out = None, None
                 for price_group in self.price_groups[time_index]:
-                    if mc_border.upstream_market.name in price_group.market_area_names:
+                    if mc_border.uphill_market_area.name in price_group.market_area_names:
                         price_in = self.get_variable(constants.price_on_group_variable_name(price_group.id, time_index))
-                    if mc_border.downstream_market.name in price_group.market_area_names:
+                    if mc_border.downhill_market_area.name in price_group.market_area_names:
                         price_out = self.get_variable(constants.price_on_group_variable_name(price_group.id, time_index))
+
+                if price_in and not price_out:
                     self.add_constraint(
-                        self.clearing_border_exchanges[border_name, time_index] * (price_out - price_in)
+                        - border_exchange * price_in
+                        >= 0.0,
+                        constants.adverse_flow_constraint_name(border_name, time_index),
+                    )
+                elif price_out and not price_in:
+                    self.add_constraint(
+                        border_exchange * price_out
                         >= 0.0,
                         constants.adverse_flow_constraint_name(border_name, time_index),
                     )
