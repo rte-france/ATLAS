@@ -120,30 +120,31 @@ class Pricing(OptimisationModel):
         self.create_surplus_objective()
 
     def build_third(self):
-        self.build_third_variables()
-        self.build_third_constraints()
-        self.build_third_objective()
+        opposite_delta_p_dict = self.create_opposite_delta_p()
+        self.build_third_variables(opposite_delta_p_dict)
+        self.build_third_constraints(opposite_delta_p_dict)
+        self.build_third_objective(opposite_delta_p_dict)
 
-    def build_third_variables(self):
+    def build_third_variables(self, opposite_delta_p_dict: dict[int, float]):
         """Create all variables for the third pricing phase model"""
         self.create_delta_price_lo_variables()
-        self.create_delta_price_pc_variables()
+        self.create_delta_price_pc_variables(opposite_delta_p_dict)
         self.create_delta_price_order_variables()
 
-    def build_third_constraints(self):
+    def build_third_constraints(self, opposite_delta_p_dict: dict[int, float]):
         """Create all constraints for the third pricing phase model"""
         self.deactivate_positive_surplus_lo_constraints()
         self.deactivate_negative_surplus_pc_constraints()
         self.deactivate_positive_surplus_pc_constraints()
         self.deactivate_positive_surplus_order_constraints()
         self.create_paradoxical_delta_price_lo_constraints()
-        self.create_paradoxical_delta_price_pc_constraints()
+        self.create_paradoxical_delta_price_pc_constraints(opposite_delta_p_dict)
         self.create_paradoxical_delta_price_order_constraints()
 
-    def build_third_objective(self):
+    def build_third_objective(self, opposite_delta_p_dict: dict[int, float]):
         """Create objective function for the third pricing phase model"""
         self.create_paradoxical_lo_objective()
-        self.create_paradoxical_pc_objective()
+        self.create_paradoxical_pc_objective(opposite_delta_p_dict)
         self.create_paradoxical_order_objective()
 
     ##################################
@@ -598,13 +599,32 @@ class Pricing(OptimisationModel):
         return self.add_objective(sum(objective), direction="minimize")
 
     # Pricing 3
+    def create_opposite_delta_p(self) -> dict[int, float]:
+        opposite_delta_p_dict = {}
+        for index_pc, (parent_orders, children_orders) in self.dict_parent_child_orders.items():
+            opposite_delta_p = 0.0
+            for order in parent_orders + children_orders:
+                mc_order = self.input_dataset.mc_orders[order.name]
+                time_index = mc_order.time_index
+                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
+                local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
+                                                                                       time_index))
+                coeff_sale = 1 if mc_order.is_sale else -1
+
+                # If order is accepted, add its delta P to the overall paradoxical delta P of this group of linked orders
+                if local_cleared_power > self.parameters.allowed_round_off_error:
+                    opposite_delta_p += coeff_sale * (mc_order.price - local_price)
+            opposite_delta_p_dict[index_pc] = opposite_delta_p
+        return opposite_delta_p_dict
+
     def create_delta_price_lo_variables(self):
         for index_lo in self.dict_linked_orders:
             self.add_continuous_variable(constants.delta_p_lo(index_lo), 0, float("inf"))
 
-    def create_delta_price_pc_variables(self):
+    def create_delta_price_pc_variables(self, opposite_delta_p_dict: dict[int, float]):
         for index_pc in self.dict_parent_child_orders:
-            self.add_continuous_variable(constants.delta_p_pc(index_pc), 0, float("inf"))
+            if opposite_delta_p_dict[index_pc] != 0:
+                self.add_continuous_variable(constants.delta_p_pc(index_pc), 0, float("inf"))
 
     def create_delta_price_order_variables(self):
         for mc_order in self.input_dataset.mc_orders.values():
@@ -668,7 +688,7 @@ class Pricing(OptimisationModel):
                         local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
                                                                                            time_index))
                         coeff_sale = 1 if mc_order.is_sale else -1
-                        opposite_delta_p = coeff_sale * (mc_order   .price - local_price)
+                        opposite_delta_p = coeff_sale * (mc_order.price - local_price)
                         paradoxical_delta_p = self.get_variable(constants.delta_p_order(mc_order.name,
                                                                              mc_order.market_area.name, time_index))
                         self.add_constraint(paradoxical_delta_p >= opposite_delta_p,
@@ -682,11 +702,12 @@ class Pricing(OptimisationModel):
             objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
         return self.add_objective(sum(objective), direction="minimize")
 
-    def create_paradoxical_pc_objective(self):
+    def create_paradoxical_pc_objective(self, opposite_delta_p_dict: dict[int, float]):
         objective = []
         for index_pc in self.dict_parent_child_orders:
-            delta_p = self.get_variable(constants.delta_p_pc(index_pc))
-            objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
+            if opposite_delta_p_dict[index_pc] != 0:
+                delta_p = self.get_variable(constants.delta_p_pc(index_pc))
+                objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
         return self.add_objective(sum(objective), direction="minimize")
 
     def create_paradoxical_order_objective(self):
@@ -704,23 +725,11 @@ class Pricing(OptimisationModel):
                     objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
         return self.add_objective(sum(objective), direction="minimize")
 
-    def create_paradoxical_delta_price_pc_constraints(self):
-        for index_pc, (parent_orders, children_orders) in self.dict_parent_child_orders.items():
-            paradoxical_delta_p = self.get_variable(constants.delta_p_pc(index_pc))
-            opposite_delta_p = 0.0
-            for order in parent_orders + children_orders:
-                mc_order = self.input_dataset.mc_orders[order.name]
-                time_index = mc_order.time_index
-                local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
-                local_price = self.get_variable(constants.price_on_group_variable_name(mc_order.group_index,
-                                                                                       time_index))
-                coeff_sale = 1 if mc_order.is_sale else -1
-
-                # If order is accepted, add its delta P to the overall paradoxical delta P of this group of linked orders
-                if local_cleared_power > self.parameters.allowed_round_off_error:
-                    opposite_delta_p += coeff_sale * (mc_order.price - local_price)
-
-            self.add_constraint(paradoxical_delta_p >= opposite_delta_p,
+    def create_paradoxical_delta_price_pc_constraints(self, opposite_delta_p_dict: dict[int, float]):
+        for index_pc in self.dict_parent_child_orders:
+            if opposite_delta_p_dict[index_pc] != 0:
+                paradoxical_delta_p = self.get_variable(constants.delta_p_pc(index_pc))
+                self.add_constraint(paradoxical_delta_p >= opposite_delta_p_dict[index_pc],
                                 constants.paradoxical_delta_p_pc_constraint_name(index_pc))
 
     def create_paradoxical_delta_price_lo_constraints(self):
@@ -1189,9 +1198,12 @@ class Pricing(OptimisationModel):
                     mc_market_area = self.input_dataset.mc_market_areas[market_area_name]
 
                     for mc_order in mc_market_area.mc_orders.values():
+                        # Keep only orders in correct time
+                        if mc_order.time_index != time_index:
+                            continue
                         local_acc_power = self.clearing_accepted_powers[market_area_name, mc_order.name]
                         # Keep only rejected orders
-                        if abs(local_acc_power) > self.parameters.allowed_round_off_error:
+                        if abs(mc_order.qmax - local_acc_power) > self.parameters.allowed_round_off_error:
                             if mc_order.is_sale:
                                 price_group.min_rejected_sale = min(mc_order.price, price_group.min_rejected_sale)
                             else:
