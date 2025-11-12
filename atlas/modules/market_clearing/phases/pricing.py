@@ -568,24 +568,22 @@ class Pricing(OptimisationModel):
     def create_min_surplus_rejected_sale_constraints(self):
         for time_index, price_groups in self.price_groups.items():
             for price_group in price_groups:
-                current_price = self.get_variable(constants.price_on_group_variable_name(price_group.id, price_group.time_index))
+                current_price = self.get_variable(constants.price_on_group_variable_name(price_group.id, time_index))
 
                 logger.debug(f"New bounds : {current_price.lb()}, {current_price.ub()}")
-                min_rejected_sale = self.get_variable(constants.worst_rej_sale_group(price_group.id,
-                                                                                   price_group.time_index))
+                min_rejected_sale = self.get_variable(constants.worst_rej_sale_group(price_group.id, time_index))
                 self.add_constraint(min_rejected_sale - (current_price - price_group.min_rejected_sale)
-                    >= 0.0, constants.pos_min_rej_sale_group_constraint_name(price_group.id, price_group.time_index))
+                    >= 0.0, constants.pos_min_rej_sale_group_constraint_name(price_group.id, time_index))
 
     def create_max_surplus_rejected_buy_constraints(self):
         for time_index, price_groups in self.price_groups.items():
             for price_group in price_groups:
-                current_price = self.get_variable(constants.price_on_group_variable_name(price_group.id, price_group.time_index))
+                current_price = self.get_variable(constants.price_on_group_variable_name(price_group.id, time_index))
 
                 logger.debug(f"New bounds : {current_price.lb()}, {current_price.ub()}")
-                max_rejected_buy = self.get_variable(constants.worst_rej_buy_group(price_group.id,
-                                                                                   price_group.time_index))
+                max_rejected_buy = self.get_variable(constants.worst_rej_buy_group(price_group.id, time_index))
                 self.add_constraint(max_rejected_buy - (price_group.max_rejected_buy - current_price)
-                    >= 0.0, constants.pos_max_rej_buy_group_constraint_name(price_group.id, price_group.time_index))
+                    >= 0.0, constants.pos_max_rej_buy_group_constraint_name(price_group.id, time_index))
 
     def create_surplus_objective(self):
         objective = []
