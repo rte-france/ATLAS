@@ -1181,7 +1181,7 @@ class Pricing(OptimisationModel):
                     for mc_order in mc_market_area.mc_orders.values():
                         local_acc_power = self.clearing_accepted_powers[market_area_name, mc_order.name]
                         # Keep only rejected orders
-                        if abs(local_acc_power) < self.parameters.allowed_round_off_error:
+                        if abs(local_acc_power) > self.parameters.allowed_round_off_error:
                             if mc_order.is_sale:
                                 price_group.min_rejected_sale = min(mc_order.price, price_group.min_rejected_sale)
                             else:
