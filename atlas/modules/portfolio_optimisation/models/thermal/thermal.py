@@ -134,6 +134,7 @@ class ThermalPO(Thermal):
         elif self._T_stop >= 1 and self._T_start >= 1 and self._T_stable >= 1:
             return 8
         else:
+            cfg.logger("Combination constraint set can not be determined, default to 1.")
             return 1  # Default fallback
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):

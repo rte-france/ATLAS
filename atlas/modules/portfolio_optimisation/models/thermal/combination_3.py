@@ -3,7 +3,6 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Thermal unit combination 3: T_start >= 1, T_stop = T_stable = 0
 """
 
 from __future__ import annotations
