@@ -34,8 +34,9 @@ def retrieve_saturated_critical_branches_from_json(other_outputs_path: str, crit
     with (open(other_outputs_path, "r") as f):
         other_outputs = json.load(f)
         critical_branches = {}
-        for cb_id, time_index, value in other_outputs:
-            critical_branches[critical_branch_mapping[str(cb_id)], time_index] = value
+        for saturated_time_index in other_outputs["saturated_cb"]:
+            for cb_id, time_index, value in saturated_time_index:
+                critical_branches[critical_branch_mapping[str(cb_id)], time_index] = value
         return critical_branches
 
 
@@ -125,19 +126,21 @@ def test_compare_lp(dataset_name):
     with open(os.path.join(path, "pricing_1_test_legacy.lp"), "w") as f:
         f.write(s_legacy_1)
 
-    legacy_2_dict = transform_clearing_prometheus_lp(second_expected_lp_path, second_lp_mapping_path, expected_data)
-    legacy_2_solver = SolverHelper.model_from_dict_mc(legacy_2_dict, "XPRESS")
-    legacy_2_solver.Solve()
-    s_legacy_2 = legacy_2_solver.ExportModelAsLpFormat(False)
-    with open(os.path.join(path, "pricing_2_test_legacy.lp"), "w") as f:
-        f.write(s_legacy_2)
+    if os.path.exists(second_expected_lp_path):
+        legacy_2_dict = transform_clearing_prometheus_lp(second_expected_lp_path, second_lp_mapping_path, expected_data)
+        legacy_2_solver = SolverHelper.model_from_dict_mc(legacy_2_dict, "XPRESS")
+        legacy_2_solver.Solve()
+        s_legacy_2 = legacy_2_solver.ExportModelAsLpFormat(False)
+        with open(os.path.join(path, "pricing_2_test_legacy.lp"), "w") as f:
+            f.write(s_legacy_2)
 
-    legacy_3_dict = transform_clearing_prometheus_lp(third_expected_lp_path, third_lp_mapping_path, expected_data)
-    legacy_3_solver = SolverHelper.model_from_dict_mc(legacy_3_dict, "XPRESS")
-    legacy_3_solver.Solve()
-    s_legacy_3 = legacy_3_solver.ExportModelAsLpFormat(False)
-    with open(os.path.join(path, "pricing_3_test_legacy.lp"), "w") as f:
-        f.write(s_legacy_3)
+    if os.path.exists(third_lp_mapping_path):
+        legacy_3_dict = transform_clearing_prometheus_lp(third_expected_lp_path, third_lp_mapping_path, expected_data)
+        legacy_3_solver = SolverHelper.model_from_dict_mc(legacy_3_dict, "XPRESS")
+        legacy_3_solver.Solve()
+        s_legacy_3 = legacy_3_solver.ExportModelAsLpFormat(False)
+        with open(os.path.join(path, "pricing_3_test_legacy.lp"), "w") as f:
+            f.write(s_legacy_3)
     _, market_areas, _, borders, _, critical_branches = expected_data
     market_area_mapping = {value["id"]: key.lower() for key, value in market_areas.items()}
     orders_mapping = retrieve_orders_mapping(market_areas)
@@ -168,33 +171,35 @@ def test_compare_lp(dataset_name):
     with open(os.path.join(path, "pricing_1_test_atlas.lp"), "w") as f:
         f.write(s_atlas_1)
 
-    atlas_2_objectives, atlas_2_constraints, atlas_2_variables, atlas_2_binaries = SolverHelper.read_lp_ortools(
-        pricing_2_lp_path)
-    atlas_2_dict = {
-        "constraints": {to_snake_case(key): value for key, value in atlas_2_constraints.items()},
-        "variables": atlas_2_variables,
-        "objectives": atlas_2_objectives,
-        "binaries": atlas_2_binaries,
-    }
-    atlas_2_solver = SolverHelper.model_from_dict_mc(atlas_2_dict, "XPRESS")
-    atlas_2_solver.Solve()
-    s_atlas_2 = atlas_2_solver.ExportModelAsLpFormat(False)
-    with open(os.path.join(path, "pricing_2_test_atlas.lp"), "w") as f:
-        f.write(s_atlas_2)
+    if os.path.exists(pricing_2_lp_path):
+        atlas_2_objectives, atlas_2_constraints, atlas_2_variables, atlas_2_binaries = SolverHelper.read_lp_ortools(
+            pricing_2_lp_path)
+        atlas_2_dict = {
+            "constraints": {to_snake_case(key): value for key, value in atlas_2_constraints.items()},
+            "variables": atlas_2_variables,
+            "objectives": atlas_2_objectives,
+            "binaries": atlas_2_binaries,
+        }
+        atlas_2_solver = SolverHelper.model_from_dict_mc(atlas_2_dict, "XPRESS")
+        atlas_2_solver.Solve()
+        s_atlas_2 = atlas_2_solver.ExportModelAsLpFormat(False)
+        with open(os.path.join(path, "pricing_2_test_atlas.lp"), "w") as f:
+            f.write(s_atlas_2)
 
-    atlas_3_objectives, atlas_3_constraints, atlas_3_variables, atlas_3_binaries = SolverHelper.read_lp_ortools(
-        pricing_3_lp_path)
-    atlas_3_dict = {
-        "constraints": {to_snake_case(key): value for key, value in atlas_3_constraints.items()},
-        "variables": atlas_3_variables,
-        "objectives": atlas_3_objectives,
-        "binaries": atlas_3_binaries,
-    }
-    atlas_3_solver = SolverHelper.model_from_dict_mc(atlas_3_dict, "XPRESS")
-    atlas_3_solver.Solve()
-    s_atlas_3 = atlas_3_solver.ExportModelAsLpFormat(False)
-    with open(os.path.join(path, "pricing_3_test_atlas.lp"), "w") as f:
-        f.write(s_atlas_3)
+    if os.path.exists(pricing_3_lp_path):
+        atlas_3_objectives, atlas_3_constraints, atlas_3_variables, atlas_3_binaries = SolverHelper.read_lp_ortools(
+            pricing_3_lp_path)
+        atlas_3_dict = {
+            "constraints": {to_snake_case(key): value for key, value in atlas_3_constraints.items()},
+            "variables": atlas_3_variables,
+            "objectives": atlas_3_objectives,
+            "binaries": atlas_3_binaries,
+        }
+        atlas_3_solver = SolverHelper.model_from_dict_mc(atlas_3_dict, "XPRESS")
+        atlas_3_solver.Solve()
+        s_atlas_3 = atlas_3_solver.ExportModelAsLpFormat(False)
+        with open(os.path.join(path, "pricing_3_test_atlas.lp"), "w") as f:
+            f.write(s_atlas_3)
 
 
     SolverHelper.add_binaries_to_lp_problems_variables(legacy_dict)
