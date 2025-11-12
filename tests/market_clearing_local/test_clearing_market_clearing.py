@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+import json
 import os
 import pickle
 
@@ -12,6 +13,8 @@ from atlas import InputLoader
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.solver.solver_helper import SolverHelper
+from tests.market_clearing_local.market_clearing_test_utils import transform_clearing_prometheus_lp
+from tests.market_clearing_local.test_market_data_market_clearing import read_expected_data
 
 
 def retrieve_clearing_lp(path):
@@ -36,9 +39,13 @@ def retrieve_clearing_lp(path):
     clearing = Clearing(input_dataset, parameters)
     clearing.run()
 
-    import json
+    with open(os.path.join(path, "optimization_data", "clearing_accepted_powers.json"), "w") as f:
+        json.dump([[ma, o, val] for (ma, o), val in clearing.retrieve_accepted_powers().items()], f)
     with open(os.path.join(path, "optimization_data", "clearing_local_balances.json"), "w") as f:
-        json.dump([[ma, o, val] for (ma, o), val in clearing.retrieve_local_balances().items()], f)
+        json.dump([[ma, t, val] for (ma, t), val in clearing.retrieve_local_balances().items()], f)
+    with open(os.path.join(path, "optimization_data", "clearing_saturated_critical_branches.json"), "w") as f:
+        json.dump([[cb, time_index, val]
+                   for (cb, time_index), val in clearing.retrieve_saturated_critical_branch().items()], f)
     return "clearing_model.lp"
 
 
@@ -53,21 +60,22 @@ def retrieve_clearing_lp(path):
     ]
 )
 def test_compare_lp(dataset_name):
-    # le lp prometheus doit être modifié dans une fonction à part
     path = os.path.join("data", "market_clearing_prometheus", dataset_name)
     expected_lp_path = os.path.join(path, "optimization_data", "clearing_phase.lp")
     lp_mapping_path = os.path.join(path, "optimization_data", "clearing_phase.lp_correspondance.csv")
 
     market_data_export_path = os.path.join(path, "market_data_export")
 
-    legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, market_data_export_path)
-    legacy_solver = SolverHelper.model_from_dict_test(legacy_dict, "XPRESS")
+    expected_data = read_expected_data(market_data_export_path)
+    legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, expected_data)
+    legacy_solver = SolverHelper.model_from_dict_mc(legacy_dict, "XPRESS")
     legacy_solver.Solve()
     s_legacy = legacy_solver.ExportModelAsLpFormat(False)
-    with open(os.path.join(path, "test_legacy.lp"), "w") as f:
+    with open(os.path.join(path, "clearing_test_legacy.lp"), "w") as f:
         f.write(s_legacy)
 
     clearing_lp_path = retrieve_clearing_lp(path)
+
     atlas_objectives, atlas_constraints, atlas_variables, atlas_binaries = SolverHelper.read_lp_ortools(
         clearing_lp_path)
     atlas_dict = {
@@ -76,10 +84,10 @@ def test_compare_lp(dataset_name):
         "objectives": atlas_objectives,
         "binaries": atlas_binaries,
     }
-    atlas_solver = SolverHelper.model_from_dict_test(atlas_dict, "XPRESS")
+    atlas_solver = SolverHelper.model_from_dict_mc(atlas_dict, "XPRESS")
     atlas_solver.Solve()
     s_atlas = atlas_solver.ExportModelAsLpFormat(False)
-    with open(os.path.join(path, "test_atlas.lp"), "w") as f:
+    with open(os.path.join(path, "clearing_test_atlas.lp"), "w") as f:
         f.write(s_atlas)
 
     SolverHelper.add_binaries_to_lp_problems_variables(atlas_dict)
