@@ -226,7 +226,7 @@ class Pricing(OptimisationModel):
         for time_index, _time in enumerate(self.input_dataset.times):
             price_groups = self.price_groups[time_index]
             nb_saturated = len([1 for (_, cb_time_index), value in self.saturated_critical_branch.items()
-                                if value <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
+                                if abs(value) <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
             if nb_saturated != 0:
                 continue
             for i in range(len(price_groups) - 1):
@@ -241,7 +241,7 @@ class Pricing(OptimisationModel):
         for time_index, _time in enumerate(self.input_dataset.times):
             price_groups = self.price_groups[time_index]
             nb_saturated = len([1 for (_, cb_time_index), value in self.saturated_critical_branch.items()
-                                if value <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
+                                if abs(value) <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
             if nb_saturated != 0:
                 continue
             for i in range(len(price_groups) - 1):
@@ -411,7 +411,7 @@ class Pricing(OptimisationModel):
         for time_index, _time in enumerate(self.input_dataset.times):
             price_groups = self.price_groups[time_index]
             nb_saturated = len([1 for (_, cb_time_index), value in self.saturated_critical_branch.items()
-                                if value <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
+                                if abs(value) <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
             if nb_saturated != 0:
                 continue
             for i in range(len(price_groups) - 1):
@@ -489,8 +489,8 @@ class Pricing(OptimisationModel):
         objective = []
         for time_index, _time in enumerate(self.input_dataset.times):
             nb_saturated = len([1 for (_, cb_time_index), value in self.saturated_critical_branch.items()
-                                if value <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
-            if nb_saturated == 0:
+                                if abs(value) <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
+            if nb_saturated != 0:
                 continue
             price_groups = self.price_groups[time_index]
             for i in range(len(price_groups) - 1):
@@ -787,7 +787,7 @@ class Pricing(OptimisationModel):
                     self.propagate_through_unsaturated(mc_market_area, time_index, areas_price_group, price_group)
             else:
                 nb_saturated = len([1 for (_, cb_time_index), value in self.saturated_critical_branch.items()
-                                    if value <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
+                                    if abs(value) <= self.parameters.allowed_round_off_error and cb_time_index == time_index])
                 if nb_saturated == 0:
                     unique_price_group = PriceGroup(0, time_index)
                     unique_price_group.market_area_names = [market_area_name for market_area_name in
