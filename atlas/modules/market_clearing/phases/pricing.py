@@ -41,12 +41,12 @@ class Pricing(OptimisationModel):
         self.build_first()
         solver_info = self.solve()
         self.export_model("pricing_1_model.lp")
-        if solver_info.status in [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]:
+        if solver_info.status not in [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]:
             self.build_second()
             solver_info = self.solve()
             self.export_model("pricing_2_model.lp")
 
-        if solver_info.status in [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]:
+        if solver_info.status not in [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]:
             self.build_third()
             solver_info = self.solve()
             self.export_model("pricing_3_model.lp")
