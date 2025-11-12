@@ -129,45 +129,45 @@ class ThermalOptimizationModel(OptimisationModel):
         )
 
         self._initial_setup()
-        self.define_initial_parameters()
+        self._define_time_frame_variables()
 
-    def reserves_up_equip_at(self, t):
+    def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def reserves_down_equip_at(self, t):
+    def reserves_down_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_DOWN_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def unprovided_reserves_up_at(self, t):
+    def unprovided_reserves_up_at(self, t: DateTime) -> str:
         return f"{self.UNPROVIDED_RESERVES_UP_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def unprovided_reserves_down_at(self, t):
+    def unprovided_reserves_down_at(self, t: DateTime) -> str:
         return f"{self.UNPROVIDED_RESERVES_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def relaxed_reserves_at(self, t):
+    def relaxed_reserves_at(self, t: DateTime) -> str:
         return f"{self.RELAXED_RESERVES_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def automated_reserves_up_at(self, t):
+    def automated_reserves_up_at(self, t: DateTime) -> str:
         return f"{self.AUTOMATED_RESERVES_UP_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def automated_reserves_down_at(self, t):
+    def automated_reserves_down_at(self, t: DateTime) -> str:
         return f"{self.AUTOMATED_RESERVES_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def contracted_difference_up_at(self, t):
+    def contracted_difference_up_at(self, t: DateTime) -> str:
         return f"{self.CONTRACTED_DIFFERENCE_UP_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def contracted_difference_down_at(self, t):
+    def contracted_difference_down_at(self, t: DateTime) -> str:
         return f"{self.CONTRACTED_DIFFERENCE_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def automated_contracted_difference_up_at(self, t):
+    def automated_contracted_difference_up_at(self, t: DateTime) -> str:
         return f"{self.AUTOMATED_CONTRACTED_DIFFERENCE_UP_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def automated_contracted_difference_down_at(self, t):
+    def automated_contracted_difference_down_at(self, t: DateTime) -> str:
         return f"{self.AUTOMATED_CONTRACTED_DIFFERENCE_DOWN_KEY}{self.thermal_unit.name}_at_{t}"
 
-    def aux_down_grad_at(self, t):
+    def aux_down_grad_at(self, t: DateTime) -> str:
         return f"{self.AUX_DOWN_GRAD_AT_KEY}{t}_equip_{self.thermal_unit.name}"
 
-    def aux_up_grad_at(self, t):
+    def aux_up_grad_at(self, t: DateTime) -> str:
         return f"{self.AUX_UP_GRAD_AT_KEY}{t}_equip_{self.thermal_unit.name}"
 
     def _initial_setup(self) -> None:
@@ -402,7 +402,7 @@ class ThermalOptimizationModel(OptimisationModel):
         self.delta_q = self.thermal_unit.maximum_gradient * self.parameters.time_step.total_minutes()
         self.delta_q_unconstrained = self.thermal_unit.maximum_power.max()
 
-    def define_initial_parameters(self):
+    def _define_time_frame_variables(self) -> None:
         """STEP 1 : Definition of the state, auxiliary and control variables over the time_frame."""
 
         # 1.1. Control variables :
@@ -754,7 +754,7 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def create_fill_up_constraints(
         self, time_frame: list[DateTime], q: dict, q_upper: Timeseries, epsilon: float, q_lower: Timeseries
-    ):
+    ) -> None:
         """Upward and downward "fill up" constraints"""
         for t in time_frame:
             self.add_constraint(
@@ -854,7 +854,7 @@ class ThermalOptimizationModel(OptimisationModel):
                         f"energy_limit_of_{thermal_unit.name}_at_{date}",
                     )
 
-    def is_day_zero(self):
+    def is_day_zero(self) -> bool:
         # See if the program needs to be initialized as DayZero or not
         if len(self.last_power) == 0:
             # Initialization of the program as DayZero and warn the user

@@ -5,7 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
@@ -15,6 +14,7 @@ from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInput
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
+from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.timing import generate_datetimes
 
 

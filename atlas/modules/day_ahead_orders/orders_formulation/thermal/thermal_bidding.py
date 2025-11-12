@@ -214,8 +214,8 @@ class ThermalBidding:
         current_order: Order,
         unit_order_coupling_list: dict[str, list],
         current_programm: Timeseries,
-        already_considered_orders_n: list,
-    ):
+        already_considered_orders_n: list[str],
+    ) -> tuple[Timeseries, list[str]]:
         if current_order.name in already_considered_orders_n:  # This checks prevents cycles and ensures termination
             return current_programm, already_considered_orders_n
 

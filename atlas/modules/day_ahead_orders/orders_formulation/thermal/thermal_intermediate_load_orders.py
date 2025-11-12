@@ -7,8 +7,16 @@ This file is part of the ATLAS project.
 
 import itertools
 import math
-from typing import Callable
+from collections.abc import Callable
 
+from pydantic_extra_types.pendulum_dt import DateTime
+
+import atlas.config as cfg
+from atlas import OrderCoupling, ScenarioMatrix, Thermal
+from atlas.enum import CouplingType, ThermalStrategy
+from atlas.math.timeseries import Timeseries
+from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_1,
     combination_2,
@@ -19,15 +27,6 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_7,
     combination_8,
 )
-
-from pydantic_extra_types.pendulum_dt import DateTime
-
-import atlas.config as cfg
-from atlas import OrderCoupling, ScenarioMatrix, Thermal
-from atlas.enum import CouplingType, ThermalStrategy
-from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization_model import (
     ThermalOptimizationModel,

@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 import os
 from typing import Literal
+from xmlrpc.client import DateTime
 
 from pendulum.duration import Duration
 
@@ -56,27 +57,27 @@ class StorageModel(OptimisationModel):
         )
 
     @classmethod
-    def sold_at_key(cls, t):
+    def sold_at_key(cls, t: DateTime) -> str:
         return f"{cls.AMOUNT_SOLD_AT}{t}"
 
     @classmethod
-    def purchased_at_key(cls, t):
+    def purchased_at_key(cls, t: DateTime) -> str:
         return f"{cls.AMOUNT_PURCHASED_AT}{t}"
 
     @classmethod
-    def is_sell_at_key(cls, t):
+    def is_sell_at_key(cls, t: DateTime) -> str:
         return f"{cls.IS_SELL_AT}{t}"
 
     @classmethod
-    def stored_energy_at_key(cls, t):
+    def stored_energy_at_key(cls, t: DateTime) -> str:
         return f"{cls.STORED_ENERGY_AT}{t}"
 
     @classmethod
-    def amount_sold_in_fragment_at_key(cls, t, i):
+    def amount_sold_in_fragment_at_key(cls, t: DateTime, i: int) -> str:
         return f"{cls.AMOUNT_SOLD_IN_FRAGMENT}{i}_at_{t}"
 
     @classmethod
-    def amount_purchased_in_fragment_at_key(cls, t, i):
+    def amount_purchased_in_fragment_at_key(cls, t: DateTime, i: int) -> str:
         return f"{cls.AMOUNT_PURCHASED_IN_FRAGMENT}{i}_at_{t}"
 
     def create_decision_variables(self, nb_fragments: int) -> None:
