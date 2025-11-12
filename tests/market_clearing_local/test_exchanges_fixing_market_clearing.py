@@ -13,19 +13,21 @@ from atlas import InputLoader
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 from atlas.modules.market_clearing.phases.exchanges_fixing import ExchangesFixing
 from atlas.solver.solver_helper import SolverHelper
-from tests.market_clearing_local.market_clearig_test_utils import transform_clearing_prometheus_lp
+from tests.market_clearing_local.market_clearing_test_utils import transform_clearing_prometheus_lp
+from tests.market_clearing_local.test_market_data_market_clearing import read_expected_data
 
 
-def retrieve_local_balances_from_json(local_balances_path: str) -> dict[tuple[str, int], float]:
-    local_balances = {}
-    with open(local_balances_path, mode="r") as f:
-        local_balances_list = json.load(f)
-        for ma, t, val in local_balances_list:
-            local_balances[ma, t] = val
-    return local_balances
+def retrieve_local_balances_from_json(optim_variable_path: str, market_area_mapping: dict[str, str]) -> dict[tuple[str, int], float]:
+    with (open(optim_variable_path, "r") as f):
+        optim_variables = json.load(f)
+        local_balances = {}
+        for time_index, balances in enumerate(optim_variables["local_balances"]):
+            for area_id, _dict in enumerate(balances):
+                local_balances[market_area_mapping[str(area_id)], time_index] = _dict["VarValue"]
+        return local_balances
 
 
-def retrieve_exchanges_fixing_lp(path):
+def retrieve_exchanges_fixing_lp(path, clearing_local_balances):
     parameters_path = os.path.join(path, "parameters.yml")
     dataset_path = os.path.join(path, "atlas-dataset")
     pkl_path = os.path.join(path, "raw_data.pkl")
@@ -44,11 +46,11 @@ def retrieve_exchanges_fixing_lp(path):
     parameters = mc_module.import_parameters(parameters_path)
     input_dataset = mc_module.import_data(raw_data, parameters)
 
-    clearing_local_balances = retrieve_local_balances_from_json(os.path.join(path, "optimization_data",
-                                                                             "clearing_local_balances.json"))
-
     exchange_fixing = ExchangesFixing(input_dataset, parameters)
     exchange_fixing.run(clearing_local_balances)
+
+    with open(os.path.join(path, "optimization_data", "clearing_border_exchanges.json"), "w") as f:
+        json.dump([[b, time_index, val] for (b, time_index), val in exchange_fixing.retrieve_border_exchanges().items()], f)
 
     return "exchanges_fixing_model.lp"
 
@@ -64,22 +66,38 @@ def retrieve_exchanges_fixing_lp(path):
     ]
 )
 def test_compare_lp(dataset_name):
-    # le lp prometheus doit être modifié dans une fonction à part
     path = os.path.join("data", "market_clearing_prometheus", dataset_name)
     expected_lp_path = os.path.join(path, "optimization_data", "exchanges_fixing_phase.lp")
     lp_mapping_path = os.path.join(path, "optimization_data", "exchanges_fixing_phase.lp_correspondance.csv")
-    clearing_lp_path = retrieve_exchanges_fixing_lp(path)
+    clearing_optim_variables_path = os.path.join(path, "optimization_data", "clearing", "optim_variables.json")
 
     market_data_export_path = os.path.join(path, "market_data_export")
-    legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, market_data_export_path)
+    expected_data = read_expected_data(market_data_export_path)
+    legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, expected_data)
+    legacy_solver = SolverHelper.model_from_dict_mc(legacy_dict, "XPRESS")
+    legacy_solver.Solve()
+    s_legacy = legacy_solver.ExportModelAsLpFormat(False)
+    with open(os.path.join(path, "exchange_fixing_test_legacy.lp"), "w") as f:
+        f.write(s_legacy)
+
+    _, market_area_mapping, _, _, _, _ = expected_data
+    market_area_mapping = {value["id"]: key.lower() for key, value in market_area_mapping.items()}
+    clearing_local_balances = retrieve_local_balances_from_json(clearing_optim_variables_path, market_area_mapping)
+    exchange_fixing_lp_path = retrieve_exchanges_fixing_lp(path, clearing_local_balances)
     atlas_objectives, atlas_constraints, atlas_variables, atlas_binaries = SolverHelper.read_lp_ortools(
-        clearing_lp_path)
+        exchange_fixing_lp_path)
     atlas_dict = {
         "constraints": atlas_constraints,
         "variables": atlas_variables,
         "objectives": atlas_objectives,
         "binaries": atlas_binaries,
     }
+    atlas_solver = SolverHelper.model_from_dict_mc(atlas_dict, "XPRESS")
+    atlas_solver.Solve()
+    s_atlas = atlas_solver.ExportModelAsLpFormat(False)
+    with open(os.path.join(path, "exchange_fixing_test_atlas.lp"), "w") as f:
+        f.write(s_atlas)
+
     SolverHelper.add_binaries_to_lp_problems_variables(atlas_dict)
     SolverHelper.add_binaries_to_lp_problems_variables(legacy_dict)
     diff_constraint, diff_variables, diff_objectives = SolverHelper.compare_lp_problems(atlas_dict, legacy_dict)
