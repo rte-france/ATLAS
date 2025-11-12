@@ -1,16 +1,17 @@
 import pendulum
 
+from ortools.linear_solver import pywraplp
+
 import atlas.modules.market_clearing.market_clearing_constants as constants
-from atlas import OptimisationModel, Order, Equipment
+from atlas import OptimisationModel, Order
 from atlas.config import logger
 from atlas.enum import CouplingType, ComplementDirection
 from atlas.modules.market_clearing.PriceGroup import PriceGroup
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
-from atlas.modules.market_clearing.models.market_border_mc import MarketBorderMC, DEFAULT_MIN_FLOW
+from atlas.modules.market_clearing.models.market_border_mc import MarketBorderMC
 from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
-from atlas.modules.market_clearing.models.order_mc import OrderMC
 
 
 class Pricing(OptimisationModel):
@@ -38,16 +39,17 @@ class Pricing(OptimisationModel):
 
     def run(self):
         self.build_first()
-        self.solve()
+        solver_info = self.solve()
         self.export_model("pricing_1_model.lp")
+        if solver_info.status in [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]:
+            self.build_second()
+            solver_info = self.solve()
+            self.export_model("pricing_2_model.lp")
 
-        self.build_second()
-        self.solve()
-        self.export_model("pricing_2_model.lp")
-
-        self.build_third()
-        self.solve()
-        self.export_model("pricing_3_model.lp")
+        if solver_info.status in [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]:
+            self.build_third()
+            solver_info = self.solve()
+            self.export_model("pricing_3_model.lp")
 
     def build_first(self):
         self.instantiate_order_group_index()
