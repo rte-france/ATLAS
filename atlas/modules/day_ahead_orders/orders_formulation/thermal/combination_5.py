@@ -146,6 +146,10 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                     model.ON_UP[t_prev] = 0
                     model.ON_DOWN[t_prev] = 0
                     model.ON_FLAT[t_prev] = 1
+            else:
+                model.ON_UP[t_prev] = 0
+                model.ON_DOWN[t_prev] = 0
+                model.ON_FLAT[t_prev] = 0
 
         # Initialize the auxiliary variables
         for t in model.previous_time_frame[
