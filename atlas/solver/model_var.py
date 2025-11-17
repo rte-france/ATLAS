@@ -13,7 +13,7 @@ from pydantic_extra_types.pendulum_dt import DateTime
 import atlas.config as cfg
 
 
-class ModelVarWrapper:
+class ModelVar:
     """This class is used to add and manage values to an OptimisationModel variable outside its time limits."""
 
     def __init__(self, getter: Callable[[DateTime], Any], setter: Callable[[DateTime], Any]):
@@ -30,7 +30,7 @@ class ModelVarWrapper:
         :param t: DateTime key
         :return: the value
         """
-        if t in self._extended_frame.keys():
+        if t in self._extended_frame:
             return self._extended_frame[t]
         else:
             return self.get_model_var(t)
@@ -43,7 +43,7 @@ class ModelVarWrapper:
         # check for duplicates
         try:
             var = self.get_model_var(t)
-            cfg.logger.warning(f"the key {t} is a duplicates : it is also present in the model variable {var}")
+            cfg.logger.error(f"the key {t} is a duplicates : it is also present in the model variable {var}")
         except ValueError:
             pass  # the DateTime key doesn't exist in the model, as intended
 
@@ -53,5 +53,5 @@ class ModelVarWrapper:
     def set_model_var(self, t: DateTime):
         self._setter(t)
         # check for duplicates
-        if t in self._extended_frame.keys():
-            cfg.logger.warning(f"the key {t} is a duplicates : it is also present in the _extended_frame")
+        if t in self._extended_frame:
+            cfg.logger.error(f"the key {t} is a duplicates : it is also present in the _extended_frame")
