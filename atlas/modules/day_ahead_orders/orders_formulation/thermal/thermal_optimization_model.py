@@ -265,10 +265,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 int(
                     max(
                         1,
-                        math.ceil(
-                            self.thermal_unit.minimum_time_on.total_minutes()
-                            / self.parameters.time_step.total_minutes()
-                        ),
+                        math.ceil(self.thermal_unit.minimum_time_on / self.parameters.time_step),
                     )
                 )
                 + 1
@@ -281,30 +278,18 @@ class ThermalOptimizationModel(OptimisationModel):
                 int(
                     max(
                         1,
-                        math.ceil(
-                            self.thermal_unit.minimum_time_off.total_minutes()
-                            / self.parameters.time_step.total_minutes()
-                        ),
+                        math.ceil(self.thermal_unit.minimum_time_off / self.parameters.time_step),
                     )
                 )
                 + 1
             )
         else:
             self.T_off = 0
-        self.T_start = int(
-            math.floor(self.thermal_unit.startup_duration.total_minutes() / self.parameters.time_step.total_minutes())
-        )
-        self.T_stop = int(
-            math.floor(self.thermal_unit.shutdown_duration.total_minutes() / self.parameters.time_step.total_minutes())
-        )
+        self.T_start = int(math.floor(self.thermal_unit.startup_duration / self.parameters.time_step))
+        self.T_stop = int(math.floor(self.thermal_unit.shutdown_duration / self.parameters.time_step))
 
-        if minimum_stable_power_duration.total_minutes() >= self.parameters.time_step.total_minutes():
-            self.T_stable = (
-                int(
-                    math.ceil(minimum_stable_power_duration.total_minutes() / self.parameters.time_step.total_minutes())
-                )
-                + 1
-            )
+        if minimum_stable_power_duration >= self.parameters.time_step:
+            self.T_stable = int(math.ceil(minimum_stable_power_duration / self.parameters.time_step)) + 1
         else:
             self.T_stable = 0
 

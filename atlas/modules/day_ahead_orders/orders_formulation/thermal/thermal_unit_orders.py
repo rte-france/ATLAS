@@ -97,8 +97,8 @@ class ThermalUnitOrders:
             )
 
         ## Get the unit-specific parameters:
-        T_start = int(math.floor(unit.startup_duration.total_minutes() / parameters.time_step.total_minutes()))
-        T_stop = int(math.floor(unit.shutdown_duration.total_minutes() / parameters.time_step.total_minutes()))
+        T_start = int(math.floor(unit.startup_duration / parameters.time_step))
+        T_stop = int(math.floor(unit.shutdown_duration / parameters.time_step))
         q_min = unit.minimum_power.max()
 
         ## See whether the unit will bid inflexible orders over the whole orders_time sequence:
