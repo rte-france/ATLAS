@@ -19,6 +19,7 @@ from atlas.enum import SolverEnum
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.solver.model_var import ModelVar
 
 
 class ThermalOptimizationModel(OptimisationModel):
@@ -44,6 +45,7 @@ class ThermalOptimizationModel(OptimisationModel):
     AUTOMATED_CONTRACTED_DIFFERENCE_DOWN_KEY = "automatedContractedDifferenceDown_equip_"
     AUX_UP_GRAD_AT_KEY = "aux_up_grad_at_"
     AUX_DOWN_GRAD_AT_KEY = "aux_down_grad_at_"
+    OFF_EQUIP_AT_KEY = "OFF_equip_"
 
     def __init__(
         self,
@@ -94,7 +96,9 @@ class ThermalOptimizationModel(OptimisationModel):
         self.delta_q: float = None
         self.delta_q_unconstrained: float = None
         self.q: dict[DateTime, Any] = {}
-        self.OFF: dict[DateTime, Any] = {}
+        self.OFF = ModelVar(
+            lambda t: self.get_variable(self.off_equip_at(t)), lambda t: self.add_boolean_variable(self.off_equip_at(t))
+        )
         self.ON_DOWN: dict[DateTime, Any] = {}
         self.ON_UP: dict[DateTime, Any] = {}
         self.start_time_steps = None
@@ -130,6 +134,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
         self._initial_setup()
         self._define_time_frame_variables()
+
+    def off_equip_at(self, t: DateTime) -> str:
+        return f"{self.OFF_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -434,7 +441,7 @@ class ThermalOptimizationModel(OptimisationModel):
 
         # Create the state variables for each time step over the extended time frame.
         for t in self.time_frame:
-            self.OFF[t] = self.add_boolean_variable(f"OFF_equip_{self.thermal_unit.name}_at_{t}")
+            self.OFF.set_model_var(t)
             self.ON_UP[t] = self.add_boolean_variable(f"ON_UP_equip_{self.thermal_unit.name}_at_{t}")
             self.ON_DOWN[t] = self.add_boolean_variable(f"ON_DOWN_equip_{self.thermal_unit.name}_at_{t}")
 
@@ -703,7 +710,7 @@ class ThermalOptimizationModel(OptimisationModel):
         for t in self.time_frame:
             ON_UP_star.set_value(t, self.ON_UP[t].solution_value())
             ON_DOWN_star.set_value(t, self.ON_DOWN[t].solution_value())
-            OFF_star.set_value(t, self.OFF[t].solution_value())
+            OFF_star.set_value(t, self.OFF.get_model_var(t).solution_value())
 
         # Populate the dictionnary
         results["ON_UP"] = ON_UP_star
