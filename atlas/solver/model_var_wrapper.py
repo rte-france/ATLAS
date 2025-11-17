@@ -5,9 +5,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Callable, Any
+from collections.abc import Callable
+from typing import Any
 
 from pydantic_extra_types.pendulum_dt import DateTime
+
 import atlas.config as cfg
 
 
