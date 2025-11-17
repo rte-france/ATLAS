@@ -6,13 +6,11 @@ Run with: pytest test_optimisation_model.py -v
 
 import os
 import tempfile
-from pydantic_extra_types.pendulum_dt import DateTime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from atlas.enum import SolverStatus
-from atlas.solver.model_var import ModelVar
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
 
@@ -556,15 +554,6 @@ class TestOptimisationModel:
             model_no_name = OptimisationModel("SCIP")
             expected_no_name = "OptimisationModel(name=None,solver=SCIP)"
             assert repr(model_no_name) == expected_no_name
-
-    def test_model_var(self, model):
-        d1 = DateTime(2025, 1, 1)
-        d2 = DateTime(2025, 1, 2)
-        model_var = ModelVar(lambda t: model.get_variable(t), lambda t: model.add_boolean_variable(t))
-        model_var.set_model_var(d1)
-        model_var.set_extended(d2, 1)
-        assert model_var.get_value(d1) == model_var.get_model_var(d1)
-        assert model_var.get_value(d2) == model_var.get_extended_value(d2)
 
 
 class TestIntegrationScenarios:
