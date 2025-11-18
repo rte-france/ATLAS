@@ -34,7 +34,9 @@ class ModelVar:
     def get_value(self, t: DateTime) -> Any:
         """
         Get the value matching the DateTime key
+
         :param t: DateTime key
+
         :return: the value
         """
         if t in self._extended_frame:

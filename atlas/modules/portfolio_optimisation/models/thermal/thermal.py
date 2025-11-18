@@ -84,8 +84,8 @@ class ThermalPO(Thermal):
     flat_down_stop: ModelVar | None = None
     down_to_stop_grad: ModelVar | None = None
     stop_var: ModelVar | None = None
-    t_off: ModelVar | None = None
-    t_on: ModelVar | None = None
+    turned_off: ModelVar | None = None
+    turned_on: ModelVar | None = None
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""
@@ -166,8 +166,8 @@ class ThermalPO(Thermal):
             self.on_down_var.set_model_var(time)
 
             # Auxiliary binary variables for transitions
-            model.add_boolean_variable(f"t_on_of_{self.name}_{time}")
-            model.add_boolean_variable(f"t_off_of_{self.name}_{time}")
+            self.turned_on.set_model_var(time)
+            self.turned_off.set_model_var(time)
 
             # Conditional state variables based on time constraints
             if self._T_start >= 1:
@@ -307,57 +307,6 @@ class ThermalPO(Thermal):
         )
         return self.optimisation_time_window
 
-    def add_initial_variables(
-        self, model: OptimisationModel, initial_times: list[DateTime], stable_initial_times: list[DateTime]
-    ):
-        """
-        Add initial variables for thermal unit at a specific timestamp.
-        """
-
-        for time in initial_times:
-            # Binary state variables
-            model.add_boolean_variable(f"OFF_{self.name}_{time}")
-            model.add_boolean_variable(f"ON_UP_{self.name}_{time}")
-            model.add_boolean_variable(f"ON_DOWN_{self.name}_{time}")
-
-            # Auxiliary binary variables for transitions
-            model.add_boolean_variable(f"t_on_of_{self.name}_{time}")
-            model.add_boolean_variable(f"t_off_of_{self.name}_{time}")
-
-            model.add_continuous_variable(f"{self.name}_power_level_{time}", 0.0, self.maximum_power.max())
-
-            # Conditional state variables based on time constraints
-            if self._T_start >= 1:
-                model.add_boolean_variable(f"ON_START_{self.name}_{time}")
-
-            if self._T_stop >= 1:
-                model.add_boolean_variable(f"STOP_{self.name}_{time}")
-
-            if self._T_stop >= 1 and self._T_stable >= 1:
-                model.add_boolean_variable(f"flat_down_stop_{time}_{self.name}")
-
-            if self._T_stop >= 1 and self._T_stable == 0:
-                model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}")
-
-            if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
-                max_power = self.maximum_power.max()
-                model.add_continuous_variable(f"DD_grad_{time}_{self.name}", -max_power, max_power)
-
-            if self._T_stable >= 1:
-                # Gradient auxiliary variables for stable case
-                max_power = self.maximum_power.max()
-                model.add_continuous_variable(f"UP_grad_{time}_{self.name}", -max_power, max_power)
-                model.add_continuous_variable(f"DOWN_grad_{time}_{self.name}", -max_power, max_power)
-                model.add_continuous_variable(f"aux_up_grad_{time}_{self.name}", -max_power, max_power)
-                model.add_continuous_variable(f"aux_down_grad_{time}_{self.name}", -max_power, max_power)
-
-        if self._T_stable >= 1:
-            for time in stable_initial_times:
-                model.add_boolean_variable(f"ON_FLAT_{self.name}_{time}")
-                model.add_boolean_variable(f"stable_{time}_{self.name}")
-                model.add_boolean_variable(f"entered_up_{time}_{self.name}")
-                model.add_boolean_variable(f"entered_down_{time}_{self.name}")
-
     def add_initial_conditions(
         self,
         model: OptimisationModel,
@@ -369,8 +318,6 @@ class ThermalPO(Thermal):
         self._compute_time_parameters(parameters)
 
         initial_times, stable_initial_times = self.get_initial_time_window(parameters)
-
-        self.add_initial_variables(model, initial_times, stable_initial_times)
 
         power_timeseries = (
             self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])

@@ -38,22 +38,16 @@ def initialize_day_zero_core(
         model: The optimization model
         time: The current time step
     """
-    # Get core state variables (present in ALL combinations)
-    off_var = model.get_variable(f"OFF_{thermal_unit.name}_{time}")
-    turned_on_var = model.get_variable(f"t_on_of_{thermal_unit.name}_{time}")
-    turned_off_var = model.get_variable(f"t_off_of_{thermal_unit.name}_{time}")
     power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
-
     # Fix core state variables
-    model.add_constraint(off_var == 1, f"init_off_{thermal_unit.name}_{time}")
-    model.add_constraint(turned_on_var == 0, f"init_turned_on_{thermal_unit.name}_{time}")
-    model.add_constraint(turned_off_var == 0, f"init_turned_off_{thermal_unit.name}_{time}")
+    thermal_unit.off_var.set_extended(time, 1)
+    thermal_unit.turned_on.set_extended(time, 0)
+    thermal_unit.turned_off.set_extended(time, 0)
     model.add_constraint(power_level_var == 0, f"init_power_{thermal_unit.name}_{time}")
 
 
 def initialize_day_zero_on_states(
     thermal_unit: ThermalPO,
-    model: OptimisationModel,
     time: DateTime,
 ) -> None:
     """
@@ -66,16 +60,13 @@ def initialize_day_zero_on_states(
         model: The optimization model
         time: The current time step
     """
-    on_up_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{time}")
-    on_down_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{time}")
 
-    model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
-    model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
+    thermal_unit.on_up_var.set_extended(time, 0)
+    thermal_unit.on_down_var.set_extended(time, 0)
 
 
 def initialize_day_zero_stop_state(
     thermal_unit: ThermalPO,
-    model: OptimisationModel,
     time: DateTime,
 ) -> None:
     """
@@ -88,13 +79,12 @@ def initialize_day_zero_stop_state(
         model: The optimization model
         time: The current time step
     """
-    stop_var = model.get_variable(f"STOP_{thermal_unit.name}_{time}")
-    model.add_constraint(stop_var == 0, f"init_stop_{thermal_unit.name}_{time}")
+
+    thermal_unit.stop_var.set_extended(time, 0)
 
 
 def initialize_day_zero_start_state(
     thermal_unit: ThermalPO,
-    model: OptimisationModel,
     time: DateTime,
 ) -> None:
     """
@@ -107,13 +97,11 @@ def initialize_day_zero_start_state(
         model: The optimization model
         time: The current time step
     """
-    start_var = model.get_variable(f"ON_START_{thermal_unit.name}_{time}")
-    model.add_constraint(start_var == 0, f"init_start_{thermal_unit.name}_{time}")
+    thermal_unit.on_start_var.set_extended(time, 0)
 
 
 def initialize_day_zero_down_to_stop(
     thermal_unit: ThermalPO,
-    model: OptimisationModel,
     time: DateTime,
 ) -> None:
     """
@@ -126,8 +114,8 @@ def initialize_day_zero_down_to_stop(
         model: The optimization model
         time: The current time step
     """
-    down_to_stop_var = model.get_variable(f"down_to_stop_grad_{time}_{thermal_unit.name}")
-    model.add_constraint(down_to_stop_var == 0, f"init_down_to_stop_{thermal_unit.name}_{time}")
+
+    thermal_unit.down_to_stop_grad.set_extended(time, 0)
 
 
 def initialize_day_zero_gradient_vars(
@@ -158,7 +146,6 @@ def initialize_day_zero_gradient_vars(
 
 def initialize_day_zero_stable_vars(
     thermal_unit: ThermalPO,
-    model: OptimisationModel,
     time: DateTime,
 ) -> None:
     """
@@ -173,27 +160,17 @@ def initialize_day_zero_stable_vars(
         time: The current time step
     """
 
-    on_flat_var = model.get_variable(f"ON_FLAT_{thermal_unit.name}_{time}")
-    on_up_var = model.get_variable(f"ON_UP_{thermal_unit.name}_{time}")
-    on_down_var = model.get_variable(f"ON_DOWN_{thermal_unit.name}_{time}")
-    stable_var = model.get_variable(f"stable_{time}_{thermal_unit.name}")
-    entered_up_var = model.get_variable(f"entered_up_{time}_{thermal_unit.name}")
-    entered_down_var = model.get_variable(f"entered_down_{time}_{thermal_unit.name}")
+    thermal_unit.on_flat_var.set_extended(time, 0)
+    thermal_unit.on_up_var.set_extended(time, 0)
+    thermal_unit.on_down_var.set_extended(time, 0)
 
-    # Fix stable state variables
-    model.add_constraint(on_flat_var == 0, f"init_on_flat_{thermal_unit.name}_{time}")
-    model.add_constraint(on_up_var == 0, f"init_on_up_{thermal_unit.name}_{time}")
-    model.add_constraint(on_down_var == 0, f"init_on_down_{thermal_unit.name}_{time}")
-
-    # Fix stable auxiliary variables
-    model.add_constraint(stable_var == 0, f"init_stable_{thermal_unit.name}_{time}")
-    model.add_constraint(entered_up_var == 0, f"init_entered_up_{thermal_unit.name}_{time}")
-    model.add_constraint(entered_down_var == 0, f"init_entered_down_{thermal_unit.name}_{time}")
+    thermal_unit.stable_var.set_extended(time, 0)
+    thermal_unit.entered_up_var.set_extended(time, 0)
+    thermal_unit.entered_down_var.set_extended(time, 0)
 
 
 def initialize_day_zero_flat_down_stop(
     thermal_unit: ThermalPO,
-    model: OptimisationModel,
     time: DateTime,
 ) -> None:
     """
@@ -206,8 +183,8 @@ def initialize_day_zero_flat_down_stop(
         model: The optimization model
         time: The current time step
     """
-    flat_down_stop_var = model.get_variable(f"flat_down_stop_{time}_{thermal_unit.name}")
-    model.add_constraint(flat_down_stop_var == 0, f"init_flat_down_stop_{thermal_unit.name}_{time}")
+
+    thermal_unit.flat_down_stop.set_extended(time, 0)
 
 
 def initialize_gradient_initial_conditions(
@@ -251,7 +228,6 @@ def initialize_gradient_initial_conditions(
 
 def initialize_flat_down_stop_initial_conditions(
     thermal_unit: ThermalPO,
-    model: OptimisationModel,
     start_date_minus_one: DateTime,
     start_date_minus_two: DateTime,
     start_date_minus_three: DateTime,
@@ -261,17 +237,11 @@ def initialize_flat_down_stop_initial_conditions(
     For T_stop >= 1 and T_stable >= 1.
     """
 
-    flat_down_stop_var = model.get_variable(f"flat_down_stop_{start_date_minus_one}_{thermal_unit.name}")
-
-    model.add_constraint(
-        flat_down_stop_var
-        == int(
-            (
-                model.get_constraint_bounds(f"init_stop_{thermal_unit.name}_{start_date_minus_one}").lower_bound
-                + model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{start_date_minus_two}").lower_bound
-                + model.get_constraint_bounds(f"init_on_flat_{thermal_unit.name}_{start_date_minus_three}").lower_bound
-            )
-            / 3
-        ),
-        f"init_flat_down_stop_{thermal_unit.name}_{start_date_minus_one}",
+    thermal_unit.flat_down_stop.set_extended(
+        (
+            thermal_unit.stop_var.get_extended_value(start_date_minus_one)
+            + thermal_unit.on_down_var.get_extended_value(start_date_minus_two)
+            + thermal_unit.on_flat_var.get_extended_value(start_date_minus_three)
+        )
+        / 3
     )
