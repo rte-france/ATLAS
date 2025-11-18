@@ -30,6 +30,7 @@ from atlas.modules.portfolio_optimisation.models.thermal import (
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
+from atlas.solver.model_var import ModelVar
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 
@@ -44,11 +45,9 @@ class ThermalPO(Thermal):
 
     maximum_fcr: float
     maximum_afrr: float
-    # minimum_power: Timeseries | LazyTimeseries
     maximum_power: Timeseries | LazyTimeseries
     variable_cost: Timeseries | LazyTimeseries
-    # startup_cost: Timeseries | LazyTimeseries
-    maximum_gradient: float = 0.0  # MW/min ramping rate
+    maximum_gradient: float = 0.0
     has_daily_energy_constraint: bool = False
 
     # Reserve procurement forecasts
@@ -71,8 +70,22 @@ class ThermalPO(Thermal):
     _Delta_Q_unconstrained: float = 0.0
     _combination: int = 1  # Which constraint combination to use (1-8)
     T_traceback: int = 0
-
     optimisation_time_window: list[DateTime] = []
+
+    off_var: ModelVar | None = None
+    on_var: ModelVar | None = None
+    on_flat_var: ModelVar | None = None
+    on_up_var: ModelVar | None = None
+    on_down_var: ModelVar | None = None
+    on_start_var: ModelVar | None = None
+    entered_up_var: ModelVar | None = None
+    entered_down_var: ModelVar | None = None
+    stable_var: ModelVar | None = None
+    flat_down_stop: ModelVar | None = None
+    down_to_stop_grad: ModelVar | None = None
+    stop_var: ModelVar | None = None
+    t_off: ModelVar | None = None
+    t_on: ModelVar | None = None
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""
@@ -148,9 +161,9 @@ class ThermalPO(Thermal):
                     model.add_boolean_variable(f"stable_{time - parameters.timestep}_{self.name}")
 
             # Binary state variables
-            model.add_boolean_variable(f"OFF_{self.name}_{time}")
-            model.add_boolean_variable(f"ON_UP_{self.name}_{time}")
-            model.add_boolean_variable(f"ON_DOWN_{self.name}_{time}")
+            self.off_var.set_model_var(time)
+            self.on_up_var.set_model_var(time)
+            self.on_down_var.set_model_var(time)
 
             # Auxiliary binary variables for transitions
             model.add_boolean_variable(f"t_on_of_{self.name}_{time}")
@@ -158,16 +171,16 @@ class ThermalPO(Thermal):
 
             # Conditional state variables based on time constraints
             if self._T_start >= 1:
-                model.add_boolean_variable(f"ON_START_{self.name}_{time}")
+                self.on_start_var.set_model_var(time)
 
             if self._T_stop >= 1:
-                model.add_boolean_variable(f"STOP_{self.name}_{time}")
+                self.stop_var.set_model_var(time)
 
             if self._T_stable >= 1:
-                model.add_boolean_variable(f"ON_FLAT_{self.name}_{time}")
-                model.add_boolean_variable(f"stable_{time}_{self.name}")
-                model.add_boolean_variable(f"entered_up_{time}_{self.name}")
-                model.add_boolean_variable(f"entered_down_{time}_{self.name}")
+                self.on_flat_var.set_model_var(time)
+                self.stable_var.set_model_var(time)
+                self.entered_up_var.set_model_var(time)
+                self.entered_down_var.set_model_var(time)
 
                 # Gradient auxiliary variables for stable case
                 max_power = self.maximum_power.max()
@@ -178,17 +191,17 @@ class ThermalPO(Thermal):
 
             # Specific combinations for additional auxiliary variables
             if self._T_stop >= 1 and self._T_start == 0 and self._T_stable == 0:
-                model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}")
+                self.down_to_stop_grad.set_model_var(time)
 
             if self._T_stop >= 1 and self._T_stable >= 1:
-                model.add_boolean_variable(f"flat_down_stop_{time}_{self.name}")
+                self.flat_down_stop.set_model_var(time)
 
             if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
                 max_power = self.maximum_power.max()
                 model.add_continuous_variable(f"DD_grad_{time}_{self.name}", -max_power, max_power)
 
             if self._T_stop >= 1 and self._T_start >= 1 and self._T_stable == 0:
-                model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}")
+                self.down_to_stop_grad.set_model_var(time)
 
             # Power and reserve variables
             maximum_power = self.maximum_power.get_value(time)
