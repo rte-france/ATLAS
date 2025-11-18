@@ -98,17 +98,25 @@ class HydroPO(Hydro):
             min_power = self.minimum_power.get_value(time)
             max_power = self.maximum_power.get_value(time)
 
-            model.add_constraint(model.get_variable(f"relaxed_reserves_{self.name}_{time}") <= min_power)
-            model.add_constraint(
-                model.get_variable(f"automated_reserves_up_{self.name}_{time}") <= get_maximum_automated(self)
-            )
-            model.add_constraint(
-                model.get_variable(f"automated_reserves_down_{self.name}_{time}") <= get_maximum_automated(self)
-            )
-            model.add_constraint(model.get_variable(f"reserves_up_{self.name}_{time}") <= max_power)
-            model.add_constraint(model.get_variable(f"reserves_down_{self.name}_{time}") <= max_power)
-
+            automated_reserves_up_var = model.get_variable(f"automated_reserves_up_{self.name}_{time}")
+            automated_reserves_down_var = model.get_variable(f"automated_reserves_down_{self.name}_{time}")
+            relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{self.name}_{time}")
+            reserves_up_var = model.get_variable(f"reserves_up_{self.name}_{time}")
+            reserves_down_var = model.get_variable(f"reserves_down_{self.name}_{time}")
             stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
+            stored_energy_prev_var = model.get_variable(f"{self.name}_stored_energy_{time - parameters.timestep}")
+
+            model.add_constraint(relaxed_reserves_var <= min_power, f"relaxed_reserves_{time}_{self.name}")
+            model.add_constraint(
+                automated_reserves_up_var <= get_maximum_automated(self),
+                f"automated_reserves_up_max_{time}_{self.name}",
+            )
+            model.add_constraint(
+                automated_reserves_down_var <= get_maximum_automated(self),
+                f"automated_reserves_down_max_{time}_{self.name}",
+            )
+            model.add_constraint(reserves_up_var <= max_power, f"reserves_up_max_{time}_{self.name}")
+            model.add_constraint(reserves_down_var <= max_power, f"reserves_down_max_{time}_{self.name}")
 
             power_level_fragment_sum_var = sum(
                 model.get_variable(f"{self.name}_power_level_frag_{category}_{time}") for category in self.fragment_data
@@ -121,31 +129,31 @@ class HydroPO(Hydro):
                     stored_energy_var
                     == self.get_initial_level(parameters).get_value(parameters.start_date - parameters.timestep)
                     - power_level_fragment_sum_var * parameters.timestep.total_hours()
-                    + inflow / parameters.timestep.total_days()
+                    + inflow / parameters.timestep.total_days(),
+                    f"storage_level_evol_{time}_{self.name}",
                 )
 
             else:
-                previous_stored_energy_var = model.get_variable(
-                    f"{self.name}_stored_energy_{time - parameters.timestep}"
-                )
-
                 inflow = self.inflows.get_value(time) if self.inflows is not None else 0
                 model.add_constraint(
                     stored_energy_var
-                    == previous_stored_energy_var
+                    == stored_energy_prev_var
                     - power_level_fragment_sum_var * parameters.timestep.total_hours()
-                    + inflow / parameters.timestep.total_days()
+                    + inflow / parameters.timestep.total_days(),
+                    f"storage_level_evol_{time}_{self.name}",
                 )
 
-                reserve_stored_energy_up_var = model.get_variable(
-                    f"reserves_up_{self.name}_{time}"
-                ) + model.get_variable(f"automated_reserves_up_{self.name}_{time}")
-                reserve_stored_energy_down_var = model.get_variable(
-                    f"reserves_down_{self.name}_{time}"
-                ) + model.get_variable(f"automated_reserves_down_{self.name}_{time}")
+                reserve_stored_energy_up_var = reserves_up_var + automated_reserves_up_var
+                reserve_stored_energy_down_var = reserves_down_var + automated_reserves_down_var
 
-                model.add_constraint(stored_energy_var >= minimum_energy + reserve_stored_energy_up_var)
-                model.add_constraint(stored_energy_var <= maximum_energy - reserve_stored_energy_down_var)
+                model.add_constraint(
+                    stored_energy_var >= minimum_energy + reserve_stored_energy_up_var,
+                    f"min_storage_level_{time}_{self.name}",
+                )
+                model.add_constraint(
+                    stored_energy_var <= maximum_energy - reserve_stored_energy_down_var,
+                    f"min_storage_level_{time}_{self.name}",
+                )
         else:
             cfg.logger.debug(f"Skipping constraints for hydro unit {self.name} at non-hydraulic-op time {time}")
 
@@ -162,19 +170,17 @@ class HydroPO(Hydro):
             for k in range(len(self.fragment_data.keys())):
                 fragment_price = self.compute_fragment_prices(time, k, parameters)
 
+                power_level_frag_var = model.get_variable(f"{self.name}_power_level_frag_{k}_{time}")
+
                 if time in parameters.target_times:
                     model.add_objective(
-                        fragment_price
-                        * model.get_variable(f"{self.name}_power_level_frag_{k}_{time}")
-                        * parameters.timestep.total_hours(),
+                        fragment_price * power_level_frag_var * parameters.timestep.total_hours(),
                         direction="minimize",
                     )
 
                 else:
                     model.add_objective(
-                        -(price_forecast - fragment_price)
-                        * model.get_variable(f"{self.name}_power_level_frag_{k}_{time}")
-                        * parameters.timestep.total_hours(),
+                        -(price_forecast - fragment_price) * power_level_frag_var * parameters.timestep.total_hours(),
                         direction="minimize",
                     )
             cfg.logger.debug(f"Finished adding objective for hydro unit {self.name} at time {time}")
