@@ -25,7 +25,7 @@ def prometheus_to_atlas(
     date_format_timestep: str = "DD_MM_YYYY_HH_mm_ss",
 ) -> None:
     """Convert Prometheus format data to Atlas dataset format."""
-    # Validate input paths
+
     if not timeseries_folder_path.exists():
         rprint(f"[bold red]Error:[/bold red] Timeseries folder not found: {timeseries_folder_path}")
         raise typer.Exit(code=1)
@@ -34,21 +34,12 @@ def prometheus_to_atlas(
         rprint(f"[bold red]Error:[/bold red] HDF5 file not found: {hdf5_path}")
         raise typer.Exit(code=1)
 
-    # Start conversion
-    rprint("[bold blue]Converting Prometheus data to Atlas format...[/bold blue]")
-
-    try:
-        transformer = PrometheusToAtlasDataParser(
-            timeseries_path=timeseries_folder_path,
-            hdf5_path=hdf5_path,
-            root_input_directory=output_dir,
-            date_format_forecasting=date_format_forecasting,
-            date_format_input_files=date_format_input_files,
-            date_format_timestep=date_format_timestep,
-        )
-        transformer.process()
-        rprint(f"[bold green]✓[/bold green] Successfully converted data to: {output_dir}")
-
-    except Exception as e:
-        rprint(f"[bold red]Error during conversion:[/bold red] {e}")
-        raise typer.Exit(code=1) from e
+    transformer = PrometheusToAtlasDataParser(
+        timeseries_path=timeseries_folder_path,
+        hdf5_path=hdf5_path,
+        root_input_directory=output_dir,
+        date_format_forecasting=date_format_forecasting,
+        date_format_input_files=date_format_input_files,
+        date_format_timestep=date_format_timestep,
+    )
+    transformer.process()
