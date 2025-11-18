@@ -65,59 +65,6 @@ def initialize_day_zero_on_states(
     thermal_unit.on_down_var.set_extended(time, 0)
 
 
-def initialize_day_zero_stop_state(
-    thermal_unit: ThermalPO,
-    time: DateTime,
-) -> None:
-    """
-    Initialize STOP state variable for day zero.
-
-    For T_stop >= 1
-
-    Args:
-        thermal_unit: The thermal unit to initialize
-        model: The optimization model
-        time: The current time step
-    """
-
-    thermal_unit.stop_var.set_extended(time, 0)
-
-
-def initialize_day_zero_start_state(
-    thermal_unit: ThermalPO,
-    time: DateTime,
-) -> None:
-    """
-    Initialize START state variable for day zero.
-
-    For T_start >= 1.
-
-    Args:
-        thermal_unit: The thermal unit to initialize
-        model: The optimization model
-        time: The current time step
-    """
-    thermal_unit.on_start_var.set_extended(time, 0)
-
-
-def initialize_day_zero_down_to_stop(
-    thermal_unit: ThermalPO,
-    time: DateTime,
-) -> None:
-    """
-    Initialize down_to_stop gradient variable for day zero.
-
-    T_stop >= 1 and T_stable = 0.
-
-    Args:
-        thermal_unit: The thermal unit to initialize
-        model: The optimization model
-        time: The current time step
-    """
-
-    thermal_unit.down_to_stop_grad.set_extended(time, 0)
-
-
 def initialize_day_zero_gradient_vars(
     thermal_unit: ThermalPO,
     model: OptimisationModel,
@@ -169,24 +116,6 @@ def initialize_day_zero_stable_vars(
     thermal_unit.entered_down_var.set_extended(time, 0)
 
 
-def initialize_day_zero_flat_down_stop(
-    thermal_unit: ThermalPO,
-    time: DateTime,
-) -> None:
-    """
-    Initialize flat_down_stop variable for day zero.
-
-    T_stop >= 1, T_stable >= 1.
-
-    Args:
-        thermal_unit: The thermal unit to initialize
-        model: The optimization model
-        time: The current time step
-    """
-
-    thermal_unit.flat_down_stop.set_extended(time, 0)
-
-
 def initialize_gradient_initial_conditions(
     thermal_unit: ThermalPO,
     model: OptimisationModel,
@@ -210,16 +139,16 @@ def initialize_gradient_initial_conditions(
     power_diff = power_minus_one - power_minus_two
 
     # U gradient: only non-zero if unit was in UP state at both time steps
-    if model.get_constraint_bounds(f"init_on_up_{thermal_unit.name}_{start_date_minus_one}").lower_bound == 1 and (
-        model.get_constraint_bounds(f"init_on_up_{thermal_unit.name}_{start_date_minus_two}").lower_bound == 1
+    if thermal_unit.on_up_var.get_extended_value(start_date_minus_one) == 1 and (
+        thermal_unit.on_up_var.get_extended_value(start_date_minus_two) == 1
     ):
         model.add_constraint(u_var == power_diff, f"init_u_grad_{thermal_unit.name}_{start_date_minus_one}")
     else:
         model.add_constraint(u_var == 0, f"init_u_grad_{thermal_unit.name}_{start_date_minus_one}")
 
     # D gradient: only non-zero if unit was in DOWN state at both time steps
-    if model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{start_date_minus_one}").lower_bound == 1 and (
-        model.get_constraint_bounds(f"init_on_down_{thermal_unit.name}_{start_date_minus_two}").lower_bound == 1
+    if thermal_unit.on_down_var.get_extended_value(start_date_minus_one) == 1 and (
+        thermal_unit.on_down_var.get_extended_value(start_date_minus_two) == 1
     ):
         model.add_constraint(d_var == power_diff, f"init_d_grad_{thermal_unit.name}_{start_date_minus_one}")
     else:

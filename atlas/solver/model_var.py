@@ -24,11 +24,8 @@ class ModelVar:
     """
 
     def __init__(self, getter: Callable[[DateTime], Any], setter: Callable[[DateTime], Any]):
-        # getter to get the value directly from the OptimisationModel object
         self._getter = getter
-        # setter to set the value directly in the OptimisationModel object
         self._setter = setter
-        # dictionary used to store values outside the time limits of the OptimisationModel time_frame
         self._extended_frame: dict[DateTime, int] = {}
 
     def get_value(self, t: DateTime) -> Any:
@@ -47,7 +44,9 @@ class ModelVar:
     def get_extended_value(self, t: DateTime) -> int:
         """
         Get the value matching the DateTime key from the extended frame
+
         :param t: DateTime key
+
         :return: the value
         """
         return self._extended_frame[t]
@@ -55,21 +54,24 @@ class ModelVar:
     def set_extended(self, t: DateTime, value: int):
         """
         Set the given value in the extended frame
+
         :param t: DateTime key
         :param value: the value to set
         """
         self._extended_frame[t] = value
         # check for duplicates
         try:
-            var = self.get_model_var(t)
-            cfg.logger.error(f"the key {t} is a duplicate : it is also present in the model variable {var}")
+            self.get_model_var(t)
+            cfg.logger.error(f"The time {t} already exists.")
         except ValueError:
             pass  # the DateTime key doesn't exist in the model, as intended
 
     def get_model_var(self, t: DateTime) -> Any:
         """
         Get the variable objet from the OptimisationModel with the getter given to the class
+
         :param t: DateTime key
+
         :return: the model variable
         """
         return self._getter(t)
@@ -82,4 +84,4 @@ class ModelVar:
         self._setter(t)
         # check for duplicates
         if t in self._extended_frame:
-            cfg.logger.error(f"the key {t} is a duplicate : it is also present in the _extended_frame")
+            cfg.logger.error(f"The time {t} already exists.")

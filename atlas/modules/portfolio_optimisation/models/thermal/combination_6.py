@@ -20,7 +20,6 @@ from atlas.modules.portfolio_optimisation.models.thermal.initial_conditions_util
     initialize_day_zero_core,
     initialize_day_zero_gradient_vars,
     initialize_day_zero_stable_vars,
-    initialize_day_zero_start_state,
     initialize_gradient_initial_conditions,
 )
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -41,7 +40,8 @@ def add_initial_conditions(
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(thermal_unit, model, time)
             initialize_day_zero_gradient_vars(thermal_unit, model, time)
-            initialize_day_zero_start_state(thermal_unit, model, time)
+
+            thermal_unit.on_start_var.set_extended(time, 0)
 
         for time in kwargs.get("stable_initial_times", []):
             initialize_day_zero_stable_vars(thermal_unit, model, time)

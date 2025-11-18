@@ -18,9 +18,7 @@ if TYPE_CHECKING:
 
 from atlas.modules.portfolio_optimisation.models.thermal.initial_conditions_utils import (
     initialize_day_zero_core,
-    initialize_day_zero_down_to_stop,
     initialize_day_zero_on_states,
-    initialize_day_zero_stop_state,
 )
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
@@ -40,8 +38,9 @@ def add_initial_conditions(
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(thermal_unit, model, time)
             initialize_day_zero_on_states(thermal_unit, model, time)
-            initialize_day_zero_stop_state(thermal_unit, model, time)
-            initialize_day_zero_down_to_stop(thermal_unit, model, time)
+
+            thermal_unit.stop_var.set_extended(time, 0)
+            thermal_unit.down_to_stop_grad.set_extended(time, 0)
     else:
         # Non-dayZero case: Initialize based on power history
         power_timeseries = kwargs.get("power_timeseries")

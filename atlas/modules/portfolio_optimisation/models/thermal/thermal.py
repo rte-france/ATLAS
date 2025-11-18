@@ -72,20 +72,20 @@ class ThermalPO(Thermal):
     T_traceback: int = 0
     optimisation_time_window: list[DateTime] = []
 
-    off_var: ModelVar | None = None
-    on_var: ModelVar | None = None
-    on_flat_var: ModelVar | None = None
-    on_up_var: ModelVar | None = None
-    on_down_var: ModelVar | None = None
-    on_start_var: ModelVar | None = None
-    entered_up_var: ModelVar | None = None
-    entered_down_var: ModelVar | None = None
-    stable_var: ModelVar | None = None
-    flat_down_stop: ModelVar | None = None
-    down_to_stop_grad: ModelVar | None = None
-    stop_var: ModelVar | None = None
-    turned_off: ModelVar | None = None
-    turned_on: ModelVar | None = None
+    off_var: ModelVar
+    on_var: ModelVar
+    on_flat_var: ModelVar
+    on_up_var: ModelVar
+    on_down_var: ModelVar
+    on_start_var: ModelVar
+    entered_up_var: ModelVar
+    entered_down_var: ModelVar
+    stable_var: ModelVar
+    flat_down_stop: ModelVar
+    down_to_stop_grad: ModelVar
+    stop_var: ModelVar
+    turned_off: ModelVar
+    turned_on: ModelVar
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""

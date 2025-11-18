@@ -18,11 +18,8 @@ if TYPE_CHECKING:
 
 from atlas.modules.portfolio_optimisation.models.thermal.initial_conditions_utils import (
     initialize_day_zero_core,
-    initialize_day_zero_flat_down_stop,
     initialize_day_zero_gradient_vars,
     initialize_day_zero_stable_vars,
-    initialize_day_zero_start_state,
-    initialize_day_zero_stop_state,
     initialize_flat_down_stop_initial_conditions,
     initialize_gradient_initial_conditions,
 )
@@ -55,10 +52,11 @@ def add_initial_conditions(
     if day_zero:
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(thermal_unit, model, time)
-            initialize_day_zero_stop_state(thermal_unit, model, time)
-            initialize_day_zero_start_state(thermal_unit, model, time)
             initialize_day_zero_gradient_vars(thermal_unit, model, time)
-            initialize_day_zero_flat_down_stop(thermal_unit, model, time)
+
+            thermal_unit.flat_down_stop.set_extended(time, 0)
+            thermal_unit.on_start_var.set_extended(time, 0)
+            thermal_unit.stop_var.set_extended(time, 0)
 
         for time in kwargs.get("stable_initial_times", []):
             initialize_day_zero_stable_vars(thermal_unit, model, time)
