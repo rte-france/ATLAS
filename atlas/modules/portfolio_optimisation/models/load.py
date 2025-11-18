@@ -47,8 +47,8 @@ class LoadPO(Load):
             max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
 
-            model.add_constraint(power_level_var >= max_power)
-            model.add_constraint(power_level_var <= 0)
+            model.add_constraint(power_level_var >= max_power, f"power_max_{time}_{self.name}")
+            model.add_constraint(power_level_var <= 0, f"power_min_{time}_{self.name}")
         else:
             cfg.logger.debug(f"Skipping constraints for load unit {self.name} at non-target time {time}")
 

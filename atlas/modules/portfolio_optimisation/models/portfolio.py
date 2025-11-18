@@ -105,11 +105,11 @@ class PortfolioPO(Portfolio):
         small_imbalance_down_var = model.get_variable(f"{self.name}_small_imbalance_down_{time}")
         large_imbalance_down_var = model.get_variable(f"{self.name}_large_imbalance_down_{time}")
 
-        power_balance_constraint = (
+        model.add_constraint(
             small_imbalance_up_var + large_imbalance_up_var - small_imbalance_down_var - large_imbalance_down_var
-            == residual_energy - sum_power_variables
+            == residual_energy - sum_power_variables,
+            name=f"power_balance_{time}",
         )
-        model.add_constraint(power_balance_constraint, name=f"power_balance_{time}")
 
         # Imbalance limits
         model.add_constraint(

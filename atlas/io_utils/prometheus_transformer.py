@@ -129,100 +129,108 @@ class PrometheusToAtlasDataParser:
                             else:
                                 logger.warning("Failed to get the matrix / timeseries type")
 
-                            df = pl.read_csv(file, separator=";").with_columns(
-                                pl.col("TimeStep").str.strptime(
-                                    pl.Datetime(), pendulum_to_datetime(self.date_format_timestep)
-                                )
-                            )
-                            if matrix_type == "forecasting_matrix":
-                                duplicated_columns = [e for e in df.columns if "duplicated" in e]
-                                old_indexes = df.drop(*duplicated_columns).select(pl.selectors.numeric()).columns
-                                if len(old_indexes) > 0:
-                                    indexes_sorted = (
-                                        pl.DataFrame({"indexes": old_indexes})
-                                        .with_columns(
-                                            pl.col("indexes").str.strptime(
-                                                pl.Datetime(time_unit="us"),
-                                                pendulum_to_datetime(self.date_format_forecasting),
-                                                strict=False,
-                                            )
-                                        )
-                                        .sort("indexes")
-                                        .with_columns(
-                                            pl.col("indexes").dt.strftime(
-                                                pendulum_to_datetime(self.date_format_forecasting)
-                                            )
-                                        )
-                                        .to_series()
-                                        .to_list()
-                                    )
-
-                                    df = df.select("TimeStep", *indexes_sorted).sort(
-                                        "TimeStep"
-                                    )  # sort indexes in case its not done
-
-                                    new_indexes = (
-                                        pl.DataFrame({"indexes": indexes_sorted})
-                                        .with_columns(
-                                            pl.col("indexes").str.strptime(
-                                                pl.Datetime(time_unit="us", time_zone="UTC"),
-                                                pendulum_to_datetime(self.date_format_forecasting),
-                                                strict=False,
-                                            )
-                                        )
-                                        .sort("indexes")
-                                        .with_columns(
-                                            pl.col("indexes").dt.strftime(pendulum_to_datetime("YYYY-MM-DD HH:mm:ss"))
-                                        )
-                                        .to_series()
-                                        .to_list()
-                                    )
-
-                                    renaming_mapping = dict(zip(indexes_sorted, new_indexes, strict=False))
-                                    df = df.rename(renaming_mapping)
                             try:
-                                infer_frequency(df.rename({"TimeStep": "time"}))
-                            except ValueError:
-                                timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
-                                df = df.sort("TimeStep")
-                                df = (
-                                    df.upsample(time_column="TimeStep", every=timestep)
-                                    .fill_null(strategy="forward")
-                                    .sort("TimeStep")
+                                df = pl.read_csv(file, separator=";").with_columns(
+                                    pl.col("TimeStep").str.strptime(
+                                        pl.Datetime(), pendulum_to_datetime(self.date_format_timestep)
+                                    )
                                 )
-                            df = df.with_columns(
-                                pl.lit(attr_name_snake).alias("attribute"),
-                            ).select(
-                                pl.selectors.datetime(),
-                                pl.selectors.string(),
-                                pl.selectors.numeric(),
-                            )
+                                read_correctly = True
+                            except Exception:
+                                read_correctly = False
+                                logger.warning(f"File is present but can't be read properly. Check {file}")
+                            if read_correctly:
+                                if matrix_type == "forecasting_matrix":
+                                    duplicated_columns = [e for e in df.columns if "duplicated" in e]
+                                    old_indexes = df.drop(*duplicated_columns).select(pl.selectors.numeric()).columns
+                                    if len(old_indexes) > 0:
+                                        indexes_sorted = (
+                                            pl.DataFrame({"indexes": old_indexes})
+                                            .with_columns(
+                                                pl.col("indexes").str.strptime(
+                                                    pl.Datetime(time_unit="us"),
+                                                    pendulum_to_datetime(self.date_format_forecasting),
+                                                    strict=False,
+                                                )
+                                            )
+                                            .sort("indexes")
+                                            .with_columns(
+                                                pl.col("indexes").dt.strftime(
+                                                    pendulum_to_datetime(self.date_format_forecasting)
+                                                )
+                                            )
+                                            .to_series()
+                                            .to_list()
+                                        )
 
-                            path_file_to_instance_matrix = (
-                                Path(self.root_input_directory)
-                                / matrix_type
-                                / object_type_snake
-                                / f"{instance_snake}.parquet"
-                            )
-                            if path_file_to_instance_matrix.exists():
-                                df_existing = pl.read_parquet(path_file_to_instance_matrix).select(
+                                        df = df.select("TimeStep", *indexes_sorted).sort(
+                                            "TimeStep"
+                                        )  # sort indexes in case its not done
+
+                                        new_indexes = (
+                                            pl.DataFrame({"indexes": indexes_sorted})
+                                            .with_columns(
+                                                pl.col("indexes").str.strptime(
+                                                    pl.Datetime(time_unit="us", time_zone="UTC"),
+                                                    pendulum_to_datetime(self.date_format_forecasting),
+                                                    strict=False,
+                                                )
+                                            )
+                                            .sort("indexes")
+                                            .with_columns(
+                                                pl.col("indexes").dt.strftime(
+                                                    pendulum_to_datetime("YYYY-MM-DD HH:mm:ss")
+                                                )
+                                            )
+                                            .to_series()
+                                            .to_list()
+                                        )
+
+                                        renaming_mapping = dict(zip(indexes_sorted, new_indexes, strict=False))
+                                        df = df.rename(renaming_mapping)
+                                try:
+                                    infer_frequency(df.rename({"TimeStep": "time"}))
+                                except ValueError:
+                                    timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
+                                    df = df.sort("TimeStep")
+                                    df = (
+                                        df.upsample(time_column="TimeStep", every=timestep)
+                                        .fill_null(strategy="forward")
+                                        .sort("TimeStep")
+                                    )
+                                df = df.with_columns(
+                                    pl.lit(attr_name_snake).alias("attribute"),
+                                ).select(
                                     pl.selectors.datetime(),
                                     pl.selectors.string(),
                                     pl.selectors.numeric(),
                                 )
-                                if len(df) > 0:
-                                    df_concat = pl.concat([df_existing, df], how="diagonal")
-                                    df_concat.write_parquet(path_file_to_instance_matrix)
+
+                                path_file_to_instance_matrix = (
+                                    Path(self.root_input_directory)
+                                    / matrix_type
+                                    / object_type_snake
+                                    / f"{instance_snake}.parquet"
+                                )
+                                if path_file_to_instance_matrix.exists():
+                                    df_existing = pl.read_parquet(path_file_to_instance_matrix).select(
+                                        pl.selectors.datetime(),
+                                        pl.selectors.string(),
+                                        pl.selectors.numeric(),
+                                    )
+                                    if len(df) > 0:
+                                        df_concat = pl.concat([df_existing, df], how="diagonal")
+                                        df_concat.write_parquet(path_file_to_instance_matrix)
+                                    else:
+                                        logger.warning("Csv has structure but is empty, skipping it")
+                                        attrs[attr_name_snake] = None
                                 else:
-                                    logger.warning("Csv has structure but is empty, skipping it")
-                                    attrs[attr_name_snake] = None
-                            else:
-                                if len(df) > 0:
-                                    df.write_parquet(path_file_to_instance_matrix)
-                                else:
-                                    logger.warning("Csv has structure but is empty, skipping it")
-                                    attrs[attr_name_snake] = None
-                            continue
+                                    if len(df) > 0:
+                                        df.write_parquet(path_file_to_instance_matrix)
+                                    else:
+                                        logger.warning("Csv has structure but is empty, skipping it")
+                                        attrs[attr_name_snake] = None
+                                continue
 
                         if isinstance(item, h5py.Dataset):
                             val = item[()]

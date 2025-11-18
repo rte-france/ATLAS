@@ -106,6 +106,7 @@ class StoragePO(Storage):
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for storage unit {self.name} at time {time}")
             prev_time = time - parameters.timestep
+
             automated_reserves_up_var = model.get_variable(f"automated_reserves_up_{self.name}_{time}")
             automated_reserves_down_var = model.get_variable(f"automated_reserves_down_{self.name}_{time}")
             reserves_up_var = model.get_variable(f"reserves_up_{self.name}_{time}")
@@ -132,21 +133,31 @@ class StoragePO(Storage):
                     power_level_buy_n_var = model.get_variable(f"{self.name}_power_level_buy_n_{n}_time_{time}")
 
                     # Add constraint related to power fragment
-                    model.add_constraint(power_level_buy_n_var >= min_power / nb_fragment)
-                    model.add_constraint(power_level_sell_n_var <= max_power / nb_fragment)
+                    model.add_constraint(
+                        power_level_buy_n_var >= min_power / nb_fragment, f"buy_bound_fragment_{n}_{time}_{self.name}"
+                    )
+                    model.add_constraint(
+                        power_level_sell_n_var <= max_power / nb_fragment, f"sell_bound_fragment_{n}_{time}_{self.name}"
+                    )
 
                 if nb_fragment > 0:
                     model.add_constraint(
-                        power_level_sell_var == sum(power_level_sell_n_var for n in range(0, nb_fragment))
+                        power_level_sell_var == sum(power_level_sell_n_var for n in range(0, nb_fragment)),
+                        f"sell_fragment_sum_{time}_{self.name}",
                     )
                     model.add_constraint(
-                        power_level_buy_var == sum(power_level_buy_n_var for n in range(0, nb_fragment))
+                        power_level_buy_var == sum(power_level_buy_n_var for n in range(0, nb_fragment)),
+                        f"buy_fragment_sum_{time}_{self.name}",
                     )
 
-            model.add_constraint(automated_reserves_up_var <= maximum_automated)
-            model.add_constraint(automated_reserves_down_var <= maximum_automated)
-            model.add_constraint(reserves_up_var <= max_power)
-            model.add_constraint(reserves_down_var <= max_power)
+            model.add_constraint(
+                automated_reserves_up_var <= maximum_automated, f"automated_reserves_up_max_{time}_{self.name}"
+            )
+            model.add_constraint(
+                automated_reserves_down_var <= maximum_automated, f"automated_reserves_down_max_{time}_{self.name}"
+            )
+            model.add_constraint(reserves_up_var <= max_power, f"reserves_up_max_{time}_{self.name}")
+            model.add_constraint(reserves_down_var <= max_power, f"reserves_down_max_{time}_{self.name}")
 
             if self.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]:
                 reserve_stored_energy_down = reserves_down_var * (
@@ -158,15 +169,23 @@ class StoragePO(Storage):
 
                 model.add_constraint(
                     power_level_sell_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-                    <= max_power * self.discharge_efficiency
+                    <= max_power * self.discharge_efficiency,
+                    f"generic_power_max_{time}_{self.name}",
                 )
                 model.add_constraint(
                     power_level_buy_var - reserves_down_var - automated_reserves_down_var - unprovided_reserves_down_var
-                    >= min_power / self.charge_efficiency
+                    >= min_power / self.charge_efficiency,
+                    f"generic_power_min_{time}_{self.name}",
                 )
 
-                model.add_constraint(power_level_sell_var <= max_power * self.discharge_efficiency * is_sell_var)
-                model.add_constraint(power_level_buy_var >= min_power * self.charge_efficiency * (1 - is_sell_var))
+                model.add_constraint(
+                    power_level_sell_var <= max_power * self.discharge_efficiency * is_sell_var,
+                    f"relative_power_max_{time}_{self.name}",
+                )
+                model.add_constraint(
+                    power_level_buy_var >= min_power * self.charge_efficiency * (1 - is_sell_var),
+                    f"relative_power_min_{time}_{self.name}",
+                )
 
             elif self.storage_type == StorageType.ELECTRIC_VEHICLE:
                 reserve_stored_energy_down = reserves_down_var * (
@@ -178,7 +197,8 @@ class StoragePO(Storage):
 
                 model.add_constraint(
                     (power_level_sell_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var)
-                    <= (self.is_v2g * max_power * self.discharge_efficiency)
+                    <= (self.is_v2g * max_power * self.discharge_efficiency),
+                    f"generic_power_max_{time}_{self.name}",
                 )
                 model.add_constraint(
                     (
@@ -187,7 +207,8 @@ class StoragePO(Storage):
                         - automated_reserves_down_var
                         - unprovided_reserves_down_var
                     )
-                    >= min_power / self.charge_efficiency
+                    >= min_power / self.charge_efficiency,
+                    f"generic_power_min_{time}_{self.name}",
                 )
             if not self.displacement_energy:
                 displacement_energy = 0
@@ -202,28 +223,36 @@ class StoragePO(Storage):
                     == self.get_initial_stock(parameters) * max_energy / max_energy_previous
                     - power_level_buy_var * self.charge_efficiency * parameters.timestep.total_hours()
                     - power_level_sell_var * parameters.timestep.total_hours() / self.discharge_efficiency
-                    + (displacement_energy - displacement_energy_prev)
+                    + (displacement_energy - displacement_energy_prev),
+                    f"storage_level_evol_{time}_{self.name}",
                 )
                 model.add_constraint(
                     sum(-power_level_buy_var for _ in self.optimisation_time_window) * self.charge_efficiency
-                    == sum(power_level_sell_var for _ in self.optimisation_time_window) / self.discharge_efficiency
+                    == sum(power_level_sell_var for _ in self.optimisation_time_window) / self.discharge_efficiency,
+                    f"cycle_balance_{self.name}",
                 )
 
             else:
-                stored_energy_var_previous_time = model.get_variable(f"{self.name}_stored_energy_{prev_time}")
+                stored_energy_prev_var = model.get_variable(f"{self.name}_stored_energy_{prev_time}")
+
                 model.add_constraint(
                     stored_energy_var
-                    == stored_energy_var_previous_time * max_energy / max_energy_previous
+                    == stored_energy_prev_var * max_energy / max_energy_previous
                     - power_level_buy_var * self.charge_efficiency * parameters.timestep.total_hours()
                     - power_level_sell_var * parameters.timestep.total_hours() / self.discharge_efficiency
-                    + (displacement_energy - displacement_energy_prev)
+                    + (displacement_energy - displacement_energy_prev),
+                    f"storage_level_evol_{time}_{self.name}",
                 )
 
             model.add_constraint(
                 stored_energy_var
-                >= max_energy * self.minimum_state_of_charge.get_value(time) + reserve_stored_energy_up
+                >= max_energy * self.minimum_state_of_charge.get_value(time) + reserve_stored_energy_up,
+                f"min_storage_level_{time}_{self.name}",
             )
-            model.add_constraint(stored_energy_var <= max_energy - reserve_stored_energy_down)
+            model.add_constraint(
+                stored_energy_var <= max_energy - reserve_stored_energy_down,
+                f"max_storage_level_{time}_{self.name}",
+            )
         else:
             cfg.logger.debug(f"Skipping constraints for storage unit {self.name} at non-optimization time {time}")
 
