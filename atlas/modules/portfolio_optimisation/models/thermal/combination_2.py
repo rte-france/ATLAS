@@ -37,7 +37,7 @@ def add_initial_conditions(
     if day_zero:
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(obj, model, time)
-            initialize_day_zero_on_states(obj, model, time)
+            initialize_day_zero_on_states(obj, time)
 
             obj.stop_var.set_extended(time, 0)
             obj.down_to_stop_grad.set_extended(time, 0)

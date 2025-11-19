@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from collections.abc import Callable
 from typing import Any
 
-from pydantic_extra_types.pendulum_dt import DateTime
+from pendulum import DateTime
 
 import atlas.config as cfg
 

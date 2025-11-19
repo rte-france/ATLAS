@@ -42,7 +42,7 @@ def add_initial_conditions(
             initialize_day_zero_gradient_vars(obj, model, time)
 
         for time in kwargs.get("stable_initial_times", []):
-            initialize_day_zero_stable_vars(obj, model, time)
+            initialize_day_zero_stable_vars(obj, time)
 
         power_ts = kwargs.get("power_timeseries")
         if isinstance(power_ts, Timeseries):

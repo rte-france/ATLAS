@@ -46,7 +46,7 @@ def add_initial_conditions(
             obj.stop_var.set_extended(time, 0)
 
         for time in kwargs.get("stable_initial_times", []):
-            initialize_day_zero_stable_vars(obj, model, time)
+            initialize_day_zero_stable_vars(obj, time)
 
         power_ts = kwargs.get("power_timeseries")
         if isinstance(power_ts, Timeseries):
@@ -133,7 +133,6 @@ def add_initial_conditions(
             if idx >= 2:
                 initialize_flat_down_stop_initial_conditions(
                     obj,
-                    model,
                     time - parameters.timestep,
                     time - 2 * parameters.timestep,
                     time - 3 * parameters.timestep,
@@ -142,7 +141,6 @@ def add_initial_conditions(
         initialize_gradient_initial_conditions(obj, model, power_timeseries, parameters)
         initialize_flat_down_stop_initial_conditions(
             obj,
-            model,
             parameters.start_date - parameters.timestep,
             parameters.start_date - 2 * parameters.timestep,
             parameters.start_date - 3 * parameters.timestep,

@@ -37,7 +37,7 @@ def add_initial_conditions(
     if day_zero:
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(obj, model, time)
-            initialize_day_zero_on_states(obj, model, time)
+            initialize_day_zero_on_states(obj, time)
     else:
         # Non-dayZero case: Initialize based on power history
         power_timeseries = kwargs.get("power_timeseries")

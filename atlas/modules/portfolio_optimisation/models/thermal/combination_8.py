@@ -59,7 +59,7 @@ def add_initial_conditions(
             thermal_unit.stop_var.set_extended(time, 0)
 
         for time in kwargs.get("stable_initial_times", []):
-            initialize_day_zero_stable_vars(thermal_unit, model, time)
+            initialize_day_zero_stable_vars(thermal_unit, time)
 
     else:
         # Non-dayZero case: Initialize based on power history

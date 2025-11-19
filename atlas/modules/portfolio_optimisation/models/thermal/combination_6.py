@@ -44,7 +44,7 @@ def add_initial_conditions(
             obj.on_start_var.set_extended(time, 0)
 
         for time in kwargs.get("stable_initial_times", []):
-            initialize_day_zero_stable_vars(obj, model, time)
+            initialize_day_zero_stable_vars(obj, time)
 
     else:
         # Non-dayZero case: Initialize based on power history
