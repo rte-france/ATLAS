@@ -72,19 +72,19 @@ class ThermalPO(Thermal):
     T_traceback: int = 0
     optimisation_time_window: list[DateTime] = []
 
-    off_var: ModelVar
-    on_flat_var: ModelVar
-    on_up_var: ModelVar
-    on_down_var: ModelVar
-    on_start_var: ModelVar
-    entered_up_var: ModelVar
-    entered_down_var: ModelVar
-    stable_var: ModelVar
-    flat_down_stop: ModelVar
-    down_to_stop_grad: ModelVar
-    stop_var: ModelVar
-    turned_off: ModelVar
-    turned_on: ModelVar
+    off_var: ModelVar | None = None
+    on_flat_var: ModelVar | None = None
+    on_up_var: ModelVar | None = None
+    on_down_var: ModelVar | None = None
+    on_start_var: ModelVar | None = None
+    entered_up_var: ModelVar | None = None
+    entered_down_var: ModelVar | None = None
+    stable_var: ModelVar | None = None
+    flat_down_stop: ModelVar | None = None
+    down_to_stop_grad: ModelVar | None = None
+    stop_var: ModelVar | None = None
+    turned_off: ModelVar | None = None
+    turned_on: ModelVar | None = None
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""
@@ -274,7 +274,7 @@ class ThermalPO(Thermal):
                 turned_on_var = model.get_variable(f"t_on_of_{self.name}_{time}")
                 model.add_objective(startup_cost * turned_on_var, "minimize")
 
-    def get_initial_time_window(
+    def _get_initial_time_window(
         self, parameters: PortfolioOptimisationParameters
     ) -> tuple[list[DateTime], list[DateTime]]:
         """
@@ -306,6 +306,60 @@ class ThermalPO(Thermal):
         )
         return self.optimisation_time_window
 
+    def _setup_state_variables(self, model: OptimisationModel):
+        self.off_var = ModelVar(
+            getter=lambda time: model.get_variable(f"OFF_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"OFF_{self.name}_{time}"),
+        )
+        self.on_flat_var = ModelVar(
+            getter=lambda time: model.get_variable(f"ON_FLAT_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"ON_FLAT_{self.name}_{time}"),
+        )
+        self.on_up_var = ModelVar(
+            getter=lambda time: model.get_variable(f"ON_UP_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"ON_UP_{self.name}_{time}"),
+        )
+        self.on_down_var = ModelVar(
+            getter=lambda time: model.get_variable(f"ON_DOWN_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"ON_DOWN_{self.name}_{time}"),
+        )
+        self.on_start_var = ModelVar(
+            getter=lambda time: model.get_variable(f"ON_START_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"ON_START_{self.name}_{time}"),
+        )
+        self.entered_up_var = ModelVar(
+            getter=lambda time: model.get_variable(f"entered_up_{time}_{self.name}"),
+            setter=lambda time: model.add_boolean_variable(f"entered_up_{time}_{self.name}"),
+        )
+        self.entered_down_var = ModelVar(
+            getter=lambda time: model.get_variable(f"entered_down_{time}_{self.name}"),
+            setter=lambda time: model.add_boolean_variable(f"entered_down_{time}_{self.name}"),
+        )
+        self.stable_var = ModelVar(
+            getter=lambda time: model.get_variable(f"stable_{time}_{self.name}"),
+            setter=lambda time: model.add_boolean_variable(f"stable_{time}_{self.name}"),
+        )
+        self.flat_down_stop = ModelVar(
+            getter=lambda time: model.get_variable(f"flat_down_stop_{time}_{self.name}"),
+            setter=lambda time: model.add_boolean_variable(f"flat_down_stop_{time}_{self.name}"),
+        )
+        self.down_to_stop_grad = ModelVar(
+            getter=lambda time: model.get_variable(f"down_to_stop_grad_{time}_{self.name}"),
+            setter=lambda time: model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}"),
+        )
+        self.stop_var = ModelVar(
+            getter=lambda time: model.get_variable(f"STOP_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"STOP_{self.name}_{time}"),
+        )
+        self.turned_off = ModelVar(
+            getter=lambda time: model.get_variable(f"t_off_of_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"t_off_of_{self.name}_{time}"),
+        )
+        self.turned_on = ModelVar(
+            getter=lambda time: model.get_variable(f"t_on_of_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"t_on_of_{self.name}_{time}"),
+        )
+
     def add_initial_conditions(
         self,
         model: OptimisationModel,
@@ -315,8 +369,9 @@ class ThermalPO(Thermal):
         Add initial conditions for thermal unit at a specific timestamp.
         """
         self._compute_time_parameters(parameters)
+        self._setup_state_variables(model)
 
-        initial_times, stable_initial_times = self.get_initial_time_window(parameters)
+        initial_times, stable_initial_times = self._get_initial_time_window(parameters)
 
         power_timeseries = (
             self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
