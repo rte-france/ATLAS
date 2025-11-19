@@ -87,7 +87,16 @@ def add_constraints(
 
     prev_time = time - parameters.timestep
 
+    off_var = obj.off_var.get_value(time)
+    on_up_var = obj.on_up_var.get_value(time)
+    on_down_var = obj.on_down_var.get_value(time)
+    turned_on_var = obj.turned_on.get_value(time)
+    turned_off_var = obj.turned_off.get_value(time)
     power_level_var = model.get_variable(f"{obj.name}_power_level_{time}")
+
+    off_prev_var = obj.off_var.get_value(prev_time)
+    on_up_prev_var = obj.on_up_var.get_value(prev_time)
+    on_down_prev_var = obj.on_down_var.get_value(prev_time)
     power_level_prev_var = model.get_variable(f"{obj.name}_power_level_{prev_time}")
 
     reserves_up_var = model.get_variable(f"reserves_up_{obj.name}_{time}")
@@ -102,33 +111,27 @@ def add_constraints(
     min_power = obj.minimum_power.get_value(time)
     maximum_automated = get_maximum_automated(obj)
 
-    model.add_constraint(obj.turned_on.get_value(time) <= 1 - obj.off_var.get_value(time))
-    model.add_constraint(obj.turned_on.get_value(time) <= obj.off_var.get_value(prev_time))
-    model.add_constraint(
-        obj.turned_on.get_value(time) >= obj.off_var.get_value(prev_time) - obj.off_var.get_value(time)
-    )
+    model.add_constraint(turned_on_var <= 1 - off_var)
+    model.add_constraint(turned_on_var <= off_prev_var)
+    model.add_constraint(turned_on_var >= off_prev_var - off_var)
 
-    model.add_constraint(obj.turned_off.get_value(time) <= 1 - obj.off_var.get_value(prev_time))
-    model.add_constraint(obj.turned_off.get_value(time) <= obj.off_var.get_value(time))
-    model.add_constraint(
-        obj.turned_off.get_value(time) >= obj.off_var.get_value(time) - obj.off_var.get_value(prev_time)
-    )
+    model.add_constraint(turned_off_var <= 1 - off_prev_var)
+    model.add_constraint(turned_off_var <= off_var)
+    model.add_constraint(turned_off_var >= off_var - off_prev_var)
 
-    model.add_constraint(
-        obj.off_var.get_value(time) + obj.on_up_var.get_value(time) + obj.on_down_var.get_value(time) == 1
-    )
+    model.add_constraint(off_var + on_up_var + on_down_var == 1)
 
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
             local_time = time - s * parameters.timestep
-            model.add_constraint(
-                obj.turned_on.get_value(local_time) <= obj.on_up_var.get_value(time) + obj.on_down_var.get_value(time)
-            )
+            turned_on_local_var = model.get_variable(f"t_on_of_{obj.name}_{local_time}")
+            model.add_constraint(turned_on_local_var <= on_up_var + on_down_var)
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
             local_time = time - s * parameters.timestep
-            model.add_constraint(obj.turned_off.get_value(local_time) <= obj.off_var.get_value(time))
+            turned_off_local_var = model.get_variable(f"t_off_of_{obj.name}_{local_time}")
+            model.add_constraint(turned_off_local_var <= off_var)
 
     model.add_constraint(
         power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
@@ -156,44 +159,34 @@ def add_constraints(
         >= min_power - parameters.allowed_round_off_error
     )
 
-    model.add_constraint(
-        relaxed_reserves_var <= min_power * (1 - obj.on_up_var.get_value(time) - obj.on_down_var.get_value(time))
-    )
+    model.add_constraint(relaxed_reserves_var <= min_power * (1 - on_up_var - on_down_var))
 
-    model.add_constraint(automated_reserves_up_var <= maximum_automated * (1 - obj.off_var.get_value(time)))
-    model.add_constraint(automated_reserves_down_var <= maximum_automated * (1 - obj.off_var.get_value(time)))
-    model.add_constraint(reserves_up_var <= max_power * (1 - obj.off_var.get_value(time)))
-    model.add_constraint(reserves_down_var <= max_power * (1 - obj.off_var.get_value(time)))
+    model.add_constraint(automated_reserves_up_var <= maximum_automated * (1 - off_var))
+    model.add_constraint(automated_reserves_down_var <= maximum_automated * (1 - off_var))
+    model.add_constraint(reserves_up_var <= max_power * (1 - off_var))
+    model.add_constraint(reserves_down_var <= max_power * (1 - off_var))
 
-    model.add_constraint(
-        power_level_var >= min_power * (obj.on_up_var.get_value(time) + obj.on_down_var.get_value(time))
-    )
-    model.add_constraint(
-        power_level_var <= max_power * (obj.on_up_var.get_value(time) + obj.on_down_var.get_value(time))
-    )
+    model.add_constraint(power_level_var >= min_power * (on_up_var + on_down_var))
+    model.add_constraint(power_level_var <= max_power * (on_up_var + on_down_var))
 
     if time in obj.optimisation_time_window[:-1]:
         if obj._Delta_Q > 0:  # Finite gradient
             # Upward gradient
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                <= obj._Delta_Q * obj.on_up_var.get_value(prev_time)
-                + obj._Delta_Q_unconstrained * obj.turned_on.get_value(time)
+                <= obj._Delta_Q * on_up_prev_var + obj._Delta_Q_unconstrained * turned_on_var
             )
             # Downward gradient
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                >= -obj._Delta_Q * obj.on_down_var.get_value(prev_time)
-                - obj._Delta_Q_unconstrained * obj.turned_off.get_value(time)
+                >= -obj._Delta_Q * on_down_prev_var - obj._Delta_Q_unconstrained * turned_off_var
             )
         elif obj._Delta_Q == 0:
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                <= obj._Delta_Q_unconstrained * obj.on_down_var.get_value(prev_time)
-                + obj._Delta_Q_unconstrained * obj.turned_on.get_value(time)
+                <= obj._Delta_Q_unconstrained * on_up_prev_var + obj._Delta_Q_unconstrained * turned_on_var
             )
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                >= -obj._Delta_Q_unconstrained * obj.on_down_var.get_value(prev_time)
-                - obj._Delta_Q_unconstrained * obj.turned_off.get_value(time)
+                >= -obj._Delta_Q_unconstrained * on_down_prev_var - obj._Delta_Q_unconstrained * turned_off_var
             )
