@@ -39,10 +39,11 @@ def initialize_day_zero_core(
         time: The current time step
     """
     power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
-    # Fix core state variables
+
     thermal_unit.off_var.set_extended(time, 1)
     thermal_unit.turned_on.set_extended(time, 0)
     thermal_unit.turned_off.set_extended(time, 0)
+
     model.add_constraint(power_level_var == 0, f"init_power_{thermal_unit.name}_{time}")
 
 
