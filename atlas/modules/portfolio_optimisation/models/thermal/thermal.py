@@ -73,7 +73,6 @@ class ThermalPO(Thermal):
     optimisation_time_window: list[DateTime] = []
 
     off_var: ModelVar
-    on_var: ModelVar
     on_flat_var: ModelVar
     on_up_var: ModelVar
     on_down_var: ModelVar
