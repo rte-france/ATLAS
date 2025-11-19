@@ -271,26 +271,26 @@ def add_constraints(
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
             local_time = time - s * parameters.timestep
-            turned_on_local_var = model.get_variable(f"t_on_of_{obj.name}_{local_time}")
+            turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(turned_on_local_var <= on_up_var + on_down_var + on_flat_var)
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
             local_time = time - (s + obj._T_stop) * parameters.timestep
-            turned_off_local_var = model.get_variable(f"t_off_of_{obj.name}_{local_time}")
+            turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(turned_off_local_var <= off_var)
 
     if obj._T_stable >= 2:
         for s in range(1, obj._T_stable - 1):
             local_time = time - s * parameters.timestep
-            stable_local_var = model.get_variable(f"stable_{local_time}_{obj.name}")
+            stable_local_var = obj.stable_var.get_value(local_time)
             model.add_constraint(stable_local_var <= on_flat_var)
 
     # Shutdown ramp constraints - eq. (24)
     if obj._T_start >= 2:
         for s in range(1, obj._T_stop - 1):
             local_time = time - s * parameters.timestep
-            turned_on_local_var = model.get_variable(f"t_on_of_{obj.name}_{local_time}")
+            turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(turned_on_local_var <= start_var)
 
     model.add_constraint(

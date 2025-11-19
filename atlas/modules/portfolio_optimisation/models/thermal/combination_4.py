@@ -150,7 +150,7 @@ def add_constraints(
     model.add_constraint(off_prev_var + on_down_var <= 1)
 
     eviction_time = time - (obj._T_start - 1) * parameters.timestep
-    turned_on_eviction_var = model.get_variable(f"t_on_of_{obj.name}_{eviction_time}")
+    turned_on_eviction_var = obj.turned_on.get_value(eviction_time)
     model.add_constraint(turned_on_eviction_var + start_var <= 1)
 
     # Minimum time constraints
@@ -158,19 +158,19 @@ def add_constraints(
         for s in range(1, obj._T_on):
             # eq. (27) with T_start > 0 - adjusted timing for startup
             local_time = time - (s + obj._T_start) * parameters.timestep
-            turned_on_local_var = model.get_variable(f"t_on_of_{obj.name}_{local_time}")
+            turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(turned_on_local_var <= on_up_var + on_down_var)
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
             local_time = time - s * parameters.timestep
-            turned_off_local_var = model.get_variable(f"t_off_of_{obj.name}_{local_time}")
+            turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(turned_off_local_var <= off_var)
 
     if obj._T_start >= 2:
         for s in range(1, obj._T_start):
             local_time = time - s * parameters.timestep
-            turned_on_local_var = model.get_variable(f"t_on_of_{obj.name}_{local_time}")
+            turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(turned_on_local_var <= start_var)
 
     model.add_constraint(
