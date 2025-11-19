@@ -1,4 +1,6 @@
 import inspect
+import json
+import os
 from collections import OrderedDict
 
 import pandas as pd
@@ -6,7 +8,6 @@ import pandas as pd
 import atlas.modules.market_clearing.market_clearing_constants as mc_constants
 from atlas.io_utils.utils import to_snake_case
 from atlas.solver.solver_helper import SolverHelper
-from tests.market_clearing_local.test_market_data_market_clearing import read_expected_data
 
 
 def map_args(pattern: str, encoded_str: str) -> list[str]:
@@ -96,9 +97,9 @@ def find_func(name, func_with_start, coupling_groups_expected, market_areas_expe
     return fun_associated, arguments
 
 
-def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expected_data_path):
+def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expected_data):
     (coupling_groups_expected, market_areas_expected, _, market_borders_expected,
-     _, critical_branches_expected) = read_expected_data(expected_data_path)
+     _, critical_branches_expected) = expected_data
     mapping_df = pd.read_csv(lp_mapping_path, delimiter=";")[["New Name", "Original Name"]]
     prometheus_objectives, prometheus_constraints, prometheus_variables, prometheus_binaries = SolverHelper.read_lp_legacy(
         prometheus_lp_path)
@@ -110,23 +111,27 @@ def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expect
     new_prometheus_variables = {}
     new_prometheus_objectives = {}
     for v_name in prometheus_variables:
-        new_name = variable_mapping[variable_mapping["New Name"] == v_name]["Original Name"].values
-        new_prometheus_variables[new_name[0]] = prometheus_variables[v_name]
+        new_name = variable_mapping[variable_mapping["New Name"] == v_name]["Original Name"].values[0]
+        new_prometheus_variables[new_name] = prometheus_variables[v_name]
     for v_name in prometheus_objectives:
         if v_name == "Constant":
             new_prometheus_objectives[v_name] = prometheus_objectives[v_name]
             continue
-        new_name = variable_mapping[variable_mapping["New Name"] == v_name]["Original Name"].values
-        new_prometheus_objectives[new_name[0]] = prometheus_objectives[v_name]
+        new_name = variable_mapping[variable_mapping["New Name"] == v_name]["Original Name"].values[0]
+        if new_name not in new_prometheus_variables:
+            new_prometheus_variables[new_name] = [-float("inf"), float("inf")]
+        new_prometheus_objectives[new_name] = prometheus_objectives[v_name]
     for c_name, _dict in prometheus_constraints.items():
-        c_new_name = constraint_mapping[constraint_mapping["New Name"] == c_name]["Original Name"].values
-        new_prometheus_constraints[c_new_name[0]] = {}
+        c_new_name = constraint_mapping[constraint_mapping["New Name"] == c_name]["Original Name"].values[0]
+        new_prometheus_constraints[c_new_name] = {}
         for v_name in _dict:
             if v_name in ["UB", "LB"]:
-                new_prometheus_constraints[c_new_name[0]][v_name] = _dict[v_name]
+                new_prometheus_constraints[c_new_name][v_name] = _dict[v_name]
                 continue
-            new_name = variable_mapping[variable_mapping["New Name"] == v_name]["Original Name"].values
-            new_prometheus_constraints[c_new_name[0]][new_name[0]] = prometheus_constraints[c_name][v_name]
+            new_name = variable_mapping[variable_mapping["New Name"] == v_name]["Original Name"].values[0]
+            if new_name not in new_prometheus_variables:
+                new_prometheus_variables[new_name] = [-float("inf"), float("inf")]
+            new_prometheus_constraints[c_new_name][new_name] = prometheus_constraints[c_name][v_name]
     naming_functions = inspect.getmembers(mc_constants, inspect.isfunction)
 
     func_with_start = {}
@@ -137,12 +142,14 @@ def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expect
         start = name[:name.find(";")]
         func_with_start[start] = (func, parameters, name)
 
+    mapping = {}
     variable_dict = {}
     for var_name in new_prometheus_variables:
         fun_associated, arguments = find_func(var_name, func_with_start, coupling_groups_expected,
                                               market_areas_expected, market_borders_expected,
                                               critical_branches_expected)
         variable_dict[var_name] = func_with_start[fun_associated][0](*arguments)
+        mapping[variable_dict[var_name]] = var_name
     prometheus_variables = {
         variable_dict[key]: value for key, value in new_prometheus_variables.items()
     }
@@ -155,11 +162,17 @@ def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expect
                                               critical_branches_expected)
         prometheus_binaries.append(func_with_start[fun_associated][0](*arguments))
         binaries_dict[var_name] = func_with_start[fun_associated][0](*arguments)
+        mapping[binaries_dict[var_name]] = var_name
 
     prometheus_constraints = {}
     for c_name in new_prometheus_constraints:
+        # manage price group bound create as constraint in prometheus
+        if "_bound_PG" in c_name or "part_price_group_" in c_name or "_part_price_diff_groups_" in c_name:
+            continue
         fun_associated, arguments = find_func(c_name, func_with_start, coupling_groups_expected, market_areas_expected,
                                               market_borders_expected, critical_branches_expected)
+        constraint_name = to_snake_case(func_with_start[fun_associated][0](*arguments))
+        mapping[constraint_name] = c_name
         constraints = {}
         for key, value in new_prometheus_constraints[c_name].items():
             if key in variable_dict:
@@ -168,12 +181,15 @@ def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expect
                 constraints[binaries_dict[key]] = value
             else:
                 constraints[key] = value
-        prometheus_constraints[func_with_start[fun_associated][0](*arguments)] = constraints
+        prometheus_constraints[constraint_name] = constraints
 
     prometheus_objectives = {
         variable_dict[var_name]: new_prometheus_objectives[var_name] for var_name in new_prometheus_objectives
         if "Constant" != var_name
     }
+    mapping_path, _ = os.path.splitext(prometheus_lp_path)
+    with open(mapping_path + "_mapping_json", "w") as f:
+        json.dump(mapping, f)
 
     return {
         "constraints": OrderedDict(prometheus_constraints),
