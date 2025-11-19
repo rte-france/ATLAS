@@ -1215,7 +1215,7 @@ class Pricing(OptimisationModel):
         :rtype: dict[tuple[str, int], float]
         """
         market_prices = {}
-        for time_index, price_groups in self.price_groups:
+        for time_index, price_groups in self.price_groups.items():
             for price_group in price_groups:
                 for market_area_name in price_group.market_area_names:
                     market_price_name = constants.price_on_group_variable_name(price_group.id, time_index)

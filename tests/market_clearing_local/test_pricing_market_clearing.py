@@ -91,6 +91,10 @@ def retrieve_pricing_lp(path, clearing_local_balances, clearing_saturated_critic
                           exchange_fixing_border_exchanges, clearing_local_balances, clearing_accepted_powers)
         pricing.run()
 
+    with open(os.path.join(path, "optimization_data", "pricing_market_prices.json"), "w") as f:
+        json.dump([[market_area_name, time_index, val]
+                   for (market_area_name, time_index), val in pricing.retrieve_market_prices().items()], f)
+
     return "pricing_1_model.lp", "pricing_2_model.lp", "pricing_3_model.lp"
 
 
