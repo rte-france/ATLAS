@@ -604,7 +604,11 @@ class Clearing(OptimisationModel):
                         max_tso_power_bought.append(mc_order.qmax)
         return sum(max_tso_power_bought)
 
-    def get_n_borders_with_losses(self):
+    def get_n_borders_with_losses(self) -> int:
+        """ get the number of border that have a loss factor
+
+        :rtype: int
+        """
         n_borders_with_losses = 0
         for mc_market_border in self.input_dataset.mc_market_borders.values():
             if mc_market_border.loss_factor and mc_market_border.loss_factor != 0.0:
@@ -612,9 +616,8 @@ class Clearing(OptimisationModel):
         return n_borders_with_losses
 
     def retrieve_local_balances(self) -> dict[tuple[str, int], float]:
-        """
+        """ Retrieve the power balance for each market area at each timestep
 
-        :return: A dictionary containing the accepted amounts of power for each orders of each market area
         :rtype: dict[tuple[str, str], float]
         """
         local_balances = {}
@@ -624,8 +627,9 @@ class Clearing(OptimisationModel):
                 local_balances[market_area_name, time_index] = self.get_variable(accepted_power_name).solution_value()
         return local_balances
 
-    def retrieve_accepted_powers(self) -> dict[tuple[str, int], float]:
-        """
+    def retrieve_accepted_powers(self) -> dict[tuple[str, str], float]:
+        """ Retrieve tje accepted powers of each order per area
+
         :rtype: dict[tuple[str, str], float]
         """
         accepted_powers = {}
@@ -636,8 +640,9 @@ class Clearing(OptimisationModel):
         return accepted_powers
 
     def retrieve_saturated_critical_branch(self) -> dict[tuple[str, int], float]:
-        """
-        :rtype: dict[tuple[str, str], float]
+        """ Retrieve the slack value of each critical branch at each timestep
+
+        :rtype: dict[tuple[str, int], float]
         """
         saturated_critical_branch = {}
         for time_index, _ in enumerate(self.input_dataset.times):
