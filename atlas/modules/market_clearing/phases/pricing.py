@@ -623,7 +623,7 @@ class Pricing(OptimisationModel):
 
     def create_delta_price_pc_variables(self, opposite_delta_p_dict: dict[int, float]):
         for index_pc in self.dict_parent_child_orders:
-            if opposite_delta_p_dict[index_pc] != 0:
+            if not isinstance(opposite_delta_p_dict[index_pc], int):
                 self.add_continuous_variable(constants.delta_p_pc(index_pc), 0, float("inf"))
 
     def create_delta_price_order_variables(self):
@@ -705,7 +705,7 @@ class Pricing(OptimisationModel):
     def create_paradoxical_pc_objective(self, opposite_delta_p_dict: dict[int, float]):
         objective = []
         for index_pc in self.dict_parent_child_orders:
-            if opposite_delta_p_dict[index_pc] != 0:
+            if not isinstance(opposite_delta_p_dict[index_pc], int):
                 delta_p = self.get_variable(constants.delta_p_pc(index_pc))
                 objective.append(self.parameters.paradoxically_accepted_penalty_M * delta_p)
         return self.add_objective(sum(objective), direction="minimize")
@@ -727,7 +727,7 @@ class Pricing(OptimisationModel):
 
     def create_paradoxical_delta_price_pc_constraints(self, opposite_delta_p_dict: dict[int, float]):
         for index_pc in self.dict_parent_child_orders:
-            if opposite_delta_p_dict[index_pc] != 0:
+            if not isinstance(opposite_delta_p_dict[index_pc], int):
                 paradoxical_delta_p = self.get_variable(constants.delta_p_pc(index_pc))
                 self.add_constraint(paradoxical_delta_p >= opposite_delta_p_dict[index_pc],
                                 constants.paradoxical_delta_p_pc_constraint_name(index_pc))
@@ -1209,3 +1209,15 @@ class Pricing(OptimisationModel):
                             else:
                                 price_group.max_rejected_buy = max(mc_order.price, price_group.max_rejected_buy)
                 logger.debug(f"Worst rejected : {price_group.min_rejected_sale}, {price_group.max_rejected_buy}")
+
+    def retrieve_market_prices(self) -> dict[tuple[str, int], float]:
+        """
+        :rtype: dict[tuple[str, int], float]
+        """
+        market_prices = {}
+        for time_index, price_groups in self.price_groups:
+            for price_group in price_groups:
+                for market_area_name in price_group.market_area_names:
+                    market_price_name = constants.price_on_group_variable_name(price_group.id, time_index)
+                    market_prices[market_area_name, time_index] = self.get_variable(market_price_name).solution_value()
+        return market_prices
