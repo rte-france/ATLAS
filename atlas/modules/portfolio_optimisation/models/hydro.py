@@ -152,7 +152,7 @@ class HydroPO(Hydro):
                 )
                 model.add_constraint(
                     stored_energy_var <= maximum_energy - reserve_stored_energy_down_var,
-                    f"min_storage_level_{time}_{self.name}",
+                    f"max_storage_level_{time}_{self.name}",
                 )
         else:
             cfg.logger.debug(f"Skipping constraints for hydro unit {self.name} at non-hydraulic-op time {time}")
