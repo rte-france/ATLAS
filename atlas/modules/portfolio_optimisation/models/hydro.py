@@ -104,7 +104,6 @@ class HydroPO(Hydro):
             reserves_up_var = model.get_variable(f"reserves_up_{self.name}_{time}")
             reserves_down_var = model.get_variable(f"reserves_down_{self.name}_{time}")
             stored_energy_var = model.get_variable(f"{self.name}_stored_energy_{time}")
-            stored_energy_prev_var = model.get_variable(f"{self.name}_stored_energy_{time - parameters.timestep}")
 
             model.add_constraint(relaxed_reserves_var <= min_power, f"relaxed_reserves_{time}_{self.name}")
             model.add_constraint(
@@ -134,6 +133,8 @@ class HydroPO(Hydro):
                 )
 
             else:
+                stored_energy_prev_var = model.get_variable(f"{self.name}_stored_energy_{time - parameters.timestep}")
+
                 inflow = self.inflows.get_value(time) if self.inflows is not None else 0
                 model.add_constraint(
                     stored_energy_var

@@ -402,7 +402,7 @@ class ThermalPO(Thermal):
 
         # Call the function with single timestamp
         initial_condition_function(
-            thermal_unit=self,
+            obj=self,
             model=model,
             parameters=parameters,
             extended_start_date=initial_times[0],

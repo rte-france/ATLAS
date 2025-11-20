@@ -109,8 +109,8 @@ class Storage(Equipment):
             elif self.storage_type == StorageType.BATTERY:
                 return Duration(hours=48)
             elif self.storage_type == StorageType.ELECTRIC_VEHICLE:
-                return Duration(hours=144)
+                return Duration(hours=24)
             else:
-                return Duration(hours=48)  # default value
+                return Duration(hours=48)
         else:
             return self.additional_hours_
