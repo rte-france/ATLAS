@@ -4,16 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import cast
-
 from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
-from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
-from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
@@ -30,8 +26,9 @@ class PortfolioOptimisationModel(OptimisationModel):
         """Build the optimization model by adding variables, constraints, and objectives."""
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 
-        for thermal in self.portfolio.equipments.get("thermal", []):
-            cast(ThermalPO, thermal).add_initial_conditions(self, self.parameters)
+        # Add initial conditions for thermal equipment
+        for thermal in self.portfolio.equipments.thermal:
+            thermal.add_initial_conditions(self, self.parameters)
 
         for time in time_window:
             cfg.logger.debug(f"Building optimisation model at time: {time}..")
@@ -39,10 +36,9 @@ class PortfolioOptimisationModel(OptimisationModel):
             self.portfolio.add_variables(self, time, self.parameters)
             price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
 
-            for equipment_type in self.portfolio.equipments:
-                equipment_list = self.portfolio.equipments.get(equipment_type, [])
-
-                for equipment in cast(list[EquipmentPO], equipment_list):
+            # Iterate over all equipment types and add their constraints/objectives
+            for _, equipment_list in self.portfolio.equipments.iter_by_type():
+                for equipment in equipment_list:
                     # Add variables for optimization times
                     equipment.add_variables(self, time, self.parameters)
                     equipment.add_constraints(self, time, self.parameters)
@@ -53,11 +49,11 @@ class PortfolioOptimisationModel(OptimisationModel):
             self.portfolio.add_constraints(self, time, self.parameters)
             self.portfolio.add_objective(self, time, self.parameters)
 
-        for thermal in self.portfolio.equipments.get("thermal", []):
-            cast(ThermalPO, thermal).add_daily_energy_constraint(model=self, timestep=self.parameters.timestep)
+        for thermal in self.portfolio.equipments.thermal:
+            thermal.add_daily_energy_constraint(model=self, timestep=self.parameters.timestep)
 
-        for storage in self.portfolio.equipments.get("storage", []):
-            cast(StoragePO, storage).add_cycle_balance_constraint(model=self)
+        for storage in self.portfolio.equipments.storage:
+            storage.add_cycle_balance_constraint(model=self)
 
             cfg.logger.debug(f"Completed optimisation model at time: {time}")
 
@@ -103,11 +99,15 @@ class PortfolioOptimisationOrchestrator:
 
             for portfolio in input_dataset.portfolios:
                 cfg.logger.debug(f"Processing portfolio {portfolio.name} for individual equipment optimisation")
-                for equipment_type, list_equipment in portfolio.equipments.items():
+                for equipment_type, list_equipment in portfolio.equipments.iter_by_type():
                     for equipment in list_equipment:
+                        # Create a single-equipment portfolio
+                        single_equipment = PortfolioEquipments()
+                        setattr(single_equipment, equipment_type, [equipment])
+
                         equipment_portfolio = PortfolioPO(
                             name=equipment.name,
-                            equipments={equipment_type: [equipment]},
+                            equipments=single_equipment,
                             control_block=portfolio.control_block,
                             market_area=portfolio.market_area,
                         )
@@ -121,11 +121,15 @@ class PortfolioOptimisationOrchestrator:
                         )
 
             for portfolio_manual in input_dataset.portfolios_manual_activation:
-                for equipment_type, list_equipment in portfolio_manual.equipments.items():
+                for equipment_type, list_equipment in portfolio_manual.equipments.iter_by_type():
                     for equipment in list_equipment:
+                        # Create a single-equipment portfolio
+                        single_equipment = PortfolioEquipments()
+                        setattr(single_equipment, equipment_type, [equipment])
+
                         equipment_portfolio = PortfolioPO(
                             name=equipment.name,
-                            equipments={equipment_type: [equipment]},
+                            equipments=single_equipment,
                             control_block=portfolio_manual.control_block,
                             market_area=portfolio_manual.market_area,
                         )

@@ -95,7 +95,7 @@ class PortfolioOptimisationModule(
 
         validation_errors = []
 
-        for equipment_type, equipment_list in input_dataset.equipments.items():
+        for equipment_type, equipment_list in input_dataset.equipments.iter_by_type():
             for equipment in equipment_list:
                 equipment_errors = self._validate_equipment_timeseries(equipment, expected_timestep, equipment_type)
                 validation_errors.extend(equipment_errors)

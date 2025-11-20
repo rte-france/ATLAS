@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 """
 
 from itertools import groupby
-from typing import cast
 
 from pendulum import DateTime
 
@@ -22,11 +21,11 @@ from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
-from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.models.solar import SolarPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
@@ -49,27 +48,19 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
         loads: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in self.input_data.get("load", [])]
 
-        self.equipments: dict[str, list[EquipmentPO]] = {
-            "wind": [WindPO.model_validate(wind.model_dump()) for wind in self.input_data.get("wind", [])],
-            "storage": [
-                StoragePO.model_validate(storage.model_dump()) for storage in self.input_data.get("storage", [])
-            ],
-            "hydro": [HydroPO.model_validate(hydro.model_dump()) for hydro in self.input_data.get("hydro", [])],
-            "solar": [SolarPO.model_validate(solar.model_dump()) for solar in self.input_data.get("solar", [])],
-            "thermal": [
-                ThermalPO.model_validate(thermal.model_dump()) for thermal in self.input_data.get("thermal", [])
-            ],
-            "other_non_dispatchable": [
+        self.equipments = PortfolioEquipments(
+            wind=[WindPO.model_validate(wind.model_dump()) for wind in self.input_data.get("wind", [])],
+            storage=[StoragePO.model_validate(storage.model_dump()) for storage in self.input_data.get("storage", [])],
+            hydro=[HydroPO.model_validate(hydro.model_dump()) for hydro in self.input_data.get("hydro", [])],
+            solar=[SolarPO.model_validate(solar.model_dump()) for solar in self.input_data.get("solar", [])],
+            thermal=[ThermalPO.model_validate(thermal.model_dump()) for thermal in self.input_data.get("thermal", [])],
+            other_non_dispatchable=[
                 OtherNonDispatchablePO.model_validate(other.model_dump())
                 for other in self.input_data.get("other_non_dispatchable", [])
             ],
-            "dispatchable_load": cast(
-                list[EquipmentPO], [load for load in loads if load.load_type == LoadType.POWER_TO_GAS]
-            ),
-            "non_dispatchable_load": cast(
-                list[EquipmentPO], [load for load in loads if load.load_type != LoadType.POWER_TO_GAS]
-            ),
-        }
+            dispatchable_load=[load for load in loads if load.load_type == LoadType.POWER_TO_GAS],
+            non_dispatchable_load=[load for load in loads if load.load_type != LoadType.POWER_TO_GAS],
+        )
 
         self.portfolios: list[PortfolioPO] = []
         self.portfolios_manual_activation: list[PortfolioPO] = []
@@ -88,8 +79,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                         end_date=self.parameters.end_date - self.parameters.timestep,
                         timestep=self.parameters.timestep,
                     )
-                    for eqs in p.equipments.values()
-                    for e in eqs
+                    for e in p.equipments.get_all_equipment()
                 ),
                 key=lambda tw: tw[-1],
             )
@@ -102,7 +92,7 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         all_equipments_with_type_and_status = []
 
         # Collecte de tous les équipements avec leur type et statut
-        for equipment_type, equipment_list in self.equipments.items():
+        for equipment_type, equipment_list in self.equipments.iter_by_type():
             for equipment in equipment_list:
                 is_manual = should_manually_activate(
                     equipment, self.parameters.excluded_technologies, self.parameters.excluded_thermal_strategies
@@ -122,8 +112,8 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
             original_portfolio: Portfolio = portfolio_list[0][0].portfolio
 
-            equipment_by_type_included = {}
-            equipment_by_type_manual = {}
+            equipment_included = PortfolioEquipments()
+            equipment_manual = PortfolioEquipments()
 
             for equipment_type, type_items in groupby(portfolio_list, key=lambda x: x[1]):
                 type_list = list(type_items)
@@ -132,23 +122,21 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                     equipments = [equipment for equipment, _, _ in status_items]
 
                     if status == "included":
-                        equipment_by_type_included[equipment_type] = equipments
+                        setattr(equipment_included, equipment_type, equipments)
                     elif status == "manual":
-                        equipment_by_type_manual[equipment_type] = equipments
+                        setattr(equipment_manual, equipment_type, equipments)
 
             # Création des objets PortfolioPO
-            if equipment_by_type_included:
-                portfolio_po = PortfolioPO(**original_portfolio.model_dump(), equipments=equipment_by_type_included)
+            if equipment_included.get_all_equipment():
+                portfolio_po = PortfolioPO(**original_portfolio.model_dump(), equipments=equipment_included)
                 # Apply market validation to the MarketAreaPO based on parameters
                 portfolio_po.market_area = portfolio_po.market_area.set_market_context(
                     self.parameters.market, self.parameters.use_forecast
                 )
                 self.portfolios.append(portfolio_po)
 
-            if equipment_by_type_manual:
-                portfolio_po_manual = PortfolioPO(
-                    **original_portfolio.model_dump(), equipments=equipment_by_type_manual
-                )
+            if equipment_manual.get_all_equipment():
+                portfolio_po_manual = PortfolioPO(**original_portfolio.model_dump(), equipments=equipment_manual)
                 # Apply market validation to the MarketAreaPO based on parameters
                 portfolio_po_manual.market_area = portfolio_po_manual.market_area.set_market_context(
                     self.parameters.market, self.parameters.use_forecast

@@ -14,12 +14,9 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.portfolio import Portfolio
-from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
-from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
-from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
+from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_reserve, get_upstream_energy
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
@@ -29,7 +26,7 @@ from atlas.solver.solver_interface import OptimisationModel
 class PortfolioPO(Portfolio):
     market_area: MarketAreaPO
     control_block: ControlBlockPO
-    equipments: dict[str, list[EquipmentPO]]
+    equipments: PortfolioEquipments
 
     def add_variables(
         self,
@@ -53,7 +50,7 @@ class PortfolioPO(Portfolio):
         if time in parameters.target_times:
             cfg.logger.debug(f"Adding constraints for portfolio :{self.name}")
             self._add_global_constraints(time, model, parameters)
-            if any(self.equipments.get(tech, []) for tech in ["thermal", "storage", "wind", "solar", "hydro"]):
+            if self.equipments.has_generation_equipment():
                 self._add_reserves_constraints(time, model, parameters)
         else:
             cfg.logger.debug(f"Skipping constraints for portfolio :{self.name} at non-target time {time}")
@@ -61,14 +58,11 @@ class PortfolioPO(Portfolio):
     def _add_reserves_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
     ):
-        reserve_equipment_types = ["storage", "wind", "solar", "hydro", "thermal"]
-
         def sum_reserve_vars(reserve_type: str) -> float:
             return sum(
                 model.get_variable(f"{reserve_type}_{obj.name}_{time}")
-                for t in reserve_equipment_types
-                if t in self.equipments
-                for obj in self.equipments[t]
+                for _, equipment_list in self.equipments.get_reserve_equipment_types()
+                for obj in equipment_list
             )
 
         # Compute all reserve sums
@@ -276,23 +270,34 @@ class PortfolioPO(Portfolio):
         """Get the sum of all power level variables for a specific time."""
         total_power = 0
 
-        for object_type in self.equipments.keys():
-            for obj in self.equipments[object_type]:
-                if time in obj.optimisation_time_window:
-                    if object_type == "storage":
-                        sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
-                        buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
-                        total_power += sell_var + buy_var
+        # Storage equipment
+        for obj in self.equipments.storage:
+            if time in obj.optimisation_time_window:
+                sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
+                buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
+                total_power += sell_var + buy_var
 
-                    elif object_type == "hydro":
-                        for category in cast(HydroPO, obj).fragment_data.keys():
-                            var = model.get_variable(f"{obj.name}_power_level_frag_{category}_{time}")
-                            total_power += var
-                    elif object_type == "other_non_dispatchable":
-                        continue
-                    else:
-                        var = model.get_variable(f"{obj.name}_power_level_{time}")
-                        total_power += var
+        # Hydro equipment with fragments
+        for obj in self.equipments.hydro:
+            if time in obj.optimisation_time_window:
+                for category in obj.fragment_data.keys():
+                    var = model.get_variable(f"{obj.name}_power_level_frag_{category}_{time}")
+                    total_power += var
+
+        # Other equipment types (thermal, wind, solar, loads)
+        for equipment_list in [
+            self.equipments.thermal,
+            self.equipments.wind,
+            self.equipments.solar,
+            self.equipments.dispatchable_load,
+            self.equipments.non_dispatchable_load,
+        ]:
+            for obj in equipment_list:
+                if time in obj.optimisation_time_window:
+                    var = model.get_variable(f"{obj.name}_power_level_{time}")
+                    total_power += var
+
+        # Note: other_non_dispatchable equipment is intentionally skipped
 
         return total_power
 
@@ -301,24 +306,31 @@ class PortfolioPO(Portfolio):
         residual_energy = 0.0
 
         # Equipment types that need forecast-based optimal dispatch calculation
-        forecast_based_types = ["non_dispatchable_load", "other_non_dispatchable", "dispatchable_load"]
+        forecast_based_equipment = [
+            *self.equipments.non_dispatchable_load,
+            *self.equipments.other_non_dispatchable,
+            *self.equipments.dispatchable_load,
+        ]
 
-        for equipment_type, equipment_list in self.equipments.items():
-            for obj in equipment_list:
-                upstream_energy = get_upstream_energy(obj, time, parameters)
+        for obj in forecast_based_equipment:
+            upstream_energy = get_upstream_energy(obj, time, parameters)
+            last_forecast = obj.maximum_power_forecast.get_forecast(
+                parameters.execution_date, parameters.start_date, parameters.end_date
+            ).get_value(time)
+            optimal_dispatch = min(last_forecast, upstream_energy)
+            residual_energy += upstream_energy - optimal_dispatch
 
-                if equipment_type in forecast_based_types:
-                    last_forecast = (
-                        cast(LoadPO | OtherNonDispatchablePO, obj)
-                        .maximum_power_forecast.get_forecast(
-                            parameters.execution_date, parameters.start_date, parameters.end_date
-                        )
-                        .get_value(time)
-                    )
-                    optimal_dispatch = min(last_forecast, upstream_energy)
-                    residual_energy += upstream_energy - optimal_dispatch
-                else:
-                    residual_energy += upstream_energy
+        # Other equipment types contribute their full upstream energy
+        other_equipment = [
+            *self.equipments.thermal,
+            *self.equipments.storage,
+            *self.equipments.hydro,
+            *self.equipments.wind,
+            *self.equipments.solar,
+        ]
+
+        for obj in other_equipment:
+            residual_energy += get_upstream_energy(obj, time, parameters)
 
         return residual_energy
 
@@ -326,20 +338,18 @@ class PortfolioPO(Portfolio):
         """Compute maximum power and energy metrics for all times."""
         return sum(
             abs(get_maximum_power(obj, time, parameters.execution_date))
-            for equipment_type in ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]
-            for obj in self.equipments.get(equipment_type, [])
+            for _, equipment_list in self.equipments.get_dispatchable_equipment_types()
+            for obj in equipment_list
         )
 
     def _compute_reserves_time(
         self, time: DateTime, parameters: PortfolioOptimisationParameters
     ) -> tuple[float, float, float, float]:
         """Compute reserves and power metrics for a specific time."""
-        equipment_types = ["dispatchable_load", "wind", "solar", "hydro", "storage", "thermal"]
-
         all_reserves = [
             get_reserve(obj, time, parameters)
-            for equipment_type in equipment_types
-            for obj in self.equipments.get(equipment_type, [])
+            for _, equipment_list in self.equipments.get_dispatchable_equipment_types()
+            for obj in equipment_list
         ]
 
         return tuple(sum(values) for values in zip(*all_reserves)) if all_reserves else (0.0, 0.0, 0.0, 0.0)  # noqa: B905
