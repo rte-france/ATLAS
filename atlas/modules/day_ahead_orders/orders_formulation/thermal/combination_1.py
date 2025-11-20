@@ -30,7 +30,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             model.ON_UP.set_extended(t, 0)
             model.ON_DOWN.set_extended(t, 0)
             # Initial conditions on the auxiliary variables
-            model.turned_on[t] = 0
+            model.turned_on.set_extended(t, 0)
             model.turned_off[t] = 0
     else:
         # Initial condition on the power output
@@ -53,7 +53,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         # Initial conditions on the auxiliary variables
         for t in model.previous_time_frame:
             # Initialize all the values to 0
-            model.turned_on[t] = 0
+            model.turned_on.set_extended(t, 0)
             model.turned_off[t] = 0
             if not t == model.extended_start_date:
                 # Reconstruct potential switches using the state variables
@@ -63,9 +63,9 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                     model.turned_off[t] = 1
                 # Or turned on
                 elif model.OFF.get_extended_value(t) - model.OFF.get_extended_value(t_prev) == -1:
-                    model.turned_on[t] = 1
+                    model.turned_on.set_extended(t, 1)
                 else:
-                    model.turned_on[t] = 0
+                    model.turned_on.set_extended(t, 0)
                     model.turned_off[t] = 0
 
     # B. CONSTRAINTS ON THE AUXILIARY VARIABLES
@@ -76,10 +76,10 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # Constraints on the indicator that the unit has started on t
     # Enforces equation (3)
     for t in model.time_frame:
-        model.add_constraint(model.turned_on[t] <= 1 - model.OFF.get_value(t))
-        model.add_constraint(model.turned_on[t] <= model.OFF.get_value(t - model.parameters.time_step))
+        model.add_constraint(model.turned_on.get_value(t) <= 1 - model.OFF.get_value(t))
+        model.add_constraint(model.turned_on.get_value(t) <= model.OFF.get_value(t - model.parameters.time_step))
         model.add_constraint(
-            model.turned_on[t] >= model.OFF.get_value(t - model.parameters.time_step) - model.OFF.get_value(t)
+            model.turned_on.get_value(t) >= model.OFF.get_value(t - model.parameters.time_step) - model.OFF.get_value(t)
         )
 
         # Constraints on turned_off
@@ -110,7 +110,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             for s in time_steps:  # Add the constraints given by eq. (31), here T_start = 0 so t - s - T_start = t - s
                 t_minus_s = t - s * model.parameters.time_step
                 model.add_constraint(
-                    model.turned_on[t_minus_s] <= model.ON_UP.get_value(t) + model.ON_DOWN.get_value(t),
+                    model.turned_on.get_value(t_minus_s) <= model.ON_UP.get_value(t) + model.ON_DOWN.get_value(t),
                     f"minimum_time_ON_{model.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                 )
 
@@ -187,7 +187,8 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             # Upward constrained gradient (eq. 35):
             model.add_constraint(
                 model.q[t_next] - model.q[t]
-                <= model.delta_q * model.ON_UP.get_value(t) + model.delta_q_unconstrained * model.turned_on[t_next],
+                <= model.delta_q * model.ON_UP.get_value(t)
+                + model.delta_q_unconstrained * model.turned_on.get_value(t_next),
                 f"upward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Upward gradient
 
@@ -206,7 +207,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             model.add_constraint(
                 model.q[t_next] - model.q[t]
                 <= model.delta_q_unconstrained * model.ON_UP.get_value(t)
-                + model.delta_q_unconstrained * model.turned_on[t_next]
+                + model.delta_q_unconstrained * model.turned_on.get_value(t_next)
             )  # Upward gradient
 
             # Downward unconstrained gradient (eq. 38)

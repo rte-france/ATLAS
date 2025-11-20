@@ -51,6 +51,7 @@ class ThermalOptimizationModel(OptimisationModel):
     START_EQUIP_AT_KEY = "START_equip_"
     STOP_EQUIP_AT_KEY = "STOP_equip_"
     ON_FLAT_EQUIP_AT_KEY = "ON_FLAT_equip_"
+    TURNED_ON_EQUIP_AT_KEY = "turned_on_equip_"
 
     def __init__(
         self,
@@ -127,7 +128,11 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.on_flat_equip_at(t)),
             lambda t: self.add_boolean_variable(self.on_flat_equip_at(t)),
         )
-        self.turned_on: dict[DateTime, Any] = {}  # Corresponding to the variable defined in sec. 6.1.1
+        # Corresponding to the variable defined in sec. 6.1.1
+        self.turned_on = ModelVar(
+            lambda t: self.get_variable(self.turned_on_equip_at(t)),
+            lambda t: self.add_boolean_variable(self.turned_on_equip_at(t)),
+        )
         self.turned_off: dict[DateTime, Any] = {}  # Corresponding to the variable defined in sec. 6.1.2
         self.time_frame_union_minus_one: list[DateTime] = None
         self.Q_max: float = None
@@ -172,6 +177,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def on_flat_equip_at(self, t: DateTime) -> str:
         return f"{self.ON_FLAT_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def turned_on_equip_at(self, t: DateTime) -> str:
+        return f"{self.TURNED_ON_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -516,7 +524,7 @@ class ThermalOptimizationModel(OptimisationModel):
 
         # 1.3.1. Create the auxiliary variables that will always be defined
         for t in self.time_frame:
-            self.turned_on[t] = self.add_continuous_variable(f"turned_on_equip_{self.thermal_unit.name}_at_{t}", 0, 1)
+            self.turned_on.set_model_var(t)
 
             self.turned_off[t] = self.add_continuous_variable(f"turned_off_equip_{self.thermal_unit.name}_at_{t}", 0, 1)
 
@@ -580,7 +588,7 @@ class ThermalOptimizationModel(OptimisationModel):
                     self.q[t]
                     * (self.parameters.time_step.total_hours())
                     * (self.prices.get_value(t) - self.thermal_unit.variable_cost.get_value(t))
-                    - self.turned_on[t] * self.thermal_unit.startup_cost.get_value(t)
+                    - self.turned_on.get_value(t) * self.thermal_unit.startup_cost.get_value(t)
                     - self.parameters.manual_unprocured_reserves_penalty
                     * (self.parameters.time_step.total_hours())
                     * (
