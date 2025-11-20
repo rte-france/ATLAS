@@ -49,6 +49,7 @@ class ThermalOptimizationModel(OptimisationModel):
     ON_DOWN_EQUIP_AT_KEY = "ON_DOWN_equip_"
     ON_UP_EQUIP_AT_KEY = "ON_UP_equip_"
     START_EQUIP_AT_KEY = "START_equip_"
+    STOP_EQUIP_AT_KEY = "STOP_equip_"
 
     def __init__(
         self,
@@ -116,7 +117,10 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.start_equip_at(t)),
             lambda t: self.add_boolean_variable(self.start_equip_at(t)),
         )
-        self.STOP: dict[DateTime, Any] = {}
+        self.STOP = ModelVar(
+            lambda t: self.get_variable(self.stop_equip_at(t)),
+            lambda t: self.add_boolean_variable(self.stop_time_steps(t)),
+        )
         self.start_date_minus_one: DateTime = None
         self.ON_FLAT: dict[DateTime, Any] = {}
         self.turned_on: dict[DateTime, Any] = {}  # Corresponding to the variable defined in sec. 6.1.1
@@ -158,6 +162,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def start_equip_at(self, t: DateTime) -> str:
         return f"{self.START_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def stop_equip_at(self, t: DateTime) -> str:
+        return f"{self.STOP_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -481,7 +488,7 @@ class ThermalOptimizationModel(OptimisationModel):
 
             # Define the STOP state variable
             for t in self.time_frame:
-                self.STOP[t] = self.add_boolean_variable(f"STOP_equip_{self.thermal_unit.name}_at_{t}")
+                self.STOP.set_model_var(t)
 
         if self.T_stable >= 1:
             self.start_date_minus_one = self.parameters.start_date - self.parameters.time_step
@@ -747,7 +754,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
             )
             for t in self.time_frame:
-                STOP_star.set_value(t, self.STOP[t].solution_value())
+                STOP_star.set_value(t, self.STOP.get_model_var(t).solution_value())
             # Add the time series to the dictionnary.
             results["STOP"] = STOP_star
         if self.T_stable >= 1:
