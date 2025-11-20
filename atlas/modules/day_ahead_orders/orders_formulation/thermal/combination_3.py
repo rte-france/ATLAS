@@ -43,7 +43,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 # Initial conditions on the auxiliary variables defined over time_frame_union_minus_one
                 model.stable.set_extended(t, 0)
                 model.entered_up.set_extended(t, 0)
-                model.entered_down[t] = 0
+                model.entered_down.set_extended(t, 0)
 
             # Initial conditions on the remaining auxiliary variables
             model.turned_on.set_extended(t, 0)
@@ -122,7 +122,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             # Default value set to 0
             model.stable.set_extended(t, 0)
             model.entered_up.set_extended(t, 0)
-            model.entered_down[t] = 0
+            model.entered_down.set_extended(t, 0)
 
             if (not t == model.extended_start_date) and (not model.OFF.get_extended_value(t) == 1):
                 t_prev = t - model.parameters.time_step
@@ -135,7 +135,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                     model.entered_up.set_extended(t, 1)
                 # or the DOWN state
                 if model.ON_DOWN.get_extended_value(t) - model.ON_DOWN.get_extended_value(t_prev) == 1:
-                    model.entered_down[t] = 1
+                    model.entered_down.set_extended(t, 1)
 
                     # Initialize the gradient auxiliaries. This is only required for the last time step of the
     # previous_time_frame. Only ON_UP[start_date_minus_one] and ON_DOWN[start_date_minus_one] are decision variables
@@ -195,10 +195,12 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             >= model.ON_UP.get_value(t) - model.ON_UP.get_value(t - model.parameters.time_step)
         )
         # entered_down (eq. (8))
-        model.add_constraint(model.entered_down[t] <= 1 - model.ON_DOWN.get_value(t - model.parameters.time_step))
-        model.add_constraint(model.entered_down[t] <= model.ON_DOWN.get_value(t))
         model.add_constraint(
-            model.entered_down[t]
+            model.entered_down.get_value(t) <= 1 - model.ON_DOWN.get_value(t - model.parameters.time_step)
+        )
+        model.add_constraint(model.entered_down.get_value(t) <= model.ON_DOWN.get_value(t))
+        model.add_constraint(
+            model.entered_down.get_value(t)
             >= model.ON_DOWN.get_value(t) - model.ON_DOWN.get_value(t - model.parameters.time_step)
         )
 
@@ -406,7 +408,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             # Downard constrained gradient (eq. (37))
             model.add_constraint(
                 model.q[t_next] - model.q[t]
-                >= -model.delta_q * model.entered_down[t]
+                >= -model.delta_q * model.entered_down.get_value(t)
                 + model.U[t]
                 + model.D[t]
                 - model.delta_q_unconstrained * model.turned_off.get_value(t_next),
@@ -430,7 +432,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             # Downward unconstrained gradient (eq. (38))
             model.add_constraint(
                 model.q[t_next] - model.q[t]
-                >= -model.delta_q_unconstrained * model.entered_down[t]
+                >= -model.delta_q_unconstrained * model.entered_down.get_value(t)
                 + model.U[t]
                 + model.D[t]
                 - model.delta_q_unconstrained * model.turned_off.get_value(t_next),

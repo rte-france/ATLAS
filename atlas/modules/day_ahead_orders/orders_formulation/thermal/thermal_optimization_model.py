@@ -55,6 +55,7 @@ class ThermalOptimizationModel(OptimisationModel):
     TURNED_OFF_EQUIP_AT_KEY = "turned_off_equip_"
     STABLE_AT_KEY = "stable_at_"
     ENTERED_UP_AT_KEY = "entered_up_at_"
+    ENTERED_DOWN_AT_KEY = "entered_down_at_"
 
     def __init__(
         self,
@@ -154,7 +155,11 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.entered_up_at(t)),
             lambda t: self.add_continuous_variable(self.entered_up_at(t), 0, 1),
         )
-        self.entered_down: dict[DateTime, Any] = {}  # Same as single_on_up but for on down
+        # Same as single_on_up but for on down
+        self.entered_down = ModelVar(
+            lambda t: self.get_variable(self.entered_down_at(t)),
+            lambda t: self.add_continuous_variable(self.entered_down_at(t), 0, 1),
+        )
         # This variable will be implemented in the gradient and bound the upward gradient
         self.U: dict[DateTime, Any] = {}
         # This variable will be implemented in the gradient and bound the downward gradient
@@ -203,6 +208,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def entered_up_at(self, t: DateTime) -> str:
         return f"{self.ENTERED_UP_AT_KEY}{t}_equip_{self.thermal_unit.name}"
+
+    def entered_down_at(self, t: DateTime) -> str:
+        return f"{self.ENTERED_DOWN_AT_KEY}{t}_equip_{self.thermal_unit.name}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -570,9 +578,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 # Define the auxiliary variables of this state.
                 self.stable.set_model_var(t)
                 self.entered_up.set_model_var(t)
-                self.entered_down[t] = self.add_continuous_variable(
-                    f"entered_down_at_{t}_equip_{self.thermal_unit.name}", 0, 1
-                )
+                self.entered_down.set_model_var(t)
 
             for t in self.time_frame:
                 # Initialize the gradient auxiliaries.
