@@ -125,7 +125,7 @@ class ThermalOptimizationModel(OptimisationModel):
         )
         self.STOP = ModelVar(
             lambda t: self.get_variable(self.stop_equip_at(t)),
-            lambda t: self.add_boolean_variable(self.stop_time_steps(t)),
+            lambda t: self.add_boolean_variable(self.stop_equip_at(t)),
         )
         self.start_date_minus_one: DateTime = None
         self.ON_FLAT = ModelVar(
