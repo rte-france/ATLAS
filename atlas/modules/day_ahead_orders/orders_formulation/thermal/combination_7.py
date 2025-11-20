@@ -41,7 +41,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             model.ON_UP.set_extended(t, 0)
             model.ON_DOWN.set_extended(t, 0)
             model.STOP[t] = 0
-            model.START[t] = 0
+            model.START.set_extended(t, 0)
             # Initial conditions on the auxiliary variables
             model.turned_on[t] = 0
             model.turned_off[t] = 0
@@ -57,7 +57,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             if model.last_power.get_value(t) >= model.thermal_unit.minimum_power.get_value(t):
                 model.OFF.set_extended(t, 0)
                 model.STOP[t] = 0
-                model.START[t] = 0
+                model.START.set_extended(t, 0)
                 # Set both ON states to 1 in order to allow the unit to do whatever it wants as there is no
                 # stable constraint at this point.
                 model.ON_DOWN.set_extended(t, 1)
@@ -66,13 +66,13 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 model.last_power.get_value(t) > 0
             ):  # We will below see whether the unit was being turned on or turned off.
                 model.STOP[t] = 1
-                model.START[t] = 1
+                model.START.set_extended(t, 1)
                 model.OFF.set_extended(t, 0)
                 model.ON_UP.set_extended(t, 0)
                 model.ON_DOWN.set_extended(t, 0)
             else:
                 model.STOP[t] = 0
-                model.START[t] = 0
+                model.START.set_extended(t, 0)
                 model.OFF.set_extended(t, 1)
                 model.ON_UP.set_extended(t, 0)
                 model.ON_DOWN.set_extended(t, 0)
@@ -81,13 +81,13 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         # discard the extended_start_date only.
         for t in model.previous_time_frame[:-1]:
             t_prev = t - model.parameters.time_step
-            if model.START[t] == 1:  # Take start or stop, does not matter.
+            if model.START.get_extended_value(t) == 1:  # Take start or stop, does not matter.
                 if model.q[t] > model.q[t_prev]:  # If the power output increases, then we are starting up.
                     model.STOP[t] = 0
-                    model.START[t] = 1
+                    model.START.set_extended(t, 1)
                 elif model.q[t] < model.q[t_prev]:  # otherwise we are shutting down the unit.
                     model.STOP[t] = 1
-                    model.START[t] = 0
+                    model.START.set_extended(t, 0)
 
                     # Initial conditions on the auxiliary variables
         for t in model.previous_time_frame:
@@ -102,7 +102,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 if model.STOP[t] - model.STOP[t_prev] == 1:
                     model.turned_off[t] = 1
                 # Or turned on
-                elif model.START[t] - model.START[t_prev] == 1:
+                elif model.START.get_extended_value(t) - model.START.get_extended_value(t_prev) == 1:
                     model.turned_on[t] = 1
                 # Reconstruction of down_to_stop
                 elif model.STOP[t] - model.ON_DOWN.get_extended_value(t_prev) == 0:
@@ -152,7 +152,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             + model.ON_UP.get_value(t)
             + model.ON_DOWN.get_value(t)
             + model.STOP[t]
-            + model.START[t]
+            + model.START.get_value(t)
             == 1,
             f"mutual_exclusion_at_{t}",
         )
@@ -173,13 +173,13 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         model.add_constraint(model.ON_UP.get_value(t_minus_one) + model.OFF.get_value(t) <= 1)
         model.add_constraint(model.ON_DOWN.get_value(t_minus_one) + model.OFF.get_value(t) <= 1)
         # ON to START (eq. (10))
-        model.add_constraint(model.ON_UP.get_value(t_minus_one) + model.START[t] <= 1)
-        model.add_constraint(model.ON_DOWN.get_value(t_minus_one) + model.START[t] <= 1)
+        model.add_constraint(model.ON_UP.get_value(t_minus_one) + model.START.get_value(t) <= 1)
+        model.add_constraint(model.ON_DOWN.get_value(t_minus_one) + model.START.get_value(t) <= 1)
         # START to OFF (eq. (11))
-        model.add_constraint(model.START[t_minus_one] + model.OFF.get_value(t) <= 1)
+        model.add_constraint(model.START.get_value(t_minus_one) + model.OFF.get_value(t) <= 1)
         # START to STOP and STOP to START (eq. (14))
-        model.add_constraint(model.START[t_minus_one] + model.STOP[t] <= 1)
-        model.add_constraint(model.STOP[t_minus_one] + model.START[t] <= 1)
+        model.add_constraint(model.START.get_value(t_minus_one) + model.STOP[t] <= 1)
+        model.add_constraint(model.STOP[t_minus_one] + model.START.get_value(t) <= 1)
         # OFF to ON (eq. (15))
         model.add_constraint(model.OFF.get_value(t_minus_one) + model.ON_UP.get_value(t) <= 1)
         model.add_constraint(
@@ -195,7 +195,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         # Add the constraints.
         # Implements equation (16)
         model.add_constraint(
-            model.turned_on[t_minus_T_start] + model.START[t] <= 1,
+            model.turned_on[t_minus_T_start] + model.START.get_value(t) <= 1,
             f"START_eviction_constraint_at_{t}",
         )
         # Implements equation (19)
@@ -244,7 +244,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 # Enforces eq. (17)
                 t_minus_s = t - s * model.parameters.time_step
                 model.add_constraint(
-                    model.turned_on[t_minus_s] <= model.START[t],
+                    model.turned_on[t_minus_s] <= model.START.get_value(t),
                     f"start_up_ramp_of_{model.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                 )
 
@@ -282,19 +282,19 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     for t in model.time_frame:
         model.add_constraint(
             model.get_variable(model.automated_reserves_up_at(t))
-            <= model.maximum_automated * (1 - model.OFF.get_value(t) - model.START[t] - model.STOP[t])
+            <= model.maximum_automated * (1 - model.OFF.get_value(t) - model.START.get_value(t) - model.STOP[t])
         )
         model.add_constraint(
             model.get_variable(model.automated_reserves_down_at(t))
-            <= model.maximum_automated * (1 - model.OFF.get_value(t) - model.START[t] - model.STOP[t])
+            <= model.maximum_automated * (1 - model.OFF.get_value(t) - model.START.get_value(t) - model.STOP[t])
         )
         model.add_constraint(
             model.get_variable(model.reserves_up_equip_at(t))
-            <= model.q_upper.get_value(t) * (1 - model.OFF.get_value(t) - model.START[t] - model.STOP[t])
+            <= model.q_upper.get_value(t) * (1 - model.OFF.get_value(t) - model.START.get_value(t) - model.STOP[t])
         )
         model.add_constraint(
             model.get_variable(model.reserves_down_equip_at(t))
-            <= model.q_upper.get_value(t) * (1 - model.OFF.get_value(t) - model.START[t] - model.STOP[t])
+            <= model.q_upper.get_value(t) * (1 - model.OFF.get_value(t) - model.START.get_value(t) - model.STOP[t])
         )
 
     # Power output
@@ -310,7 +310,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             model.q[t]
             <= model.q_upper.get_value(t) * (model.ON_UP.get_value(t) + model.ON_DOWN.get_value(t))
             + model.STOP[t] * q_min
-            + model.START[t] * q_min
+            + model.START.get_value(t) * q_min
             - model.turned_off[t] * q_step_down,
             f"upper_bound_of_{model.thermal_unit.name}_at_{t}",
         )
@@ -330,7 +330,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                     - model.turned_off[t_next] * q_step_down
                     - model.STOP[t] * q_step_down
                     + model.turned_on[t_next] * q_step_up
-                    + model.START[t] * q_step_up
+                    + model.START.get_value(t) * q_step_up
                 ),
                 f"upward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Upward gradient
@@ -344,7 +344,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                     - model.STOP[t] * q_step_down
                     + down_to_stop[t_next] * model.delta_q
                     + model.turned_on[t_next] * q_step_up
-                    + model.START[t] * q_step_up
+                    + model.START.get_value(t) * q_step_up
                 ),
                 f"downward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Downward gradient
@@ -360,7 +360,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                     - model.turned_off[t_next] * q_step_down
                     - model.STOP[t] * q_step_down
                     + model.turned_on[t_next] * q_step_up
-                    + model.START[t] * q_step_up
+                    + model.START.get_value(t) * q_step_up
                 ),
                 f"unconstrained_upward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Upward gradient
@@ -374,7 +374,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                     - model.STOP[t] * q_step_down
                     + down_to_stop[t_next] * model.delta_q_unconstrained
                     + model.turned_on[t_next] * q_step_up
-                    + model.START[t] * q_step_up
+                    + model.START.get_value(t) * q_step_up
                 ),
                 f"unconstrained_downward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Downward gradient

@@ -48,6 +48,7 @@ class ThermalOptimizationModel(OptimisationModel):
     OFF_EQUIP_AT_KEY = "OFF_equip_"
     ON_DOWN_EQUIP_AT_KEY = "ON_DOWN_equip_"
     ON_UP_EQUIP_AT_KEY = "ON_UP_equip_"
+    START_EQUIP_AT_KEY = "START_equip_"
 
     def __init__(
         self,
@@ -111,7 +112,10 @@ class ThermalOptimizationModel(OptimisationModel):
         )
         self.start_time_steps = None
         self.stop_time_steps = None
-        self.START: dict[DateTime, Any] = {}
+        self.START = ModelVar(
+            lambda t: self.get_variable(self.start_equip_at(t)),
+            lambda t: self.add_boolean_variable(self.start_equip_at(t)),
+        )
         self.STOP: dict[DateTime, Any] = {}
         self.start_date_minus_one: DateTime = None
         self.ON_FLAT: dict[DateTime, Any] = {}
@@ -151,6 +155,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def on_up_equip_at(self, t: DateTime) -> str:
         return f"{self.ON_UP_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def start_equip_at(self, t: DateTime) -> str:
+        return f"{self.START_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -466,7 +473,7 @@ class ThermalOptimizationModel(OptimisationModel):
 
             # Define the START state variable.
             for t in self.time_frame:
-                self.START[t] = self.add_boolean_variable(f"START_equip_{self.thermal_unit.name}_at_{t}")
+                self.START.set_model_var(t)
 
         if self.T_stop >= 1:
             # Define the stop_time_steps range.
@@ -732,7 +739,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
             )
             for t in self.time_frame:
-                START_star.set_value(t, self.START[t].solution_value())
+                START_star.set_value(t, self.START.get_model_var(t).solution_value())
                 # Add the time series to the dictionnary.
             results["START"] = START_star
         if self.T_stop >= 1:
