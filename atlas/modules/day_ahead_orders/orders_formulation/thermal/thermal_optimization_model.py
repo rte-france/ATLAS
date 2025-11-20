@@ -50,6 +50,7 @@ class ThermalOptimizationModel(OptimisationModel):
     ON_UP_EQUIP_AT_KEY = "ON_UP_equip_"
     START_EQUIP_AT_KEY = "START_equip_"
     STOP_EQUIP_AT_KEY = "STOP_equip_"
+    ON_FLAT_EQUIP_AT_KEY = "ON_FLAT_equip_"
 
     def __init__(
         self,
@@ -122,7 +123,10 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.add_boolean_variable(self.stop_time_steps(t)),
         )
         self.start_date_minus_one: DateTime = None
-        self.ON_FLAT: dict[DateTime, Any] = {}
+        self.ON_FLAT = ModelVar(
+            lambda t: self.get_variable(self.on_flat_equip_at(t)),
+            lambda t: self.add_boolean_variable(self.on_flat_equip_at(t)),
+        )
         self.turned_on: dict[DateTime, Any] = {}  # Corresponding to the variable defined in sec. 6.1.1
         self.turned_off: dict[DateTime, Any] = {}  # Corresponding to the variable defined in sec. 6.1.2
         self.time_frame_union_minus_one: list[DateTime] = None
@@ -165,6 +169,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def stop_equip_at(self, t: DateTime) -> str:
         return f"{self.STOP_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def on_flat_equip_at(self, t: DateTime) -> str:
+        return f"{self.ON_FLAT_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -493,12 +500,10 @@ class ThermalOptimizationModel(OptimisationModel):
         if self.T_stable >= 1:
             self.start_date_minus_one = self.parameters.start_date - self.parameters.time_step
             for t in self.time_frame:
-                self.ON_FLAT[t] = self.add_boolean_variable(f"ON_FLAT_equip_{self.thermal_unit.name}_at_{t}")
+                self.ON_FLAT.set_model_var(t)
 
             # For the time step start_date - 1, create optimization avariables for ON_FLAT, ON_UP and ON_DOWN
-            self.ON_FLAT[self.start_date_minus_one] = self.add_boolean_variable(
-                f"ON_FLAT_equip_{self.thermal_unit.name}_at_{self.start_date_minus_one}"
-            )
+            self.ON_FLAT.set_model_var(self.start_date_minus_one)
 
             self.ON_DOWN.set_model_var(self.start_date_minus_one)
             self.ON_UP.set_model_var(self.start_date_minus_one)
@@ -762,7 +767,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
             )
             for t in self.time_frame:
-                ON_FLAT_star.set_value(t, self.ON_FLAT[t].solution_value())
+                ON_FLAT_star.set_value(t, self.ON_FLAT.get_model_var().solution_value())
             results["ON_FLAT"] = ON_FLAT_star
 
         return results
