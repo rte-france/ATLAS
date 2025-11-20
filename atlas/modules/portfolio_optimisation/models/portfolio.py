@@ -82,15 +82,27 @@ class PortfolioPO(Portfolio):
 
         # Map reserve types to their target values and contracted variable names
         constraints_config = [
-            ("contracted_diff_up", reserves_up, sum_reserves["reserves_up"]),
-            ("contracted_diff_down", reserves_down, sum_reserves["reserves_down"]),
-            ("automated_contracted_diff_up", automated_reserves_up, sum_reserves["automated_reserves_up"]),
-            ("automated_contracted_diff_down", automated_reserves_down, sum_reserves["automated_reserves_down"]),
+            ("contracted_diff_up", reserves_up, sum_reserves["reserves_up"], f"reserves_balance_up_{time}"),
+            ("contracted_diff_down", reserves_down, sum_reserves["reserves_down"], f"reserves_balance_down_{time}"),
+            (
+                "automated_contracted_diff_up",
+                automated_reserves_up,
+                sum_reserves["automated_reserves_up"],
+                f"automated_reserves_balance_up_{time}",
+            ),
+            (
+                "automated_contracted_diff_down",
+                automated_reserves_down,
+                sum_reserves["automated_reserves_down"],
+                f"automated_reserves_balance_down_{time}",
+            ),
         ]
 
         # Add all constraints
-        for var_name, target, sum_var in constraints_config:
-            model.add_constraint(model.get_variable(f"{var_name}_{self.name}_{time}") >= target - sum_var)
+        for var_name, target, sum_var, constrainte_name in constraints_config:
+            model.add_constraint(
+                model.get_variable(f"{var_name}_{self.name}_{time}") >= target - sum_var, constrainte_name
+            )
 
     def _add_global_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
@@ -108,7 +120,7 @@ class PortfolioPO(Portfolio):
         model.add_constraint(
             small_imbalance_up_var + large_imbalance_up_var - small_imbalance_down_var - large_imbalance_down_var
             == residual_energy - sum_power_variables,
-            name=f"power_balance_{time}",
+            name=f"portfolio_balance_{time}",
         )
 
         # Imbalance limits
