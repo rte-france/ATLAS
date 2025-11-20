@@ -122,25 +122,25 @@ class HydroPO(Hydro):
             )
 
         if time in parameters.target_times:
+            inflow = self.inflows.get_value(time) * parameters.timestep.total_days() if self.inflows is not None else 0
+
             if time == parameters.start_date:
-                inflow = self.inflows.get_value(time) if self.inflows is not None else 0
                 model.add_constraint(
                     stored_energy_var
-                    == self.get_initial_level(parameters).get_value(parameters.start_date - parameters.timestep)
+                    == self.initial_level.get_value(parameters.start_date - parameters.timestep)
                     - power_level_fragment_sum_var * parameters.timestep.total_hours()
-                    + inflow / parameters.timestep.total_days(),
+                    + inflow,
                     f"storage_level_evol_{time}_{self.name}",
                 )
 
             else:
                 stored_energy_prev_var = model.get_variable(f"{self.name}_stored_energy_{time - parameters.timestep}")
 
-                inflow = self.inflows.get_value(time) if self.inflows is not None else 0
                 model.add_constraint(
                     stored_energy_var
                     == stored_energy_prev_var
                     - power_level_fragment_sum_var * parameters.timestep.total_hours()
-                    + inflow / parameters.timestep.total_days(),
+                    + inflow,
                     f"storage_level_evol_{time}_{self.name}",
                 )
 
@@ -268,48 +268,6 @@ class HydroPO(Hydro):
             marginal_adjustment = 0.0
 
         return base_price + marginal_adjustment
-
-    def get_initial_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> Timeseries:
-        if self.stored_energy:
-            if (
-                self.stored_energy.get_forecast(
-                    parameters.execution_date,
-                    parameters.start_date - parameters.timestep,
-                    parameters.end_date,
-                ).first_date()
-                < parameters.start_date
-            ):
-                return self.stored_energy.get_forecast(
-                    parameters.execution_date,
-                    parameters.start_date - parameters.timestep,
-                    parameters.end_date,
-                )
-
-            else:
-                return (
-                    self.initial_level.slice(
-                        start_bound=parameters.start_date - parameters.timestep,
-                        end_bound=parameters.end_date,
-                    )
-                    if isinstance(self.initial_level, Timeseries)
-                    else self.initial_level.slice(
-                        start_bound=parameters.start_date - parameters.timestep,
-                        end_bound=parameters.end_date,
-                    ).collect()
-                )
-
-        else:
-            return (
-                self.initial_level.slice(
-                    start_bound=parameters.start_date - parameters.timestep,
-                    end_bound=parameters.end_date,
-                )
-                if isinstance(self.initial_level, Timeseries)
-                else self.initial_level.slice(
-                    start_bound=parameters.start_date - parameters.timestep,
-                    end_bound=parameters.end_date,
-                ).collect()
-            )
 
     def get_optimisation_time_window(
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
