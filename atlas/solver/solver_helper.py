@@ -661,7 +661,14 @@ class SolverHelper:
 
     @staticmethod
     def export_objective_differences_csv(
-        pb1, pb2, filename, pb1_name="Before", pb2_name="After", tolerance=1e-5, normalize_names=True
+        pb1,
+        pb2,
+        filename,
+        pb1_name="Before",
+        pb2_name="After",
+        tolerance=1e-5,
+        normalize_names=True,
+        keep_identical=True,
     ):
         """
         Export objective function differences to CSV
@@ -673,6 +680,7 @@ class SolverHelper:
         :param pb2_name: str. Name for second problem column
         :param tolerance: float. Tolerance for numerical comparisons
         :param normalize_names: bool. Whether to normalize variable names (remove trailing colons, etc.)
+        :param keep_identical: bool. Whether to keep rows with "Identical" status in the output
         """
         obj1 = pb1["objectives"]
         obj2 = pb2["objectives"]
@@ -716,6 +724,10 @@ class SolverHelper:
                 else:
                     status = "Identical"
 
+                # Skip identical rows if keep_identical is False
+                if not keep_identical and status == "Identical":
+                    continue
+
                 f.write(f"{var},{coeff1},{coeff2},{diff},{status}\n")
 
     @staticmethod
@@ -730,7 +742,14 @@ class SolverHelper:
 
     @staticmethod
     def export_variable_differences_csv(
-        pb1, pb2, filename, pb1_name="Before", pb2_name="After", tolerance=1e-5, normalize_names=True
+        pb1,
+        pb2,
+        filename,
+        pb1_name="Before",
+        pb2_name="After",
+        tolerance=1e-5,
+        normalize_names=True,
+        keep_identical=True,
     ):
         """
         Export variable bounds differences to CSV
@@ -742,6 +761,7 @@ class SolverHelper:
         :param pb2_name: str. Name for second problem column
         :param tolerance: float. Tolerance for numerical comparisons
         :param normalize_names: bool. Whether to normalize variable names (remove trailing colons, etc.)
+        :param keep_identical: bool. Whether to keep rows with "Identical" status in the output
         """
         vars1 = pb1["variables"]
         vars2 = pb2["variables"]
@@ -794,11 +814,22 @@ class SolverHelper:
                 else:
                     status = "Identical"
 
+                # Skip identical rows if keep_identical is False
+                if not keep_identical and status == "Identical":
+                    continue
+
                 f.write(f"{var},{lb1},{ub1},{lb2},{ub2},{status}\n")
 
     @staticmethod
     def export_constraint_differences_csv(
-        pb1, pb2, filename, pb1_name="Before", pb2_name="After", tolerance=1e-5, normalize_names=True
+        pb1,
+        pb2,
+        filename,
+        pb1_name="Before",
+        pb2_name="After",
+        tolerance=1e-5,
+        normalize_names=True,
+        keep_identical=True,
     ):
         """
         Export constraint differences to CSV
@@ -810,6 +841,7 @@ class SolverHelper:
         :param pb2_name: str. Name for second problem column
         :param tolerance: float. Tolerance for numerical comparisons
         :param normalize_names: bool. Whether to normalize constraint names (remove trailing colons, etc.)
+        :param keep_identical: bool. Whether to keep rows with "Identical" status in the output
         """
         constraints1 = pb1["constraints"]
         constraints2 = pb2["constraints"]
@@ -927,11 +959,22 @@ class SolverHelper:
 
                     status = "Modified" if coeff_different else "Identical"
 
+                # Skip identical rows if keep_identical is False
+                if not keep_identical and status == "Identical":
+                    continue
+
                 f.write(f"{constraint_name},{lb1},{ub1},{lb2},{ub2},{status}\n")
 
     @staticmethod
     def compare_lp_problems(
-        pb1, pb2, output_dir=".", pb1_name="Legacy", pb2_name="Atlas", tolerance=1e-5, normalize_names=True
+        pb1,
+        pb2,
+        output_dir=".",
+        pb1_name="Legacy",
+        pb2_name="Atlas",
+        tolerance=1e-5,
+        normalize_names=True,
+        keep_identical=True,
     ):
         """
         Compare two LP problems, export differences to CSV files, and generate an overall summary report
@@ -943,6 +986,7 @@ class SolverHelper:
         :param pb2_name: str. Name for second problem
         :param tolerance: float. Tolerance for numerical comparisons
         :param normalize_names: bool. Whether to normalize variable/constraint names (remove trailing colons, etc.)
+        :param keep_identical: bool. Whether to keep rows with "Identical" status in the CSV output files
         :return: dict with detailed statistics
         """
         from pathlib import Path
@@ -951,13 +995,34 @@ class SolverHelper:
 
         # Export differences to CSV files
         SolverHelper.export_objective_differences_csv(
-            pb1, pb2, output_dir / "objective_differences.csv", pb1_name, pb2_name, tolerance, normalize_names
+            pb1,
+            pb2,
+            output_dir / "objective_differences.csv",
+            pb1_name,
+            pb2_name,
+            tolerance,
+            normalize_names,
+            keep_identical,
         )
         SolverHelper.export_variable_differences_csv(
-            pb1, pb2, output_dir / "variable_differences.csv", pb1_name, pb2_name, tolerance, normalize_names
+            pb1,
+            pb2,
+            output_dir / "variable_differences.csv",
+            pb1_name,
+            pb2_name,
+            tolerance,
+            normalize_names,
+            keep_identical,
         )
         SolverHelper.export_constraint_differences_csv(
-            pb1, pb2, output_dir / "constraint_differences.csv", pb1_name, pb2_name, tolerance, normalize_names
+            pb1,
+            pb2,
+            output_dir / "constraint_differences.csv",
+            pb1_name,
+            pb2_name,
+            tolerance,
+            normalize_names,
+            keep_identical,
         )
 
         # Normalize names for analysis

@@ -83,7 +83,7 @@ class WindPO(Wind):
                 automated_reserves_up_var <= maximum_automated, f"automated_reserves_up_max_{time}_{self.name}"
             )
             model.add_constraint(
-                automated_reserves_down_var <= maximum_automated, f"autmated_reserves_down_max_{time}_{self.name}"
+                automated_reserves_down_var <= maximum_automated, f"automated_reserves_down_max_{time}_{self.name}"
             )
             model.add_constraint(reserves_up_var <= max_power, f"reserves_up_max_{time}_{self.name}")
             model.add_constraint(reserves_down_var <= max_power, f"reserves_down_max_{time}_{self.name}")

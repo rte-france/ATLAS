@@ -121,7 +121,7 @@ class HydroPO(Hydro):
                 model.get_variable(f"{self.name}_power_level_frag_{category}_{time}") for category in self.fragment_data
             )
 
-        if time in self.optimisation_time_window:
+        if time in parameters.target_times:
             if time == parameters.start_date:
                 inflow = self.inflows.get_value(time) if self.inflows is not None else 0
                 model.add_constraint(
