@@ -191,7 +191,7 @@ class StoragePO(Storage):
                     f"relative_power_max_{time}_{self.name}",
                 )
                 model.add_constraint(
-                    power_level_buy_var >= min_power * self.charge_efficiency * (1 - is_sell_var),
+                    power_level_buy_var >= min_power * (1 - is_sell_var) / self.charge_efficiency,
                     f"relative_power_min_{time}_{self.name}",
                 )
 
@@ -233,19 +233,6 @@ class StoragePO(Storage):
                     - power_level_sell_var * parameters.timestep.total_hours() / self.discharge_efficiency
                     + (displacement_energy - displacement_energy_prev),
                     f"storage_level_evol_{time}_{self.name}",
-                )
-                model.add_constraint(
-                    sum(
-                        -model.get_variable(f"{self.name}_power_level_buy_{time}")
-                        for time in self.optimisation_time_window
-                    )
-                    * self.charge_efficiency
-                    == sum(
-                        model.get_variable(f"{self.name}_power_level_sell_{time}")
-                        for time in self.optimisation_time_window
-                    )
-                    / self.discharge_efficiency,
-                    f"cycle_balance_{self.name}",
                 )
 
             else:
@@ -315,6 +302,15 @@ class StoragePO(Storage):
             cfg.logger.debug(
                 f"Skipping objective for storage unit {self.name} at time {time} - not in optimization times or target times"
             )
+
+    def add_cycle_balance_constraint(self, model: OptimisationModel):
+        model.add_constraint(
+            sum(-model.get_variable(f"{self.name}_power_level_buy_{time}") for time in self.optimisation_time_window)
+            * self.charge_efficiency
+            == sum(model.get_variable(f"{self.name}_power_level_sell_{time}") for time in self.optimisation_time_window)
+            / self.discharge_efficiency,
+            f"cycle_balance_{self.name}",
+        )
 
     def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
         if self.stored_energy is None:

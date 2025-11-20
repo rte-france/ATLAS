@@ -12,6 +12,7 @@ import atlas.config as cfg
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
@@ -53,7 +54,10 @@ class PortfolioOptimisationModel(OptimisationModel):
             self.portfolio.add_objective(self, time, self.parameters)
 
         for thermal in self.portfolio.equipments.get("thermal", []):
-            cast(ThermalPO, thermal).add_daily_energy_constraint(self, self.parameters.timestep)
+            cast(ThermalPO, thermal).add_daily_energy_constraint(model=self, timestep=self.parameters.timestep)
+
+        for storage in self.portfolio.equipments.get("storage", []):
+            cast(StoragePO, storage).add_cycle_balance_constraint(model=self)
 
             cfg.logger.debug(f"Completed optimisation model at time: {time}")
 
