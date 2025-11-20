@@ -31,7 +31,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             model.ON_DOWN.set_extended(t, 0)
             # Initial conditions on the auxiliary variables
             model.turned_on.set_extended(t, 0)
-            model.turned_off[t] = 0
+            model.turned_off.set_extended(t, 0)
     else:
         # Initial condition on the power output
         for t in model.previous_time_frame:
@@ -54,19 +54,19 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         for t in model.previous_time_frame:
             # Initialize all the values to 0
             model.turned_on.set_extended(t, 0)
-            model.turned_off[t] = 0
+            model.turned_off.set_extended(t, 0)
             if not t == model.extended_start_date:
                 # Reconstruct potential switches using the state variables
                 t_prev = t - model.parameters.time_step
                 # See if the unit has been turned off
                 if model.OFF.get_extended_value(t) - model.OFF.get_extended_value(t_prev) == 1:
-                    model.turned_off[t] = 1
+                    model.turned_off.set_extended(t, 1)
                 # Or turned on
                 elif model.OFF.get_extended_value(t) - model.OFF.get_extended_value(t_prev) == -1:
                     model.turned_on.set_extended(t, 1)
                 else:
                     model.turned_on.set_extended(t, 0)
-                    model.turned_off[t] = 0
+                    model.turned_off.set_extended(t, 0)
 
     # B. CONSTRAINTS ON THE AUXILIARY VARIABLES
 
@@ -85,10 +85,11 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         # Constraints on turned_off
     # STOP is not defined in this case, so we enforce equation (4)
     for t in model.time_frame:
-        model.add_constraint(model.turned_off[t] <= 1 - model.OFF.get_value(t - model.parameters.time_step))
-        model.add_constraint(model.turned_off[t] <= model.OFF.get_value(t))
+        model.add_constraint(model.turned_off.get_value(t) <= 1 - model.OFF.get_value(t - model.parameters.time_step))
+        model.add_constraint(model.turned_off.get_value(t) <= model.OFF.get_value(t))
         model.add_constraint(
-            model.turned_off[t] >= model.OFF.get_value(t) - model.OFF.get_value(t - model.parameters.time_step)
+            model.turned_off.get_value(t)
+            >= model.OFF.get_value(t) - model.OFF.get_value(t - model.parameters.time_step)
         )
 
     # C. CONSTRAINTS ON THE STATE VARIABLES
@@ -120,7 +121,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             for s in time_steps:  # Add the constraints given by eq. (32), here T_stop = 0 so t - s - T_stop = t - s
                 t_minus_s = t - s * model.parameters.time_step
                 model.add_constraint(
-                    model.turned_off[t_minus_s] <= model.OFF.get_value(t),
+                    model.turned_off.get_value(t_minus_s) <= model.OFF.get_value(t),
                     f"minimum_time_OFF_{model.thermal_unit.name}_at_{t_minus_s}_for_{t}",
                 )
 
@@ -195,7 +196,8 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             # Downward constrained gradient (eq. 37) :
             model.add_constraint(
                 model.q[t_next] - model.q[t]
-                >= -model.delta_q * model.ON_DOWN.get_value(t) - model.delta_q_unconstrained * model.turned_off[t_next],
+                >= -model.delta_q * model.ON_DOWN.get_value(t)
+                - model.delta_q_unconstrained * model.turned_off.get_value(t_next),
                 f"downward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Downward gradient
 
@@ -214,7 +216,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             model.add_constraint(
                 model.q[t_next] - model.q[t]
                 >= -model.delta_q_unconstrained * model.ON_DOWN.get_value(t)
-                - model.delta_q_unconstrained * model.turned_off[t_next]
+                - model.delta_q_unconstrained * model.turned_off.get_value(t_next)
             )  # Downward gradient
     else:  # Raise an error since no gradients have been detected.
         cfg.logger.error(

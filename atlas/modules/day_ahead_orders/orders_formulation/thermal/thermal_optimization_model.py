@@ -52,6 +52,7 @@ class ThermalOptimizationModel(OptimisationModel):
     STOP_EQUIP_AT_KEY = "STOP_equip_"
     ON_FLAT_EQUIP_AT_KEY = "ON_FLAT_equip_"
     TURNED_ON_EQUIP_AT_KEY = "turned_on_equip_"
+    TURNED_OFF_EQUIP_AT_KEY = "turned_off_equip_"
 
     def __init__(
         self,
@@ -133,7 +134,11 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.turned_on_equip_at(t)),
             lambda t: self.add_boolean_variable(self.turned_on_equip_at(t)),
         )
-        self.turned_off: dict[DateTime, Any] = {}  # Corresponding to the variable defined in sec. 6.1.2
+        # Corresponding to the variable defined in sec. 6.1.2
+        self.turned_off = ModelVar(
+            lambda t: self.get_variable(self.turned_off_equip_at(t)),
+            lambda t: self.add_boolean_variable(self.turned_off_equip_at(t)),
+        )
         self.time_frame_union_minus_one: list[DateTime] = None
         self.Q_max: float = None
         self.Q_min: float = None
@@ -180,6 +185,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def turned_on_equip_at(self, t: DateTime) -> str:
         return f"{self.TURNED_ON_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def turned_off_equip_at(self, t: DateTime) -> str:
+        return f"{self.TURNED_OFF_EQUIP_AT_KEY}{self.thermal_unit.name}_at_{t}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -525,8 +533,7 @@ class ThermalOptimizationModel(OptimisationModel):
         # 1.3.1. Create the auxiliary variables that will always be defined
         for t in self.time_frame:
             self.turned_on.set_model_var(t)
-
-            self.turned_off[t] = self.add_continuous_variable(f"turned_off_equip_{self.thermal_unit.name}_at_{t}", 0, 1)
+            self.turned_off.set_model_var(t)
 
         # 1.3.2. Create the condtionnal auxiliary variables if necessary.
 
