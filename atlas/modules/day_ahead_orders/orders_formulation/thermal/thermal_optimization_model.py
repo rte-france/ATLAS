@@ -54,6 +54,7 @@ class ThermalOptimizationModel(OptimisationModel):
     TURNED_ON_EQUIP_AT_KEY = "turned_on_equip_"
     TURNED_OFF_EQUIP_AT_KEY = "turned_off_equip_"
     STABLE_AT_KEY = "stable_at_"
+    ENTERED_UP_AT_KEY = "entered_up_at_"
 
     def __init__(
         self,
@@ -149,7 +150,10 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.add_continuous_variable(self.stable_at(t), 0, 1),
         )
         # This variable replaces ON_UP in the definition of the gradient and will bound the gradient for only one time step
-        self.entered_up: dict[DateTime, Any] = {}
+        self.entered_up = ModelVar(
+            lambda t: self.get_variable(self.entered_up_at(t)),
+            lambda t: self.add_continuous_variable(self.entered_up_at(t), 0, 1),
+        )
         self.entered_down: dict[DateTime, Any] = {}  # Same as single_on_up but for on down
         # This variable will be implemented in the gradient and bound the upward gradient
         self.U: dict[DateTime, Any] = {}
@@ -196,6 +200,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def stable_at(self, t: DateTime) -> str:
         return f"{self.STABLE_AT_KEY}{t}_equip_{self.thermal_unit.name}"
+
+    def entered_up_at(self, t: DateTime) -> str:
+        return f"{self.ENTERED_UP_AT_KEY}{t}_equip_{self.thermal_unit.name}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -562,9 +569,7 @@ class ThermalOptimizationModel(OptimisationModel):
             for t in self.time_frame_union_minus_one:
                 # Define the auxiliary variables of this state.
                 self.stable.set_model_var(t)
-                self.entered_up[t] = self.add_continuous_variable(
-                    f"entered_up_at_{t}_equip_{self.thermal_unit.name}", 0, 1
-                )
+                self.entered_up.set_model_var(t)
                 self.entered_down[t] = self.add_continuous_variable(
                     f"entered_down_at_{t}_equip_{self.thermal_unit.name}", 0, 1
                 )
