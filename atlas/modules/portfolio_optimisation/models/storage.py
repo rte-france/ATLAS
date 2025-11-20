@@ -142,11 +142,19 @@ class StoragePO(Storage):
 
                 if nb_fragment > 0:
                     model.add_constraint(
-                        power_level_sell_var == sum(power_level_sell_n_var for n in range(0, nb_fragment)),
+                        power_level_sell_var
+                        == sum(
+                            model.get_variable(f"{self.name}_power_level_sell_n_{n}_time_{time}")
+                            for n in range(0, nb_fragment)
+                        ),
                         f"sell_fragment_sum_{time}_{self.name}",
                     )
                     model.add_constraint(
-                        power_level_buy_var == sum(power_level_buy_n_var for n in range(0, nb_fragment)),
+                        power_level_buy_var
+                        == sum(
+                            model.get_variable(f"{self.name}_power_level_buy_n_{n}_time_{time}")
+                            for n in range(0, nb_fragment)
+                        ),
                         f"buy_fragment_sum_{time}_{self.name}",
                     )
 
@@ -227,8 +235,16 @@ class StoragePO(Storage):
                     f"storage_level_evol_{time}_{self.name}",
                 )
                 model.add_constraint(
-                    sum(-power_level_buy_var for _ in self.optimisation_time_window) * self.charge_efficiency
-                    == sum(power_level_sell_var for _ in self.optimisation_time_window) / self.discharge_efficiency,
+                    sum(
+                        -model.get_variable(f"{self.name}_power_level_buy_{time}")
+                        for time in self.optimisation_time_window
+                    )
+                    * self.charge_efficiency
+                    == sum(
+                        model.get_variable(f"{self.name}_power_level_sell_{time}")
+                        for time in self.optimisation_time_window
+                    )
+                    / self.discharge_efficiency,
                     f"cycle_balance_{self.name}",
                 )
 
