@@ -11,7 +11,7 @@ from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisa
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
+from atlas.solver.solver_interface import OptimisationModel
 
 
 class PortfolioOptimisationModel(OptimisationModel):
@@ -36,10 +36,8 @@ class PortfolioOptimisationModel(OptimisationModel):
             self.portfolio.add_variables(self, time, self.parameters)
             price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
 
-            # Iterate over all equipment types and add their constraints/objectives
             for _, equipment_list in self.portfolio.equipments.iter_by_type():
                 for equipment in equipment_list:
-                    # Add variables for optimization times
                     equipment.add_variables(self, time, self.parameters)
                     equipment.add_constraints(self, time, self.parameters)
                     equipment.add_objective(
@@ -58,18 +56,6 @@ class PortfolioOptimisationModel(OptimisationModel):
             cfg.logger.debug(f"Completed optimisation model at time: {time}")
 
         cfg.logger.info(f"Completed optimisation model for portfolio: {self.portfolio.name}.")
-
-    def optimise(self) -> SolutionInfo:
-        """Run this specific portfolio using inherited OptimisationModel capabilities."""
-        cfg.logger.info(f"Solving portfolio optimisation problem for portfolio: {self.portfolio.name}")
-
-        try:
-            solution_info = self.solve(self.parameters.solver_timeout.total_seconds())
-            return solution_info
-
-        except Exception as e:
-            cfg.logger.error(f"Optimisation failed for portfolio {self.portfolio.name}: {e}")
-            raise
 
 
 class PortfolioOptimisationOrchestrator:
@@ -125,7 +111,7 @@ class PortfolioOptimisationOrchestrator:
                     for equipment in list_equipment:
                         # Create a single-equipment portfolio
                         single_equipment = PortfolioEquipments()
-                        setattr(single_equipment, equipment_type, [equipment])
+                        single_equipment.add(equipment_type, equipment)
 
                         equipment_portfolio = PortfolioPO(
                             name=equipment.name,
@@ -146,7 +132,7 @@ class PortfolioOptimisationOrchestrator:
         # try:
         model.build_model(time_window)
         model.export_model(f"lp_validation/generated_lp/po_{portfolio.name}.lp")
-        model.optimise()
+        model.solve(self.parameters.solver_timeout.total_seconds())
         return model
 
         # except Exception as e:
@@ -156,13 +142,6 @@ class PortfolioOptimisationOrchestrator:
         #     equipment_list = [equipment for t in portfolio.equipments for equipment in portfolio.equipments[t]]
         #     cfg.logger.debug(f"Setting manual activation for {len(equipment_list)} equipment(s)")
         #     set_manual_activation(cast(list, equipment_list), self.parameters)
-
-        #     return SolutionInfo(
-        #         status=SolverStatus.NOT_SOLVED,
-        #         objective_value=None,
-        #         solve_time=None,
-        #         num_iterations=None,
-        #     )
 
     def _optimise_portfolio_manual_activated(self, portfolio: PortfolioPO):
         cfg.logger.info(f"Manual activation for portfolio: {portfolio.name}")

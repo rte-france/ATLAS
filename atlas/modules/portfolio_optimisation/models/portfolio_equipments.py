@@ -87,3 +87,10 @@ class PortfolioEquipments:
             ("solar", self.solar),
             ("dispatchable_load", self.dispatchable_load),
         ]
+
+    def add(self, equipment_type: str, equipment: EquipmentPO) -> None:
+        """Add a single piece of equipment to the proper list."""
+        try:
+            getattr(self, equipment_type).append(equipment)
+        except AttributeError:
+            raise ValueError(f"Unknown equipment type: {equipment_type}")  # noqa: B904
