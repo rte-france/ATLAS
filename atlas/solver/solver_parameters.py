@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from ortools.linear_solver import pywraplp
+from ortools.linear_solver import pywraplp  # type: ignore  [attr-defined]
 
 from atlas.solver.models import SolverOptions
 
