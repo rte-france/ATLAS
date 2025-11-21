@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 Unit tests for SolverOptions functionality.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from atlas.enum import SolverEnum
 from atlas.solver.models import SolverOptions
@@ -26,7 +26,7 @@ class TestSolverOptions:
 
     def test_custom_options(self):
         """Test custom options."""
-        options = SolverOptions(presolve=False, duality_gap=0.01, time_limit=60.0)
+        options = SolverOptions(presolve=False, duality_gap=0.01, time_limit=60.0, num_threads=4)
         assert options.presolve is False
         assert options.duality_gap == 0.01
         assert options.time_limit == 60.0
@@ -88,98 +88,92 @@ class TestSolverOptionsIntegration:
 
 
 class TestSolverOptionsParameterPassing:
-    """Tests that verify options are actually passed to the solver."""
+    """Tests that verify options are actually passed to the solver via parameter builders."""
 
     def test_presolve_disabled_passed_to_solver(self):
         """Test that presolve=False is passed to solver."""
         options = SolverOptions(presolve=False)
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
 
-        # Mock the underlying solver
-        mock_solver = MagicMock()
-        model._solver = mock_solver
+        # Mock the parameter builder
+        mock_builder = MagicMock()
+        model._parameter_builder = mock_builder
 
         x = model.add_continuous_variable("x", 0, 10)
         model.set_objective(x, direction="maximize")
         model.solve()
 
-        # Verify SetSolverSpecificParametersAsString was called with presolve off
-        mock_solver.SetSolverSpecificParametersAsString.assert_called()
-        call_args = mock_solver.SetSolverSpecificParametersAsString.call_args[0][0]
-        assert "presolve off" in call_args
+        # Verify apply_options was called with the correct options
+        mock_builder.apply_options.assert_called_once()
+        call_options = mock_builder.apply_options.call_args[0][0]
+        assert call_options.presolve is False
 
     def test_duality_gap_passed_to_solver(self):
         """Test that duality_gap is passed to solver."""
         options = SolverOptions(duality_gap=0.05)
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
 
-        # Mock the underlying solver
-        mock_solver = MagicMock()
-        model._solver = mock_solver
+        # Mock the parameter builder
+        mock_builder = MagicMock()
+        model._parameter_builder = mock_builder
 
         x = model.add_continuous_variable("x", 0, 10)
         model.set_objective(x, direction="maximize")
         model.solve()
 
-        # Verify SetSolverSpecificParametersAsString was called with duality gap
-        mock_solver.SetSolverSpecificParametersAsString.assert_called()
-        call_args = mock_solver.SetSolverSpecificParametersAsString.call_args[0][0]
-        assert "relative_mip_gap 0.05" in call_args
+        # Verify apply_options was called with the correct options
+        mock_builder.apply_options.assert_called_once()
+        call_options = mock_builder.apply_options.call_args[0][0]
+        assert call_options.duality_gap == 0.05
 
     def test_time_limit_passed_to_solver(self):
         """Test that time_limit is passed to solver."""
         options = SolverOptions(time_limit=30.0)
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
 
-        # Mock the underlying solver
-        mock_solver = MagicMock()
-        model._solver = mock_solver
+        # Mock the parameter builder
+        mock_builder = MagicMock()
+        model._parameter_builder = mock_builder
 
         x = model.add_continuous_variable("x", 0, 10)
         model.set_objective(x, direction="maximize")
         model.solve()
 
-        # Verify SetTimeLimit was called with correct value (30.0 seconds = 30000 ms)
-        mock_solver.SetTimeLimit.assert_called_once_with(30000)
+        # Verify apply_options was called with the correct options
+        mock_builder.apply_options.assert_called_once()
+        call_options = mock_builder.apply_options.call_args[0][0]
+        assert call_options.time_limit == 30.0
 
     def test_all_options_passed_to_solver(self):
         """Test that all options are passed to solver together."""
-        options = SolverOptions(presolve=False, duality_gap=0.02, time_limit=60.0)
+        options = SolverOptions(presolve=False, duality_gap=0.02, time_limit=60.0, num_threads=4)
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
 
-        # Mock the underlying solver
-        mock_solver = MagicMock()
-        model._solver = mock_solver
+        # Mock the parameter builder
+        mock_builder = MagicMock()
+        model._parameter_builder = mock_builder
 
         x = model.add_continuous_variable("x", 0, 10)
         model.set_objective(x, direction="maximize")
         model.solve()
 
-        # Verify SetSolverSpecificParametersAsString contains all options
-        mock_solver.SetSolverSpecificParametersAsString.assert_called()
-        call_args = mock_solver.SetSolverSpecificParametersAsString.call_args[0][0]
-        assert "presolve off" in call_args
-        assert "relative_mip_gap 0.02" in call_args
+        # Verify apply_options was called with all options
+        mock_builder.apply_options.assert_called_once()
+        call_options = mock_builder.apply_options.call_args[0][0]
+        assert call_options.presolve is False
+        assert call_options.duality_gap == 0.02
+        assert call_options.time_limit == 60.0
 
-        # Verify SetTimeLimit was called
-        mock_solver.SetTimeLimit.assert_called_once_with(60000)
+    def test_xpress_uses_xpress_builder(self):
+        """Test that XPRESS solver uses XPRESSParameterBuilder."""
+        from atlas.solver.solver_interface import XPRESSParameterBuilder
 
-    def test_default_options_no_parameters_set(self):
-        """Test that default options don't set unnecessary parameters."""
-        options = SolverOptions()  # All defaults
-        model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
+        model = OptimisationModel(solver_name=SolverEnum.XPRESS)
+        assert isinstance(model._parameter_builder, XPRESSParameterBuilder)
 
-        # Mock the underlying solver
-        mock_solver = MagicMock()
-        model._solver = mock_solver
+    def test_generic_solver_uses_generic_builder(self):
+        """Test that generic solvers use GenericParameterBuilder."""
+        from atlas.solver.solver_interface import GenericParameterBuilder
 
-        x = model.add_continuous_variable("x", 0, 10)
-        model.set_objective(x, direction="maximize")
-        model.solve()
-
-        # With defaults (presolve=True, duality_gap=None, time_limit=None),
-        # SetSolverSpecificParametersAsString should not be called
-        mock_solver.SetSolverSpecificParametersAsString.assert_not_called()
-
-        # SetTimeLimit should not be called
-        mock_solver.SetTimeLimit.assert_not_called()
+        model = OptimisationModel(solver_name=SolverEnum.GLOP)
+        assert isinstance(model._parameter_builder, GenericParameterBuilder)

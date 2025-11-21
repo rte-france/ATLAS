@@ -14,6 +14,7 @@ from ortools.linear_solver import pywraplp
 from atlas.config import logger
 from atlas.enum import SolverEnum, SolverStatus
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions
+from atlas.solver.solver_parameters import GenericParameterBuilder, SolverParameterBuilder, XPRESSParameterBuilder
 from atlas.timing import timer
 
 
@@ -66,6 +67,19 @@ class OptimisationModel:
 
         if self._solver is None:
             raise RuntimeError("Failed to create solver. Check if the solver is available.")
+
+        self._parameter_builder = self._get_parameter_builder()
+
+    def _get_parameter_builder(self) -> SolverParameterBuilder:
+        """Get the appropriate parameter builder for the current solver.
+
+        :return: Parameter builder instance for the current solver
+        :rtype: SolverParameterBuilder
+        """
+        if self.solver_name == SolverEnum.XPRESS:
+            return XPRESSParameterBuilder(self._solver)
+        else:
+            return GenericParameterBuilder(self._solver)
 
     @property
     def solver(self) -> pywraplp.Solver:
@@ -310,16 +324,10 @@ class OptimisationModel:
         """
         Solve the optimization problem.
 
-        :param time_limit: Maximum solving time in seconds
-        :type time_limit: Optional[float]
         :return: Solution information
         :rtype: SolutionInfo
         """
-
         self._apply_solver_options()
-
-        if self.options.time_limit:
-            self._solver.SetTimeLimit(int(self.options.time_limit * 1000))
 
         with timer() as t:
             logger.info(f"Solving the optimisation model {self.name}...")
@@ -414,24 +422,11 @@ class OptimisationModel:
             f.write(lp)
 
     def _apply_solver_options(self) -> None:
-        """Apply solver options to the underlying solver."""
+        """Apply solver options to the underlying solver using the parameter builder."""
         if self._options is None:
             return
 
-        logger.debug(f"Applying solver options: {self._options}")
-
-        params = []
-
-        if not self._options.presolve:
-            params.append("presolve off")
-
-        if self._options.duality_gap is not None:
-            params.append(f"relative_mip_gap {self._options.duality_gap}")
-
-        if params:
-            param_string = " ".join(params)
-            logger.debug(f"Setting solver parameters: {param_string}")
-            self.set_solver_specific_parameters_as_string(param_string)
+        self._parameter_builder.apply_options(self._options)
 
     def set_solver_options(self, options: SolverOptions) -> None:
         """

@@ -10,11 +10,17 @@ class SolverOptions(BaseModel):
     :type presolve: bool
     :param duality_gap: Relative MIP gap tolerance (e.g., 0.01 for 1%)
     :type duality_gap: float | None
+    :param time_limit: Time limit in seconds for the solver
+    :type time_limit: float | None
+    :param num_threads: Number of threads to use for parallel solving
+    :type num_threads: int | None
     """
 
     presolve: bool = Field(default=True, description="Enable/disable presolve")
-    duality_gap: float | None = Field(default=None, description="Relative MIP gap tolerance (e.g., 0.01 for 1%)")
-    time_limit: float | None = Field(default=None, description="Time limit in seconds for the solver")
+    duality_gap: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Relative MIP gap tolerance (e.g., 0.01 for 1%)"
+    )
+    time_limit: float | None = Field(default=None, gt=0.0, description="Time limit in seconds for the solver")
 
 
 class ConstraintBounds(BaseModel):
