@@ -10,43 +10,12 @@ Module that implements OR-Tools optimisation interface.
 from typing import Any, Literal
 
 from ortools.linear_solver import pywraplp
-from pydantic import BaseModel
 
 from atlas.config import logger
 from atlas.enum import SolverEnum, SolverStatus
+from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions
+from atlas.solver.solver_parameters import GenericParameterBuilder, SolverParameterBuilder, XPRESSParameterBuilder
 from atlas.timing import timer
-
-
-class ConstraintBounds(BaseModel):
-    """Container for constraint bounds.
-
-    :param lower_bound: The lower bound of the constraint
-    :type lower_bound: float
-    :param upper_bound: The upper bound of the constraint
-    :type upper_bound: float
-    """
-
-    lower_bound: float
-    upper_bound: float
-
-
-class SolutionInfo(BaseModel):
-    """Container for optimization solution information.
-
-    :param status: The solver status
-    :type status: SolverStatus
-    :param objective_value: The optimal objective value if found
-    :type objective_value: Optional[float]
-    :param solve_time: Time taken to solve in seconds
-    :type solve_time: float
-    :param num_iterations: Number of iterations performed
-    :type num_iterations: Optional[int]
-    """
-
-    status: SolverStatus
-    objective_value: float | None = None
-    solve_time: str | None = None
-    num_iterations: int | None = None
 
 
 class OptimisationModel:
@@ -62,12 +31,17 @@ class OptimisationModel:
         self,
         solver_name: SolverEnum | str,
         name: str | None = None,
+        options: SolverOptions | None = None,
     ):
         """
         Initialize the optimization model.
 
         :param solver_name: Specific solver name (e.g., 'GLOP', 'SCIP', 'GUROBI')
         :type solver_name: Optional[str]
+        :param name: Optional name for the model
+        :type name: Optional[str]
+        :param options: Solver options (presolve, duality_gap, etc.)
+        :type options: Optional[SolverOptions]
         """
         self.name = name
         self._solver = None
@@ -76,6 +50,7 @@ class OptimisationModel:
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._solution_info: SolutionInfo | None = None
+        self._options: SolverOptions = options if options is not None else SolverOptions()
 
         self._initialize_solver(solver_name)
 
@@ -92,6 +67,19 @@ class OptimisationModel:
 
         if self._solver is None:
             raise RuntimeError("Failed to create solver. Check if the solver is available.")
+
+        self._parameter_builder = self._get_parameter_builder()
+
+    def _get_parameter_builder(self) -> SolverParameterBuilder:
+        """Get the appropriate parameter builder for the current solver.
+
+        :return: Parameter builder instance for the current solver
+        :rtype: SolverParameterBuilder
+        """
+        if self.solver_name == SolverEnum.XPRESS:
+            return XPRESSParameterBuilder(self._solver)
+        else:
+            return GenericParameterBuilder(self._solver)
 
     @property
     def solver(self) -> pywraplp.Solver:
@@ -112,6 +100,11 @@ class OptimisationModel:
     def solution_info(self) -> SolutionInfo | None:
         """Return the last computed solution info."""
         return self._solution_info
+
+    @property
+    def options(self) -> SolverOptions:
+        """Return the current solver options."""
+        return self._options
 
     def add_continuous_variable(
         self,
@@ -327,18 +320,14 @@ class OptimisationModel:
         else:
             raise ValueError("Optimisation direction not supported.")
 
-    def solve(self, time_limit: float | None = None) -> SolutionInfo:
+    def solve(self) -> SolutionInfo:
         """
         Solve the optimization problem.
 
-        :param time_limit: Maximum solving time in seconds
-        :type time_limit: Optional[float]
         :return: Solution information
         :rtype: SolutionInfo
         """
-        if time_limit:
-            logger.debug(f"Setting solver time limit to {time_limit} seconds")
-            self._solver.SetTimeLimit(int(time_limit * 1000))
+        self._apply_solver_options()
 
         with timer() as t:
             logger.info(f"Solving the optimisation model {self.name}...")
@@ -431,6 +420,23 @@ class OptimisationModel:
 
         with open(filename, "w") as f:
             f.write(lp)
+
+    def _apply_solver_options(self) -> None:
+        """Apply solver options to the underlying solver using the parameter builder."""
+        if self._options is None:
+            return
+
+        self._parameter_builder.apply_options(self._options)
+
+    def set_solver_options(self, options: SolverOptions) -> None:
+        """
+        Update solver options.
+
+        :param options: New solver options
+        :type options: SolverOptions
+        """
+        logger.debug(f"Updating solver options to: {options}")
+        self._options = options
 
     def set_solver_specific_parameters_as_string(self, params: str) -> bool:
         """
