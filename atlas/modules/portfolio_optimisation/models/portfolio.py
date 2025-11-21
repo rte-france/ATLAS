@@ -15,7 +15,9 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
+from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
+from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_reserve, get_upstream_energy
@@ -270,34 +272,28 @@ class PortfolioPO(Portfolio):
         """Get the sum of all power level variables for a specific time."""
         total_power = 0
 
-        # Storage equipment
-        for obj in self.equipments.storage:
-            if time in obj.optimisation_time_window:
-                sell_var = model.get_variable(f"{obj.name}_power_level_sell_{time}")
-                buy_var = model.get_variable(f"{obj.name}_power_level_buy_{time}")
+        for storage in self.equipments.storage:
+            if time in storage.optimisation_time_window:
+                sell_var = model.get_variable(f"{storage.name}_power_level_sell_{time}")
+                buy_var = model.get_variable(f"{storage.name}_power_level_buy_{time}")
                 total_power += sell_var + buy_var
 
-        # Hydro equipment with fragments
-        for obj in self.equipments.hydro:
+        for hydro in self.equipments.hydro:
+            if time in hydro.optimisation_time_window:
+                for category in hydro.fragment_data.keys():
+                    var = model.get_variable(f"{hydro.name}_power_level_frag_{category}_{time}")
+                    total_power += var
+
+        for obj in (
+            self.equipments.thermal
+            + self.equipments.wind
+            + self.equipments.solar
+            + self.equipments.dispatchable_load
+            + self.equipments.non_dispatchable_load
+        ):
             if time in obj.optimisation_time_window:
-                for category in obj.fragment_data.keys():
-                    var = model.get_variable(f"{obj.name}_power_level_frag_{category}_{time}")
-                    total_power += var
-
-        # Other equipment types (thermal, wind, solar, loads)
-        for equipment_list in [
-            self.equipments.thermal,
-            self.equipments.wind,
-            self.equipments.solar,
-            self.equipments.dispatchable_load,
-            self.equipments.non_dispatchable_load,
-        ]:
-            for obj in equipment_list:
-                if time in obj.optimisation_time_window:
-                    var = model.get_variable(f"{obj.name}_power_level_{time}")
-                    total_power += var
-
-        # Note: other_non_dispatchable equipment is intentionally skipped
+                var = model.get_variable(f"{obj.name}_power_level_{time}")
+                total_power += var
 
         return total_power
 
@@ -305,8 +301,7 @@ class PortfolioPO(Portfolio):
         """Compute residual energy metrics for all times."""
         residual_energy = 0.0
 
-        # Equipment types that need forecast-based optimal dispatch calculation
-        forecast_based_equipment = [
+        forecast_based_equipment: list[LoadPO | OtherNonDispatchablePO] = [
             *self.equipments.non_dispatchable_load,
             *self.equipments.other_non_dispatchable,
             *self.equipments.dispatchable_load,
@@ -329,8 +324,8 @@ class PortfolioPO(Portfolio):
             *self.equipments.solar,
         ]
 
-        for obj in other_equipment:
-            residual_energy += get_upstream_energy(obj, time, parameters)
+        for equipment in other_equipment:
+            residual_energy += get_upstream_energy(equipment, time, parameters)  # type:ignore [arg-type]
 
         return residual_energy
 

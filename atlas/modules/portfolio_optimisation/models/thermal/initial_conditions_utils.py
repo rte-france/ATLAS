@@ -168,10 +168,11 @@ def initialize_flat_down_stop_initial_conditions(
     """
 
     thermal_unit.flat_down_stop.set_extended(
+        start_date_minus_one,
         (
             thermal_unit.stop_var.get_extended_value(start_date_minus_one)
             + thermal_unit.on_down_var.get_extended_value(start_date_minus_two)
             + thermal_unit.on_flat_var.get_extended_value(start_date_minus_three)
         )
-        / 3
+        / 3,
     )

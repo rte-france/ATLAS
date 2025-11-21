@@ -75,8 +75,8 @@ def add_initial_conditions(
                 obj.on_up_var.set_extended(time, 0)
                 obj.on_down_var.set_extended(time, 0)
 
-            obj.turned_on_var.set_extended(time, 0)
-            obj.turned_off_var.set_extended(time, 0)
+            obj.turned_on.set_extended(time, 0)
+            obj.turned_off.set_extended(time, 0)
             obj.down_to_stop_grad.set_extended(time, 0)
 
             if time != extended_start_date:

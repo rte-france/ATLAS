@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import cast
 
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
@@ -54,14 +55,14 @@ class PortfolioEquipments:
         This method is provided for backward compatibility with code that expects to iterate
         over equipment by type name.
         """
-        yield ("thermal", self.thermal)
-        yield ("storage", self.storage)
-        yield ("hydro", self.hydro)
-        yield ("wind", self.wind)
-        yield ("solar", self.solar)
-        yield ("other_non_dispatchable", self.other_non_dispatchable)
-        yield ("dispatchable_load", self.dispatchable_load)
-        yield ("non_dispatchable_load", self.non_dispatchable_load)
+        yield ("thermal", cast(list[EquipmentPO], self.thermal))
+        yield ("storage", cast(list[EquipmentPO], self.storage))
+        yield ("hydro", cast(list[EquipmentPO], self.hydro))
+        yield ("wind", cast(list[EquipmentPO], self.wind))
+        yield ("solar", cast(list[EquipmentPO], self.solar))
+        yield ("other_non_dispatchable", cast(list[EquipmentPO], self.other_non_dispatchable))
+        yield ("dispatchable_load", cast(list[EquipmentPO], self.dispatchable_load))
+        yield ("non_dispatchable_load", cast(list[EquipmentPO], self.non_dispatchable_load))
 
     def has_generation_equipment(self) -> bool:
         """Check if portfolio has any generation equipment."""
@@ -70,22 +71,22 @@ class PortfolioEquipments:
     def get_reserve_equipment_types(self) -> list[tuple[str, list[EquipmentPO]]]:
         """Get equipment types that can provide reserves."""
         return [
-            ("thermal", self.thermal),
-            ("storage", self.storage),
-            ("hydro", self.hydro),
-            ("wind", self.wind),
-            ("solar", self.solar),
+            ("thermal", cast(list[EquipmentPO], self.thermal)),
+            ("storage", cast(list[EquipmentPO], self.storage)),
+            ("hydro", cast(list[EquipmentPO], self.hydro)),
+            ("wind", cast(list[EquipmentPO], self.wind)),
+            ("solar", cast(list[EquipmentPO], self.solar)),
         ]
 
     def get_dispatchable_equipment_types(self) -> list[tuple[str, list[EquipmentPO]]]:
         """Get all dispatchable equipment types."""
         return [
-            ("thermal", self.thermal),
-            ("storage", self.storage),
-            ("hydro", self.hydro),
-            ("wind", self.wind),
-            ("solar", self.solar),
-            ("dispatchable_load", self.dispatchable_load),
+            ("thermal", cast(list[EquipmentPO], self.thermal)),
+            ("storage", cast(list[EquipmentPO], self.storage)),
+            ("hydro", cast(list[EquipmentPO], self.hydro)),
+            ("wind", cast(list[EquipmentPO], self.wind)),
+            ("solar", cast(list[EquipmentPO], self.solar)),
+            ("dispatchable_load", cast(list[EquipmentPO], self.dispatchable_load)),
         ]
 
     def add(self, equipment_type: str, equipment: EquipmentPO) -> None:

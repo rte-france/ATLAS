@@ -72,19 +72,19 @@ class ThermalPO(Thermal):
     T_traceback: int = 0
     optimisation_time_window: list[DateTime] = []
 
-    off_var: ModelVar | None = None
-    on_flat_var: ModelVar | None = None
-    on_up_var: ModelVar | None = None
-    on_down_var: ModelVar | None = None
-    on_start_var: ModelVar | None = None
-    entered_up_var: ModelVar | None = None
-    entered_down_var: ModelVar | None = None
-    stable_var: ModelVar | None = None
-    flat_down_stop: ModelVar | None = None
-    down_to_stop_grad: ModelVar | None = None
-    stop_var: ModelVar | None = None
-    turned_off: ModelVar | None = None
-    turned_on: ModelVar | None = None
+    off_var: ModelVar = None  # type:ignore [assignment]
+    on_flat_var: ModelVar = None  # type:ignore [assignment]
+    on_up_var: ModelVar = None  # type:ignore [assignment]
+    on_down_var: ModelVar = None  # type:ignore [assignment]
+    on_start_var: ModelVar = None  # type:ignore [assignment]
+    entered_up_var: ModelVar = None  # type:ignore [assignment]
+    entered_down_var: ModelVar = None  # type:ignore [assignment]
+    stable_var: ModelVar = None  # type:ignore [assignment]
+    flat_down_stop: ModelVar = None  # type:ignore [assignment]
+    down_to_stop_grad: ModelVar = None  # type:ignore [assignment]
+    stop_var: ModelVar = None  # type:ignore [assignment]
+    turned_off: ModelVar = None  # type:ignore [assignment]
+    turned_on: ModelVar = None  # type:ignore [assignment]
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""
