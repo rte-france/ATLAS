@@ -59,7 +59,7 @@ class OutputGenerator:
     """
 
     @classmethod
-    def deserialize_directory(
+    def to_directory(
         cls,
         dataset: dict[str, list[type[BusinessModel]]],
         directory_path: Path,
@@ -167,8 +167,9 @@ class OutputGenerator:
                                     dir_path.mkdir()
                                 except PermissionError:
                                     print(f"Permission denied: Unable to create '{dir_path}'.")
-                            cast(Timeseries, dump_value[field_name]).to_file(
+                            cast(Timeseries, dump_value[field_name]).to_file_with_attribute(
                                 path=dir_path / (dump_value["name"] + config.timeseries_file_extension),
+                                attribute=field_name,
                                 file_format=config.timeseries_file_extension.replace(".", ""),
                                 separator=config.separator,
                             )
@@ -180,8 +181,9 @@ class OutputGenerator:
                                     dir_path.mkdir()
                                 except PermissionError:
                                     print(f"Permission denied: Unable to create '{dir_path}'.")
-                            cast(ForecastingMatrix, dump_value[field_name]).to_file(
+                            cast(ForecastingMatrix, dump_value[field_name]).to_file_with_attribute(
                                 path=dir_path / (dump_value["name"] + config.matrix_file_extension),
+                                attribute=field_name,
                                 file_format=config.matrix_file_extension.replace(".", ""),
                                 separator=config.separator,
                             )
@@ -193,8 +195,9 @@ class OutputGenerator:
                                     dir_path.mkdir()
                                 except PermissionError:
                                     print(f"Permission denied: Unable to create '{dir_path}'.")
-                            cast(ScenarioMatrix, dump_value[field_name]).to_file(
+                            cast(ScenarioMatrix, dump_value[field_name]).to_file_with_attribute(
                                 path=dir_path / (dump_value["name"] + config.matrix_file_extension),
+                                attribute=field_name,
                                 file_format=config.matrix_file_extension.replace(".", ""),
                                 separator=config.separator,
                             )

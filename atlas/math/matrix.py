@@ -304,6 +304,68 @@ class Matrix:
         else:
             raise NotImplementedError("Format not supported")
 
+    def to_file_with_attribute(
+        self,
+        path: str | Path,
+        attribute: str,
+        file_format: Literal["csv", "parquet", "pickle"] = "csv",
+        separator: str = ";",
+        concatenate: bool = True,
+    ) -> None:
+        """
+        Export the Matrix to a file with an attribute column.
+
+        If the file already exists and concatenate is True, the new data will be
+        appended to the existing data.
+
+        :param path: Destination file path
+        :type path: str or Path
+        :param attribute: Attribute name to add as a column
+        :type attribute: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: Literal["csv", "parquet", "pickle"], optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
+        :param concatenate: If True, concatenate with existing file data, defaults to True
+        :type concatenate: bool, optional
+        :raises ValueError: If file extension doesn't match format
+        :raises NotImplementedError: If the file format is not supported
+        """
+        file_format_lower = file_format.lower()
+
+        if isinstance(path, Path):
+            path_str = str(path)
+        else:
+            path_str = path
+
+        if not path_str.lower().endswith(file_format_lower):
+            raise ValueError("Format and file extension don't match.")
+
+        df_to_write = self.matrix.insert_column(1, pl.lit(attribute).alias("attribute"))
+
+        if concatenate:
+            path_obj = Path(path_str)
+            if path_obj.exists() and file_format_lower != "pickle":
+                try:
+                    if file_format_lower == "csv":
+                        existing_df = pl.read_csv(path_str, separator=separator)
+                    elif file_format_lower == "parquet":
+                        existing_df = pl.read_parquet(path_str)
+
+                    df_to_write = pl.concat([existing_df, df_to_write])
+                except Exception:
+                    pass
+
+        if file_format_lower == "csv":
+            df_to_write.write_csv(path_str, separator=separator)
+        elif file_format_lower == "parquet":
+            df_to_write.write_parquet(path_str)
+        elif file_format_lower == "pickle":
+            with open(path_str, "wb") as f:
+                pickle.dump(self, f)
+        else:
+            raise NotImplementedError("Format not supported")
+
     @property
     def dataframe(self) -> pl.DataFrame:
         """Returns the Matrix DataFrame"""
