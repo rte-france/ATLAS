@@ -45,11 +45,10 @@ def add_initial_conditions(
             raise ValueError("power_timeseries is required in kwargs when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_at_time = power_timeseries.get_value(time)
-            # Get variables
+            power_t = power_timeseries.get_value(time)
 
             # Set state variables based on power level
-            if power_at_time > 0:
+            if power_t > 0:
                 # Unit is ON
                 obj.off_var.set_extended(time, 0)
                 obj.on_up_var.set_extended(time, 1)

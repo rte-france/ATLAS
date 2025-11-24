@@ -49,18 +49,18 @@ def add_initial_conditions(
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_at_time = power_timeseries.get_value(time)
+            power_t = power_timeseries.get_value(time)
             min_power = obj.minimum_power.get_value(time)
 
             # Set state variables based on power level relative to minimum power
-            if power_at_time >= min_power:
+            if power_t >= min_power:
                 # Unit is ON and above minimum power (normal operation)
                 obj.off_var.set_extended(time, 0)
                 obj.on_start_var.set_extended(time, 0)
                 obj.on_up_var.set_extended(time, 1)
                 obj.on_down_var.set_extended(time, 0)
 
-            elif power_at_time > 0:
+            elif power_t > 0:
                 # Unit is ON but below minimum power (in startup phase)
                 obj.off_var.set_extended(time, 0)
                 obj.on_start_var.set_extended(time, 1)
