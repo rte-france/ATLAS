@@ -25,7 +25,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
         for t in model.previous_time_frame:
             # Initial conditions on the power output
-            model.q[t] = 0
+            model.q.set_extended(t, 0)
             # Initial conditions on the state variables : the unit is OFF
             model.OFF.set_extended(t, 1)
             model.ON_UP.set_extended(t, 0)
@@ -37,7 +37,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     else:
         # Initial condition on the power output
         for t in model.previous_time_frame:
-            model.q[t] = model.last_power.get_value(t)
+            model.q.set_extended(t, model.last_power.get_value(t))
 
         # Initial conditions on the state variables
         for t in model.previous_time_frame:
@@ -223,11 +223,12 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # Power output
     for t in model.time_frame:
         model.add_constraint(
-            model.q[t] >= model.q_lower.get_value(t) * (model.ON_UP.get_value(t) + model.ON_DOWN.get_value(t)),
+            model.q.get_value(t)
+            >= model.q_lower.get_value(t) * (model.ON_UP.get_value(t) + model.ON_DOWN.get_value(t)),
             f"lower_bound_of_{model.thermal_unit.name}_at_{t}",
         )  # Lower bound (eq. (33))
         model.add_constraint(
-            model.q[t]
+            model.q.get_value(t)
             <= model.q_upper.get_value(t) * (model.ON_UP.get_value(t) + model.ON_DOWN.get_value(t))
             + model.START.get_value(t) * q_min,
             f"upper_bound_of_{model.thermal_unit.name}_at_{t}",
@@ -241,7 +242,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
             # Upward constrained gradient (eq. (35))
             model.add_constraint(
-                model.q[t_next] - model.q[t]
+                model.q.get_value(t_next) - model.q.get_value(t)
                 <= model.delta_q * model.ON_UP.get_value(t)
                 + model.turned_on.get_value(t_next) * q_step
                 + model.START.get_value(t) * q_step,
@@ -250,7 +251,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
             # Downward constrained gradient (eq. (37))
             model.add_constraint(
-                model.q[t_next] - model.q[t]
+                model.q.get_value(t_next) - model.q.get_value(t)
                 >= -model.delta_q * model.ON_DOWN.get_value(t)
                 + model.turned_on.get_value(t_next) * q_step
                 + model.START.get_value(t) * q_step
@@ -264,7 +265,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
             # Upward unconstrained gradient (eq. (36))
             model.add_constraint(
-                model.q[t_next] - model.q[t]
+                model.q.get_value(t_next) - model.q.get_value(t)
                 <= model.delta_q_unconstrained * model.ON_UP.get_value(t)
                 + model.turned_on.get_value(t_next) * q_step
                 + model.START.get_value(t) * q_step,
@@ -273,7 +274,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
             # Downward unconstrained gradient (eq. (38))
             model.add_constraint(
-                model.q[t_next] - model.q[t]
+                model.q.get_value(t_next) - model.q.get_value(t)
                 >= (
                     -model.delta_q_unconstrained * model.ON_DOWN.get_value(t)
                     + model.turned_on.get_value(t_next) * q_step

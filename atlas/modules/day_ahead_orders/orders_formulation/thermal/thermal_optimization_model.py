@@ -56,6 +56,7 @@ class ThermalOptimizationModel(OptimisationModel):
     STABLE_AT_KEY = "stable_at_"
     ENTERED_UP_AT_KEY = "entered_up_at_"
     ENTERED_DOWN_AT_KEY = "entered_down_at_"
+    POWER_EQUIP_KEY = "power_equip_"
 
     def __init__(
         self,
@@ -105,7 +106,10 @@ class ThermalOptimizationModel(OptimisationModel):
         self.automated_unsupplied_reserves: float = 0
         self.delta_q: float = None
         self.delta_q_unconstrained: float = None
-        self.q: dict[DateTime, Any] = {}
+        self.q = ModelVar(
+            lambda t: self.get_variable(self.power_equip_at(t)),
+            lambda t: self.add_continuous_variable(self.power_equip_at(t), 0, self.q_upper.get_value(t)),
+        )
         self.OFF = ModelVar(
             lambda t: self.get_variable(self.off_equip_at(t)), lambda t: self.add_boolean_variable(self.off_equip_at(t))
         )
@@ -211,6 +215,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def entered_down_at(self, t: DateTime) -> str:
         return f"{self.ENTERED_DOWN_AT_KEY}{t}_equip_{self.thermal_unit.name}"
+
+    def power_equip_at(self, t: DateTime) -> str:
+        return f"{self.POWER_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -477,11 +484,7 @@ class ThermalOptimizationModel(OptimisationModel):
         #    - contracted difference which corresponds to max(procured - provided, 0).
         # Define the main optimization variable. Bounds : O and self.q_upper
         for t in self.time_frame:
-            self.q[t] = self.add_continuous_variable(
-                f"power_equip_{self.thermal_unit.name}_at_{t}",
-                0,
-                self.q_upper.get_value(t),
-            )
+            self.q.set_model_var(t)
 
         # Define the reserves variables
         # reserves_up and reserves_down are defined no matter the value of self.T_stable. Only the type of reserves it encompasses changes.
@@ -611,7 +614,7 @@ class ThermalOptimizationModel(OptimisationModel):
         self.add_objective(
             objective_expr=(
                 sum(
-                    self.q[t]
+                    self.q.get_value(t)
                     * (self.parameters.time_step.total_hours())
                     * (self.prices.get_value(t) - self.thermal_unit.variable_cost.get_value(t))
                     - self.turned_on.get_value(t) * self.thermal_unit.startup_cost.get_value(t)
@@ -698,7 +701,7 @@ class ThermalOptimizationModel(OptimisationModel):
         )
 
         for t in self.time_frame:
-            q_star.set_value(t, self.q[t].solution_value())
+            q_star.set_value(t, self.q.get_model_var(t).solution_value())
 
         # If verbose is activated, inform the user if the optimal program is such that the unit
         # provides no output
@@ -807,19 +810,19 @@ class ThermalOptimizationModel(OptimisationModel):
         return results
 
     def create_fill_up_constraints(
-        self, time_frame: list[DateTime], q: dict, q_upper: Timeseries, epsilon: float, q_lower: Timeseries
+        self, time_frame: list[DateTime], q: ModelVar, q_upper: Timeseries, epsilon: float, q_lower: Timeseries
     ) -> None:
         """Upward and downward "fill up" constraints"""
         for t in time_frame:
             self.add_constraint(
-                q[t]
+                q.get_value(t)
                 + self.get_variable(self.reserves_up_equip_at(t))
                 + self.get_variable(self.automated_reserves_up_at(t))
                 + self.get_variable(self.unprovided_reserves_up_at(t))
                 <= q_upper.get_value(t) + epsilon
             )  # Upward constraint - eq. (41)
             self.add_constraint(
-                q[t]
+                q.get_value(t)
                 + self.get_variable(self.reserves_up_equip_at(t))
                 + self.get_variable(self.automated_reserves_up_at(t))
                 + self.get_variable(self.unprovided_reserves_up_at(t))
@@ -828,7 +831,7 @@ class ThermalOptimizationModel(OptimisationModel):
 
             self.add_constraint(
                 (
-                    q[t]
+                    q.get_value(t)
                     - self.get_variable(self.reserves_down_equip_at(t))
                     - self.get_variable(self.automated_reserves_down_at(t))
                     - self.get_variable(self.unprovided_reserves_down_at(t))
@@ -838,7 +841,7 @@ class ThermalOptimizationModel(OptimisationModel):
             )  # Downward constraint - eq. (42)
             self.add_constraint(
                 (
-                    q[t]
+                    q.get_value(t)
                     - self.get_variable(self.reserves_down_equip_at(t))
                     - self.get_variable(self.automated_reserves_down_at(t))
                     - self.get_variable(self.unprovided_reserves_down_at(t))
@@ -879,7 +882,7 @@ class ThermalOptimizationModel(OptimisationModel):
             )
 
     def create_daily_energy_constraint(
-        self, thermal_unit: Thermal, time_frame: list[DateTime], time_step: Duration, q: dict
+        self, thermal_unit: Thermal, time_frame: list[DateTime], time_step: Duration, q: ModelVar
     ) -> None:
         # Energy limits
         if thermal_unit.has_daily_energy_constraint:
@@ -904,7 +907,8 @@ class ThermalOptimizationModel(OptimisationModel):
                 if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
                     # Enforce eq. (37)
                     self.add_constraint(
-                        sum(q[t] for t in matching_steps) <= upper_bound * time_step.total_days() * len(matching_steps),
+                        sum(q.get_value(t) for t in matching_steps)
+                        <= upper_bound * time_step.total_days() * len(matching_steps),
                         f"energy_limit_of_{thermal_unit.name}_at_{date}",
                     )
 
