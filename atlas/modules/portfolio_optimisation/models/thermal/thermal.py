@@ -123,7 +123,9 @@ class ThermalPO(Thermal):
 
         # Ramping parameters
         self._Delta_Q = self.maximum_gradient * parameters.timestep.total_minutes()
-        self._Delta_Q_unconstrained = self.maximum_power.max()
+        self._Delta_Q_unconstrained = self.maximum_power.slice(
+            parameters.start_date, parameters.end_date, inplace=False
+        ).max()
 
         # Determine which constraint combination to use
         self._combination = self._determine_combination()
