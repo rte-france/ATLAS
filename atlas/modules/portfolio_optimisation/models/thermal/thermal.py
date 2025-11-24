@@ -199,7 +199,7 @@ class ThermalPO(Thermal):
                 self.down_to_stop_grad.set_model_var(time)
 
             # Power and reserve variables
-            maximum_power = self.maximum_power.get_value(time)
+
             if self.minimum_power is None:
                 self.minimum_power = Timeseries.from_index(
                     start_date=self.optimisation_time_window[0],
@@ -208,10 +208,10 @@ class ThermalPO(Thermal):
                     default_value=0,
                 )
             minimum_power = self.minimum_power.get_value(time)
+            maximum_power = self.maximum_power.get_value(time)
             maximum_automated = get_maximum_automated(self)
 
-            # Power level variable (only for thermal optimization times)
-            model.add_continuous_variable(f"{self.name}_power_level_{time}", 0.0, maximum_power)
+            self.power_level_var.set_model_var(time)
 
             add_reserve_variables(
                 model=model,
@@ -259,7 +259,7 @@ class ThermalPO(Thermal):
         """Add objective function terms for thermal equipment."""
         if time in self.optimisation_time_window:
             variable_cost = self.variable_cost.get_value(time)
-            power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
+            power_level_var = self.power_level_var.get_value(time)
             model.add_objective(variable_cost * power_level_var * parameters.timestep.total_hours(), "minimize")
 
             if len(parameters.target_times) > 0 and time not in parameters.target_times:
@@ -359,7 +359,7 @@ class ThermalPO(Thermal):
         self.power_level_var = ModelVar(
             getter=lambda time: model.get_variable(f"{self.name}_power_level_{time}"),
             setter=lambda time: model.add_continuous_variable(
-                f"{self.name}_power_level_{time}", 0, self.maximum_power.max()
+                f"{self.name}_power_level_{time}", 0, self.maximum_power.get_value(time)
             ),
         )
 
@@ -419,7 +419,7 @@ class ThermalPO(Thermal):
         if self.has_daily_energy_constraint:
             days_in_optimes = sorted({pendulum.datetime(t.year, t.month, t.day) for t in self.optimisation_time_window})
 
-            for date in days_in_optimes:
+            for idx, date in enumerate(days_in_optimes):
                 matching_steps = [
                     t
                     for t in self.optimisation_time_window
@@ -428,9 +428,9 @@ class ThermalPO(Thermal):
 
                 if matching_steps and self.maximum_daily_energy is not None:
                     constraint_expr = sum(
-                        model.get_variable(f"{self.name}_power_level_{t}") for t in matching_steps
+                        self.power_level_var.get_value(t) for t in matching_steps
                     ) <= self.maximum_daily_energy.get_value(date) * timestep.total_days() * len(matching_steps)
-                    model.add_constraint(constraint_expr)
+                    model.add_constraint(constraint_expr, f"energy_limit_day_{idx}_{self.name}")
 
     @model_validator(mode="after")
     def validate_minimum_stable_power_duration(self) -> ThermalPO:
