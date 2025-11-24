@@ -279,8 +279,11 @@ class TestOptimisationModel:
         mock_solver.SetTimeLimit.assert_not_called()
 
     def test_solve_with_time_limit(self, model, mock_solver):
-        """Test solving with time limit."""
-        model.solve(time_limit=30.0)
+        """Test solving with time limit via SolverOptions."""
+        from atlas.solver.models import SolverOptions
+
+        model.set_solver_options(SolverOptions(time_limit=30.0))
+        model.solve()
 
         mock_solver.SetTimeLimit.assert_called_with(30000)  # 30.0 * 1000
         mock_solver.Solve.assert_called_once()

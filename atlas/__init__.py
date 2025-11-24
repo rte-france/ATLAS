@@ -28,6 +28,7 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
+from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 from atlas.workflow.workflow import Workflow
@@ -72,6 +73,7 @@ __all__ = [
     "ScenarioMatrix",
     "Solar",
     "Storage",
+    "SolverOptions",
     "Thermal",
     "Timeseries",
     "Wind",
