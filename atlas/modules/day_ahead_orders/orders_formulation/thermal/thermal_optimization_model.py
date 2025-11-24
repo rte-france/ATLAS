@@ -139,12 +139,12 @@ class ThermalOptimizationModel(OptimisationModel):
         # Corresponding to the variable defined in sec. 6.1.1
         self.turned_on = ModelVar(
             lambda t: self.get_variable(self.turned_on_equip_at(t)),
-            lambda t: self.add_boolean_variable(self.turned_on_equip_at(t)),
+            lambda t: self.add_continuous_variable(self.turned_on_equip_at(t), 0, 1),
         )
         # Corresponding to the variable defined in sec. 6.1.2
         self.turned_off = ModelVar(
             lambda t: self.get_variable(self.turned_off_equip_at(t)),
-            lambda t: self.add_boolean_variable(self.turned_off_equip_at(t)),
+            lambda t: self.add_continuous_variable(self.turned_off_equip_at(t), 0, 1),
         )
         self.time_frame_union_minus_one: list[DateTime] = None
         self.Q_max: float = None
