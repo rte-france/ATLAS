@@ -44,22 +44,27 @@ def add_initial_conditions(
         for time in kwargs.get("stable_initial_times", []):
             initialize_day_zero_stable_vars(obj, time)
 
-        power_ts = kwargs.get("power_timeseries")
+        power_ts = kwargs.get("power_ts")
         if isinstance(power_ts, Timeseries):
             initialize_gradient_initial_conditions(obj, model, power_ts, parameters)
 
     else:
-        power_timeseries = kwargs.get("power_timeseries")
-        if not isinstance(power_timeseries, Timeseries):
-            raise ValueError("power_timeseries is required in kwargs when day_zero is False")
+        power_ts = kwargs.get("power_ts")
+        if not isinstance(power_ts, Timeseries):
+            raise ValueError("power_ts is required in kwargs when day_zero is False")
         if obj.minimum_power is None:
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_timeseries.get_value(time)
+            if time in power_ts:
+                power_t = power_ts.get_value(time)
+                obj.power_level_var.set_extended(time, power_t)
 
-            if power_t > 0:
-                obj.off_var.set_extended(time, 0)
+                if power_t > 0:
+                    obj.off_var.set_extended(time, 0)
+                else:
+                    obj.power_level_var.set_extended(time, 0)
+                    obj.off_var.set_extended(time, 1)
             else:
                 obj.off_var.set_extended(time, 1)
 
@@ -79,29 +84,26 @@ def add_initial_conditions(
         for time in kwargs.get("stable_initial_times", []):
             if obj.off_var.get_extended_value(time) == 0:
                 next_time = time + parameters.timestep
-                current_power = power_timeseries.get_value(time)
-                next_power = (
-                    power_timeseries.get_value(next_time) if next_time in power_timeseries.index else current_power
-                )
+                if time in power_ts:
+                    current_power = power_ts.get_value(time)
+                    next_power = power_ts.get_value(next_time) if next_time in power_ts else current_power
+                    obj.power_level_var.set_extended(time, current_power)
+                    if current_power > 0:
+                        if current_power < next_power:
+                            obj.on_up_var.set_extended(time, 1)
+                            obj.on_down_var.set_extended(time, 0)
+                            obj.on_flat_var.set_extended(time, 0)
 
-                if current_power > 0:
-                    if current_power < next_power:
-                        # Power is increasing
-                        obj.on_up_var.set_extended(time, 1)
-                        obj.on_down_var.set_extended(time, 0)
-                        obj.on_flat_var.set_extended(time, 0)
+                        elif current_power > next_power:
+                            obj.on_up_var.set_extended(time, 0)
+                            obj.on_down_var.set_extended(time, 1)
+                            obj.on_flat_var.set_extended(time, 0)
 
-                    elif current_power > next_power:
-                        # Power is decreasing
-                        obj.on_up_var.set_extended(time, 0)
-                        obj.on_down_var.set_extended(time, 1)
-                        obj.on_flat_var.set_extended(time, 0)
-
-                    else:
-                        # Power is stable
-                        obj.on_up_var.set_extended(time, 0)
-                        obj.on_down_var.set_extended(time, 0)
-                        obj.on_flat_var.set_extended(time, 1)
+                        else:
+                            # Power is stable
+                            obj.on_up_var.set_extended(time, 0)
+                            obj.on_down_var.set_extended(time, 0)
+                            obj.on_flat_var.set_extended(time, 1)
             else:
                 obj.on_up_var.set_extended(time, 0)
                 obj.on_down_var.set_extended(time, 0)
@@ -123,7 +125,7 @@ def add_initial_conditions(
                 if obj.on_down_var.get_extended_value(time) - obj.on_down_var.get_extended_value(prev_time) == 1:
                     obj.entered_down_var.set_extended(time, 1)
 
-        initialize_gradient_initial_conditions(obj, model, power_timeseries, parameters)
+        initialize_gradient_initial_conditions(obj, model, power_ts, parameters)
 
 
 def add_constraints(

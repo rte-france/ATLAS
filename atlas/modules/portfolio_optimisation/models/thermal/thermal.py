@@ -85,6 +85,7 @@ class ThermalPO(Thermal):
     stop_var: ModelVar = None  # type:ignore [assignment]
     turned_off: ModelVar = None  # type:ignore [assignment]
     turned_on: ModelVar = None  # type:ignore [assignment]
+    power_level_var: ModelVar = None  # type:ignore [assignment]
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""
@@ -154,11 +155,6 @@ class ThermalPO(Thermal):
 
         # Always defined state variables for optimization time frame
         if time in self.optimisation_time_window:
-            if time == self.optimisation_time_window[0]:
-                if self._T_stable >= 1:
-                    model.add_boolean_variable(f"ON_FLAT_{self.name}_{time - parameters.timestep}")
-                    model.add_boolean_variable(f"stable_{time - parameters.timestep}_{self.name}")
-
             # Binary state variables
             self.off_var.set_model_var(time)
             self.on_up_var.set_model_var(time)
@@ -236,7 +232,7 @@ class ThermalPO(Thermal):
         parameters: PortfolioOptimisationParameters,
     ):
         """Add constraints based on the determined combination."""
-        if time not in self.optimisation_time_window:
+        if time in self.optimisation_time_window:
             constraint_functions = {
                 1: combination_1.add_constraints,
                 2: combination_2.add_constraints,
@@ -271,7 +267,7 @@ class ThermalPO(Thermal):
 
             if self.startup_cost is not None:
                 startup_cost = self.startup_cost.get_value(time)
-                turned_on_var = model.get_variable(f"t_on_of_{self.name}_{time}")
+                turned_on_var = model.get_variable(f"t_on_{self.name}_{time}")
                 model.add_objective(startup_cost * turned_on_var, "minimize")
 
     def _get_initial_time_window(
@@ -352,12 +348,19 @@ class ThermalPO(Thermal):
             setter=lambda time: model.add_boolean_variable(f"STOP_{self.name}_{time}"),
         )
         self.turned_off = ModelVar(
-            getter=lambda time: model.get_variable(f"t_off_of_{self.name}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"t_off_of_{self.name}_{time}"),
+            getter=lambda time: model.get_variable(f"t_off_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"t_off_{self.name}_{time}"),
         )
         self.turned_on = ModelVar(
-            getter=lambda time: model.get_variable(f"t_on_of_{self.name}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"t_on_of_{self.name}_{time}"),
+            getter=lambda time: model.get_variable(f"t_on_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"t_on_{self.name}_{time}"),
+        )
+
+        self.power_level_var = ModelVar(
+            getter=lambda time: model.get_variable(f"{self.name}_power_level_{time}"),
+            setter=lambda time: model.add_continuous_variable(
+                f"{self.name}_power_level_{time}", 0, self.maximum_power.max()
+            ),
         )
 
     def add_initial_conditions(
@@ -373,16 +376,16 @@ class ThermalPO(Thermal):
 
         initial_times, stable_initial_times = self._get_initial_time_window(parameters)
 
-        power_timeseries = (
+        power_ts = (
             self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
             if self.power is not None
             else None
         )
 
         # Determine if this is dayZero initialization
-        day_zero = power_timeseries is None
-        if power_timeseries is not None:
-            if parameters.start_date - parameters.timestep != power_timeseries.last_date():
+        day_zero = power_ts is None
+        if power_ts is not None:
+            if parameters.start_date - parameters.timestep != power_ts.last_date():
                 day_zero = True
 
         initial_condition_functions: dict[int, Callable[..., None]] = {
@@ -407,7 +410,7 @@ class ThermalPO(Thermal):
             parameters=parameters,
             extended_start_date=initial_times[0],
             day_zero=day_zero,
-            power_timeseries=power_timeseries,
+            power_ts=power_ts,
             initial_times=initial_times,
             stable_initial_times=stable_initial_times,
         )

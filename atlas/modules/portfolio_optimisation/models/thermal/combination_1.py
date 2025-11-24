@@ -40,22 +40,19 @@ def add_initial_conditions(
             initialize_day_zero_on_states(obj, time)
     else:
         # Non-dayZero case: Initialize based on power history
-        power_timeseries = kwargs.get("power_timeseries")
-        if not isinstance(power_timeseries, Timeseries):
-            raise ValueError("power_timeseries is required in kwargs when day_zero is False")
+        power_ts = kwargs.get("power_ts")
+        if not isinstance(power_ts, Timeseries):
+            raise ValueError("power_ts is required in kwargs when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_timeseries.get_value(time)
-
-            # Set state variables based on power level
-            if power_t > 0:
-                # Unit is ON
+            if time in power_ts:
+                obj.power_level_var.set_extended(time, power_ts.get_value(time))
                 obj.off_var.set_extended(time, 0)
                 obj.on_up_var.set_extended(time, 1)
                 obj.on_down_var.set_extended(time, 0)
 
             else:
-                # Unit is completely OFF
+                obj.power_level_var.set_extended(time, 0)
                 obj.off_var.set_extended(time, 1)
                 obj.on_up_var.set_extended(time, 0)
                 obj.on_down_var.set_extended(time, 0)
@@ -91,12 +88,12 @@ def add_constraints(
     on_down_var = obj.on_down_var.get_value(time)
     turned_on_var = obj.turned_on.get_value(time)
     turned_off_var = obj.turned_off.get_value(time)
-    power_level_var = model.get_variable(f"{obj.name}_power_level_{time}")
+    power_level_var = obj.power_level_var.get_value(time)
 
     off_prev_var = obj.off_var.get_value(prev_time)
     on_up_prev_var = obj.on_up_var.get_value(prev_time)
     on_down_prev_var = obj.on_down_var.get_value(prev_time)
-    power_level_prev_var = model.get_variable(f"{obj.name}_power_level_{prev_time}")
+    power_level_prev_var = obj.power_level_var.get_value(prev_time)
 
     reserves_up_var = model.get_variable(f"reserves_up_{obj.name}_{time}")
     reserves_down_var = model.get_variable(f"reserves_down_{obj.name}_{time}")
@@ -123,13 +120,13 @@ def add_constraints(
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
             local_time = time - s * parameters.timestep
-            turned_on_local_var = model.get_variable(f"t_on_of_{obj.name}_{local_time}")
+            turned_on_local_var = model.get_variable(f"t_on_{obj.name}_{local_time}")
             model.add_constraint(turned_on_local_var <= on_up_var + on_down_var)
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
             local_time = time - s * parameters.timestep
-            turned_off_local_var = model.get_variable(f"t_off_of_{obj.name}_{local_time}")
+            turned_off_local_var = model.get_variable(f"t_off_{obj.name}_{local_time}")
             model.add_constraint(turned_off_local_var <= off_var)
 
     model.add_constraint(

@@ -51,14 +51,15 @@ def add_initial_conditions(
 
     else:
         # Non-dayZero case: Initialize based on power history
-        power_timeseries = kwargs.get("power_timeseries")
-        if not isinstance(power_timeseries, Timeseries):
-            raise ValueError("power_timeseries is required in kwargs when day_zero is False")
+        power_ts = kwargs.get("power_ts")
+        if not isinstance(power_ts, Timeseries):
+            raise ValueError("power_ts is required in kwargs when day_zero is False")
         if obj.minimum_power is None:
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_timeseries.get_value(time)
+            power_t = power_ts.get_value(time)
+            obj.power_level_var.set_extended(time, power_t)
             min_power = obj.minimum_power.get_value(time)
 
             if power_t >= min_power:
@@ -79,7 +80,7 @@ def add_initial_conditions(
             obj.turned_off.set_extended(time, 0)
 
             prev_time = time - parameters.timestep
-            prev_power = power_timeseries.get_value(prev_time)
+            prev_power = power_ts.get_value(prev_time)
             # Distinguish between startup and shutdown for intermediate power levels
             if time != extended_start_date and obj.on_start_var.get_extended_value(time) == 1:
                 if power_t > prev_power:
@@ -98,9 +99,9 @@ def add_initial_conditions(
 
         # Handle stable-specific variables for non-dayZero
         for idx, time in enumerate(kwargs.get("stable_initial_times", [])):
-            current_power = power_timeseries.get_value(time)
+            current_power = power_ts.get_value(time)
             next_time = time + parameters.timestep
-            next_power = power_timeseries.get_value(next_time) if next_time in power_timeseries.index else current_power
+            next_power = power_ts.get_value(next_time) if next_time in power_ts else current_power
             min_power = obj.minimum_power.get_value(time)
 
             # Initialize auxiliary variables to 0
@@ -153,7 +154,7 @@ def add_initial_conditions(
                     time - 3 * parameters.timestep,
                 )
 
-        initialize_gradient_initial_conditions(obj, model, power_timeseries, parameters)
+        initialize_gradient_initial_conditions(obj, model, power_ts, parameters)
 
 
 def add_constraints(

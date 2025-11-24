@@ -731,14 +731,14 @@ class SolverHelper:
                 f.write(f"{var},{coeff1},{coeff2},{diff},{status}\n")
 
     @staticmethod
-    def normalize_variable_name(var_name):
+    def normalize_variable_name(var_name: str):
         """
         Normalize variable names by removing trailing colons and other formatting artifacts
 
         :param var_name: str. Variable name to normalize
         :return: str. Normalized variable name
         """
-        return var_name.rstrip(":").strip()
+        return var_name.rstrip(":").strip().lower()
 
     @staticmethod
     def export_variable_differences_csv(

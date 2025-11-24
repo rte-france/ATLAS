@@ -48,14 +48,15 @@ def add_initial_conditions(
 
     else:
         # Non-dayZero case: Initialize based on power history
-        power_timeseries = kwargs.get("power_timeseries")
-        if not isinstance(power_timeseries, Timeseries):
-            raise ValueError("power_timeseries is required in kwargs when day_zero is False")
+        power_ts = kwargs.get("power_ts")
+        if not isinstance(power_ts, Timeseries):
+            raise ValueError("power_ts is required in kwargs when day_zero is False")
         if obj.minimum_power is None:
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_timeseries.get_value(time)
+            power_t = power_ts.get_value(time)
+            obj.power_level_var.set_extended(time, power_t)
             min_power = obj.minimum_power.get_value(time)
 
             if power_t >= min_power:
@@ -82,8 +83,8 @@ def add_initial_conditions(
                     obj.turned_on.set_extended(time, 1)
 
         for time in kwargs.get("stable_initial_times", []):
-            current_power = power_timeseries.get_value(time)
-            next_power = power_timeseries.get_value(time + parameters.timestep)
+            current_power = power_ts.get_value(time)
+            next_power = power_ts.get_value(time + parameters.timestep)
             min_power = obj.minimum_power.get_value(time)
 
             obj.stable_var.set_extended(time, 0)
@@ -125,7 +126,7 @@ def add_initial_conditions(
                     if obj.on_down_var.get_extended_value(time) - obj.on_down_var.get_extended_value(prev_time) == 1:
                         obj.entered_down_var.set_extended(time, 1)
 
-        initialize_gradient_initial_conditions(obj, model, power_timeseries, parameters)
+        initialize_gradient_initial_conditions(obj, model, power_ts, parameters)
 
 
 def add_constraints(
@@ -264,7 +265,7 @@ def add_constraints(
     model.add_constraint(off_prev_var + on_up_var <= 1)
 
     eviction_time = time - (obj._T_start - 1) * parameters.timestep
-    turned_on_eviction_var = model.get_variable(f"t_on_of_{obj.name}_{eviction_time}")
+    turned_on_eviction_var = model.get_variable(f"t_on_{obj.name}_{eviction_time}")
     model.add_constraint(turned_on_eviction_var + start_var <= 1)
 
     # Minimum time constraints

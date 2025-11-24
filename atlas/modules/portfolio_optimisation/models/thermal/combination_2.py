@@ -43,33 +43,38 @@ def add_initial_conditions(
             obj.down_to_stop_grad.set_extended(time, 0)
     else:
         # Non-dayZero case: Initialize based on power history
-        power_timeseries = kwargs.get("power_timeseries")
-        if not isinstance(power_timeseries, Timeseries):
-            raise ValueError("power_timeseries is required in kwargs when day_zero is False")
+        power_ts = kwargs.get("power_ts")
+        if not isinstance(power_ts, Timeseries):
+            raise ValueError("power_ts is required in kwargs when day_zero is False")
         if obj.minimum_power is None:
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_timeseries.get_value(time)
-            min_power = obj.minimum_power.get_value(time)
+            if time in power_ts:
+                power_t = power_ts.get_value(time)
+                obj.power_level_var.set_extended(time, power_t)
+                min_power = obj.minimum_power.get_value(time)
 
-            # Get variables
+                if power_t >= min_power:
+                    obj.off_var.set_extended(time, 0)
+                    obj.stop_var.set_extended(time, 0)
+                    obj.on_up_var.set_extended(time, 1)
+                    obj.on_down_var.set_extended(time, 1)
 
-            # Set state variables based on power level relative to minimum power
-            if power_t >= min_power:
-                # Unit is ON and above minimum power
-                obj.off_var.set_extended(time, 0)
-                obj.stop_var.set_extended(time, 0)
-                obj.on_up_var.set_extended(time, 1)
-                obj.on_down_var.set_extended(time, 1)
+                elif power_t > 0:
+                    obj.off_var.set_extended(time, 0)
+                    obj.stop_var.set_extended(time, 1)
+                    obj.on_up_var.set_extended(time, 0)
+                    obj.on_down_var.set_extended(time, 0)
 
-            elif power_t > 0:
-                obj.off_var.set_extended(time, 0)
-                obj.stop_var.set_extended(time, 1)
-                obj.on_up_var.set_extended(time, 0)
-                obj.on_down_var.set_extended(time, 0)
+                else:
+                    obj.off_var.set_extended(time, 1)
+                    obj.stop_var.set_extended(time, 0)
+                    obj.on_up_var.set_extended(time, 0)
+                    obj.on_down_var.set_extended(time, 0)
 
             else:
+                obj.power_level_var.set_extended(time, 0)
                 obj.off_var.set_extended(time, 1)
                 obj.stop_var.set_extended(time, 0)
                 obj.on_up_var.set_extended(time, 0)
@@ -158,25 +163,25 @@ def add_constraints(
     model.add_constraint(on_down_prev_var + off_var <= 1)
 
     eviction_time = time - (obj._T_stop - 1) * parameters.timestep
-    turned_off_eviction_var = model.get_variable(f"t_off_of_{obj.name}_{eviction_time}")
+    turned_off_eviction_var = model.get_variable(f"t_off_{obj.name}_{eviction_time}")
     model.add_constraint(turned_off_eviction_var + stop_var <= 1)
 
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
             local_time = time - s * parameters.timestep
-            turned_on_local_var = model.get_variable(f"t_on_of_{obj.name}_{local_time}")
+            turned_on_local_var = model.get_variable(f"t_on_{obj.name}_{local_time}")
             model.add_constraint(turned_on_local_var <= on_up_var + on_down_var)
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
             local_time = time - (s + obj._T_stop) * parameters.timestep
-            turned_off_local_var = model.get_variable(f"t_off_of_{obj.name}_{local_time}")
+            turned_off_local_var = model.get_variable(f"t_off_{obj.name}_{local_time}")
             model.add_constraint(turned_off_local_var <= off_var)
 
     if obj._T_stop >= 2:
         for s in range(1, obj._T_stop - 1):
             local_time = time - s * parameters.timestep
-            turned_off_local_var = model.get_variable(f"t_off_of_{obj.name}_{local_time}")
+            turned_off_local_var = model.get_variable(f"t_off_{obj.name}_{local_time}")
             model.add_constraint(turned_off_local_var <= stop_var)
 
     model.add_constraint(

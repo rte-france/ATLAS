@@ -42,33 +42,31 @@ def add_initial_conditions(
             obj.on_start_var.set_extended(time, 0)
 
     else:
-        power_timeseries = kwargs.get("power_timeseries")
-        if not isinstance(power_timeseries, Timeseries):
-            raise ValueError("power_timeseries is required in kwargs when day_zero is False")
+        power_ts = kwargs.get("power_ts")
+        if not isinstance(power_ts, Timeseries):
+            raise ValueError("power_ts is required in kwargs when day_zero is False")
         if obj.minimum_power is None:
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_timeseries.get_value(time)
-            min_power = obj.minimum_power.get_value(time)
+            if time in power_ts:
+                power_t = power_ts.get_value(time)
+                obj.power_level_var.set_extended(time, power_t)
+                min_power = obj.minimum_power.get_value(time)
 
-            # Set state variables based on power level relative to minimum power
-            if power_t >= min_power:
-                # Unit is ON and above minimum power (normal operation)
-                obj.off_var.set_extended(time, 0)
-                obj.on_start_var.set_extended(time, 0)
-                obj.on_up_var.set_extended(time, 1)
-                obj.on_down_var.set_extended(time, 0)
+                if power_t >= min_power:
+                    obj.off_var.set_extended(time, 0)
+                    obj.on_start_var.set_extended(time, 0)
+                    obj.on_up_var.set_extended(time, 1)
+                    obj.on_down_var.set_extended(time, 0)
 
-            elif power_t > 0:
-                # Unit is ON but below minimum power (in startup phase)
-                obj.off_var.set_extended(time, 0)
-                obj.on_start_var.set_extended(time, 1)
-                obj.on_up_var.set_extended(time, 0)
-                obj.on_down_var.set_extended(time, 0)
+                elif power_t > 0:
+                    obj.off_var.set_extended(time, 0)
+                    obj.on_start_var.set_extended(time, 1)
+                    obj.on_up_var.set_extended(time, 0)
+                    obj.on_down_var.set_extended(time, 0)
 
             else:
-                # Unit is completely OFF
                 obj.off_var.set_extended(time, 1)
                 obj.on_start_var.set_extended(time, 0)
                 obj.on_up_var.set_extended(time, 0)

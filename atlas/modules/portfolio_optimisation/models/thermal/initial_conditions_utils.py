@@ -16,12 +16,11 @@ from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisatio
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 
-from atlas.math.timeseries import Timeseries
 from atlas.solver.solver_interface import OptimisationModel
 
 
 def initialize_day_zero_core(
-    thermal_unit: ThermalPO,
+    obj: ThermalPO,
     model: OptimisationModel,
     time: DateTime,
 ) -> None:
@@ -34,21 +33,21 @@ def initialize_day_zero_core(
     - Power level = 0
 
     Args:
-        thermal_unit: The thermal unit to initialize
+        obj: The thermal unit to initialize
         model: The optimization model
         time: The current time step
     """
-    power_level_var = model.get_variable(f"{thermal_unit.name}_power_level_{time}")
+    power_level_var = model.get_variable(f"{obj.name}_power_level_{time}")
 
-    thermal_unit.off_var.set_extended(time, 1)
-    thermal_unit.turned_on.set_extended(time, 0)
-    thermal_unit.turned_off.set_extended(time, 0)
+    obj.off_var.set_extended(time, 1)
+    obj.turned_on.set_extended(time, 0)
+    obj.turned_off.set_extended(time, 0)
 
-    model.add_constraint(power_level_var == 0, f"init_power_{thermal_unit.name}_{time}")
+    model.add_constraint(power_level_var == 0, f"init_power_{obj.name}_{time}")
 
 
 def initialize_day_zero_on_states(
-    thermal_unit: ThermalPO,
+    obj: ThermalPO,
     time: DateTime,
 ) -> None:
     """
@@ -57,17 +56,17 @@ def initialize_day_zero_on_states(
     For T_stable = 0
 
     Args:
-        thermal_unit: The thermal unit to initialize
+        obj: The thermal unit to initialize
         model: The optimization model
         time: The current time step
     """
 
-    thermal_unit.on_up_var.set_extended(time, 0)
-    thermal_unit.on_down_var.set_extended(time, 0)
+    obj.on_up_var.set_extended(time, 0)
+    obj.on_down_var.set_extended(time, 0)
 
 
 def initialize_day_zero_gradient_vars(
-    thermal_unit: ThermalPO,
+    obj: ThermalPO,
     model: OptimisationModel,
     time: DateTime,
 ) -> None:
@@ -77,23 +76,23 @@ def initialize_day_zero_gradient_vars(
     T_stable >= 1.
 
     Args:
-        thermal_unit: The thermal unit to initialize
+        obj: The thermal unit to initialize
         model: The optimization model
         time: The current time step
     """
-    u_var = model.get_variable(f"UP_grad_{time}_{thermal_unit.name}")
-    d_var = model.get_variable(f"DOWN_grad_{time}_{thermal_unit.name}")
-    tilde_u_var = model.get_variable(f"aux_up_grad_{time}_{thermal_unit.name}")
-    tilde_d_var = model.get_variable(f"aux_down_grad_{time}_{thermal_unit.name}")
+    u_var = model.get_variable(f"UP_grad_{time}_{obj.name}")
+    d_var = model.get_variable(f"DOWN_grad_{time}_{obj.name}")
+    tilde_u_var = model.get_variable(f"aux_up_grad_{time}_{obj.name}")
+    tilde_d_var = model.get_variable(f"aux_down_grad_{time}_{obj.name}")
 
-    model.add_constraint(u_var == 0, f"init_u_grad_{thermal_unit.name}_{time}")
-    model.add_constraint(d_var == 0, f"init_d_grad_{thermal_unit.name}_{time}")
-    model.add_constraint(tilde_u_var == 0, f"init_tilde_u_grad_{thermal_unit.name}_{time}")
-    model.add_constraint(tilde_d_var == 0, f"init_tilde_d_grad_{thermal_unit.name}_{time}")
+    model.add_constraint(u_var == 0, f"init_u_grad_{obj.name}_{time}")
+    model.add_constraint(d_var == 0, f"init_d_grad_{obj.name}_{time}")
+    model.add_constraint(tilde_u_var == 0, f"init_tilde_u_grad_{obj.name}_{time}")
+    model.add_constraint(tilde_d_var == 0, f"init_tilde_d_grad_{obj.name}_{time}")
 
 
 def initialize_day_zero_stable_vars(
-    thermal_unit: ThermalPO,
+    obj: ThermalPO,
     time: DateTime,
 ) -> None:
     """
@@ -102,25 +101,24 @@ def initialize_day_zero_stable_vars(
     T_stable >= 1. For stable timeframe.
 
     Args:
-        thermal_unit: The thermal unit to initialize
+        obj: The thermal unit to initialize
         model: The optimization model
         parameters: Portfolio optimization parameters
         time: The current time step
     """
 
-    thermal_unit.on_flat_var.set_extended(time, 0)
-    thermal_unit.on_up_var.set_extended(time, 0)
-    thermal_unit.on_down_var.set_extended(time, 0)
+    obj.on_flat_var.set_extended(time, 0)
+    obj.on_up_var.set_extended(time, 0)
+    obj.on_down_var.set_extended(time, 0)
 
-    thermal_unit.stable_var.set_extended(time, 0)
-    thermal_unit.entered_up_var.set_extended(time, 0)
-    thermal_unit.entered_down_var.set_extended(time, 0)
+    obj.stable_var.set_extended(time, 0)
+    obj.entered_up_var.set_extended(time, 0)
+    obj.entered_down_var.set_extended(time, 0)
 
 
 def initialize_gradient_initial_conditions(
-    thermal_unit: ThermalPO,
+    obj: ThermalPO,
     model: OptimisationModel,
-    power_timeseries: Timeseries,
     parameters: PortfolioOptimisationParameters,
 ) -> None:
     """
@@ -130,34 +128,32 @@ def initialize_gradient_initial_conditions(
     start_date_minus_one = parameters.start_date - parameters.timestep
     start_date_minus_two = parameters.start_date - 2 * parameters.timestep
 
-    power_minus_one = power_timeseries.get_value(start_date_minus_one)
-    power_minus_two = power_timeseries.get_value(start_date_minus_two)
+    power_minus_one = obj.power_level_var.get_value(start_date_minus_one)
+    power_minus_two = obj.power_level_var.get_value(start_date_minus_two)
 
-    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_{thermal_unit.name}")
-    d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{thermal_unit.name}")
+    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_{obj.name}")
+    d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{obj.name}")
 
-    # Calculate gradient values based on power trend
     power_diff = power_minus_one - power_minus_two
 
-    # U gradient: only non-zero if unit was in UP state at both time steps
-    if thermal_unit.on_up_var.get_extended_value(start_date_minus_one) == 1 and (
-        thermal_unit.on_up_var.get_extended_value(start_date_minus_two) == 1
+    if obj.on_up_var.get_extended_value(start_date_minus_one) == 1 and (
+        obj.on_up_var.get_extended_value(start_date_minus_two) == 1
     ):
-        model.add_constraint(u_var == power_diff, f"init_u_grad_{thermal_unit.name}_{start_date_minus_one}")
+        model.add_constraint(u_var == power_diff, f"init_u_grad_{obj.name}_{start_date_minus_one}")
     else:
-        model.add_constraint(u_var == 0, f"init_u_grad_{thermal_unit.name}_{start_date_minus_one}")
+        model.add_constraint(u_var == 0, f"init_u_grad_{obj.name}_{start_date_minus_one}")
 
     # D gradient: only non-zero if unit was in DOWN state at both time steps
-    if thermal_unit.on_down_var.get_extended_value(start_date_minus_one) == 1 and (
-        thermal_unit.on_down_var.get_extended_value(start_date_minus_two) == 1
+    if obj.on_down_var.get_extended_value(start_date_minus_one) == 1 and (
+        obj.on_down_var.get_extended_value(start_date_minus_two) == 1
     ):
-        model.add_constraint(d_var == power_diff, f"init_d_grad_{thermal_unit.name}_{start_date_minus_one}")
+        model.add_constraint(d_var == power_diff, f"init_d_grad_{obj.name}_{start_date_minus_one}")
     else:
-        model.add_constraint(d_var == 0, f"init_d_grad_{thermal_unit.name}_{start_date_minus_one}")
+        model.add_constraint(d_var == 0, f"init_d_grad_{obj.name}_{start_date_minus_one}")
 
 
 def initialize_flat_down_stop_initial_conditions(
-    thermal_unit: ThermalPO,
+    obj: ThermalPO,
     start_date_minus_one: DateTime,
     start_date_minus_two: DateTime,
     start_date_minus_three: DateTime,
@@ -167,12 +163,12 @@ def initialize_flat_down_stop_initial_conditions(
     For T_stop >= 1 and T_stable >= 1.
     """
 
-    thermal_unit.flat_down_stop.set_extended(
+    obj.flat_down_stop.set_extended(
         start_date_minus_one,
         (
-            thermal_unit.stop_var.get_extended_value(start_date_minus_one)
-            + thermal_unit.on_down_var.get_extended_value(start_date_minus_two)
-            + thermal_unit.on_flat_var.get_extended_value(start_date_minus_three)
+            obj.stop_var.get_extended_value(start_date_minus_one)
+            + obj.on_down_var.get_extended_value(start_date_minus_two)
+            + obj.on_flat_var.get_extended_value(start_date_minus_three)
         )
         / 3,
     )

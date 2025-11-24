@@ -42,7 +42,7 @@ def add_initial_conditions(
         extended_start_date: The extended start date for initialization
         day_zero: Whether this is day zero (no historical data)
         **kwargs: Additional arguments including:
-            - power_timeseries: Historical power data (required if day_zero=False)
+            - power_ts: Historical power data (required if day_zero=False)
             - initial_times: List of times to initialize
     """
     if day_zero:
@@ -55,14 +55,15 @@ def add_initial_conditions(
 
     else:
         # Non-dayZero case: Initialize based on power history
-        power_timeseries = kwargs.get("power_timeseries")
-        if not isinstance(power_timeseries, Timeseries):
-            raise ValueError("power_timeseries is required in kwargs when day_zero is False")
+        power_ts = kwargs.get("power_ts")
+        if not isinstance(power_ts, Timeseries):
+            raise ValueError("power_ts is required in kwargs when day_zero is False")
         if obj.minimum_power is None:
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_timeseries.get_value(time)
+            power_t = power_ts.get_value(time)
+            obj.power_level_var.set_extended(time, power_t)
             min_power = obj.minimum_power.get_value(time)
 
             # Set state variables based on power level relative to minimum power
@@ -98,10 +99,10 @@ def add_initial_conditions(
                 prev_time = time - parameters.timestep
 
                 if obj.on_start_var.get_extended_value(time) == 1:
-                    if power_timeseries.get_value(prev_time) < power_t:
+                    if power_ts.get_value(prev_time) < power_t:
                         obj.stop_var.set_extended(time, 0)
 
-                    if power_timeseries.get_value(prev_time) > power_t:
+                    if power_ts.get_value(prev_time) > power_t:
                         obj.stop_var.set_extended(time, 1)
                         obj.on_start_var.set_extended(time, 0)
 
