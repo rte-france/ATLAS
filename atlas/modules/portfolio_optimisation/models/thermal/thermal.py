@@ -304,24 +304,24 @@ class ThermalPO(Thermal):
 
     def _setup_state_variables(self, model: OptimisationModel):
         self.off_var = ModelVar(
-            getter=lambda time: model.get_variable(f"OFF_{self.name}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"OFF_{self.name}_{time}"),
+            getter=lambda time: model.get_variable(f"off_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"off_{self.name}_{time}"),
         )
         self.on_flat_var = ModelVar(
-            getter=lambda time: model.get_variable(f"ON_FLAT_{self.name}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"ON_FLAT_{self.name}_{time}"),
+            getter=lambda time: model.get_variable(f"on_flat_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"on_flat_{self.name}_{time}"),
         )
         self.on_up_var = ModelVar(
-            getter=lambda time: model.get_variable(f"ON_UP_{self.name}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"ON_UP_{self.name}_{time}"),
+            getter=lambda time: model.get_variable(f"on_up_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"on_up_{self.name}_{time}"),
         )
         self.on_down_var = ModelVar(
-            getter=lambda time: model.get_variable(f"ON_DOWN_{self.name}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"ON_DOWN_{self.name}_{time}"),
+            getter=lambda time: model.get_variable(f"on_down_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"on_down_{self.name}_{time}"),
         )
         self.on_start_var = ModelVar(
-            getter=lambda time: model.get_variable(f"ON_START_{self.name}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"ON_START_{self.name}_{time}"),
+            getter=lambda time: model.get_variable(f"on_start_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"on_start_{self.name}_{time}"),
         )
         self.entered_up_var = ModelVar(
             getter=lambda time: model.get_variable(f"entered_up_{time}_{self.name}"),
@@ -344,8 +344,8 @@ class ThermalPO(Thermal):
             setter=lambda time: model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}"),
         )
         self.stop_var = ModelVar(
-            getter=lambda time: model.get_variable(f"STOP_{self.name}_{time}"),
-            setter=lambda time: model.add_boolean_variable(f"STOP_{self.name}_{time}"),
+            getter=lambda time: model.get_variable(f"stopp_{self.name}_{time}"),
+            setter=lambda time: model.add_boolean_variable(f"stop_{self.name}_{time}"),
         )
         self.turned_off = ModelVar(
             getter=lambda time: model.get_variable(f"t_off_{self.name}_{time}"),
