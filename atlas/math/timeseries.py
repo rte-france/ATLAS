@@ -303,6 +303,20 @@ class Timeseries:
         """
         return self.timeseries.height
 
+    def __contains__(self, item: datetime | str | pendulum.DateTime) -> bool:
+        """Check if a temporal index exists in the Timeseries.
+
+        :param item: Datetime to check for existence
+        :type item: datetime or str or pendulum.DateTime
+        :return: True if the datetime exists in the Timeseries index, False otherwise
+        :rtype: bool
+        """
+        try:
+            dt = build_datetime(item).in_tz(self.timezone)
+            return dt in self.timeseries["time"].to_list()
+        except Exception:
+            return False
+
     def __mul__(self, other: float | Timeseries) -> Timeseries:
         """Multiply all numeric columns by a scalar or another Timeseries.
 

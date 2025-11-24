@@ -482,3 +482,76 @@ def test_abs_empty_series():
     collected = result.collect()
     assert collected.timeseries.shape == (0, 2)
     assert result.timezone == "UTC"
+
+
+def test_contains_with_datetime(sample_df_extended):
+    """Test __contains__ with datetime object."""
+    lt = LazyTimeseries(sample_df_extended.lazy())
+
+    dt_exists = datetime(2023, 1, 1, 3, 0)
+    dt_not_exists = datetime(2023, 1, 1, 3, 30)
+
+    assert dt_exists in lt
+    assert dt_not_exists not in lt
+
+
+def test_contains_with_string(sample_df_extended):
+    """Test __contains__ with string datetime."""
+    lt = LazyTimeseries(sample_df_extended.lazy())
+
+    dt_exists = "2023-01-01 05:00:00"
+    dt_not_exists = "2023-01-01 15:00:00"
+
+    assert dt_exists in lt
+    assert dt_not_exists not in lt
+
+
+def test_contains_with_pendulum_datetime(sample_df_extended):
+    """Test __contains__ with pendulum.DateTime object."""
+    lt = LazyTimeseries(sample_df_extended.lazy())
+
+    dt_exists = pendulum.datetime(2023, 1, 1, 7, 0, tz="UTC")
+    dt_not_exists = pendulum.datetime(2023, 1, 1, 20, 0, tz="UTC")
+
+    assert dt_exists in lt
+    assert dt_not_exists not in lt
+
+
+def test_contains_with_different_timezone():
+    """Test __contains__ with datetime in different timezone."""
+    df = pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 1, 0),
+                datetime(2023, 1, 1, 2, 0),
+            ],
+            "value": [10.0, 20.0, 30.0],
+        }
+    )
+    lt = LazyTimeseries(df.lazy(), timezone="Europe/Paris")
+
+    # Test with UTC datetime that corresponds to a time in the series
+    # 2023-01-01 00:00:00 UTC = 2023-01-01 01:00:00 Europe/Paris
+    dt_utc = pendulum.datetime(2023, 1, 1, 0, 0, tz="UTC")
+
+    # The __contains__ should convert to the timeseries timezone
+    assert dt_utc in lt
+
+
+def test_contains_with_invalid_input(sample_df_extended):
+    """Test __contains__ with invalid input returns False."""
+    lt = LazyTimeseries(sample_df_extended.lazy())
+
+    # Invalid inputs should return False instead of raising an exception
+    assert (123 in lt) is False
+    assert (None in lt) is False
+    assert ([] in lt) is False
+
+
+def test_contains_empty_lazy_timeseries():
+    """Test __contains__ on an empty LazyTimeseries."""
+    lt = LazyTimeseries()
+
+    dt = datetime(2023, 1, 1, 0, 0)
+    assert dt not in lt
