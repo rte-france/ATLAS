@@ -57,6 +57,7 @@ class ThermalOptimizationModel(OptimisationModel):
     ENTERED_UP_AT_KEY = "entered_up_at_"
     ENTERED_DOWN_AT_KEY = "entered_down_at_"
     POWER_EQUIP_KEY = "power_equip_"
+    UP_GRAD_AT_KEY = "UP_grad_at_"
 
     def __init__(
         self,
@@ -165,7 +166,10 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.add_continuous_variable(self.entered_down_at(t), 0, 1),
         )
         # This variable will be implemented in the gradient and bound the upward gradient
-        self.U: dict[DateTime, Any] = {}
+        self.U = ModelVar(
+            lambda t: self.get_variable(self.up_grad_at(t)),
+            lambda t: self.add_continuous_variable(self.up_grad_at(t), self.Q_min, self.Q_max),
+        )
         # This variable will be implemented in the gradient and bound the downward gradient
         self.D: dict[DateTime, Any] = {}
         self.last_power: Timeseries = None
@@ -218,6 +222,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
     def power_equip_at(self, t: DateTime) -> str:
         return f"{self.POWER_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
+
+    def up_grad_at(self, t: DateTime) -> str:
+        return f"{self.UP_GRAD_AT_KEY}{t}_equip_{self.thermal_unit.name}"
 
     def reserves_up_equip_at(self, t: DateTime) -> str:
         return f"{self.RESERVES_UP_EQUIP_KEY}{self.thermal_unit.name}_at_{t}"
@@ -585,11 +592,7 @@ class ThermalOptimizationModel(OptimisationModel):
 
             for t in self.time_frame:
                 # Initialize the gradient auxiliaries.
-                self.U[t] = self.add_continuous_variable(
-                    f"UP_grad_at_{t}_equip_{self.thermal_unit.name}",
-                    self.Q_min,
-                    self.Q_max,
-                )
+                self.U.set_model_var(t)
                 self.D[t] = self.add_continuous_variable(
                     f"DOWN_grad_at_{t}_equip_{self.thermal_unit.name}",
                     self.Q_min,

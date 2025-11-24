@@ -149,13 +149,14 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 if model.ON_DOWN.get_extended_value(t) - model.ON_DOWN.get_extended_value(t_prev) == 1:
                     model.entered_down.set_extended(t, 1)
 
-                    # Initialize the gradient auxiliaries. This is only required for the last time step of the
+    # Initialize the gradient auxiliaries. This is only required for the last time step of the
     # previous_time_frame. Only ON_UP[start_date_minus_one] and ON_DOWN[start_date_minus_one] are decision variables
     # in the expressions below.
-    model.U[model.start_date_minus_one] = (
-        model.ON_UP.get_value(model.start_date_minus_one)
-        * model.ON_UP.get_value(start_date_minus_two)
-        * (model.q.get_value(model.start_date_minus_one) - model.q.get_value(start_date_minus_two))
+    model.U.set_extended(
+        model.start_date_minus_one,
+        model.ON_UP.get_extended_value(model.start_date_minus_one)
+        * model.ON_UP.get_extended_value(start_date_minus_two)
+        * (model.q.get_extended_value(model.start_date_minus_one) - model.q.get_extended_value(start_date_minus_two)),
     )
     model.D[model.start_date_minus_one] = (
         model.ON_DOWN.get_value(model.start_date_minus_one)
@@ -270,13 +271,15 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # These variables wil be added to the gradient constraints.
     for t in model.time_frame:
         # U (eq. (27))
-        model.add_constraint(model.U[t] <= model.Q_max * model.ON_UP.get_value(t))
-        model.add_constraint(model.U[t] >= model.Q_min * model.ON_UP.get_value(t))
+        model.add_constraint(model.U.get_value(t) <= model.Q_max * model.ON_UP.get_value(t))
+        model.add_constraint(model.U.get_value(t) >= model.Q_min * model.ON_UP.get_value(t))
         model.add_constraint(
-            model.U[t] <= model.get_variable(model.aux_up_grad_at(t)) - model.Q_min * (1 - model.ON_UP.get_value(t))
+            model.U.get_value(t)
+            <= model.get_variable(model.aux_up_grad_at(t)) - model.Q_min * (1 - model.ON_UP.get_value(t))
         )
         model.add_constraint(
-            model.U[t] >= model.get_variable(model.aux_up_grad_at(t)) - model.Q_max * (1 - model.ON_UP.get_value(t)),
+            model.U.get_value(t)
+            >= model.get_variable(model.aux_up_grad_at(t)) - model.Q_max * (1 - model.ON_UP.get_value(t)),
             f"VALUE_of_UP_at_{t}",
         )
         # D (eq. (29))
@@ -475,7 +478,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             model.add_constraint(
                 model.q.get_value(t_next) - model.q.get_value(t)
                 <= model.delta_q * model.entered_up.get_value(t)
-                + model.U[t]
+                + model.U.get_value(t)
                 + model.D[t]
                 + q_step * model.turned_on.get_value(t_next)
                 + model.START.get_value(t) * q_step,
@@ -487,7 +490,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 model.q.get_value(t_next) - model.q.get_value(t)
                 >= (
                     -model.delta_q * model.entered_down.get_value(t)
-                    + model.U[t]
+                    + model.U.get_value(t)
                     + model.D[t]
                     - model.delta_q_unconstrained * model.turned_off.get_value(t_next)
                     + q_step * model.turned_on.get_value(t_next)
@@ -504,7 +507,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             model.add_constraint(
                 model.q.get_value(t_next) - model.q.get_value(t)
                 <= model.delta_q_unconstrained * model.entered_up.get_value(t)
-                + model.U[t]
+                + model.U.get_value(t)
                 + model.D[t]
                 + q_step * model.turned_on.get_value(t_next)
                 + model.START.get_value(t) * q_step,
@@ -516,7 +519,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 model.q.get_value(t_next) - model.q.get_value(t)
                 >= (
                     -model.delta_q_unconstrained * model.entered_down.get_value(t)
-                    + model.U[t]
+                    + model.U.get_value(t)
                     + model.D[t]
                     - model.delta_q_unconstrained * model.turned_off.get_value(t_next)
                     + q_step * model.turned_on.get_value(t_next)
