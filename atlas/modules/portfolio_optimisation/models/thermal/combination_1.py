@@ -120,13 +120,13 @@ def add_constraints(
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
             local_time = time - s * parameters.timestep
-            turned_on_local_var = model.get_variable(f"t_on_{obj.name}_{local_time}")
+            turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(turned_on_local_var <= on_up_var + on_down_var)
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
             local_time = time - s * parameters.timestep
-            turned_off_local_var = model.get_variable(f"t_off_{obj.name}_{local_time}")
+            turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(turned_off_local_var <= off_var)
 
     model.add_constraint(
