@@ -208,13 +208,13 @@ def add_constraints(
     q_min = obj.minimum_power.max()
     q_step = q_min / obj._T_stop
 
-    model.add_constraint(turned_on_var <= 1 - off_var)
-    model.add_constraint(turned_on_var <= off_prev_var)
-    model.add_constraint(turned_on_var >= off_prev_var - off_var)
+    model.add_constraint(turned_on_var <= 1 - off_var, f"t_on_evol_1_{time}_{obj.name}")
+    model.add_constraint(turned_on_var <= off_prev_var, f"t_on_evol_2_{time}_{obj.name}")
+    model.add_constraint(turned_on_var >= off_prev_var - off_var, f"t_on_evol_2_{time}_{obj.name}")
 
-    model.add_constraint(turned_off_var <= 1 - stop_prev_var)
-    model.add_constraint(turned_off_var <= stop_var)
-    model.add_constraint(turned_off_var >= stop_var - stop_prev_var)
+    model.add_constraint(turned_off_var <= 1 - stop_prev_var, f"t_off_evol_1_{time}_{obj.name}")
+    model.add_constraint(turned_off_var <= stop_var, f"t_off_evol_2_{time}_{obj.name}")
+    model.add_constraint(turned_off_var >= stop_var - stop_prev_var, f"t_off_evol_3_{time}_{obj.name}")
 
     model.add_constraint(stable_var <= 1 - on_flat_prev_var)
     model.add_constraint(stable_var <= on_flat_var)

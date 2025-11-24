@@ -158,9 +158,9 @@ def add_constraints(
     q_step_up = q_min / obj._T_start
     q_step_down = q_min / obj._T_stop
 
-    model.add_constraint(turned_on_var <= 1 - off_var)
-    model.add_constraint(turned_on_var <= off_prev_var)
-    model.add_constraint(turned_on_var >= off_prev_var - off_var)
+    model.add_constraint(turned_on_var <= 1 - off_var, f"t_on_evol_1_{time}_{obj.name}")
+    model.add_constraint(turned_on_var <= off_prev_var, f"t_on_evol_2_{time}_{obj.name}")
+    model.add_constraint(turned_on_var >= off_prev_var - off_var, f"t_on_evol_3_{time}_{obj.name}")
 
     model.add_constraint(turned_off_var <= 1 - stop_prev_var)
     model.add_constraint(turned_off_var <= stop_var)

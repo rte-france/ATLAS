@@ -178,13 +178,13 @@ def add_constraints(
     min_power = obj.minimum_power.get_value(time)
     maximum_automated = get_maximum_automated(obj)
 
-    model.add_constraint(turned_on_var <= 1 - off_var)
-    model.add_constraint(turned_on_var <= off_prev_var)
-    model.add_constraint(turned_on_var >= off_prev_var - off_var)
+    model.add_constraint(turned_on_var <= 1 - off_var, f"t_on_evol_1_{time}_{obj.name}")
+    model.add_constraint(turned_on_var <= off_prev_var, f"t_on_evol_2_{time}_{obj.name}")
+    model.add_constraint(turned_on_var >= off_prev_var - off_var), f"t_on_evol_3_{time}_{obj.name}"
 
-    model.add_constraint(turned_off_var <= 1 - off_prev_var)
-    model.add_constraint(turned_off_var <= off_var)
-    model.add_constraint(turned_off_var >= off_var - off_prev_var)
+    model.add_constraint(turned_off_var <= 1 - off_prev_var, f"t_off_evol_1_{time}_{obj.name}")
+    model.add_constraint(turned_off_var <= off_var, f"t_off_evol_2_{time}_{obj.name}")
+    model.add_constraint(turned_off_var >= off_var - off_prev_var, f"t_off_evol_3_{time}_{obj.name}")
 
     model.add_constraint(stable_var <= 1 - on_flat_prev_var)
     model.add_constraint(stable_var <= on_flat_var)
