@@ -148,10 +148,11 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         * model.ON_UP.get_extended_value(start_date_minus_two)
         * (model.q.get_extended_value(model.start_date_minus_one) - model.q.get_extended_value(start_date_minus_two)),
     )
-    model.D[model.start_date_minus_one] = (
-        model.ON_DOWN.get_value(model.start_date_minus_one)
-        * model.ON_DOWN.get_value(start_date_minus_two)
-        * (model.q.get_value(model.start_date_minus_one) - model.q.get_value(start_date_minus_two))
+    model.D.set_extended(
+        model.start_date_minus_one,
+        model.ON_DOWN.get_extended_value(model.start_date_minus_one)
+        * model.ON_DOWN.get_extended_value(start_date_minus_two)
+        * (model.q.get_extended_value(model.start_date_minus_one) - model.q.get_extended_value(start_date_minus_two)),
     )
 
     # B. CONSTRAINTS ON THE AUXILIARY VARIABLES
@@ -273,13 +274,14 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             f"VALUE_of_UP_at_{t}",
         )
         # D (eq. (29))
-        model.add_constraint(model.D[t] <= model.Q_max * model.ON_DOWN.get_value(t))
-        model.add_constraint(model.D[t] >= model.Q_min * model.ON_DOWN.get_value(t))
+        model.add_constraint(model.D.get_value(t) <= model.Q_max * model.ON_DOWN.get_value(t))
+        model.add_constraint(model.D.get_value(t) >= model.Q_min * model.ON_DOWN.get_value(t))
         model.add_constraint(
-            model.D[t] <= model.get_variable(model.aux_down_grad_at(t)) - model.Q_min * (1 - model.ON_DOWN.get_value(t))
+            model.D.get_value(t)
+            <= model.get_variable(model.aux_down_grad_at(t)) - model.Q_min * (1 - model.ON_DOWN.get_value(t))
         )
         model.add_constraint(
-            model.D[t]
+            model.D.get_value(t)
             >= model.get_variable(model.aux_down_grad_at(t)) - model.Q_max * (1 - model.ON_DOWN.get_value(t)),
             f"VALUE_of_DOWN_at_{t}",
         )
@@ -413,7 +415,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 model.q.get_value(t_next) - model.q.get_value(t)
                 <= model.delta_q * model.entered_up.get_value(t)
                 + model.U.get_value(t)
-                + model.D[t]
+                + model.D.get_value(t)
                 + model.delta_q_unconstrained * model.turned_on.get_value(t_next),
                 f"upward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Upward gradient
@@ -423,7 +425,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 model.q.get_value(t_next) - model.q.get_value(t)
                 >= -model.delta_q * model.entered_down.get_value(t)
                 + model.U.get_value(t)
-                + model.D[t]
+                + model.D.get_value(t)
                 - model.delta_q_unconstrained * model.turned_off.get_value(t_next),
                 f"downward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Downward gradient
@@ -437,7 +439,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 model.q.get_value(t_next) - model.q.get_value(t)
                 <= model.delta_q_unconstrained * model.entered_up.get_value(t)
                 + model.U.get_value(t)
-                + model.D[t]
+                + model.D.get_value(t)
                 + model.delta_q_unconstrained * model.turned_on.get_value(t_next),
                 f"unconstrained_upward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Upward gradient
@@ -447,7 +449,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 model.q.get_value(t_next) - model.q.get_value(t)
                 >= -model.delta_q_unconstrained * model.entered_down.get_value(t)
                 + model.U.get_value(t)
-                + model.D[t]
+                + model.D.get_value(t)
                 - model.delta_q_unconstrained * model.turned_off.get_value(t_next),
                 f"unconstrained_downward_gradient_of_{model.thermal_unit.name}_at_{t}",
             )  # Downward gradient

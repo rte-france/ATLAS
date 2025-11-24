@@ -421,7 +421,7 @@ class ThermalIntermediateLoadOrders:
             for price, value in zip(prices, price_types, strict=False):
                 model = ThermalOptimizationModel(parameters, unit, price, value)
                 model.create_objective_function("maximize")
-                initial_condition_functions: dict[int, Callable[..., None]] = {
+                combination_functions: dict[int, Callable[..., None]] = {
                     1: combination_1.execute,
                     2: combination_2.execute,
                     3: combination_3.execute,
@@ -431,14 +431,9 @@ class ThermalIntermediateLoadOrders:
                     7: combination_7.execute,
                     8: combination_8.execute,
                 }
-                initial_condition_function = initial_condition_functions.get(
-                    model.determine_combination(), combination_1.execute
-                )
-
+                combination_function = combination_functions.get(model.determine_combination(), combination_1.execute)
                 day_zero = model.is_day_zero()
-
-                # Call the function with single timestamp
-                initial_condition_function(model=model, day_zero=day_zero)
+                combination_function(model=model, day_zero=day_zero)
 
                 model.set_solver_specific_parameters_as_string(
                     f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_seconds()}"
