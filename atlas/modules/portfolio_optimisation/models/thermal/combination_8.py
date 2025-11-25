@@ -221,118 +221,151 @@ def add_constraints(
     q_step_up = q_min / obj._T_start
     q_step_down = q_min / obj._T_stop
 
-    model.add_constraint(turned_on_var <= 1 - off_var)
-    model.add_constraint(turned_on_var <= off_prev_var)
-    model.add_constraint(turned_on_var >= off_prev_var - off_var)
+    model.add_constraint(turned_on_var <= 1 - off_var, f"t_on_evol_1_{time}_{obj.name}")
+    model.add_constraint(turned_on_var <= off_prev_var, f"t_on_evol_2_{time}_{obj.name}")
+    model.add_constraint(turned_on_var >= off_prev_var - off_var, f"t_on_evol_3_{time}_{obj.name}")
 
-    model.add_constraint(turned_off_var <= 1 - stop_prev_var)
-    model.add_constraint(turned_off_var <= stop_var)
-    model.add_constraint(turned_off_var >= stop_var - stop_prev_var)
+    model.add_constraint(turned_off_var <= 1 - stop_prev_var, f"t_off_evol_1_{time}_{obj.name}")
+    model.add_constraint(turned_off_var <= stop_var, f"t_off_evol_2_{time}_{obj.name}")
+    model.add_constraint(turned_off_var >= stop_var - stop_prev_var, f"t_off_evol_3_{time}_{obj.name}")
 
-    model.add_constraint(stable_var <= 1 - on_flat_prev_var)
-    model.add_constraint(stable_var <= on_flat_var)
-    model.add_constraint(stable_var >= on_flat_var - on_flat_prev_var)
+    model.add_constraint(stable_var <= 1 - on_flat_prev_var, f"stable_evol_1_{time}_{obj.name}")
+    model.add_constraint(stable_var <= on_flat_var, f"stable_evol_2_{time}_{obj.name}")
+    model.add_constraint(stable_var >= on_flat_var - on_flat_prev_var, f"stable_evol_3_{time}_{obj.name}")
 
-    if time == obj.optimisation_time_window[0]:
-        model.add_constraint(stable_prev_var <= on_flat_2_prev_var)
-        model.add_constraint(stable_prev_var <= on_flat_prev_var)
-        model.add_constraint(stable_prev_var >= on_flat_prev_var - on_flat_2_prev_var)
-
-        model.add_constraint(entered_up_prev_var <= 1 - on_up_2_prev_var)
-        model.add_constraint(entered_up_prev_var <= on_up_prev_var)
-        model.add_constraint(entered_up_prev_var >= on_up_prev_var - on_up_2_prev_var)
-
-        model.add_constraint(entered_down_prev_var <= 1 - on_down_2_prev_var)
-        model.add_constraint(entered_down_prev_var <= on_down_prev_var)
-        model.add_constraint(entered_down_prev_var >= on_down_prev_var - on_down_2_prev_var)
-
+    if time == parameters.start_date:
+        model.add_constraint(stable_prev_var <= on_flat_2_prev_var, f"stable_evol_1_{prev_time}_{obj.name}")
+        model.add_constraint(stable_prev_var <= on_flat_prev_var, f"stable_evol_2_{prev_time}_{obj.name}")
         model.add_constraint(
-            off_prev_var + on_up_prev_var + on_down_prev_var + on_flat_prev_var + stop_prev_var + start_prev_var == 1
+            stable_prev_var >= on_flat_prev_var - on_flat_2_prev_var, f"stable_evol_3_{prev_time}_{obj.name}"
         )
 
-        model.add_constraint(on_up_2_prev_var + on_down_prev_var <= 1)
-        model.add_constraint(on_down_2_prev_var + on_up_prev_var <= 1)
+        model.add_constraint(entered_up_prev_var <= 1 - on_up_2_prev_var, f"entered_up_evol_1_{prev_time}_{obj.name}")
+        model.add_constraint(entered_up_prev_var <= on_up_prev_var, f"entered_up_evol_2_{prev_time}_{obj.name}")
+        model.add_constraint(
+            entered_up_prev_var >= on_up_prev_var - on_up_2_prev_var, f"entered_up_evol_3_{prev_time}_{obj.name}"
+        )
 
-        model.add_constraint(stop_2_prev_var + on_flat_prev_var <= 1)
-        model.add_constraint(stop_2_prev_var + on_down_prev_var <= 1)
-        model.add_constraint(stop_2_prev_var + on_up_prev_var <= 1)
+        model.add_constraint(
+            entered_down_prev_var <= 1 - on_down_2_prev_var, f"entered_down_evol_1_{prev_time}_{obj.name}"
+        )
+        model.add_constraint(entered_down_prev_var <= on_down_prev_var, f"entered_down_evol_2_{prev_time}_{obj.name}")
+        model.add_constraint(
+            entered_down_prev_var >= on_down_prev_var - on_down_2_prev_var,
+            f"entered_down_evol_3_{prev_time}_{obj.name}",
+        )
 
-    model.add_constraint(flat_down_stop_var <= stop_var)
-    model.add_constraint(flat_down_stop_var <= on_down_prev_var)
-    model.add_constraint(flat_down_stop_var <= on_flat_2_prev_var)
-    model.add_constraint(flat_down_stop_var >= stop_var + on_down_prev_var + on_flat_2_prev_var - 2)
+        model.add_constraint(
+            off_prev_var + on_up_prev_var + on_down_prev_var + on_flat_prev_var + stop_prev_var + start_prev_var == 1,
+            f"mutual_exclusion_{prev_time}_{obj.name}",
+        )
 
-    model.add_constraint(entered_up_var <= 1 - on_up_prev_var)
-    model.add_constraint(entered_up_var <= on_up_var)
-    model.add_constraint(entered_up_var >= on_up_var - on_up_prev_var)
+        model.add_constraint(
+            on_up_2_prev_var + on_down_prev_var <= 1, f"transition_constraint_1_{prev_time}_{obj.name}"
+        )
+        model.add_constraint(
+            on_down_2_prev_var + on_up_prev_var <= 1, f"transition_constraint_2_{prev_time}_{obj.name}"
+        )
+        model.add_constraint(stop_2_prev_var + on_flat_prev_var <= 1, f"transition_constraint_3_{prev_time}_{obj.name}")
+        model.add_constraint(stop_2_prev_var + on_down_prev_var <= 1, f"transition_constraint_4_{prev_time}_{obj.name}")
+        model.add_constraint(stop_2_prev_var + on_up_prev_var <= 1, f"transition_constraint_5_{prev_time}_{obj.name}")
 
-    model.add_constraint(entered_down_var <= 1 - on_down_prev_var)
-    model.add_constraint(entered_down_var <= on_down_var)
-    model.add_constraint(entered_down_var >= on_down_var - on_down_prev_var)
+    model.add_constraint(flat_down_stop_var <= stop_var, f"flat_down_stop_1_{time}_{obj.name}")
+    model.add_constraint(flat_down_stop_var <= on_down_prev_var, f"flat_down_stop_2_{time}_{obj.name}")
+    model.add_constraint(flat_down_stop_var <= on_flat_2_prev_var, f"flat_down_stop_3_{time}_{obj.name}")
+    model.add_constraint(
+        flat_down_stop_var >= stop_var + on_down_prev_var + on_flat_2_prev_var - 2,
+        f"flat_down_stop_4_{time}_{obj.name}",
+    )
 
-    model.add_constraint(aux_up_grad_var <= max_power * on_up_prev_var)
-    model.add_constraint(aux_up_grad_var >= min_power * on_up_prev_var)
-    model.add_constraint(aux_up_grad_var <= power_level_var - power_prev_var - min_power * (1 - on_up_prev_var))
-    model.add_constraint(aux_up_grad_var >= power_level_var - power_prev_var - max_power * (1 - on_up_prev_var))
+    model.add_constraint(entered_up_var <= 1 - on_up_prev_var, f"entered_up_evol_1_{time}_{obj.name}")
+    model.add_constraint(entered_up_var <= on_up_var, f"entered_up_evol_2_{time}_{obj.name}")
+    model.add_constraint(entered_up_var >= on_up_var - on_up_prev_var, f"entered_up_evol_3_{time}_{obj.name}")
 
-    model.add_constraint(aux_down_grad_var <= max_power * on_down_prev_var)
-    model.add_constraint(aux_down_grad_var >= min_power * on_down_prev_var)
-    model.add_constraint(aux_down_grad_var <= power_level_var - power_prev_var - min_power * (1 - on_down_prev_var))
-    model.add_constraint(aux_down_grad_var >= power_level_var - power_prev_var - max_power * (1 - on_down_prev_var))
+    model.add_constraint(entered_down_var <= 1 - on_down_prev_var, f"entered_down_evol_1_{time}_{obj.name}")
+    model.add_constraint(entered_down_var <= on_down_var, f"entered_down_evol_2_{time}_{obj.name}")
+    model.add_constraint(entered_down_var >= on_down_var - on_down_prev_var, f"entered_down_evol_3_{time}_{obj.name}")
 
-    model.add_constraint(up_grad_var <= max_power * on_up_var)
-    model.add_constraint(up_grad_var >= min_power * on_up_var)
-    model.add_constraint(up_grad_var <= aux_up_grad_var - min_power * (1 - on_up_var))
-    model.add_constraint(up_grad_var >= aux_up_grad_var - max_power * (1 - on_up_var))
+    model.add_constraint(aux_up_grad_var <= max_power * on_up_prev_var, f"tilde_U_evol_1_{time}_{obj.name}")
+    model.add_constraint(aux_up_grad_var >= min_power * on_up_prev_var, f"tilde_U_evol_2_{time}_{obj.name}")
+    model.add_constraint(
+        aux_up_grad_var <= power_level_var - power_prev_var - min_power * (1 - on_up_prev_var),
+        f"tilde_U_evol_3_{time}_{obj.name}",
+    )
+    model.add_constraint(
+        aux_up_grad_var >= power_level_var - power_prev_var - max_power * (1 - on_up_prev_var),
+        f"tilde_U_evol_4_{time}_{obj.name}",
+    )
 
-    model.add_constraint(down_grad_var <= max_power * on_down_var)
-    model.add_constraint(down_grad_var >= min_power * on_down_var)
-    model.add_constraint(down_grad_var <= aux_down_grad_var - min_power * (1 - on_down_var))
-    model.add_constraint(down_grad_var >= aux_down_grad_var - max_power * (1 - on_down_var))
+    model.add_constraint(aux_down_grad_var <= max_power * on_down_prev_var, f"tilde_D_evol_1_{time}_{obj.name}")
+    model.add_constraint(aux_down_grad_var >= min_power * on_down_prev_var, f"tilde_D_evol_2_{time}_{obj.name}")
+    model.add_constraint(
+        aux_down_grad_var <= power_level_var - power_prev_var - min_power * (1 - on_down_prev_var),
+        f"tilde_D_evol_3_{time}_{obj.name}",
+    )
+    model.add_constraint(
+        aux_down_grad_var >= power_level_var - power_prev_var - max_power * (1 - on_down_prev_var),
+        f"tilde_D_evol_4_{time}_{obj.name}",
+    )
+
+    model.add_constraint(up_grad_var <= max_power * on_up_var, f"U_evol_1_{time}_{obj.name}")
+    model.add_constraint(up_grad_var >= min_power * on_up_var, f"U_evol_2_{time}_{obj.name}")
+    model.add_constraint(up_grad_var <= aux_up_grad_var - min_power * (1 - on_up_var), f"U_evol_3_{time}_{obj.name}")
+    model.add_constraint(up_grad_var >= aux_up_grad_var - max_power * (1 - on_up_var), f"U_evol_4_{time}_{obj.name}")
+
+    model.add_constraint(down_grad_var <= max_power * on_down_var, f"D_evol_1_{time}_{obj.name}")
+    model.add_constraint(down_grad_var >= min_power * on_down_var, f"D_evol_2_{time}_{obj.name}")
+    model.add_constraint(
+        down_grad_var <= aux_down_grad_var - min_power * (1 - on_down_var), f"D_evol_3_{time}_{obj.name}"
+    )
+    model.add_constraint(
+        down_grad_var >= aux_down_grad_var - max_power * (1 - on_down_var), f"D_evol_4_{time}_{obj.name}"
+    )
 
     if time in obj.optimisation_time_window[:-1]:
-        model.add_constraint(dd_grad_prev_var <= max_power * stop_var)
-        model.add_constraint(dd_grad_prev_var >= min_power * stop_var)
-        model.add_constraint(dd_grad_prev_var <= down_grad_prev_var - min_power * (1 - stop_var))
-        model.add_constraint(dd_grad_prev_var >= down_grad_prev_var - max_power * (1 - stop_var))
+        model.add_constraint(dd_grad_prev_var <= max_power * stop_var, f"DD_evol_1_{time}_{obj.name}")
+        model.add_constraint(dd_grad_prev_var >= min_power * stop_var, f"DD_evol_2_{time}_{obj.name}")
+        model.add_constraint(
+            dd_grad_prev_var <= down_grad_prev_var - min_power * (1 - stop_var), f"DD_evol_3_{time}_{obj.name}"
+        )
+        model.add_constraint(
+            dd_grad_prev_var >= down_grad_prev_var - max_power * (1 - stop_var), f"DD_evol_4_{time}_{obj.name}"
+        )
 
-    model.add_constraint(off_var + on_up_var + on_down_var + on_flat_var + stop_var + start_var == 1)
+    model.add_constraint(
+        off_var + on_up_var + on_down_var + on_flat_var + stop_var + start_var == 1,
+        f"mutual_exclusion_{time}_{obj.name}",
+    )
 
-    model.add_constraint(on_up_prev_var + on_down_var <= 1)
-    model.add_constraint(on_down_prev_var + on_up_var <= 1)
-
-    model.add_constraint(stop_prev_var + on_flat_var <= 1)
-    model.add_constraint(stop_prev_var + on_down_var <= 1)
-    model.add_constraint(stop_prev_var + on_up_var <= 1)
-
-    model.add_constraint(on_up_prev_var + stop_var <= 1)
-
-    model.add_constraint(off_prev_var + stop_var <= 1)
-
-    model.add_constraint(on_up_prev_var + start_var <= 1)
-    model.add_constraint(on_down_prev_var + start_var <= 1)
-    model.add_constraint(on_flat_prev_var + start_var <= 1)
-
-    model.add_constraint(on_up_prev_var + off_var <= 1)
-    model.add_constraint(on_down_prev_var + off_var <= 1)
-    model.add_constraint(on_flat_prev_var + off_var <= 1)
-
-    model.add_constraint(start_prev_var + off_var <= 1)
-
-    model.add_constraint(start_prev_var + stop_var <= 1)
-    model.add_constraint(stop_prev_var + start_var <= 1)
-
-    model.add_constraint(off_prev_var + on_up_var <= 1)
-    model.add_constraint(off_prev_var + on_flat_var <= 1)
-    model.add_constraint(off_prev_var + on_down_var <= 1)
+    model.add_constraint(on_up_prev_var + on_down_var <= 1, f"transition_constraint_1_{time}_{obj.name}")
+    model.add_constraint(on_down_prev_var + on_up_var <= 1, f"transition_constraint_2_{time}_{obj.name}")
+    model.add_constraint(stop_prev_var + on_flat_var <= 1, f"transition_constraint_3_{time}_{obj.name}")
+    model.add_constraint(stop_prev_var + on_down_var <= 1, f"transition_constraint_4_{time}_{obj.name}")
+    model.add_constraint(stop_prev_var + on_up_var <= 1, f"transition_constraint_5_{time}_{obj.name}")
+    model.add_constraint(on_up_prev_var + stop_var <= 1, f"transition_constraint_6_{time}_{obj.name}")
+    model.add_constraint(off_prev_var + stop_var <= 1, f"transition_constraint_7_{time}_{obj.name}")
+    model.add_constraint(on_up_prev_var + start_var <= 1, f"transition_constraint_8_{time}_{obj.name}")
+    model.add_constraint(on_down_prev_var + start_var <= 1, f"transition_constraint_9_{time}_{obj.name}")
+    model.add_constraint(on_flat_prev_var + start_var <= 1, f"transition_constraint_10_{time}_{obj.name}")
+    model.add_constraint(on_up_prev_var + off_var <= 1, f"transition_constraint_11_{time}_{obj.name}")
+    model.add_constraint(on_down_prev_var + off_var <= 1, f"transition_constraint_12_{time}_{obj.name}")
+    model.add_constraint(on_flat_prev_var + off_var <= 1, f"transition_constraint_13_{time}_{obj.name}")
+    model.add_constraint(start_prev_var + off_var <= 1, f"transition_constraint_14_{time}_{obj.name}")
+    model.add_constraint(start_prev_var + stop_var <= 1, f"transition_constraint_15_{time}_{obj.name}")
+    model.add_constraint(stop_prev_var + start_var <= 1, f"transition_constraint_16_{time}_{obj.name}")
+    model.add_constraint(off_prev_var + on_up_var <= 1, f"transition_constraint_17_{time}_{obj.name}")
+    model.add_constraint(off_prev_var + on_flat_var <= 1, f"transition_constraint_18_{time}_{obj.name}")
+    model.add_constraint(off_prev_var + on_down_var <= 1, f"transition_constraint_19_{time}_{obj.name}")
 
     stop_eviction_time = time - (obj._T_stop - 1) * parameters.timestep
     turned_off_stop_eviction_var = obj.turned_off.get_value(stop_eviction_time)
-    model.add_constraint(turned_off_stop_eviction_var + stop_var <= 1)
+    model.add_constraint(turned_off_stop_eviction_var + stop_var <= 1, f"stop_eviction_constraint_{time}_{obj.name}")
 
     start_eviction_time = time - (obj._T_start - 1) * parameters.timestep
     turned_on_start_eviction_var = obj.turned_on.get_value(start_eviction_time)
-    model.add_constraint(turned_on_start_eviction_var + start_var <= 1)
+    model.add_constraint(
+        turned_on_start_eviction_var + start_var <= 1, f"start_eviction_constraint_18_{time}_{obj.name}"
+    )
 
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
