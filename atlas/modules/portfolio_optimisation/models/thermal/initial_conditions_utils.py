@@ -11,7 +11,9 @@ from typing import TYPE_CHECKING
 
 from pendulum import DateTime
 
-from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.parameters import (
+    PortfolioOptimisationParameters,
+)
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
@@ -37,13 +39,11 @@ def initialize_day_zero_core(
         model: The optimization model
         time: The current time step
     """
-    power_level_var = model.get_variable(f"{obj.name}_power_level_{time}")
 
     obj.off_var.set_extended(time, 1)
     obj.turned_on.set_extended(time, 0)
     obj.turned_off.set_extended(time, 0)
-
-    model.add_constraint(power_level_var == 0, f"init_power_{obj.name}_{time}")
+    obj.power_level_var.set_extended(time, 0)
 
 
 def initialize_day_zero_on_states(
@@ -51,7 +51,7 @@ def initialize_day_zero_on_states(
     time: DateTime,
 ) -> None:
     """
-    Initialize ON_UP and ON_DOWN state variables for day zero.
+    Initialize ON_up and ON_down state variables for day zero.
 
     For T_stable = 0
 
@@ -80,15 +80,10 @@ def initialize_day_zero_gradient_vars(
         model: The optimization model
         time: The current time step
     """
-    u_var = model.get_variable(f"UP_grad_{time}_{obj.name}")
-    d_var = model.get_variable(f"DOWN_grad_{time}_{obj.name}")
-    tilde_u_var = model.get_variable(f"aux_up_grad_{time}_{obj.name}")
-    tilde_d_var = model.get_variable(f"aux_down_grad_{time}_{obj.name}")
-
-    model.add_constraint(u_var == 0, f"init_u_grad_{obj.name}_{time}")
-    model.add_constraint(d_var == 0, f"init_d_grad_{obj.name}_{time}")
-    model.add_constraint(tilde_u_var == 0, f"init_tilde_u_grad_{obj.name}_{time}")
-    model.add_constraint(tilde_d_var == 0, f"init_tilde_d_grad_{obj.name}_{time}")
+    obj.up_grad_var.set_extended(time, 0)
+    obj.down_grad_var.set_extended(time, 0)
+    obj.aux_up_grad_var.set_extended(time, 0)
+    obj.aux_down_grad_var.set_extended(time, 0)
 
 
 def initialize_day_zero_stable_vars(
@@ -131,25 +126,21 @@ def initialize_gradient_initial_conditions(
     power_minus_one = obj.power_level_var.get_value(start_date_minus_one)
     power_minus_two = obj.power_level_var.get_value(start_date_minus_two)
 
-    u_var = model.get_variable(f"UP_grad_{start_date_minus_one}_{obj.name}")
-    d_var = model.get_variable(f"DOWN_grad_{start_date_minus_one}_{obj.name}")
-
     power_diff = power_minus_one - power_minus_two
 
-    if obj.on_up_var.get_extended_value(start_date_minus_one) == 1 and (
-        obj.on_up_var.get_extended_value(start_date_minus_two) == 1
-    ):
-        model.add_constraint(u_var == power_diff, f"init_u_grad_{obj.name}_{start_date_minus_one}")
-    else:
-        model.add_constraint(u_var == 0, f"init_u_grad_{obj.name}_{start_date_minus_one}")
+    obj.up_grad_var.set_extended(
+        start_date_minus_one,
+        power_diff
+        * obj.on_up_var.get_extended_value(start_date_minus_one)
+        * obj.on_up_var.get_extended_value(start_date_minus_two),
+    )
 
-    # D gradient: only non-zero if unit was in DOWN state at both time steps
-    if obj.on_down_var.get_extended_value(start_date_minus_one) == 1 and (
-        obj.on_down_var.get_extended_value(start_date_minus_two) == 1
-    ):
-        model.add_constraint(d_var == power_diff, f"init_d_grad_{obj.name}_{start_date_minus_one}")
-    else:
-        model.add_constraint(d_var == 0, f"init_d_grad_{obj.name}_{start_date_minus_one}")
+    obj.down_grad_var.set_extended(
+        start_date_minus_one,
+        power_diff
+        * obj.on_down_var.get_extended_value(start_date_minus_one)
+        * obj.on_down_var.get_extended_value(start_date_minus_two),
+    )
 
 
 def initialize_flat_down_stop_initial_conditions(

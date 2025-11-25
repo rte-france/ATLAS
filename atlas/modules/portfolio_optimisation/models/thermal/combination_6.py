@@ -22,7 +22,9 @@ from atlas.modules.portfolio_optimisation.models.thermal.initial_conditions_util
     initialize_day_zero_stable_vars,
     initialize_gradient_initial_conditions,
 )
-from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.parameters import (
+    PortfolioOptimisationParameters,
+)
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -130,7 +132,10 @@ def add_initial_conditions(
 
 
 def add_constraints(
-    obj: ThermalPO, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
+    obj: ThermalPO,
+    time: DateTime,
+    model: OptimisationModel,
+    parameters: PortfolioOptimisationParameters,
 ) -> None:
     """Add constraints for Combination 6:  T_stop=0, T_start>=1, T_stable>=1"""
     if obj.minimum_power is None or obj.maximum_power is None:
@@ -149,14 +154,14 @@ def add_constraints(
     stable_var = obj.stable_var.get_value(time)
     entered_up_var = obj.entered_up_var.get_value(time)
     entered_down_var = obj.entered_down_var.get_value(time)
-    power_level_var = model.get_variable(f"{obj.name}_power_level_{time}")
+    power_level_var = obj.power_level_var.get_value(time)
 
-    up_grad_var = model.get_variable(f"UP_grad_{time}_{obj.name}")
-    aux_up_grad_var = model.get_variable(f"aux_up_grad_{time}_{obj.name}")
-    down_grad_var = model.get_variable(f"DOWN_grad_{time}_{obj.name}")
-    aux_down_grad_var = model.get_variable(f"aux_down_grad_{time}_{obj.name}")
-    up_grad_prev_var = model.get_variable(f"UP_grad_{prev_time}_{obj.name}")
-    down_grad_prev_var = model.get_variable(f"DOWN_grad_{prev_time}_{obj.name}")
+    up_grad_var = obj.up_grad_var.get_value(time)
+    aux_up_grad_var = obj.aux_up_grad_var.get_value(time)
+    down_grad_var = obj.down_grad_var.get_value(time)
+    aux_down_grad_var = obj.aux_down_grad_var.get_value(time)
+    up_grad_prev_var = obj.up_grad_var.get_value(prev_time)
+    down_grad_prev_var = obj.down_grad_var.get_value(prev_time)
 
     off_prev_var = obj.off_var.get_value(prev_time)
     on_up_prev_var = obj.on_up_var.get_value(prev_time)
@@ -166,7 +171,7 @@ def add_constraints(
     entered_up_prev_var = obj.entered_up_var.get_value(prev_time)
     entered_down_prev_var = obj.entered_down_var.get_value(prev_time)
     start_prev_var = obj.on_start_var.get_value(prev_time)
-    power_level_prev_var = model.get_variable(f"{obj.name}_power_level_{prev_time}")
+    power_level_prev_var = obj.power_level_var.get_value(prev_time)
 
     on_flat_2_prev_var = obj.on_flat_var.get_value(prev_time - parameters.timestep)
     on_up_2_prev_var = obj.on_up_var.get_value(prev_time - parameters.timestep)
@@ -200,22 +205,37 @@ def add_constraints(
     model.add_constraint(stable_var >= on_flat_var - on_flat_prev_var, f"stable_evol_3_{time}_{obj.name}")
 
     if time == parameters.start_date:
-        model.add_constraint(stable_prev_var <= 1 - on_flat_2_prev_var, f"stable_evol_1_{prev_time}_{obj.name}")
+        model.add_constraint(
+            stable_prev_var <= 1 - on_flat_2_prev_var,
+            f"stable_evol_1_{prev_time}_{obj.name}",
+        )
         model.add_constraint(stable_prev_var <= on_flat_prev_var, f"stable_evol_2_{prev_time}_{obj.name}")
         model.add_constraint(
-            stable_prev_var >= on_flat_prev_var - on_flat_2_prev_var, f"stable_evol_3_{prev_time}_{obj.name}"
-        )
-
-        model.add_constraint(entered_up_prev_var <= 1 - on_up_2_prev_var, f"entered_up_evol_1_{prev_time}_{obj.name}")
-        model.add_constraint(entered_up_prev_var <= on_up_prev_var, f"entered_up_evol_2_{prev_time}_{obj.name}")
-        model.add_constraint(
-            entered_up_prev_var >= on_up_prev_var - on_up_2_prev_var, f"entered_up_evol_3_{prev_time}_{obj.name}"
+            stable_prev_var >= on_flat_prev_var - on_flat_2_prev_var,
+            f"stable_evol_3_{prev_time}_{obj.name}",
         )
 
         model.add_constraint(
-            entered_down_prev_var <= 1 - on_down_2_prev_var, f"entered_down_evol_1_{prev_time}_{obj.name}"
+            entered_up_prev_var <= 1 - on_up_2_prev_var,
+            f"entered_up_evol_1_{prev_time}_{obj.name}",
         )
-        model.add_constraint(entered_down_prev_var <= on_down_prev_var, f"entered_down_evol_2_{prev_time}_{obj.name}")
+        model.add_constraint(
+            entered_up_prev_var <= on_up_prev_var,
+            f"entered_up_evol_2_{prev_time}_{obj.name}",
+        )
+        model.add_constraint(
+            entered_up_prev_var >= on_up_prev_var - on_up_2_prev_var,
+            f"entered_up_evol_3_{prev_time}_{obj.name}",
+        )
+
+        model.add_constraint(
+            entered_down_prev_var <= 1 - on_down_2_prev_var,
+            f"entered_down_evol_1_{prev_time}_{obj.name}",
+        )
+        model.add_constraint(
+            entered_down_prev_var <= on_down_prev_var,
+            f"entered_down_evol_2_{prev_time}_{obj.name}",
+        )
         model.add_constraint(
             entered_down_prev_var >= on_down_prev_var - on_down_2_prev_var,
             f"entered_down_evol_3_{prev_time}_{obj.name}",
@@ -227,22 +247,39 @@ def add_constraints(
         )
 
         model.add_constraint(
-            on_up_2_prev_var + on_down_prev_var <= 1, f"transition_constraint_1_{prev_time}_{obj.name}"
+            on_up_2_prev_var + on_down_prev_var <= 1,
+            f"transition_constraint_1_{prev_time}_{obj.name}",
         )
         model.add_constraint(
-            on_down_2_prev_var + on_up_prev_var <= 1, f"transition_constraint_2_{prev_time}_{obj.name}"
+            on_down_2_prev_var + on_up_prev_var <= 1,
+            f"transition_constraint_2_{prev_time}_{obj.name}",
         )
 
     model.add_constraint(entered_up_var <= 1 - on_up_prev_var, f"entered_up_evol_1_{time}_{obj.name}")
     model.add_constraint(entered_up_var <= on_up_var, f"entered_up_evol_2_{time}_{obj.name}")
-    model.add_constraint(entered_up_var >= on_up_var - on_up_prev_var, f"entered_up_evol_3_{time}_{obj.name}")
+    model.add_constraint(
+        entered_up_var >= on_up_var - on_up_prev_var,
+        f"entered_up_evol_3_{time}_{obj.name}",
+    )
 
-    model.add_constraint(entered_down_var <= 1 - on_down_prev_var, f"entered_down_evol_1_{time}_{obj.name}")
+    model.add_constraint(
+        entered_down_var <= 1 - on_down_prev_var,
+        f"entered_down_evol_1_{time}_{obj.name}",
+    )
     model.add_constraint(entered_down_var <= on_down_var, f"entered_up_evol_2_{time}_{obj.name}")
-    model.add_constraint(entered_down_var >= on_down_var - on_down_prev_var, f"entered_up_evol_3_{time}_{obj.name}")
+    model.add_constraint(
+        entered_down_var >= on_down_var - on_down_prev_var,
+        f"entered_up_evol_3_{time}_{obj.name}",
+    )
 
-    model.add_constraint(aux_up_grad_var <= max_power * on_up_prev_var, f"tilde_U_evol_1_{time}_{obj.name}")
-    model.add_constraint(aux_up_grad_var >= min_power * on_up_prev_var, f"tilde_U_evol_2_{time}_{obj.name}")
+    model.add_constraint(
+        aux_up_grad_var <= max_power * on_up_prev_var,
+        f"tilde_U_evol_1_{time}_{obj.name}",
+    )
+    model.add_constraint(
+        aux_up_grad_var >= min_power * on_up_prev_var,
+        f"tilde_U_evol_2_{time}_{obj.name}",
+    )
     model.add_constraint(
         aux_up_grad_var <= power_level_var - power_level_prev_var - min_power * (1 - on_up_prev_var),
         f"tilde_U_evol_3_{time}_{obj.name}",
@@ -252,8 +289,14 @@ def add_constraints(
         f"tilde_U_evol_4_{time}_{obj.name}",
     )
 
-    model.add_constraint(aux_down_grad_var <= max_power * on_down_prev_var, f"tilde_D_evol_1_{time}_{obj.name}")
-    model.add_constraint(aux_down_grad_var >= min_power * on_down_prev_var, f"tilde_D_evol_2_{time}_{obj.name}")
+    model.add_constraint(
+        aux_down_grad_var <= max_power * on_down_prev_var,
+        f"tilde_D_evol_1_{time}_{obj.name}",
+    )
+    model.add_constraint(
+        aux_down_grad_var >= min_power * on_down_prev_var,
+        f"tilde_D_evol_2_{time}_{obj.name}",
+    )
     model.add_constraint(
         aux_down_grad_var <= power_level_var - power_level_prev_var - min_power * (1 - on_down_prev_var),
         f"tilde_D_evol_3_{time}_{obj.name}",
@@ -265,20 +308,29 @@ def add_constraints(
 
     model.add_constraint(up_grad_var <= max_power * on_up_var, f"U_evol_1_{time}_{obj.name}")
     model.add_constraint(up_grad_var >= min_power * on_up_var, f"U_evol_2_{time}_{obj.name}")
-    model.add_constraint(up_grad_var <= aux_up_grad_var - min_power * (1 - on_up_var), f"U_evol_3_{time}_{obj.name}")
-    model.add_constraint(up_grad_var >= aux_up_grad_var - max_power * (1 - on_up_var), f"U_evol_4_{time}_{obj.name}")
+    model.add_constraint(
+        up_grad_var <= aux_up_grad_var - min_power * (1 - on_up_var),
+        f"U_evol_3_{time}_{obj.name}",
+    )
+    model.add_constraint(
+        up_grad_var >= aux_up_grad_var - max_power * (1 - on_up_var),
+        f"U_evol_4_{time}_{obj.name}",
+    )
 
     model.add_constraint(down_grad_var <= max_power * on_down_var, f"D_evol_1_{time}_{obj.name}")
     model.add_constraint(down_grad_var >= min_power * on_down_var, f"D_evol_2_{time}_{obj.name}")
     model.add_constraint(
-        down_grad_var <= aux_down_grad_var - min_power * (1 - on_down_var), f"D_evol_3_{time}_{obj.name}"
+        down_grad_var <= aux_down_grad_var - min_power * (1 - on_down_var),
+        f"D_evol_3_{time}_{obj.name}",
     )
     model.add_constraint(
-        down_grad_var >= aux_down_grad_var - max_power * (1 - on_down_var), f"D_evol_4_{time}_{obj.name}"
+        down_grad_var >= aux_down_grad_var - max_power * (1 - on_down_var),
+        f"D_evol_4_{time}_{obj.name}",
     )
 
     model.add_constraint(
-        off_var + on_up_var + on_down_var + on_flat_var + start_var == 1, f"mutual_exclusion_{time}_{obj.name}"
+        off_var + on_up_var + on_down_var + on_flat_var + start_var == 1,
+        f"mutual_exclusion_{time}_{obj.name}",
     )
 
     model.add_constraint(on_up_prev_var + on_down_var <= 1, f"transition_constraint_1_{time}_{obj.name}")
@@ -293,7 +345,10 @@ def add_constraints(
 
     eviction_time = time - (obj._T_start - 1) * parameters.timestep
     turned_on_eviction_var = model.get_variable(f"t_on_{obj.name}_{eviction_time}")
-    model.add_constraint(turned_on_eviction_var + start_var <= 1, f"eviction_constraint_{time}_{obj.name}")
+    model.add_constraint(
+        turned_on_eviction_var + start_var <= 1,
+        f"eviction_constraint_{time}_{obj.name}",
+    )
 
     # Minimum time constraints
     if obj._T_on >= 2:
@@ -325,13 +380,17 @@ def add_constraints(
         for s in range(1, obj._T_stable - 1):
             local_time = time - s * parameters.timestep
             stable_local_var = obj.stable_var.get_value(local_time)
-            model.add_constraint(stable_local_var <= on_flat_var, f"minimum_time_stable_{obj.name}_{local_time}_{time}")
+            model.add_constraint(
+                stable_local_var <= on_flat_var,
+                f"minimum_time_stable_{obj.name}_{local_time}_{time}",
+            )
 
             if time == parameters.start_date:
                 local_time = time - (s + 1) * parameters.timestep
                 stable_local_var = obj.stable_var.get_value(local_time)
                 model.add_constraint(
-                    stable_local_var <= on_flat_prev_var, f"minimum_time_stable_{obj.name}_{local_time}_{prev_time}"
+                    stable_local_var <= on_flat_prev_var,
+                    f"minimum_time_stable_{obj.name}_{local_time}_{prev_time}",
                 )
 
     if obj._T_start >= 2:

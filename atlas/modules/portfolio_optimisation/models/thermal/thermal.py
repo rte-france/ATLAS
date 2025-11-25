@@ -27,9 +27,13 @@ from atlas.modules.portfolio_optimisation.models.thermal import (
     combination_7,
     combination_8,
 )
-from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.parameters import (
+    PortfolioOptimisationParameters,
+)
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
-from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
+from atlas.modules.portfolio_optimisation.utils.variable_utils import (
+    add_reserve_variables,
+)
 from atlas.solver.model_var import ModelVar
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
@@ -86,6 +90,11 @@ class ThermalPO(Thermal):
     turned_off: ModelVar = None  # type:ignore [assignment]
     turned_on: ModelVar = None  # type:ignore [assignment]
     power_level_var: ModelVar = None  # type:ignore [assignment]
+    up_grad_var: ModelVar = None  # type:ignore [assignment]
+    aux_up_grad_var: ModelVar = None  # type:ignore [assignment]
+    down_grad_var: ModelVar = None  # type:ignore [assignment]
+    aux_down_grad_var: ModelVar = None  # type:ignore [assignment]
+    dd_grad_var: ModelVar = None  # type:ignore [assignment]
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """Compute time step parameters from duration constraints."""
@@ -152,7 +161,12 @@ class ThermalPO(Thermal):
             cfg.logger("Combination constraint set can not be determined, default to 1.")
             return 1  # Default fallback
 
-    def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+    def add_variables(
+        self,
+        model: OptimisationModel,
+        time: DateTime,
+        parameters: PortfolioOptimisationParameters,
+    ):
         """Build variables for complex thermal unit commitment."""
 
         # Always defined state variables for optimization time frame
@@ -179,14 +193,11 @@ class ThermalPO(Thermal):
                 self.entered_up_var.set_model_var(time)
                 self.entered_down_var.set_model_var(time)
 
-                # Gradient auxiliary variables for stable case
-                max_power = self.maximum_power.max()
-                model.add_continuous_variable(f"UP_grad_{time}_{self.name}", -max_power, max_power)
-                model.add_continuous_variable(f"aux_up_grad_{time}_{self.name}", -max_power, max_power)
-                model.add_continuous_variable(f"DOWN_grad_{time}_{self.name}", -max_power, max_power)
-                model.add_continuous_variable(f"aux_down_grad_{time}_{self.name}", -max_power, max_power)
+                self.up_grad_var.set_model_var(time)
+                self.aux_up_grad_var.set_model_var(time)
+                self.down_grad_var.set_model_var(time)
+                self.aux_down_grad_var.set_model_var(time)
 
-            # Specific combinations for additional auxiliary variables
             if self._T_stop >= 1 and self._T_start == 0 and self._T_stable == 0:
                 self.down_to_stop_grad.set_model_var(time)
 
@@ -194,13 +205,10 @@ class ThermalPO(Thermal):
                 self.flat_down_stop.set_model_var(time)
 
             if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
-                max_power = self.maximum_power.max()
-                model.add_continuous_variable(f"DD_grad_{time}_{self.name}", -max_power, max_power)
+                self.dd_grad_var.set_model_var(time)
 
             if self._T_stop >= 1 and self._T_start >= 1 and self._T_stable == 0:
                 self.down_to_stop_grad.set_model_var(time)
-
-            # Power and reserve variables
 
             if self.minimum_power is None:
                 self.minimum_power = Timeseries.from_index(
@@ -262,10 +270,16 @@ class ThermalPO(Thermal):
         if time in self.optimisation_time_window:
             variable_cost = self.variable_cost.get_value(time)
             power_level_var = self.power_level_var.get_value(time)
-            model.add_objective(variable_cost * power_level_var * parameters.timestep.total_hours(), "minimize")
+            model.add_objective(
+                variable_cost * power_level_var * parameters.timestep.total_hours(),
+                "minimize",
+            )
 
             if len(parameters.target_times) > 0 and time not in parameters.target_times:
-                model.add_objective(-price_forecast * power_level_var * parameters.timestep.total_hours(), "minimize")
+                model.add_objective(
+                    -price_forecast * power_level_var * parameters.timestep.total_hours(),
+                    "minimize",
+                )
 
             if self.startup_cost is not None:
                 startup_cost = self.startup_cost.get_value(time)
@@ -346,7 +360,7 @@ class ThermalPO(Thermal):
             setter=lambda time: model.add_boolean_variable(f"down_to_stop_grad_{time}_{self.name}"),
         )
         self.stop_var = ModelVar(
-            getter=lambda time: model.get_variable(f"stopp_{self.name}_{time}"),
+            getter=lambda time: model.get_variable(f"stop_{self.name}_{time}"),
             setter=lambda time: model.add_boolean_variable(f"stop_{self.name}_{time}"),
         )
         self.turned_off = ModelVar(
@@ -357,11 +371,50 @@ class ThermalPO(Thermal):
             getter=lambda time: model.get_variable(f"t_on_{self.name}_{time}"),
             setter=lambda time: model.add_boolean_variable(f"t_on_{self.name}_{time}"),
         )
-
         self.power_level_var = ModelVar(
             getter=lambda time: model.get_variable(f"{self.name}_power_level_{time}"),
             setter=lambda time: model.add_continuous_variable(
                 f"{self.name}_power_level_{time}", 0, self.maximum_power.get_value(time)
+            ),
+        )
+        self.up_grad_var = ModelVar(
+            getter=lambda time: model.get_variable(f"up_grad_{time}_{self.name}"),
+            setter=lambda time: model.add_continuous_variable(
+                f"up_grad_{time}_{self.name}",
+                -self.maximum_power.get_value(time),
+                self.maximum_power.get_value(time),
+            ),
+        )
+        self.down_grad_var = ModelVar(
+            getter=lambda time: model.get_variable(f"down_grad_{time}_{self.name}"),
+            setter=lambda time: model.add_continuous_variable(
+                f"down_grad_{time}_{self.name}",
+                -self.maximum_power.get_value(time),
+                self.maximum_power.get_value(time),
+            ),
+        )
+        self.aux_up_grad_var = ModelVar(
+            getter=lambda time: model.get_variable(f"aux_up_grad_{time}_{self.name}"),
+            setter=lambda time: model.add_continuous_variable(
+                f"aux_up_grad_{time}_{self.name}",
+                -self.maximum_power.get_value(time),
+                self.maximum_power.get_value(time),
+            ),
+        )
+        self.aux_down_grad_var = ModelVar(
+            getter=lambda time: model.get_variable(f"aux_down_grad_{time}_{self.name}"),
+            setter=lambda time: model.add_continuous_variable(
+                f"aux_down_grad_{time}_{self.name}",
+                -self.maximum_power.get_value(time),
+                self.maximum_power.get_value(time),
+            ),
+        )
+        self.dd_grad_var = ModelVar(
+            getter=lambda time: model.get_variable(f"dd_grad_{time}_{self.name}"),
+            setter=lambda time: model.add_continuous_variable(
+                f"dd_grad_{time}_{self.name}",
+                -self.maximum_power.get_value(time),
+                self.maximum_power.get_value(time),
             ),
         )
 

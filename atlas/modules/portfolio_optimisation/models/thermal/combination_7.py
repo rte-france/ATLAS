@@ -133,14 +133,14 @@ def add_constraints(
     turned_on_var = obj.turned_on.get_value(time)
     turned_off_var = obj.turned_off.get_value(time)
     down_to_stop_var = obj.down_to_stop_grad.get_value(time)
-    power_level_var = model.get_variable(f"{obj.name}_power_level_{time}")
+    power_level_var = obj.power_level_var.get_value(time)
 
     off_prev_var = obj.off_var.get_value(prev_time)
     on_up_prev_var = obj.on_up_var.get_value(prev_time)
     on_down_prev_var = obj.on_down_var.get_value(prev_time)
     start_prev_var = obj.on_start_var.get_value(prev_time)
     stop_prev_var = obj.stop_var.get_value(prev_time)
-    power_prev_var = model.get_variable(f"{obj.name}_power_level_{prev_time}")
+    power_prev_var = obj.power_level_var.get_value(prev_time)
 
     reserves_up_var = model.get_variable(f"reserves_up_{obj.name}_{time}")
     reserves_down_var = model.get_variable(f"reserves_down_{obj.name}_{time}")
