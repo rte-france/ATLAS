@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 from atlas.enum import SolverEnum
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
+from tests.conftest import requires_xpress
 
 
 class TestSolverOptions:
@@ -164,6 +165,7 @@ class TestSolverOptionsParameterPassing:
         assert call_options.duality_gap == 0.02
         assert call_options.time_limit == 60.0
 
+    @requires_xpress
     def test_xpress_uses_xpress_builder(self):
         """Test that XPRESS solver uses XPRESSParameterBuilder."""
         from atlas.solver.solver_interface import XPRESSParameterBuilder
