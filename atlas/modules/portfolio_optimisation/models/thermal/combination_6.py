@@ -336,12 +336,14 @@ def add_constraints(
                     stable_local_var <= on_flat_prev_var, f"minimum_time_stable_{obj.name}_{local_time}_{prev_time}"
                 )
 
-    # Shutdown ramp constraints - eq. (24)
     if obj._T_start >= 2:
         for s in range(1, obj._T_stop - 1):
             local_time = time - s * parameters.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
-            model.add_constraint(turned_on_local_var <= start_var)
+            model.add_constraint(
+                turned_on_local_var <= start_var,
+                f"startup_ramp_{obj.name}_{local_time}_{time}",
+            )
 
     model.add_constraint(
         power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
