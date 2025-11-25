@@ -298,15 +298,14 @@ def add_constraints(
     # Minimum time constraints
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
-            local_time = time - s * parameters.timestep
+            local_time = time - (s + obj._T_start) * parameters.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(
                 turned_on_local_var <= on_up_var + on_down_var + on_flat_var,
                 f"minimum_time_on_{obj.name}_{local_time}_{time}",
             )
-        if time == parameters.start_date:
-            for s in range(1, obj._T_on):
-                local_time = time - s * parameters.timestep
+            if time == parameters.start_date:
+                local_time = time - (s + obj._T_start + 1) * parameters.timestep
                 turned_on_local_var = obj.turned_on.get_value(local_time)
                 model.add_constraint(
                     turned_on_local_var <= on_up_prev_var + on_down_prev_var + on_flat_prev_var,
@@ -328,9 +327,8 @@ def add_constraints(
             stable_local_var = obj.stable_var.get_value(local_time)
             model.add_constraint(stable_local_var <= on_flat_var, f"minimum_time_stable_{obj.name}_{local_time}_{time}")
 
-        if time == parameters.start_date:
-            for s in range(1, obj._T_stable - 1):
-                local_time = time - s * parameters.timestep
+            if time == parameters.start_date:
+                local_time = time - (s + 1) * parameters.timestep
                 stable_local_var = obj.stable_var.get_value(local_time)
                 model.add_constraint(
                     stable_local_var <= on_flat_prev_var, f"minimum_time_stable_{obj.name}_{local_time}_{prev_time}"
@@ -372,7 +370,7 @@ def add_constraints(
         - unprovided_reserves_down_var
         + relaxed_reserves_var
         >= min_power - parameters.allowed_round_off_error,
-        f"down_fillup_1_{time}_{obj.name}",
+        f"down_fillup_2_{time}_{obj.name}",
     )
 
     model.add_constraint(
