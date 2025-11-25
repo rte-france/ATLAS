@@ -21,7 +21,7 @@ class Pricing(OptimisationModel):
                  saturated_critical_branch: dict[tuple[str, int], float],
                  exchange_fixing_border_exchanges: dict[tuple[str, int], float],
                  clearing_local_balances: dict[tuple[str, int], float],
-                 clearing_accepted_powers: dict[tuple[str, int], float]):
+                 clearing_accepted_powers: dict[tuple[str, str], float]):
         super().__init__(parameters.solver_name)
         self.input_dataset = input_dataset
         self.parameters = parameters
@@ -48,7 +48,7 @@ class Pricing(OptimisationModel):
 
         if solver_info.status not in [pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE]:
             self.build_third()
-            solver_info = self.solve()
+            _ = self.solve()
             self.export_model("pricing_3_model.lp")
 
     def build_first(self):
