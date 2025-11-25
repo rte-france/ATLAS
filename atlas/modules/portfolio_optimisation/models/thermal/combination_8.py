@@ -156,7 +156,7 @@ def add_initial_conditions(
                     time - 3 * parameters.timestep,
                 )
 
-        initialize_gradient_initial_conditions(obj, model, power_ts, parameters)
+        initialize_gradient_initial_conditions(obj, parameters)
 
 
 def add_constraints(

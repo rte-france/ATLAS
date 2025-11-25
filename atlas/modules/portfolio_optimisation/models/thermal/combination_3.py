@@ -48,7 +48,7 @@ def add_initial_conditions(
 
         power_ts = kwargs.get("power_ts")
         if isinstance(power_ts, Timeseries):
-            initialize_gradient_initial_conditions(obj, model, power_ts, parameters)
+            initialize_gradient_initial_conditions(obj, parameters)
 
     else:
         power_ts = kwargs.get("power_ts")
@@ -127,7 +127,7 @@ def add_initial_conditions(
                 if obj.on_down_var.get_extended_value(time) - obj.on_down_var.get_extended_value(prev_time) == 1:
                     obj.entered_down_var.set_extended(time, 1)
 
-        initialize_gradient_initial_conditions(obj, model, parameters)
+        initialize_gradient_initial_conditions(obj, parameters)
 
 
 def add_constraints(

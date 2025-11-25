@@ -113,7 +113,6 @@ def initialize_day_zero_stable_vars(
 
 def initialize_gradient_initial_conditions(
     obj: ThermalPO,
-    model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
 ) -> None:
     """

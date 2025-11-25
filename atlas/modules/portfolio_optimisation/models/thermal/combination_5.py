@@ -52,7 +52,7 @@ def add_initial_conditions(
 
         power_ts = kwargs.get("power_ts")
         if isinstance(power_ts, Timeseries):
-            initialize_gradient_initial_conditions(obj, model, power_ts, parameters)
+            initialize_gradient_initial_conditions(obj, parameters)
 
     else:
         # Non-dayZero case: Initialize based on power history
@@ -141,7 +141,7 @@ def add_initial_conditions(
                     time - 3 * parameters.timestep,
                 )
 
-        initialize_gradient_initial_conditions(obj, model, power_ts, parameters)
+        initialize_gradient_initial_conditions(obj, parameters)
         initialize_flat_down_stop_initial_conditions(
             obj,
             parameters.start_date - parameters.timestep,
