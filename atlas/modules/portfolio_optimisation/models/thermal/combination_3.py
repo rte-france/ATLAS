@@ -244,7 +244,7 @@ def add_constraints(
     model.add_constraint(on_up_prev_var + on_down_var <= 1, f"transition_constraint_1_{time}_{obj.name}")
     model.add_constraint(on_down_prev_var + on_up_var <= 1, f"transition_constraint_2_{time}_{obj.name}")
 
-    if time == obj.optimisation_time_window[0]:
+    if time == parameters.start_date:
         (
             model.add_constraint(off_prev_var + on_up_prev_var + on_down_prev_var + on_flat_prev_var == 1),
             f"mutual_exclusion_{time}_{obj.name}",
