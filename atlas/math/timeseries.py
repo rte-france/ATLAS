@@ -313,7 +313,7 @@ class Timeseries:
         """
         try:
             dt = build_datetime(item).in_tz(self.timezone)
-            return dt in self.timeseries["time"].to_list()
+            return self.timeseries.filter(pl.col("time") == dt).height > 0
         except Exception:
             return False
 

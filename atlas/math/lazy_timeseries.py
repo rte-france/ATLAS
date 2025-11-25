@@ -282,7 +282,7 @@ class LazyTimeseries:
         """
         try:
             dt = build_datetime(item).in_tz(self.timezone)
-            return dt in self.timeseries.select("time").collect().to_series().to_list()
+            return self.timeseries.filter(pl.col("time") == dt).collect().height > 0
         except Exception:
             return False
 
