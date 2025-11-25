@@ -249,25 +249,32 @@ def add_constraints(
             model.add_constraint(off_prev_var + on_up_prev_var + on_down_prev_var + on_flat_prev_var == 1),
             f"mutual_exclusion_{time}_{obj.name}",
         )
-        model.add_constraint(on_up_prev_2_var + on_down_prev_var <= 1, f"transition_constraint_1_{time}_{obj.name}")
-        model.add_constraint(on_down_prev_2_var + on_up_prev_var <= 1, f"transition_constraint_2_{time}_{obj.name}")
-
-        model.add_constraint(stable_prev_var <= 1 - on_flat_prev_2_var, f"stable_evol_1_{time}_{obj.name}")
-        model.add_constraint(stable_prev_var <= on_flat_prev_var, f"stable_evol_2_{time}_{obj.name}")
         model.add_constraint(
-            stable_prev_var >= on_flat_prev_var - on_flat_prev_2_var, f"stable_evol_3_{time}_{obj.name}"
+            on_up_prev_2_var + on_down_prev_var <= 1, f"transition_constraint_1_{prev_time}_{obj.name}"
+        )
+        model.add_constraint(
+            on_down_prev_2_var + on_up_prev_var <= 1, f"transition_constraint_2_{prev_time}_{obj.name}"
         )
 
-        model.add_constraint(entered_up_prev_var <= 1 - on_up_prev_2_var, f"entered_up_evol_1_{time}_{obj.name}")
-        model.add_constraint(entered_up_prev_var <= on_up_prev_var, f"entered_up_evol_2_{time}_{obj.name}")
+        model.add_constraint(stable_prev_var <= 1 - on_flat_prev_2_var, f"stable_evol_1_{prev_time}_{obj.name}")
+        model.add_constraint(stable_prev_var <= on_flat_prev_var, f"stable_evol_2_{prev_time}_{obj.name}")
         model.add_constraint(
-            entered_up_prev_var >= on_up_prev_var - on_up_prev_2_var, f"entered_up_evol_3_{time}_{obj.name}"
+            stable_prev_var >= on_flat_prev_var - on_flat_prev_2_var, f"stable_evol_3_{prev_time}_{obj.name}"
         )
 
-        model.add_constraint(entered_down_prev_var <= 1 - on_down_prev_2_var, f"entered_down_evol_1_{time}_{obj.name}")
-        model.add_constraint(entered_down_prev_var <= on_down_prev_var, f"entered_down_evol_2_{time}_{obj.name}")
+        model.add_constraint(entered_up_prev_var <= 1 - on_up_prev_2_var, f"entered_up_evol_1_{prev_time}_{obj.name}")
+        model.add_constraint(entered_up_prev_var <= on_up_prev_var, f"entered_up_evol_2_{prev_time}_{obj.name}")
         model.add_constraint(
-            entered_down_prev_var >= on_down_prev_var - on_down_prev_2_var, f"entered_down_evol_3_{time}_{obj.name}"
+            entered_up_prev_var >= on_up_prev_var - on_up_prev_2_var, f"entered_up_evol_3_{prev_time}_{obj.name}"
+        )
+
+        model.add_constraint(
+            entered_down_prev_var <= 1 - on_down_prev_2_var, f"entered_down_evol_1_{prev_time}_{obj.name}"
+        )
+        model.add_constraint(entered_down_prev_var <= on_down_prev_var, f"entered_down_evol_2_{prev_time}_{obj.name}")
+        model.add_constraint(
+            entered_down_prev_var >= on_down_prev_var - on_down_prev_2_var,
+            f"entered_down_evol_3_{prev_time}_{obj.name}",
         )
 
     if obj._T_on >= 2:
