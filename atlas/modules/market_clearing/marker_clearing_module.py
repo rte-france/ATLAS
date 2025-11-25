@@ -12,6 +12,7 @@ from atlas.modules.market_clearing.market_clearing_parameters import MarketClear
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.exchanges_fixing import ExchangesFixing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
+from atlas.modules.market_clearing.phases.pricing import Pricing
 
 
 class MarketClearingModule(
@@ -41,14 +42,27 @@ class MarketClearingModule(
     ) -> MarketClearingOutputDataset:
         clearing = Clearing(input_dataset, parameters)
         clearing.run()
+        saturated_critical_branches = clearing.retrieve_saturated_critical_branch()
+        local_balances = clearing.retrieve_local_balances()
+        accepted_powers = clearing.retrieve_accepted_powers()
+
         # Launch Exchange Fixing phase
         exchange_fixing = ExchangesFixing(input_dataset, parameters)
-        exchange_fixing.run(clearing.retrieve_local_balances())
+        exchange_fixing.run(local_balances)
+        border_exchanges = exchange_fixing.retrieve_border_exchanges()
+
         # Launch Pricing phase
-        market_prices: dict[str, list[float]] = {}  # retrieve from pricing
+        pricing = Pricing(input_dataset, parameters, saturated_critical_branches, border_exchanges, local_balances,
+                          accepted_powers)
+        pricing.run()
+        market_prices = pricing.retrieve_market_prices()
+
+        # Launch Marginal Fixing phase
         marginal_fixing = MarginalFixing(input_dataset, parameters)
-        marginal_fixing.run(clearing.retrieve_local_balances(), market_prices)
-        return MarketClearingOutputDataset()
+        marginal_fixing.run(accepted_powers, market_prices)
+
+        market_clearing_output_dataset = MarketClearingOutputDataset(input_dataset)
+        return market_clearing_output_dataset
 
     def validates_results(
         self,
