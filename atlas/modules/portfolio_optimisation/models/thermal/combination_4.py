@@ -139,17 +139,17 @@ def add_constraints(
     model.add_constraint(turned_off_var <= off_var, f"t_off_evol_2_{time}_{obj.name}")
     model.add_constraint(turned_off_var >= off_var - off_prev_var, f"t_off_evol_3_{time}_{obj.name}")
 
-    model.add_constraint(off_var + on_up_var + on_down_var + start_var == 1)
+    model.add_constraint(off_var + on_up_var + on_down_var + start_var == 1, f"mutual_exclusion_{time}_{obj.name}")
 
-    model.add_constraint(on_up_prev_var + start_var <= 1)
-    model.add_constraint(on_down_prev_var + start_var <= 1)
-    model.add_constraint(start_prev_var + off_var <= 1)
-    model.add_constraint(off_prev_var + on_up_var <= 1)
-    model.add_constraint(off_prev_var + on_down_var <= 1)
+    model.add_constraint(on_up_prev_var + start_var <= 1, f"transition_constraint_1_{time}_{obj.name}")
+    model.add_constraint(on_down_prev_var + start_var <= 1, f"transition_constraint_2_{time}_{obj.name}")
+    model.add_constraint(start_prev_var + off_var <= 1, f"transition_constraint_3_{time}_{obj.name}")
+    model.add_constraint(off_prev_var + on_up_var <= 1, f"transition_constraint_4_{time}_{obj.name}")
+    model.add_constraint(off_prev_var + on_down_var <= 1, f"transition_constraint_5_{time}_{obj.name}")
 
     eviction_time = time - (obj._T_start - 1) * parameters.timestep
     turned_on_eviction_var = obj.turned_on.get_value(eviction_time)
-    model.add_constraint(turned_on_eviction_var + start_var <= 1)
+    model.add_constraint(turned_on_eviction_var + start_var <= 1, f"eviction_constraint_{time}_{obj.name}")
 
     # Minimum time constraints
     if obj._T_on >= 2:
@@ -157,27 +157,31 @@ def add_constraints(
             # eq. (27) with T_start > 0 - adjusted timing for startup
             local_time = time - (s + obj._T_start) * parameters.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
-            model.add_constraint(turned_on_local_var <= on_up_var + on_down_var)
+            model.add_constraint(
+                turned_on_local_var <= on_up_var + on_down_var, f"minimum_time_on_{obj.name}_{local_time}_{time}"
+            )
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
             local_time = time - s * parameters.timestep
             turned_off_local_var = obj.turned_off.get_value(local_time)
-            model.add_constraint(turned_off_local_var <= off_var)
+            model.add_constraint(turned_off_local_var <= off_var, f"minimum_time_off_{obj.name}_{local_time}_{time}")
 
     if obj._T_start >= 2:
         for s in range(1, obj._T_start):
             local_time = time - s * parameters.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
-            model.add_constraint(turned_on_local_var <= start_var)
+            model.add_constraint(turned_on_local_var <= start_var, f"startup_ramp_{obj.name}_{local_time}_{time}")
 
     model.add_constraint(
         power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-        <= max_power + parameters.allowed_round_off_error
+        <= max_power + parameters.allowed_round_off_error,
+        f"up_fillup_1_{time}_{obj.name}",
     )
     model.add_constraint(
         power_level_var + reserves_up_var + automated_reserves_up_var + unprovided_reserves_up_var
-        >= max_power - parameters.allowed_round_off_error
+        >= max_power - parameters.allowed_round_off_error,
+        f"up_fillup_2_{time}_{obj.name}",
     )
 
     model.add_constraint(
@@ -186,7 +190,8 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        <= min_power + parameters.allowed_round_off_error
+        <= min_power + parameters.allowed_round_off_error,
+        f"down_fillup_1_{time}_{obj.name}",
     )
     model.add_constraint(
         power_level_var
@@ -194,25 +199,39 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        >= min_power - parameters.allowed_round_off_error
+        >= min_power - parameters.allowed_round_off_error,
+        f"down_fillup_2_{time}_{obj.name}",
     )
 
-    model.add_constraint(relaxed_reserves_var <= min_power * (1 - on_up_var - on_down_var))
+    model.add_constraint(
+        relaxed_reserves_var <= min_power * (1 - on_up_var - on_down_var), f"relaxed_reserves_{time}_{obj.name}"
+    )
 
-    model.add_constraint(automated_reserves_up_var <= maximum_automated * (1 - off_var - start_var))
-    model.add_constraint(automated_reserves_down_var <= maximum_automated * (1 - off_var - start_var))
-    model.add_constraint(reserves_up_var <= max_power * (1 - off_var - start_var))
-    model.add_constraint(reserves_down_var <= max_power * (1 - off_var - start_var))
+    model.add_constraint(
+        automated_reserves_up_var <= maximum_automated * (1 - off_var - start_var),
+        f"automated_reserves_up_max_{time}_{obj.name}",
+    )
+    model.add_constraint(
+        automated_reserves_down_var <= maximum_automated * (1 - off_var - start_var),
+        f"automated_reserves_down_max_{time}_{obj.name}",
+    )
+    model.add_constraint(reserves_up_var <= max_power * (1 - off_var - start_var), f"reserves_up_max_{time}_{obj.name}")
+    model.add_constraint(
+        reserves_down_var <= max_power * (1 - off_var - start_var), f"reserves_down_max_{time}_{obj.name}"
+    )
 
-    model.add_constraint(power_level_var >= min_power * (on_up_var + on_down_var))
+    model.add_constraint(power_level_var >= min_power * (on_up_var + on_down_var), f"lower_bound_{obj.name}_{time}")
 
-    model.add_constraint(power_level_var <= max_power * (on_up_var + on_down_var) + start_var * q_min)
+    model.add_constraint(
+        power_level_var <= max_power * (on_up_var + on_down_var) + start_var * q_min, f"upper_bound_{obj.name}_{time}"
+    )
 
     if time in obj.optimisation_time_window[:-1]:
         if obj._Delta_Q > 0:
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                <= obj._Delta_Q * on_up_prev_var + turned_on_var * q_step + start_prev_var * q_step
+                <= obj._Delta_Q * on_up_prev_var + turned_on_var * q_step + start_prev_var * q_step,
+                f"upward_gradient_{obj.name}_{time}",
             )
 
             model.add_constraint(
@@ -220,18 +239,20 @@ def add_constraints(
                 >= -obj._Delta_Q * on_down_prev_var
                 + turned_on_var * q_step
                 + start_prev_var * q_step
-                - obj._Delta_Q_unconstrained * turned_off_var
+                - obj._Delta_Q_unconstrained * turned_off_var,
+                f"downward_gradient_{obj.name}_{time}",
             )
         elif obj._Delta_Q == 0:
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                <= obj._Delta_Q_unconstrained * on_up_prev_var + turned_on_var * q_step + start_prev_var * q_step
+                <= obj._Delta_Q_unconstrained * on_up_prev_var + (turned_on_var + start_prev_var) * q_step,
+                f"unconstrained_upward_gradient_{obj.name}_{prev_time}",
             )
             # Downward unconstrained gradient with startup ramping - eq. (36)
             model.add_constraint(
                 power_level_var - power_level_prev_var
                 >= -obj._Delta_Q_unconstrained * on_down_prev_var
-                + turned_on_var * q_step
-                + start_prev_var * q_step
-                - obj._Delta_Q_unconstrained * turned_off_var
+                + (turned_on_var + start_prev_var) * q_step
+                - obj._Delta_Q_unconstrained * turned_off_var,
+                f"unconstrained_downward_gradient_{obj.name}_{prev_time}",
             )
