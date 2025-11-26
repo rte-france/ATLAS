@@ -23,9 +23,7 @@ from atlas.modules.portfolio_optimisation.models.thermal.initial_conditions_util
     initialize_flat_down_stop_initial_conditions,
     initialize_gradient_initial_conditions,
 )
-from atlas.modules.portfolio_optimisation.parameters import (
-    PortfolioOptimisationParameters,
-)
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -41,8 +39,8 @@ def add_initial_conditions(
     """Combination 8: T_stop>=1, T_start>=1, T_stable>=1"""
     if day_zero:
         for time in kwargs.get("initial_times", []):
-            initialize_day_zero_core(obj, model, time)
-            initialize_day_zero_gradient_vars(obj, model, time)
+            initialize_day_zero_core(obj, time)
+            initialize_day_zero_gradient_vars(obj, time)
 
             obj.flat_down_stop.set_extended(time, 0)
             obj.on_start_var.set_extended(time, 0)

@@ -11,19 +11,14 @@ from typing import TYPE_CHECKING
 
 from pendulum import DateTime
 
-from atlas.modules.portfolio_optimisation.parameters import (
-    PortfolioOptimisationParameters,
-)
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 if TYPE_CHECKING:
     from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 
-from atlas.solver.solver_interface import OptimisationModel
-
 
 def initialize_day_zero_core(
     obj: ThermalPO,
-    model: OptimisationModel,
     time: DateTime,
 ) -> None:
     """
@@ -67,7 +62,6 @@ def initialize_day_zero_on_states(
 
 def initialize_day_zero_gradient_vars(
     obj: ThermalPO,
-    model: OptimisationModel,
     time: DateTime,
 ) -> None:
     """
@@ -129,16 +123,12 @@ def initialize_gradient_initial_conditions(
 
     obj.up_grad_var.set_extended(
         start_date_minus_one,
-        power_diff
-        * obj.on_up_var.get_extended_value(start_date_minus_one)
-        * obj.on_up_var.get_extended_value(start_date_minus_two),
+        power_diff * obj.on_up_var.get_value(start_date_minus_one) * obj.on_up_var.get_value(start_date_minus_two),
     )
 
     obj.down_grad_var.set_extended(
         start_date_minus_one,
-        power_diff
-        * obj.on_down_var.get_extended_value(start_date_minus_one)
-        * obj.on_down_var.get_extended_value(start_date_minus_two),
+        power_diff * obj.on_down_var.get_value(start_date_minus_one) * obj.on_down_var.get_value(start_date_minus_two),
     )
 
 

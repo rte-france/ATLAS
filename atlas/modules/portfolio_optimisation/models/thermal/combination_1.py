@@ -36,7 +36,7 @@ def add_initial_conditions(
     """Combination 1: T_stop=0, T_start=0, T_stable=0"""
     if day_zero:
         for time in kwargs.get("initial_times", []):
-            initialize_day_zero_core(obj, model, time)
+            initialize_day_zero_core(obj, time)
             initialize_day_zero_on_states(obj, time)
     else:
         # Non-dayZero case: Initialize based on power history

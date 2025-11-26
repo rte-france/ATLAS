@@ -36,7 +36,7 @@ def add_initial_conditions(
     """Combination 4: T_stop=0, T_start>=1, T_stable=0"""
     if day_zero:
         for time in kwargs.get("initial_times", []):
-            initialize_day_zero_core(obj, model, time)
+            initialize_day_zero_core(obj, time)
             initialize_day_zero_on_states(obj, time)
 
             obj.on_start_var.set_extended(time, 0)
@@ -63,6 +63,12 @@ def add_initial_conditions(
                 elif power_t > 0:
                     obj.off_var.set_extended(time, 0)
                     obj.on_start_var.set_extended(time, 1)
+                    obj.on_up_var.set_extended(time, 0)
+                    obj.on_down_var.set_extended(time, 0)
+
+                else:
+                    obj.off_var.set_extended(time, 1)
+                    obj.on_start_var.set_extended(time, 0)
                     obj.on_up_var.set_extended(time, 0)
                     obj.on_down_var.set_extended(time, 0)
 

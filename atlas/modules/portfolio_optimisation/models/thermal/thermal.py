@@ -27,13 +27,9 @@ from atlas.modules.portfolio_optimisation.models.thermal import (
     combination_7,
     combination_8,
 )
-from atlas.modules.portfolio_optimisation.parameters import (
-    PortfolioOptimisationParameters,
-)
+from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
-from atlas.modules.portfolio_optimisation.utils.variable_utils import (
-    add_reserve_variables,
-)
+from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.model_var import ModelVar
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
@@ -418,6 +414,16 @@ class ThermalPO(Thermal):
             ),
         )
 
+    def _add_initial_variables(self, parameters: PortfolioOptimisationParameters):
+        """Add initial variables for timestep not included in optimisation times"""
+        if self._T_stable >= 1:
+            self.on_up_var.set_model_var(parameters.start_date - parameters.timestep)
+            self.on_down_var.set_model_var(parameters.start_date - parameters.timestep)
+            self.on_flat_var.set_model_var(parameters.start_date - parameters.timestep)
+            self.stable_var.set_model_var(parameters.start_date - parameters.timestep)
+            self.entered_up_var.set_model_var(parameters.start_date - parameters.timestep)
+            self.entered_down_var.set_model_var(parameters.start_date - parameters.timestep)
+
     def add_initial_conditions(
         self,
         model: OptimisationModel,
@@ -428,6 +434,7 @@ class ThermalPO(Thermal):
         """
         self._compute_time_parameters(parameters)
         self._setup_state_variables(model)
+        self._add_initial_variables(parameters)
 
         initial_times, stable_initial_times = self._get_initial_time_window(parameters)
 
