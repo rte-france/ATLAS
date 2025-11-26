@@ -62,34 +62,41 @@ def add_initial_conditions(
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_ts.get_value(time)
-            obj.power_level_var.set_extended(time, power_t)
-            min_power = obj.minimum_power.get_value(time)
+            if time in power_ts:
+                power_t = power_ts.get_value(time)
+                obj.power_level_var.set_extended(time, power_t)
+                min_power = obj.minimum_power.get_value(time)
 
-            # Set state variables based on power level relative to minimum power
-            if power_t >= min_power:
-                # Unit is ON and above minimum power (normal operation)
-                obj.off_var.set_extended(time, 0)
-                obj.stop_var.set_extended(time, 0)
-                obj.on_start_var.set_extended(time, 0)
-                obj.on_down_var.set_extended(time, 1)
-                obj.on_up_var.set_extended(time, 1)
+                # Set state variables based on power level relative to minimum power
+                if power_t >= min_power:
+                    # Unit is ON and above minimum power (normal operation)
+                    obj.off_var.set_extended(time, 0)
+                    obj.stop_var.set_extended(time, 0)
+                    obj.on_start_var.set_extended(time, 0)
+                    obj.on_down_var.set_extended(time, 1)
+                    obj.on_up_var.set_extended(time, 1)
 
-            elif power_t > 0:
-                obj.off_var.set_extended(time, 0)
-                obj.stop_var.set_extended(time, 1)
-                obj.on_start_var.set_extended(time, 1)
-                obj.on_down_var.set_extended(time, 0)
-                obj.on_up_var.set_extended(time, 0)
+                elif power_t > 0:
+                    obj.off_var.set_extended(time, 0)
+                    obj.stop_var.set_extended(time, 1)
+                    obj.on_start_var.set_extended(time, 1)
+                    obj.on_down_var.set_extended(time, 0)
+                    obj.on_up_var.set_extended(time, 0)
+                else:
+                    # Unit is completely OFF
+                    obj.off_var.set_extended(time, 1)
+                    obj.stop_var.set_extended(time, 0)
+                    obj.on_start_var.set_extended(time, 0)
+                    obj.on_down_var.set_extended(time, 0)
+                    obj.on_up_var.set_extended(time, 0)
             else:
-                # Unit is completely OFF
+                obj.power_level_var.set_extended(time, 0)
                 obj.off_var.set_extended(time, 1)
                 obj.stop_var.set_extended(time, 0)
                 obj.on_start_var.set_extended(time, 0)
                 obj.on_down_var.set_extended(time, 0)
                 obj.on_up_var.set_extended(time, 0)
 
-            # Initialize auxiliary variables to 0 (will be reconstructed from transitions)
             obj.turned_on.set_extended(time, 0)
             obj.turned_off.set_extended(time, 0)
             obj.down_to_stop_grad.set_extended(time, 0)
@@ -258,7 +265,7 @@ def add_constraints(
         - unprovided_reserves_down_var
         + relaxed_reserves_var
         >= q_lower - parameters.allowed_round_off_error,
-        f"down_fillup_1_{time}_{obj.name}",
+        f"down_fillup_2_{time}_{obj.name}",
     )
 
     model.add_constraint(
