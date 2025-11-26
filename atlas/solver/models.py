@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pendulum import Duration
+from pydantic import BaseModel, ConfigDict, Field
 
 from atlas.enum import SolverStatus
 
@@ -16,11 +17,12 @@ class SolverOptions(BaseModel):
     :type num_threads: int | None
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     presolve: bool = Field(default=True, description="Enable/disable presolve")
     duality_gap: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Relative MIP gap tolerance (e.g., 0.01 for 1%)"
     )
-    time_limit: float | None = Field(default=None, gt=0.0, description="Time limit in seconds for the solver")
+    time_limit: Duration | None = Field(default=None, description="Time limit in seconds for the solver")
 
 
 class ConstraintBounds(BaseModel):
