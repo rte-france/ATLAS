@@ -11,14 +11,17 @@ from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisa
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
 
 class PortfolioOptimisationModel(OptimisationModel):
     """Portfolio-specific optimization model that inherits OR-Tools capabilities."""
 
-    def __init__(self, portfolio: PortfolioPO, parameters: PortfolioOptimisationParameters):
-        super().__init__(solver_name=parameters.solver_name, name=portfolio.name)
+    def __init__(
+        self, portfolio: PortfolioPO, parameters: PortfolioOptimisationParameters, solver_options: SolverOptions
+    ):
+        super().__init__(solver_name=parameters.solver_name, name=portfolio.name, options=solver_options)
         self.portfolio = portfolio
         self.parameters = parameters
 
@@ -127,7 +130,12 @@ class PortfolioOptimisationOrchestrator:
     def _optimise_portfolio(self, portfolio: PortfolioPO, time_window: list[DateTime]) -> PortfolioOptimisationModel:
         """run a single portfolio using PortfolioOptimisationModel."""
 
-        model = PortfolioOptimisationModel(portfolio, self.parameters)
+        solver_options = SolverOptions(
+            presolve=self.parameters.use_presolve,
+            duality_gap=self.parameters.solver_duality_gap,
+            time_limit=self.parameters.solver_timeout,
+        )
+        model = PortfolioOptimisationModel(portfolio, self.parameters, solver_options=solver_options)
 
         # try:
         model.build_model(time_window)
