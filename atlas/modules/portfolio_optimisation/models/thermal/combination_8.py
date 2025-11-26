@@ -596,7 +596,7 @@ def add_constraints(
             # Upward unconstrained gradient - eq. (34)
             model.add_constraint(
                 power_level_var - power_prev_var
-                <= obj._Delta_Q_unconstrained * entered_up_var
+                <= obj._Delta_Q_unconstrained * entered_up_prev_var
                 + up_grad_prev_var
                 + down_grad_prev_var
                 - (turned_off_var + stop_prev_var) * q_step_down
@@ -607,7 +607,7 @@ def add_constraints(
             # Downward unconstrained gradient - eq. (36)
             model.add_constraint(
                 power_level_var - power_prev_var
-                >= -obj._Delta_Q_unconstrained * entered_down_var
+                >= -obj._Delta_Q_unconstrained * entered_down_prev_var
                 + up_grad_prev_var
                 + down_grad_prev_var
                 - (turned_off_var + stop_prev_var) * q_step_down
