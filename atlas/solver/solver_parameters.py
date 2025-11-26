@@ -43,7 +43,9 @@ class XPRESSParameterBuilder(SolverParameterBuilder):
         param_parts = []
 
         if options.time_limit is not None:
-            self.solver.SetTimeLimit(int(options.time_limit * 1000))
+            # Convert Duration to milliseconds
+            time_limit_ms = int(options.time_limit.total_seconds() * 1000)
+            self.solver.SetTimeLimit(time_limit_ms)
 
         if options.duality_gap is not None:
             param_parts.append(f"MIPRELSTOP {options.duality_gap}")
@@ -70,7 +72,9 @@ class GenericParameterBuilder(SolverParameterBuilder):
 
         # Time limit - use native method (milliseconds)
         if options.time_limit is not None:
-            self.solver.SetTimeLimit(int(options.time_limit * 1000))
+            # Convert Duration to milliseconds
+            time_limit_ms = int(options.time_limit.total_seconds() * 1000)
+            self.solver.SetTimeLimit(time_limit_ms)
 
         # Build string parameters
         param_parts = []
