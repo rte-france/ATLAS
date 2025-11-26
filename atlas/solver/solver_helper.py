@@ -1144,6 +1144,7 @@ class SolverHelper:
         tolerance=1e-5,
         normalize_names=True,
         keep_identical=True,
+        exclude_patterns=None,
     ):
         """
         Compare two LP problems, export differences to CSV files, and generate an overall summary report
@@ -1163,16 +1164,41 @@ class SolverHelper:
         :param tolerance: float. Tolerance for numerical comparisons
         :param normalize_names: bool. Whether to normalize variable/constraint names (remove trailing colons, etc.)
         :param keep_identical: bool. Whether to keep rows with "Identical" status in the CSV output files
+        :param exclude_patterns: list of str or None. Regex patterns to exclude from analysis (e.g., ['energy_limit_day', 'temp_.*'])
         :return: dict with detailed statistics
         """
         from pathlib import Path
 
         output_dir = Path(output_dir)
 
+        # Helper function to check if a name matches any exclude pattern
+        def should_exclude(name):
+            if exclude_patterns is None:
+                return False
+            for pattern in exclude_patterns:
+                if re.search(pattern, name):
+                    return True
+            return False
+
+        # Filter pb1 and pb2 based on exclude_patterns before exporting
+        pb1_filtered = {
+            "objectives": {k: v for k, v in pb1["objectives"].items() if not should_exclude(k)},
+            "variables": {k: v for k, v in pb1["variables"].items() if not should_exclude(k)},
+            "constraints": {k: v for k, v in pb1["constraints"].items() if not should_exclude(k)},
+            "binaries": pb1.get("binaries", []),
+        }
+
+        pb2_filtered = {
+            "objectives": {k: v for k, v in pb2["objectives"].items() if not should_exclude(k)},
+            "variables": {k: v for k, v in pb2["variables"].items() if not should_exclude(k)},
+            "constraints": {k: v for k, v in pb2["constraints"].items() if not should_exclude(k)},
+            "binaries": pb2.get("binaries", []),
+        }
+
         # Export differences to CSV files
         SolverHelper.export_objective_differences_csv(
-            pb1,
-            pb2,
+            pb1_filtered,
+            pb2_filtered,
             output_dir / "objective_differences.csv",
             pb1_name,
             pb2_name,
@@ -1181,8 +1207,8 @@ class SolverHelper:
             keep_identical,
         )
         SolverHelper.export_variable_differences_csv(
-            pb1,
-            pb2,
+            pb1_filtered,
+            pb2_filtered,
             output_dir / "variable_differences.csv",
             pb1_name,
             pb2_name,
@@ -1191,8 +1217,8 @@ class SolverHelper:
             keep_identical,
         )
         SolverHelper.export_constraint_differences_csv(
-            pb1,
-            pb2,
+            pb1_filtered,
+            pb2_filtered,
             output_dir / "constraint_differences.csv",
             pb1_name,
             pb2_name,
@@ -1202,8 +1228,8 @@ class SolverHelper:
         )
         # Export detailed constraint coefficient information
         SolverHelper.export_constraint_details_csv(
-            pb1,
-            pb2,
+            pb1_filtered,
+            pb2_filtered,
             output_dir / "constraint_details.csv",
             pb1_name,
             pb2_name,
@@ -1212,33 +1238,35 @@ class SolverHelper:
             keep_identical,
         )
 
-        # Normalize names for analysis
+        # Normalize names for analysis (use filtered data)
         if normalize_names:
-            obj1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["objectives"].items()}
-            obj2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["objectives"].items()}
+            obj1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1_filtered["objectives"].items()}
+            obj2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2_filtered["objectives"].items()}
 
-            vars1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1["variables"].items()}
-            vars2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2["variables"].items()}
+            vars1 = {SolverHelper.normalize_variable_name(k): v for k, v in pb1_filtered["variables"].items()}
+            vars2 = {SolverHelper.normalize_variable_name(k): v for k, v in pb2_filtered["variables"].items()}
 
             # Filter constraints with variables
             constraints1 = {}
             constraints2 = {}
-            for k, v in pb1["constraints"].items():
+            for k, v in pb1_filtered["constraints"].items():
                 if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
                     constraints1[SolverHelper.normalize_variable_name(k)] = v
                 elif isinstance(v, list | tuple) and len(v) > 2:
                     constraints1[SolverHelper.normalize_variable_name(k)] = v
 
-            for k, v in pb2["constraints"].items():
+            for k, v in pb2_filtered["constraints"].items():
                 if isinstance(v, dict) and (len(v) > 2 or any(key not in ["LB", "UB"] for key in v.keys())):
                     constraints2[SolverHelper.normalize_variable_name(k)] = v
                 elif isinstance(v, list | tuple) and len(v) > 2:
                     constraints2[SolverHelper.normalize_variable_name(k)] = v
         else:
-            obj1, obj2 = pb1["objectives"], pb2["objectives"]
-            vars1, vars2 = pb1["variables"], pb2["variables"]
-            constraints1 = {k: v for k, v in pb1["constraints"].items() if len(v) > 2}
-            constraints2 = {k: v for k, v in pb2["constraints"].items() if len(v) > 2}
+            obj1 = pb1_filtered["objectives"]
+            obj2 = pb2_filtered["objectives"]
+            vars1 = pb1_filtered["variables"]
+            vars2 = pb2_filtered["variables"]
+            constraints1 = {k: v for k, v in pb1_filtered["constraints"].items() if len(v) > 2}
+            constraints2 = {k: v for k, v in pb2_filtered["constraints"].items() if len(v) > 2}
 
         # Calculate direct statistics
         def calculate_direct_stats(dict1, dict2, item_type):
@@ -1266,8 +1294,52 @@ class SolverHelper:
                     else:
                         modified += 1
                 else:  # constraints
-                    # Simplified constraint comparison - in practice you'd want more detailed logic
-                    identical += 1  # This would need proper implementation
+                    # Compare constraint bounds and coefficients
+                    c1 = dict1[item]
+                    c2 = dict2[item]
+
+                    # Get bounds
+                    if isinstance(c1, dict):
+                        lb1, ub1 = c1.get("LB"), c1.get("UB")
+                        vars1_dict = {k: v for k, v in c1.items() if k not in ["LB", "UB"]}
+                    elif isinstance(c1, list | tuple) and len(c1) >= 2:
+                        lb1, ub1 = c1[0], c1[1]
+                        vars1_dict = {var: coeff for var, coeff in c1[2:] if isinstance(var, str)}
+                    else:
+                        lb1, ub1 = None, None
+                        vars1_dict = {}
+
+                    if isinstance(c2, dict):
+                        lb2, ub2 = c2.get("LB"), c2.get("UB")
+                        vars2_dict = {k: v for k, v in c2.items() if k not in ["LB", "UB"]}
+                    elif isinstance(c2, list | tuple) and len(c2) >= 2:
+                        lb2, ub2 = c2[0], c2[1]
+                        vars2_dict = {var: coeff for var, coeff in c2[2:] if isinstance(var, str)}
+                    else:
+                        lb2, ub2 = None, None
+                        vars2_dict = {}
+
+                    # Check if bounds are different
+                    bounds_different = False
+                    if (abs(lb1 - lb2) > tolerance if lb1 is not None and lb2 is not None else lb1 != lb2) or (
+                        abs(ub1 - ub2) > tolerance if ub1 is not None and ub2 is not None else ub1 != ub2
+                    ):
+                        bounds_different = True
+
+                    # Check if coefficients are different
+                    coeff_different = False
+                    all_vars = set(vars1_dict.keys()) | set(vars2_dict.keys())
+                    for var in all_vars:
+                        coeff1 = vars1_dict.get(var, 0.0)
+                        coeff2 = vars2_dict.get(var, 0.0)
+                        if abs(coeff1 - coeff2) > tolerance:
+                            coeff_different = True
+                            break
+
+                    if bounds_different or coeff_different:
+                        modified += 1
+                    else:
+                        identical += 1
 
             total_legacy = len(dict1)
             return {
@@ -1338,6 +1410,13 @@ class SolverHelper:
             f.write("=" * 60 + "\n")
             f.write("LP COMPARISON OVERALL SUMMARY REPORT\n")
             f.write("=" * 60 + "\n\n")
+
+            if exclude_patterns:
+                f.write("EXCLUDED PATTERNS:\n")
+                f.write("-" * 30 + "\n")
+                for pattern in exclude_patterns:
+                    f.write(f"  - {pattern}\n")
+                f.write("\n")
 
             for category in ["objectives", "variables", "constraints"]:
                 stats = summary[category]
