@@ -134,9 +134,9 @@ def initialize_gradient_initial_conditions(
 
 def initialize_flat_down_stop_initial_conditions(
     obj: ThermalPO,
-    start_date_minus_one: DateTime,
-    start_date_minus_two: DateTime,
-    start_date_minus_three: DateTime,
+    time: DateTime,
+    time_minus_one: DateTime,
+    time_minus_two: DateTime,
 ) -> None:
     """
     Initialize flat_down_stop variable based on historical power data.
@@ -144,11 +144,11 @@ def initialize_flat_down_stop_initial_conditions(
     """
 
     obj.flat_down_stop.set_extended(
-        start_date_minus_one,
+        time,
         (
-            obj.stop_var.get_extended_value(start_date_minus_one)
-            + obj.on_down_var.get_extended_value(start_date_minus_two)
-            + obj.on_flat_var.get_extended_value(start_date_minus_three)
+            obj.stop_var.get_extended_value(time)
+            + obj.on_down_var.get_extended_value(time_minus_one)
+            + obj.on_flat_var.get_extended_value(time_minus_two)
         )
         / 3,
     )

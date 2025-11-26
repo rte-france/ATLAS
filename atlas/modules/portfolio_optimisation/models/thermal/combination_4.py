@@ -73,6 +73,7 @@ def add_initial_conditions(
                     obj.on_down_var.set_extended(time, 0)
 
             else:
+                obj.power_level_var.set_extended(time, 0)
                 obj.off_var.set_extended(time, 1)
                 obj.on_start_var.set_extended(time, 0)
                 obj.on_up_var.set_extended(time, 0)

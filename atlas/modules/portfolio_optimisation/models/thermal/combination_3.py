@@ -67,6 +67,7 @@ def add_initial_conditions(
                     obj.off_var.set_extended(time, 1)
             else:
                 obj.off_var.set_extended(time, 1)
+                obj.power_level_var.set_extended(time, 0)
 
             obj.turned_off.set_extended(time, 0)
             obj.turned_on.set_extended(time, 0)
@@ -84,26 +85,24 @@ def add_initial_conditions(
         for time in kwargs.get("stable_initial_times", []):
             if obj.off_var.get_extended_value(time) == 0:
                 next_time = time + parameters.timestep
-                if time in power_ts:
-                    current_power = power_ts.get_value(time)
-                    next_power = power_ts.get_value(next_time) if next_time in power_ts else current_power
-                    obj.power_level_var.set_extended(time, current_power)
-                    if current_power > 0:
-                        if current_power < next_power:
-                            obj.on_up_var.set_extended(time, 1)
-                            obj.on_down_var.set_extended(time, 0)
-                            obj.on_flat_var.set_extended(time, 0)
+                current_power = obj.power_level_var.get_extended_value(time)
+                next_power = obj.power_level_var.get_extended_value(next_time)
 
-                        elif current_power > next_power:
-                            obj.on_up_var.set_extended(time, 0)
-                            obj.on_down_var.set_extended(time, 1)
-                            obj.on_flat_var.set_extended(time, 0)
+                if current_power < next_power:
+                    obj.on_up_var.set_extended(time, 1)
+                    obj.on_down_var.set_extended(time, 0)
+                    obj.on_flat_var.set_extended(time, 0)
 
-                        else:
-                            # Power is stable
-                            obj.on_up_var.set_extended(time, 0)
-                            obj.on_down_var.set_extended(time, 0)
-                            obj.on_flat_var.set_extended(time, 1)
+                elif current_power > next_power:
+                    obj.on_up_var.set_extended(time, 0)
+                    obj.on_down_var.set_extended(time, 1)
+                    obj.on_flat_var.set_extended(time, 0)
+
+                else:
+                    # Power is stable
+                    obj.on_up_var.set_extended(time, 0)
+                    obj.on_down_var.set_extended(time, 0)
+                    obj.on_flat_var.set_extended(time, 1)
             else:
                 obj.on_up_var.set_extended(time, 0)
                 obj.on_down_var.set_extended(time, 0)

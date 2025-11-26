@@ -61,18 +61,23 @@ def add_initial_conditions(
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_ts.get_value(time)
-            obj.power_level_var.set_extended(time, power_t)
-            min_power = obj.minimum_power.get_value(time)
+            if time in power_ts:
+                power_t = power_ts.get_value(time)
+                obj.power_level_var.set_extended(time, power_t)
+                min_power = obj.minimum_power.get_value(time)
 
-            if power_t >= min_power:
-                obj.off_var.set_extended(time, 0)
-                obj.stop_var.set_extended(time, 0)
+                if power_t >= min_power:
+                    obj.off_var.set_extended(time, 0)
+                    obj.stop_var.set_extended(time, 0)
 
-            elif power_t > 0:
-                obj.off_var.set_extended(time, 0)
-                obj.stop_var.set_extended(time, 1)
+                elif power_t > 0:
+                    obj.off_var.set_extended(time, 0)
+                    obj.stop_var.set_extended(time, 1)
+                else:
+                    obj.off_var.set_extended(time, 1)
+                    obj.stop_var.set_extended(time, 0)
             else:
+                obj.power_level_var.set_extended(time, 0)
                 obj.off_var.set_extended(time, 1)
                 obj.stop_var.set_extended(time, 0)
 
@@ -89,8 +94,9 @@ def add_initial_conditions(
                     obj.turned_on.set_extended(time, 1)
 
         for idx, time in enumerate(kwargs.get("stable_initial_times", [])):
-            current_power = power_ts.get_value(time)
-            next_power = power_ts.get_value(time + parameters.timestep)
+            next_time = time + parameters.timestep
+            current_power = obj.power_level_var.get_extended_value(time)
+            next_power = obj.power_level_var.get_extended_value(next_time)
 
             obj.stable_var.set_extended(time, 0)
             obj.entered_up_var.set_extended(time, 0)
@@ -134,9 +140,9 @@ def add_initial_conditions(
             if idx >= 2:
                 initialize_flat_down_stop_initial_conditions(
                     obj,
+                    time,
                     time - parameters.timestep,
                     time - 2 * parameters.timestep,
-                    time - 3 * parameters.timestep,
                 )
 
         initialize_gradient_initial_conditions(obj, parameters)
@@ -213,7 +219,7 @@ def add_constraints(
 
     model.add_constraint(turned_on_var <= 1 - off_var, f"t_on_evol_1_{time}_{obj.name}")
     model.add_constraint(turned_on_var <= off_prev_var, f"t_on_evol_2_{time}_{obj.name}")
-    model.add_constraint(turned_on_var >= off_prev_var - off_var, f"t_on_evol_2_{time}_{obj.name}")
+    model.add_constraint(turned_on_var >= off_prev_var - off_var, f"t_on_evol_3_{time}_{obj.name}")
 
     model.add_constraint(turned_off_var <= 1 - stop_prev_var, f"t_off_evol_1_{time}_{obj.name}")
     model.add_constraint(turned_off_var <= stop_var, f"t_off_evol_2_{time}_{obj.name}")

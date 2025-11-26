@@ -424,6 +424,9 @@ class ThermalPO(Thermal):
             self.entered_up_var.set_model_var(parameters.start_date - parameters.timestep)
             self.entered_down_var.set_model_var(parameters.start_date - parameters.timestep)
 
+        if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
+            self.dd_grad_var.set_model_var(parameters.start_date - parameters.timestep)
+
     def add_initial_conditions(
         self,
         model: OptimisationModel,

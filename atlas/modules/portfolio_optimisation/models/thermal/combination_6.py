@@ -55,18 +55,23 @@ def add_initial_conditions(
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_ts.get_value(time)
-            obj.power_level_var.set_extended(time, power_t)
-            min_power = obj.minimum_power.get_value(time)
+            if time in power_ts:
+                power_t = power_ts.get_value(time)
+                obj.power_level_var.set_extended(time, power_t)
+                min_power = obj.minimum_power.get_value(time)
 
-            if power_t >= min_power:
-                obj.off_var.set_extended(time, 0)
-                obj.on_start_var.set_extended(time, 0)
+                if power_t >= min_power:
+                    obj.off_var.set_extended(time, 0)
+                    obj.on_start_var.set_extended(time, 0)
 
-            elif power_t > 0:
-                obj.off_var.set_extended(time, 0)
-                obj.on_start_var.set_extended(time, 1)
+                elif power_t > 0:
+                    obj.off_var.set_extended(time, 0)
+                    obj.on_start_var.set_extended(time, 1)
+                else:
+                    obj.off_var.set_extended(time, 1)
+                    obj.on_start_var.set_extended(time, 0)
             else:
+                obj.power_level_var.set_extended(time, 0)
                 obj.off_var.set_extended(time, 1)
                 obj.on_start_var.set_extended(time, 0)
 
