@@ -9,6 +9,7 @@ import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pendulum import duration
 
 from atlas.enum import SolverStatus
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
@@ -282,7 +283,7 @@ class TestOptimisationModel:
         """Test solving with time limit via SolverOptions."""
         from atlas.solver.models import SolverOptions
 
-        model.set_solver_options(SolverOptions(time_limit=30.0))
+        model.set_solver_options(SolverOptions(time_limit=duration(seconds=30)))
         model.solve()
 
         mock_solver.SetTimeLimit.assert_called_with(30000)  # 30.0 * 1000

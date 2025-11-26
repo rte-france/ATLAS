@@ -9,6 +9,8 @@ Unit tests for SolverOptions functionality.
 
 from unittest.mock import MagicMock
 
+from pendulum import duration
+
 from atlas.enum import SolverEnum
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
@@ -27,10 +29,10 @@ class TestSolverOptions:
 
     def test_custom_options(self):
         """Test custom options."""
-        options = SolverOptions(presolve=False, duality_gap=0.01, time_limit=60.0, num_threads=4)
+        options = SolverOptions(presolve=False, duality_gap=0.01, time_limit=duration(seconds=60))
         assert options.presolve is False
         assert options.duality_gap == 0.01
-        assert options.time_limit == 60.0
+        assert options.time_limit == duration(seconds=60)
 
 
 class TestOptimisationModelWithOptions:
@@ -45,18 +47,18 @@ class TestOptimisationModelWithOptions:
 
     def test_model_with_custom_options(self):
         """Test model with custom options."""
-        options = SolverOptions(presolve=False, duality_gap=0.01, time_limit=30.0)
+        options = SolverOptions(presolve=False, duality_gap=0.01, time_limit=duration(seconds=30))
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
         assert model.options.presolve is False
         assert model.options.duality_gap == 0.01
-        assert model.options.time_limit == 30.0
+        assert model.options.time_limit == duration(seconds=30)
 
     def test_update_options(self):
         """Test updating options."""
         model = OptimisationModel(solver_name=SolverEnum.GLOP)
-        model.set_solver_options(SolverOptions(duality_gap=0.05, time_limit=120.0))
+        model.set_solver_options(SolverOptions(duality_gap=0.05, time_limit=duration(seconds=120)))
         assert model.options.duality_gap == 0.05
-        assert model.options.time_limit == 120.0
+        assert model.options.time_limit == duration(seconds=120)
 
 
 class TestSolverOptionsIntegration:
@@ -64,7 +66,7 @@ class TestSolverOptionsIntegration:
 
     def test_solve_with_options(self):
         """Test solving with options."""
-        options = SolverOptions(presolve=True, duality_gap=0.01, time_limit=60.0)
+        options = SolverOptions(presolve=True, duality_gap=0.01, time_limit=duration(seconds=60))
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
 
         x = model.add_continuous_variable("x", 0, 10)
@@ -76,7 +78,7 @@ class TestSolverOptionsIntegration:
 
     def test_options_persist_after_clear(self):
         """Test options persist after clear."""
-        options = SolverOptions(duality_gap=0.02, time_limit=45.0)
+        options = SolverOptions(duality_gap=0.02, time_limit=duration(seconds=45))
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
 
         model.add_continuous_variable("x", 0, 5)
@@ -84,7 +86,7 @@ class TestSolverOptionsIntegration:
         model.clear()
 
         assert model.options.duality_gap == 0.02
-        assert model.options.time_limit == 45.0
+        assert model.options.time_limit == duration(seconds=45)
         assert len(model.variables) == 0
 
 
@@ -129,7 +131,7 @@ class TestSolverOptionsParameterPassing:
 
     def test_time_limit_passed_to_solver(self):
         """Test that time_limit is passed to solver."""
-        options = SolverOptions(time_limit=30.0)
+        options = SolverOptions(time_limit=duration(seconds=30))
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
 
         # Mock the parameter builder
@@ -143,11 +145,11 @@ class TestSolverOptionsParameterPassing:
         # Verify apply_options was called with the correct options
         mock_builder.apply_options.assert_called_once()
         call_options = mock_builder.apply_options.call_args[0][0]
-        assert call_options.time_limit == 30.0
+        assert call_options.time_limit == duration(seconds=30)
 
     def test_all_options_passed_to_solver(self):
         """Test that all options are passed to solver together."""
-        options = SolverOptions(presolve=False, duality_gap=0.02, time_limit=60.0, num_threads=4)
+        options = SolverOptions(presolve=False, duality_gap=0.02, time_limit=duration(seconds=60))
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
 
         # Mock the parameter builder
@@ -163,7 +165,7 @@ class TestSolverOptionsParameterPassing:
         call_options = mock_builder.apply_options.call_args[0][0]
         assert call_options.presolve is False
         assert call_options.duality_gap == 0.02
-        assert call_options.time_limit == 60.0
+        assert call_options.time_limit == duration(seconds=60)
 
     @requires_xpress
     def test_xpress_uses_xpress_builder(self):
