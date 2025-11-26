@@ -182,14 +182,12 @@ def add_constraints(
 
     max_power = obj.maximum_power.get_value(time)
     min_power = -max_power
+    q_lower = obj.minimum_power.get_value(time)
     maximum_automated = get_maximum_automated(obj)
 
     model.add_constraint(turned_on_var <= 1 - off_var, f"t_on_evol_1_{time}_{obj.name}")
     model.add_constraint(turned_on_var <= off_prev_var, f"t_on_evol_2_{time}_{obj.name}")
-    (
-        model.add_constraint(turned_on_var >= off_prev_var - off_var),
-        f"t_on_evol_3_{time}_{obj.name}",
-    )
+    model.add_constraint(turned_on_var >= off_prev_var - off_var, f"t_on_evol_3_{time}_{obj.name}")
 
     model.add_constraint(turned_off_var <= 1 - off_prev_var, f"t_off_evol_1_{time}_{obj.name}")
     model.add_constraint(turned_off_var <= off_var, f"t_off_evol_2_{time}_{obj.name}")
@@ -281,10 +279,11 @@ def add_constraints(
     model.add_constraint(on_down_prev_var + on_up_var <= 1, f"transition_constraint_2_{time}_{obj.name}")
 
     if time == parameters.start_date:
-        (
-            model.add_constraint(off_prev_var + on_up_prev_var + on_down_prev_var + on_flat_prev_var == 1),
-            f"mutual_exclusion_{time}_{obj.name}",
+        model.add_constraint(
+            off_prev_var + on_up_prev_var + on_down_prev_var + on_flat_prev_var == 1,
+            f"mutual_exclusion_{prev_time}_{obj.name}",
         )
+
         model.add_constraint(
             on_up_prev_2_var + on_down_prev_var <= 1,
             f"transition_constraint_1_{prev_time}_{obj.name}",
@@ -374,7 +373,7 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        <= min_power + parameters.allowed_round_off_error,
+        <= q_lower + parameters.allowed_round_off_error,
         f"down_fillup_1_{time}_{obj.name}",
     )
     model.add_constraint(
@@ -383,12 +382,12 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        >= min_power - parameters.allowed_round_off_error,
+        >= q_lower - parameters.allowed_round_off_error,
         f"down_fillup_2_{time}_{obj.name}",
     )
 
     model.add_constraint(
-        relaxed_reserves_var <= min_power * (1 - on_up_var - on_flat_var - on_down_var),
+        relaxed_reserves_var <= q_lower * (1 - on_up_var - on_flat_var - on_down_var),
         f"relaxed_reserves_{time}_{obj.name}",
     )
 
@@ -411,7 +410,7 @@ def add_constraints(
     )
 
     model.add_constraint(
-        power_level_var >= min_power * (on_up_var + on_down_var + on_flat_var),
+        power_level_var >= q_lower * (on_up_var + on_down_var + on_flat_var),
         f"lower_bound_{obj.name}_{time}",
     )
     model.add_constraint(
@@ -423,7 +422,7 @@ def add_constraints(
         if obj._Delta_Q > 0:
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                <= obj._Delta_Q * entered_up_var
+                <= obj._Delta_Q * entered_up_prev_var
                 + up_grad_var
                 + down_grad_var
                 + obj._Delta_Q_unconstrained * turned_on_var,
@@ -432,7 +431,7 @@ def add_constraints(
 
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                >= -obj._Delta_Q * entered_down_var
+                >= -obj._Delta_Q * entered_down_prev_var
                 + up_grad_var
                 + down_grad_var
                 - obj._Delta_Q_unconstrained * turned_off_var,
@@ -441,7 +440,7 @@ def add_constraints(
         elif obj._Delta_Q == 0:
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                <= obj._Delta_Q_unconstrained * entered_up_var
+                <= obj._Delta_Q_unconstrained * entered_up_prev_var
                 + up_grad_var
                 + down_grad_var
                 + obj._Delta_Q_unconstrained * turned_on_var,
@@ -449,7 +448,7 @@ def add_constraints(
             )
             model.add_constraint(
                 power_level_var - power_level_prev_var
-                >= -obj._Delta_Q_unconstrained * entered_down_var
+                >= -obj._Delta_Q_unconstrained * entered_down_prev_var
                 + up_grad_var
                 + down_grad_var
                 - obj._Delta_Q_unconstrained * turned_off_var,

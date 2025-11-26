@@ -271,7 +271,7 @@ class ThermalPO(Thermal):
                 "minimize",
             )
 
-            if time >= max(parameters.target_times):
+            if time > max(parameters.target_times):
                 model.add_objective(
                     -price_forecast * power_level_var * parameters.timestep.total_hours(),
                     "minimize",
