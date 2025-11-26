@@ -452,13 +452,13 @@ def add_constraints(
                 f"minimum_time_on_{obj.name}_{local_time}_{time}",
             )
 
-        if time == parameters.start_date:
-            local_time = time - (s + obj._T_start + 1) * parameters.timestep
-            turned_on_local_var = obj.turned_on.get_value(local_time)
-            model.add_constraint(
-                turned_on_local_var <= on_up_prev_var + on_down_prev_var + on_flat_prev_var,
-                f"minimum_time_on_{obj.name}_{local_time}_{prev_time}",
-            )
+            if time == parameters.start_date:
+                local_time = time - (s + obj._T_start + 1) * parameters.timestep
+                turned_on_local_var = obj.turned_on.get_value(local_time)
+                model.add_constraint(
+                    turned_on_local_var <= on_up_prev_var + on_down_prev_var + on_flat_prev_var,
+                    f"minimum_time_on_{obj.name}_{local_time}_{prev_time}",
+                )
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
@@ -477,13 +477,13 @@ def add_constraints(
                 stable_local_var <= on_flat_var,
                 f"minimum_time_stable_{obj.name}_{local_time}_{time}",
             )
-        if time == parameters.start_date:
-            local_time = time - (s + 1) * parameters.timestep
-            stable_local_var = obj.stable_var.get_value(local_time)
-            model.add_constraint(
-                stable_local_var <= on_flat_prev_var,
-                f"minimum_time_stable_{obj.name}_{local_time}_{prev_time}",
-            )
+            if time == parameters.start_date:
+                local_time = time - (s + 1) * parameters.timestep
+                stable_local_var = obj.stable_var.get_value(local_time)
+                model.add_constraint(
+                    stable_local_var <= on_flat_prev_var,
+                    f"minimum_time_stable_{obj.name}_{local_time}_{prev_time}",
+                )
 
     if obj._T_stop >= 2:
         for s in range(1, obj._T_stop - 1):
@@ -573,7 +573,7 @@ def add_constraints(
             # Upward gradient - eq. (33)
             model.add_constraint(
                 power_level_var - power_prev_var
-                <= obj._Delta_Q * entered_up_var
+                <= obj._Delta_Q * entered_up_prev_var
                 + up_grad_prev_var
                 + down_grad_prev_var
                 - (turned_off_var + stop_prev_var) * q_step_down
@@ -584,7 +584,7 @@ def add_constraints(
             # Downward gradient - eq. (35)
             model.add_constraint(
                 power_level_var - power_prev_var
-                >= -obj._Delta_Q * entered_down_var
+                >= -obj._Delta_Q * entered_down_prev_var
                 + up_grad_prev_var
                 + down_grad_prev_var
                 - (turned_off_var + stop_prev_var) * q_step_down
