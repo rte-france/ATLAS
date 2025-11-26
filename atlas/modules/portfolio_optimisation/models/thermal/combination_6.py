@@ -88,9 +88,9 @@ def add_initial_conditions(
                     obj.turned_on.set_extended(time, 1)
 
         for time in kwargs.get("stable_initial_times", []):
-            current_power = power_ts.get_value(time)
-            next_power = power_ts.get_value(time + parameters.timestep)
-            min_power = obj.minimum_power.get_value(time)
+            next_time = time + parameters.timestep
+            current_power = obj.power_level_var.get_extended_value(time)
+            next_power = obj.power_level_var.get_extended_value(next_time)
 
             obj.stable_var.set_extended(time, 0)
             obj.entered_up_var.set_extended(time, 0)
@@ -269,10 +269,10 @@ def add_constraints(
         entered_down_var <= 1 - on_down_prev_var,
         f"entered_down_evol_1_{time}_{obj.name}",
     )
-    model.add_constraint(entered_down_var <= on_down_var, f"entered_up_evol_2_{time}_{obj.name}")
+    model.add_constraint(entered_down_var <= on_down_var, f"entered_down_evol_2_{time}_{obj.name}")
     model.add_constraint(
         entered_down_var >= on_down_var - on_down_prev_var,
-        f"entered_up_evol_3_{time}_{obj.name}",
+        f"entered_down_evol_3_{time}_{obj.name}",
     )
 
     model.add_constraint(
@@ -347,7 +347,7 @@ def add_constraints(
     model.add_constraint(off_prev_var + on_up_var <= 1, f"transition_constraint_9_{time}_{obj.name}")
 
     eviction_time = time - (obj._T_start - 1) * parameters.timestep
-    turned_on_eviction_var = model.get_variable(f"t_on_{obj.name}_{eviction_time}")
+    turned_on_eviction_var = obj.turned_on.get_value(eviction_time)
     model.add_constraint(
         turned_on_eviction_var + start_var <= 1,
         f"eviction_constraint_{time}_{obj.name}",
