@@ -178,7 +178,7 @@ def add_constraints(
     model.add_constraint(power_level_var >= min_power * (on_up_var + on_down_var), f"lower_bound_{obj.name}_{time}")
     model.add_constraint(power_level_var <= max_power * (on_up_var + on_down_var), f"upper_bound_{obj.name}_{time}")
 
-    if time in obj.optimisation_time_window[:-1]:
+    if time in obj.optimisation_time_window[:-2]:
         if obj._Delta_Q > 0:  # Finite gradient
             # Upward gradient
             model.add_constraint(

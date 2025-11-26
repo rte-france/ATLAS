@@ -229,6 +229,7 @@ def add_constraints(
 
     max_power = obj.maximum_power.get_value(time)
     min_power = -max_power
+    q_lower = obj.minimum_power.max()
     maximum_automated = get_maximum_automated(obj)
 
     q_min = obj.minimum_power.max()
@@ -391,7 +392,7 @@ def add_constraints(
         f"D_evol_4_{time}_{obj.name}",
     )
 
-    if time in obj.optimisation_time_window[:-1]:
+    if time in obj.optimisation_time_window[:-2]:
         model.add_constraint(dd_grad_prev_var <= max_power * stop_var, f"DD_evol_1_{time}_{obj.name}")
         model.add_constraint(dd_grad_prev_var >= min_power * stop_var, f"DD_evol_2_{time}_{obj.name}")
         model.add_constraint(
@@ -439,7 +440,7 @@ def add_constraints(
     turned_on_start_eviction_var = obj.turned_on.get_value(start_eviction_time)
     model.add_constraint(
         turned_on_start_eviction_var + start_var <= 1,
-        f"start_eviction_constraint_18_{time}_{obj.name}",
+        f"start_eviction_constraint_{time}_{obj.name}",
     )
 
     if obj._T_on >= 2:
@@ -494,7 +495,7 @@ def add_constraints(
             )
 
     if obj._T_start >= 2:
-        for s in range(1, obj._T_start):
+        for s in range(1, obj._T_start - 1):
             local_time = time - s * parameters.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(
@@ -519,7 +520,7 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        <= min_power + parameters.allowed_round_off_error,
+        <= q_lower + parameters.allowed_round_off_error,
         f"down_fillup_1_{time}_{obj.name}",
     )
     model.add_constraint(
@@ -528,12 +529,12 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        >= min_power - parameters.allowed_round_off_error,
+        >= q_lower - parameters.allowed_round_off_error,
         f"down_fillup_2_{time}_{obj.name}",
     )
 
     model.add_constraint(
-        relaxed_reserves_var <= min_power * (1 - on_up_var - on_flat_var - on_down_var),
+        relaxed_reserves_var <= q_lower * (1 - on_up_var - on_flat_var - on_down_var),
         f"relaxed_reserves_{time}_{obj.name}",
     )
 
@@ -567,8 +568,7 @@ def add_constraints(
         f"upper_bound_{obj.name}_{time}",
     )
 
-    # Power gradients with all auxiliary variables - most complex gradient logic
-    if time in obj.optimisation_time_window[:-1]:  # Not the last time step
+    if time in obj.optimisation_time_window[:-2]:
         if obj._Delta_Q > 0:  # Finite gradient
             # Upward gradient - eq. (33)
             model.add_constraint(

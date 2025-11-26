@@ -233,7 +233,7 @@ def add_constraints(
         power_level_var <= max_power * (on_up_var + on_down_var) + start_var * q_min, f"upper_bound_{obj.name}_{time}"
     )
 
-    if time in obj.optimisation_time_window[:-1]:
+    if time in obj.optimisation_time_window[:-2]:
         if obj._Delta_Q > 0:
             model.add_constraint(
                 power_level_var - power_level_prev_var

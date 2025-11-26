@@ -517,7 +517,7 @@ def add_constraints(
             f"transition_constraint_7_{prev_time}_{obj.name}",
         )
 
-    if time in obj.optimisation_time_window[:-1]:
+    if time in obj.optimisation_time_window[:-2]:
         model.add_constraint(dd_grad_prev_var <= max_power * stop_var, f"DD_evol_1_{time}_{obj.name}")
         model.add_constraint(dd_grad_prev_var >= min_power * stop_var, f"DD_evol_2_{time}_{obj.name}")
         model.add_constraint(
