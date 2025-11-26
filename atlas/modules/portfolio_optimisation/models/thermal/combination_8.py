@@ -555,7 +555,7 @@ def add_constraints(
     )
 
     model.add_constraint(
-        power_level_var >= min_power * (on_up_var + on_down_var + on_flat_var) + turned_off_var * (q_min - q_step_down),
+        power_level_var >= q_lower * (on_up_var + on_down_var + on_flat_var) + turned_off_var * (q_min - q_step_down),
         f"lower_bound_{obj.name}_{time}",
     )
 
