@@ -211,7 +211,7 @@ def add_constraints(
     relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{obj.name}_{time}")
 
     max_power = obj.maximum_power.get_value(time)
-    min_power = obj.minimum_power.get_value(time)
+    min_power = -max_power
     maximum_automated = get_maximum_automated(obj)
 
     q_min = obj.minimum_power.max()

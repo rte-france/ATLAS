@@ -135,7 +135,7 @@ def add_constraints(
 
     # Power bounds and parameters
     max_power = obj.maximum_power.get_value(time)
-    min_power = obj.minimum_power.get_value(time)
+    min_power = -max_power
     maximum_automated = get_maximum_automated(obj)
 
     # Shutdown gradient parameters
