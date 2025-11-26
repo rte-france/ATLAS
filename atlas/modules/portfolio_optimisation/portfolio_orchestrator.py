@@ -4,6 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import cast
+
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -11,54 +13,9 @@ from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisa
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.portfolio_optimisation_model import PortfolioOptimisationModel
+from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation
 from atlas.solver.models import SolverOptions
-from atlas.solver.solver_interface import OptimisationModel
-
-
-class PortfolioOptimisationModel(OptimisationModel):
-    """Portfolio-specific optimization model that inherits OR-Tools capabilities."""
-
-    def __init__(
-        self, portfolio: PortfolioPO, parameters: PortfolioOptimisationParameters, solver_options: SolverOptions
-    ):
-        super().__init__(solver_name=parameters.solver_name, name=portfolio.name, options=solver_options)
-        self.portfolio = portfolio
-        self.parameters = parameters
-
-    def build_model(self, time_window: list[DateTime]) -> None:
-        """Build the optimization model by adding variables, constraints, and objectives."""
-        cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
-
-        # Add initial conditions for thermal equipment
-        for thermal in self.portfolio.equipments.thermal:
-            thermal.add_initial_conditions(self, self.parameters)
-
-        for time in time_window:
-            cfg.logger.debug(f"Building optimisation model at time: {time}..")
-
-            self.portfolio.add_variables(self, time, self.parameters)
-            price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
-
-            for _, equipment_list in self.portfolio.equipments.iter_by_type():
-                for equipment in equipment_list:
-                    equipment.add_variables(self, time, self.parameters)
-                    equipment.add_constraints(self, time, self.parameters)
-                    equipment.add_objective(
-                        model=self, time=time, parameters=self.parameters, price_forecast=price_forecast or 0.0
-                    )
-
-            self.portfolio.add_constraints(self, time, self.parameters)
-            self.portfolio.add_objective(self, time, self.parameters)
-
-        for thermal in self.portfolio.equipments.thermal:
-            thermal.add_daily_energy_constraint(model=self, timestep=self.parameters.timestep)
-
-        for storage in self.portfolio.equipments.storage:
-            storage.add_cycle_balance_constraint(model=self)
-
-            cfg.logger.debug(f"Completed optimisation model at time: {time}")
-
-        cfg.logger.info(f"Completed optimisation model for portfolio: {self.portfolio.name}.")
 
 
 class PortfolioOptimisationOrchestrator:
@@ -67,7 +24,7 @@ class PortfolioOptimisationOrchestrator:
     def __init__(self, parameters: PortfolioOptimisationParameters):
         self.parameters = parameters
 
-    def run(self, input_dataset: PortfolioOptimisationInputDataset) -> None:
+    def run(self, input_dataset: PortfolioOptimisationInputDataset) -> dict[str, PortfolioOptimisationModel]:
         """
         Main optimisation method.
         """
@@ -127,8 +84,10 @@ class PortfolioOptimisationOrchestrator:
                             portfolio=equipment_portfolio
                         )
 
+        return models
+
     def _optimise_portfolio(self, portfolio: PortfolioPO, time_window: list[DateTime]) -> PortfolioOptimisationModel:
-        """run a single portfolio using PortfolioOptimisationModel."""
+        """Run a single portfolio using PortfolioOptimisationModel."""
 
         solver_options = SolverOptions(
             presolve=self.parameters.use_presolve,
@@ -137,19 +96,19 @@ class PortfolioOptimisationOrchestrator:
         )
         model = PortfolioOptimisationModel(portfolio, self.parameters, solver_options=solver_options)
 
-        # try:
-        model.build_model(time_window)
-        model.export_model(f"lp_validation/generated_lp/po_{portfolio.name}.lp")
-        model.solve()
-        return model
+        try:
+            model.build_model(time_window)
+            model.solve()
+            return model
 
-        # except Exception as e:
-        #     cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}: {e}")
-        #     cfg.logger.debug("Falling back to manual activation")
+        except Exception as e:
+            cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}: {e}")
+            cfg.logger.debug("Falling back to manual activation")
 
-        #     equipment_list = [equipment for t in portfolio.equipments for equipment in portfolio.equipments[t]]
-        #     cfg.logger.debug(f"Setting manual activation for {len(equipment_list)} equipment(s)")
-        #     set_manual_activation(cast(list, equipment_list), self.parameters)
+            equipment_list = [equipment for t in portfolio.equipments for equipment in portfolio.equipments[t]]
+            cfg.logger.debug(f"Setting manual activation for {len(equipment_list)} equipment(s)")
+            set_manual_activation(cast(list, equipment_list), self.parameters)
+            return model
 
     def _optimise_portfolio_manual_activated(self, portfolio: PortfolioPO):
         cfg.logger.info(f"Manual activation for portfolio: {portfolio.name}")

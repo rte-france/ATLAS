@@ -23,6 +23,29 @@ from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
+def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOptimisationParameters):
+    """
+    Update power matrix and stored energy for equipment portfolio based on market clearing.
+
+    Args:
+        equipments: List of equipment objects to process
+        parameters: Configuration parameters containing market type, dates, etc.
+    """
+    for equipment in equipments:
+        new_power = _calculate_new_power(equipment, parameters)
+        activated_power = _calculate_activated_power(equipment, parameters)
+
+        if _should_skip_equipment(equipment, activated_power, parameters):
+            continue
+
+        _apply_power_constraints(equipment, new_power, parameters)
+
+        if isinstance(equipment, HydroPO | StoragePO):
+            _update_stored_energy(equipment, new_power, parameters)
+
+        _finalize_power_update(equipment, new_power, parameters)
+
+
 def is_excluded_technology(excluded_technologies: list[str], equipment: type[Equipment]) -> bool:
     """Check if equipment technology is excluded."""
     return equipment.__class__.__name__ in excluded_technologies if excluded_technologies != ["all"] else True
@@ -50,29 +73,6 @@ def should_manually_activate(
     return is_excluded_technology(excluded_technologies, equipment) or is_excluded_thermal_strategy(
         excluded_thermal_strategies, equipment
     )
-
-
-def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOptimisationParameters):
-    """
-    Update power matrix and stored energy for equipment portfolio based on market clearing.
-
-    Args:
-        equipments: List of equipment objects to process
-        parameters: Configuration parameters containing market type, dates, etc.
-    """
-    for equipment in equipments:
-        new_power = _calculate_new_power(equipment, parameters)
-        activated_power = _calculate_activated_power(equipment, parameters)
-
-        if _should_skip_equipment(equipment, activated_power, parameters):
-            continue
-
-        _apply_power_constraints(equipment, new_power, parameters)
-
-        if isinstance(equipment, HydroPO | StoragePO):
-            _update_stored_energy(equipment, new_power, parameters)
-
-        _finalize_power_update(equipment, new_power, parameters)
 
 
 def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimisationParameters) -> Timeseries:

@@ -14,9 +14,9 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
-from atlas.modules.portfolio_optimisation.main import PortfolioOptimisationOrchestrator
 from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.modules.portfolio_optimisation.portfolio_orchestrator import PortfolioOptimisationOrchestrator
 from atlas.timing import infer_frequency
 
 
@@ -81,8 +81,8 @@ class PortfolioOptimisationModule(
     ) -> PortfolioOptimisationOutputDataset:
         """Executes the module's main logic."""
         model = PortfolioOptimisationOrchestrator(parameters)
-        model.run(dataset)
-        return PortfolioOptimisationOutputDataset()
+        models = model.run(dataset)
+        return PortfolioOptimisationOutputDataset(parameters, models)
 
     def _validate_timeseries_timestep_consistency(
         self,
