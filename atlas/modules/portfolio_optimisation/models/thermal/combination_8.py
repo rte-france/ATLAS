@@ -58,20 +58,26 @@ def add_initial_conditions(
             raise ValueError("minimum_power is required when day_zero is False")
 
         for time in kwargs.get("initial_times", []):
-            power_t = power_ts.get_value(time)
-            obj.power_level_var.set_extended(time, power_t)
-            min_power = obj.minimum_power.get_value(time)
+            if time in power_ts:
+                power_t = power_ts.get_value(time)
+                obj.power_level_var.set_extended(time, power_t)
+                min_power = obj.minimum_power.get_value(time)
 
-            if power_t >= min_power:
-                obj.off_var.set_extended(time, 0)
-                obj.on_start_var.set_extended(time, 0)
-                obj.stop_var.set_extended(time, 0)
+                if power_t >= min_power:
+                    obj.off_var.set_extended(time, 0)
+                    obj.on_start_var.set_extended(time, 0)
+                    obj.stop_var.set_extended(time, 0)
 
-            elif power_t > 0:
-                obj.off_var.set_extended(time, 0)
-                obj.on_start_var.set_extended(time, 1)
-                obj.stop_var.set_extended(time, 1)
+                elif power_t > 0:
+                    obj.off_var.set_extended(time, 0)
+                    obj.on_start_var.set_extended(time, 1)
+                    obj.stop_var.set_extended(time, 1)
+                else:
+                    obj.off_var.set_extended(time, 1)
+                    obj.on_start_var.set_extended(time, 0)
+                    obj.stop_var.set_extended(time, 0)
             else:
+                obj.power_level_var.set_extended(time, 0)
                 obj.off_var.set_extended(time, 1)
                 obj.on_start_var.set_extended(time, 0)
                 obj.stop_var.set_extended(time, 0)
@@ -80,7 +86,7 @@ def add_initial_conditions(
             obj.turned_off.set_extended(time, 0)
 
             prev_time = time - parameters.timestep
-            prev_power = power_ts.get_value(prev_time)
+            prev_power = power_ts.get_value(prev_time) if prev_time in power_ts else 0
             # Distinguish between startup and shutdown for intermediate power levels
             if time != extended_start_date and obj.on_start_var.get_extended_value(time) == 1:
                 if power_t > prev_power:
@@ -99,10 +105,9 @@ def add_initial_conditions(
 
         # Handle stable-specific variables for non-dayZero
         for idx, time in enumerate(kwargs.get("stable_initial_times", [])):
-            current_power = power_ts.get_value(time)
             next_time = time + parameters.timestep
-            next_power = power_ts.get_value(next_time) if next_time in power_ts else current_power
-            min_power = obj.minimum_power.get_value(time)
+            current_power = obj.power_level_var.get_extended_value(time)
+            next_power = obj.power_level_var.get_extended_value(next_time)
 
             # Initialize auxiliary variables to 0
             obj.stable_var.set_extended(time, 0)
@@ -149,12 +154,18 @@ def add_initial_conditions(
             if idx >= 2:
                 initialize_flat_down_stop_initial_conditions(
                     obj,
+                    time,
                     time - parameters.timestep,
                     time - 2 * parameters.timestep,
-                    time - 3 * parameters.timestep,
                 )
 
         initialize_gradient_initial_conditions(obj, parameters)
+        initialize_flat_down_stop_initial_conditions(
+            obj,
+            parameters.start_date - parameters.timestep,
+            parameters.start_date - 2 * parameters.timestep,
+            parameters.start_date - 3 * parameters.timestep,
+        )
 
 
 def add_constraints(
