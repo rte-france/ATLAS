@@ -29,7 +29,6 @@ from atlas.solver.solver_interface import OptimisationModel
 
 def add_initial_conditions(
     obj: ThermalPO,
-    model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
     extended_start_date: DateTime,
     day_zero: bool,

@@ -27,7 +27,6 @@ from atlas.solver.solver_interface import OptimisationModel
 
 def add_initial_conditions(
     obj: ThermalPO,
-    model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
     extended_start_date: DateTime,
     day_zero: bool,
@@ -104,7 +103,7 @@ def add_constraints(
     relaxed_reserves_var = model.get_variable(f"relaxed_reserves_{obj.name}_{time}")
 
     max_power = obj.maximum_power.get_value(time)
-    min_power = -max_power
+    q_lower = obj.minimum_power.get_value(time)
     maximum_automated = get_maximum_automated(obj)
 
     model.add_constraint(turned_on_var <= 1 - off_var, f"t_on_evol_1_{time}_{obj.name}")
@@ -148,7 +147,7 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        <= min_power + parameters.allowed_round_off_error,
+        <= q_lower + parameters.allowed_round_off_error,
         f"down_fillup_1_{time}_{obj.name}",
     )
     model.add_constraint(
@@ -157,12 +156,12 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        >= min_power - parameters.allowed_round_off_error,
+        >= q_lower - parameters.allowed_round_off_error,
         f"down_fillup_2_{time}_{obj.name}",
     )
 
     model.add_constraint(
-        relaxed_reserves_var <= min_power * (1 - on_up_var - on_down_var), f"relaxed_reserves_{time}_{obj.name}"
+        relaxed_reserves_var <= q_lower * (1 - on_up_var - on_down_var), f"relaxed_reserves_{time}_{obj.name}"
     )
 
     model.add_constraint(
@@ -175,7 +174,7 @@ def add_constraints(
     model.add_constraint(reserves_up_var <= max_power * (1 - off_var), f"reserves_up_max_{time}_{obj.name}")
     model.add_constraint(reserves_down_var <= max_power * (1 - off_var), f"reserves_down_max_{time}_{obj.name}")
 
-    model.add_constraint(power_level_var >= min_power * (on_up_var + on_down_var), f"lower_bound_{obj.name}_{time}")
+    model.add_constraint(power_level_var >= q_lower * (on_up_var + on_down_var), f"lower_bound_{obj.name}_{time}")
     model.add_constraint(power_level_var <= max_power * (on_up_var + on_down_var), f"upper_bound_{obj.name}_{time}")
 
     if time in obj.optimisation_time_window[:-2]:

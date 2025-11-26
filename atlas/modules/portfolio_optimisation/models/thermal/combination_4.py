@@ -27,7 +27,6 @@ from atlas.solver.solver_interface import OptimisationModel
 
 def add_initial_conditions(
     obj: ThermalPO,
-    model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
     extended_start_date: DateTime,
     day_zero: bool,
@@ -131,7 +130,7 @@ def add_constraints(
 
     # Power bounds and startup parameters
     max_power = obj.maximum_power.get_value(time)
-    min_power = -max_power
+    q_lower = obj.minimum_power.get_value(time)
     maximum_automated = get_maximum_automated(obj)
 
     # Startup gradient parameters
@@ -175,7 +174,7 @@ def add_constraints(
             model.add_constraint(turned_off_local_var <= off_var, f"minimum_time_off_{obj.name}_{local_time}_{time}")
 
     if obj._T_start >= 2:
-        for s in range(1, obj._T_start):
+        for s in range(1, obj._T_start - 1):
             local_time = time - s * parameters.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(turned_on_local_var <= start_var, f"startup_ramp_{obj.name}_{local_time}_{time}")
@@ -197,7 +196,7 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        <= min_power + parameters.allowed_round_off_error,
+        <= q_lower + parameters.allowed_round_off_error,
         f"down_fillup_1_{time}_{obj.name}",
     )
     model.add_constraint(
@@ -206,12 +205,12 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        >= min_power - parameters.allowed_round_off_error,
+        >= q_lower - parameters.allowed_round_off_error,
         f"down_fillup_2_{time}_{obj.name}",
     )
 
     model.add_constraint(
-        relaxed_reserves_var <= min_power * (1 - on_up_var - on_down_var), f"relaxed_reserves_{time}_{obj.name}"
+        relaxed_reserves_var <= q_lower * (1 - on_up_var - on_down_var), f"relaxed_reserves_{time}_{obj.name}"
     )
 
     model.add_constraint(
@@ -227,7 +226,7 @@ def add_constraints(
         reserves_down_var <= max_power * (1 - off_var - start_var), f"reserves_down_max_{time}_{obj.name}"
     )
 
-    model.add_constraint(power_level_var >= min_power * (on_up_var + on_down_var), f"lower_bound_{obj.name}_{time}")
+    model.add_constraint(power_level_var >= q_lower * (on_up_var + on_down_var), f"lower_bound_{obj.name}_{time}")
 
     model.add_constraint(
         power_level_var <= max_power * (on_up_var + on_down_var) + start_var * q_min, f"upper_bound_{obj.name}_{time}"

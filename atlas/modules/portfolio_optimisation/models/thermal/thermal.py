@@ -271,7 +271,7 @@ class ThermalPO(Thermal):
                 "minimize",
             )
 
-            if len(parameters.target_times) > 0 and time not in parameters.target_times:
+            if time >= max(parameters.target_times):
                 model.add_objective(
                     -price_forecast * power_level_var * parameters.timestep.total_hours(),
                     "minimize",
@@ -471,7 +471,6 @@ class ThermalPO(Thermal):
         # Call the function with single timestamp
         initial_condition_function(
             obj=self,
-            model=model,
             parameters=parameters,
             extended_start_date=initial_times[0],
             day_zero=day_zero,

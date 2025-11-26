@@ -30,7 +30,6 @@ from atlas.solver.solver_interface import OptimisationModel
 
 def add_initial_conditions(
     obj: ThermalPO,
-    model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
     extended_start_date: DateTime,
     day_zero: bool,
@@ -212,6 +211,7 @@ def add_constraints(
 
     max_power = obj.maximum_power.get_value(time)
     min_power = -max_power
+    q_lower = obj.minimum_power.get_value(time)
     maximum_automated = get_maximum_automated(obj)
 
     q_min = obj.minimum_power.max()
@@ -350,7 +350,7 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        <= min_power + parameters.allowed_round_off_error,
+        <= q_lower + parameters.allowed_round_off_error,
         f"down_fillup_1_{time}_{obj.name}",
     )
     model.add_constraint(
@@ -359,12 +359,12 @@ def add_constraints(
         - automated_reserves_down_var
         - unprovided_reserves_down_var
         + relaxed_reserves_var
-        >= min_power - parameters.allowed_round_off_error,
+        >= q_lower - parameters.allowed_round_off_error,
         f"down_fillup_2_{time}_{obj.name}",
     )
 
     model.add_constraint(
-        relaxed_reserves_var <= min_power * (1 - on_up_var - on_flat_var - on_down_var),
+        relaxed_reserves_var <= q_lower * (1 - on_up_var - on_flat_var - on_down_var),
         f"relaxed_reserves_{time}_{obj.name}",
     )
 
@@ -387,7 +387,7 @@ def add_constraints(
     )
 
     model.add_constraint(
-        power_level_var >= min_power * (on_up_var + on_down_var + on_flat_var) + turned_off_var * (q_min - q_step),
+        power_level_var >= q_lower * (on_up_var + on_down_var + on_flat_var) + turned_off_var * (q_min - q_step),
         f"lower_bound_{obj.name}_{time}",
     )
 
