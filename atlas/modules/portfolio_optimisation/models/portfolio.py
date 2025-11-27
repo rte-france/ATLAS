@@ -4,6 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from datetime import datetime
 from typing import cast
 
 from pendulum import DateTime, Duration
@@ -14,13 +15,13 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.portfolio import Portfolio
+from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_power, get_reserve, get_upstream_energy
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.solver.solver_interface import OptimisationModel
 
@@ -300,13 +301,12 @@ class PortfolioPO(Portfolio):
         ]
 
         for obj in forecast_based_equipment:
-            upstream_energy = get_upstream_energy(obj, time, parameters)
+            upstream_energy = self._get_upstream_energy(obj, time, parameters)
             forecast = obj.maximum_power_forecast.get_forecast(
                 parameters.execution_date, parameters.start_date, parameters.end_date
             )
-            last_forecast = forecast.get_value(time) if time in forecast else 0
-            optimal_dispatch = min(last_forecast, upstream_energy)
-            residual_energy += upstream_energy - optimal_dispatch
+            forecast_t = forecast.get_value(time) if time in forecast else 0
+            residual_energy += upstream_energy - min(forecast_t, upstream_energy)
 
         # Other equipment types contribute their full upstream energy
         other_equipment = [
@@ -318,14 +318,14 @@ class PortfolioPO(Portfolio):
         ]
 
         for equipment in other_equipment:
-            residual_energy += get_upstream_energy(equipment, time, parameters)  # type:ignore [arg-type]
+            residual_energy += self._get_upstream_energy(equipment, time, parameters)  # type:ignore [arg-type]
 
         return residual_energy
 
     def _compute_maximum_power(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
         """Compute maximum power and energy metrics for all times."""
         return sum(
-            abs(get_maximum_power(obj, time, parameters.execution_date))
+            abs(self._get_maximum_power(obj, time, parameters.execution_date))
             for _, equipment_list in self.equipments.get_dispatchable_equipment_types()
             for obj in equipment_list
         )
@@ -335,7 +335,7 @@ class PortfolioPO(Portfolio):
     ) -> tuple[float, float, float, float]:
         """Compute reserves and power metrics for a specific time."""
         all_reserves = [
-            get_reserve(obj, time, parameters)
+            self._get_reserve(obj, time, parameters)
             for _, equipment_list in self.equipments.get_dispatchable_equipment_types()
             for obj in equipment_list
         ]
@@ -378,3 +378,91 @@ class PortfolioPO(Portfolio):
                 time
             )
         return None
+
+    @staticmethod
+    def _get_upstream_energy(
+        obj: EquipmentPO,
+        time: DateTime,
+        parameters: PortfolioOptimisationParameters,
+    ) -> float:
+        """Get upstream energy (bought or sold) based on market type."""
+        if parameters.market == MarketType.rr_activation:
+            if obj.rr_activated is not None:
+                return obj.rr_activated.get_value(time)
+            return 0.0
+        elif parameters.market == MarketType.mfrr_activation:
+            if obj.mfrr_activated is not None:
+                return obj.mfrr_activated.get_value(time)
+            return 0.0
+        else:
+            total_id = (
+                obj.total_id_cleared_quantity.get_value(time) if obj.total_id_cleared_quantity is not None else 0.0
+            )
+            da_cleared = obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0.0
+            return total_id + da_cleared
+
+    @staticmethod
+    def _get_maximum_power(
+        obj: EquipmentPO, time: DateTime, execution_date: datetime | DateTime | str | None = None
+    ) -> float:
+        obj_type = type(obj).__name__
+
+        if obj_type in ("HydroPO", "StoragePO", "ThermalPO"):
+            return obj.maximum_power.get_value(time)  # type: ignore[union-attr]
+        elif obj_type in ("LoadPO", "WindPO", "SolarPO", "OtherNonDispatchablePO"):
+            if execution_date:
+                forecast = obj.maximum_power_forecast.get_forecast(execution_date, time, time)  # type: ignore[union-attr]
+                return forecast.get_value(time) if time in forecast else 0
+            else:
+                raise RuntimeError(
+                    "Missing execution date argument for a Load, Wind, Solar or OtherNonDispatchable equipment"
+                )
+        else:
+            raise RuntimeError("Unrecognized Equipment type")
+
+    def _get_reserve(
+        self,
+        obj: EquipmentPO,
+        time: DateTime,
+        parameters: PortfolioOptimisationParameters,
+    ) -> tuple[float, float, float, float]:
+        """Calculate reserve values for equipment object."""
+        maximum_afrr = obj.maximum_afrr
+        maximum_fcr = obj.maximum_fcr
+
+        afrr_up = self.get_reserve_value(obj, time, "afrr_up", parameters)
+        afrr_down = self.get_reserve_value(obj, time, "afrr_down", parameters)
+        mfrr_up = self.get_reserve_value(obj, time, "mfrr_up", parameters)
+        mfrr_down = self.get_reserve_value(obj, time, "mfrr_down", parameters)
+        rr_up = self.get_reserve_value(obj, time, "rr_up", parameters)
+        rr_down = self.get_reserve_value(obj, time, "rr_down", parameters)
+        fcr_up = self.get_reserve_value(obj, time, "fcr_up", parameters)
+        fcr_down = self.get_reserve_value(obj, time, "fcr_down", parameters)
+
+        # Calculate individual equipment reserve totals
+        reserves_up = rr_up + mfrr_up
+        reserves_down = rr_down + mfrr_down
+        automated_reserves_up = min(afrr_up, maximum_afrr or 0) + min(fcr_up, maximum_fcr or 0)
+        automated_reserves_down = min(afrr_down, maximum_afrr or 0) + min(fcr_down, maximum_fcr or 0)
+
+        return (
+            reserves_up,
+            reserves_down,
+            automated_reserves_up,
+            automated_reserves_down,
+        )
+
+    @staticmethod
+    def get_reserve_value(
+        obj: EquipmentPO, time: DateTime, reserve_type: str, parameters: PortfolioOptimisationParameters
+    ) -> float:
+        """Helper to get reserve value from forecast."""
+        reserve_attr = getattr(obj, f"{reserve_type}_procured")
+        if reserve_attr:
+            return (
+                cast(ForecastingMatrix | LazyForecastingMatrix, reserve_attr)
+                .get_forecast(parameters.execution_date, time, time)
+                .get_value(time)
+            )
+        else:
+            return 0
