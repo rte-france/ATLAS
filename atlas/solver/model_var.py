@@ -26,7 +26,7 @@ class ModelVar:
     def __init__(self, getter: Callable[[DateTime], Any], setter: Callable[[DateTime], Any]):
         self._getter = getter
         self._setter = setter
-        self._extended_frame: dict[DateTime, int] = {}
+        self._extended_frame: dict[DateTime, float] = {}
 
     def get_value(self, t: DateTime) -> Any:
         """
@@ -41,7 +41,7 @@ class ModelVar:
         else:
             return self.get_model_var(t)
 
-    def get_extended_value(self, t: DateTime) -> int:
+    def get_extended_value(self, t: DateTime) -> float:
         """
         Get the value matching the DateTime key from the extended frame
 
@@ -51,7 +51,7 @@ class ModelVar:
         """
         return self._extended_frame[t]
 
-    def set_extended(self, t: DateTime, value: int):
+    def set_extended(self, t: DateTime, value: float):
         """
         Set the given value in the extended frame
 

@@ -11,6 +11,8 @@ from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.portfolio_optimisation_model import PortfolioOptimisationModel
 
@@ -97,8 +99,8 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         Returns:
             Tuple of (power_values, stored_energy_values)
         """
-        power_values = []
-        stored_energy_values = []
+        power_values: list[float] = []
+        stored_energy_values: list[float] = []
 
         if equipment_type == "thermal":
             # For thermal equipment, extract power from power_level_var
@@ -116,6 +118,9 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
 
         elif equipment_type == "hydro":
             # For hydro equipment, sum power across all fragments
+            if not isinstance(equipment, HydroPO):
+                return power_values, stored_energy_values
+
             for t in self.parameters.target_times:
                 activated_power = 0.0
                 for category in equipment.fragment_data.keys():
@@ -132,6 +137,9 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
 
         elif equipment_type == "storage":
             # For storage equipment, sum buy and sell power
+            if not isinstance(equipment, StoragePO):
+                return power_values, stored_energy_values
+
             for t in self.parameters.target_times:
                 power = model.get_variable_value(f"{equipment.name}_power_level_sell_{t}") + model.get_variable_value(
                     f"{equipment.name}_power_level_buy_{t}"
@@ -181,12 +189,14 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                 power_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
             )
 
-    def _update_stored_energy_forecasting_matrix(self, equipment: EquipmentPO, stored_energy_values: list[float]):
+    def _update_stored_energy_forecasting_matrix(
+        self, equipment: HydroPO | StoragePO, stored_energy_values: list[float]
+    ):
         """
         Update equipment's stored energy forecasting matrix.
 
         Args:
-            equipment: Equipment instance to update
+            equipment: Equipment instance to update (must be HydroPO or StoragePO)
             stored_energy_values: List of stored energy values for target times
         """
         if not stored_energy_values:
@@ -229,5 +239,5 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
             self._update_power_forecasting_matrix(equipment, power_values)
 
             # Update stored energy forecasting matrix for hydro and storage equipment
-            if equipment_type in ["hydro", "storage"]:
+            if equipment_type in ["hydro", "storage"] and isinstance(equipment, (HydroPO, StoragePO)):
                 self._update_stored_energy_forecasting_matrix(equipment, stored_energy_values)

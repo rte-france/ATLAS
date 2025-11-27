@@ -13,6 +13,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
+from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
@@ -23,7 +24,7 @@ from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
-def set_manual_activation(equipments: list[Equipment], parameters: PortfolioOptimisationParameters):
+def set_manual_activation(equipments: list[EquipmentPO], parameters: PortfolioOptimisationParameters):
     """
     Update power matrix and stored energy for equipment portfolio based on market clearing.
 

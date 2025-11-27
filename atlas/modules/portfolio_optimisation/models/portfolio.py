@@ -384,3 +384,4 @@ class PortfolioPO(Portfolio):
             return self.market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time).get_value(
                 time
             )
+        return None

@@ -4,8 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import cast
-
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -106,9 +104,7 @@ class PortfolioOptimisationOrchestrator:
             cfg.logger.error(f"Optimisation failed for portfolio {portfolio.name}: {e}")
             cfg.logger.debug("Falling back to manual activation")
 
-            equipment_list = [equipment for t in portfolio.equipments for equipment in portfolio.equipments[t]]
-            cfg.logger.debug(f"Setting manual activation for {len(equipment_list)} equipment(s)")
-            set_manual_activation(cast(list, equipment_list), self.parameters)
+            set_manual_activation(portfolio.equipments.get_all_equipment(), self.parameters)
             return model
 
     def _optimise_portfolio_manual_activated(self, portfolio: PortfolioPO):
