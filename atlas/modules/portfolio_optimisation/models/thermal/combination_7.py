@@ -51,6 +51,7 @@ def add_initial_conditions(
 
             obj.down_to_stop_grad.set_extended(time, 0)
             obj.on_start_var.set_extended(time, 0)
+            obj.stop_var.set_extended(time, 0)
 
     else:
         # Non-dayZero case: Initialize based on power history

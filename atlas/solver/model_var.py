@@ -15,12 +15,20 @@ import atlas.config as cfg
 
 class ModelVar:
     """
-    This class is used to add and manage values to an OptimisationModel variable outside its time limits.
-    Ex :
-    model_var = ModelVar(
-        lambda t: model.get_variable(t),
-        lambda t: model.add_boolean_variable(t)
-    )
+    Manages OptimisationModel variables with extended time frame support.
+
+    Provides access to model variables both within and outside the model's time limits
+    by maintaining an extended frame for boundary values (e.g., initial conditions).
+
+    Example:
+        >>> power = ModelVar(
+        ...     getter=lambda t: model.get_variable(f"power_{t}"),
+        ...     setter=lambda t: model.add_continuous_variable(f"power_{t}", lb=0, ub=100)
+        ... )
+        >>> power.set_extended(t0, 50.0)  # Set initial condition
+        >>> power.set_model_var(t1)  # Add variable to model
+        >>> power.get_value(t0)  # Returns 50.0 from extended frame
+        >>> power.get_value(t1)  # Returns model variable object
     """
 
     def __init__(self, getter: Callable[[DateTime], Any], setter: Callable[[DateTime], Any]):
@@ -34,7 +42,7 @@ class ModelVar:
 
         :param t: DateTime key
 
-        :return: the value
+        :return: Either the optimisation variable or the float value. First tries to get the float value.
         """
         if t in self._extended_frame:
             return self._extended_frame[t]
@@ -46,7 +54,6 @@ class ModelVar:
         Get the value matching the DateTime key from the extended frame
 
         :param t: DateTime key
-
         :return: the value
         """
         return self._extended_frame[t]
