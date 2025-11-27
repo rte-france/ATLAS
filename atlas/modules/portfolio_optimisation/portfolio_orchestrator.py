@@ -98,6 +98,7 @@ class PortfolioOptimisationOrchestrator:
 
         try:
             model.build_model(time_window)
+            model.export_model(f"lp_validation/generated_lp/po_{portfolio.name}.lp")
             model.solve()
             return model
 

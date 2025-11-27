@@ -82,7 +82,10 @@ class PortfolioOptimisationModule(
         """Executes the module's main logic."""
         model = PortfolioOptimisationOrchestrator(parameters)
         models = model.run(dataset)
-        return PortfolioOptimisationOutputDataset(parameters, models)
+        output_dataset = PortfolioOptimisationOutputDataset(parameters=parameters, models=models, input_dataset=dataset)
+        output_dataset.build_output()
+
+        return output_dataset
 
     def _validate_timeseries_timestep_consistency(
         self,
