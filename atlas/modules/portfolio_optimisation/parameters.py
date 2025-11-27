@@ -28,16 +28,13 @@ class PortfolioOptimisationParameters(AbstractParameters):
         description="Whether to take a price forecast. If true, optimization happens before a market.",
     )
     use_presolve: bool = Field(False, description="Boolean indicating if the solver should use a presolve mode.")
+    use_multiprocessing: bool = Field(
+        True,
+        description="If True, use multiprocessing for parallel portfolio optimization. If False, use sequential for loop.",
+    )
     max_workers: int | None = Field(
         None,
-        description="Maximum number of parallel processes for portfolio optimization. None defaults to CPU count.",
-    )
-    verbose: bool = Field(
-        True,
-        description="If True, information of the module execution will be displayed in the terminal.",
-    )
-    with_rounding: bool = Field(
-        True, description="If true, optimization outputs are rounded at the end to avoid artefacts."
+        description="Maximum number of parallel processes for portfolio optimization. None defaults to CPU count. Only used if use_multiprocessing is True.",
     )
     allowed_round_off_error: float = Field(
         0.01, description="Error (in MW) below which the activated power is considered equal to 0."
@@ -109,7 +106,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
         default_factory=lambda: duration(minutes=60),
         description="Manual reserve duration for pumped hydraulic equipment.",
     )
-
     solver_timeout: Duration = Field(
         default_factory=lambda: duration(seconds=60), description="Timeout (in seconds) of the optimization."
     )

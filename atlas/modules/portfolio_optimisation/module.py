@@ -5,9 +5,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from loguru import logger
 from pendulum import Duration
 
-import atlas.config as cfg
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -37,7 +37,7 @@ class PortfolioOptimisationModule(
         parameters: PortfolioOptimisationParameters,
     ) -> PortfolioOptimisationInputDataset:
         """Imports data using business objects and parameters."""
-        cfg.logger.info("Building Portfolio Optimisation input dataset ..")
+        logger.info("Building Portfolio Optimisation input dataset ..")
         return PortfolioOptimisationInputDataset(raw_data, parameters)
 
     def validate_data(
@@ -46,14 +46,14 @@ class PortfolioOptimisationModule(
         input_dataset: PortfolioOptimisationInputDataset,
     ) -> bool:
         """Validates imported or generated data."""
-        cfg.logger.debug("Validating timeseries timestep consistency for portfolio optimization")
+        logger.debug("Validating timeseries timestep consistency for portfolio optimization")
 
         try:
             self._validate_timeseries_timestep_consistency(parameters, input_dataset)
-            cfg.logger.debug("Timestep validation passed successfully")
+            logger.debug("Timestep validation passed successfully")
             return True
         except ValueError as e:
-            cfg.logger.error(f"Timestep validation failed: {e}")
+            logger.error(f"Timestep validation failed: {e}")
             return False
 
     def validates_results(
@@ -72,7 +72,7 @@ class PortfolioOptimisationModule(
         output_dataset: PortfolioOptimisationOutputDataset,
     ) -> None:
         """Exports results."""
-        cfg.logger.debug("Exporting Portfolio Optimisation results ..")
+        logger.debug("Exporting Portfolio Optimisation results ..")
 
     def execute(
         self,
@@ -85,7 +85,7 @@ class PortfolioOptimisationModule(
         output_dataset = PortfolioOptimisationOutputDataset(
             parameters=parameters, optimisation_results=optimisation_results, input_dataset=dataset
         )
-        output_dataset.build_output()
+        output_dataset.build()
 
         return output_dataset
 
@@ -96,7 +96,7 @@ class PortfolioOptimisationModule(
     ) -> None:
         """Validate that all timeseries data have timesteps consistent with the optimization parameters."""
         expected_timestep = parameters.timestep
-        cfg.logger.debug(f"Expected timestep: {expected_timestep}")
+        logger.debug(f"Expected timestep: {expected_timestep}")
 
         validation_errors = []
 
@@ -133,7 +133,7 @@ class PortfolioOptimisationModule(
                 elif validation_result["fixed"]:
                     # Update the equipment attribute with the corrected timeseries
                     setattr(equipment, attr_name, validation_result["timeseries"])
-                    cfg.logger.debug(f"Auto-corrected timestep for {equipment_name}.{attr_name}")
+                    logger.debug(f"Auto-corrected timestep for {equipment_name}.{attr_name}")
 
         return errors
 
@@ -156,7 +156,7 @@ class PortfolioOptimisationModule(
                     errors.append(validation_result["error"])
                 elif validation_result["fixed"]:
                     setattr(portfolio, attr_name, validation_result["timeseries"])
-                    cfg.logger.debug(f"Auto-corrected timestep for {portfolio_name}.{attr_name}")
+                    logger.debug(f"Auto-corrected timestep for {portfolio_name}.{attr_name}")
 
         # Check market area attributes
         if hasattr(portfolio, "market_area") and portfolio.market_area:
@@ -174,7 +174,7 @@ class PortfolioOptimisationModule(
                         errors.append(validation_result["error"])
                     elif validation_result["fixed"]:
                         setattr(market_area, attr_name, validation_result["timeseries"])
-                        cfg.logger.debug(f"Auto-corrected timestep for {portfolio_name}.market_area.{attr_name}")
+                        logger.debug(f"Auto-corrected timestep for {portfolio_name}.market_area.{attr_name}")
 
         return errors
 
@@ -198,7 +198,7 @@ class PortfolioOptimisationModule(
                 return result  # Skip validation for empty/small timeseries
 
             if actual_timestep != expected_timestep:
-                cfg.logger.debug(
+                logger.debug(
                     f"{context}: Timestep mismatch - expected {expected_timestep}, found {actual_timestep}. Attempting to fix..."
                 )
 
@@ -208,7 +208,7 @@ class PortfolioOptimisationModule(
                         fixed_ts = timeseries_obj.set_frequency(expected_timestep, inplace=False)
                         result["timeseries"] = fixed_ts
                         result["fixed"] = True
-                        cfg.logger.debug(f"{context}: Successfully adjusted timestep to {expected_timestep}")
+                        logger.debug(f"{context}: Successfully adjusted timestep to {expected_timestep}")
                     else:
                         result["error"] = f"{context}: Cannot adjust timestep - object lacks set_frequency method"
                 except Exception as e:

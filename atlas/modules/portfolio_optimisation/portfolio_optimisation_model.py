@@ -23,7 +23,7 @@ class PortfolioOptimisationModel(OptimisationModel):
         self.portfolio = portfolio
         self.parameters = parameters
 
-    def build_model(self, time_window: list[DateTime]) -> None:
+    def build(self, time_window: list[DateTime]) -> None:
         """Build the optimization model by adding variables, constraints, and objectives."""
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 

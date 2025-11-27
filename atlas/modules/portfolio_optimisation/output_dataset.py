@@ -31,7 +31,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
         return []
 
-    def build_output(self):
+    def build(self):
         for model in self.optimisation_results.values():
             portfolio = model.portfolio
 
