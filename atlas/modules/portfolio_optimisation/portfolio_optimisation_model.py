@@ -37,7 +37,7 @@ class PortfolioOptimisationModel(OptimisationModel):
             self.portfolio.add_variables(self, time, self.parameters)
             price_forecast = self.portfolio.get_price_forecast(time, self.parameters)
 
-            for _, equipment_list in self.portfolio.equipments.iter_by_type():
+            for _, equipment_list in self.portfolio.equipments.iter_by_type_for_optimisation():
                 for equipment in equipment_list:
                     equipment.add_variables(self, time, self.parameters)
                     equipment.add_constraints(self, time, self.parameters)

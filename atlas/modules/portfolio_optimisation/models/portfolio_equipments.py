@@ -64,6 +64,15 @@ class PortfolioEquipments:
         yield ("dispatchable_load", cast(list[EquipmentPO], self.dispatchable_load))
         yield ("non_dispatchable_load", cast(list[EquipmentPO], self.non_dispatchable_load))
 
+    def iter_by_type_for_optimisation(self) -> Iterator[tuple[str, list[EquipmentPO]]]:
+        """Iterate over equipment grouped by type. This methods is used to iterate over equipments that are allowed in optimisation problem"""
+        yield ("thermal", cast(list[EquipmentPO], self.thermal))
+        yield ("storage", cast(list[EquipmentPO], self.storage))
+        yield ("hydro", cast(list[EquipmentPO], self.hydro))
+        yield ("wind", cast(list[EquipmentPO], self.wind))
+        yield ("solar", cast(list[EquipmentPO], self.solar))
+        yield ("dispatchable_load", cast(list[EquipmentPO], self.dispatchable_load))
+
     def has_generation_equipment(self) -> bool:
         """Check if portfolio has any generation equipment."""
         return bool(self.thermal or self.hydro or self.storage or self.wind or self.solar)

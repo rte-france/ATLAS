@@ -171,7 +171,7 @@ class HydroPO(Hydro):
 
             # Calculate these once per time step instead of once per fragment
             energy_level = self._get_current_energy_level(parameters)
-            marginal_weights = self._calculate_marginal_weights(energy_level, parameters.timestep)
+            marginal_weights = self._calculate_marginal_weights(energy_level)
 
             for k in range(len(self.fragment_data.keys())):
                 # Only compute the fragment-specific part
@@ -209,7 +209,7 @@ class HydroPO(Hydro):
         else:
             return self.initial_level.get_value(parameters.start_date - parameters.timestep)
 
-    def _calculate_marginal_weights(self, energy_level: float, timestep: Duration) -> dict:  # noqa: ARG002
+    def _calculate_marginal_weights(self, energy_level: float) -> dict:
         """Calculate marginal value weights based on current energy level."""
         storage_indices = self.storage_marginal_value.indexes
 

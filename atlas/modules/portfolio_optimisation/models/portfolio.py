@@ -141,8 +141,8 @@ class PortfolioPO(Portfolio):
                 *imbalance_prices,
                 parameters.timestep,
             )
-
-            self._add_reserve_penalty_terms(model, time, parameters)
+            if self.equipments.has_generation_equipment():
+                self._add_reserve_penalty_terms(model, time, parameters)
         else:
             cfg.logger.debug(f"Skipping objective terms for portfolio :{self.name} at non-target time {time}")
 
@@ -163,7 +163,6 @@ class PortfolioPO(Portfolio):
         large_imbalance_up_var = model.get_variable(f"{self.name}_large_imbalance_up_{time}")
         large_imbalance_down_var = model.get_variable(f"{self.name}_large_imbalance_down_{time}")
 
-        # Small imbalance costs
         if imbalance_price_up:
             model.add_objective(
                 imbalance_price_up * small_imbalance_up_var * timestep.total_hours(), direction="minimize"
@@ -174,7 +173,6 @@ class PortfolioPO(Portfolio):
                 -imbalance_price_down * small_imbalance_down_var * timestep.total_hours(), direction="minimize"
             )
 
-        # Large imbalance costs
         if large_imbalance_price_up:
             model.add_objective(
                 large_imbalance_price_up * large_imbalance_up_var * timestep.total_hours(), direction="minimize"
@@ -195,7 +193,6 @@ class PortfolioPO(Portfolio):
         auto_contracted_diff_up = model.get_variable(f"automated_contracted_diff_up_{self.name}_{time}")
         auto_contracted_diff_down = model.get_variable(f"automated_contracted_diff_down_{self.name}_{time}")
 
-        # Manual reserve penalties
         model.add_objective(
             parameters.manual_unprocured_reserves_penalty * parameters.timestep.total_hours() * contracted_diff_up,
             direction="minimize",
@@ -205,7 +202,6 @@ class PortfolioPO(Portfolio):
             direction="minimize",
         )
 
-        # Automated reserve penalties
         model.add_objective(
             parameters.automated_unprocured_reserves_penalty
             * parameters.timestep.total_hours()
@@ -285,11 +281,7 @@ class PortfolioPO(Portfolio):
                     total_power += var
 
         for obj in (
-            self.equipments.thermal
-            + self.equipments.wind
-            + self.equipments.solar
-            + self.equipments.dispatchable_load
-            + self.equipments.non_dispatchable_load
+            self.equipments.thermal + self.equipments.wind + self.equipments.solar + self.equipments.dispatchable_load
         ):
             if time in obj.optimisation_time_window:
                 var = model.get_variable(f"{obj.name}_power_level_{time}")
