@@ -103,7 +103,6 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                 status = "manual" if is_manual else "included"
                 all_equipments_with_type_and_status.append((equipment, equipment_type, status))
 
-        # Tri par nom de portfolio, type d'équipement et statut
         all_equipments_with_type_and_status.sort(key=lambda x: (x[0].portfolio.name, x[1], x[2]))
 
         for _, portfolio_items in groupby(all_equipments_with_type_and_status, key=lambda x: x[0].portfolio.name):
@@ -125,7 +124,6 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                     elif status == "manual":
                         setattr(equipment_manual, equipment_type, equipments)
 
-            # Création des objets PortfolioPO
             if equipment_included.get_all_equipment():
                 portfolio_po = PortfolioPO(**original_portfolio.model_dump(), equipments=equipment_included)
                 # Apply market validation to the MarketAreaPO based on parameters

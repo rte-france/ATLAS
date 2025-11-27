@@ -28,6 +28,10 @@ class PortfolioOptimisationParameters(AbstractParameters):
         description="Whether to take a price forecast. If true, optimization happens before a market.",
     )
     use_presolve: bool = Field(False, description="Boolean indicating if the solver should use a presolve mode.")
+    max_workers: int | None = Field(
+        None,
+        description="Maximum number of parallel processes for portfolio optimization. None defaults to CPU count.",
+    )
     verbose: bool = Field(
         True,
         description="If True, information of the module execution will be displayed in the terminal.",

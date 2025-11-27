@@ -14,17 +14,17 @@ from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.portfolio_optimisation_model import PortfolioOptimisationModel
+from atlas.modules.portfolio_optimisation.portfolio_orchestrator import PortfolioOptimisationResult
 
 
 class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationParameters]):
     def __init__(
         self,
         parameters: PortfolioOptimisationParameters,
-        models: dict[str, PortfolioOptimisationModel],
+        optimisation_results: dict[str, PortfolioOptimisationResult],
         input_dataset: PortfolioOptimisationInputDataset,
     ):
-        self.models = models
+        self.optimisation_results = optimisation_results
         self.parameters = parameters
         self.input_dataset = input_dataset
 
@@ -32,7 +32,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         return []
 
     def build_output(self):
-        for model in self.models.values():
+        for model in self.optimisation_results.values():
             portfolio = model.portfolio
 
             if self.parameters.is_portfolio_bidding:
@@ -89,7 +89,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                     self.update_equipment(model, type, equipment_list)
 
     def _extract_power_values(
-        self, equipment: EquipmentPO, equipment_type: str, model: PortfolioOptimisationModel
+        self, equipment: EquipmentPO, equipment_type: str, model: PortfolioOptimisationResult
     ) -> tuple[list[float], list[float]]:
         """
         Extract power and stored energy values from optimization variables.
@@ -97,7 +97,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         Args:
             equipment: Equipment instance
             equipment_type: Type of equipment
-            model: Optimization model containing the solved variables
+            model: Optimization result containing the solved variables
 
         Returns:
             Tuple of (power_values, stored_energy_values)
@@ -221,7 +221,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
             )
 
     def update_equipment(
-        self, model: PortfolioOptimisationModel, equipment_type: str, equipment_list: list[EquipmentPO]
+        self, model: PortfolioOptimisationResult, equipment_type: str, equipment_list: list[EquipmentPO]
     ):
         """
         Update equipment output with optimization results.
@@ -230,7 +230,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         the equipment's forecasting matrices.
 
         Args:
-            model: Optimization model containing the solved variables
+            model: Optimization result containing the solved variables
             equipment_type: Type of equipment (e.g., 'thermal', 'hydro', 'storage', etc.)
             equipment_list: List of equipment instances to update
         """

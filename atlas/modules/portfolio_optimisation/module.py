@@ -81,8 +81,10 @@ class PortfolioOptimisationModule(
     ) -> PortfolioOptimisationOutputDataset:
         """Executes the module's main logic."""
         model = PortfolioOptimisationOrchestrator(parameters)
-        models = model.run(dataset)
-        output_dataset = PortfolioOptimisationOutputDataset(parameters=parameters, models=models, input_dataset=dataset)
+        optimisation_results = model.run(dataset)
+        output_dataset = PortfolioOptimisationOutputDataset(
+            parameters=parameters, optimisation_results=optimisation_results, input_dataset=dataset
+        )
         output_dataset.build_output()
 
         return output_dataset
