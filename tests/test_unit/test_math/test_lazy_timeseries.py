@@ -310,10 +310,11 @@ def test_set_frequency_inplace():
 
     result = lt.set_frequency("1h")
 
+    # Should return same object when inplace=True
     assert result is lt
 
     collected = result.collect()
-    assert collected.timeseries.shape[0] == 5
+    assert collected.timeseries.shape[0] == 5  # 5 hourly points from 0h to 4h
     assert collected.timeseries["value"].to_list() == [10.0, 10.0, 20.0, 20.0, 30.0]
 
 

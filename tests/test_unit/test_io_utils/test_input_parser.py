@@ -135,33 +135,11 @@ def complex_input_dir(tmp_path, mock_model_mapping):
     return tmp_path
 
 
+@patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
 @patch("atlas.io_utils.input_loader.InputLoader._load_timeseries", return_value=Timeseries())
 @patch("atlas.io_utils.input_loader.InputLoader._load_matrix")
-@patch("atlas.io_utils.input_loader.get_type_attribute")
-@patch("atlas.typing.get_type_attribute")
-@patch("atlas.io_utils.input_loader.ProcessPoolExecutor")
-def test_from_directory_success(mock_executor, mock_get_type_attribute_typing, mock_get_type_attribute_loader, mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
+def test_from_directory_success(mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
     mock_matrix.side_effect = [ScenarioMatrix(), ForecastingMatrix()]
-    
-    # Force multiprocessing to fail so it falls back to sequential processing
-    mock_executor.side_effect = OSError("Multiprocessing disabled for testing")
-    
-    def mock_get_type_attr(object_type: str, attribute: str):
-        if object_type == "hydro":
-            if attribute == "energy":
-                return Timeseries
-            elif attribute == "scenario":
-                return ScenarioMatrix
-            elif attribute == "forecast":
-                return ForecastingMatrix
-            elif attribute == "start_date":
-                return DateTime
-            elif attribute == "name":
-                return str
-        return None
-    
-    mock_get_type_attribute_typing.side_effect = mock_get_type_attr
-    mock_get_type_attribute_loader.side_effect = mock_get_type_attr
 
     with patch.dict(
         cfg.__dict__,
