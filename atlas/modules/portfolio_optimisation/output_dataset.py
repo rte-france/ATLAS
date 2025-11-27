@@ -81,7 +81,113 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                     )
 
                 for type, equipment_list in portfolio.equipments.iter_by_type():
-                    self.update_equipment(type, equipment_list)
+                    self.update_equipment(model, type, equipment_list)
 
-    def update_equipment(type: str, equipment_list: EquipmentPO):
-        pass
+    def update_equipment(
+        self, model: PortfolioOptimisationModel, equipment_type: str, equipment_list: list[EquipmentPO]
+    ):
+        """
+        Update equipment output with optimization results.
+
+        Extracts power and stored energy values from optimization variables and updates
+        the equipment's forecasting matrices.
+
+        Args:
+            equipment_type: Type of equipment (e.g., 'thermal', 'hydro', 'storage', etc.)
+            equipment_list: List of equipment instances to update
+        """
+        for equipment in equipment_list:
+            power_values = []
+            stored_energy_values = []
+
+            if equipment_type == "thermal":
+                # For thermal equipment, extract power from power_level_var
+                for t in self.parameters.target_times:
+                    power = model.get_variable_value(f"{equipment.name}_power_level_{t}")
+
+                    # Apply rounding for small values
+                    if abs(power) <= self.parameters.allowed_round_off_error:
+                        power = 0.0
+
+                    power_values.append(power)
+
+                # TODO: Handle thermal state sequence if needed
+                # state_sequence values could be extracted from ON_UP, ON_DOWN, OFF, START, STOP, ON_FLAT variables
+
+            elif equipment_type == "hydro":
+                # For hydro equipment, sum power across all fragments
+                for t in self.parameters.target_times:
+                    activated_power = 0.0
+                    for category in equipment.fragment_data.keys():
+                        activated_power += model.get_variable_value(f"{equipment.name}_power_level_frag_{category}_{t}")
+
+                    if activated_power <= self.parameters.allowed_round_off_error:
+                        activated_power = 0.0
+
+                    power_values.append(activated_power)
+
+                    # Extract stored energy
+                    stored_energy = model.get_variable_value(f"{equipment.name}_stored_energy_{t}")
+                    stored_energy_values.append(stored_energy)
+
+            elif equipment_type == "storage":
+                # For storage equipment, sum buy and sell power
+                for t in self.parameters.target_times:
+                    power = model.get_variable_value(
+                        f"{equipment.name}_power_level_sell_{t}"
+                    ) + model.get_variable_value(f"{equipment.name}_power_level_buy_{t}")
+
+                    if abs(power) <= self.parameters.allowed_round_off_error:
+                        power = 0.0
+
+                    power_values.append(power)
+
+                    # Extract stored energy
+                    stored_energy = model.get_variable_value(f"{equipment.name}_stored_energy_{t}")
+                    stored_energy_values.append(stored_energy)
+
+            else:
+                # For other equipment types (wind, solar, load), extract simple power level
+                for t in self.parameters.target_times:
+                    power = model.get_variable_value(f"{equipment.name}_power_level_{t}")
+
+                    if abs(power) <= self.parameters.allowed_round_off_error:
+                        power = 0.0
+
+                    power_values.append(power)
+
+            # Create power timeseries
+            power_ts = Timeseries.from_values(
+                start_date=self.parameters.target_times[0],
+                frequency=self.parameters.timestep,
+                values=power_values,
+            )
+
+            # Update equipment power forecasting matrix
+            if equipment.power:
+                if self.parameters.execution_date in equipment.power.index:
+                    equipment.power.delete(self.parameters.execution_date)
+                equipment.power.add(power_ts, self.parameters.execution_date)
+            else:
+                equipment.power = ForecastingMatrix(
+                    power_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
+                )
+
+            # Update stored energy for hydro and storage equipment
+            if equipment_type in ["hydro", "storage"] and stored_energy_values:
+                stored_energy_ts = Timeseries.from_values(
+                    start_date=self.parameters.target_times[0],
+                    frequency=self.parameters.timestep,
+                    values=stored_energy_values,
+                )
+
+                if equipment.stored_energy:
+                    if self.parameters.execution_date in equipment.stored_energy.index:
+                        equipment.stored_energy.delete(self.parameters.execution_date)
+                    equipment.stored_energy.add(stored_energy_ts, self.parameters.execution_date)
+                else:
+                    equipment.stored_energy = ForecastingMatrix(
+                        stored_energy_ts.dataframe.rename(
+                            {"value": self.parameters.execution_date.to_datetime_string()}
+                        )
+                    )
