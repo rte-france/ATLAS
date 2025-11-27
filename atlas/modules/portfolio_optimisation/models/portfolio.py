@@ -309,9 +309,10 @@ class PortfolioPO(Portfolio):
 
         for obj in forecast_based_equipment:
             upstream_energy = get_upstream_energy(obj, time, parameters)
-            last_forecast = obj.maximum_power_forecast.get_forecast(
+            forecast = obj.maximum_power_forecast.get_forecast(
                 parameters.execution_date, parameters.start_date, parameters.end_date
-            ).get_value(time)
+            )
+            last_forecast = forecast.get_value(time) if time in forecast else 0
             optimal_dispatch = min(last_forecast, upstream_energy)
             residual_energy += upstream_energy - optimal_dispatch
 

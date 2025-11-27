@@ -58,15 +58,18 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                 power_values = []
                 for _, equipment_list in portfolio.equipments.iter_by_type():
                     for e in equipment_list:
-                        forecast = e.power.get_forecast(
-                            self.parameters.execution_date,
-                            min(self.parameters.target_times),
-                            max(self.parameters.target_times),
-                        )
+                        if e.power:
+                            forecast = e.power.get_forecast(
+                                self.parameters.execution_date,
+                                min(self.parameters.target_times),
+                                max(self.parameters.target_times),
+                            )
 
-                        for t in self.parameters.target_times:
-                            value = forecast.get_value(t) if t in forecast else 0
-                            power_values.append(value)
+                            for t in self.parameters.target_times:
+                                value = forecast.get_value(t) if t in forecast else 0
+                                power_values.append(value)
+                        else:
+                            power_values.append(0)
 
                 power_ts = Timeseries.from_values(
                     start_date=self.parameters.target_times[0],
@@ -231,13 +234,13 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
             equipment_type: Type of equipment (e.g., 'thermal', 'hydro', 'storage', etc.)
             equipment_list: List of equipment instances to update
         """
+        if equipment_type in ["other_non_dispatchable", "non_dispatchable_load"]:
+            return
+
         for equipment in equipment_list:
-            # Extract power and stored energy values
             power_values, stored_energy_values = self._extract_power_values(equipment, equipment_type, model)
 
-            # Update power forecasting matrix
             self._update_power_forecasting_matrix(equipment, power_values)
 
-            # Update stored energy forecasting matrix for hydro and storage equipment
             if equipment_type in ["hydro", "storage"] and isinstance(equipment, (HydroPO, StoragePO)):
                 self._update_stored_energy_forecasting_matrix(equipment, stored_energy_values)

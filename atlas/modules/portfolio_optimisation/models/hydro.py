@@ -168,8 +168,14 @@ class HydroPO(Hydro):
     ):
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for hydro unit {self.name} at time {time}")
+
+            # Calculate these once per time step instead of once per fragment
+            energy_level = self._get_current_energy_level(parameters)
+            marginal_weights = self._calculate_marginal_weights(energy_level, parameters.timestep)
+
             for k in range(len(self.fragment_data.keys())):
-                fragment_price = self.compute_fragment_prices(time, k, parameters)
+                # Only compute the fragment-specific part
+                fragment_price = self._calculate_fragment_price(self.fragment_data[k].price, marginal_weights, time)
 
                 power_level_frag_var = model.get_variable(f"{self.name}_power_level_frag_{k}_{time}")
 
@@ -189,18 +195,6 @@ class HydroPO(Hydro):
             cfg.logger.debug(
                 f"Skipping objective for hydro unit {self.name} at time {time} - not in optimization times or target times"
             )
-
-    def compute_fragment_prices(
-        self,
-        time: DateTime,
-        category,
-        parameters: PortfolioOptimisationParameters,
-    ) -> float:
-        energy_level = self._get_current_energy_level(parameters)
-
-        marginal_weights = self._calculate_marginal_weights(energy_level, parameters.timestep)
-
-        return self._calculate_fragment_price(self.fragment_data[category].price, marginal_weights, time)
 
     def _get_current_energy_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
         """Get the current energy level from forecast or initial level."""

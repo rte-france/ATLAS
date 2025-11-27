@@ -28,7 +28,8 @@ class LoadPO(Load):
         """Build variables for load equipment."""
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for load unit {self.name} at time {time}")
-            max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
+            forecast = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time)
+            max_power = forecast.get_value(time) if time in forecast else 0
 
             model.add_continuous_variable(
                 f"{self.name}_power_level_{time}",
@@ -44,7 +45,8 @@ class LoadPO(Load):
         """
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for load unit {self.name} at time {time}")
-            max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
+            forecast = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time)
+            max_power = forecast.get_value(time) if time in forecast else 0
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
 
             model.add_constraint(power_level_var >= max_power, f"power_max_{time}_{self.name}")
@@ -64,12 +66,15 @@ class LoadPO(Load):
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             if self.load_type == LoadType.POWER_TO_GAS:
                 model.add_objective(
-                    (get_variable_cost(self, time) - price_forecast) * power_level_var * parameters.timestep,
+                    (get_variable_cost(self, time) - price_forecast)
+                    * power_level_var
+                    * parameters.timestep.total_hours(),
                     direction="minimize",
                 )
             else:
                 model.add_objective(
-                    get_variable_cost(self, time) * -power_level_var * parameters.timestep, direction="minimize"
+                    get_variable_cost(self, time) * -power_level_var * parameters.timestep.total_hours(),
+                    direction="minimize",
                 )
         else:
             cfg.logger.debug(f"Skipping objective for load unit {self.name} at non-target time {time}")

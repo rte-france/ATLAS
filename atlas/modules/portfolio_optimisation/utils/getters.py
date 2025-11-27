@@ -75,7 +75,8 @@ def get_maximum_power(
         return obj.maximum_power.get_value(time)  # type: ignore[union-attr]
     elif obj_type in ("LoadPO", "WindPO", "SolarPO", "OtherNonDispatchablePO"):
         if execution_date:
-            return obj.maximum_power_forecast.get_forecast(execution_date, time, time).get_value(time)  # type: ignore[union-attr]
+            forecast = obj.maximum_power_forecast.get_forecast(execution_date, time, time)  # type: ignore[union-attr]
+            return forecast.get_value(time) if time in forecast else 0
         else:
             raise RuntimeError(
                 "Missing execution date argument for a Load, Wind, Solar or OtherNonDispatchable equipment"
