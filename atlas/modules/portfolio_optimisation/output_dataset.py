@@ -13,6 +13,7 @@ from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisa
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
+from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.portfolio_orchestrator import PortfolioOptimisationResult
 
@@ -88,9 +89,9 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                 for type, equipment_list in portfolio.equipments.iter_by_type():
                     self.update_equipment(model, type, equipment_list)
 
-    def _extract_power_values(
+    def _extract_values(
         self, equipment: EquipmentPO, equipment_type: str, model: PortfolioOptimisationResult
-    ) -> tuple[list[float], list[float]]:
+    ) -> tuple[list[float], list[float], list[int]]:
         """
         Extract power and stored energy values from optimization variables.
 
@@ -104,23 +105,36 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         """
         power_values: list[float] = []
         stored_energy_values: list[float] = []
+        state_sequence: list[int] = []
 
         if equipment_type == "thermal":
-            # For thermal equipment, extract power from power_level_var
+            state_sequence = []
             for t in self.parameters.target_times:
                 power = model.get_variable_value(f"{equipment.name}_power_level_{t}")
 
-                # Apply rounding for small values
                 if abs(power) <= self.parameters.allowed_round_off_error:
                     power = 0.0
-
                 power_values.append(power)
 
-            # TODO: Handle thermal state sequence if needed
-            # state_sequence values could be extracted from ON_UP, ON_DOWN, OFF, START, STOP, ON_FLAT variables
+                if model.get_variable_value(f"on_up_{equipment.name}_{t}") == 1:
+                    state_sequence.append(1)
+                elif model.get_variable_value(f"on_down_{equipment.name}_{t}") == 1:
+                    state_sequence.append(2)
+                elif model.get_variable_value(f"off_{equipment.name}_{t}") == 1:
+                    state_sequence.append(3)
+                elif equipment._T_start >= 1:
+                    if model.get_variable_value(f"on_start_{equipment.name}_{t}") == 1:
+                        state_sequence.append(4)
+                elif equipment._T_stop >= 1:
+                    if model.get_variable_value(f"stop_{equipment.name}_{t}") == 1:
+                        state_sequence.append(5)
+                elif equipment._T_stable >= 1:
+                    if model.get_variable_value(f"on_flat_{equipment.name}_{t}") == 1:
+                        state_sequence.append(6)
+                else:
+                    continue
 
         elif equipment_type == "hydro":
-            # For hydro equipment, sum power across all fragments
             if not isinstance(equipment, HydroPO):
                 return power_values, stored_energy_values
 
@@ -139,7 +153,6 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                 stored_energy_values.append(stored_energy)
 
         elif equipment_type == "storage":
-            # For storage equipment, sum buy and sell power
             if not isinstance(equipment, StoragePO):
                 return power_values, stored_energy_values
 
@@ -167,7 +180,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
 
                 power_values.append(power)
 
-        return power_values, stored_energy_values
+        return power_values, stored_energy_values, state_sequence
 
     def _update_power_forecasting_matrix(self, equipment: EquipmentPO, power_values: list[float]):
         """
@@ -185,10 +198,35 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
 
         if equipment.power:
             if self.parameters.execution_date in equipment.power.index:
-                equipment.power.delete(self.parameters.execution_date)
-            equipment.power.add(power_ts, self.parameters.execution_date)
+                equipment.power.replace(self.parameters.execution_date, power_ts)
+            else:
+                equipment.power.add(power_ts, self.parameters.execution_date)
         else:
             equipment.power = ForecastingMatrix(
+                power_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
+            )
+
+    def _update_id_po_orders_forecasting_matrix(self, equipment: EquipmentPO, power_values: list[float]):
+        """
+        Update equipment's id po orders forecasting matrix with optimized power values.
+
+        Args:
+            equipment: Equipment instance to update
+            power_values: List of power values for target times
+        """
+        power_ts = Timeseries.from_values(
+            start_date=self.parameters.target_times[0],
+            frequency=self.parameters.timestep,
+            values=power_values,
+        )
+
+        if equipment.power:
+            if self.parameters.execution_date in equipment.id_po_for_orders.index:
+                equipment.id_po_for_orders.replace(self.parameters.execution_date, power_ts)
+            else:
+                equipment.id_po_for_orders.add(power_ts, self.parameters.execution_date)
+        else:
+            equipment.id_po_for_orders = ForecastingMatrix(
                 power_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
             )
 
@@ -220,6 +258,23 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                 stored_energy_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
             )
 
+    def _update_state_sequence(self, equipment: ThermalPO, state_sequence: list[int]):
+        state_sequence_ts = Timeseries.from_values(
+            start_date=self.parameters.target_times[0],
+            frequency=self.parameters.timestep,
+            values=state_sequence,
+        )
+
+        if equipment.state_sequence:
+            if self.parameters.execution_date in equipment.state_sequence.index:
+                equipment.state_sequence.replace(self.parameters.execution_date, state_sequence_ts)
+            else:
+                equipment.state_sequence.add(state_sequence_ts, self.parameters.execution_date)
+        else:
+            equipment.state_sequence = ForecastingMatrix(
+                state_sequence_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
+            )
+
     def update_equipment(
         self, model: PortfolioOptimisationResult, equipment_type: str, equipment_list: list[EquipmentPO]
     ):
@@ -238,9 +293,20 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
             return
 
         for equipment in equipment_list:
-            power_values, stored_energy_values = self._extract_power_values(equipment, equipment_type, model)
+            power_values, stored_energy_values, state_sequence = self._extract_values(equipment, equipment_type, model)
 
-            self._update_power_forecasting_matrix(equipment, power_values)
+            if not self.parameters.use_forecast:
+                self._update_power_forecasting_matrix(equipment, power_values)
 
-            if equipment_type in ["hydro", "storage"] and isinstance(equipment, (HydroPO, StoragePO)):
-                self._update_stored_energy_forecasting_matrix(equipment, stored_energy_values)
+                if isinstance(equipment, (HydroPO, StoragePO)):
+                    self._update_stored_energy_forecasting_matrix(equipment, stored_energy_values)
+                elif isinstance(equipment, ThermalPO):
+                    self._update_state_sequence(equipment, state_sequence)
+                else:
+                    continue
+            else:
+                self._update_id_po_orders_forecasting_matrix(equipment, power_values)
+                if isinstance(equipment, ThermalPO):
+                    self._update_state_sequence(equipment, state_sequence)
+                else:
+                    continue

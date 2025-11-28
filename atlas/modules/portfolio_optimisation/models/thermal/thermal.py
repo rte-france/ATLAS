@@ -50,17 +50,6 @@ class ThermalPO(Thermal):
     maximum_gradient: float = 0.0
     has_daily_energy_constraint: bool = False
 
-    # Reserve procurement forecasts
-    # afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
-    # afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
-    # mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix
-    # mfrr_down_procured: ForecastingMatrix | LazyForecastingMatrix
-    # rr_up_procured: ForecastingMatrix | LazyForecastingMatrix
-    # rr_down_procured: ForecastingMatrix | LazyForecastingMatrix
-    # fcr_up_procured: ForecastingMatrix | LazyForecastingMatrix
-    # fcr_down_procured: ForecastingMatrix | LazyForecastingMatrix
-
-    # Internal time step parameters (computed from time durations)
     _T_on: int = 0
     _T_off: int = 0
     _T_start: int = 0
@@ -68,7 +57,7 @@ class ThermalPO(Thermal):
     _T_stable: int = 0
     _Delta_Q: float = 0.0
     _Delta_Q_unconstrained: float = 0.0
-    _combination: int = 1  # Which constraint combination to use (1-8)
+    _combination: int = 1
     T_traceback: int = 0
     optimisation_time_window: list[DateTime] = []
 
@@ -121,18 +110,15 @@ class ThermalPO(Thermal):
                 self._T_stable = 0
             else:
                 self._T_stable = int(math.ceil(self.minimum_stable_power_duration / parameters.timestep)) + 1
-                # Rescale T_stable so that it is either equal to 0 or >= 2
                 self._T_stable = self._T_stable if self._T_stable >= 2 else 0
         else:
             self._T_stable = 0
 
-        # Ramping parameters
         self._Delta_Q = self.maximum_gradient * parameters.timestep.total_minutes()
         self._Delta_Q_unconstrained = self.maximum_power.slice(
             parameters.start_date, parameters.end_date, inplace=False
         ).max()
 
-        # Determine which constraint combination to use
         self._combination = self._determine_combination()
 
     def _determine_combination(self) -> int:
@@ -495,6 +481,33 @@ class ThermalPO(Thermal):
                         self.power_level_var.get_value(t) for t in matching_steps
                     ) <= self.maximum_daily_energy.get_value(date) * timestep.total_days() * len(matching_steps)
                     model.add_constraint(constraint_expr, f"energy_limit_day_{idx}_{self.name}")
+
+    def clear_model_vars(self):
+        """
+        Clear ModelVar objects to make the ThermalPO instance picklable.
+
+        This is needed for multiprocessing support - ModelVar objects contain references
+        to the optimization model which includes unpicklable SWIG objects.
+        """
+        self.off_var = None  # type:ignore [assignment]
+        self.on_flat_var = None  # type:ignore [assignment]
+        self.on_up_var = None  # type:ignore [assignment]
+        self.on_down_var = None  # type:ignore [assignment]
+        self.on_start_var = None  # type:ignore [assignment]
+        self.entered_up_var = None  # type:ignore [assignment]
+        self.entered_down_var = None  # type:ignore [assignment]
+        self.stable_var = None  # type:ignore [assignment]
+        self.flat_down_stop = None  # type:ignore [assignment]
+        self.down_to_stop_grad = None  # type:ignore [assignment]
+        self.stop_var = None  # type:ignore [assignment]
+        self.turned_off = None  # type:ignore [assignment]
+        self.turned_on = None  # type:ignore [assignment]
+        self.power_level_var = None  # type:ignore [assignment]
+        self.up_grad_var = None  # type:ignore [assignment]
+        self.aux_up_grad_var = None  # type:ignore [assignment]
+        self.down_grad_var = None  # type:ignore [assignment]
+        self.aux_down_grad_var = None  # type:ignore [assignment]
+        self.dd_grad_var = None  # type:ignore [assignment]
 
     @model_validator(mode="after")
     def validate_minimum_stable_power_duration(self) -> ThermalPO:
