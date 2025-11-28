@@ -9,6 +9,7 @@ import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pendulum import duration
 
 from atlas.enum import SolverStatus
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
@@ -279,8 +280,11 @@ class TestOptimisationModel:
         mock_solver.SetTimeLimit.assert_not_called()
 
     def test_solve_with_time_limit(self, model, mock_solver):
-        """Test solving with time limit."""
-        model.solve(time_limit=30.0)
+        """Test solving with time limit via SolverOptions."""
+        from atlas.solver.models import SolverOptions
+
+        model.set_solver_options(SolverOptions(time_limit=duration(seconds=30)))
+        model.solve()
 
         mock_solver.SetTimeLimit.assert_called_with(30000)  # 30.0 * 1000
         mock_solver.Solve.assert_called_once()
@@ -319,6 +323,128 @@ class TestOptimisationModel:
 
         with pytest.raises(ValueError, match="Variable 'nonexistent' not found in solution"):
             model.get_variable_value("nonexistent")
+
+    def test_get_constraint(self, model, mock_solver):
+        """Test getting constraint objects."""
+        # Add a constraint first
+        mock_expr = MagicMock()
+        model.add_constraint(mock_expr, "test_constraint")
+
+        # Test getting existing constraint
+        model.get_constraint("test_constraint")
+        mock_solver.LookupConstraint.assert_called_with("test_constraint")
+
+        # Test getting non-existent constraint
+        with pytest.raises(ValueError, match="Constraint 'nonexistent' not found"):
+            model.get_constraint("nonexistent")
+
+    def test_get_constraint_bounds_basic(self, model, mock_solver):
+        """Test getting constraint bounds for a constraint."""
+        # Setup mock constraint
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 5.0
+        mock_constraint.ub.return_value = 10.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        # Add constraint
+        model._constraints_name.add("test_constraint")
+
+        # Get bounds
+        bounds = model.get_constraint_bounds("test_constraint")
+
+        assert bounds.lower_bound == 5.0
+        assert bounds.upper_bound == 10.0
+        mock_solver.LookupConstraint.assert_called_with("test_constraint")
+
+    def test_get_constraint_bounds_infinity(self, model, mock_solver):
+        """Test getting constraint bounds with infinite bounds."""
+        # Setup mock constraint with infinite bounds
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = float("-inf")
+        mock_constraint.ub.return_value = float("inf")
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("unbounded_constraint")
+
+        bounds = model.get_constraint_bounds("unbounded_constraint")
+
+        assert bounds.lower_bound == float("-inf")
+        assert bounds.upper_bound == float("inf")
+
+    def test_get_constraint_bounds_upper_only(self, model, mock_solver):
+        """Test getting constraint bounds with only upper bound."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = float("-inf")
+        mock_constraint.ub.return_value = 100.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("upper_bound_constraint")
+
+        bounds = model.get_constraint_bounds("upper_bound_constraint")
+
+        assert bounds.lower_bound == float("-inf")
+        assert bounds.upper_bound == 100.0
+
+    def test_get_constraint_bounds_lower_only(self, model, mock_solver):
+        """Test getting constraint bounds with only lower bound."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 0.0
+        mock_constraint.ub.return_value = float("inf")
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("lower_bound_constraint")
+
+        bounds = model.get_constraint_bounds("lower_bound_constraint")
+
+        assert bounds.lower_bound == 0.0
+        assert bounds.upper_bound == float("inf")
+
+    def test_get_constraint_bounds_equality(self, model, mock_solver):
+        """Test getting constraint bounds for equality constraint."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 5.0
+        mock_constraint.ub.return_value = 5.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("equality_constraint")
+
+        bounds = model.get_constraint_bounds("equality_constraint")
+
+        assert bounds.lower_bound == 5.0
+        assert bounds.upper_bound == 5.0
+
+    def test_get_constraint_bounds_negative(self, model, mock_solver):
+        """Test getting constraint bounds with negative values."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = -20.0
+        mock_constraint.ub.return_value = -5.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("negative_constraint")
+
+        bounds = model.get_constraint_bounds("negative_constraint")
+
+        assert bounds.lower_bound == -20.0
+        assert bounds.upper_bound == -5.0
+
+    def test_get_constraint_bounds_zero(self, model, mock_solver):
+        """Test getting constraint bounds with zero values."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 0.0
+        mock_constraint.ub.return_value = 0.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("zero_constraint")
+
+        bounds = model.get_constraint_bounds("zero_constraint")
+
+        assert bounds.lower_bound == 0.0
+        assert bounds.upper_bound == 0.0
+
+    def test_get_constraint_bounds_nonexistent(self, model, mock_solver):
+        """Test getting bounds for non-existent constraint."""
+        with pytest.raises(ValueError, match="Constraint 'nonexistent' not found"):
+            model.get_constraint_bounds("nonexistent")
 
     def test_get_constraint_slack_value_not_solved(self, model):
         model._constraints_name.add("c1")

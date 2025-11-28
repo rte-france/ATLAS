@@ -185,8 +185,8 @@ class Timeseries:
 
         if not isinstance(timeseries, Timeseries):
             raise TypeError("Input has to be a timeseries object, if using a dataframe, use 'from_dataframe' ")
-        if default_value:
-            df = timeseries.dataframe.with_columns(pl.lit(0).alias("value"))
+        if default_value is not None:
+            df = timeseries.dataframe.with_columns(pl.lit(default_value).alias("value"))
             return cls(df, timezone=timeseries.timezone)
         else:
             return cls(timeseries)
@@ -302,6 +302,20 @@ class Timeseries:
         :rtype: bool
         """
         return self.timeseries.height
+
+    def __contains__(self, item: datetime | str | pendulum.DateTime) -> bool:
+        """Check if a temporal index exists in the Timeseries.
+
+        :param item: Datetime to check for existence
+        :type item: datetime or str or pendulum.DateTime
+        :return: True if the datetime exists in the Timeseries index, False otherwise
+        :rtype: bool
+        """
+        try:
+            dt = build_datetime(item).in_tz(self.timezone)
+            return self.timeseries.filter(pl.col("time") == dt).height > 0
+        except Exception:
+            return False
 
     def __mul__(self, other: float | Timeseries) -> Timeseries:
         """Multiply all numeric columns by a scalar or another Timeseries.
@@ -447,6 +461,11 @@ class Timeseries:
     def index(self) -> list[datetime]:
         """Returns the Timeseries indexes"""
         return self.timeseries.select("time").to_series().to_list()
+
+    @property
+    def values(self) -> list[float]:
+        """Returns the Timeseries values"""
+        return self.timeseries.select("value").to_series().to_list()
 
     @property
     def timestep(self) -> pendulum.Duration | None:
@@ -1004,5 +1023,16 @@ class Timeseries:
         :rtype: DateTime or None
         """
         if len(self.timeseries) > 0:
-            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").to_series().to_list()[0]))
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").head(1).item()))
+        return None
+
+    def last_date(self) -> pendulum.DateTime | None:
+        """
+        Return the last date in the Timeseries index.
+
+        :return: The last date in the Timeseries index
+        :rtype: DateTime or None
+        """
+        if len(self.timeseries) > 0:
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").tail(1).item()))
         return None

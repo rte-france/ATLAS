@@ -108,6 +108,17 @@ class TestTimeseriesInit:
         ts2 = Timeseries.from_index(start, freq, end, default_value=[1.0, 2.0, 3.0], timezone="UTC")
         assert ts2.dataframe["value"].to_list() == [1.0, 2.0, 3.0]
 
+    def test_from_timeseries(self):
+        start = "2025-01-01 00:00:00"
+        end = "2025-01-01 02:00:00"
+        freq = "1h"
+        ts1 = Timeseries.from_index(start, freq, end, default_value=5.0, timezone="UTC")
+        ts2 = Timeseries.from_timeseries(ts1)
+        ts3 = Timeseries.from_timeseries(ts1, 0.0)
+
+        assert ts1 == ts2
+        assert ts1 != ts3
+
     def test_init_with_dict(self):
         """Test initialization with a dictionary."""
         data = {
@@ -293,6 +304,49 @@ class TestTimeseriesBasicOperations:
     def test_len(self, sample_ts):
         """Test length calculation."""
         assert len(sample_ts) == 4
+
+    def test_contains_with_datetime(self, sample_ts):
+        """Test __contains__ with datetime object."""
+        dt_exists = datetime(2023, 1, 1, 1, 0, 0)
+        dt_not_exists = datetime(2023, 1, 1, 1, 30, 0)
+
+        assert dt_exists in sample_ts
+        assert dt_not_exists not in sample_ts
+
+    def test_contains_with_string(self, sample_ts):
+        """Test __contains__ with string datetime."""
+        dt_exists = "2023-01-01 02:00:00"
+        dt_not_exists = "2023-01-01 04:00:00"
+
+        assert dt_exists in sample_ts
+        assert dt_not_exists not in sample_ts
+
+    def test_contains_with_pendulum_datetime(self, sample_ts):
+        """Test __contains__ with pendulum.DateTime object."""
+        dt_exists = pendulum.datetime(2023, 1, 1, 3, 0, 0, tz="UTC")
+        dt_not_exists = pendulum.datetime(2023, 1, 1, 5, 0, 0, tz="UTC")
+
+        assert dt_exists in sample_ts
+        assert dt_not_exists not in sample_ts
+
+    def test_contains_with_different_timezone(self, sample_ts):
+        """Test __contains__ with datetime in different timezone."""
+        # Create a timeseries with Europe/Paris timezone
+        sample_ts.set_timezone("Europe/Paris")
+
+        # Test with UTC datetime that corresponds to a time in the series
+        # 2023-01-01 00:00:00 UTC = 2023-01-01 01:00:00 Europe/Paris
+        dt_utc = pendulum.datetime(2023, 1, 1, 0, 0, 0, tz="UTC")
+
+        # The __contains__ should convert to the timeseries timezone
+        assert dt_utc in sample_ts
+
+    def test_contains_with_invalid_input(self, sample_ts):
+        """Test __contains__ with invalid input returns False."""
+        # Invalid inputs should return False instead of raising an exception
+        assert (123 in sample_ts) is False
+        assert (None in sample_ts) is False
+        assert ([] in sample_ts) is False
 
     def test_mul_with_value(self, sample_ts):
         """Test multiplication operation between a timeseries and a value."""
@@ -608,6 +662,12 @@ class TestTimeseriesBasicOperations:
         assert freq == pendulum.duration(hours=1), f"Expected shape {pendulum.duration(hours=1)}, got {freq}"
 
         assert sample_ts == sample_ts_copy
+
+    def test_first_date(self, sample_ts):
+        assert sample_ts.first_date() == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+
+    def test_last_date(self, sample_ts):
+        assert sample_ts.last_date() == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
 
 
 class TestTimeseriesManipulation:

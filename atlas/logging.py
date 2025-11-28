@@ -50,6 +50,8 @@ class Logger(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Normalize level to uppercase for consistency with loguru
+        self.level = self.level.upper()
         self._configure_logger()
 
     def _configure_logger(self) -> None:
@@ -58,19 +60,19 @@ class Logger(BaseSettings):
         if not self.to_file:
             logger.add(
                 sys.stdout,
-                level=self.level.upper(),
+                level=self.level,
                 format=self.format,
                 enqueue=True,
             )
         else:
             self.dir.mkdir(parents=True, exist_ok=True)
-            timestamp = pendulum.now().to_datetime_string()
+            timestamp = pendulum.now().format("YYYY-MM-DD-HH-mm-ss")
 
             log_file = self.dir / f"{self.name}-{timestamp}.log"
 
             logger.add(
                 log_file,
-                level=self.level.upper(),
+                level=self.level,
                 format=self.format,
                 rotation=self.rotation,
                 retention=self.retention,

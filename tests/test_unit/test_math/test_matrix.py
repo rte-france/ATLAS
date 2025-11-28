@@ -464,3 +464,109 @@ def test_add_empty_timeseries():
     assert "empty_scenario" in matrix.indexes
     # The matrix should still have the original 3 rows
     assert matrix.matrix.shape[0] == 3
+
+
+def test_scenario_matrix_set_frequency_upsample():
+    """Test upsampling scenario matrix from daily to hourly frequency."""
+    # Create daily data
+    df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [10.0, 20.0, 30.0],
+            "scenario2": [100.0, 200.0, 300.0],
+        }
+    )
+    sm = ScenarioMatrix(df)
+
+    # Upsample to hourly (should interpolate)
+    result = sm.set_frequency("1h", inplace=False)
+
+    # Should have 24*2 + 1 = 49 hours (from start of day 1 to start of day 3)
+    assert result.matrix.shape[0] == 49
+    assert "scenario1" in result.indexes
+    assert "scenario2" in result.indexes
+
+    # Check that original is unchanged (inplace=False)
+    assert sm.matrix.shape[0] == 3
+
+
+def test_scenario_matrix_set_frequency_downsample():
+    """Test downsampling scenario matrix from hourly to daily frequency."""
+    # Create hourly data for 2 days
+    hourly_times = pd.date_range(start="2025-01-01", periods=48, freq="h")
+    df = pl.DataFrame(
+        {
+            "time": hourly_times,
+            "scenario1": list(range(48)),  # 0, 1, 2, ..., 47
+            "scenario2": [x * 2 for x in range(48)],  # 0, 2, 4, ..., 94
+        }
+    )
+    sm = ScenarioMatrix(df)
+
+    # Downsample to daily (should aggregate by mean)
+    result = sm.set_frequency("1d", inplace=False)
+
+    # Should have 2 days
+    assert result.matrix.shape[0] == 2
+    assert "scenario1" in result.indexes
+    assert "scenario2" in result.indexes
+
+    # Check that values are averaged correctly
+    # First day: mean of 0-23 = 11.5, Second day: mean of 24-47 = 35.5
+    values1 = result.matrix.select("scenario1").to_series().to_list()
+    assert abs(values1[0] - 11.5) < 0.001
+    assert abs(values1[1] - 35.5) < 0.001
+
+
+def test_scenario_matrix_set_frequency_same():
+    """Test set_frequency with same frequency (should return unchanged)."""
+    df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=3, freq="D"),
+            "scenario1": [10.0, 20.0, 30.0],
+            "scenario2": [100.0, 200.0, 300.0],
+        }
+    )
+    sm = ScenarioMatrix(df)
+
+    # Set to same frequency
+    result = sm.set_frequency("1d", inplace=False)
+
+    # Should be unchanged
+    assert result.matrix.shape[0] == 3
+    assert result.matrix.equals(sm.matrix)
+
+
+def test_scenario_matrix_set_frequency_inplace():
+    """Test set_frequency with inplace=True."""
+    df = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-01", periods=24, freq="h"),
+            "scenario1": list(range(24)),
+            "scenario2": [x * 2 for x in range(24)],
+        }
+    )
+    sm = ScenarioMatrix(df)
+    original_shape = sm.matrix.shape
+
+    # Downsample inplace
+    result = sm.set_frequency("1d", inplace=True)
+
+    # Should return self and modify original
+    assert result is sm
+    assert sm.matrix.shape[0] == 1  # One day
+    assert sm.matrix.shape != original_shape
+
+
+def test_scenario_matrix_set_frequency_empty():
+    """Test set_frequency on empty matrix."""
+    # Create empty matrix with at least one scenario column to satisfy validation
+    df = pl.DataFrame(
+        {"time": [], "scenario1": []}, schema={"time": pl.Datetime("us", time_zone="UTC"), "scenario1": pl.Float64()}
+    )
+    sm = ScenarioMatrix(df)
+
+    result = sm.set_frequency("1h", inplace=False)
+
+    assert result.matrix.shape[0] == 0
+    assert len(result.indexes) == 1  # Has scenario1 column
