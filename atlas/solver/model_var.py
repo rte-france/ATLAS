@@ -92,3 +92,21 @@ class ModelVar:
         # check for duplicates
         if t in self._extended_frame:
             cfg.logger.error(f"The time {t} already exists.")
+
+    def __getstate__(self):
+        """
+        Remove callable attributes (getter, setter) from pickling.
+        """
+        state = self.__dict__.copy()
+        state["_getter"] = None
+        state["_setter"] = None
+        return state
+
+    def __setstate__(self, state):
+        """
+        Restore state after unpickling.
+        User must later reassign getter and setter manually.
+        """
+        self.__dict__.update(state)
+        self._getter = None
+        self._setter = None

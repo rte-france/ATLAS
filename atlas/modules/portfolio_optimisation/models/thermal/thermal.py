@@ -482,33 +482,6 @@ class ThermalPO(Thermal):
                     ) <= self.maximum_daily_energy.get_value(date) * timestep.total_days() * len(matching_steps)
                     model.add_constraint(constraint_expr, f"energy_limit_day_{idx}_{self.name}")
 
-    def clear_model_vars(self):
-        """
-        Clear ModelVar objects to make the ThermalPO instance picklable.
-
-        This is needed for multiprocessing support - ModelVar objects contain references
-        to the optimization model which includes unpicklable SWIG objects.
-        """
-        self.off_var = None  # type:ignore [assignment]
-        self.on_flat_var = None  # type:ignore [assignment]
-        self.on_up_var = None  # type:ignore [assignment]
-        self.on_down_var = None  # type:ignore [assignment]
-        self.on_start_var = None  # type:ignore [assignment]
-        self.entered_up_var = None  # type:ignore [assignment]
-        self.entered_down_var = None  # type:ignore [assignment]
-        self.stable_var = None  # type:ignore [assignment]
-        self.flat_down_stop = None  # type:ignore [assignment]
-        self.down_to_stop_grad = None  # type:ignore [assignment]
-        self.stop_var = None  # type:ignore [assignment]
-        self.turned_off = None  # type:ignore [assignment]
-        self.turned_on = None  # type:ignore [assignment]
-        self.power_level_var = None  # type:ignore [assignment]
-        self.up_grad_var = None  # type:ignore [assignment]
-        self.aux_up_grad_var = None  # type:ignore [assignment]
-        self.down_grad_var = None  # type:ignore [assignment]
-        self.aux_down_grad_var = None  # type:ignore [assignment]
-        self.dd_grad_var = None  # type:ignore [assignment]
-
     @model_validator(mode="after")
     def validate_minimum_stable_power_duration(self) -> ThermalPO:
         """
