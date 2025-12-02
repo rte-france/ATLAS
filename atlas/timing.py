@@ -238,7 +238,7 @@ def get_most_frequent_timestep(timeseries: pl.DataFrame) -> pendulum.Duration:
 
     most_common_delta = mode_result.min() if len(mode_result) > 1 else mode_result[0]
 
-    return pendulum.duration(seconds=most_common_delta)
+    return pendulum.duration(seconds=cast(float, most_common_delta))
 
 
 def check_timezone(timezone: str) -> None:
