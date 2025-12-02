@@ -60,6 +60,8 @@ class ForecastingMatrix(Matrix):
 
         self._date_format: str = date_format
         self._sort_indexes()
+        self._parsed_indexes_cache: pl.DataFrame | None = None
+        self._frequency_cache: dict[str, pendulum.Duration] = {}
 
     def __repr__(self):
         """Provide a string representation of the Matrix object."""
@@ -118,6 +120,8 @@ class ForecastingMatrix(Matrix):
 
         self.matrix = self.matrix.select("time", *indexes_sorted).sort("time")
         self.indexes = indexes_sorted
+        self._parsed_indexes_cache = None
+        self._frequency_cache = {}
 
     def add(
         self,
@@ -198,6 +202,36 @@ class ForecastingMatrix(Matrix):
         self.delete(index=index)
         self.add(timeseries=timeseries, index=index)
 
+    def _get_parsed_indexes(self) -> pl.DataFrame:
+        """
+        Get cached parsed indexes DataFrame.
+        Cache is invalidated when indexes are modified.
+        """
+        if self._parsed_indexes_cache is None:
+            self._parsed_indexes_cache = pl.DataFrame({"indexes_str": self.indexes}).with_columns(
+                pl.col("indexes_str")
+                .str.strptime(
+                    pl.Datetime(time_unit="us", time_zone=self.timezone),
+                    pendulum_to_datetime(self.date_format),
+                    strict=False,
+                )
+                .alias("indexes_dt")
+            )
+        return self._parsed_indexes_cache
+
+    def _get_column_frequency(self, col: str, df: pl.DataFrame) -> pendulum.Duration:
+        """
+        Get cached frequency for a column or compute and cache it.
+        """
+        if col not in self._frequency_cache:
+            col_df = df.select("time", col).drop_nulls()
+            if col_df.height > 1:
+                self._frequency_cache[col] = infer_frequency(col_df)
+            else:
+                # Default to 1 hour if not enough data
+                self._frequency_cache[col] = pendulum.duration(hours=1)
+        return self._frequency_cache[col]
+
     def get_forecast(
         self,
         execution_date: datetime | str | pendulum.DateTime,
@@ -234,17 +268,10 @@ class ForecastingMatrix(Matrix):
             raise ValueError("Start date must be before end date")
 
         forecast_cols = (
-            pl.DataFrame({"indexes": self.indexes})
-            .with_columns(
-                pl.col("indexes").str.strptime(
-                    pl.Datetime(time_unit="us", time_zone=self.timezone),
-                    pendulum_to_datetime(self.date_format),
-                    strict=False,
-                )
-            )
-            .filter(pl.col("indexes") <= execution_date)
-            .with_columns(pl.col("indexes").dt.strftime(pendulum_to_datetime(self.date_format)))
-            .sort("indexes", descending=True)
+            self._get_parsed_indexes()
+            .filter(pl.col("indexes_dt") <= execution_date)
+            .sort("indexes_dt", descending=True)
+            .select("indexes_str")
             .to_series()
             .to_list()
         )
@@ -253,46 +280,58 @@ class ForecastingMatrix(Matrix):
             raise ValueError("No forecasting dates available before execution date")
 
         df = self.matrix.select("time", *forecast_cols)
-        forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
 
+        # OPTIMIZATION 3: Determine target frequency early
         if timestep:
             frequency_target = get_duration(timestep)
         else:
-            frequency_target = get_lowest_frequency(df)
+            # Only scan first few columns to determine frequency instead of all
+            sample_df = df.select("time", *forecast_cols[: min(5, len(forecast_cols))])
+            frequency_target = get_lowest_frequency(sample_df)
 
-        if end_date > df["time"].max():  # type: ignore[operator]
-            dt = cast("pendulum.DateTime", df["time"].max())
-            column_wth_last_timestamp = df.filter(pl.col("time").eq(dt)).select(pl.selectors.numeric()).columns[0]
-            frequency_columns_last_timestamp = infer_frequency(
-                df.select("time", column_wth_last_timestamp).drop_nulls()
-            )
-            if frequency_target < frequency_columns_last_timestamp:
-                datetimes_to_add = generate_datetimes(
-                    start=dt,
-                    end=dt + frequency_columns_last_timestamp - frequency_target,
-                    freq=frequency_target,
-                    timezone=self.timezone,
-                )
-                if len(datetimes_to_add) > 1:
-                    new_df = pl.DataFrame(
-                        {
-                            "time": datetimes_to_add[1:],
-                            column_wth_last_timestamp: [None] * len(datetimes_to_add[1:]),
-                        },
-                        schema={
-                            "time": pl.Datetime("us", self.timezone),
-                            column_wth_last_timestamp: pl.Float64(),
-                        },
+        limits = {}
+        for col in forecast_cols:
+            freq = self._get_column_frequency(col, df)
+            limits[col] = freq / frequency_target
+
+        max_time = df["time"].max()  # type: ignore[operator]
+        if end_date > max_time:
+            dt = cast("pendulum.DateTime", max_time)
+            last_row = df.filter(pl.col("time").eq(dt))
+            column_wth_last_timestamp = None
+            for col in forecast_cols:
+                if last_row[col][0] is not None:
+                    column_wth_last_timestamp = col
+                    break
+
+            if column_wth_last_timestamp:
+                frequency_columns_last_timestamp = self._get_column_frequency(column_wth_last_timestamp, df)
+                if frequency_target < frequency_columns_last_timestamp:
+                    datetimes_to_add = generate_datetimes(
+                        start=dt,
+                        end=dt + frequency_columns_last_timestamp - frequency_target,
+                        freq=frequency_target,
+                        timezone=self.timezone,
                     )
+                    if len(datetimes_to_add) > 1:
+                        new_df = pl.DataFrame(
+                            {
+                                "time": datetimes_to_add[1:],
+                                column_wth_last_timestamp: [None] * len(datetimes_to_add[1:]),
+                            },
+                            schema={
+                                "time": pl.Datetime("us", self.timezone),
+                                column_wth_last_timestamp: pl.Float64(),
+                            },
+                        )
+                        df = pl.concat([df, new_df], how="diagonal")
 
-                    df = pl.concat([df, new_df], how="diagonal")
-
-        limits = [infer_frequency(df.select("time", col).drop_nulls()) / frequency_target for col in forecast_cols]
         interpolate_expr = [
-            pl.col(col).forward_fill(limit=int(limit))
-            for (col, limit) in zip(forecast_cols, limits, strict=False)
-            if limit > 1
+            pl.col(col).forward_fill(limit=int(limits[col])) for col in forecast_cols if limits[col] > 1
         ]
+
+        forecast_expr = pl.coalesce([pl.col(col) for col in forecast_cols])
+
         df = (
             df.upsample("time", every=frequency_target)
             .with_columns(interpolate_expr)
