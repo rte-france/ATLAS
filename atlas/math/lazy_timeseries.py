@@ -92,7 +92,15 @@ class LazyTimeseries:
 
     @property
     def index(self) -> list[datetime]:
-        """Returns the LazyTimeseries indexes"""
+        """Returns the LazyTimeseries indexes.
+
+        Warning: This property materializes the entire time column into memory.
+        Use with caution on large datasets. Consider using filter() or slice() operations
+        instead to work with subsets of the data lazily.
+
+        :return: List of datetime indexes
+        :rtype: list[datetime]
+        """
         return self.timeseries.select("time").collect().to_series().to_list()
 
     @classmethod
@@ -142,17 +150,31 @@ class LazyTimeseries:
         datetime: str | datetime | pendulum.DateTime,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> float:
-        """Return values at the given datetime. If exact match is not found, interpolate.
+        """Return values at the given datetime. Raises KeyError if exact match is not found.
+
+        This operation only collects the matching row, not the entire dataset.
 
         :param datetime: Datetime to get value for
         :type datetime: str or datetime
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :return: The value at the timestamp requested
-        :rtype: flaot
+        :rtype: float
+        :raises ValueError: If the timeseries is empty
+        :raises KeyError: If the datetime is not found in the timeseries
         """
 
-        return self.collect().get_value(datetime=datetime, date_format=date_format)
+        if len(self) == 0:
+            raise ValueError("Can't get value on empty timeseries.")
+
+        dt = build_datetime(datetime, date_format).in_tz(self.timezone)
+
+        result = self.timeseries.filter(pl.col("time") == dt).select("value").collect()
+
+        if result.height > 0:
+            return result.item()
+        else:
+            raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
 
     def filter(
         self,
@@ -173,34 +195,15 @@ class LazyTimeseries:
         :return: Filtered LazyTimeseries
         :rtype: LazyTimeseries
         """
-        if isinstance(item, list):
-            item = [
-                pendulum.instance(i).in_tz(self.timezone)
-                if isinstance(i, datetime)
-                else pendulum.from_format(i, fmt=date_format).in_tz(self.timezone)
-                if isinstance(i, str)
-                else i.in_tz(self.timezone)
-                if isinstance(i, pendulum.DateTime)
-                else (_ for _ in ()).throw(NotImplementedError(f"Unsupported item in list: {type(i)}"))
-                for i in item
-            ]
-            df = self.timeseries.filter(pl.col("time").is_in(item))
-        elif isinstance(item, str):
-            date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == date)
-        elif isinstance(item, datetime):
-            date = pendulum.instance(item).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == date)
-        elif isinstance(item, pendulum.DateTime):
-            df = self.timeseries.filter(pl.col("time") == item)
-        else:
-            raise NotImplementedError("Invalid filter formatting")
 
-        if inplace:
-            self.timeseries = df
-            return self
+        if isinstance(item, list):
+            item = [build_datetime(i, date_format=date_format).in_tz(self.timezone) for i in item]
+            lf = self.timeseries.filter(pl.col("time").is_in(item))
         else:
-            return LazyTimeseries(df, timezone=self.timezone)
+            date = build_datetime(item, date_format=date_format).in_tz(self.timezone)
+            lf = self.timeseries.filter(pl.col("time") == date)
+
+        return self._return_inplace(lf, inplace)
 
     def slice(
         self,
@@ -220,13 +223,9 @@ class LazyTimeseries:
         """
         date_start = build_datetime(start_bound).in_tz(self.timezone)
         date_end = build_datetime(end_bound).in_tz(self.timezone)
-        df = self.timeseries.filter(pl.col("time").is_between(date_start, date_end, closed))
+        lf = self.timeseries.filter(pl.col("time").is_between(date_start, date_end, closed))
 
-        if inplace:
-            self.timeseries = df
-            return self
-        else:
-            return LazyTimeseries(df, timezone=self.timezone)
+        return self._return_inplace(lf, inplace)
 
     def slice_with_offset(
         self,
@@ -241,39 +240,60 @@ class LazyTimeseries:
         :param inplace: Whether to modify the current instance, defaults to True
         :return: The Timeseries object
         """
-        df = self.timeseries.slice(offset, length)
-        if inplace:
-            self.timeseries = df
-            return self
-        else:
-            return LazyTimeseries(df, timezone=self.timezone)
+        lf = self.timeseries.slice(offset, length)
+        return self._return_inplace(lf, inplace)
 
     def max(self) -> float:
         """Return the max value column.
 
+        This operation only collects the aggregated max value, not the entire dataset.
+
         :return: The Timeseries max value
         :rtype: float or None
         """
-        return self.collect().max()
+        result = self.timeseries.select(pl.col("value").max()).collect().item()
+        if result is None:
+            raise RuntimeError("Timeseries is empty, can't get the maximum value")
+        return result
 
     def min(self) -> float:
         """Return the min value column.
 
+        This operation only collects the aggregated min value, not the entire dataset.
+
         :return: The Timeseries min value
         :rtype: float
         """
-        return self.collect().min()
+        result = self.timeseries.select(pl.col("value").min()).collect().item()
+        if result is None:
+            raise RuntimeError("Timeseries is empty, can't get the minimum value")
+        return result
+
+    def sum(self) -> float:
+        """Return the sum of the 'value' column.
+
+        This operation only collects the aggregated sum value, not the entire dataset.
+        Returns 0.0 for empty timeseries.
+
+        :return: The Timeseries sum value
+        :rtype: float
+        """
+        return self.timeseries.select(pl.col("value").sum()).collect().item()
 
     def __len__(self) -> int:
         """Return the number of rows in the LazyTimeseries.
 
+        This operation only collects the count, not the entire dataset.
+
         :return: The number of rows
         :rtype: int
         """
-        return self.collect().__len__()
+        return self.timeseries.select(pl.len()).collect().item()
 
     def __contains__(self, item: datetime | str | pendulum.DateTime) -> bool:
         """Check if a temporal index exists in the LazyTimeseries.
+
+        This operation only collects the count of matching rows, not the entire dataset.
 
         :param item: Datetime to check for existence
         :type item: datetime or str or pendulum.DateTime
@@ -282,7 +302,8 @@ class LazyTimeseries:
         """
         try:
             dt = build_datetime(item).in_tz(self.timezone)
-            return self.timeseries.filter(pl.col("time") == dt).collect().height > 0
+            count = self.timeseries.filter(pl.col("time") == dt).select(pl.len()).collect().item()
+            return count > 0
         except Exception:
             return False
 
@@ -297,14 +318,9 @@ class LazyTimeseries:
         :return: The resampled lazy time series, either modified in place or as a new object.
         :rtype: LazyTimeseries
         """
-
         resampled_ts = self.collect().set_frequency(frequency, inplace=False)
-
-        if inplace:
-            self.timeseries = resampled_ts.to_lazy()
-            return self
-        else:
-            return LazyTimeseries(resampled_ts.to_lazy(), timezone=self.timezone)
+        lf = resampled_ts.to_lazy()
+        return self._return_inplace(lf, inplace)
 
     def abs(self, inplace: bool = True) -> LazyTimeseries:
         """
@@ -315,10 +331,51 @@ class LazyTimeseries:
         :return: The LazyTimeseries with absolute values, either modified in place or as a new object.
         :rtype: LazyTimeseries
         """
-        df = self.timeseries.with_columns(pl.col("value").abs())
+        lf = self.timeseries.with_columns(pl.col("value").abs())
+        return self._return_inplace(lf, inplace)
 
+    def first_date(self) -> pendulum.DateTime | None:
+        """
+        Return the first date in the LazyTimeseries index.
+
+        This operation only collects the first row's timestamp, not the entire dataset.
+
+        :return: The first date in the Timeseries index
+        :rtype: pendulum.DateTime or None
+        """
+        result = self.timeseries.select("time").head(1).collect()
+        if result.height > 0:
+            return pendulum.instance(result.item())
+        return None
+
+    def last_date(self) -> pendulum.DateTime | None:
+        """
+        Return the last date in the LazyTimeseries index.
+
+        This operation only collects the last row's timestamp, not the entire dataset.
+
+        :return: The last date in the Timeseries index
+        :rtype: pendulum.DateTime or None
+        """
+        result = self.timeseries.select("time").tail(1).collect()
+        if result.height > 0:
+            return pendulum.instance(result.item())
+        return None
+
+    def _return_inplace(self, lf: pl.LazyFrame, inplace: bool) -> LazyTimeseries:
+        """
+        Return the LazyTimeseries object itself or create a new one.
+
+        Helper method to handle the inplace parameter pattern consistently across methods.
+
+        :param lf: The LazyFrame to use
+        :type lf: pl.LazyFrame
+        :param inplace: If True, modifies the object in place. If False, returns a new object.
+        :type inplace: bool
+        :return: The LazyTimeseries object, either modified in place or as a new object.
+        :rtype: LazyTimeseries
+        """
         if inplace:
-            self.timeseries = df
+            self.timeseries = lf.sort("time")
             return self
-        else:
-            return LazyTimeseries(df, timezone=self.timezone)
+        return LazyTimeseries(lf.sort("time"), timezone=self.timezone)
