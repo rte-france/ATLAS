@@ -137,6 +137,18 @@ class ForecastingMatrix(Matrix):
         super().add(timeseries, dt)
         self._sort_indexes()
 
+    def __contains__(self, index: str | datetime | pendulum.DateTime) -> bool:
+        """
+        Check if an index exists in the forecasting matrix.
+
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime | pendulum.DateTime
+        :return: True if index exists, False otherwise.
+        :rtype: bool
+        """
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
+        return dt in self.indexes
+
     def __getitem__(
         self,
         index: str | datetime | pendulum.DateTime,
@@ -378,6 +390,18 @@ class LazyForecastingMatrix(LazyMatrix):
             timezone,
             date_format,
         )
+
+    def __contains__(self, index: str | datetime | pendulum.DateTime) -> bool:
+        """
+        Check if an index exists in the lazy forecasting matrix.
+
+        :param index: Forecast generation datetime (as string or datetime object).
+        :type index: str | datetime | pendulum.DateTime
+        :return: True if index exists, False otherwise.
+        :rtype: bool
+        """
+        dt: str = build_datetime(index, self.date_format).format(self.date_format)
+        return dt in self.indexes
 
     def add(
         self,
