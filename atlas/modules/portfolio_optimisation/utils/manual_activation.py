@@ -132,9 +132,7 @@ def _apply_power_constraints(
             parameters.execution_date, parameters.start_date, parameters.end_date
         )
 
-    for time in new_power:
-        power_value = new_power.get_value(time)
-
+    for time, power_value in new_power.iter_rows():
         max_power = _get_max_power(equipment, time, max_power_forecast)
         if power_value > max_power:
             new_power.set_value(time, max_power)
