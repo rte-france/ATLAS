@@ -9,6 +9,7 @@ This module provides LazyTimeseries.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -322,3 +323,15 @@ class LazyTimeseries:
             return self
         else:
             return LazyTimeseries(df, timezone=self.timezone)
+
+    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+        """
+        Iterate over rows of the LazyTimeseries, yielding (time, value) tuples.
+
+        Note: This method will collect the LazyFrame into memory before iterating.
+
+        :return: A generator yielding tuples containing (time, value) for each row
+        :rtype: Generator[tuple[datetime, float], None, None]
+        """
+        for row in self.timeseries.collect().iter_rows(named=True):
+            yield (row["time"], row["value"])
