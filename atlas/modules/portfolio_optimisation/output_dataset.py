@@ -57,7 +57,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                         imbalance_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
                     )
 
-                power_values = []
+                power_values = [0.0] * len(self.parameters.target_times)
                 for _, equipment_list in portfolio.equipments.iter_by_type():
                     for e in equipment_list:
                         if e.power:
@@ -67,11 +67,9 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                                 max(self.parameters.target_times),
                             )
 
-                            for t in self.parameters.target_times:
-                                value = forecast.get_value(t) if t in forecast else 0
-                                power_values.append(value)
-                        else:
-                            power_values.append(0)
+                            forecast_dict = {row[0]: row[1] for row in forecast.iter_rows()}
+                            for idx, t in enumerate(self.parameters.target_times):
+                                power_values[idx] += forecast_dict.get(t, 0.0)
 
                 power_ts = Timeseries.from_values(
                     start_date=self.parameters.target_times[0],
@@ -110,6 +108,10 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
 
         if equipment_type == "thermal":
             state_sequence = []
+            has_t_start = equipment._T_start >= 1  # type:ignore [union-attr]
+            has_t_stop = equipment._T_stop >= 1  # type:ignore [union-attr]
+            has_t_stable = equipment._T_stable >= 1  # type:ignore [union-attr]
+
             for t in self.parameters.target_times:
                 power = model.get_variable_value(f"{equipment.name}_power_level_{t}")
 
@@ -123,22 +125,18 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                     state_sequence.append(2)
                 elif model.get_variable_value(f"off_{equipment.name}_{t}") == 1:
                     state_sequence.append(3)
-                elif equipment._T_start >= 1:  # type:ignore [union-attr]
-                    if model.get_variable_value(f"on_start_{equipment.name}_{t}") == 1:
-                        state_sequence.append(4)
-                elif equipment._T_stop >= 1:  # type:ignore [union-attr]
-                    if model.get_variable_value(f"stop_{equipment.name}_{t}") == 1:
-                        state_sequence.append(5)
-                elif equipment._T_stable >= 1:  # type:ignore [union-attr]
-                    if model.get_variable_value(f"on_flat_{equipment.name}_{t}") == 1:
-                        state_sequence.append(6)
-                else:
-                    continue
+                elif has_t_start and model.get_variable_value(f"on_start_{equipment.name}_{t}") == 1:
+                    state_sequence.append(4)
+                elif has_t_stop and model.get_variable_value(f"stop_{equipment.name}_{t}") == 1:
+                    state_sequence.append(5)
+                elif has_t_stable and model.get_variable_value(f"on_flat_{equipment.name}_{t}") == 1:
+                    state_sequence.append(6)
 
         elif equipment_type == "hydro":
+            fragment_categories = list(equipment.fragment_data.keys())  # type: ignore
             for t in self.parameters.target_times:
                 activated_power = 0.0
-                for category in equipment.fragment_data.keys():  # type: ignore
+                for category in fragment_categories:
                     activated_power += model.get_variable_value(f"{equipment.name}_power_level_frag_{category}_{t}")
 
                 if activated_power <= self.parameters.allowed_round_off_error:
@@ -242,6 +240,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         )
 
         if equipment.stored_energy:
+            # Delete if exists, then add (note: different pattern than power matrix)
             if self.parameters.execution_date in equipment.stored_energy.index:
                 equipment.stored_energy.delete(self.parameters.execution_date)
             equipment.stored_energy.add(stored_energy_ts, self.parameters.execution_date)
