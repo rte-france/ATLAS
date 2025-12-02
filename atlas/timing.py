@@ -9,6 +9,7 @@ from collections import Counter
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import datetime
+from typing import cast
 
 import pendulum
 import polars as pl
@@ -214,7 +215,7 @@ def get_lowest_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     if len(times) < 2:
         return pendulum.duration()
 
-    min_delta_seconds = times.diff().dt.total_seconds().drop_nulls().min()
+    min_delta_seconds = cast(float, times.diff().dt.total_seconds().drop_nulls().min())
 
     return pendulum.duration(seconds=min_delta_seconds)
 
