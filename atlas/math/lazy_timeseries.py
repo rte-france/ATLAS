@@ -58,17 +58,18 @@ class LazyTimeseries:
             self.timeseries = timeseries.to_lazy()
             self.timezone = timeseries.timezone
         elif isinstance(timeseries, pl.LazyFrame):
-            schema = timeseries.collect_schema().to_frame()
-            time_column = schema.select(pl.selectors.datetime() | pl.selectors.date()).columns
-            value_column = schema.select(pl.selectors.numeric()).columns
+            schema = timeseries.collect_schema()
 
-            if len(value_column) != 1:
+            time_columns = [name for name, dtype in schema.items() if dtype.is_temporal()]
+            value_columns = [name for name, dtype in schema.items() if dtype.is_numeric()]
+
+            if len(value_columns) != 1:
                 raise ValueError("Timeseries must have exactly one numeric column")
-            if len(time_column) != 1:
+            if len(time_columns) != 1:
                 raise ValueError("Timeseries must have exactly one datetime column")
 
             self.timeseries = (
-                timeseries.rename({time_column[0]: "time", value_column[0]: "value"})
+                timeseries.rename({time_columns[0]: "time", value_columns[0]: "value"})
                 .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=timezone)))
                 .sort("time")
             )
