@@ -297,7 +297,6 @@ class PortfolioPO(Portfolio):
         forecast_based_equipment: list[LoadPO | OtherNonDispatchablePO] = [
             *self.equipments.non_dispatchable_load,
             *self.equipments.other_non_dispatchable,
-            *self.equipments.dispatchable_load,
         ]
 
         for obj in forecast_based_equipment:
@@ -308,13 +307,13 @@ class PortfolioPO(Portfolio):
             forecast_t = forecast.get_value(time) if time in forecast else 0
             residual_energy += upstream_energy - min(forecast_t, upstream_energy)
 
-        # Other equipment types contribute their full upstream energy
         other_equipment = [
             *self.equipments.thermal,
             *self.equipments.storage,
             *self.equipments.hydro,
             *self.equipments.wind,
             *self.equipments.solar,
+            *self.equipments.dispatchable_load,
         ]
 
         for equipment in other_equipment:

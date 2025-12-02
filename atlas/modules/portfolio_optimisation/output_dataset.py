@@ -67,7 +67,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                                 max(self.parameters.target_times),
                             )
 
-                            forecast_dict = {row[0]: row[1] for row in forecast.iter_rows()}
+                            forecast_dict = {row[0]: row[1] for row in forecast.dataframe.iter_rows()}
                             for idx, t in enumerate(self.parameters.target_times):
                                 power_values[idx] += forecast_dict.get(t, 0.0)
 
