@@ -196,27 +196,27 @@ def infer_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     Returns None if the timeseries is empty or has only one timestamp.
     Raises ValueError if the index is not regular.
     """
-    times = timeseries.select("time").to_series().to_list()
+    times = timeseries["time"]
     if len(times) < 2:
         return pendulum.duration()
 
-    times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
-    deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
-    first_delta = deltas[0]
-    if not all(d == first_delta for d in deltas):
+    deltas_seconds = times.diff().dt.total_seconds().drop_nulls()
+
+    first_delta = deltas_seconds[0]
+    if not (deltas_seconds == first_delta).all():
         raise ValueError("Timeseries datetime index is not regular. Cannot infer frequency.")
+
     return pendulum.duration(seconds=first_delta)
 
 
 def get_lowest_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
-    times = timeseries.select("time").to_series().to_list()
+    times = timeseries["time"]
     if len(times) < 2:
         return pendulum.duration()
 
-    times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
-    deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
+    min_delta_seconds = times.diff().dt.total_seconds().drop_nulls().min()
 
-    return pendulum.duration(seconds=min(deltas))
+    return pendulum.duration(seconds=min_delta_seconds)
 
 
 def get_most_frequent_timestep(timeseries: pl.DataFrame) -> pendulum.Duration:

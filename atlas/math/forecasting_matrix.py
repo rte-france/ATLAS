@@ -285,9 +285,7 @@ class ForecastingMatrix(Matrix):
         if timestep:
             frequency_target = get_duration(timestep)
         else:
-            # Only scan first few columns to determine frequency instead of all
-            sample_df = df.select("time", *forecast_cols[: min(5, len(forecast_cols))])
-            frequency_target = get_lowest_frequency(sample_df)
+            frequency_target = get_lowest_frequency(df)
 
         limits = {}
         for col in forecast_cols:
