@@ -5,7 +5,6 @@ This file is part of the ATLAS project.
 """
 
 import re
-from collections import Counter
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import datetime
@@ -231,17 +230,15 @@ def get_most_frequent_timestep(timeseries: pl.DataFrame) -> pendulum.Duration:
     If there are multiple modes with the same count, the smallest delta is returned.
     If the timeseries has fewer than 2 timestamps, returns 0 duration.
     """
-    times = timeseries.select("time").to_series().to_list()
+    times = timeseries["time"]
     if len(times) < 2:
         return pendulum.duration()
 
-    times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
-    deltas_in_seconds = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
+    mode_result = times.diff().dt.total_seconds().drop_nulls().mode()
 
-    counter = Counter(deltas_in_seconds)
-    most_common_delta, _ = counter.most_common(1)[0]
+    most_common_delta = mode_result.min() if len(mode_result) > 1 else mode_result[0]
 
-    return pendulum.duration(seconds=most_common_delta)
+    return pendulum.duration(seconds=cast(float, most_common_delta))
 
 
 def check_timezone(timezone: str) -> None:
