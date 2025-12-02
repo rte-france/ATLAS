@@ -25,12 +25,13 @@ class WindPO(Wind):
     maximum_curtailment_ratio: Timeseries | LazyTimeseries
 
     optimisation_time_window: list[DateTime] = []
+    _cached_forecast: Timeseries | None = None
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for solar and wind equipment."""
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for wind unit {self.name} at time {time}")
-            max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
+            max_power = self._cached_forecast.get_value(time) if self._cached_forecast else 0
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
             maximum_automated = get_maximum_automated(self)
 
@@ -67,7 +68,7 @@ class WindPO(Wind):
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for wind unit {self.name} at time {time}")
 
-            max_power = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time).get_value(time)
+            max_power = self._cached_forecast.get_value(time) if self._cached_forecast else 0
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
             maximum_automated = get_maximum_automated(self)
 
@@ -112,3 +113,13 @@ class WindPO(Wind):
             start=start_date, end=end_date + self.additional_hours, freq=timestep
         )
         return self.optimisation_time_window
+
+    def prefetch_forecasts(self, execution_date: DateTime):
+        """Pre-fetch and cache forecasts for the entire optimization time window."""
+        if not self.optimisation_time_window:
+            return
+
+        start_time = self.optimisation_time_window[0]
+        end_time = self.optimisation_time_window[-1]
+
+        self._cached_forecast = self.maximum_power_forecast.get_forecast(execution_date, start_time, end_time)

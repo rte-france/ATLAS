@@ -11,6 +11,7 @@ from pendulum import DateTime, Duration
 import atlas.config as cfg
 from atlas.enum import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.load import Load
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
@@ -23,13 +24,15 @@ class LoadPO(Load):
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
 
     optimisation_time_window: list[DateTime] = []
+    _cached_forecast: Timeseries | None = None
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for load equipment."""
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for load unit {self.name} at time {time}")
-            forecast = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time)
-            max_power = forecast.get_value(time) if time in forecast else 0
+            max_power = (
+                self._cached_forecast.get_value(time) if self._cached_forecast and time in self._cached_forecast else 0
+            )
 
             model.add_continuous_variable(
                 f"{self.name}_power_level_{time}",
@@ -45,8 +48,9 @@ class LoadPO(Load):
         """
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for load unit {self.name} at time {time}")
-            forecast = self.maximum_power_forecast.get_forecast(parameters.execution_date, time, time)
-            max_power = forecast.get_value(time) if time in forecast else 0
+            max_power = (
+                self._cached_forecast.get_value(time) if self._cached_forecast and time in self._cached_forecast else 0
+            )
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
 
             model.add_constraint(power_level_var >= max_power, f"power_max_{time}_{self.name}")
@@ -88,3 +92,13 @@ class LoadPO(Load):
             start=start_date, end=end_date + self.additional_hours, freq=timestep
         )
         return self.optimisation_time_window
+
+    def prefetch_forecasts(self, execution_date: DateTime):
+        """Pre-fetch and cache forecasts for the entire optimization time window."""
+        if not self.optimisation_time_window:
+            return
+
+        start_time = self.optimisation_time_window[0]
+        end_time = self.optimisation_time_window[-1]
+
+        self._cached_forecast = self.maximum_power_forecast.get_forecast(execution_date, start_time, end_time)

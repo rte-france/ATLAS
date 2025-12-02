@@ -30,6 +30,8 @@ class StoragePO(Storage):
     maximum_energy: Timeseries | LazyTimeseries
 
     optimisation_time_window: list[DateTime] = []
+    _cached_energy_forecast: Timeseries | None = None
+    _cached_energy_forecat_initial: Timeseries | None = None
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for storage equipment."""
@@ -318,30 +320,16 @@ class StoragePO(Storage):
                 self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
             )
 
-        if (
-            len(
-                self.stored_energy.get_forecast(
-                    parameters.execution_date,
-                    parameters.init_battery_time.subtract(days=2),
-                    parameters.init_battery_time,
-                )
-            )
-            == 0
-        ):
+        if self._cached_energy_forecat_initial is None or len(self._cached_energy_forecat_initial) == 0:
             return (
                 self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
             )
 
         else:
+            if self._cached_energy_forecast:
+                return self._cached_energy_forecast.dataframe.select("time").head(1).item()
             return (
-                self.stored_energy.get_forecast(
-                    parameters.execution_date,
-                    parameters.init_battery_time,
-                    parameters.init_battery_time,
-                )
-                .dataframe.select("time")
-                .head(1)
-                .item()
+                self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
             )
 
     def get_optimisation_time_window(
@@ -353,3 +341,13 @@ class StoragePO(Storage):
             start=start_date, end=end_date + self.additional_hours, freq=timestep
         )
         return self.optimisation_time_window
+
+    def prefetch_forecasts(self, execution_date: DateTime, init_battery_time: DateTime):
+        """Pre-fetch and cache forecasts for the entire optimization time window."""
+        if self.stored_energy:
+            self._cached_energy_forecat_initial = self.stored_energy.get_forecast(
+                execution_date, init_battery_time.subtract(days=2), init_battery_time
+            )
+            self._cached_energy_forecast = self.stored_energy.get_forecast(
+                execution_date, init_battery_time, init_battery_time
+            )

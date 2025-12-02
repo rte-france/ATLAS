@@ -33,6 +33,7 @@ class HydroPO(Hydro):
     storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix
 
     optimisation_time_window: list[DateTime] = []
+    _cached_energy_forecast: Timeseries | None = None
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
         """Build variables for hydro equipment."""
@@ -169,12 +170,10 @@ class HydroPO(Hydro):
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding objective for hydro unit {self.name} at time {time}")
 
-            # Calculate these once per time step instead of once per fragment
             energy_level = self._get_current_energy_level(parameters)
             marginal_weights = self._calculate_marginal_weights(energy_level)
 
             for k in range(len(self.fragment_data.keys())):
-                # Only compute the fragment-specific part
                 fragment_price = self._calculate_fragment_price(self.fragment_data[k].price, marginal_weights, time)
 
                 power_level_frag_var = model.get_variable(f"{self.name}_power_level_frag_{k}_{time}")
@@ -198,20 +197,14 @@ class HydroPO(Hydro):
 
     def _get_current_energy_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
         """Get the current energy level from forecast or initial level."""
-        if self.stored_energy:
-            energy_forecast = self.stored_energy.get_forecast(
-                parameters.execution_date,
-                parameters.start_date - parameters.timestep,
-                parameters.start_date - parameters.timestep,
-            )
-
-            return energy_forecast.get_value(parameters.start_date - parameters.timestep)
+        if self._cached_energy_forecast:
+            return self._cached_energy_forecast.get_value(parameters.start_date - parameters.timestep)
         else:
             return self.initial_level.get_value(parameters.start_date - parameters.timestep)
 
     def _calculate_marginal_weights(self, energy_level: float) -> dict:
         """Calculate marginal value weights based on current energy level."""
-        storage_indices = self.storage_marginal_value.indexes
+        storage_indices = self.storage_marginal_value.index
 
         x_min_candidates = [x for x in storage_indices if int(x) <= energy_level]
         x_max_candidates = [x for x in storage_indices if int(x) > energy_level]
@@ -272,3 +265,10 @@ class HydroPO(Hydro):
             start=start_date, end=end_date + self.additional_hours, freq=timestep
         )
         return self.optimisation_time_window
+
+    def prefetch_forecasts(self, execution_date: DateTime, timestep: Duration, start_date: DateTime):
+        """Pre-fetch and cache forecasts for the entire optimization time window."""
+        if self.stored_energy:
+            # For hydro, we need the energy level at start_date - timestep
+            initial_time = start_date - timestep
+            self._cached_energy_forecast = self.stored_energy.get_forecast(execution_date, initial_time, initial_time)
