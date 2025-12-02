@@ -8,6 +8,7 @@ This file is part of the ATLAS project.
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
@@ -91,7 +92,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
 
     def _extract_values(
         self, equipment: EquipmentPO, equipment_type: str, model: PortfolioOptimisationResult
-    ) -> tuple[list[float], list[float], list[int]]:
+    ) -> tuple[list[float], list[float], list[float]]:
         """
         Extract power and stored energy values from optimization variables.
 
@@ -105,7 +106,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         """
         power_values: list[float] = []
         stored_energy_values: list[float] = []
-        state_sequence: list[int] = []
+        state_sequence: list[float] = []
 
         if equipment_type == "thermal":
             state_sequence = []
@@ -122,25 +123,22 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                     state_sequence.append(2)
                 elif model.get_variable_value(f"off_{equipment.name}_{t}") == 1:
                     state_sequence.append(3)
-                elif equipment._T_start >= 1:
+                elif equipment._T_start >= 1:  # type:ignore [union-attr]
                     if model.get_variable_value(f"on_start_{equipment.name}_{t}") == 1:
                         state_sequence.append(4)
-                elif equipment._T_stop >= 1:
+                elif equipment._T_stop >= 1:  # type:ignore [union-attr]
                     if model.get_variable_value(f"stop_{equipment.name}_{t}") == 1:
                         state_sequence.append(5)
-                elif equipment._T_stable >= 1:
+                elif equipment._T_stable >= 1:  # type:ignore [union-attr]
                     if model.get_variable_value(f"on_flat_{equipment.name}_{t}") == 1:
                         state_sequence.append(6)
                 else:
                     continue
 
         elif equipment_type == "hydro":
-            if not isinstance(equipment, HydroPO):
-                return power_values, stored_energy_values
-
             for t in self.parameters.target_times:
                 activated_power = 0.0
-                for category in equipment.fragment_data.keys():
+                for category in equipment.fragment_data.keys():  # type: ignore
                     activated_power += model.get_variable_value(f"{equipment.name}_power_level_frag_{category}_{t}")
 
                 if activated_power <= self.parameters.allowed_round_off_error:
@@ -148,14 +146,10 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
 
                 power_values.append(activated_power)
 
-                # Extract stored energy
                 stored_energy = model.get_variable_value(f"{equipment.name}_stored_energy_{t}")
                 stored_energy_values.append(stored_energy)
 
         elif equipment_type == "storage":
-            if not isinstance(equipment, StoragePO):
-                return power_values, stored_energy_values
-
             for t in self.parameters.target_times:
                 power = model.get_variable_value(f"{equipment.name}_power_level_sell_{t}") + model.get_variable_value(
                     f"{equipment.name}_power_level_buy_{t}"
@@ -166,12 +160,10 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
 
                 power_values.append(power)
 
-                # Extract stored energy
                 stored_energy = model.get_variable_value(f"{equipment.name}_stored_energy_{t}")
                 stored_energy_values.append(stored_energy)
 
         else:
-            # For other equipment types (wind, solar, load), extract simple power level
             for t in self.parameters.target_times:
                 power = model.get_variable_value(f"{equipment.name}_power_level_{t}")
 
@@ -220,7 +212,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
             values=power_values,
         )
 
-        if equipment.power:
+        if equipment.id_po_for_orders:
             if self.parameters.execution_date in equipment.id_po_for_orders.index:
                 equipment.id_po_for_orders.replace(self.parameters.execution_date, power_ts)
             else:
@@ -258,7 +250,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                 stored_energy_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
             )
 
-    def _update_state_sequence(self, equipment: ThermalPO, state_sequence: list[int]):
+    def _update_state_sequence(self, equipment: ThermalPO, state_sequence: list[float]):
         state_sequence_ts = Timeseries.from_values(
             start_date=self.parameters.target_times[0],
             frequency=self.parameters.timestep,
@@ -267,11 +259,11 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
 
         if equipment.state_sequence:
             if self.parameters.execution_date in equipment.state_sequence.index:
-                equipment.state_sequence.replace(self.parameters.execution_date, state_sequence_ts)
+                equipment.state_sequence.replace(self.parameters.execution_date.to_datetime_string(), state_sequence_ts)
             else:
-                equipment.state_sequence.add(state_sequence_ts, self.parameters.execution_date)
+                equipment.state_sequence.add(state_sequence_ts, self.parameters.execution_date.to_datetime_string())
         else:
-            equipment.state_sequence = ForecastingMatrix(
+            equipment.state_sequence = ScenarioMatrix(
                 state_sequence_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
             )
 

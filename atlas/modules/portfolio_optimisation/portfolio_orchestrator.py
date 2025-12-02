@@ -91,9 +91,6 @@ def optimise_single_portfolio(
 
         variable_values = {var_name: model.get_variable_value(var_name) for var_name in model._variables_name}
 
-        for thermal in model.portfolio.equipments.thermal:
-            thermal.clear_model_vars()  # necessary to make thermal objects picklabe for multiprocessing
-
         result = PortfolioOptimisationResult(
             portfolio=model.portfolio, variable_values=variable_values, solution_info=model.solution_info
         )
@@ -105,10 +102,6 @@ def optimise_single_portfolio(
         cfg.logger.debug("Falling back to manual activation")
 
         set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
-
-        # Clear ModelVar objects from thermal equipment to make the portfolio picklable for multiprocessing
-        for thermal in portfolio.equipments.thermal:
-            thermal.clear_model_vars()
 
         result = PortfolioOptimisationResult(
             portfolio=portfolio, variable_values={}, solution_info=SolutionInfo(status=SolverStatus.NOT_SOLVED)
