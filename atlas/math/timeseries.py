@@ -576,6 +576,87 @@ class Timeseries:
 
         return self._return_inplace(df, inplace)
 
+    def set_values(
+        self,
+        other: Timeseries,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Set or update values. If the datetime exists, it is overwritten.
+
+        :param other: other timeseries with values to updated self
+        :type other: Timeseries
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Timeseries with the new values
+        :rtype: Timeseries
+        """
+        if len(self.timeseries) == 0:
+            df = other.dataframe
+            return self._return_inplace(df, inplace)
+
+        # Remove all existing rows that match any of the new timestamps
+        df = self.timeseries.filter(~pl.col("time").is_in(other.index))
+
+        # Combine and sort
+        df = pl.concat([df, other.dataframe]).sort("time")
+
+        return self._return_inplace(df, inplace)
+
+    def set_values_at(
+        self,
+        times: list[datetime] | list[str],
+        values: list[float],
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Set or update values. If the datetime exists, it is overwritten.
+
+        :param times: list of datetime to set
+        :type times: list[datetime] or list[str]
+        :param values: Values to set
+        :type values: list[float]
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Timeseries with the new values
+        :rtype: Timeseries
+        """
+        if len(times) != len(values):
+            raise ValueError("times and values must have the same length")
+
+        # Parse all times using your existing build_datetime function
+        dts = [build_datetime(t, date_format).in_tz(self.timezone) for t in times]
+
+        # If empty, just create a new dataframe
+        if len(self.timeseries) == 0:
+            df = (
+                pl.DataFrame({"time": dts, "value": values})
+                .with_columns(
+                    pl.col("time").dt.replace_time_zone(self.timezone),
+                    pl.col("value").cast(pl.Float64()),
+                )
+                .sort("time")
+            )
+
+            return self._return_inplace(df, inplace)
+
+        # Remove all existing rows that match any of the new timestamps
+        df = self.timeseries.filter(~pl.col("time").is_in(dts))
+
+        # Build new rows
+        new_rows = pl.DataFrame({"time": dts, "value": values}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
+        )
+
+        # Combine and sort
+        df = pl.concat([df, new_rows]).sort("time")
+
+        return self._return_inplace(df, inplace)
+
     def add_value_at(
         self,
         time: datetime | str,
