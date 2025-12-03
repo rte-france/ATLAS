@@ -38,16 +38,19 @@ class Pricing(OptimisationModel):
     def run(self):
         self.build_first()
         solver_info = self.solve()
-        self.export_model("pricing_1_model.lp")
+        if self.parameters.export_lp:
+            self.export_model("pricing_1_model.lp")
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_second()
             solver_info = self.solve()
-            self.export_model("pricing_2_model.lp")
+            if self.parameters.export_lp:
+                self.export_model("pricing_2_model.lp")
 
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_third()
             _ = self.solve()
-            self.export_model("pricing_3_model.lp")
+            if self.parameters.export_lp:
+                self.export_model("pricing_3_model.lp")
 
     def build_first(self):
         self.instantiate_order_group_index()

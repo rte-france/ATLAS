@@ -38,7 +38,8 @@ class Clearing(OptimisationModel):
     def run(self):
         self.build()
         self.solve()
-        self.export_model("clearing_model.lp")
+        if self.parameters.export_lp:
+            self.export_model("clearing_model.lp")
 
     def build(self):
         self.build_variables()

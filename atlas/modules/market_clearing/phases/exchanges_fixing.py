@@ -16,7 +16,8 @@ class ExchangesFixing(OptimisationModel):
     def run(self, clearing_local_balances: dict[tuple[str, int], float]):
         self.build(clearing_local_balances)
         self.solve()
-        self.export_model("exchanges_fixing_model.lp")
+        if self.parameters.export_lp:
+            self.export_model("exchanges_fixing_model.lp")
 
     def build(self, clearing_local_balances: dict[tuple[str, int], float]):
         self.build_variables()

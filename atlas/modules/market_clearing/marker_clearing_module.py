@@ -65,6 +65,10 @@ class MarketClearingModule(
         market_clearing_output_dataset.update_raw_data_with_not_modified_business_model_object()
         market_clearing_output_dataset.update_business_model_object(accepted_powers, local_balances, border_exchanges, market_prices)
         market_clearing_output_dataset.update_raw_data_with_modified_business_model_object()
+
+        if parameters.output_dataset_path:
+            # TODO: export output dataset
+            print()
         return market_clearing_output_dataset
 
     def validates_results(
