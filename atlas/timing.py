@@ -177,7 +177,7 @@ def generate_datetimes(
     if end_date < start_date:
         raise ValueError("End date has to be after start date")
     elif end_date == start_date:
-        return pl.Series([start_date.naive()]).dt.replace_time_zone(timezone).to_list()
+        return [pendulum.instance(pl.Series([start_date.naive()]).dt.replace_time_zone(timezone).item())]
 
     return [
         pendulum.instance(i)
