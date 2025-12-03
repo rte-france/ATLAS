@@ -810,7 +810,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
             )
             for t in self.time_frame:
-                ON_FLAT_star.set_value(t, self.ON_FLAT.get_model_var().solution_value())
+                ON_FLAT_star.set_value(t, self.ON_FLAT.get_model_var(t).solution_value())
             results["ON_FLAT"] = ON_FLAT_star
 
         return results

@@ -199,14 +199,14 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # in the expressions below.
     model.U.set_extended(
         model.start_date_minus_one,
-        model.ON_UP.get_extended_value(model.start_date_minus_one)
-        * model.ON_UP.get_extended_value(start_date_minus_two)
+        model.ON_UP.get_value(model.start_date_minus_one)
+        * model.ON_UP.get_value(start_date_minus_two)
         * (model.q.get_extended_value(model.start_date_minus_one) - model.q.get_extended_value(start_date_minus_two)),
     )
     model.D.set_extended(
         model.start_date_minus_one,
-        model.ON_DOWN.get_extended_value(model.start_date_minus_one)
-        * model.ON_DOWN.get_extended_value(start_date_minus_two)
+        model.ON_DOWN.get_value(model.start_date_minus_one)
+        * model.ON_DOWN.get_value(start_date_minus_two)
         * (model.q.get_extended_value(model.start_date_minus_one) - model.q.get_extended_value(start_date_minus_two)),
     )
 
