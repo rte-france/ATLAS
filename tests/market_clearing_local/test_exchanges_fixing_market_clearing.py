@@ -55,7 +55,7 @@ def retrieve_exchanges_fixing_lp(path, clearing_local_balances):
     return "exchanges_fixing_model.lp"
 
 
-# @pytest.mark.skip(reason="No data available")
+@pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [

@@ -49,12 +49,12 @@ def retrieve_clearing_lp(path):
     return "clearing_model.lp"
 
 
-# @pytest.mark.skip(reason="No data available")
+@pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
-        # "MarketClearing input v1.3 FB_1",
-        # "MarketClearing input v1.3 FB_2",
+        "MarketClearing input v1.3 FB_1",
+        "MarketClearing input v1.3 FB_2",
         "MarketClearing input v1.3 ATC_1",
         "MarketClearing input v1.3 ATC_2",
     ]

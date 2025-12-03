@@ -98,13 +98,13 @@ def retrieve_pricing_lp(path, clearing_local_balances, clearing_saturated_critic
     return "pricing_1_model.lp", "pricing_2_model.lp", "pricing_3_model.lp"
 
 
-# @pytest.mark.skip(reason="No data available")
+@pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
-        #"MarketClearing input v1.3 FB_1",
-        #"MarketClearing input v1.3 FB_2",
-        #"MarketClearing input v1.3 ATC_1",
+        "MarketClearing input v1.3 FB_1",
+        "MarketClearing input v1.3 FB_2",
+        "MarketClearing input v1.3 ATC_1",
         "MarketClearing input v1.3 ATC_2"
     ]
 )
