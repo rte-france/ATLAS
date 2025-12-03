@@ -1,5 +1,6 @@
 import os
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any, get_args
 
@@ -8,6 +9,8 @@ import numpy as np
 import pendulum
 import polars as pl
 import yaml
+from pendulum import DateTime
+from pydantic_extra_types.pendulum_dt import Duration
 
 import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
@@ -91,6 +94,7 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = to_snake_case(attr_name)
+
                         if (
                             attr_name_snake not in list(cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys())
                             and attr_name_snake not in NAME_MAPPING
@@ -239,24 +243,25 @@ class PrometheusToAtlasDataParser:
                                 attrs[attr_name_snake] = (
                                     val.item() if hasattr(val, "item") and np.size(val) == 1 else val
                                 )
+                                type_attribute = get_type_attribute(
+                                    object_type_snake, attr_name_snake
+                                )  # gets the type of the attribute in the pydantic model
+
                                 if isinstance(attrs[attr_name_snake], bytes):
                                     attrs[attr_name_snake] = attrs[attr_name_snake].decode("utf-8")
-                                    try:
+                                    if type_attribute in [datetime, DateTime]:
                                         attrs[attr_name_snake] = pendulum.from_format(
                                             attrs[attr_name_snake], self.date_format_input_files
                                         ).to_datetime_string()
-                                    except Exception:
-                                        pass
                                 if attrs[attr_name_snake] == "None":
                                     attrs[attr_name_snake] = None
                                 if attrs[attr_name_snake] == "":
                                     attrs[attr_name_snake] = None
                                 if attrs[attr_name_snake] in NAME_MAPPING:
                                     attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
+                                if type_attribute == Duration:
+                                    attrs[attr_name_snake] = Duration(hours=attrs[attr_name_snake]).to_iso8601_string()
 
-                                type_attribute = get_type_attribute(
-                                    object_type_snake, attr_name_snake
-                                )  # gets the type of the attribute in the pydantic model
                                 try:
                                     type_attribute = get_args(type_attribute)[0]
                                     # get the sub type if it's a Union or a list, to get the actual business model object into it if it exists
