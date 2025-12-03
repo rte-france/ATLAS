@@ -127,6 +127,13 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     "id_with_status": id_with_status
                 }
                 mc_order = OrderMC.model_validate(order_dump)
+                # Add time_index attribute -> use in pricing and output
+                time_index = 0
+                for time_index, time in enumerate(self.times):
+                    if time == mc_order.start_date:
+                        time_index = time_index
+                        break
+                mc_order.time_index = time_index
                 mc_orders[order.name] = mc_order
 
         for order_coupling in order_couplings.values():

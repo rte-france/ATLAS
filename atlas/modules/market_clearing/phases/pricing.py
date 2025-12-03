@@ -934,14 +934,8 @@ class Pricing(OptimisationModel):
             for price_group in price_group_list:
                 for market_area_name in price_group.market_area_names:
                     for mc_order in self.input_dataset.mc_market_areas[market_area_name].mc_orders.values():
-                        time_index = 0
-                        for time_index, time in enumerate(self.input_dataset.times):
-                            if time == mc_order.start_date:
-                                time_index = time_index
-                                break
-                        if time_index == price_group.time_index:
+                        if mc_order.time_index == price_group.time_index:
                             mc_order.group_index = price_group.id
-                            mc_order.time_index = price_group.time_index
 
     # Defines the global circular parent_child sets and stores them in a dictionary
     def get_circular_parent_child_sets(self):
