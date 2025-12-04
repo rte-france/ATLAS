@@ -511,6 +511,7 @@ class LazyForecastingMatrix(LazyMatrix):
         start_date: datetime | str | pendulum.DateTime,
         end_date: datetime | str | pendulum.DateTime,
         timestep: str | pendulum.Duration | None = None,
+        default_value: float | None = None,
     ) -> Timeseries:
         """
         Returns the most up-to-date forecast available per time row in the given window.
@@ -526,6 +527,8 @@ class LazyForecastingMatrix(LazyMatrix):
         :param timestep: Target frequency for the output timeseries. If None, the lowest
                         frequency found in the data will be used.
         :type timestep: str | pendulum.Duration | None
+        :param default_value: Default value used for indexes where no value is found
+        :type default_value: float | None
         :raises ValueError: If start_date is after end_date or if no forecasting dates
                            are available before the execution date.
         :return: A timeseries containing the most recent forecast values for each timestamp
@@ -533,5 +536,9 @@ class LazyForecastingMatrix(LazyMatrix):
         :rtype: Timeseries
         """
         return self.collect().get_forecast(
-            execution_date=execution_date, start_date=start_date, end_date=end_date, timestep=timestep
+            execution_date=execution_date,
+            start_date=start_date,
+            end_date=end_date,
+            timestep=timestep,
+            default_value=default_value,
         )
