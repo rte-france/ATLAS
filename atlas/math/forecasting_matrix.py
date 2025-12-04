@@ -250,6 +250,7 @@ class ForecastingMatrix(Matrix):
         start_date: datetime | str | pendulum.DateTime,
         end_date: datetime | str | pendulum.DateTime,
         timestep: str | pendulum.Duration | None = None,
+        default_value: float | None = None,
     ) -> Timeseries:
         """
         Returns the most up-to-date forecast available per time row in the given window.
@@ -265,6 +266,8 @@ class ForecastingMatrix(Matrix):
         :param timestep: Target frequency for the output timeseries. If None, the lowest
                         frequency found in the data will be used.
         :type timestep: str | pendulum.Duration | None
+        :param default_value: default value used for indexes where no value is found
+        :type default_value: float | None
         :raises ValueError: If start_date is after end_date or if no forecasting dates
                            are available before the execution date.
         :return: A timeseries containing the most recent forecast values for each timestamp
@@ -353,6 +356,24 @@ class ForecastingMatrix(Matrix):
                 ]
             )
         )
+
+        if default_value is not None:
+            # we must set a value for each index between start and end date
+            # using default value if none is found
+            full_index = pl.DataFrame(
+                {
+                    "time": generate_datetimes(
+                        start=start_date,
+                        end=end_date,
+                        freq=frequency_target,
+                        timezone=self.timezone,
+                    )
+                }
+            )
+            df_complete = full_index.join(df, on="time", how="left").with_columns(
+                pl.col("forecast").fill_null(default_value)
+            )
+            return Timeseries(df_complete, timezone=self.timezone)
 
         return Timeseries(df, timezone=self.timezone)
 

@@ -8,7 +8,7 @@ import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import cast
+from typing import Literal, cast
 
 import pendulum
 import polars as pl
@@ -151,6 +151,7 @@ def generate_datetimes(
     freq: str | pendulum.Duration,
     timezone: str = "UTC",
     date_format: str = "YYYY-MM-DD HH:mm:ss",
+    closed: Literal["both", "left", "right", "none"] = "both",
 ) -> list[pendulum.DateTime]:
     """
     Generate a list of datetimes using pendulum.
@@ -165,6 +166,8 @@ def generate_datetimes(
     :type timezone: str, optional
     :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
     :type date_format: str, optional
+    :param closed: Define which sides of the range are closed (inclusive).
+    :type closed: {"both", "left", "right", "none"}
     :return: List of datetime objects
     :rtype: List[pendulum.DateTime]
     """
@@ -173,11 +176,20 @@ def generate_datetimes(
 
     if end_date < start_date:
         raise ValueError("End date has to be after start date")
-    elif end_date == start_date:
-        return [start_date]
-    else:
-        step = get_duration(freq)
-        return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
+
+    return [
+        pendulum.instance(i)
+        for i in pl.datetime_range(
+            start=start_date.naive(),
+            end=end_date.naive(),
+            interval=get_duration(freq),
+            closed=closed,
+            time_unit="us",
+            eager=True,
+        )
+        .dt.replace_time_zone(timezone)
+        .to_list()
+    ]
 
 
 def get_duration(freq: str | pendulum.Duration) -> pendulum.Duration:
