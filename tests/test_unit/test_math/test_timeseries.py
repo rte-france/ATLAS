@@ -305,6 +305,49 @@ class TestTimeseriesBasicOperations:
         """Test length calculation."""
         assert len(sample_ts) == 4
 
+    def test_contains_with_datetime(self, sample_ts):
+        """Test __contains__ with datetime object."""
+        dt_exists = datetime(2023, 1, 1, 1, 0, 0)
+        dt_not_exists = datetime(2023, 1, 1, 1, 30, 0)
+
+        assert dt_exists in sample_ts
+        assert dt_not_exists not in sample_ts
+
+    def test_contains_with_string(self, sample_ts):
+        """Test __contains__ with string datetime."""
+        dt_exists = "2023-01-01 02:00:00"
+        dt_not_exists = "2023-01-01 04:00:00"
+
+        assert dt_exists in sample_ts
+        assert dt_not_exists not in sample_ts
+
+    def test_contains_with_pendulum_datetime(self, sample_ts):
+        """Test __contains__ with pendulum.DateTime object."""
+        dt_exists = pendulum.datetime(2023, 1, 1, 3, 0, 0, tz="UTC")
+        dt_not_exists = pendulum.datetime(2023, 1, 1, 5, 0, 0, tz="UTC")
+
+        assert dt_exists in sample_ts
+        assert dt_not_exists not in sample_ts
+
+    def test_contains_with_different_timezone(self, sample_ts):
+        """Test __contains__ with datetime in different timezone."""
+        # Create a timeseries with Europe/Paris timezone
+        sample_ts.set_timezone("Europe/Paris")
+
+        # Test with UTC datetime that corresponds to a time in the series
+        # 2023-01-01 00:00:00 UTC = 2023-01-01 01:00:00 Europe/Paris
+        dt_utc = pendulum.datetime(2023, 1, 1, 0, 0, 0, tz="UTC")
+
+        # The __contains__ should convert to the timeseries timezone
+        assert dt_utc in sample_ts
+
+    def test_contains_with_invalid_input(self, sample_ts):
+        """Test __contains__ with invalid input returns False."""
+        # Invalid inputs should return False instead of raising an exception
+        assert (123 in sample_ts) is False
+        assert (None in sample_ts) is False
+        assert ([] in sample_ts) is False
+
     def test_mul_with_value(self, sample_ts):
         """Test multiplication operation between a timeseries and a value."""
         ts = sample_ts * 2

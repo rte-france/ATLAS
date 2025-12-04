@@ -272,6 +272,20 @@ class LazyTimeseries:
         """
         return self.collect().__len__()
 
+    def __contains__(self, item: datetime | str | pendulum.DateTime) -> bool:
+        """Check if a temporal index exists in the LazyTimeseries.
+
+        :param item: Datetime to check for existence
+        :type item: datetime or str or pendulum.DateTime
+        :return: True if the datetime exists in the LazyTimeseries index, False otherwise
+        :rtype: bool
+        """
+        try:
+            dt = build_datetime(item).in_tz(self.timezone)
+            return self.timeseries.filter(pl.col("time") == dt).collect().height > 0
+        except Exception:
+            return False
+
     def set_frequency(self, frequency: str | pendulum.Duration, inplace: bool = True) -> LazyTimeseries:
         """
         Change the frequency (timestep) of the lazy time series.

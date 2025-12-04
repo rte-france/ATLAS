@@ -99,6 +99,74 @@ def test_add_timeseries(hourly_df):
     ]
 
 
+def test_contains_with_string_index(hourly_df):
+    """Test the __contains__ method with string index."""
+    matrix = ForecastingMatrix(hourly_df)
+
+    # Test existing indexes
+    assert "2025-01-01 00:00:00" in matrix
+    assert "2025-01-01 01:00:00" in matrix
+
+    # Test non-existing index
+    assert "2025-01-01 02:00:00" not in matrix
+    assert "2025-01-01 05:00:00" not in matrix
+
+
+def test_contains_with_datetime_object(hourly_df):
+    """Test the __contains__ method with datetime object."""
+    matrix = ForecastingMatrix(hourly_df)
+
+    # Test existing indexes
+    assert datetime(2025, 1, 1, 0, 0, 0) in matrix
+    assert datetime(2025, 1, 1, 1, 0, 0) in matrix
+
+    # Test non-existing index
+    assert datetime(2025, 1, 1, 2, 0, 0) not in matrix
+    assert datetime(2025, 1, 1, 5, 0, 0) not in matrix
+
+
+def test_contains_with_pendulum_datetime(hourly_df):
+    """Test the __contains__ method with pendulum DateTime object."""
+    matrix = ForecastingMatrix(hourly_df)
+
+    # Test existing indexes
+    assert pendulum.DateTime(2025, 1, 1, 0, 0, 0) in matrix
+    assert pendulum.DateTime(2025, 1, 1, 1, 0, 0) in matrix
+
+    # Test non-existing index
+    assert pendulum.DateTime(2025, 1, 1, 2, 0, 0) not in matrix
+    assert pendulum.DateTime(2025, 1, 1, 5, 0, 0) not in matrix
+
+
+def test_contains_with_custom_date_format():
+    """Test __contains__ with custom date format."""
+    custom_format = "YYYY-MM-DD HH:mm"
+    df = pl.DataFrame(
+        {
+            "time": pl.datetime_range(
+                start=datetime(2025, 1, 1, 0, 0, 0),
+                end=datetime(2025, 1, 1, 4, 0, 0),
+                interval="1h",
+                time_unit="us",
+                eager=True,
+            ),
+            "2025-01-01 00:00": [1, 2, 3, 4, 5],
+            "2025-01-01 01:00": [6, 7, 8, 9, 10],
+        }
+    )
+    matrix = ForecastingMatrix(df, date_format=custom_format)
+
+    # Test with string in custom format
+    assert "2025-01-01 00:00" in matrix
+    assert "2025-01-01 01:00" in matrix
+    assert "2025-01-01 02:00" not in matrix
+
+    # Test with datetime object (should still work, converted to custom format)
+    assert datetime(2025, 1, 1, 0, 0, 0) in matrix
+    assert datetime(2025, 1, 1, 1, 0, 0) in matrix
+    assert datetime(2025, 1, 1, 2, 0, 0) not in matrix
+
+
 def test_get_timeseries(hourly_df):
     matrix = ForecastingMatrix(hourly_df)
 
@@ -786,6 +854,78 @@ def test_lazy_forecasting_matrix_replace(hourly_df):
     assert replaced_ts.get_value(datetime(2025, 1, 1, 1, 0, 0)) == 999.0
 
 
+def test_lazy_forecasting_matrix_contains_with_string_index(hourly_df):
+    """Test the __contains__ method with string index on LazyForecastingMatrix."""
+    lazy_df = hourly_df.lazy()
+    lazy_forecasting = LazyForecastingMatrix(lazy_df)
+
+    # Test existing indexes
+    assert "2025-01-01 00:00:00" in lazy_forecasting
+    assert "2025-01-01 01:00:00" in lazy_forecasting
+
+    # Test non-existing index
+    assert "2025-01-01 02:00:00" not in lazy_forecasting
+    assert "2025-01-01 05:00:00" not in lazy_forecasting
+
+
+def test_lazy_forecasting_matrix_contains_with_datetime_object(hourly_df):
+    """Test the __contains__ method with datetime object on LazyForecastingMatrix."""
+    lazy_df = hourly_df.lazy()
+    lazy_forecasting = LazyForecastingMatrix(lazy_df)
+
+    # Test existing indexes
+    assert datetime(2025, 1, 1, 0, 0, 0) in lazy_forecasting
+    assert datetime(2025, 1, 1, 1, 0, 0) in lazy_forecasting
+
+    # Test non-existing index
+    assert datetime(2025, 1, 1, 2, 0, 0) not in lazy_forecasting
+    assert datetime(2025, 1, 1, 5, 0, 0) not in lazy_forecasting
+
+
+def test_lazy_forecasting_matrix_contains_with_pendulum_datetime(hourly_df):
+    """Test the __contains__ method with pendulum DateTime object on LazyForecastingMatrix."""
+    lazy_df = hourly_df.lazy()
+    lazy_forecasting = LazyForecastingMatrix(lazy_df)
+
+    # Test existing indexes
+    assert pendulum.DateTime(2025, 1, 1, 0, 0, 0) in lazy_forecasting
+    assert pendulum.DateTime(2025, 1, 1, 1, 0, 0) in lazy_forecasting
+
+    # Test non-existing index
+    assert pendulum.DateTime(2025, 1, 1, 2, 0, 0) not in lazy_forecasting
+    assert pendulum.DateTime(2025, 1, 1, 5, 0, 0) not in lazy_forecasting
+
+
+def test_lazy_forecasting_matrix_contains_after_add(hourly_df):
+    """Test __contains__ after adding new timeseries to LazyForecastingMatrix."""
+    lazy_df = hourly_df.lazy()
+    lazy_forecasting = LazyForecastingMatrix(lazy_df)
+
+    # Initially not present
+    assert "2025-01-01 02:00:00" not in lazy_forecasting
+
+    # Add a new timeseries
+    new_ts = Timeseries(
+        pl.DataFrame(
+            {
+                "time": pl.datetime_range(
+                    datetime(2025, 1, 1, 3, 0, 0),
+                    datetime(2025, 1, 1, 7, 0, 0),
+                    "1h",
+                    time_unit="us",
+                    eager=True,
+                ),
+                "values": [11, 12, 13, 14, 15],
+            }
+        )
+    )
+    lazy_forecasting.add(new_ts, datetime(2025, 1, 1, 2, 0, 0))
+
+    # Now it should be present
+    assert "2025-01-01 02:00:00" in lazy_forecasting
+    assert datetime(2025, 1, 1, 2, 0, 0) in lazy_forecasting
+
+
 def test_lazy_forecasting_matrix_get_forecast(hourly_df):
     """Test get_forecast method in LazyForecastingMatrix."""
     lazy_df = hourly_df.lazy()
@@ -1076,3 +1216,19 @@ class TestGetForecast:
         result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
 
         assert result.dataframe.equals(expected_result)
+
+    def test_get_forecast_with_default_value(self, ts_30_min_at_0_with_4_values):
+        start_date = pendulum.datetime(2025, 1, 1, 0, 0)
+        end_date = pendulum.datetime(2025, 1, 1, 6, 0)
+        execution_date = pendulum.datetime(2025, 1, 2, 0)
+        step = pendulum.duration(minutes=30)
+        default_value = 0.0
+        forecast_matrix = ForecastingMatrix()
+        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+
+        ts = forecast_matrix.get_forecast(execution_date, start_date, end_date, step, default_value)
+        res = ts.get_value(pendulum.datetime(2025, 1, 1, 1, 30))
+        res_default = ts.get_value(pendulum.datetime(2025, 1, 1, 5, 0))
+
+        assert res == 4
+        assert res_default == default_value
