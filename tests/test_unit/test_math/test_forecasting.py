@@ -1216,3 +1216,19 @@ class TestGetForecast:
         result = forecast_matrix.get_forecast(execution_date, start_date, end_date, expected_step)
 
         assert result.dataframe.equals(expected_result)
+
+    def test_get_forecast_with_default_value(self, ts_30_min_at_0_with_4_values):
+        start_date = pendulum.datetime(2025, 1, 1, 0, 0)
+        end_date = pendulum.datetime(2025, 1, 1, 6, 0)
+        execution_date = pendulum.datetime(2025, 1, 2, 0)
+        step = pendulum.duration(minutes=30)
+        default_value = 0.0
+        forecast_matrix = ForecastingMatrix()
+        forecast_matrix.add(ts_30_min_at_0_with_4_values, pendulum.DateTime(2025, 1, 1))
+
+        ts = forecast_matrix.get_forecast(execution_date, start_date, end_date, step, default_value)
+        res = ts.get_value(pendulum.datetime(2025, 1, 1, 1, 30))
+        res_default = ts.get_value(pendulum.datetime(2025, 1, 1, 5, 0))
+
+        assert res == 4
+        assert res_default == default_value
