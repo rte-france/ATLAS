@@ -7,13 +7,12 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from pendulum import DateTime, duration
-from pendulum.duration import Duration
-from pydantic import Field, field_validator
+from pydantic import Field
+from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import MarketType, SolverEnum, StorageType, ThermalStrategy
 from atlas.timing import generate_datetimes
-from atlas.validators import hours_validator, minutes_validator
 
 
 class PortfolioOptimisationParameters(AbstractParameters):
@@ -161,35 +160,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
         default_factory=lambda: duration(hours=1),
         description="Time step (in hours) of the simulated market.",
     )
-
-    @field_validator(
-        "additional_hours",
-        "battery_additional_hours",
-        "electric_vehicle_additional_hours",
-        "hydraulic_additional_hours",
-        "pumped_hydraulic_storage_additional_hours",
-        "thermal_additional_hours",
-        "timestep",
-        mode="before",
-    )
-    @classmethod
-    def convert_hours_to_duration(cls, v):
-        """Convert various duration formats to Duration objects (hours default)."""
-        return hours_validator(v)
-
-    @field_validator(
-        "pumped_hydraulic_automated_reserve_duration",
-        "battery_automated_reserve_duration",
-        "electric_vehicle_automated_reserve_duration",
-        "electric_vehicle_reserve_duration",
-        "battery_reserve_duration",
-        "pumped_hydraulic_reserve_duration",
-        mode="before",
-    )
-    @classmethod
-    def convert_minutes_to_duration(cls, v):
-        """Convert various duration formats to Duration objects (minutes default)."""
-        return minutes_validator(v)
 
     @property
     def excluded_market_areas(self) -> list[str]:
