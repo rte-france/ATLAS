@@ -222,14 +222,9 @@ class PortfolioOptimisationParameters(AbstractParameters):
         return [ThermalStrategy(strat.strip()) for strat in val.split(";")]
 
     @property
-    def adjusted_end_date(self) -> DateTime:
-        """End date adjusted by subtracting one time step."""
-        return self.end_date - self.timestep
-
-    @property
     def target_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period."""
-        return generate_datetimes(self.start_date, self.adjusted_end_date, self.timestep)
+        return generate_datetimes(self.start_date, self.end_date, self.timestep, closed="left")
 
     @property
     def init_battery_time(self) -> DateTime:

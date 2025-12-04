@@ -301,10 +301,10 @@ class PortfolioPO(Portfolio):
 
         for obj in forecast_based_equipment:
             upstream_energy = self._get_upstream_energy(obj, time, parameters)
-            forecast = obj.maximum_power_forecast.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
-            )
-            forecast_t = forecast.get_value(time) if time in forecast else 0
+            forecast_t = obj.maximum_power_forecast.get_forecast(
+                parameters.execution_date, time, time, default_value=0
+            ).get_value(time)
+
             residual_energy += upstream_energy - min(forecast_t, upstream_energy)
 
         other_equipment = [
@@ -410,8 +410,9 @@ class PortfolioPO(Portfolio):
             return obj.maximum_power.get_value(time)  # type: ignore[union-attr]
         elif obj_type in ("LoadPO", "WindPO", "SolarPO", "OtherNonDispatchablePO"):
             if execution_date:
-                forecast = obj.maximum_power_forecast.get_forecast(execution_date, time, time)  # type: ignore[union-attr]
-                return forecast.get_value(time) if time in forecast else 0
+                return obj.maximum_power_forecast.get_forecast(execution_date, time, time, default_value=0).get_value(
+                    time
+                )  # type: ignore[union-attr]
             else:
                 raise RuntimeError(
                     "Missing execution date argument for a Load, Wind, Solar or OtherNonDispatchable equipment"
