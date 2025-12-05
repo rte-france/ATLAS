@@ -9,6 +9,7 @@ This module provides LazyTimeseries.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Literal

@@ -3,6 +3,7 @@ from datetime import datetime
 import pendulum
 import polars as pl
 import pytest
+from pendulum import Timezone
 
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
@@ -788,3 +789,40 @@ def test_get_value_timezone_handling(sample_df_extended):
     if first_time:
         value = lt.get_value(first_time)
         assert isinstance(value, float)
+
+def test_iter_rows(sample_df_extended):
+    """Test iterating over rows of the LazyTimeseries."""
+
+    lt = LazyTimeseries(sample_df_extended.lazy())
+    rows = list(lt.iter_rows())
+
+    # Check that we get the correct number of rows
+    assert len(rows) == 12
+
+    # Check that each row is a tuple of (time, value)
+    assert all(isinstance(row, tuple) and len(row) == 2 for row in rows)
+
+    # Check the first row
+    assert rows[0][0] == datetime(2023, 1, 1, 0, 0, tzinfo=Timezone("UTC"))
+    assert rows[0][1] == 10.0
+
+    # Check the last row
+    assert rows[-1][0] == datetime(2023, 1, 1, 11, 0, tzinfo=Timezone("UTC"))
+    assert rows[-1][1] == 65.0
+
+    # Check all values
+    expected_values = [10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0]
+    actual_values = [row[1] for row in rows]
+    assert actual_values == expected_values
+
+    # Test that iter_rows returns an iterable
+    rows_iterator = lt.iter_rows()
+    first_row = next(rows_iterator)
+    assert first_row == (datetime(2023, 1, 1, 0, 0, tzinfo=Timezone("UTC")), 10.0)
+
+
+def test_iter_rows_empty():
+    """Test iter_rows on an empty LazyTimeseries."""
+    lt = LazyTimeseries()
+    rows = list(lt.iter_rows())
+    assert len(rows) == 0
