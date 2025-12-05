@@ -364,6 +364,18 @@ class LazyTimeseries:
             return pendulum.instance(result.item())
         return None
 
+    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+        """
+        Iterate over rows of the LazyTimeseries, yielding (time, value) tuples.
+
+        Note: This method will collect the LazyFrame into memory before iterating.
+
+        :return: A generator yielding tuples containing (time, value) for each row
+        :rtype: Generator[tuple[datetime, float], None, None]
+        """
+        for row in self.timeseries.collect().iter_rows(named=True):
+            yield (row["time"], row["value"])
+
     def _return_inplace(self, lf: pl.LazyFrame, inplace: bool) -> LazyTimeseries:
         """
         Return the LazyTimeseries object itself or create a new one.
@@ -380,17 +392,4 @@ class LazyTimeseries:
         if inplace:
             self.timeseries = lf.sort("time")
             return self
-        else:
-            return LazyTimeseries(lf.sort("time"), timezone=self.timezone)
-
-    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
-        """
-        Iterate over rows of the LazyTimeseries, yielding (time, value) tuples.
-
-        Note: This method will collect the LazyFrame into memory before iterating.
-
-        :return: A generator yielding tuples containing (time, value) for each row
-        :rtype: Generator[tuple[datetime, float], None, None]
-        """
-        for row in self.timeseries.collect().iter_rows(named=True):
-            yield (row["time"], row["value"])
+        return LazyTimeseries(lf.sort("time"), timezone=self.timezone)
