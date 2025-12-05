@@ -424,6 +424,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 self.parameters.execution_date,
                 self.extended_start_date,
                 self.parameters.start_date - self.parameters.time_step,
+                default_value=0.0,
             )  # Extract the time series corresponding to the previous period
         else:
             self.last_power = Timeseries.from_index(
