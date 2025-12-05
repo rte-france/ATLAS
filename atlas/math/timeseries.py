@@ -10,6 +10,7 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 from __future__ import annotations
 
 import pickle
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -1036,3 +1037,13 @@ class Timeseries:
         if len(self.timeseries) > 0:
             return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").tail(1).item()))
         return None
+
+    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+        """
+        Iterate over rows of the Timeseries, yielding (time, value) tuples.
+
+        :return: A generator yielding tuples containing (time, value) for each row
+        :rtype: Generator[tuple[datetime, float], None, None]
+        """
+        for row in self.timeseries.iter_rows(named=True):
+            yield (row["time"], row["value"])
