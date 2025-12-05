@@ -875,7 +875,7 @@ class TestTimeseriesManipulation:
         assert result["value"] == [40]
 
     def test_filter_invalid(self, sample_ts):
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(TypeError):
             result = sample_ts.filter(2, inplace=False)
 
     def test_slice_with_datetime(self, sample_ts):
