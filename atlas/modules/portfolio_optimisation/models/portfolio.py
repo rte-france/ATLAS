@@ -17,10 +17,15 @@ from atlas.math.timeseries import Timeseries
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
+from atlas.modules.portfolio_optimisation.models.solar import SolarPO
+from atlas.modules.portfolio_optimisation.models.storage import StoragePO
+from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.solver.solver_interface import OptimisationModel
@@ -404,15 +409,13 @@ class PortfolioPO(Portfolio):
     def _get_maximum_power(
         obj: EquipmentPO, time: DateTime, execution_date: datetime | DateTime | str | None = None
     ) -> float:
-        obj_type = type(obj).__name__
-
-        if obj_type in ("HydroPO", "StoragePO", "ThermalPO"):
-            return obj.maximum_power.get_value(time)  # type: ignore[union-attr]
-        elif obj_type in ("LoadPO", "WindPO", "SolarPO", "OtherNonDispatchablePO"):
+        if isinstance(obj, HydroPO | StoragePO | ThermalPO):
+            return obj.maximum_power.get_value(time)
+        elif isinstance(obj, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
             if execution_date:
                 return obj.maximum_power_forecast.get_forecast(execution_date, time, time, default_value=0).get_value(
                     time
-                )  # type: ignore[union-attr]
+                )
             else:
                 raise RuntimeError(
                     "Missing execution date argument for a Load, Wind, Solar or OtherNonDispatchable equipment"

@@ -76,37 +76,40 @@ class PortfolioOptimisationParameters(AbstractParameters):
     )
     solver_duality_gap: float = Field(0.0001, description="Duality gap used for the optimization.")
     battery_automated_reserve_duration: Duration = Field(
-        default_factory=lambda: duration(minutes=60), description="Automated reserve duration for battery equipment."
+        default_factory=lambda: duration(minutes=60),
+        description="Automated reserve duration for battery equipment.",  # type: ignore[assignment]
     )
     battery_number_of_fragments: int = Field(
         3, description="Number of power fragments for battery; last fragments are more expensive."
     )
     battery_reserve_duration: Duration = Field(
-        default_factory=lambda: duration(minutes=60), description="Manual reserve duration for battery equipment."
+        default_factory=lambda: duration(minutes=60),
+        description="Manual reserve duration for battery equipment.",  # type: ignore[assignment]
     )
     electric_vehicle_automated_reserve_duration: Duration = Field(
         default_factory=lambda: duration(minutes=1),
-        description="Automated reserve duration for electric vehicle equipment.",
+        description="Automated reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
     )
     electric_vehicle_number_of_fragments: int = Field(3, description="Number of power fragments for electric vehicle.")
     electric_vehicle_reserve_duration: Duration = Field(
         default_factory=lambda: duration(minutes=1),
-        description="Manual reserve duration for electric vehicle equipment.",
+        description="Manual reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
     )
     hydraulic_minimal_fragment_size: int = Field(
         100, description="Minimal amount of power for an offer to be formulated for hydraulic."
     )
     pumped_hydraulic_automated_reserve_duration: Duration = Field(
         default_factory=lambda: duration(minutes=60),
-        description="Automated reserve duration for pumped hydraulic equipment.",
+        description="Automated reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
     )
     pumped_hydraulic_number_of_fragments: int = Field(3, description="Number of power fragments for pumped hydraulic.")
     pumped_hydraulic_reserve_duration: Duration = Field(
         default_factory=lambda: duration(minutes=60),
-        description="Manual reserve duration for pumped hydraulic equipment.",
+        description="Manual reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
     )
     solver_timeout: Duration = Field(
-        default_factory=lambda: duration(seconds=60), description="Timeout (in seconds) of the optimization."
+        default_factory=lambda: duration(seconds=60),
+        description="Timeout (in seconds) of the optimization.",  # type: ignore[assignment]
     )
     excluded_market_areas_: str | None = Field(
         None,
@@ -134,31 +137,31 @@ class PortfolioOptimisationParameters(AbstractParameters):
 
     additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=12),
-        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
+        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",  # type: ignore[assignment]
     )
     battery_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=48),
-        description="Optimization period in hours for Storage Equipments of type Battery.",
+        description="Optimization period in hours for Storage Equipments of type Battery.",  # type: ignore[assignment]
     )
     electric_vehicle_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=24),
-        description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",
+        description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",  # type: ignore[assignment]
     )
     hydraulic_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=12),
-        description="Optimization period in hours for hydraulic group.",
+        description="Optimization period in hours for hydraulic group.",  # type: ignore[assignment]
     )
     pumped_hydraulic_storage_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=144),
-        description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",
+        description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",  # type: ignore[assignment]
     )
     thermal_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=12),
-        description="Optimization period in hours for thermal group.",
+        description="Optimization period in hours for thermal group.",  # type: ignore[assignment]
     )
     timestep: Duration = Field(
         default_factory=lambda: duration(hours=1),
-        description="Time step (in hours) of the simulated market.",
+        description="Time step (in hours) of the simulated market.",  # type: ignore[assignment]
     )
 
     @property
