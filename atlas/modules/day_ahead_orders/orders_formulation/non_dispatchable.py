@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 from pydantic_extra_types.pendulum_dt import DateTime
 
+import atlas.config as cfg
 from atlas import Order
 from atlas.enum import OrderType, Product
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
@@ -38,40 +39,43 @@ class NonDispatchable:
         # Loop over the market players first.
         for unit in dataset.other_non_dispatchable:
             # Extract the forecasting matrix of the current actor.
-            production_forecast = unit.maximum_power_forecast.get_forecast(
-                parameters.execution_date,
-                parameters.start_date,
-                parameters.penultimate_date,
-                parameters.time_step,
-            )
-
-            if unit.da_sell_submitted_volume is None:
-                unit.da_sell_submitted_volume = production_forecast
+            if unit.maximum_power_forecast is None:
+                cfg.logger.warning(f"maximum_power_forecast is None for other_non_dispatchable {unit.name}")
             else:
-                unit.da_sell_submitted_volume += production_forecast
-
-            # Extract the sequence of variable costs that will be used to define the price.
-            variable_costs = None
-            if unit.variable_cost is not None:
-                variable_costs = unit.variable_cost.filter(item=orders_time, inplace=False)
-
-            # Now we loop over the time stamps for which we want an offer to be made.
-            # We formulate as many offers as there are time stamps in orders_time.
-            for t in orders_time:
-                # Initialize the order object
-                bid_output = Order(
-                    name=f"otherND_order_at_{t}_for_unit_{unit.name}",  # Assign a unique name.
-                    market_area=unit.portfolio.market_area,
-                    portfolio=unit.portfolio,
-                    equipment=unit,
-                    qmax=production_forecast.get_value(t),
-                    qmin=0,
-                    price=0.0 if variable_costs is None else variable_costs.get_value(t),
-                    product=Product.DayAhead,
-                    order_type=OrderType.Sell,
-                    is_agent_tso=False,
-                    execution_date=parameters.execution_date,
-                    start_date=t,
-                    end_date=t + parameters.time_step,
+                production_forecast = unit.maximum_power_forecast.get_forecast(
+                    parameters.execution_date,
+                    parameters.start_date,
+                    parameters.penultimate_date,
+                    parameters.time_step,
                 )
-                dataset.order.append(bid_output)
+
+                if unit.da_sell_submitted_volume is None:
+                    unit.da_sell_submitted_volume = production_forecast
+                else:
+                    unit.da_sell_submitted_volume += production_forecast
+
+                # Extract the sequence of variable costs that will be used to define the price.
+                variable_costs = None
+                if unit.variable_cost is not None:
+                    variable_costs = unit.variable_cost.filter(item=orders_time, inplace=False)
+
+                # Now we loop over the time stamps for which we want an offer to be made.
+                # We formulate as many offers as there are time stamps in orders_time.
+                for t in orders_time:
+                    # Initialize the order object
+                    bid_output = Order(
+                        name=f"otherND_order_at_{t}_for_unit_{unit.name}",  # Assign a unique name.
+                        market_area=unit.portfolio.market_area,
+                        portfolio=unit.portfolio,
+                        equipment=unit,
+                        qmax=production_forecast.get_value(t),
+                        qmin=0,
+                        price=0.0 if variable_costs is None else variable_costs.get_value(t),
+                        product=Product.DayAhead,
+                        order_type=OrderType.Sell,
+                        is_agent_tso=False,
+                        execution_date=parameters.execution_date,
+                        start_date=t,
+                        end_date=t + parameters.time_step,
+                    )
+                    dataset.order.append(bid_output)
