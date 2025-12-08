@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 from pendulum.duration import Duration
 
-from atlas import Equipment
+from atlas import Equipment, SolverOptions
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 
@@ -20,8 +20,9 @@ class BatteryModel(StorageModel):
         name: str,
         equipment: Equipment,
         optimization_period: Duration,
+        solver_options: SolverOptions,
     ):
-        super().__init__(parameters, solver_name, name, equipment, optimization_period)
+        super().__init__(parameters, solver_name, name, equipment, optimization_period, solver_options)
 
     def create_constraints(self, initial_stock: float | None, power_fragments: int) -> None:
         """

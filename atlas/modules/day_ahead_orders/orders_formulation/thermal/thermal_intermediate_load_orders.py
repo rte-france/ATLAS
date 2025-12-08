@@ -12,7 +12,7 @@ from collections.abc import Callable
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas import OrderCoupling, ScenarioMatrix, Thermal
+from atlas import OrderCoupling, ScenarioMatrix, SolverOptions, Thermal
 from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
@@ -381,6 +381,12 @@ class ThermalIntermediateLoadOrders:
         # create a dictionary that will store the program's outcomes.
         results: dict[str, dict[str, Timeseries]] = {}
 
+        solver_options = SolverOptions(
+            presolve=parameters.use_presolve,
+            duality_gap=parameters.solver_duality_gap,
+            time_limit=parameters.solver_time_out,
+        )
+
         for unit in equipments_list:
             # Initialize a key with the unit's name.
             results[unit.name] = {}
@@ -419,7 +425,7 @@ class ThermalIntermediateLoadOrders:
             # Solve three times the optimization program, one for each price curve
             # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
-                model = ThermalOptimizationModel(parameters, unit, price, value)
+                model = ThermalOptimizationModel(parameters, unit, price, value, solver_options)
                 model.create_objective_function("maximize")
                 combination_functions: dict[int, Callable[..., None]] = {
                     1: combination_1.execute,
@@ -435,9 +441,6 @@ class ThermalIntermediateLoadOrders:
                 day_zero = model.is_day_zero()
                 combination_function(model=model, day_zero=day_zero)
 
-                model.set_solver_specific_parameters_as_string(
-                    f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_seconds()}"
-                )
                 res = model.solve_thermal_optimization()
                 results[unit.name][value] = res
 

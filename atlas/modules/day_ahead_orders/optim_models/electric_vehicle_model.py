@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import Equipment
+from atlas import Equipment, SolverOptions
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 
@@ -17,8 +17,9 @@ class ElectricVehicleModel(StorageModel):
         solver_name: str,
         name: str,
         equipment: Equipment,
+        solver_options: SolverOptions,
     ):
-        super().__init__(parameters, solver_name, name, equipment, parameters.ev_additional_hours)
+        super().__init__(parameters, solver_name, name, equipment, parameters.ev_additional_hours, solver_options)
 
     def create_constraints(self, initial_stock: float | None) -> None:
         # Creation of constraints

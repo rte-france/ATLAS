@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas import Equipment, Order, OrderCoupling, Timeseries
+from atlas import Equipment, Order, OrderCoupling, SolverOptions, Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, StorageType
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
@@ -21,7 +21,10 @@ from atlas.timing import generate_datetimes
 class DAOStorage:
     @staticmethod
     def optimize_ev(
-        equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters
+        equipment: Equipment,
+        initial_stock: float | None,
+        parameters: DayAheadOrdersParameters,
+        solvers_options: SolverOptions,
     ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
         """
         Optimization function for ElectricVehicle units
@@ -32,14 +35,15 @@ class DAOStorage:
         """
         # Creation of optimization problem
         model = ElectricVehicleModel(
-            parameters, parameters.solver.upper(), "Optimization of the storage unit " + equipment.name, equipment
+            parameters,
+            parameters.solver.upper(),
+            "Optimization of the storage unit " + equipment.name,
+            equipment,
+            solvers_options,
         )
         model.create_decision_variables(parameters.ev_nb_fragments)
         model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor, "maximize")
         model.create_constraints(initial_stock)
-        model.set_solver_specific_parameters_as_string(
-            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_seconds()}"
-        )
 
         # Solving the problem
         model.solve_with_xpress()
@@ -58,7 +62,10 @@ class DAOStorage:
 
     @staticmethod
     def optimize_battery(
-        equipment: Equipment, initial_stock: float | None, parameters: DayAheadOrdersParameters
+        equipment: Equipment,
+        initial_stock: float | None,
+        parameters: DayAheadOrdersParameters,
+        solvers_options: SolverOptions,
     ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
         """
         Optimization function for Battery and PHS units
@@ -87,13 +94,11 @@ class DAOStorage:
             "Optimization of the storage unit " + equipment.name,
             equipment,
             optimization_period,
+            solvers_options,
         )
         model.create_decision_variables(power_fragments)
         model.create_objective_function(power_fragments, smoothing_factor, "maximize")
         model.create_constraints(initial_stock, power_fragments)
-        model.set_solver_specific_parameters_as_string(
-            f"MIPRELSTOP {parameters.solver_duality_gap} PRESOLVE {int(parameters.use_presolve)} MAXTIME {parameters.solver_time_out.total_seconds()}"
-        )
 
         # Solving the problem
         model.solve_with_xpress()
@@ -220,10 +225,15 @@ class DAOStorage:
             initial_stock = DAOStorage.initiate_stock(equipment, parameters)
 
             # Determine offers times and quantities through an optimisation algorithm under a price forecast
+            solver_options = SolverOptions(
+                presolve=parameters.use_presolve,
+                duality_gap=parameters.solver_duality_gap,
+                time_limit=parameters.solver_timeout,
+            )
             if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
-                Qv, Qa = DAOStorage.optimize_ev(equipment, initial_stock, parameters)
+                Qv, Qa = DAOStorage.optimize_ev(equipment, initial_stock, parameters, solver_options)
             else:
-                Qv, Qa = DAOStorage.optimize_battery(equipment, initial_stock, parameters)
+                Qv, Qa = DAOStorage.optimize_battery(equipment, initial_stock, parameters, solver_options)
 
             # Determine sale and purchase prices
             Psale, Ppurchase = DAOStorage.price_calculation(equipment, Qv, Qa, parameters)

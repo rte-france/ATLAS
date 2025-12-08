@@ -14,7 +14,7 @@ from pendulum._pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas import OptimisationModel, generate_datetimes
+from atlas import OptimisationModel, SolverOptions, generate_datetimes
 from atlas.enum import SolverEnum
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
@@ -66,6 +66,7 @@ class ThermalOptimizationModel(OptimisationModel):
         thermal_unit: Thermal,
         prices: Timeseries,
         price_type: str,
+        solver_options: SolverOptions,
     ):
         """
         :param parameters: a DayAheadOrdersParameters instance
@@ -76,6 +77,7 @@ class ThermalOptimizationModel(OptimisationModel):
         super().__init__(
             solver_name=parameters.solver.upper(),
             name=f"Optimization program for thermal unit {thermal_unit.name}",
+            options=solver_options,
         )
         self.parameters = parameters
         if self.solver_name != SolverEnum.XPRESS:
@@ -692,7 +694,7 @@ class ThermalOptimizationModel(OptimisationModel):
             )
             self.export_model(lp_file_name)
 
-        self.solve(self.parameters.solver_time_out.total_minutes())
+        self.solve()
 
         """STEP 5 : Return the results"""
 

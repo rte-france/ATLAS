@@ -12,7 +12,7 @@ from xmlrpc.client import DateTime
 from pendulum.duration import Duration
 
 import atlas.config as cfg
-from atlas import Equipment, OptimisationModel, generate_datetimes
+from atlas import Equipment, OptimisationModel, SolverOptions, generate_datetimes
 from atlas.enum import SolverEnum
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 
@@ -32,8 +32,9 @@ class StorageModel(OptimisationModel):
         name: str,
         equipment: Equipment,
         optimization_period: Duration,
+        solver_options: SolverOptions,
     ):
-        super().__init__(solver_name, name)
+        super().__init__(solver_name, name, solver_options)
         self.parameters = parameters
         self.equipment = equipment
         self.optimizationPeriod = optimization_period
@@ -146,7 +147,7 @@ class StorageModel(OptimisationModel):
             lp_file_name = os.path.join(self.parameters.output_folder, f"storage_{self.equipment.name}.lp")
             self.export_model(lp_file_name)
 
-        self.solve(self.parameters.solver_time_out.total_minutes())
+        self.solve()
 
         if self.parameters.verbose:
             cfg.logger.info(f"Solver status: {self.solution_info.status}")
