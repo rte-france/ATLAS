@@ -6,10 +6,8 @@ This file is part of the ATLAS project.
 
 import argparse
 
-import yaml
-
-from atlas.modules.day_ahead_orders.day_ahead_orders_module import DayAheadOrdersModule
-from atlas.io_utils.input_loader import InputLoader
+from atlas import InputLoader
+from atlas.modules.day_ahead_orders.dao_module import DayAheadOrdersModule
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -21,5 +19,5 @@ if __name__ == "__main__":
     raw_params_path = args.parameters
 
     mc_module = DayAheadOrdersModule()
-    raw_data = InputLoader.from_directory(raw_data_path, date_format_forecasting_matrix="DD/MM/YYYY HH:mm:ss")
+    raw_data = InputLoader.from_directory(raw_data_path)
     mc_module.run(raw_data, raw_params_path)
