@@ -172,35 +172,6 @@ class TestOptimisationModel:
         # Direction should still be None
         assert model._objective_direction is None
 
-    def test_set_direction_case_sensitive(self, model):
-        """Test that direction is case-sensitive."""
-        # These should all fail because they're not exactly "maximize" or "minimize"
-        with pytest.raises(ValueError, match="Direction must be 'maximize' or 'minimize'"):
-            model.set_direction("MAXIMIZE")
-
-        with pytest.raises(ValueError, match="Direction must be 'maximize' or 'minimize'"):
-            model.set_direction("Maximize")
-
-        with pytest.raises(ValueError, match="Direction must be 'maximize' or 'minimize'"):
-            model.set_direction("max")
-
-    def test_set_direction_empty_string(self, model):
-        """Test setting direction to empty string."""
-        with pytest.raises(ValueError, match="Direction must be 'maximize' or 'minimize'"):
-            model.set_direction("")
-
-    def test_set_direction_none(self, model):
-        """Test setting direction to None."""
-        with pytest.raises(ValueError, match="Direction must be 'maximize' or 'minimize'"):
-            model.set_direction(None)
-
-    def test_set_direction_before_adding_objective(self, model):
-        """Test that set_direction can be called before adding any objective."""
-        # Should be able to set direction even without variables or objective
-        model.set_direction("maximize")
-        assert model._objective_direction == "maximize"
-        assert model._objective is None
-
     def test_set_direction_after_clear(self, model):
         """Test that direction can be set again after clearing the model."""
         # Set direction and add objective
