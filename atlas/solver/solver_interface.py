@@ -244,81 +244,102 @@ class OptimisationModel:
         self._solver.Add(constraint_expr, name)
         self._constraints_name.add(name)
 
-    def add_objective(
-        self,
-        objective_expr: Any,
-        direction: Literal["maximize", "minimize"] = "maximize",
-    ) -> None:
+    def set_direction(self, direction: Literal["maximize", "minimize"]) -> None:
+        """
+        Set the optimization direction for the model.
+
+        This method can only be called once. Once set, the direction is immutable
+        and cannot be changed. This ensures consistency when building the objective
+        function incrementally.
+
+        :param direction: Optimization direction ("maximize" or "minimize")
+        :type direction: Literal["maximize", "minimize"]
+        :raises ValueError: If direction has already been set
+        :raises ValueError: If direction is not "maximize" or "minimize"
+        """
+        if self._objective_direction is not None:
+            raise ValueError(
+                f"Optimization direction is already set to '{self._objective_direction}' and cannot be changed. "
+                f"Direction must be set only once."
+            )
+
+        if direction not in ["maximize", "minimize"]:
+            raise ValueError(f"Direction must be 'maximize' or 'minimize', got '{direction}'")
+
+        logger.debug(f"Setting optimization direction to '{direction}'")
+        self._objective_direction = direction
+
+    def add_objective(self, objective_expr: Any) -> None:
         """
         Add terms to the objective function.
 
         This method allows you to incrementally build the objective function by adding
-        terms one at a time. If this is the first call, it sets the optimization direction.
-        Subsequent calls must use the same direction.
+        terms one at a time. The optimization direction must be set using set_direction()
+        before calling this method.
 
         Examples:
-        model.add_objective(x + 2 * y, "maximize")
-        model.add_objective(3 * z, "maximize")  # Adds to existing objective
+        model.set_direction("maximize")
+        model.add_objective(x + 2 * y)
+        model.add_objective(3 * z)  # Adds to existing objective
 
         :param objective_expr: OR-Tools expression to add to the objective
         :type objective_expr: Any (OR-Tools expression object)
-        :param direction: Optimization direction (must be consistent across calls)
-        :type direction: Literal["maximize", "minimize"]
-        :raises ValueError: If direction differs from previously set direction
+        :raises ValueError: If direction has not been set via set_direction()
         """
+        if self._objective_direction is None:
+            raise ValueError(
+                "Optimization direction must be set before adding objective terms. "
+                "Call set_direction('maximize') or set_direction('minimize') first."
+            )
+
         if self._objective is None:
-            logger.debug(f"Initializing objective with direction '{direction}'")
-            self._objective_direction = direction
             self._objective = objective_expr
         else:
-            if self._objective_direction is None:
-                self._objective_direction = direction
-            elif direction != self._objective_direction:
-                raise ValueError(
-                    f"Objective direction '{direction}' conflicts with previously set direction "
-                    f"'{self._objective_direction}'"
-                )
-            logger.debug(f"Adding term to existing objective with direction '{direction}'")
             self._objective = self._objective + objective_expr
 
+        self._update_solver_objective()
+
+    def set_objective(self, objective_expr: Any) -> None:
+        """
+        Set the objective function using OR-Tools expression syntax.
+
+        This method replaces any existing objective function. Use add_objective()
+        if you want to incrementally build the objective. The optimization direction
+        must be set using set_direction() before calling this method.
+
+        This method allows you to set objectives directly like:
+        model.set_direction("maximize")
+        model.set_objective(x + 2 * y)
+
+        :param objective_expr: OR-Tools expression for the objective
+        :type objective_expr: Any (OR-Tools expression object)
+        :raises ValueError: If direction has not been set via set_direction()
+        """
+        if self._objective_direction is None:
+            raise ValueError(
+                "Optimization direction must be set before setting objective. "
+                "Call set_direction('maximize') or set_direction('minimize') first."
+            )
+
+        logger.debug("Setting objective expression")
+        self._objective = objective_expr
+        self._update_solver_objective()
+
+    def _update_solver_objective(self) -> None:
+        """
+        Update the solver's objective function based on the current direction.
+
+        This helper method is called after objective terms are added or set to
+        synchronize the internal objective expression with the OR-Tools solver.
+
+        :raises ValueError: If objective direction is not set or is invalid
+        """
         if self._objective_direction == "minimize":
             self._solver.Minimize(self._objective)
         elif self._objective_direction == "maximize":
             self._solver.Maximize(self._objective)
         else:
-            raise ValueError(f"Unsupported optimization direction: {self._objective_direction}")
-
-    def set_objective(
-        self,
-        objective_expr: Any,
-        direction: Literal["maximize", "minimize"] = "maximize",
-    ) -> None:
-        """
-        Set the objective function using OR-Tools expression syntax.
-
-        This method replaces any existing objective function. Use add_objective()
-        if you want to incrementally build the objective.
-
-        This method allows you to set objectives directly like:
-        model.set_objective(x + 2 * y, "maximize")
-        model.set_objective(3 * x - y + 5, "minimize")
-
-        :param objective_expr: OR-Tools expression for the objective
-        :type objective_expr: Any (OR-Tools expression object)
-        :param direction: Optimization direction
-        :type direction: Literal["maximize", "minimize"]
-        """
-        logger.debug(f"Setting objective expression with direction '{direction}'")
-
-        self._objective = objective_expr
-        self._objective_direction = direction
-
-        if direction == "minimize":
-            self._solver.Minimize(objective_expr)
-        elif direction == "maximize":
-            self._solver.Maximize(objective_expr)
-        else:
-            raise ValueError("Optimisation direction not supported.")
+            raise ValueError(f"Invalid optimization direction: {self._objective_direction}")
 
     def solve(self) -> SolutionInfo:
         """
