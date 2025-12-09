@@ -34,11 +34,8 @@ class ThermalPeakLoadOrders:
         Returns None
         """
 
-        # Get the list of Thermic instances from the input marker.
-        equipments_list = dataset.thermal
-
         # Filter the peak load instances
-        equipments_list = [eqt for eqt in equipments_list if eqt.strategy == ThermalStrategy.PEAK]
+        equipments_list = [eqt for eqt in dataset.thermal if eqt.strategy == ThermalStrategy.PEAK]
 
         for unit in equipments_list:
             # Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements

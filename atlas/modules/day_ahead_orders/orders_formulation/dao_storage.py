@@ -122,7 +122,7 @@ class DAOStorage:
         """------ Price computation ------"""
         P_a_max = 0
         P_v_min = 0
-        # Get the price forecast from the input marker: estimations are at ActionHour, from StartDate to EndDate
+        # Get the price forecast from the dataset: estimations are at ActionHour, from StartDate to EndDate
         # The price forecast is relative to the equipment's market area
         # it is the estimation the actor has of the energy prices at the given date
         price_forecast = equipment.portfolio.market_area.price_forecast_medium.get_forecast(
@@ -187,7 +187,7 @@ class DAOStorage:
     def formulate_storage_orders(dataset: DayAheadOrdersInputDataset, parameters: DayAheadOrdersParameters) -> None:
         """
          Formulates storage bids on the spot market.
-         Uses the parameters specified by the user and the input marker to create bids based on the forecast
+         Uses the parameters specified by the user and the dataset to create bids based on the forecast
          stored in the Power forecasting matrix of a "Storage" equipement.
 
          The function takes the following arguments:

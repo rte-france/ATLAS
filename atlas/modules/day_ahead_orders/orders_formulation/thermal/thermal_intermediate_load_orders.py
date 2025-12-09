@@ -52,15 +52,12 @@ class ThermalIntermediateLoadOrders:
         Returns None
         """
 
-        # Get the list of Thermic instances from the input marker.
-        equipments_list = dataset.thermal
-
         # Filter the intermediate load instances
-        equipments_list = [eqt for eqt in equipments_list if eqt.strategy == ThermalStrategy.INTERMEDIATE]
+        equipments_list = [eqt for eqt in dataset.thermal if eqt.strategy == ThermalStrategy.INTERMEDIATE]
 
-        # We stop here if there is no intermediate load units in the input marker
+        # We stop here if there is no intermediate load units in the dataset
         if not equipments_list:
-            cfg.logger.info("No intermediate load units were found in the input marker.")
+            cfg.logger.info("No intermediate load units were found in the dataset.")
             return None
 
         # Solve the optimisation programs
@@ -112,11 +109,8 @@ class ThermalIntermediateLoadOrders:
                             f"order_at_{start_date_order_2}_for_unit_{thermal_unit.name}_under_price_{case_order_2}"
                         )
 
-                    # Get all the orders from the output marker.
-                    orders_list = dataset.order
-
                     # Filter the orders to keep only those with the relevant name.
-                    orders_list = [order for order in orders_list if order.name in orders_names]
+                    orders_list = [order for order in dataset.order if order.name in orders_names]
 
                     # Now that we recovered the orders, filter them by case and generate the exclusion links
                     # across orders of different scenarios.
@@ -150,7 +144,7 @@ class ThermalIntermediateLoadOrders:
                             dataset.order_coupling.append(coupling)
 
     @staticmethod
-    def get_unique_cases(results: dict, thermal_unit: Thermal) -> list[str]:
+    def get_unique_cases(results: dict[str, dict[str, Timeseries]], thermal_unit: Thermal) -> list[str]:
         """
         Returns a list of unique cases for the associated thermal unit.
 

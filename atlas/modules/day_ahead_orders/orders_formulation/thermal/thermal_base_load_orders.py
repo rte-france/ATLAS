@@ -38,15 +38,12 @@ class ThermalBaseLoadOrders:
         Returns None
         """
 
-        # Get the list of Thermic instances from the input marker.
-        equipments_list = dataset.thermal
-
         # Filter the baseload instances
-        equipments_list = [eqt for eqt in equipments_list if eqt.strategy == ThermalStrategy.BASE]
+        equipments_list = [eqt for eqt in dataset.thermal if eqt.strategy == ThermalStrategy.BASE]
 
-        # We stop here if there is no baseload load units in the input marker
+        # We stop here if there is no baseload load units in the dataset
         if not equipments_list:
-            cfg.logger.info("No baseload units were found in the input marker.")
+            cfg.logger.info("No baseload units were found in the dataset.")
             return None
 
         # Start the formulation of the orders

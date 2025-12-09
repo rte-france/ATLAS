@@ -38,7 +38,7 @@ class StorageModel(OptimisationModel):
         self.parameters = parameters
         self.equipment = equipment
         self.optimizationPeriod = optimization_period
-        # Get the price forecast from the input marker: estimations are at ActionHour, over the optimisation period
+        # Get the price forecast from the dataset: estimations are at ActionHour, over the optimisation period
         # The price forecast is relative to the equipment's market area
         self.price_forecast = self.equipment.portfolio.market_area.price_forecast_medium.get_forecast(
             self.parameters.execution_date,

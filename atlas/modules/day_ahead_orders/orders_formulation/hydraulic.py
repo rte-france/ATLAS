@@ -32,13 +32,10 @@ class Hydraulic:
         - `parameters` a named tuple of parameters, containing the common parameters.
         """
 
-        # Extract the hydraulic instances.
-        hydraulic_all = dataset.hydro
-
         # Keep only the hydraulic reservoir for which water values have been computed.
-        hydraulic_units = [unit for unit in hydraulic_all if len(unit.storage_marginal_value) > 0]
+        hydraulic_units = [unit for unit in dataset.hydro if len(unit.storage_marginal_value) > 0]
 
-        hydraulic_empty = [unit for unit in hydraulic_all if len(unit.storage_marginal_value) == 0]
+        hydraulic_empty = [unit for unit in dataset.hydro if len(unit.storage_marginal_value) == 0]
         for equipment in hydraulic_empty:
             msg = f"There are no water values for instance {equipment.name}. This instance will be ignored in the calculation."
             cfg.logger.warning(msg)

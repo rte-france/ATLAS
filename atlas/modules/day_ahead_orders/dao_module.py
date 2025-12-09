@@ -208,8 +208,8 @@ class DayAheadOrdersModule(
         """Executes the module's main logic."""
 
         # Formulation of bids and orders on the day-ahead market.
-        # In practice, several functions are run. Each function extract data from the input marker
-        # and formulates bids or offers in the output marker. The latter is of class "Offer".
+        # In practice, several functions are run. Each function extract data from the dataset
+        # and formulates bids or offers in the output dataset. The latter is of class "Offer".
 
         #### STEP 0 - INITIALIZATION ####
         cfg.logger.info("Initialization of the Day-Ahead Orders module...")

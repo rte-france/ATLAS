@@ -33,17 +33,12 @@ class WindPV:
         - `parameters` a named tuple of parameters, containing the common parameters.
         """
 
-        # Extract the wind portfolios
-        wind = dataset.wind
-        photovoltaic = dataset.solar
-
         # Create a list of the different non dispatchable portfolios.
-        # This crude loop appears to be the only method working with lists{DynamicInstance}
-        equipments_list = wind + photovoltaic
+        equipments_list = dataset.wind + dataset.solar
 
         # Loop over the market players first.
         for equipment in equipments_list:
-            # Extract the MaximumPowerForecast matrix of the current actor.
+            # Extract the maximum_power_forecast matrix of the current actor.
             if equipment.maximum_power_forecast is None:
                 cfg.logger.warning(f"maximum_power_forecast is None for wind/photovoltaic {equipment.name}")
             else:

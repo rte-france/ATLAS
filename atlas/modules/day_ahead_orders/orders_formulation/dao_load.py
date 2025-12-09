@@ -21,7 +21,7 @@ class DAOLoad:
     ) -> None:
         """
         Formulates consumption bids on the spot market.
-        Uses the parameters specified by the user and the input marker to create bids based on the forecast
+        Uses the parameters specified by the user and the dataset to create bids based on the forecast
         stored in the Power forecasting matrix of a "Load" equipment.
 
         The function takes the following arguments:
