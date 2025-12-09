@@ -254,19 +254,17 @@ class ThermalPO(Thermal):
             power_level_var = self.power_level_var.get_value(time)
             model.add_objective(
                 variable_cost * power_level_var * parameters.timestep.total_hours(),
-                "minimize",
             )
 
             if time > max(parameters.target_times):
                 model.add_objective(
                     -price_forecast * power_level_var * parameters.timestep.total_hours(),
-                    "minimize",
                 )
 
             if self.startup_cost is not None:
                 startup_cost = self.startup_cost.get_value(time)
                 turned_on_var = model.get_variable(f"t_on_{self.name}_{time}")
-                model.add_objective(startup_cost * turned_on_var, "minimize")
+                model.add_objective(startup_cost * turned_on_var)
 
     def _get_initial_time_window(
         self, parameters: PortfolioOptimisationParameters

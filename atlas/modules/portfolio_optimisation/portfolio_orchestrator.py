@@ -85,6 +85,7 @@ def optimise_single_portfolio(
     model = PortfolioOptimisationModel(portfolio, parameters, solver_options=solver_options)
 
     try:
+        model.set_direction("minimize")
         model.build(time_window)
         model.export_model(f"lp_validation/generated_lp/po_{portfolio.name}.lp")
         model.solve()

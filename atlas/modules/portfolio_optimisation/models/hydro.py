@@ -181,13 +181,11 @@ class HydroPO(Hydro):
                 if time in parameters.target_times:
                     model.add_objective(
                         fragment_price * power_level_frag_var * parameters.timestep.total_hours(),
-                        direction="minimize",
                     )
 
                 else:
                     model.add_objective(
                         -(price_forecast - fragment_price) * power_level_frag_var * parameters.timestep.total_hours(),
-                        direction="minimize",
                     )
             cfg.logger.debug(f"Finished adding objective for hydro unit {self.name} at time {time}")
         else:

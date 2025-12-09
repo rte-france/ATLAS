@@ -278,7 +278,6 @@ class StoragePO(Storage):
             power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
             model.add_objective(
                 -price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.timestep.total_hours(),
-                direction="minimize",
             )
 
             if time not in parameters.target_times:
@@ -292,13 +291,11 @@ class StoragePO(Storage):
                     if nb_fragment == 1 and n == 0:
                         model.add_objective(
                             -(power_level_sell_n_var + power_level_buy_n_var) * price_forecast,
-                            direction="minimize",
                         )
                     else:
                         model.add_objective(
                             -power_level_sell_n_var * price_forecast * (1 - n * smoothing_factor / (nb_fragment - 1))
                             - power_level_buy_n_var * price_forecast * (1 + n * smoothing_factor / (nb_fragment - 1)),
-                            direction="minimize",
                         )
         else:
             cfg.logger.debug(
