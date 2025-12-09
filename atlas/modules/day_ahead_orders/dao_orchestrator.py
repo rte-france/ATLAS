@@ -44,7 +44,8 @@ class DayAheadOrdersOrchestrator:
 
             #### STEP 3 - STORAGE UNITS ####
             cfg.logger.info("Formulation of the storage orders...")
-            DAOStorage.formulate_storage_orders(self.dataset, self.parameters)
+            storage = DAOStorage(self.dataset, self.parameters)
+            storage.formulate_storage_orders()
             cfg.logger.info("Storage orders formulated.")
 
             #### STEP 4 - LAKES UNITS ####

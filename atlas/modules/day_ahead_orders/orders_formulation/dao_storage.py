@@ -19,11 +19,160 @@ from atlas.timing import generate_datetimes
 
 
 class DAOStorage:
-    @staticmethod
+    def __init__(self, dataset: DayAheadOrdersInputDataset, parameters: DayAheadOrdersParameters) -> None:
+        self.dataset = dataset
+        self.parameters = parameters
+
+    def formulate_storage_orders(self) -> None:
+        """
+         Formulates storage bids on the spot market.
+         Uses the parameters specified by the user and the dataset to create bids based on the forecast
+         stored in the Power forecasting matrix of a "Storage" equipement.
+
+         The function takes the following arguments:
+
+        - `dataset`: a DayAheadOrdersInputDataset.
+        - `parameters` a named tuple of parameters, containing the common self.parameters.
+        """
+
+        # Loop on all the actors that have EV storage capacity
+        for equipment in self.dataset.storage:
+            # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
+            end_date = self.parameters.penultimate_date
+            local_index = generate_datetimes(
+                self.parameters.start_date,
+                end_date,
+                self.parameters.time_step,
+            )
+
+            local_max_energy = (
+                equipment.maximum_energy.set_frequency(self.parameters.time_step, False)
+                .filter(item=local_index, inplace=False)
+                .max()
+            )
+            if local_max_energy <= 0:
+                if self.parameters.verbose:
+                    cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
+                continue
+
+            cfg.logger.debug(f"Equipment {str(equipment.name)}")
+
+            buy_submitted_volumes = Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, end_date, 0
+            )
+            sell_submitted_volumes = Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, end_date, 0
+            )
+
+            # if the stock of the equipment at start date is not defined, initiate it
+            initial_stock = self.initiate_stock(equipment)
+
+            # Determine offers times and quantities through an optimisation algorithm under a price forecast
+            solver_options = SolverOptions(
+                presolve=self.parameters.use_presolve,
+                duality_gap=self.parameters.solver_duality_gap,
+                time_limit=self.parameters.solver_timeout,
+            )
+            if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
+                Qv, Qa = self.optimize_ev(equipment, initial_stock, solver_options)
+            else:
+                Qv, Qa = self.optimize_battery(equipment, initial_stock, solver_options)
+
+            # Determine sale and purchase prices
+            Psale, Ppurchase = self.price_calculation(equipment, Qv, Qa)
+
+            # Store Ppurchase as price reference in variable_cost, in the dataset.
+            # Psale can then be deduced from Ppurchase, Charge and and Discharge efficiency
+            if equipment.variable_cost is None:
+                equipment.variable_cost = Timeseries(None)
+            if Ppurchase != 0:
+                equipment.variable_cost.set_value(self.parameters.start_date, round(Ppurchase, 2))
+                equipment.variable_cost.set_value(self.parameters.penultimate_date, round(Ppurchase, 2))
+            elif equipment.discharge_efficiency != 0 and equipment.charge_efficiency != 0:
+                equipment.variable_cost.set_value(
+                    self.parameters.start_date,
+                    round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
+                )
+                equipment.variable_cost.set_value(
+                    self.parameters.penultimate_date,
+                    round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
+                )
+            else:
+                equipment.variable_cost.set_value(self.parameters.start_date, round(Psale, 2))
+                equipment.variable_cost.set_value(self.parameters.penultimate_date, round(Psale, 2))
+                cfg.logger.warning(
+                    f"WARNING: ChargeEfficiency or DischargeEfficiency is null for equipment {equipment.name}. "
+                    "This is not supposed to be the case, as the default value for these is 1 and not 0"
+                )
+
+            # --- Formulate orders, possibly with associated coupling instances
+            # First, orders that are included in a COMPLEMENT coupling
+            daily_buy_volume = sum(buy_volume * self.parameters.time_step.total_hours() for buy_volume in Qa.values())
+            if equipment.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
+                # Create the order coupling instance
+                coupling_instance = OrderCoupling(
+                    name=f"COMPLEMENT_DA_{equipment.name}_{self.parameters.execution_date}",
+                    orders=[],
+                    coupling_type=CouplingType.COMPLEMENT,
+                    complement_direction=ComplementDirection.EqualTo,
+                )
+
+                # Compute the ComplementEnergy according to the evolution DisplacementEnergy over the day,
+                # if it is feasible given all orders generated for this equipment.
+                # If not, the energy requirement is capped to the feasible limit
+                energy_requirement = equipment.displacement_energy.get_value(
+                    self.parameters.penultimate_date
+                ) - equipment.displacement_energy.get_value(self.parameters.start_date - self.parameters.time_step)
+
+                if energy_requirement > daily_buy_volume:
+                    coupling_instance.complement_energy = daily_buy_volume
+                else:
+                    coupling_instance.complement_energy = energy_requirement
+
+                for t in [i for i, e in Qa.items()]:
+                    self.add_spot_order_with_coupling(OrderType.Buy, equipment, t, Qa[t], Ppurchase, coupling_instance)
+                    buy_submitted_volumes.add_value_at(t, Qa[t])
+                for t in [i for i, e in Qv.items()]:
+                    self.add_spot_order_with_coupling(OrderType.Sell, equipment, t, Qv[t], Psale, coupling_instance)
+                    sell_submitted_volumes.add_value_at(t, Qv[t])
+
+                self.dataset.order_coupling.append(coupling_instance)
+
+            # All other orders
+            else:
+                # Create a COMPLEMENT order coupling
+                coupling_instance = OrderCoupling(
+                    name=f"COMPLEMENT_DA_{equipment.name}_{self.parameters.execution_date}",
+                    orders=[],
+                )
+
+                for t in [i for i, e in Qa.items()]:
+                    self.add_spot_order_with_coupling(OrderType.Buy, equipment, t, Qa[t], Ppurchase, coupling_instance)
+                    buy_submitted_volumes.add_value_at(t, Qa[t])
+                for t in [i for i, e in Qv.items()]:
+                    self.add_spot_order_with_coupling(OrderType.Sell, equipment, t, Qv[t], Psale, coupling_instance)
+                    sell_submitted_volumes.add_value_at(t, Qv[t])
+
+                # Fill the COMPLEMENT order coupling
+                coupling_instance.coupling_type = CouplingType.COMPLEMENT
+                coupling_instance.complement_direction = ComplementDirection.EqualTo
+                coupling_instance.complement_energy = buy_submitted_volumes.sum() - sell_submitted_volumes.sum()
+                self.dataset.order_coupling.append(coupling_instance)
+
+            if equipment.da_buy_submitted_volume is None:
+                equipment.da_buy_submitted_volume = buy_submitted_volumes
+            else:
+                equipment.da_buy_submitted_volume += buy_submitted_volumes
+
+            if equipment.da_sell_submitted_volume is None:
+                equipment.da_sell_submitted_volume = sell_submitted_volumes
+            else:
+                equipment.da_sell_submitted_volume += sell_submitted_volumes
+
     def optimize_ev(
+        self,
         equipment: Equipment,
         initial_stock: float | None,
-        parameters: DayAheadOrdersParameters,
         solvers_options: SolverOptions,
     ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
         """
@@ -35,14 +184,16 @@ class DAOStorage:
         """
         # Creation of optimization problem
         model = ElectricVehicleModel(
-            parameters,
-            parameters.solver.upper(),
+            self.parameters,
+            self.parameters.solver.upper(),
             "Optimization of the storage unit " + equipment.name,
             equipment,
             solvers_options,
         )
-        model.create_decision_variables(parameters.ev_nb_fragments)
-        model.create_objective_function(parameters.ev_nb_fragments, parameters.ev_smoothing_factor, "maximize")
+        model.create_decision_variables(self.parameters.ev_nb_fragments)
+        model.create_objective_function(
+            self.parameters.ev_nb_fragments, self.parameters.ev_smoothing_factor, "maximize"
+        )
         model.create_constraints(initial_stock)
 
         # Solving the problem
@@ -53,18 +204,17 @@ class DAOStorage:
         Qvv: dict[DateTime, float] = {}
         Qaa: dict[DateTime, float] = {}
         for t in model.time_frame:
-            if t >= parameters.end_date:
+            if t >= self.parameters.end_date:
                 break
             Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
             Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
 
         return Qvv, Qaa
 
-    @staticmethod
     def optimize_battery(
+        self,
         equipment: Equipment,
         initial_stock: float | None,
-        parameters: DayAheadOrdersParameters,
         solvers_options: SolverOptions,
     ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
         """
@@ -75,13 +225,13 @@ class DAOStorage:
         :return:
         """
         if equipment.storage_type == StorageType.BATTERY:
-            optimization_period = parameters.battery_additional_hours
-            smoothing_factor = parameters.battery_smoothing_factor
-            power_fragments = parameters.battery_nb_fragments
+            optimization_period = self.parameters.battery_additional_hours
+            smoothing_factor = self.parameters.battery_smoothing_factor
+            power_fragments = self.parameters.battery_nb_fragments
         elif equipment.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-            optimization_period = parameters.phs_additional_hours
-            smoothing_factor = parameters.phs_smoothing_factor
-            power_fragments = parameters.phs_nb_fragments
+            optimization_period = self.parameters.phs_additional_hours
+            smoothing_factor = self.parameters.phs_smoothing_factor
+            power_fragments = self.parameters.phs_nb_fragments
         else:
             cfg.logger.error(
                 f"equipment {equipment.name} isn't {StorageType.BATTERY} nor {StorageType.PUMPED_HYDRAULIC_STORAGE}"
@@ -89,8 +239,8 @@ class DAOStorage:
 
         # Creation of optimization problem
         model = BatteryModel(
-            parameters,
-            parameters.solver.upper(),
+            self.parameters,
+            self.parameters.solver.upper(),
             "Optimization of the storage unit " + equipment.name,
             equipment,
             optimization_period,
@@ -108,16 +258,15 @@ class DAOStorage:
         Qvv: dict[DateTime, float] = {}
         Qaa: dict[DateTime, float] = {}
         for t in model.time_frame:
-            if t >= parameters.end_date:
+            if t >= self.parameters.end_date:
                 break
             Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
             Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
 
         return Qvv, Qaa
 
-    @staticmethod
     def price_calculation(
-        equipment: Equipment, Qv: dict, Qa: dict, parameters: DayAheadOrdersParameters
+        self, equipment: Equipment, Qv: dict[DateTime, float], Qa: dict[DateTime, float]
     ) -> tuple[float, float]:
         """------ Price computation ------"""
         P_a_max = 0
@@ -126,10 +275,10 @@ class DAOStorage:
         # The price forecast is relative to the equipment's market area
         # it is the estimation the actor has of the energy prices at the given date
         price_forecast = equipment.portfolio.market_area.price_forecast_medium.get_forecast(
-            parameters.execution_date,
-            parameters.start_date,
-            parameters.end_date,
-            parameters.time_step,
+            self.parameters.execution_date,
+            self.parameters.start_date,
+            self.parameters.end_date,
+            self.parameters.time_step,
         )
 
         # Check if either Qv or Qa is empty (i.e. contains only 0)
@@ -183,166 +332,13 @@ class DAOStorage:
 
         return Psale, Ppurchase
 
-    @staticmethod
-    def formulate_storage_orders(dataset: DayAheadOrdersInputDataset, parameters: DayAheadOrdersParameters) -> None:
-        """
-         Formulates storage bids on the spot market.
-         Uses the parameters specified by the user and the dataset to create bids based on the forecast
-         stored in the Power forecasting matrix of a "Storage" equipement.
-
-         The function takes the following arguments:
-
-        - `dataset`: a DayAheadOrdersInputDataset.
-        - `parameters` a named tuple of parameters, containing the common parameters.
-        """
-
-        # Loop on all the actors that have EV storage capacity
-        for equipment in dataset.storage:
-            # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
-            end_date = parameters.penultimate_date
-            local_index = generate_datetimes(
-                parameters.start_date,
-                end_date,
-                parameters.time_step,
-            )
-
-            local_max_energy = (
-                equipment.maximum_energy.set_frequency(parameters.time_step, False)
-                .filter(item=local_index, inplace=False)
-                .max()
-            )
-            if local_max_energy <= 0:
-                if parameters.verbose:
-                    cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
-                continue
-
-            cfg.logger.debug(f"Equipment {str(equipment.name)}")
-
-            buy_submitted_volumes = Timeseries.from_index(parameters.start_date, parameters.time_step, end_date, 0)
-            sell_submitted_volumes = Timeseries.from_index(parameters.start_date, parameters.time_step, end_date, 0)
-
-            # if the stock of the equipment at start date is not defined, initiate it
-            initial_stock = DAOStorage.initiate_stock(equipment, parameters)
-
-            # Determine offers times and quantities through an optimisation algorithm under a price forecast
-            solver_options = SolverOptions(
-                presolve=parameters.use_presolve,
-                duality_gap=parameters.solver_duality_gap,
-                time_limit=parameters.solver_timeout,
-            )
-            if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
-                Qv, Qa = DAOStorage.optimize_ev(equipment, initial_stock, parameters, solver_options)
-            else:
-                Qv, Qa = DAOStorage.optimize_battery(equipment, initial_stock, parameters, solver_options)
-
-            # Determine sale and purchase prices
-            Psale, Ppurchase = DAOStorage.price_calculation(equipment, Qv, Qa, parameters)
-
-            # Store Ppurchase as price reference in variable_cost, in the dataset.
-            # Psale can then be deduced from Ppurchase, Charge and and Discharge efficiency
-            if equipment.variable_cost is None:
-                equipment.variable_cost = Timeseries(None)
-            if Ppurchase != 0:
-                equipment.variable_cost.set_value(parameters.start_date, round(Ppurchase, 2))
-                equipment.variable_cost.set_value(parameters.penultimate_date, round(Ppurchase, 2))
-            elif equipment.discharge_efficiency != 0 and equipment.charge_efficiency != 0:
-                equipment.variable_cost.set_value(
-                    parameters.start_date,
-                    round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
-                )
-                equipment.variable_cost.set_value(
-                    parameters.penultimate_date,
-                    round(Psale * equipment.discharge_efficiency * equipment.charge_efficiency, 2),
-                )
-            else:
-                equipment.variable_cost.set_value(parameters.start_date, round(Psale, 2))
-                equipment.variable_cost.set_value(parameters.penultimate_date, round(Psale, 2))
-                cfg.logger.warning(
-                    f"WARNING: ChargeEfficiency or DischargeEfficiency is null for equipment {equipment.name}. "
-                    "This is not supposed to be the case, as the default value for these is 1 and not 0"
-                )
-
-            # --- Formulate orders, possibly with associated coupling instances
-            # First, orders that are included in a COMPLEMENT coupling
-            daily_buy_volume = sum(buy_volume * parameters.time_step.total_hours() for buy_volume in Qa.values())
-            if equipment.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
-                # Create the order coupling instance
-                coupling_instance = OrderCoupling(
-                    name=f"COMPLEMENT_DA_{equipment.name}_{parameters.execution_date}",
-                    orders=[],
-                    coupling_type=CouplingType.COMPLEMENT,
-                    complement_direction=ComplementDirection.EqualTo,
-                )
-
-                # Compute the ComplementEnergy according to the evolution DisplacementEnergy over the day,
-                # if it is feasible given all orders generated for this equipment.
-                # If not, the energy requirement is capped to the feasible limit
-                energy_requirement = equipment.displacement_energy.get_value(
-                    parameters.penultimate_date
-                ) - equipment.displacement_energy.get_value(parameters.start_date - parameters.time_step)
-
-                if energy_requirement > daily_buy_volume:
-                    coupling_instance.complement_energy = daily_buy_volume
-                else:
-                    coupling_instance.complement_energy = energy_requirement
-
-                for t in [i for i, e in Qa.items()]:
-                    DAOStorage.add_spot_order_with_coupling(
-                        OrderType.Buy, equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
-                    )
-                    buy_submitted_volumes.add_value_at(t, Qa[t])
-                for t in [i for i, e in Qv.items()]:
-                    DAOStorage.add_spot_order_with_coupling(
-                        OrderType.Sell, equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance
-                    )
-                    sell_submitted_volumes.add_value_at(t, Qv[t])
-
-                dataset.order_coupling.append(coupling_instance)
-
-            # All other orders
-            else:
-                # Create a COMPLEMENT order coupling
-                coupling_instance = OrderCoupling(
-                    name=f"COMPLEMENT_DA_{equipment.name}_{parameters.execution_date}",
-                    orders=[],
-                )
-
-                for t in [i for i, e in Qa.items()]:
-                    DAOStorage.add_spot_order_with_coupling(
-                        OrderType.Buy, equipment, t, Qa[t], Ppurchase, parameters, dataset, coupling_instance
-                    )
-                    buy_submitted_volumes.add_value_at(t, Qa[t])
-                for t in [i for i, e in Qv.items()]:
-                    DAOStorage.add_spot_order_with_coupling(
-                        OrderType.Sell, equipment, t, Qv[t], Psale, parameters, dataset, coupling_instance
-                    )
-                    sell_submitted_volumes.add_value_at(t, Qv[t])
-
-                # Fill the COMPLEMENT order coupling
-                coupling_instance.coupling_type = CouplingType.COMPLEMENT
-                coupling_instance.complement_direction = ComplementDirection.EqualTo
-                coupling_instance.complement_energy = buy_submitted_volumes.sum() - sell_submitted_volumes.sum()
-                dataset.order_coupling.append(coupling_instance)
-
-            if equipment.da_buy_submitted_volume is None:
-                equipment.da_buy_submitted_volume = buy_submitted_volumes
-            else:
-                equipment.da_buy_submitted_volume += buy_submitted_volumes
-
-            if equipment.da_sell_submitted_volume is None:
-                equipment.da_sell_submitted_volume = sell_submitted_volumes
-            else:
-                equipment.da_sell_submitted_volume += sell_submitted_volumes
-
-    @staticmethod
     def add_spot_order_with_coupling(
+        self,
         order_type: OrderType,
         equipment: Equipment,
         start_date: DateTime,
         qmax: float,
         price: float,
-        parameters: DayAheadOrdersParameters,
-        dataset,
         coupling_instance: OrderCoupling,
     ) -> None:
         order = Order(
@@ -350,37 +346,38 @@ class DAOStorage:
             equipment=equipment,
             portfolio=equipment.portfolio,
             market_area=equipment.portfolio.market_area,
-            execution_date=parameters.execution_date,
+            execution_date=self.parameters.execution_date,
             start_date=start_date,
-            end_date=start_date + parameters.time_step,
+            end_date=start_date + self.parameters.time_step,
             order_type=order_type,
             product=Product.DayAhead,
             qmax=qmax,
             qmin=0.0,
             price=price,
         )
-        dataset.order.append(order)
+        self.dataset.order.append(order)
         coupling_instance.orders.append(order)
 
-    @staticmethod
-    def initiate_stock(equipment: Equipment, parameters: DayAheadOrdersParameters) -> float | None:
+    def initiate_stock(self, equipment: Equipment) -> float | None:
         # FC: The first step is to evaluate if the equipment is in an "Initial" situation or not
         # This is indicated by StoredEnergy, but one should be careful here
         # The idea is to verify that there is a value in StoredEnergy "not too long" before start_date,
         # and we arbitrarily choose to look as far as two days before to verify this. Assumption could be discussed.
         if equipment.stored_energy is None:
-            initial_stock = equipment.storage_initial_level * equipment.maximum_energy.get_value(parameters.start_date)
+            initial_stock = equipment.storage_initial_level * equipment.maximum_energy.get_value(
+                self.parameters.start_date
+            )
         else:
             energy_forecast = equipment.stored_energy.get_forecast(
-                parameters.execution_date,
-                parameters.start_date.subtract(days=2),
-                parameters.start_date - parameters.time_step,
-                parameters.time_step,
+                self.parameters.execution_date,
+                self.parameters.start_date.subtract(days=2),
+                self.parameters.start_date - self.parameters.time_step,
+                self.parameters.time_step,
             )
             if len(energy_forecast) == 0:
                 initial_stock = equipment.storage_initial_level * equipment.maximum_energy.get_value(
-                    parameters.start_date
+                    self.parameters.start_date
                 )
             else:
-                initial_stock = energy_forecast.get_value(parameters.start_date - parameters.time_step)
+                initial_stock = energy_forecast.get_value(self.parameters.start_date - self.parameters.time_step)
         return initial_stock
