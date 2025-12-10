@@ -1,3 +1,10 @@
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
 import pendulum
 
 import atlas.config as cfg
@@ -61,7 +68,8 @@ class DayAheadOrdersOrchestrator:
 
             #### STEP 6 - THERMIC UNITS ####
             cfg.logger.info("Formulation of the thermic orders...")
-            ThermalBidding.formulate_thermal_orders(self.output_dataset, orders_time, self.parameters)
+            thermal_bidding = ThermalBidding(self.output_dataset, orders_time, self.parameters)
+            thermal_bidding.formulate_thermal_orders()
             cfg.logger.info("Thermic orders formulated.")
 
             cfg.logger.info("Formulation of orders successfully completed.")

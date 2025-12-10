@@ -11,7 +11,7 @@ import atlas.config as cfg
 from atlas import Timeseries
 from atlas.enum import CouplingType, Product, ThermalStrategy
 from atlas.models.market.order import Order
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_intermediate_load_orders import (
@@ -45,63 +45,56 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load
 
 
 class ThermalBidding:
-    # ------ Main function ------
-    @staticmethod
-    def formulate_thermal_orders(
-        dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ) -> None:
-        """
-        This wrapper function formulates orders for all thermic units.
+    def __init__(
+        self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+    ):
+        self.dataset = dataset
+        self.orders_time = orders_time
+        self.parameters = parameters
 
-        Arguments:
-        - `dataset`: a dataset
-        - `orders_time`: a list of dates at which orders must be formulated.
-        - `parameters` a named tuple of parameters, containing the common parameters.
-
-        Returns None
-        """
+    def formulate_thermal_orders(self) -> None:
+        """This wrapper function formulates orders for all thermic units."""
 
         # Formulate baseload orders
         cfg.logger.info("Formulation of the thermic baseload orders...")
-        ThermalBaseLoadOrders.formulate_thermal_baseload_orders(dataset, orders_time, parameters)
+        ThermalBaseLoadOrders.formulate_thermal_baseload_orders(self.dataset, self.orders_time, self.parameters)
 
         # Formulate intermediate load orders
         cfg.logger.info(
             "Baseload orders formulation completed. Moving on to the formulation of the intermediate load orders..."
         )
-        ThermalIntermediateLoadOrders.formulate_thermal_intermediate_load_orders(dataset, orders_time, parameters)
+        ThermalIntermediateLoadOrders.formulate_thermal_intermediate_load_orders(
+            self.dataset, self.orders_time, self.parameters
+        )
 
         # Formulate peak load orders
         cfg.logger.info(
             "Intermediate load orders formulation completed. Moving on to the formulation of the peak load orders..."
         )
 
-        ThermalPeakLoadOrders.formulate_thermal_peak_load_orders(dataset, orders_time, parameters)
+        ThermalPeakLoadOrders.formulate_thermal_peak_load_orders(self.dataset, self.orders_time, self.parameters)
         cfg.logger.info("Peak load orders formulation completed.")
 
         # This is done last and not during the bidding process because of mutually exclusive programs, and to simplify debug
         cfg.logger.info("Computing maximum sell volumes...")
-        ThermalBidding.computeDASellSubmittedVolumes(dataset, orders_time, parameters)
+        self.computeDASellSubmittedVolumes(self.dataset, self.orders_time, self.parameters)
         cfg.logger.info("End of computation.")
 
-    @staticmethod
-    def computeDASellSubmittedVolumes(
-        dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ) -> None:
+    def computeDASellSubmittedVolumes(self) -> None:
         da_sell_submitted_volumes = {
             equipment.name: Timeseries.from_index(
-                parameters.start_date, parameters.time_step, parameters.end_date, default_value=0
+                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
             )
-            for equipment in dataset.thermal
+            for equipment in self.dataset.thermal
         }
 
         # Getting only relevant orders
         list_of_relevant_orders_intermediate: list[Order] = []
-        for order in dataset.order:
+        for order in self.dataset.order:
             if (
                 order.product == Product.DayAhead
                 and type(order.equipment).__name__ == "Thermal"
-                and order.start_date in orders_time
+                and order.start_date in self.orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
                     da_sell_submitted_volumes[order.equipment.name].add_value_at(order.start_date, order.qmax)
@@ -111,7 +104,7 @@ class ThermalBidding:
         # --- Intermediate ---
         # Creation of a reversed dic of all coupling in which a given order is involved
         unit_order_coupling_list: dict[str, list] = {}
-        for coupling_instance in dataset.order_coupling:
+        for coupling_instance in self.dataset.order_coupling:
             for order_index, order in enumerate(coupling_instance.orders):
                 if order not in list_of_relevant_orders_intermediate:
                     continue
@@ -155,12 +148,12 @@ class ThermalBidding:
 
                 unit_order_coupling_list[order.name].append(new_coupling)
 
-                # This stored already considered orders to prevent double counting
+        # This stored already considered orders to prevent double counting
         # We use a dic to access elements using hashing to improve compute time
         already_considered_orders = {order.name: False for order in list_of_relevant_orders_intermediate}
-        list_of_mutually_exclusive_programms = {equipment.name: [] for equipment in dataset.thermal}
+        list_of_mutually_exclusive_programms = {equipment.name: [] for equipment in self.dataset.thermal}
 
-        for coupling_instance in dataset.order_coupling:
+        for coupling_instance in self.dataset.order_coupling:
             if coupling_instance.coupling_type != CouplingType.EXCLUSION:
                 continue
 
@@ -169,11 +162,14 @@ class ThermalBidding:
                     continue
                 if not already_considered_orders[coupled_order.name]:
                     already_considered_orders_n = []
-                    programm, list_of_considerer_orders = ThermalBidding.graph_search_of_connected_orders(
+                    programm, list_of_considerer_orders = self.graph_search_of_connected_orders(
                         coupled_order,
                         unit_order_coupling_list,
                         Timeseries.from_index(
-                            parameters.start_date, parameters.time_step, parameters.end_date, default_value=0
+                            self.parameters.start_date,
+                            self.parameters.time_step,
+                            self.parameters.end_date,
+                            default_value=0,
                         ),
                         already_considered_orders_n,
                     )
@@ -188,7 +184,7 @@ class ThermalBidding:
                 da_sell_submitted_volumes[order.equipment.name].add_value_at(order.start_date, order.qmax)
 
         # --- Export ---
-        for equipment in dataset.thermal:
+        for equipment in self.dataset.thermal:
             if equipment.strategy == ThermalStrategy.INTERMEDIATE:
                 cfg.logger.warning(
                     "Warning : da_sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
@@ -198,24 +194,26 @@ class ThermalBidding:
                 programms = list_of_mutually_exclusive_programms[equipment.name]
 
                 if programms:
-                    for t in orders_time:
+                    for t in self.orders_time:
                         da_sell_submitted_volume[t] += max([programm[t] for programm in programms])
                 equipment.da_sell_submitted_volume = da_sell_submitted_volume
 
             else:
                 equipment.da_sell_submitted_volume = da_sell_submitted_volumes[equipment.name]
 
-    # This overcomplexified recursive search is used to make sure that all possible scenarios are returned in case of internal EXCLUSION couplings
-    # It also prevents from double computation
-    # This is valid only if at most one internal EXCLUSION order exists
-    # This search might not behave correctly if one internal EXCLUSION coupling exists between two PARENTS (CHILDREN might be added)
-    @staticmethod
     def graph_search_of_connected_orders(
+        self,
         current_order: Order,
         unit_order_coupling_list: dict[str, list],
         current_programm: Timeseries,
         already_considered_orders_n: list[str],
     ) -> tuple[Timeseries, list[str]]:
+        """
+        This overcomplexified recursive search is used to make sure that all possible scenarios are returned in case of internal EXCLUSION couplings
+        It also prevents from double computation
+        This is valid only if at most one internal EXCLUSION order exists
+        This search might not behave correctly if one internal EXCLUSION coupling exists between two PARENTS (CHILDREN might be added)
+        """
         if current_order.name in already_considered_orders_n:  # This checks prevents cycles and ensures termination
             return current_programm, already_considered_orders_n
 
@@ -238,7 +236,7 @@ class ThermalBidding:
 
             for coupled_order in coupling[1:]:
                 if coupled_order.name not in already_considered_orders_n:
-                    current_programm, already_considered_orders_n = ThermalBidding.graph_search_of_connected_orders(
+                    current_programm, already_considered_orders_n = self.graph_search_of_connected_orders(
                         coupled_order, unit_order_coupling_list, current_programm, already_considered_orders_n
                     )
         return current_programm, already_considered_orders_n
