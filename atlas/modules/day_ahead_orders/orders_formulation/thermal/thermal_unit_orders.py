@@ -514,3 +514,4 @@ class ThermalUnitOrders:
         # add the two orders
         link_flexible_inflexible.orders.append(parent_bid)
         link_flexible_inflexible.orders.append(child_bid)
+        dataset.order_coupling.append(link_flexible_inflexible)
