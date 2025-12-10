@@ -10,14 +10,14 @@ from pydantic_extra_types.pendulum_dt import DateTime
 import atlas.config as cfg
 from atlas import Order
 from atlas.enum import OrderType, Product
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 
 
 class WindPV:
     @staticmethod
     def formulate_wind_and_pv_orders(
-        dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
         This function formulates wind and pv orders. Orders are priced at the variable cost

@@ -10,14 +10,14 @@ from pydantic_extra_types.pendulum_dt import DateTime
 import atlas.config as cfg
 from atlas import Order, Timeseries
 from atlas.enum import LoadType, OrderType, Product
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 
 
 class DAOLoad:
     @staticmethod
     def formulate_load_orders(
-        dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
         Formulates consumption bids on the spot market.

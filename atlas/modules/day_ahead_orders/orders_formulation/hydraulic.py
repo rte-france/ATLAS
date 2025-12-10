@@ -13,7 +13,7 @@ from pydantic_extra_types.pendulum_dt import DateTime
 import atlas.config as cfg
 from atlas import Order, OrderCoupling, Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.timing import generate_datetimes
 
@@ -21,7 +21,7 @@ from atlas.timing import generate_datetimes
 class Hydraulic:
     @staticmethod
     def formulate_hydraulic_orders(
-        dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
         This function formulates the hydraulic reservoir offers.

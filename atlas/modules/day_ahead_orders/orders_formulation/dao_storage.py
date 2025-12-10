@@ -10,7 +10,7 @@ from pydantic_extra_types.pendulum_dt import DateTime
 import atlas.config as cfg
 from atlas import Equipment, Order, OrderCoupling, SolverOptions, Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, StorageType
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
@@ -19,7 +19,7 @@ from atlas.timing import generate_datetimes
 
 
 class DAOStorage:
-    def __init__(self, dataset: DayAheadOrdersInputDataset, parameters: DayAheadOrdersParameters) -> None:
+    def __init__(self, dataset: DayAheadOrdersOutputDataset, parameters: DayAheadOrdersParameters) -> None:
         self.dataset = dataset
         self.parameters = parameters
 
@@ -31,7 +31,7 @@ class DAOStorage:
 
          The function takes the following arguments:
 
-        - `dataset`: a DayAheadOrdersInputDataset.
+        - `dataset`: a DayAheadOrdersOutputDataset.
         - `parameters` a named tuple of parameters, containing the common self.parameters.
         """
 
