@@ -250,6 +250,7 @@ class Timeseries:
             )
 
         elif isinstance(timeseries, Timeseries):
+            # QUESTION: why do we not use a deepcopy of the other TS?
             self.timeseries = timeseries.dataframe  # type: ignore[assignment]
         else:
             try:

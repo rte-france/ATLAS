@@ -19,6 +19,7 @@ from atlas.utils.clean_rounding.clean_rounding_parameters import CleanRoundingPa
 
 
 # QUESTION: do we want to use objects or are static functions enough?
+# TODO: [General] Remove time step from parameters and always use timeseries'
 class CleanRounding(ABCPrototype):
     def __init__(self, parameters: CleanRoundingParameters):
         super().__init__()
@@ -35,9 +36,8 @@ class CleanRounding(ABCPrototype):
     def _update_equipment(self, equipment: Equipment):
         indexes_list = self._get_indexes(equipment.power)
         if not isinstance(equipment, (Wind, Solar, Load, OtherNonDispatchable)):
-            # FIXME: use proper attributes
-            max_power = equipment.power  # QUESTION: used to be equipment.MaximumPower
-            min_power = equipment.power  # QUESTION: used to be equipment.MinimumPower
+            max_power = equipment.maximum_power
+            min_power = equipment.minimum_power
         for local_index in indexes_list:
             new_time_series = equipment.power.select(local_index)
             duration = Duration()
@@ -50,7 +50,7 @@ class CleanRounding(ABCPrototype):
                     self.__parameters.end_date,
                     duration,
                 )
-                min_power = Timeseries(pd.DataFrame(index=new_time_series.index))
+                min_power = Timeseries(pd.DataFrame(index=new_time_series.index))  # TODO: fill with proper values
 
             elif isinstance(equipment, Load):
                 min_power = equipment.maximum_power_forecast.get_forecast(
@@ -59,13 +59,13 @@ class CleanRounding(ABCPrototype):
                     self.__parameters.end_date,
                     duration,
                 )
-                max_power = Timeseries(pd.DataFrame(index=new_time_series.index))
+                max_power = Timeseries(pd.DataFrame(index=new_time_series.index))  # TODO: fill with proper values
 
             new_time_series.round(self.__parameters.rounding_precision)
+            new_time_series.timestep.in_minutes()
 
-            # [NEW COMMENT]
-            # * Rounding process may have rounded some values above the maximum or below the minimum power
-            # * TODO: explain why ramps have to be dealt with separately if the minimum stable duration is > 1h
+            # -> Rounding process may have rounded some values above the maximum or below the minimum power
+            # -> TODO: explain why ramps have to be dealt with separately if the minimum stable duration is > 1h
 
             # TODO: extract following block in a separate method
             for time in new_time_series.index:
@@ -93,6 +93,7 @@ class CleanRounding(ABCPrototype):
                     for time in new_time_series.index:
                         if time != new_time_series.index[-1]:
                             # QUESTION: are we sure that the other timestamp will always be in the timeseries?
+                            # ANSWER: same as other TS questions
                             if new_time_series.get_value(time) != new_time_series.get_value(
                                 time + timedelta(minutes=self.__parameters.time_step)
                             ):
@@ -134,10 +135,12 @@ class CleanRounding(ABCPrototype):
                                 corrected_ts.append(local_time)
                                 continue
 
-                            # QUESTION: newly set value won't be rounded, is this a problem?
-                            # QUESTION: what if steps are not evenly spread? local_enum won't be used as it is meant
+                            # following behavior is acceptable because time steps are always evenly spread
+                            # and "in-ramp" values are always interpolated from extreme ramp values, so their actual rounding does not matter
                             new_time_series.set_value(local_time, first_value + update_value * local_enum)
                             corrected_ts.append(local_time)
 
             equipment.power.delete(local_index)
             equipment.power.add(new_time_series, local_index)
+
+            new_time_series.timeseries = None

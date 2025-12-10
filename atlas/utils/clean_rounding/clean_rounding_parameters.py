@@ -28,6 +28,7 @@ class CleanRoundingParameters(ABCPrototypeParameters):
         default=datetime(2028, 9, 26),
         description="End date of the rounding time frame.",
     )
+    # TODO: might be useless now that TS are properly defined with even time gaps
     time_step: int = Field(
         default=60,
         description="Time step of the timeseries in the input marker, in minutes.",
