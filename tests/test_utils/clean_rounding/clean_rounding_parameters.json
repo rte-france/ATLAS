@@ -1,0 +1,8 @@
+{
+  "start_date": "2025-11-25 15:50",
+  "end_date": "2025-11-25 16:50",
+  "execution_date": "2025-11-25 16:05",
+  "time_step": 15,
+  "rounding_precision": 3,
+  "epsilon": 0.05
+}
