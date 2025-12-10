@@ -40,15 +40,14 @@ class CleanRounding(ABCPrototype):
             min_power = equipment.minimum_power
         for local_index in indexes_list:
             new_time_series = equipment.power.select(local_index)
-            duration = Duration()
-            duration.min = self.__parameters.time_step
+            timestep = new_time_series.timestep
 
             if isinstance(equipment, (Wind, Solar, OtherNonDispatchable)):
                 max_power = equipment.maximum_power_forecast.get_forecast(
                     local_index,
                     self.__parameters.start_date,
                     self.__parameters.end_date,
-                    duration,
+                    timestep,
                 )
                 min_power = Timeseries(pd.DataFrame(index=new_time_series.index))  # TODO: fill with proper values
 
@@ -57,7 +56,7 @@ class CleanRounding(ABCPrototype):
                     local_index,
                     self.__parameters.start_date,
                     self.__parameters.end_date,
-                    duration,
+                    timestep,
                 )
                 max_power = Timeseries(pd.DataFrame(index=new_time_series.index))  # TODO: fill with proper values
 
@@ -89,13 +88,13 @@ class CleanRounding(ABCPrototype):
             # Ramps (has to be performed after the entire max/min power correction)
             in_ramp = {}
             if isinstance(equipment, Thermal):
-                if equipment.minimum_stable_power_duration.in_hours() > self.__parameters.time_step / 60.0:
+                if equipment.minimum_stable_power_duration.in_hours() > timestep.in_minutes() / 60.0:
                     for time in new_time_series.index:
                         if time != new_time_series.index[-1]:
                             # QUESTION: are we sure that the other timestamp will always be in the timeseries?
                             # ANSWER: same as other TS questions
                             if new_time_series.get_value(time) != new_time_series.get_value(
-                                time + timedelta(minutes=self.__parameters.time_step)
+                                time + timedelta(minutes=timestep.in_minutes())
                             ):
                                 in_ramp[time] = True
                             else:
@@ -112,7 +111,7 @@ class CleanRounding(ABCPrototype):
                     total_ramp = [time]
 
                     for time_step_added in range(1, len(new_time_series.index)):
-                        local_time = time + timedelta(minutes=self.__parameters.time_step * time_step_added)
+                        local_time = time + timedelta(minutes=timestep.in_minutes() * time_step_added)
                         if local_time in in_ramp.keys() and in_ramp[local_time]:
                             total_ramp.append(local_time)
 
@@ -120,7 +119,7 @@ class CleanRounding(ABCPrototype):
                     if len(total_ramp) > 1:
                         first_value = new_time_series.get_value(total_ramp[0])
                         last_value = new_time_series.get_value(
-                            total_ramp[-1] + timedelta(minutes=self.__parameters.time_step)
+                            total_ramp[-1] + timedelta(minutes=timestep.in_minutes())
                         )
 
                         # Do not correct if there is a startup or a shutdown

@@ -12,8 +12,6 @@ class CleanRoundingParameters(ABCPrototypeParameters):
     :type start_date: datetime
     :param end_date: End date of the rounding time frame, default value is 2028/09/26 00:00:00
     :type end_date: datetime
-    :param time_step: Time step of the timeseries in the input marker, in minutes, default value is 60
-    :type time_step: int
     :param rounding_precision: Number of decimals allowed during rounding processes. NB: certain values are by default rounded to the nearest integer, default value is 2
     :type rounding_precision: int
     :param epsilon: Precision parameters, below which two values are considered equal when performing verifications, default value is 0.001
@@ -27,11 +25,6 @@ class CleanRoundingParameters(ABCPrototypeParameters):
     end_date: DateTime = Field(
         default=datetime(2028, 9, 26),
         description="End date of the rounding time frame.",
-    )
-    # TODO: might be useless now that TS are properly defined with even time gaps
-    time_step: int = Field(
-        default=60,
-        description="Time step of the timeseries in the input marker, in minutes.",
     )
     rounding_precision: int = Field(
         default=2,
