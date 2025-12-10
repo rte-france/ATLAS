@@ -15,7 +15,7 @@ import atlas.config as cfg
 from atlas import OrderCoupling, ScenarioMatrix, SolverOptions, Thermal
 from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_1,
@@ -35,25 +35,23 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orde
 
 
 class ThermalIntermediateLoadOrders:
-    # Intermediate
-    @staticmethod
-    def formulate_thermal_intermediate_load_orders(
-        dataset: DayAheadOrdersInputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ) -> None:
+    def __init__(
+        self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+    ):
+        self.dataset = dataset
+        self.orders_time = orders_time
+        self.parameters = parameters
+
+    def formulate_thermal_intermediate_load_orders(self) -> None:
         """
         This function formulates orders for the thermic intermediate load units.
         Intermediate load units are identified from an attribute of the thermic class.
-
-        Arguments:
-        - `dataset`: a dataset
-        - `orders_time`: a list of dates at which orders must be formulated.
-        - `parameters` a named tuple of parameters, containing the common parameters.
 
         Returns None
         """
 
         # Filter the intermediate load instances
-        equipments_list = [eqt for eqt in dataset.thermal if eqt.strategy == ThermalStrategy.INTERMEDIATE]
+        equipments_list = [eqt for eqt in self.dataset.thermal if eqt.strategy == ThermalStrategy.INTERMEDIATE]
 
         # We stop here if there is no intermediate load units in the dataset
         if not equipments_list:
@@ -61,41 +59,41 @@ class ThermalIntermediateLoadOrders:
             return None
 
         # Solve the optimisation programs
-        res = ThermalIntermediateLoadOrders.solve_optimization_programs(equipments_list, parameters)
+        res = ThermalIntermediateLoadOrders.solve_optimization_programs(equipments_list, self.parameters)
 
         for thermal_unit in equipments_list:
             # Consider the unique cases
-            cases = ThermalIntermediateLoadOrders.get_unique_cases(res, thermal_unit)
+            cases = self.get_unique_cases(res, thermal_unit)
 
             # Create a list that will all online time frames across all scenarios
             online_timeframes = []
             for case in cases:
                 # Encode the outcome as a state sequence
-                states_sequence = ThermalIntermediateLoadOrders.determine_intermediate_load_states_sequence(
-                    thermal_unit, res, case, parameters
+                states_sequence = self.determine_intermediate_load_states_sequence(
+                    thermal_unit, res, case, self.parameters
                 )
 
                 # Extract the list of online time frames
                 list_of_online_timeframes = ThermalBidding.extract_online_sequences(
-                    states_sequence, orders_time, parameters, case
+                    states_sequence, self.orders_time, self.parameters, case
                 )
 
                 # Formulate the orders over each online timeframe.
                 for online_timeframe in list_of_online_timeframes:
                     online_timeframes.append(online_timeframe)  # Add the time frame to the list of time frames
                     ThermalUnitOrders.formulate_unit_orders(
-                        online_timeframe, thermal_unit, orders_time, dataset, parameters, case=case
+                        online_timeframe, thermal_unit, self.orders_time, self.dataset, self.parameters, case=case
                     )
 
             # Formulate the exclusion links between scenarios
             # Consider only the time frames that are overlapping
-            overlapping_blocks = ThermalIntermediateLoadOrders.get_overlapping_timeframes(online_timeframes)
+            overlapping_blocks = self.get_overlapping_timeframes(online_timeframes)
 
             if overlapping_blocks:
                 # Retrieve the orders corresponding to the first order of each time frame
                 # time frames are mutually exclusive provided that the unit's minimum power is not null
                 # over the whole orders time sequence
-                if sum(thermal_unit.minimum_power.get_value(t) for t in orders_time) > 0.0:
+                if sum(thermal_unit.minimum_power.get_value(t) for t in self.orders_time) > 0.0:
                     # Create a list of order names to retrieve.
                     orders_names = []
                     for block in overlapping_blocks:
@@ -110,7 +108,7 @@ class ThermalIntermediateLoadOrders:
                         )
 
                     # Filter the orders to keep only those with the relevant name.
-                    orders_list = [order for order in dataset.order if order.name in orders_names]
+                    orders_list = [order for order in self.dataset.order if order.name in orders_names]
 
                     # Now that we recovered the orders, filter them by case and generate the exclusion links
                     # across orders of different scenarios.
@@ -141,10 +139,9 @@ class ThermalIntermediateLoadOrders:
                             )
                             coupling.orders.append(order_1)
                             coupling.orders.append(order_2)
-                            dataset.order_coupling.append(coupling)
+                            self.dataset.order_coupling.append(coupling)
 
-    @staticmethod
-    def get_unique_cases(results: dict[str, dict[str, Timeseries]], thermal_unit: Thermal) -> list[str]:
+    def get_unique_cases(self, results: dict[str, dict[str, Timeseries]], thermal_unit: Thermal) -> list[str]:
         """
         Returns a list of unique cases for the associated thermal unit.
 
@@ -211,7 +208,7 @@ class ThermalIntermediateLoadOrders:
         # list of scenarios to be discarded (if already marked as overlapping)
         to_discard = []
         for pair in itertools.combinations(collapsed_outcomes, 2):
-            if ThermalIntermediateLoadOrders.is_overlapping(pair):
+            if self.is_overlapping(pair):
                 # add the first scenario (arbitrarily) to the list of scenarios to be discarded if
                 # the current scenario pair is perfectly overlapping
                 to_discard.append(pair[0])
@@ -230,9 +227,8 @@ class ThermalIntermediateLoadOrders:
 
         return cases
 
-    @staticmethod
     def determine_intermediate_load_states_sequence(
-        unit: Thermal, res: dict, case: str, parameters: DayAheadOrdersParameters
+        self, unit: Thermal, res: dict[str, dict[str, Timeseries]], case: str
     ) -> Timeseries:
         """
         Computes the sequence of states on a single time frame for the intermediate load unit passed as input.
@@ -250,16 +246,15 @@ class ThermalIntermediateLoadOrders:
         `unit`: the unit to be analysed
         `res` : the dictionary of results
         `case` : a string corresponding to the name of the scenario
-        `p` : the tuple of parameters
 
         Returns :
         states_sequence : a timeSeries object encoding the states at each time t.
         """
 
         # Compute T_stable, T_start and T_stop : will be used to see which states will be incorporated
-        T_start = int(math.floor(unit.startup_duration / parameters.time_step))
-        T_stop = int(math.floor(unit.shutdown_duration / parameters.time_step))
-        T_stable = int(math.ceil(unit.minimum_stable_power_duration / parameters.time_step))
+        T_start = int(math.floor(unit.startup_duration / self.parameters.time_step))
+        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.time_step))
+        T_stable = int(math.ceil(unit.minimum_stable_power_duration / self.parameters.time_step))
 
         # Since states are mutually exclusive, we need to sum them in order to collapse them on a single time series.
 
@@ -286,8 +281,7 @@ class ThermalIntermediateLoadOrders:
 
         return states_sequence
 
-    @staticmethod
-    def get_overlapping_timeframes(online_timeframes: list[Timeseries]) -> list[tuple[Timeseries]]:
+    def get_overlapping_timeframes(self, online_timeframes: list[Timeseries]) -> list[tuple[Timeseries]]:
         """
         Given a list of timeframes, returns the subset of overlapping timeframes.
 
@@ -322,8 +316,7 @@ class ThermalIntermediateLoadOrders:
 
         return overlapping_blocks
 
-    @staticmethod
-    def is_overlapping(pair) -> bool:
+    def is_overlapping(self, pair) -> bool:
         """
         checks whether two optimization program outcomes are overlapping or not
         Compares series containing status variables only, more precisely aggregated ON status variables.
@@ -355,16 +348,12 @@ class ThermalIntermediateLoadOrders:
 
         return is_overlapping
 
-    @staticmethod
-    def solve_optimization_programs(
-        equipments_list: Thermal, parameters: DayAheadOrdersParameters
-    ) -> dict[str, dict[str, Timeseries]]:
+    def solve_optimization_programs(self, equipments_list: Thermal) -> dict[str, dict[str, Timeseries]]:
         """
         Solves the optimization programs for a list of equipment given the three price curves.
 
         Arguments:
         equiment_list : a list of thermal equipments
-        parameters : a signedTuple of parameters
 
         Returns:
         results : a two stage dictionary containing for each equipment the optimal quantities given a price curve.
@@ -376,9 +365,9 @@ class ThermalIntermediateLoadOrders:
         results: dict[str, dict[str, Timeseries]] = {}
 
         solver_options = SolverOptions(
-            presolve=parameters.use_presolve,
-            duality_gap=parameters.solver_duality_gap,
-            time_limit=parameters.solver_time_out,
+            presolve=self.parameters.use_presolve,
+            duality_gap=self.parameters.solver_duality_gap,
+            time_limit=self.parameters.solver_time_out,
         )
 
         for unit in equipments_list:
@@ -386,25 +375,31 @@ class ThermalIntermediateLoadOrders:
             results[unit.name] = {}
 
             # Retrieve the price forecasts types, extract the corresponding time series and store it in a list
-            price_types: list[str] = parameters.price_forecasts_types
+            price_types: list[str] = self.parameters.price_forecasts_types
             prices: list[Timeseries] = []
 
             for price_type in price_types:
                 if price_type == "Low":
                     prices_low = unit.portfolio.market_area.price_forecast_low.get_forecast(
-                        parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+                        self.parameters.execution_date,
+                        self.parameters.start_date,
+                        self.parameters.end_optimization_date,
                     )
                     prices.append(prices_low)
 
                 elif price_type == "Medium":
                     prices_medium = unit.portfolio.market_area.price_forecast_medium.get_forecast(
-                        parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+                        self.parameters.execution_date,
+                        self.parameters.start_date,
+                        self.parameters.end_optimization_date,
                     )
                     prices.append(prices_medium)
 
                 elif price_type == "High":
                     prices_high = unit.portfolio.market_area.price_forecast_high.get_forecast(
-                        parameters.execution_date, parameters.start_date, parameters.end_optimization_date
+                        self.parameters.execution_date,
+                        self.parameters.start_date,
+                        self.parameters.end_optimization_date,
                     )
                     prices.append(prices_high)
 
@@ -419,7 +414,7 @@ class ThermalIntermediateLoadOrders:
             # Solve three times the optimization program, one for each price curve
             # and store the optimal output quantities into the dictionaries
             for price, value in zip(prices, price_types, strict=False):
-                model = ThermalOptimizationModel(parameters, unit, price, value, solver_options)
+                model = ThermalOptimizationModel(self.parameters, unit, price, value, solver_options)
                 model.create_objective_function("maximize")
                 combination_functions: dict[int, Callable[..., None]] = {
                     1: combination_1.execute,
@@ -442,7 +437,7 @@ class ThermalIntermediateLoadOrders:
                 local_time_index = res["OFF"].index
 
                 new_sequence_ts = Timeseries.from_index(
-                    parameters.start_date, parameters.time_step, parameters.end_date, default_value=0
+                    self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
                 )
 
                 for time in local_time_index:
@@ -475,6 +470,6 @@ class ThermalIntermediateLoadOrders:
 
                 if unit.state_sequence is None:
                     unit.state_sequence = ScenarioMatrix()
-                unit.state_sequence.add(new_sequence_ts, f"{parameters.execution_date}-{value.upper()}_DAO")
+                unit.state_sequence.add(new_sequence_ts, f"{self.parameters.execution_date}-{value.upper()}_DAO")
 
         return results

@@ -65,9 +65,10 @@ class ThermalBidding:
         cfg.logger.info(
             "Baseload orders formulation completed. Moving on to the formulation of the intermediate load orders..."
         )
-        ThermalIntermediateLoadOrders.formulate_thermal_intermediate_load_orders(
+        thermal_intermediate_load_orders = ThermalIntermediateLoadOrders(
             self.dataset, self.orders_time, self.parameters
         )
+        thermal_intermediate_load_orders.formulate_thermal_intermediate_load_orders()
 
         # Formulate peak load orders
         cfg.logger.info(
