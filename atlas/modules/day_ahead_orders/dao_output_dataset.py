@@ -5,31 +5,60 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import BusinessModel
+import copy
+
+from atlas import (
+    ControlBlock,
+    Hydro,
+    Load,
+    MarketArea,
+    MarketBorder,
+    Node,
+    Order,
+    OrderCoupling,
+    Portfolio,
+    Solar,
+    Storage,
+    Thermal,
+    Wind,
+)
 from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.models.business_model import BusinessModel
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 
 
 class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
     def __init__(self, inputDataset: DayAheadOrdersInputDataset):
-        self.raw_data = inputDataset.raw_data
-        self.parameters = inputDataset.parameters
-
-        self.control_block = inputDataset.control_block
-        self.market_area = inputDataset.market_area
-        self.market_border = inputDataset.market_border
-        self.node = inputDataset.node
-        self.portfolio = inputDataset.portfolio
-        self.wind = inputDataset.wind
-        self.storage = inputDataset.storage
-        self.hydro = inputDataset.hydro
-        self.solar = inputDataset.solar
-        self.thermal = inputDataset.thermal
-        self.other_non_dispatchable = inputDataset.other_non_dispatchable
-        self.order = inputDataset.order
-        self.order_coupling = inputDataset.order_coupling
-        self.load = inputDataset.load
+        self.parameters = copy.deepcopy(inputDataset.parameters)
+        self.control_block = copy.deepcopy(inputDataset.control_block)
+        self.market_area = copy.deepcopy(inputDataset.market_area)
+        self.market_border = copy.deepcopy(inputDataset.market_border)
+        self.node = copy.deepcopy(inputDataset.node)
+        self.portfolio = copy.deepcopy(inputDataset.portfolio)
+        self.wind = copy.deepcopy(inputDataset.wind)
+        self.storage = copy.deepcopy(inputDataset.storage)
+        self.hydro = copy.deepcopy(inputDataset.hydro)
+        self.solar = copy.deepcopy(inputDataset.solar)
+        self.thermal = copy.deepcopy(inputDataset.thermal)
+        self.other_non_dispatchable = copy.deepcopy(inputDataset.other_non_dispatchable)
+        self.load = copy.deepcopy(inputDataset.load)
+        self.order: list[Order] = []
+        self.order_coupling: list[OrderCoupling] = []
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        return []
+        return [
+            ControlBlock,
+            MarketArea,
+            MarketBorder,
+            Node,
+            Portfolio,
+            Wind,
+            Storage,
+            Hydro,
+            Solar,
+            Thermal,
+            Load,
+            Order,
+            OrderCoupling,
+        ]

@@ -16,7 +16,8 @@ from atlas.timing import generate_datetimes
 class DayAheadOrdersOrchestrator:
     def __init__(self, parameters: DayAheadOrdersParameters, dataset: DayAheadOrdersInputDataset):
         self.parameters = parameters
-        self.dataset = dataset
+        self.input_dataset = dataset
+        self.output_dataset = DayAheadOrdersOutputDataset(dataset)
         pass
 
     def execute(self) -> DayAheadOrdersOutputDataset:
@@ -34,39 +35,38 @@ class DayAheadOrdersOrchestrator:
 
             #### STEP 1 - CONSUMPTION ####
             cfg.logger.info("Formulation of the load orders...")
-            DAOLoad.formulate_load_orders(self.dataset, orders_time, self.parameters)
+            DAOLoad.formulate_load_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Consumption orders formulated.")
 
             #### STEP 2 - NON DISPATCHABLE UNITS ####
             cfg.logger.info("Formulation of the non-dispatchable orders...")
-            NonDispatchable.formulate_non_dispatchable_orders(self.dataset, orders_time, self.parameters)
+            NonDispatchable.formulate_non_dispatchable_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Non-dispatchable orders formulated.")
 
             #### STEP 3 - STORAGE UNITS ####
             cfg.logger.info("Formulation of the storage orders...")
-            storage = DAOStorage(self.dataset, self.parameters)
+            storage = DAOStorage(self.output_dataset, self.parameters)
             storage.formulate_storage_orders()
             cfg.logger.info("Storage orders formulated.")
 
             #### STEP 4 - LAKES UNITS ####
             cfg.logger.info("Formulation of the hydraulic orders...")
-            Hydraulic.formulate_hydraulic_orders(self.dataset, orders_time, self.parameters)
+            Hydraulic.formulate_hydraulic_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Hydraulic orders formulated.")
 
             #### STEP 5 - WIND AND PV UNITS ####
             cfg.logger.info("Formulation of the wind/pv orders...")
-            WindPV.formulate_wind_and_pv_orders(self.dataset, orders_time, self.parameters)
+            WindPV.formulate_wind_and_pv_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("wind/pv orders formulated.")
 
             #### STEP 6 - THERMIC UNITS ####
             cfg.logger.info("Formulation of the thermic orders...")
-            ThermalBidding.formulate_thermal_orders(self.dataset, orders_time, self.parameters)
+            ThermalBidding.formulate_thermal_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Thermic orders formulated.")
 
             cfg.logger.info("Formulation of orders successfully completed.")
 
-            # TODO
-            return None
+            return self.output_dataset
         else:
             cfg.logger.error("orders_time is empty.")
 

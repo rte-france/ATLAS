@@ -13,8 +13,6 @@ from atlas import (
     MarketArea,
     MarketBorder,
     Node,
-    Order,
-    OrderCoupling,
     OtherNonDispatchable,
     Portfolio,
     Solar,
@@ -69,8 +67,6 @@ class DayAheadOrdersInputDataset(AbstractDataset[DayAheadOrdersParameters]):
             if INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable] in raw_data
             else []
         )
-        self.order: list[Order] = []
-        self.order_coupling: list[OrderCoupling] = []
         self.load = raw_data[INVERSE_MODEL_MAPPING_NAME[Load]] if INVERSE_MODEL_MAPPING_NAME[Load] in raw_data else []
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
