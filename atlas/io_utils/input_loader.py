@@ -156,7 +156,7 @@ class InputLoader:
                     )
 
                     cfg.logger.info(
-                        f"Successfully instantiated {len(objects_instantiated[object_type])} "
+                        f"Instantiated {len(objects_instantiated[object_type])} "
                         f"objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
                     )
 

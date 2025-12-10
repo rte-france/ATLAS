@@ -10,30 +10,12 @@ Module that implements OR-Tools optimisation interface.
 from typing import Any, Literal
 
 from ortools.linear_solver import pywraplp
-from pydantic import BaseModel
 
 from atlas.config import logger
 from atlas.enum import SolverEnum, SolverStatus
+from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions
+from atlas.solver.solver_parameters import GenericParameterBuilder, SolverParameterBuilder, XPRESSParameterBuilder
 from atlas.timing import timer
-
-
-class SolutionInfo(BaseModel):
-    """Container for optimization solution information.
-
-    :param status: The solver status
-    :type status: SolverStatus
-    :param objective_value: The optimal objective value if found
-    :type objective_value: Optional[float]
-    :param solve_time: Time taken to solve in seconds
-    :type solve_time: float
-    :param num_iterations: Number of iterations performed
-    :type num_iterations: Optional[int]
-    """
-
-    status: SolverStatus
-    objective_value: float | None = None
-    solve_time: str | None = None
-    num_iterations: int | None = None
 
 
 class OptimisationModel:
@@ -49,12 +31,17 @@ class OptimisationModel:
         self,
         solver_name: SolverEnum | str,
         name: str | None = None,
+        options: SolverOptions | None = None,
     ):
         """
         Initialize the optimization model.
 
         :param solver_name: Specific solver name (e.g., 'GLOP', 'SCIP', 'GUROBI')
         :type solver_name: Optional[str]
+        :param name: Optional name for the model
+        :type name: Optional[str]
+        :param options: Solver options (presolve, duality_gap, etc.)
+        :type options: Optional[SolverOptions]
         """
         self.name = name
         self._solver = None
@@ -63,6 +50,7 @@ class OptimisationModel:
         self._objective: Any | None = None
         self._objective_direction: Literal["maximize", "minimize"] | None = None
         self._solution_info: SolutionInfo | None = None
+        self._options: SolverOptions = options if options is not None else SolverOptions()
 
         self._initialize_solver(solver_name)
 
@@ -79,6 +67,19 @@ class OptimisationModel:
 
         if self._solver is None:
             raise RuntimeError("Failed to create solver. Check if the solver is available.")
+
+        self._parameter_builder = self._get_parameter_builder()
+
+    def _get_parameter_builder(self) -> SolverParameterBuilder:
+        """Get the appropriate parameter builder for the current solver.
+
+        :return: Parameter builder instance for the current solver
+        :rtype: SolverParameterBuilder
+        """
+        if self.solver_name == SolverEnum.XPRESS:
+            return XPRESSParameterBuilder(self._solver)
+        else:
+            return GenericParameterBuilder(self._solver)
 
     @property
     def solver(self) -> pywraplp.Solver:
@@ -100,10 +101,15 @@ class OptimisationModel:
         """Return the last computed solution info."""
         return self._solution_info
 
+    @property
+    def options(self) -> SolverOptions:
+        """Return the current solver options."""
+        return self._options
+
     def add_continuous_variable(
         self,
         name: str,
-        lower_bound: float = 0.0,
+        lower_bound: float = float("-inf"),
         upper_bound: float = float("inf"),
     ) -> Any:
         """
@@ -183,6 +189,36 @@ class OptimisationModel:
             raise ValueError(f"Variable '{name}' not found")
         return self._solver.LookupVariable(name)
 
+    def get_constraint(self, name: str) -> Any:
+        """
+        Get a constraint object by name for use in expressions.
+
+        :param name: Constraint name
+        :type name: str
+        :return: OR-Tools constraint object
+        :rtype: pywraplp.Constraint
+        :raises ValueError: If constraint doesn't exist
+        """
+        if name not in self._constraints_name:
+            raise ValueError(f"Constraint '{name}' not found")
+        return self._solver.LookupConstraint(name)
+
+    def get_constraint_bounds(self, name: str) -> ConstraintBounds:
+        """
+        Get the bounds of a constraint by name.
+
+        :param name: Constraint name
+        :type name: str
+        :return: Tuple containing (lower_bound, upper_bound)
+        :rtype: ConstraintBounds
+        :raises ValueError: If constraint doesn't exist
+        """
+        constraint = self.get_constraint(name)
+        return ConstraintBounds(
+            lower_bound=constraint.lb(),
+            upper_bound=constraint.ub(),
+        )
+
     def add_constraint(self, constraint_expr: Any, name: str | None = None) -> None:
         """
         Add a constraint using OR-Tools expression syntax.
@@ -208,94 +244,111 @@ class OptimisationModel:
         self._solver.Add(constraint_expr, name)
         self._constraints_name.add(name)
 
-    def add_objective(
-        self,
-        objective_expr: Any,
-        direction: Literal["maximize", "minimize"] = "maximize",
-    ) -> None:
+    def set_direction(self, direction: Literal["maximize", "minimize"]) -> None:
+        """
+        Set the optimization direction for the model.
+
+        This method can only be called once. Once set, the direction is immutable
+        and cannot be changed. This ensures consistency when building the objective
+        function incrementally.
+
+        :param direction: Optimization direction ("maximize" or "minimize")
+        :type direction: Literal["maximize", "minimize"]
+        :raises ValueError: If direction has already been set
+        :raises ValueError: If direction is not "maximize" or "minimize"
+        """
+        if self._objective_direction is not None:
+            raise ValueError(
+                f"Optimization direction is already set to '{self._objective_direction}' and cannot be changed. "
+                f"Direction must be set only once."
+            )
+
+        if direction not in ["maximize", "minimize"]:
+            raise ValueError(f"Direction must be 'maximize' or 'minimize', got '{direction}'")
+
+        logger.debug(f"Setting optimization direction to '{direction}'")
+        self._objective_direction = direction
+
+    def add_objective(self, objective_expr: Any) -> None:
         """
         Add terms to the objective function.
 
         This method allows you to incrementally build the objective function by adding
-        terms one at a time. If this is the first call, it sets the optimization direction.
-        Subsequent calls must use the same direction.
+        terms one at a time. The optimization direction must be set using set_direction()
+        before calling this method.
 
         Examples:
-        model.add_objective(x + 2 * y, "maximize")
-        model.add_objective(3 * z, "maximize")  # Adds to existing objective
+        model.set_direction("maximize")
+        model.add_objective(x + 2 * y)
+        model.add_objective(3 * z)  # Adds to existing objective
 
         :param objective_expr: OR-Tools expression to add to the objective
         :type objective_expr: Any (OR-Tools expression object)
-        :param direction: Optimization direction (must be consistent across calls)
-        :type direction: Literal["maximize", "minimize"]
-        :raises ValueError: If direction differs from previously set direction
+        :raises ValueError: If direction has not been set via set_direction()
         """
+        if self._objective_direction is None:
+            raise ValueError(
+                "Optimization direction must be set before adding objective terms. "
+                "Call set_direction('maximize') or set_direction('minimize') first."
+            )
+
         if self._objective is None:
-            logger.debug(f"Initializing objective with direction '{direction}'")
-            self._objective_direction = direction
             self._objective = objective_expr
         else:
-            if self._objective_direction is None:
-                self._objective_direction = direction
-            elif direction != self._objective_direction:
-                raise ValueError(
-                    f"Objective direction '{direction}' conflicts with previously set direction "
-                    f"'{self._objective_direction}'"
-                )
-            logger.debug(f"Adding term to existing objective with direction '{direction}'")
             self._objective = self._objective + objective_expr
 
+        self._update_solver_objective()
+
+    def set_objective(self, objective_expr: Any) -> None:
+        """
+        Set the objective function using OR-Tools expression syntax.
+
+        This method replaces any existing objective function. Use add_objective()
+        if you want to incrementally build the objective. The optimization direction
+        must be set using set_direction() before calling this method.
+
+        This method allows you to set objectives directly like:
+        model.set_direction("maximize")
+        model.set_objective(x + 2 * y)
+
+        :param objective_expr: OR-Tools expression for the objective
+        :type objective_expr: Any (OR-Tools expression object)
+        :raises ValueError: If direction has not been set via set_direction()
+        """
+        if self._objective_direction is None:
+            raise ValueError(
+                "Optimization direction must be set before setting objective. "
+                "Call set_direction('maximize') or set_direction('minimize') first."
+            )
+
+        logger.debug("Setting objective expression")
+        self._objective = objective_expr
+        self._update_solver_objective()
+
+    def _update_solver_objective(self) -> None:
+        """
+        Update the solver's objective function based on the current direction.
+
+        This helper method is called after objective terms are added or set to
+        synchronize the internal objective expression with the OR-Tools solver.
+
+        :raises ValueError: If objective direction is not set or is invalid
+        """
         if self._objective_direction == "minimize":
             self._solver.Minimize(self._objective)
         elif self._objective_direction == "maximize":
             self._solver.Maximize(self._objective)
         else:
-            raise ValueError(f"Unsupported optimization direction: {self._objective_direction}")
+            raise ValueError(f"Invalid optimization direction: {self._objective_direction}")
 
-    def set_objective(
-        self,
-        objective_expr: Any,
-        direction: Literal["maximize", "minimize"] = "maximize",
-    ) -> None:
-        """
-        Set the objective function using OR-Tools expression syntax.
-
-        This method replaces any existing objective function. Use add_objective()
-        if you want to incrementally build the objective.
-
-        This method allows you to set objectives directly like:
-        model.set_objective(x + 2 * y, "maximize")
-        model.set_objective(3 * x - y + 5, "minimize")
-
-        :param objective_expr: OR-Tools expression for the objective
-        :type objective_expr: Any (OR-Tools expression object)
-        :param direction: Optimization direction
-        :type direction: Literal["maximize", "minimize"]
-        """
-        logger.debug(f"Setting objective expression with direction '{direction}'")
-
-        self._objective = objective_expr
-        self._objective_direction = direction
-
-        if direction == "minimize":
-            self._solver.Minimize(objective_expr)
-        elif direction == "maximize":
-            self._solver.Maximize(objective_expr)
-        else:
-            raise ValueError("Optimisation direction not supported.")
-
-    def solve(self, time_limit: float | None = None) -> SolutionInfo:
+    def solve(self) -> SolutionInfo:
         """
         Solve the optimization problem.
 
-        :param time_limit: Maximum solving time in seconds
-        :type time_limit: Optional[float]
         :return: Solution information
         :rtype: SolutionInfo
         """
-        if time_limit:
-            logger.debug(f"Setting solver time limit to {time_limit} seconds")
-            self._solver.SetTimeLimit(int(time_limit * 1000))
+        self._apply_solver_options()
 
         with timer() as t:
             logger.info(f"Solving the optimisation model {self.name}...")
@@ -313,7 +366,7 @@ class OptimisationModel:
         }
 
         mapped_status = status_map.get(status, SolverStatus.NOT_SOLVED)
-        logger.info(f"Solve finished in {solve_time} with status: {mapped_status.name}")
+        logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
 
         objective_value = None
 
@@ -388,6 +441,23 @@ class OptimisationModel:
 
         with open(filename, "w") as f:
             f.write(lp)
+
+    def _apply_solver_options(self) -> None:
+        """Apply solver options to the underlying solver using the parameter builder."""
+        if self._options is None:
+            return
+
+        self._parameter_builder.apply_options(self._options)
+
+    def set_solver_options(self, options: SolverOptions) -> None:
+        """
+        Update solver options.
+
+        :param options: New solver options
+        :type options: SolverOptions
+        """
+        logger.debug(f"Updating solver options to: {options}")
+        self._options = options
 
     def set_solver_specific_parameters_as_string(self, params: str) -> bool:
         """

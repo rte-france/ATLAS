@@ -10,6 +10,7 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 from __future__ import annotations
 
 import pickle
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -185,8 +186,8 @@ class Timeseries:
 
         if not isinstance(timeseries, Timeseries):
             raise TypeError("Input has to be a timeseries object, if using a dataframe, use 'from_dataframe' ")
-        if default_value:
-            df = timeseries.dataframe.with_columns(pl.lit(0).alias("value"))
+        if default_value is not None:
+            df = timeseries.dataframe.with_columns(pl.lit(default_value).alias("value"))
             return cls(df, timezone=timeseries.timezone)
         else:
             return cls(timeseries)
@@ -302,6 +303,20 @@ class Timeseries:
         :rtype: bool
         """
         return self.timeseries.height
+
+    def __contains__(self, item: datetime | str | pendulum.DateTime) -> bool:
+        """Check if a temporal index exists in the Timeseries.
+
+        :param item: Datetime to check for existence
+        :type item: datetime or str or pendulum.DateTime
+        :return: True if the datetime exists in the Timeseries index, False otherwise
+        :rtype: bool
+        """
+        try:
+            dt = build_datetime(item).in_tz(self.timezone)
+            return self.timeseries.filter(pl.col("time") == dt).height > 0
+        except Exception:
+            return False
 
     def __mul__(self, other: float | Timeseries) -> Timeseries:
         """Multiply all numeric columns by a scalar or another Timeseries.
@@ -447,6 +462,11 @@ class Timeseries:
     def index(self) -> list[datetime]:
         """Returns the Timeseries indexes"""
         return self.timeseries.select("time").to_series().to_list()
+
+    @property
+    def values(self) -> list[float]:
+        """Returns the Timeseries values"""
+        return self.timeseries.select("value").to_series().to_list()
 
     @property
     def timestep(self) -> pendulum.Duration | None:
@@ -754,7 +774,7 @@ class Timeseries:
 
     def filter(
         self,
-        item: list[datetime | pendulum.DateTime | str] | datetime | pendulum.DateTime | str,
+        item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> Timeseries:
@@ -772,28 +792,50 @@ class Timeseries:
         :rtype: Timeseries
         """
         if isinstance(item, list):
-            item = [
-                pendulum.instance(i).in_tz(self.timezone)
-                if isinstance(i, datetime)
-                else pendulum.from_format(i, fmt=date_format).in_tz(self.timezone)
-                if isinstance(i, str)
-                else i.in_tz(self.timezone)
-                if isinstance(i, pendulum.DateTime)
-                else (_ for _ in ()).throw(NotImplementedError(f"Unsupported item in list: {type(i)}"))
-                for i in item
-            ]
+            item = [build_datetime(i, date_format=date_format).in_tz(self.timezone) for i in item]
             df = self.timeseries.filter(pl.col("time").is_in(item))
-        elif isinstance(item, str):
-            date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == date)
-        elif isinstance(item, datetime):
-            date = pendulum.instance(item).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == date)
-        elif isinstance(item, pendulum.DateTime):
-            df = self.timeseries.filter(pl.col("time") == item)
         else:
-            raise NotImplementedError("Invalid filter formatting")
+            date = build_datetime(item, date_format=date_format).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
 
+        return self._return_inplace(df, inplace)
+
+    def slice(
+        self,
+        start_bound: datetime | pendulum.DateTime | str,
+        end_bound: datetime | pendulum.DateTime | str,
+        closed: Literal["left", "right", "both", "none"] = "both",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """Get a slice of the Timeseries
+
+        :param start_bound: Datetime to filter the Timeseries
+        :param end_bound: Datetime to filter the Timeseries
+        :param closed : {'both', 'left', 'right', 'none'}
+            Define which sides of the interval are closed (inclusive).
+        :param inplace: Whether to modify the current instance, defaults to True
+        :return: The Timeseries object
+        """
+        date_start = build_datetime(start_bound).in_tz(self.timezone)
+        date_end = build_datetime(end_bound).in_tz(self.timezone)
+        df = self.timeseries.filter(pl.col("time").is_between(date_start, date_end, closed))
+
+        return self._return_inplace(df, inplace)
+
+    def slice_with_offset(
+        self,
+        offset: int,
+        length: int | None = None,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """Get a slice of the Timeseries
+
+        :param offset: Start index. Negative indexing is supported.
+        :param length: Length of the slice. If set to `None`, all rows starting at the offset will be selected.
+        :param inplace: Whether to modify the current instance, defaults to True
+        :return: The Timeseries object
+        """
+        df = self.timeseries.slice(offset, length)
         return self._return_inplace(df, inplace)
 
     def max(self) -> float:  # type:ignore[return]
@@ -966,8 +1008,29 @@ class Timeseries:
         :rtype: DateTime or None
         """
         if len(self.timeseries) > 0:
-            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").to_series().to_list()[0]))
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").head(1).item()))
         return None
+
+    def last_date(self) -> pendulum.DateTime | None:
+        """
+        Return the last date in the Timeseries index.
+
+        :return: The last date in the Timeseries index
+        :rtype: DateTime or None
+        """
+        if len(self.timeseries) > 0:
+            return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").tail(1).item()))
+        return None
+
+    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+        """
+        Iterate over rows of the Timeseries, yielding (time, value) tuples.
+
+        :return: A generator yielding tuples containing (time, value) for each row
+        :rtype: Generator[tuple[datetime, float], None, None]
+        """
+        for row in self.timeseries.iter_rows(named=True):
+            yield (row["time"], row["value"])
 
     def round(self, rounding_precision: int, inplace: bool = True) -> Timeseries:
         """

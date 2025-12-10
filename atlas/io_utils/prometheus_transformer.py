@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import h5py  # type: ignore[import-untyped]
 import numpy as np
@@ -9,10 +9,11 @@ import pendulum
 import polars as pl
 import yaml
 
+import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
-from atlas.typing import get_class_inheritance_chain
+from atlas.typing import get_class_inheritance_chain, get_type_attribute
 
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
 NAME_MAPPING = {
@@ -20,6 +21,7 @@ NAME_MAPPING = {
     "is_v2_g": "is_v2g",
     "idpo_for_orders": "id_po_for_orders",
     "co2_emission": "co2_emissions",
+    "daptdf": "da_ptdf",
 }
 
 
@@ -59,6 +61,13 @@ class PrometheusToAtlasDataParser:
 
             for object_type in object_types:
                 object_type_snake = to_snake_case(object_type)
+
+                if (
+                    object_type_snake not in cfg.MODEL_MAPPING_NAME
+                    and object_type_snake not in MAPPING_OBJECTS_TO_ATLAS
+                ):
+                    logger.warning(f"Object type {object_type_snake} not found in Atlas model mapping, skipping.")
+                    continue
                 if object_type_snake in MAPPING_OBJECTS_TO_ATLAS:
                     object_type_snake = MAPPING_OBJECTS_TO_ATLAS[object_type_snake]
                 logger.info(f"Processing object type: {object_type} (as {object_type_snake})")
@@ -82,7 +91,13 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = to_snake_case(attr_name)
-                        if attr_name_snake == "comment":
+                        if (
+                            attr_name_snake not in list(cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys())
+                            and attr_name_snake not in NAME_MAPPING
+                        ):
+                            cfg.logger.warning(
+                                f"The attribute {attr_name_snake} is not present in Atlas model object: {object_type_snake}, skipping it."
+                            )
                             continue
 
                         if attr_name_snake in NAME_MAPPING:
@@ -114,100 +129,108 @@ class PrometheusToAtlasDataParser:
                             else:
                                 logger.warning("Failed to get the matrix / timeseries type")
 
-                            df = pl.read_csv(file, separator=";").with_columns(
-                                pl.col("TimeStep").str.strptime(
-                                    pl.Datetime(), pendulum_to_datetime(self.date_format_timestep)
-                                )
-                            )
-                            if matrix_type == "forecasting_matrix":
-                                duplicated_columns = [e for e in df.columns if "duplicated" in e]
-                                old_indexes = df.drop(*duplicated_columns).select(pl.selectors.numeric()).columns
-                                if len(old_indexes) > 0:
-                                    indexes_sorted = (
-                                        pl.DataFrame({"indexes": old_indexes})
-                                        .with_columns(
-                                            pl.col("indexes").str.strptime(
-                                                pl.Datetime(time_unit="us"),
-                                                pendulum_to_datetime(self.date_format_forecasting),
-                                                strict=False,
-                                            )
-                                        )
-                                        .sort("indexes")
-                                        .with_columns(
-                                            pl.col("indexes").dt.strftime(
-                                                pendulum_to_datetime(self.date_format_forecasting)
-                                            )
-                                        )
-                                        .to_series()
-                                        .to_list()
-                                    )
-
-                                    df = df.select("TimeStep", *indexes_sorted).sort(
-                                        "TimeStep"
-                                    )  # sort indexes in case its not done
-
-                                    new_indexes = (
-                                        pl.DataFrame({"indexes": indexes_sorted})
-                                        .with_columns(
-                                            pl.col("indexes").str.strptime(
-                                                pl.Datetime(time_unit="us", time_zone="UTC"),
-                                                pendulum_to_datetime(self.date_format_forecasting),
-                                                strict=False,
-                                            )
-                                        )
-                                        .sort("indexes")
-                                        .with_columns(
-                                            pl.col("indexes").dt.strftime(pendulum_to_datetime("YYYY-MM-DD HH:mm:ss"))
-                                        )
-                                        .to_series()
-                                        .to_list()
-                                    )
-
-                                    renaming_mapping = dict(zip(indexes_sorted, new_indexes, strict=False))
-                                    df = df.rename(renaming_mapping)
                             try:
-                                infer_frequency(df.rename({"TimeStep": "time"}))
-                            except ValueError:
-                                timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
-                                df = df.sort("TimeStep")
-                                df = (
-                                    df.upsample(time_column="TimeStep", every=timestep)
-                                    .fill_null(strategy="forward")
-                                    .sort("TimeStep")
+                                df = pl.read_csv(file, separator=";").with_columns(
+                                    pl.col("TimeStep").str.strptime(
+                                        pl.Datetime(), pendulum_to_datetime(self.date_format_timestep)
+                                    )
                                 )
-                            df = df.with_columns(
-                                pl.lit(attr_name_snake).alias("attribute"),
-                            ).select(
-                                pl.selectors.datetime(),
-                                pl.selectors.string(),
-                                pl.selectors.numeric(),
-                            )
+                                read_correctly = True
+                            except Exception:
+                                read_correctly = False
+                                logger.warning(f"File is present but can't be read properly. Check {file}")
+                            if read_correctly:
+                                if matrix_type == "forecasting_matrix":
+                                    duplicated_columns = [e for e in df.columns if "duplicated" in e]
+                                    old_indexes = df.drop(*duplicated_columns).select(pl.selectors.numeric()).columns
+                                    if len(old_indexes) > 0:
+                                        indexes_sorted = (
+                                            pl.DataFrame({"indexes": old_indexes})
+                                            .with_columns(
+                                                pl.col("indexes").str.strptime(
+                                                    pl.Datetime(time_unit="us"),
+                                                    pendulum_to_datetime(self.date_format_forecasting),
+                                                    strict=False,
+                                                )
+                                            )
+                                            .sort("indexes")
+                                            .with_columns(
+                                                pl.col("indexes").dt.strftime(
+                                                    pendulum_to_datetime(self.date_format_forecasting)
+                                                )
+                                            )
+                                            .to_series()
+                                            .to_list()
+                                        )
 
-                            path_file_to_instance_matrix = (
-                                Path(self.root_input_directory)
-                                / matrix_type
-                                / object_type_snake
-                                / f"{instance_snake}.parquet"
-                            )
-                            if path_file_to_instance_matrix.exists():
-                                df_existing = pl.read_parquet(path_file_to_instance_matrix).select(
+                                        df = df.select("TimeStep", *indexes_sorted).sort(
+                                            "TimeStep"
+                                        )  # sort indexes in case its not done
+
+                                        new_indexes = (
+                                            pl.DataFrame({"indexes": indexes_sorted})
+                                            .with_columns(
+                                                pl.col("indexes").str.strptime(
+                                                    pl.Datetime(time_unit="us", time_zone="UTC"),
+                                                    pendulum_to_datetime(self.date_format_forecasting),
+                                                    strict=False,
+                                                )
+                                            )
+                                            .sort("indexes")
+                                            .with_columns(
+                                                pl.col("indexes").dt.strftime(
+                                                    pendulum_to_datetime("YYYY-MM-DD HH:mm:ss")
+                                                )
+                                            )
+                                            .to_series()
+                                            .to_list()
+                                        )
+
+                                        renaming_mapping = dict(zip(indexes_sorted, new_indexes, strict=False))
+                                        df = df.rename(renaming_mapping)
+                                try:
+                                    infer_frequency(df.rename({"TimeStep": "time"}))
+                                except ValueError:
+                                    timestep = get_most_frequent_timestep(df.rename({"TimeStep": "time"}))
+                                    df = df.sort("TimeStep")
+                                    df = (
+                                        df.upsample(time_column="TimeStep", every=timestep)
+                                        .fill_null(strategy="forward")
+                                        .sort("TimeStep")
+                                    )
+                                df = df.with_columns(
+                                    pl.lit(attr_name_snake).alias("attribute"),
+                                ).select(
                                     pl.selectors.datetime(),
                                     pl.selectors.string(),
                                     pl.selectors.numeric(),
                                 )
-                                if len(df) > 0:
-                                    df_concat = pl.concat([df_existing, df], how="diagonal")
-                                    df_concat.write_parquet(path_file_to_instance_matrix)
+
+                                path_file_to_instance_matrix = (
+                                    Path(self.root_input_directory)
+                                    / matrix_type
+                                    / object_type_snake
+                                    / f"{instance_snake}.parquet"
+                                )
+                                if path_file_to_instance_matrix.exists():
+                                    df_existing = pl.read_parquet(path_file_to_instance_matrix).select(
+                                        pl.selectors.datetime(),
+                                        pl.selectors.string(),
+                                        pl.selectors.numeric(),
+                                    )
+                                    if len(df) > 0:
+                                        df_concat = pl.concat([df_existing, df], how="diagonal")
+                                        df_concat.write_parquet(path_file_to_instance_matrix)
+                                    else:
+                                        logger.warning("Csv has structure but is empty, skipping it")
+                                        attrs[attr_name_snake] = None
                                 else:
-                                    logger.warning("Csv has structure but is empty, skipping it")
-                                    attrs[attr_name_snake] = None
-                            else:
-                                if len(df) > 0:
-                                    df.write_parquet(path_file_to_instance_matrix)
-                                else:
-                                    logger.warning("Csv has structure but is empty, skipping it")
-                                    attrs[attr_name_snake] = None
-                            continue
+                                    if len(df) > 0:
+                                        df.write_parquet(path_file_to_instance_matrix)
+                                    else:
+                                        logger.warning("Csv has structure but is empty, skipping it")
+                                        attrs[attr_name_snake] = None
+                                continue
 
                         if isinstance(item, h5py.Dataset):
                             val = item[()]
@@ -230,14 +253,28 @@ class PrometheusToAtlasDataParser:
                                     attrs[attr_name_snake] = None
                                 if attrs[attr_name_snake] in NAME_MAPPING:
                                     attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
-                                if attr_name_snake == "equipment":
-                                    attrs[attr_name_snake] = to_snake_case(attrs[attr_name_snake])
+
+                                type_attribute = get_type_attribute(
+                                    object_type_snake, attr_name_snake
+                                )  # gets the type of the attribute in the pydantic model
+                                try:
+                                    type_attribute = get_args(type_attribute)[0]
+                                    # get the sub type if it's a Union or a list, to get the actual business model object into it if it exists
+                                except Exception:
+                                    pass
+                                if attr_name_snake == "equipment" or type_attribute in cfg.MODEL_MAPPING_NAME.values():
+                                    attrs[attr_name_snake] = to_snake_case(
+                                        attrs[attr_name_snake]
+                                    )  # convert to snake case to make a proper reference to the other business model object already in snake case
                                 logger.debug(f"Scalar attribute: {attr_name_snake} = {attrs[attr_name_snake]}")
                             elif isinstance(val, np.ndarray):
                                 if val.ndim == 1:
                                     if isinstance(list(val)[0], bytes):
                                         val = [v.decode("utf-8") for v in val]
-                                    if attr_name_snake == "orders":
+                                    if (
+                                        get_args(get_type_attribute(object_type_snake, attr_name_snake))[0]
+                                        in cfg.MODEL_MAPPING_NAME.values()
+                                    ):
                                         val = [to_snake_case(order) for order in val]
                                     attrs[attr_name_snake] = ":".join(map(str, list(val)))
                             else:

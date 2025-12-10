@@ -15,6 +15,7 @@ import pandas as pd
 import polars as pl
 
 from atlas.io_utils.utils import scan_data_file
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone
@@ -42,18 +43,19 @@ class LazyMatrix:
             self.matrix = matrix.to_lazy()
             self.timezone = matrix.timezone
         elif isinstance(matrix, pl.LazyFrame):
-            schema = matrix.collect_schema().to_frame()
-            time_column = schema.select(pl.selectors.datetime() | pl.selectors.date()).columns
-            value_column = schema.select(pl.selectors.numeric()).columns
+            schema = matrix.collect_schema()
 
-            if len(time_column) != 1:
+            time_columns = [name for name, dtype in schema.items() if dtype.is_temporal()]
+            value_columns = [name for name, dtype in schema.items() if dtype.is_numeric()]
+
+            if len(time_columns) != 1:
                 raise ValueError("LazyMatrix must have exactly one datetime column")
 
-            if len(time_column) + len(value_column) != len(schema.columns):
+            if len(time_columns) + len(value_columns) != len(schema):
                 raise ValueError("LazyMatrix must have N columns one for datetime and N-1 for numerical values")
 
             self.matrix = (
-                matrix.rename({time_column[0]: "time"})
+                matrix.rename({time_columns[0]: "time"})
                 .with_columns(pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)))
                 .sort("time")
             )
@@ -105,15 +107,16 @@ class LazyMatrix:
 
     def _get_indexes(self) -> list[str]:
         """Identify index columns by excluding the time column."""
-        schema = self.matrix.collect_schema().to_frame()
-        time_columns = schema.select(pl.selectors.datetime() | pl.selectors.date()).columns
+        schema = self.matrix.collect_schema()
 
-        time_column = time_columns[0]
-        return [col for col in self.matrix.collect_schema() if col != time_column]
+        time_columns = [name for name, dtype in schema.items() if dtype.is_temporal()]
+        time_column = time_columns[0] if time_columns else "time"
+
+        return [col for col in schema.names() if col != time_column]
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
         index: str,
     ) -> None:
         """
@@ -128,10 +131,12 @@ class LazyMatrix:
         if index in self.indexes:
             raise KeyError(f"Index {index} already exists in the matrix.")
 
-        if not isinstance(timeseries, Timeseries):
-            timeseries = Timeseries(timeseries)
-
-        lazy_ts = timeseries.to_frame(engine="polars").rename({"value": index}).lazy()  # type: ignore [operator]
+        if isinstance(timeseries, LazyTimeseries):
+            lazy_ts = timeseries.lazyframe
+        elif isinstance(timeseries, pl.LazyFrame):
+            lazy_ts = timeseries
+        else:
+            lazy_ts = Timeseries(timeseries).to_frame(engine="polars").rename({"value": index}).lazy()  # type: ignore [operator]
 
         # Join with the existing matrix
         self.matrix = self.matrix.join(
@@ -155,20 +160,41 @@ class LazyMatrix:
         if index not in self.indexes:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
-        # Drop the specified column
         self.matrix = self.matrix.drop(index)
 
-        # Update indexes
         self.indexes = self._get_indexes()
 
-    def select(self, index: str) -> Timeseries:
+    def replace(
+        self,
+        index: str,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+    ) -> None:
         """
-        Get a timeseries by index.
+        Replace a Timeseries in the matrix and keep indexes sorted.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
+        """
+        self.delete(index=index)
+        self.add(timeseries=timeseries, index=index)
+
+    def select(self, index: str) -> LazyTimeseries:
+        """
+        Get a lazy timeseries by index.
+
+        This operation does not materialize the data, keeping it lazy.
 
         :param index: Index key.
-        :type index: Index
+        :type index: str
         :raises KeyError: If the index is not found.
-        :return: The Timeseries object.
-        :rtype: Timeseries
+        :return: The LazyTimeseries object.
+        :rtype: LazyTimeseries
         """
-        return self.collect().__getitem__(index)
+        if index not in self.indexes:
+            raise KeyError(f"Index {index} not found in the matrix.")
+
+        # Select time and the specified column, rename to 'value'
+        lazy_ts = self.matrix.select(["time", index]).rename({index: "value"})
+        return LazyTimeseries(lazy_ts, timezone=self.timezone)

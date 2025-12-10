@@ -108,6 +108,17 @@ class TestTimeseriesInit:
         ts2 = Timeseries.from_index(start, freq, end, default_value=[1.0, 2.0, 3.0], timezone="UTC")
         assert ts2.dataframe["value"].to_list() == [1.0, 2.0, 3.0]
 
+    def test_from_timeseries(self):
+        start = "2025-01-01 00:00:00"
+        end = "2025-01-01 02:00:00"
+        freq = "1h"
+        ts1 = Timeseries.from_index(start, freq, end, default_value=5.0, timezone="UTC")
+        ts2 = Timeseries.from_timeseries(ts1)
+        ts3 = Timeseries.from_timeseries(ts1, 0.0)
+
+        assert ts1 == ts2
+        assert ts1 != ts3
+
     def test_init_with_dict(self):
         """Test initialization with a dictionary."""
         data = {
@@ -293,6 +304,49 @@ class TestTimeseriesBasicOperations:
     def test_len(self, sample_ts):
         """Test length calculation."""
         assert len(sample_ts) == 4
+
+    def test_contains_with_datetime(self, sample_ts):
+        """Test __contains__ with datetime object."""
+        dt_exists = datetime(2023, 1, 1, 1, 0, 0)
+        dt_not_exists = datetime(2023, 1, 1, 1, 30, 0)
+
+        assert dt_exists in sample_ts
+        assert dt_not_exists not in sample_ts
+
+    def test_contains_with_string(self, sample_ts):
+        """Test __contains__ with string datetime."""
+        dt_exists = "2023-01-01 02:00:00"
+        dt_not_exists = "2023-01-01 04:00:00"
+
+        assert dt_exists in sample_ts
+        assert dt_not_exists not in sample_ts
+
+    def test_contains_with_pendulum_datetime(self, sample_ts):
+        """Test __contains__ with pendulum.DateTime object."""
+        dt_exists = pendulum.datetime(2023, 1, 1, 3, 0, 0, tz="UTC")
+        dt_not_exists = pendulum.datetime(2023, 1, 1, 5, 0, 0, tz="UTC")
+
+        assert dt_exists in sample_ts
+        assert dt_not_exists not in sample_ts
+
+    def test_contains_with_different_timezone(self, sample_ts):
+        """Test __contains__ with datetime in different timezone."""
+        # Create a timeseries with Europe/Paris timezone
+        sample_ts.set_timezone("Europe/Paris")
+
+        # Test with UTC datetime that corresponds to a time in the series
+        # 2023-01-01 00:00:00 UTC = 2023-01-01 01:00:00 Europe/Paris
+        dt_utc = pendulum.datetime(2023, 1, 1, 0, 0, 0, tz="UTC")
+
+        # The __contains__ should convert to the timeseries timezone
+        assert dt_utc in sample_ts
+
+    def test_contains_with_invalid_input(self, sample_ts):
+        """Test __contains__ with invalid input returns False."""
+        # Invalid inputs should return False instead of raising an exception
+        assert (123 in sample_ts) is False
+        assert (None in sample_ts) is False
+        assert ([] in sample_ts) is False
 
     def test_mul_with_value(self, sample_ts):
         """Test multiplication operation between a timeseries and a value."""
@@ -609,6 +663,40 @@ class TestTimeseriesBasicOperations:
 
         assert sample_ts == sample_ts_copy
 
+    def test_first_date(self, sample_ts):
+        assert sample_ts.first_date() == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+
+    def test_last_date(self, sample_ts):
+        assert sample_ts.last_date() == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+
+    def test_iter_rows(self, sample_ts):
+        """Test iterating over rows of the Timeseries."""
+        rows = list(sample_ts.iter_rows())
+
+        # Check that we get the correct number of rows
+        assert len(rows) == 4
+
+        # Check that each row is a tuple of (time, value)
+        assert all(isinstance(row, tuple) and len(row) == 2 for row in rows)
+
+        # Check the first row
+        assert rows[0][0] == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+        assert rows[0][1] == 10.0
+
+        # Check the last row
+        assert rows[-1][0] == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+        assert rows[-1][1] == 40.0
+
+        # Check all values
+        expected_values = [10.0, 20.0, 30.0, 40.0]
+        actual_values = [row[1] for row in rows]
+        assert actual_values == expected_values
+
+        # Test that iter_rows returns an iterable
+        rows_iterator = sample_ts.iter_rows()
+        first_row = next(rows_iterator)
+        assert first_row == (datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC")), 10.0)
+
 
 class TestTimeseriesManipulation:
     """Test time series manipulation methods."""
@@ -787,8 +875,25 @@ class TestTimeseriesManipulation:
         assert result["value"] == [40]
 
     def test_filter_invalid(self, sample_ts):
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(TypeError):
             result = sample_ts.filter(2, inplace=False)
+
+    def test_slice_with_datetime(self, sample_ts):
+        result = sample_ts.slice(datetime(2023, 1, 1, 1, 0, 0), datetime(2023, 1, 1, 2, 0, 0), inplace=False)
+        result_exclude = sample_ts.slice(
+            datetime(2023, 1, 1, 1, 0, 0), datetime(2023, 1, 1, 3, 0, 0), closed="none", inplace=False
+        )
+        assert len(result) == 2
+        assert result["value"][0] == 20
+        assert result["value"][1] == 30
+        assert len(result_exclude) == 1
+        assert result_exclude["value"][0] == 30
+
+    def test_slice_with_int(self, sample_ts):
+        result = sample_ts.slice_with_offset(1, 2, inplace=False)
+        assert len(result) == 2
+        assert result["value"][0] == 20
+        assert result["value"][1] == 30
 
     def test_get_value(self):
         """Test getting a value at a specific timestamp."""
