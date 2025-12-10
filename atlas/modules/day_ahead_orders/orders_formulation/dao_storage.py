@@ -25,14 +25,9 @@ class DAOStorage:
 
     def formulate_storage_orders(self) -> None:
         """
-         Formulates storage bids on the spot market.
-         Uses the parameters specified by the user and the dataset to create bids based on the forecast
-         stored in the Power forecasting matrix of a "Storage" equipement.
-
-         The function takes the following arguments:
-
-        - `dataset`: a DayAheadOrdersOutputDataset.
-        - `parameters` a named tuple of parameters, containing the common self.parameters.
+        Formulates storage bids on the spot market.
+        Uses the parameters specified by the user and the dataset to create bids based on the forecast
+        stored in the Power forecasting matrix of a "Storage" equipement.
         """
 
         # Loop on all the actors that have EV storage capacity

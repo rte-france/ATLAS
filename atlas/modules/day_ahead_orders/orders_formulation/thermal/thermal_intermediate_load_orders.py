@@ -27,7 +27,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_7,
     combination_8,
 )
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
+from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_bidding import ThermalBidding
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization_model import (
     ThermalOptimizationModel,
 )
@@ -76,7 +76,7 @@ class ThermalIntermediateLoadOrders:
                 )
 
                 # Extract the list of online time frames
-                list_of_online_timeframes = ThermalBaseLoadOrders.extract_online_sequences(
+                list_of_online_timeframes = ThermalBidding.extract_online_sequences(
                     states_sequence, orders_time, parameters, case
                 )
 
