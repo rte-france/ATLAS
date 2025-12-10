@@ -968,3 +968,17 @@ class Timeseries:
         if len(self.timeseries) > 0:
             return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").to_series().to_list()[0]))
         return None
+
+    def round(self, rounding_precision: int, inplace: bool = True) -> Timeseries:
+        """
+        Returns a copy of the timeseries with all the numerical values rounded.
+
+        :param rounding_precision: Number of decimals used to round numerical values.
+        :type rounding_precision: int
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Rounded Timeseries
+        :rtype: Timeseries
+        """
+        df = self.timeseries.with_columns(pl.col("value").round(rounding_precision))
+        return self._return_inplace(df, inplace)
