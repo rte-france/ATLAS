@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 import atlas.config as cfg
-from atlas import Timeseries
+from atlas import Timeseries, generate_datetimes
 from atlas.enum import Product
 
 from atlas.models.market.market_area import MarketArea
@@ -111,6 +111,18 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
         self.input_dataset = input_dataset
         self.raw_data: dict[str, list[type[BusinessModel]]] = {}
 
+    def run(
+            self,
+            accepted_powers: dict[tuple[str, str], float],
+            local_balances: dict[tuple[str, int], float],
+            border_exchanges: dict[tuple[str, int], float],
+            market_prices: dict[tuple[str, int], float]
+    ):
+        self.update_raw_data_with_not_modified_business_model_object()
+        self.update_business_model_object(accepted_powers, local_balances, border_exchanges,
+                                                                    market_prices)
+        self.update_raw_data_with_modified_business_model_object()
+
     def update_raw_data_with_not_modified_business_model_object(self):
         """ Update raw_data with business model object that have not changed"""
         for business_model_name in self.input_dataset.raw_data:
@@ -157,17 +169,17 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
         for mc_market_border in self.input_dataset.mc_market_borders.values():
             mc_market_border_dump = MarketClearingInputDataset.shallow_dump(mc_market_border)
             market_border = MarketBorder.model_validate(mc_market_border_dump)
-            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[MarketArea]].append(market_border)
+            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[MarketBorder]].append(market_border)
         # Create modified CriticalBranch
         for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
             mc_critical_branch_dump = MarketClearingInputDataset.shallow_dump(mc_critical_branch)
             critical_branch = CriticalBranch.model_validate(mc_critical_branch_dump)
-            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[MarketArea]].append(critical_branch)
+            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[CriticalBranch]].append(critical_branch)
         # Create modified Order
         for mc_order in self.input_dataset.mc_orders.values():
             mc_order_dump = MarketClearingInputDataset.shallow_dump(mc_order)
             order = Order.model_validate(mc_order_dump)
-            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[MarketArea]].append(order)
+            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[Order]].append(order)
 
 
     def update_business_model_object(
@@ -184,13 +196,8 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
             self.update_critical_branches(local_balances)
 
     def update_orders(self, accepted_powers: dict[tuple[str, str], float], market_prices: dict[tuple[str, int], float]):
-        null_timeseries = Timeseries.from_index(
-            self.input_dataset.times[0],
-            self.input_dataset.parameters.time_step,
-            self.input_dataset.times[-1],
-            0.0
-        )
-        # Updating orders
+        # If accepted power is too small then change it to 0
+        # Update individual spread price for order
         for order_name, mc_order in self.input_dataset.mc_orders.items():
             accepted_power = accepted_powers[mc_order.market_area.name, order_name]
             # At this point, unaccepted orders can be skipped:
@@ -198,90 +205,116 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 mc_order.accepted_power = 0
                 continue
             mc_order.accepted_power = accepted_power
-            if not mc_order.is_agent_tso:
-                equipment = mc_order.equipment
-                if not equipment:
-                    continue
-                portfolio = equipment.portfolio
-                value_sold_ts = null_timeseries + Timeseries.from_index(
-                    mc_order.start_date,
-                    self.input_dataset.parameters.time_step,
-                    mc_order.end_datetime,
-                    mc_order.accepted_power * mc_order.production_sign
-                )
-                match self.input_dataset.parameters.market:
-                    case Product.DayAhead:
-                        equipment.da_cleared_quantity = self.update_timeseries(
-                            equipment.da_cleared_quantity, value_sold_ts)
-                        portfolio.da_cleared_quantity = self.update_timeseries(
-                            portfolio.da_cleared_quantity, value_sold_ts)
-                    case Product.AFRRUpProcurement:
-                        equipment.afrr_up_procured = self.update_timeseries(
-                            equipment.afrr_up_procured, value_sold_ts)
-                        portfolio.afrr_up_procured = self.update_timeseries(
-                            portfolio.afrr_up_procured, value_sold_ts)
-                    case Product.AFRRDownProcurement:
-                        equipment.afrr_down_procured = self.update_timeseries(
-                            equipment.afrr_down_procured, value_sold_ts)
-                        portfolio.afrr_down_procured = self.update_timeseries(
-                            portfolio.afrr_down_procured, value_sold_ts)
-                    case Product.MFRRUpProcurement:
-                        equipment.mfrr_up_procured = self.update_timeseries(
-                            equipment.mfrr_up_procured, value_sold_ts)
-                        portfolio.mfrr_up_procured = self.update_timeseries(
-                            portfolio.mfrr_up_procured, value_sold_ts)
-                    case Product.MFRRDownProcurement:
-                        equipment.mfrr_down_procured = self.update_timeseries(
-                            equipment.mfrr_down_procured, value_sold_ts)
-                        portfolio.mfrr_down_procured = self.update_timeseries(
-                            portfolio.mfrr_down_procured, value_sold_ts)
-                    case Product.RRUpProcurement:
-                        equipment.rr_up_procured = self.update_timeseries(
-                            equipment.rr_up_procured, value_sold_ts)
-                        portfolio.rr_up_procured = self.update_timeseries(
-                            portfolio.rr_up_procured, value_sold_ts)
-                    case Product.RRDownProcurement:
-                        equipment.rr_down_procured = self.update_timeseries(
-                            equipment.rr_down_procured, value_sold_ts)
-                        portfolio.rr_down_procured = self.update_timeseries(
-                            portfolio.rr_down_procured, value_sold_ts)
-                    case Product.AFRRActivation:
-                        equipment.afrr_activated = self.update_timeseries(
-                            equipment.afrr_activated, value_sold_ts)
-                        portfolio.afrr_activated = self.update_timeseries(
-                            portfolio.afrr_activated, value_sold_ts)
-                    case Product.MFRRActivation:
-                        equipment.mfrr_activated = self.update_timeseries(
-                            equipment.mfrr_activated, value_sold_ts)
-                        portfolio.mfrr_activated = self.update_timeseries(
-                            portfolio.mfrr_activated, value_sold_ts)
-                    case Product.RRActivation:
-                        equipment.rr_activated = self.update_timeseries(
-                            equipment.rr_activated, value_sold_ts)
-                        portfolio.rr_activated = self.update_timeseries(
-                            portfolio.rr_activated, value_sold_ts)
-                    case Product.FCRActivation:
-                        equipment.fcr_activated = self.update_timeseries(
-                            equipment.fcr_activated, value_sold_ts)
-                        portfolio.fcr_activated = self.update_timeseries(
-                            portfolio.fcr_activated, value_sold_ts)
-                    case Product.Intraday:
-                        equipment.total_id_cleared_quantity = self.add_timeseries(
-                            equipment.total_id_cleared_quantity, value_sold_ts)
-                        portfolio.total_id_cleared_quantity = self.add_timeseries(
-                            portfolio.total_id_cleared_quantity, value_sold_ts)
-                        equipment.id_cleared_quantity = self.update_forecast_timeseries(
-                            equipment.id_cleared_quantity, value_sold_ts)
-                        portfolio.id_cleared_quantity = self.update_forecast_timeseries(
-                            portfolio.id_cleared_quantity, value_sold_ts)
-
             # The surplus of an order is the gain made by its emitter computed from the present spot price:
             spot_price = market_prices[mc_order.market_area.name, mc_order.time_index]
             if mc_order.is_sale:
                 mc_order.individual_spread = spot_price - mc_order.price
             else:
                 mc_order.individual_spread = mc_order.price - spot_price
-            continue
+
+        # Create accepted power TS for equipment and portfolio
+        equipments_ts, portfolios_ts = {}, {}
+        equipments_mapping, portfolios_mapping = {}, {}
+        for order_name, mc_order in self.input_dataset.mc_orders.items():
+            accepted_power = accepted_powers[mc_order.market_area.name, order_name]
+            # At this point, unaccepted orders can be skipped:
+            if abs(accepted_power) <= self.input_dataset.parameters.allowed_round_off_error:
+                continue
+            if not mc_order.is_agent_tso and mc_order.equipment is not None:
+                equipment = mc_order.equipment
+                portfolio = equipment.portfolio
+                if equipment.name not in equipments_ts:
+                    equipments_ts[equipment.name] = Timeseries.from_index(
+                        self.input_dataset.times[0],
+                        self.input_dataset.parameters.time_step,
+                        self.input_dataset.times[-1],
+                        0.0
+                    )
+                    equipments_mapping[equipment.name] = equipment
+                if portfolio.name not in portfolios_ts:
+                    portfolios_ts[portfolio.name] = Timeseries.from_index(
+                        self.input_dataset.times[0],
+                        self.input_dataset.parameters.time_step,
+                        self.input_dataset.times[-1],
+                        0.0
+                    )
+                    portfolios_mapping[portfolio.name] = portfolio
+
+                indexes = generate_datetimes(
+                    mc_order.start_date,
+                    mc_order.end_datetime - self.input_dataset.parameters.time_step,
+                    self.input_dataset.parameters.time_step
+                )
+                values_sold = [mc_order.accepted_power * mc_order.production_sign for _ in range(len(indexes))]
+                if len(values_sold) == 1:
+
+                    equipments_ts[equipment.name].add_value_at(mc_order.start_date, values_sold[0])
+                    portfolios_ts[portfolio.name].add_value_at(mc_order.start_date, values_sold[0])
+                else:
+                    value_sold_ts= Timeseries.from_values(mc_order.start_date,
+                                                               self.input_dataset.parameters.time_step, values_sold)
+                    equipments_ts[equipment.name] += value_sold_ts
+                    portfolios_ts[portfolio.name] += value_sold_ts
+
+        for equipment_name, equipment_ts in equipments_ts.items():
+            equipment = equipments_mapping[equipment_name]
+            match self.input_dataset.parameters.market:
+                case Product.DayAhead:
+                    equipment.da_cleared_quantity = equipment_ts
+                case Product.AFRRUpProcurement:
+                    equipment.afrr_up_procured = equipment_ts
+                case Product.AFRRDownProcurement:
+                    equipment.afrr_down_procured = equipment_ts
+                case Product.MFRRUpProcurement:
+                    equipment.mfrr_up_procured = equipment_ts
+                case Product.MFRRDownProcurement:
+                    equipment.mfrr_down_procured = equipment_ts
+                case Product.RRUpProcurement:
+                    equipment.rr_up_procured = equipment_ts
+                case Product.RRDownProcurement:
+                    equipment.rr_down_procured = equipment_ts
+                case Product.AFRRActivation:
+                    equipment.afrr_activated = equipment_ts
+                case Product.MFRRActivation:
+                    equipment.mfrr_activated = equipment_ts
+                case Product.RRActivation:
+                    equipment.rr_activated = equipment_ts
+                case Product.FCRActivation:
+                    equipment.fcr_activated = equipment_ts
+                case Product.Intraday:
+                    equipment.total_id_cleared_quantity = equipment_ts
+                    equipment.id_cleared_quantity.replace(self.input_dataset.parameters.execution_date,
+                                                          equipment_ts)
+
+        for portfolio_name, portfolio_ts in portfolios_ts.items():
+            portfolio = portfolios_mapping[portfolio_name]
+            match self.input_dataset.parameters.market:
+                case Product.DayAhead:
+                    portfolio.da_cleared_quantity = portfolio_ts
+                case Product.AFRRUpProcurement:
+                    portfolio.afrr_up_procured = portfolio_ts
+                case Product.AFRRDownProcurement:
+                    portfolio.afrr_down_procured = portfolio_ts
+                case Product.MFRRUpProcurement:
+                    portfolio.mfrr_up_procured = portfolio_ts
+                case Product.MFRRDownProcurement:
+                    portfolio.mfrr_down_procured = portfolio_ts
+                case Product.RRUpProcurement:
+                    portfolio.rr_up_procured = portfolio_ts
+                case Product.RRDownProcurement:
+                    portfolio.rr_down_procured = portfolio_ts
+                case Product.AFRRActivation:
+                    portfolio.afrr_activated = portfolio_ts
+                case Product.MFRRActivation:
+                    portfolio.mfrr_activated = portfolio_ts
+                case Product.RRActivation:
+                    portfolio.rr_activated = portfolio_ts
+                case Product.FCRActivation:
+                    portfolio.fcr_activated = portfolio_ts
+                case Product.Intraday:
+                    portfolio.total_id_cleared_quantity = portfolio_ts
+                    portfolio.id_cleared_quantity.replace(self.input_dataset.parameters.execution_date,
+                                                          portfolio_ts)
 
     def update_market_area(self, local_balances: dict[tuple[str, int], float],
                            market_prices: dict[tuple[str, int], float]):
@@ -450,7 +483,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
         if ts_obj.timestep != self.input_dataset.parameters.time_step:
             ts_obj.set_frequency(self.input_dataset.parameters.time_step)
 
-        ts_obj.set_values(new_ts)
+        ts_obj.set_values(new_ts, inplace=False)
         return ts_obj
 
     def update_forecast_timeseries(self, forecast_obj, ts_to_add):

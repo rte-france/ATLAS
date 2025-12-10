@@ -62,9 +62,7 @@ class MarketClearingModule(
         marginal_fixing.run(accepted_powers, market_prices)
 
         market_clearing_output_dataset = MarketClearingOutputDataset(input_dataset)
-        market_clearing_output_dataset.update_raw_data_with_not_modified_business_model_object()
-        market_clearing_output_dataset.update_business_model_object(accepted_powers, local_balances, border_exchanges, market_prices)
-        market_clearing_output_dataset.update_raw_data_with_modified_business_model_object()
+        market_clearing_output_dataset.run(accepted_powers, local_balances, border_exchanges, market_prices)
 
         if parameters.output_dataset_path:
             # TODO: export output dataset
