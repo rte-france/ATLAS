@@ -12,6 +12,7 @@ from atlas.modules.market_clearing.market_clearing_parameters import MarketClear
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.exchanges_fixing import ExchangesFixing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
+from atlas.modules.market_clearing.phases.market_clearing_results import MarketClearingResults
 from atlas.modules.market_clearing.phases.pricing import Pricing
 
 
@@ -64,9 +65,6 @@ class MarketClearingModule(
         market_clearing_output_dataset = MarketClearingOutputDataset(input_dataset)
         market_clearing_output_dataset.run(accepted_powers, local_balances, border_exchanges, market_prices)
 
-        if parameters.output_dataset_path:
-            # TODO: export output dataset
-            print()
         return market_clearing_output_dataset
 
     def validates_results(
@@ -83,5 +81,6 @@ class MarketClearingModule(
         input_dataset: MarketClearingInputDataset,
         output_dataset: MarketClearingOutputDataset,
     ) -> None:
-        # 4 csv files : borders, coupling_data, offers and market_areas_data
+        market_clearing_result = MarketClearingResults(input_dataset, parameters)
+        market_clearing_result.run()
         return

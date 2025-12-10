@@ -78,7 +78,7 @@ def test_market_clearing_output(dataset_name):
     parameters_path = os.path.join(path, "parameters.yml")
     dataset_path = os.path.join(path, "atlas-dataset")
     pkl_path = os.path.join(path, "raw_data.pkl")
-    expected_dataset = os.path.join("data", "market_clearing_prometheus", "portfolio-optimisation")
+    expected_dataset_path = os.path.join("data", "market_clearing_prometheus", "portfolio-optimisation")
     expected_pkl_path = os.path.join(path, "expected_raw_data.pkl")
     # last variables come from marginal_fixing
     optim_variables_path = os.path.join(path, "optimization_data", "marginal_fixing", "optim_variables.json")
@@ -104,7 +104,7 @@ def test_market_clearing_output(dataset_name):
             expected_raw_data = pickle.load(f)
     else:
         print("Chargement long des données...")
-        expected_raw_data = InputLoader.from_directory(expected_dataset)
+        expected_raw_data = InputLoader.from_directory(expected_dataset_path)
         print("Création d'un pickle...")
         with open(expected_pkl_path, "wb") as f:
             pickle.dump(expected_raw_data, f)
