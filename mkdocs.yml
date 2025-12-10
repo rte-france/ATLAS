@@ -97,6 +97,17 @@ nav:
     - Authors: authors.md
   - Concepts:
     - Overview: concepts/overview.md
+  - Modules:
+    - Portfolio Optimisation:
+      - Overview: modules/portfolio-optimisation/index.md
+      - User Guide:
+        - Overview: modules/portfolio-optimisation/user-guide/overview.md
+        - Parameters: modules/portfolio-optimisation/user-guide/input-data.md
+        - Running: modules/portfolio-optimisation/user-guide/running.md
+        - Results: modules/portfolio-optimisation/user-guide/results.md
+        - Examples: modules/portfolio-optimisation/user-guide/examples.md
+      - Developer:
+        - Architecture: modules/portfolio-optimisation/developer/architecture.md
   - API Reference:
     - Math Objects:
       - Timeseries: api/math/timeseries.md
