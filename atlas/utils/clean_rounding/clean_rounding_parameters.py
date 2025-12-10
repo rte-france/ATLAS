@@ -20,9 +20,18 @@ class CleanRoundingParameters(ABCPrototypeParameters):
     :type epsilon: float
     """
 
-    start_date: DateTime = Field(default=datetime(2028, 9, 26), description="Start date of the rounding time frame.")
-    end_date: DateTime = Field(default=datetime(2028, 9, 26), description="End date of the rounding time frame.")
-    time_step: int = Field(default=60, description="Time step of the timeseries in the input marker, in minutes.")
+    start_date: DateTime = Field(
+        default=datetime(2028, 9, 26),
+        description="Start date of the rounding time frame.",
+    )
+    end_date: DateTime = Field(
+        default=datetime(2028, 9, 26),
+        description="End date of the rounding time frame.",
+    )
+    time_step: int = Field(
+        default=60,
+        description="Time step of the timeseries in the input marker, in minutes.",
+    )
     rounding_precision: int = Field(
         default=2,
         description="Number of decimals allowed during rounding processes. NB: certain values are by default rounded to the nearest integer.",
