@@ -1,5 +1,27 @@
 # Getting Started
 
+## Quick start
+
+This project is under development. There is no public release. To use it :
+
+```bash
+git clone https://github.com/rte-france/ATLAS.git
+```
+
+Then, install [**uv**](https://docs.astral.sh/uv/#installation) and set up your environment :
+
+```bash
+uv sync
+```
+
+The aim is to have a basic installation :
+
+```bash
+pip install atlas-rte
+
+uv add atlas-rte # using uv
+```
+
 ## Available solver
 
 Atlas project uses or-tools as modeller, you can use the solver of your choice. We provided a special support for the commercial Xpress solver. Here is a quick install guide :
