@@ -75,7 +75,8 @@ class ThermalBidding:
             "Intermediate load orders formulation completed. Moving on to the formulation of the peak load orders..."
         )
 
-        ThermalPeakLoadOrders.formulate_thermal_peak_load_orders(self.dataset, self.orders_time, self.parameters)
+        thermal_peak_load_orders = ThermalPeakLoadOrders(self.dataset, self.orders_time, self.parameters)
+        thermal_peak_load_orders.formulate_thermal_peak_load_orders()
         cfg.logger.info("Peak load orders formulation completed.")
 
         # This is done last and not during the bidding process because of mutually exclusive programs, and to simplify debug
