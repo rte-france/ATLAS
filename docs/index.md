@@ -41,6 +41,6 @@ Atlas uses a **workflow-based architecture** to simulate realistic market dynami
 
     Atlas is licensed under MPL 2.0 and available on [GitHub](https://github.com/rte-france/ATLAS).
 
-    [:octicons-arrow-right-24: License](license.md)
+    [:octicons-arrow-right-24: License](https://www.mozilla.org/en-US/MPL/2.0/)
 
 </div>
