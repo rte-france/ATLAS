@@ -36,7 +36,7 @@ class DayAheadOrdersOrchestrator:
 
         # Create the sequence of orders times. In particular, this sequence is such that the endDate of the last order will be before
         # the endDate of the overall time frame.
-        orders_time = self._define_orders_time()
+        orders_time = self.define_orders_time()
         if len(orders_time) > 0:
             cfg.logger.info("Extraction completed, now starting the formulation of orders...")
 
@@ -73,12 +73,12 @@ class DayAheadOrdersOrchestrator:
             cfg.logger.info("Thermic orders formulated.")
 
             cfg.logger.info("Formulation of orders successfully completed.")
-
-            return self.output_dataset
         else:
             cfg.logger.error("orders_time is empty.")
 
-    def _define_orders_time(self) -> list[pendulum.DateTime]:
+        return self.output_dataset
+
+    def define_orders_time(self) -> list[pendulum.DateTime]:
         """
         This function creates a sequence of timestamps between a start_date and a end_date
         with step deltaTime. It returns a list of DateTime objects.
