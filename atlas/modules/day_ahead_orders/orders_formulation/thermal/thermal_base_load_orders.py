@@ -60,8 +60,6 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             for online_timeframe in list_of_online_timeframes:
                 self.formulate_unit_orders(online_timeframe, unit)
 
-    # ------ Sequences identification functions ------
-    # These functions aim at identifying or classifying state sequences of a unit
     def determine_baseload_states_sequence(self, unit: Thermal) -> tuple[Timeseries, bool]:
         """
         Computes the sequence of states on a single time frame for the baseload unit passed as input.
@@ -89,8 +87,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         # Intialize the value of the boolean inconsistent
         inconsistent = False
 
-        # Sanity check : see whether the unit passed as an input is a baselaod unit
-        # Otherwise raise an error.
+        # Sanity check : see whether the unit passed as an input is a baselaod unit. Otherwise raise an error.
         if not unit.strategy == ThermalStrategy.BASE:
             cfg.logger.error(f"*** WARNING ***\n Equipement {unit.name} is not of strategy 'Base'.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
@@ -127,8 +124,8 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             if t in maximum_power and maximum_power.get_value(t) > 0:
                 states_sequence.set_value(t, 1)
 
-        # See if there is only one startup or shutdown over the time frame. If it is not the case, the program will be considered as
-        # inconsistent.
+        # See if there is only one startup or shutdown over the time frame. If it is not the case,
+        # the program will be considered as inconsistent.
         startup_count, shutdown_count = 0, 0
         for t in extended_time_frame[1:]:
             t_prev = t - self.parameters.time_step

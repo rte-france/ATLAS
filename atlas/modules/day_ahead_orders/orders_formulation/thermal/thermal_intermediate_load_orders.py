@@ -148,7 +148,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         """
 
         # Quick sanity check on the class of the equipment supplied as input.
-        if not type(thermal_unit).__name__ == "Thermal":
+        if not isinstance(thermal_unit, Thermal):
             cfg.logger.error(f"*** WARNING ***\n Equipement {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
 
@@ -178,20 +178,16 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     + results[thermal_unit.name][case]["ON_DOWN"]
                     + results[thermal_unit.name][case]["ON_FLAT"]
                 )
-                # Set the name of the new time serie
-                isOn_time_serie.name = case
-                # Add this time serie to the list
-                collapsed_outcomes.append(isOn_time_serie)
         else:
             for case in scenarios_names:
                 # Aggregate the two ON states
                 isOn_time_serie = (
                     results[thermal_unit.name][case]["ON_UP"] + results[thermal_unit.name][case]["ON_DOWN"]
                 )
-                # Set the name of the new time serie, corresponds to the name of the case under consideration.
-                isOn_time_serie.name = case
-                # Add this time serie to the list
-                collapsed_outcomes.append(isOn_time_serie)
+        # Set the name of the new time serie, corresponds to the name of the case under consideration.
+        isOn_time_serie.name = case
+        # Add this time serie to the list
+        collapsed_outcomes.append(isOn_time_serie)
 
         # Now based on the collapsed time series, we are able to do pairwise comparisons across all scenarios and determine whether two of them
         # are overlapping or not.
@@ -282,8 +278,6 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         Return :
         `overlapping_blocks` : a list of tuples of overlapping blocks
         """
-        # print "DEBUG : Overlapping timeframes"
-
         # Initialize the output
         overlapping_blocks: list[tuple[Timeseries]] = []
 
@@ -348,8 +342,6 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         Returns:
         results : a two stage dictionary containing for each equipment the optimal quantities given a price curve.
-        lp_files : a two stage dictionary containing for each equipment and each price curve the associated lp file
-                    of the optimization program.
         """
 
         # create a dictionary that will store the program's outcomes.

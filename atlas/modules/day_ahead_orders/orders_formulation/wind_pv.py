@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas import Order
+from atlas import Order, Solar, Wind
 from atlas.enum import OrderType, Product
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
@@ -62,9 +62,9 @@ class WindPV:
                 for t in orders_time:
                     # Assign a unique name
                     bid_name = ""
-                    if type(equipment).__name__ == "Wind":
+                    if isinstance(equipment, Wind):
                         bid_name = f"wind_order_at_{t}_for_unit_{equipment.name}"
-                    elif type(equipment).__name__ == "Solar":
+                    elif isinstance(equipment, Solar):
                         bid_name = f"pv_order_at_{t}_for_unit_{equipment.name}"
                     else:
                         cfg.logger.warning(f"equipment {equipment.name} isn't Wind nor Solar")

@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
-from atlas import Timeseries
+from atlas import Thermal, Timeseries
 from atlas.enum import CouplingType, Product, ThermalStrategy
 from atlas.models.market.order import Order
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
@@ -96,7 +96,7 @@ class ThermalBidding:
         for order in self.dataset.order:
             if (
                 order.product == Product.DayAhead
-                and type(order.equipment).__name__ == "Thermal"
+                and isinstance(order.equipment, Thermal)
                 and order.start_date in self.orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
@@ -116,7 +116,6 @@ class ThermalBidding:
 
                 if coupling_instance.coupling_type == CouplingType.EXCLUSION:
                     new_coupling.append(CouplingType.EXCLUSION)
-                    # We use this loop because C# does not support slices as list indexes (coupling_instance.Orders[1:] raise a type error)
                     for coupled_order_index, coupled_order in enumerate(coupling_instance.orders):
                         if coupled_order_index == order_index:
                             continue

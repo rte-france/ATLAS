@@ -86,7 +86,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
             )
         # Quick sanity check on the class of the equipment supplied as input.
-        if not type(thermal_unit).__name__ == "Thermal":
+        if not isinstance(thermal_unit, Thermal):
             cfg.logger.error(f"*** WARNING ***\n Equipement {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
         self.thermal_unit = thermal_unit
