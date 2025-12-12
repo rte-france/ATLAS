@@ -172,6 +172,7 @@ class OutputGenerator:
                                 attribute=field_name,
                                 file_format=config.timeseries_file_extension.replace(".", ""),
                                 separator=config.separator,
+                                concatenate=True
                             )
                             rows[idx_next_row] += "timeseries"
                         elif isinstance(dump_value[field_name], ForecastingMatrix):
@@ -186,6 +187,7 @@ class OutputGenerator:
                                 attribute=field_name,
                                 file_format=config.matrix_file_extension.replace(".", ""),
                                 separator=config.separator,
+                                concatenate=True
                             )
                             rows[idx_next_row] += "forecasting_matrix"
                         elif isinstance(dump_value[field_name], ScenarioMatrix):
@@ -200,6 +202,7 @@ class OutputGenerator:
                                 attribute=field_name,
                                 file_format=config.matrix_file_extension.replace(".", ""),
                                 separator=config.separator,
+                                concatenate=True
                             )
                             rows[idx_next_row] += "scenario_matrix"
                         elif isinstance(dump_value[field_name], bool):
@@ -215,6 +218,11 @@ class OutputGenerator:
                             rows[idx_next_row] += dump_value[field_name].to_iso8601_string()
                         elif isinstance(dump_value[field_name], dict):
                             rows[idx_next_row] += str(dump_value[field_name]["name"])
+                        elif isinstance(dump_value[field_name], list):
+                            rows[idx_next_row] += str(dump_value[field_name][0])
+                            for x in dump_value[field_name][1:]:
+                                rows[idx_next_row] += ":"
+                                rows[idx_next_row] += str(x)
                         else:
                             rows[idx_next_row] += str(dump_value[field_name])
 
