@@ -491,7 +491,16 @@ class ThermalUnitOrders:
                     flexible_bid_name = flex_type + config_bid_name
                     flexible_bid = next((bid for bid in self.dataset.order if bid.name == flexible_bid_name), None)
                     if flexible_bid is not None:
-                        self.create_parent_child_link(self.dataset, bid_output, flexible_bid, case, unit, t)
+                        # Add parent-children link between the flexible and inflexible parts
+                        link_flexible_inflexible = OrderCoupling(
+                            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
+                            coupling_type=CouplingType.PARENT_CHILDREN,
+                            orders=[],
+                        )
+                        # add the two orders
+                        link_flexible_inflexible.orders.append(bid_output)
+                        link_flexible_inflexible.orders.append(flexible_bid)
+                        self.dataset.order_coupling.append(link_flexible_inflexible)
 
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]
@@ -512,20 +521,6 @@ class ThermalUnitOrders:
                     order.price += amortized_cost
                 else:
                     order.price -= amortized_cost
-
-    def create_parent_child_link(
-        self, parent_bid: Order, child_bid: Order, case: str, unit: Thermal, t: DateTime
-    ) -> None:
-        # Add parent-children link between the flexible and inflexible parts
-        link_flexible_inflexible = OrderCoupling(
-            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
-            coupling_type=CouplingType.PARENT_CHILDREN,
-            orders=[],
-        )
-        # add the two orders
-        link_flexible_inflexible.orders.append(parent_bid)
-        link_flexible_inflexible.orders.append(child_bid)
-        self.dataset.order_coupling.append(link_flexible_inflexible)
 
     def extract_online_sequences(self, states_sequence: Timeseries, case: str = "") -> list[Timeseries]:
         """
