@@ -70,7 +70,8 @@ class TestSolverOptionsIntegration:
         model = OptimisationModel(solver_name=SolverEnum.GLOP, options=options)
 
         x = model.add_continuous_variable("x", 0, 10)
-        model.set_objective(x, direction="maximize")
+        model.set_direction("maximize")
+        model.set_objective(x)
 
         solution = model.solve()
         assert solution.status.name == "OPTIMAL"
@@ -103,7 +104,8 @@ class TestSolverOptionsParameterPassing:
         model._parameter_builder = mock_builder
 
         x = model.add_continuous_variable("x", 0, 10)
-        model.set_objective(x, direction="maximize")
+        model.set_direction("maximize")
+        model.set_objective(x)
         model.solve()
 
         # Verify apply_options was called with the correct options
@@ -121,7 +123,8 @@ class TestSolverOptionsParameterPassing:
         model._parameter_builder = mock_builder
 
         x = model.add_continuous_variable("x", 0, 10)
-        model.set_objective(x, direction="maximize")
+        model.set_direction("maximize")
+        model.set_objective(x)
         model.solve()
 
         # Verify apply_options was called with the correct options
@@ -139,7 +142,8 @@ class TestSolverOptionsParameterPassing:
         model._parameter_builder = mock_builder
 
         x = model.add_continuous_variable("x", 0, 10)
-        model.set_objective(x, direction="maximize")
+        model.set_direction("maximize")
+        model.set_objective(x)
         model.solve()
 
         # Verify apply_options was called with the correct options
@@ -157,7 +161,8 @@ class TestSolverOptionsParameterPassing:
         model._parameter_builder = mock_builder
 
         x = model.add_continuous_variable("x", 0, 10)
-        model.set_objective(x, direction="maximize")
+        model.set_direction("maximize")
+        model.set_objective(x)
         model.solve()
 
         # Verify apply_options was called with all options
