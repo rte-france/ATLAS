@@ -201,7 +201,7 @@ class Timeseries:
         """Create a Timeseries object from a dataframe-like object.
 
         :param dataframe: The input dataframe
-        :type dataframe: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list[float]]
+        :type dataframe: pl.DataFrame | Timeseries | pd.DataFrame
         :param timezone: The timezone of the Timeseries, defaults to "UTC"
         :type timezone: str, optional
         :return: The timeseries instantiated from the dataframe-like object
@@ -211,6 +211,39 @@ class Timeseries:
             raise TypeError("Input has to be a dataframe-like object.")
 
         return cls(dataframe, timezone)
+
+    @classmethod
+    def from_dict(
+        cls,
+        timeseries_dict: dict[str, list[float]],
+        timezone="UTC",
+    ) -> Timeseries:
+        """Create a Timeseries object from a dict object.
+
+        :param timeseries_dict: The input dataframe
+        :type timeseries_dict: dict[str, list[float]]
+        :param timezone: The timezone of the Timeseries, defaults to "UTC"
+        :type timezone: str, optional
+        :return: The timeseries instantiated from the dataframe-like object
+        :rtype: Timeseries
+        """
+        dataframe = Timeseries.dataframe_from_dict(timeseries_dict)
+        return cls(dataframe, timezone)
+
+    @staticmethod
+    def dataframe_from_dict(timeseries_dict: dict[str, list[float]]) -> pl.DataFrame:
+        """Create a Dataframe on Timeseries format from a dict object.
+
+        :param timeseries_dict: The input dataframe
+        :type timeseries_dict: dict[str, list[float]]
+        :return: The Dataframe instantiated from the dict-like object
+        :rtype: pl.DataFrame
+        """
+        try:
+            dataframe = pl.DataFrame(timeseries_dict)
+            return dataframe
+        except Exception as e:
+            raise ValueError("Dict cannot be formatted as a DataFrame") from e
 
     def describe(self) -> dict[str, Any]:
         """
@@ -552,7 +585,7 @@ class Timeseries:
         inplace: bool = True,
     ) -> Timeseries:
         """
-        Set or update a value at a specific datetime. If the datetime exists, it is overwritten.
+        Update a value at a specific datetime.
 
         :param time: Datetime to set
         :type time: datetime or str
@@ -562,17 +595,13 @@ class Timeseries:
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: Timeseries with the added value
+        :return: Timeseries with the set value
         :rtype: Timeseries
         """
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
-        if len(self.timeseries) == 0:
-            df = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
-                pl.col("time").dt.replace_time_zone(self.timezone),
-                pl.col("value").cast(pl.Float64()),
-            )
-            return self._return_inplace(df, inplace)
+        if dt not in self.dataframe["time"]:
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
         df = self.timeseries.filter(pl.col("time") != dt)
         new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
@@ -585,7 +614,7 @@ class Timeseries:
 
     def set_values(
         self,
-        other: Timeseries,
+        other: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list[float]],
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -599,68 +628,24 @@ class Timeseries:
         :rtype: Timeseries
         """
         if len(self.timeseries) == 0:
-            df = other.dataframe
-            return self._return_inplace(df, inplace)
+            other_df = other.dataframe
+            return self._return_inplace(other_df, inplace)
 
-        # Remove all existing rows that match any of the new timestamps
-        df = self.timeseries.filter(~pl.col("time").is_in(other.index))
+        if isinstance(other, Timeseries):
+            other_df = other.dataframe
+        elif isinstance(other, pl.DataFrame | pd.DataFrame):
+            other_df = other
+        elif isinstance(other, dict):
+            other_df = Timeseries.dataframe_from_dict(other)
+        else:
+            raise TypeError("Input has to be a Timeseries / dataframe-like / dict object.")
 
-        # Combine and sort
-        df = pl.concat([df, other.dataframe]).sort("time")
+        if not other_df["time"].is_in(self.dataframe["time"]).all():
+            raise ValueError("Could not set values on Timeseries because indexes to set are not all present in "
+                             "Timeseries")
 
-        return self._return_inplace(df, inplace)
-
-    def set_values_at(
-        self,
-        times: list[datetime] | list[str],
-        values: list[float],
-        date_format: str = "YYYY-MM-DD HH:mm:ss",
-        inplace: bool = True,
-    ) -> Timeseries:
-        """
-        Set or update values. If the datetime exists, it is overwritten.
-
-        :param times: list of datetime to set
-        :type times: list[datetime] or list[str]
-        :param values: Values to set
-        :type values: list[float]
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
-        :type date_format: str, optional
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Timeseries with the new values
-        :rtype: Timeseries
-        """
-        if len(times) != len(values):
-            raise ValueError("times and values must have the same length")
-
-        # Parse all times using your existing build_datetime function
-        dts = [build_datetime(t, date_format).in_tz(self.timezone) for t in times]
-
-        # If empty, just create a new dataframe
-        if len(self.timeseries) == 0:
-            df = (
-                pl.DataFrame({"time": dts, "value": values})
-                .with_columns(
-                    pl.col("time").dt.replace_time_zone(self.timezone),
-                    pl.col("value").cast(pl.Float64()),
-                )
-                .sort("time")
-            )
-
-            return self._return_inplace(df, inplace)
-
-        # Remove all existing rows that match any of the new timestamps
-        df = self.timeseries.filter(~pl.col("time").is_in(dts))
-
-        # Build new rows
-        new_rows = pl.DataFrame({"time": dts, "value": values}).with_columns(
-            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
-            pl.col("value").cast(pl.Float64()),
-        )
-
-        # Combine and sort
-        df = pl.concat([df, new_rows]).sort("time")
+        df = self.timeseries.filter(~pl.col("time").is_in(other_df["time"]))
+        df = pl.concat([df, other_df]).sort("time")
 
         return self._return_inplace(df, inplace)
 

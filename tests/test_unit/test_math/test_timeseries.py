@@ -600,33 +600,15 @@ class TestTimeseriesBasicOperations:
             sample_ts / ts_with_zero_value
 
     def test_set_value(self, sample_ts):
-        ts = Timeseries()
-
-        # Insert new values
-        ts.set_value("2024-01-01 00:00:00", 10, "YYYY-MM-DD HH:mm:ss")
-        ts.set_value("2024-01-01 01:00:00", 20, "YYYY-MM-DD HH:mm:ss")
 
         # Overwrite value
-        ts.set_value("2024-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
+        sample_ts.set_value("2023-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
 
-        assert ts["time"] == [
-            datetime(2024, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2024, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [10, 99]
-        assert ts.timestep == pendulum.duration(hours=1)
+        assert sample_ts["value"] == [10, 99, 30, 40]
 
-    def test_set_value_invalid_frequence(self, sample_ts):
-        ts = Timeseries()
-
-        # Insert new values
-        ts.set_value("2024-01-01 00:00:00", 10, "YYYY-MM-DD HH:mm:ss")
-        ts.set_value("2024-01-01 01:00:00", 20, "YYYY-MM-DD HH:mm:ss")
-
-        assert ts.timestep == pendulum.duration(hours=1)
-
+    def test_set_value_at_wrong_index(self, sample_ts):
         with pytest.raises(ValueError):
-            ts.set_value("2024-01-01 01:30:00", 30, "YYYY-MM-DD HH:mm:ss")
+            sample_ts.set_value("2024-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
 
     def test_set_values(self, sample_ts):
         ts = Timeseries.from_timeseries(sample_ts)
@@ -654,103 +636,22 @@ class TestTimeseriesBasicOperations:
         assert ts["value"] == [11, 21, 31, 40]
         assert ts.timestep == pendulum.duration(hours=1)
 
-    def test_set_values_with_new_timestamps(self, sample_ts):
+    def test_if_set_values_with_new_timestamps_then_return_error(self, sample_ts):
         ts = Timeseries.from_timeseries(sample_ts)
 
         df = pl.DataFrame(
             {
                 "time": [
-                    datetime(2023, 1, 1, 3, 0, 0),
                     datetime(2023, 1, 1, 4, 0, 0),
                     datetime(2023, 1, 1, 5, 0, 0),
                 ],
-                "value": [41.0, 51.0, 61.0],
+                "value": [51.0, 61.0],
             },
         )
         new_ts = Timeseries(df)
-        # Insert new values
-        ts.set_values(new_ts)
 
-        assert ts["time"] == [
-            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 3, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 4, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 5, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [10, 20, 30, 41, 51, 61]
-        assert ts.timestep == pendulum.duration(hours=1)
-
-    def test_set_values_invalid_frequence(self, sample_ts):
-        ts = Timeseries.from_timeseries(sample_ts)
-
-        df = pl.DataFrame(
-            {
-                "time": [
-                    datetime(2024, 1, 1, 0, 0, 0),
-                    datetime(2024, 1, 1, 1, 0, 0),
-                ],
-                "value": [11.0, 21.0],
-            },
-        )
-        new_ts = Timeseries(df)
-        # Insert new values
         with pytest.raises(ValueError):
             ts.set_values(new_ts)
-
-    def test_set_values_at(self, sample_ts):
-        ts = Timeseries.from_timeseries(sample_ts)
-        times = [
-            datetime(2023, 1, 1, 0, 0, 0),
-            datetime(2023, 1, 1, 1, 0, 0),
-            datetime(2023, 1, 1, 2, 0, 0),
-        ]
-        values = [11.0, 21.0, 31.0]
-
-        # Insert new values
-        ts.set_values_at(times, values)
-
-        assert ts["time"] == [
-            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 3, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [11, 21, 31, 40]
-        assert ts.timestep == pendulum.duration(hours=1)
-
-    def test_set_values_at_with_new_timestamps(self, sample_ts):
-        ts = Timeseries.from_timeseries(sample_ts)
-        times = ["2023-1-1 3:00:00", "2023-1-1 4:00:00", "2023-1-1 5:00:00"]
-        values = [41.0, 51.0, 61.0]
-
-        # Insert new values
-        ts.set_values_at(times, values)
-
-        assert ts["time"] == [
-            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 3, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 4, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 5, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [10, 20, 30, 41, 51, 61]
-        assert ts.timestep == pendulum.duration(hours=1)
-
-    def test_set_values_at_invalid_frequence(self, sample_ts):
-        ts = Timeseries.from_timeseries(sample_ts)
-
-        times = [
-            datetime(2024, 1, 1, 0, 0, 0),
-            datetime(2024, 1, 1, 1, 0, 0),
-        ]
-        values = [11.0, 21.0]
-
-        # Insert new values
-        with pytest.raises(ValueError):
-            ts.set_values_at(times, values)
 
     def test_add_value_at(self, sample_ts):
         ts = Timeseries()
@@ -1174,24 +1075,15 @@ class TestTimeseriesManipulation:
         assert result["value"][0] == 20
         assert result["value"][1] == 30
 
-    def test_get_value(self):
+    def test_get_value(self, sample_ts):
         """Test getting a value at a specific timestamp."""
-        ts = Timeseries()
-
-        date_format = "YYYY-MM-DD HH:mm:ss"
-        # Insert new values
-        ts.set_value("2024-01-01 00:00:00", 10, date_format=date_format)
-        ts.set_value("2024-01-01 01:00:00", 20, date_format=date_format)
-        ts.set_value("2024-01-01 02:00:00", 100, date_format=date_format)
-        ts.set_value("2024-01-01 03:00:00", 200, date_format=date_format)
-        ts.set_value("2024-01-01 04:00:00", 400, date_format=date_format)
-
-        dt = datetime(2024, 1, 1, 1, 0, 0)
-        value = ts.get_value(dt)
+        dt = datetime(2023, 1, 1, 1, 0, 0)
+        value = sample_ts.get_value(dt)
         assert value == 20.0
 
-        value = ts.get_value("2024-01-01 03:00:00", date_format=date_format)
-        assert value == 200
+        date_format = "YYYY-MM-DD HH:mm:ss"
+        value = sample_ts.get_value("2023-01-01 03:00:00", date_format=date_format)
+        assert value == 40.0
 
 
 class TestTimeseriesExport:
