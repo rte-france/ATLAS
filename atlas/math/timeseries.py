@@ -631,21 +631,15 @@ class Timeseries:
             other_df = other.dataframe
             return self._return_inplace(other_df, inplace)
 
-        if isinstance(other, Timeseries):
-            other_df = other.dataframe
-        elif isinstance(other, pl.DataFrame | pd.DataFrame):
-            other_df = other
-        elif isinstance(other, dict):
-            other_df = Timeseries.dataframe_from_dict(other)
-        else:
-            raise TypeError("Input has to be a Timeseries / dataframe-like / dict object.")
-
-        if not other_df["time"].is_in(self.dataframe["time"]).all():
+        other_ts = Timeseries(other)
+        if self.frequency != other_ts.frequency:
+            raise ValueError("Could not perform set values on Timeseries because frequencies don't match")
+        if not other_ts.dataframe["time"].is_in(self.dataframe["time"]).all():
             raise ValueError("Could not set values on Timeseries because indexes to set are not all present in "
                              "Timeseries")
 
-        df = self.timeseries.filter(~pl.col("time").is_in(other_df["time"]))
-        df = pl.concat([df, other_df]).sort("time")
+        df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"]))
+        df = pl.concat([df, other_ts.dataframe]).sort("time")
 
         return self._return_inplace(df, inplace)
 
