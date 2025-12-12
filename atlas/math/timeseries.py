@@ -284,6 +284,7 @@ class Timeseries:
 
         elif isinstance(timeseries, Timeseries):
             self.timeseries = timeseries.dataframe  # type: ignore[assignment]
+            self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
         else:
             try:
                 df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
