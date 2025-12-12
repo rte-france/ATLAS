@@ -654,23 +654,22 @@ class TestTimeseriesBasicOperations:
             ts.set_values(new_ts)
 
     def test_add_value_at(self, sample_ts):
-        ts = Timeseries()
+        sample_ts.sum_value_at("2023-01-01 02:00:00", 1, "YYYY-MM-DD HH:mm:ss")
 
-        # Insert new values
-        ts.add_value_at("2024-01-01 00:00:00", 2, "YYYY-MM-DD HH:mm:ss")  # work if timeseries if empty
-        ts.add_value_at("2024-01-01 01:00:00", 4, "YYYY-MM-DD HH:mm:ss")  # work if index has no value
+        assert sample_ts["value"] == [10.0, 20.0, 31.0, 40.0]
 
-        # Overwrite value
-        ts.set_value("2024-01-01 02:00:00", 5, "YYYY-MM-DD HH:mm:ss")
-        ts.add_value_at("2024-01-01 02:00:00", 1, "YYYY-MM-DD HH:mm:ss")
+    def test_add_value_at_with_wrong_timestamp(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.sum_value_at("2023-01-01 05:00:00", 1, "YYYY-MM-DD HH:mm:ss")
 
-        assert ts["time"] == [
-            datetime(2024, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2024, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2024, 1, 1, 2, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [2, 4, 6]
-        assert ts.timestep == pendulum.duration(hours=1)
+    def test_mul_value_at(self, sample_ts):
+        sample_ts.mul_value_at("2023-01-01 02:00:00", 2, "YYYY-MM-DD HH:mm:ss")
+
+        assert sample_ts["value"] == [10.0, 20.0, 60.0, 40.0]
+
+    def test_mul_value_at_with_wrong_timestamp(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.mul_value_at("2023-01-01 05:00:00", 1, "YYYY-MM-DD HH:mm:ss")
 
     def test_arithmetic_operations_with_invalid_types(self, sample_ts):
         """Test arithmetic operations with invalid types."""

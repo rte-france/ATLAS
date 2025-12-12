@@ -644,7 +644,7 @@ class Timeseries:
 
         return self._return_inplace(df, inplace)
 
-    def add_value_at(
+    def sum_value_at(
         self,
         time: datetime | str,
         value: float,
@@ -652,7 +652,7 @@ class Timeseries:
         inplace: bool = True,
     ) -> Timeseries:
         """
-        Set or add to an existing value at a specific datetime.
+        Add to an existing value at a specific datetime.
 
         :param time: Datetime to set
         :type time: datetime or str
@@ -665,14 +665,56 @@ class Timeseries:
         :return: Timeseries with the added value
         :rtype: Timeseries
         """
-        try:
-            current = self.get_value(time)
-            return self.set_value(time, value + (current if current is not None else 0), date_format, inplace)
-        except (KeyError, ValueError):
-            return self.set_value(time, value, date_format, inplace)
-        except BaseException as e:
-            cfg.logger.error(e)
-            return self
+        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+
+        if dt not in self.dataframe["time"]:
+            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+
+        old_value = self.get_value(dt)
+        df = self.timeseries.filter(pl.col("time") != dt)
+        new_row = pl.DataFrame({"time": [dt], "value": [old_value + value]}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
+        )
+        df = pl.concat([df, new_row]).sort("time")
+
+        return self._return_inplace(df, inplace)
+
+    def mul_value_at(
+        self,
+        time: datetime | str,
+        value: float,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Multiply to an existing value at a specific datetime.
+
+        :param time: Datetime to set
+        :type time: datetime or str
+        :param value: Value to set
+        :type value: float
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Timeseries with the added value
+        :rtype: Timeseries
+        """
+        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+
+        if dt not in self.dataframe["time"]:
+            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+
+        old_value = self.get_value(dt)
+        df = self.timeseries.filter(pl.col("time") != dt)
+        new_row = pl.DataFrame({"time": [dt], "value": [old_value * value]}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
+        )
+        df = pl.concat([df, new_row]).sort("time")
+
+        return self._return_inplace(df, inplace)
 
     def upsample(
         self,
