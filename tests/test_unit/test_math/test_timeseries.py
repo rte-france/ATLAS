@@ -372,6 +372,38 @@ class TestTimeseriesBasicOperations:
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * orig
 
+    def test_mul_with_ts_wrong_frequency(self, sample_ts):
+        """Test multiplication operation between two timeseries."""
+        df_with_wrong_frequency = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 0, 30, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_frequency = Timeseries(df_with_wrong_frequency)
+
+        with pytest.raises(ValueError):
+            sample_ts * ts_with_wrong_frequency
+
+    def test_mul_with_ts_wrong_timestamps(self, sample_ts):
+        """Test multiplication operation between two timeseries."""
+        df_with_wrong_timstamps = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
+
+        with pytest.raises(ValueError):
+            sample_ts * ts_with_wrong_timstamps
+
     def test_add_with_value(self, sample_ts):
         """Test add operation between a timeseries and a value."""
         ts = sample_ts + 2
@@ -396,8 +428,51 @@ class TestTimeseriesBasicOperations:
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig + orig
 
+    pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0, 0),
+                datetime(2023, 1, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 2, 0, 0),
+                datetime(2023, 1, 1, 3, 0, 0),
+            ],
+            "value": [10.0, 20.0, 30.0, 40.0],
+        },
+    )
+    def test_add_with_ts_wrong_frequency(self, sample_ts):
+        """Test add operation between two timeseries."""
+        df_with_wrong_frequency = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 0, 30, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_frequency = Timeseries(df_with_wrong_frequency)
+
+        with pytest.raises(ValueError):
+            sample_ts + ts_with_wrong_frequency
+
+    def test_add_with_ts_wrong_timestamps(self, sample_ts):
+        """Test add operation between two timeseries."""
+        df_with_wrong_timstamps = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
+
+        with pytest.raises(ValueError):
+            sample_ts + ts_with_wrong_timstamps
+
     def test_sub_with_value(self, sample_ts):
-        """Test substraction operation between a timeseries and a value."""
+        """Test subtraction operation between a timeseries and a value."""
         ts = sample_ts - 2
         assert isinstance(ts, Timeseries)
 
@@ -409,7 +484,7 @@ class TestTimeseriesBasicOperations:
             assert new == orig - 2
 
     def test_sub_with_ts(self, sample_ts):
-        """Test substraction operation between two timeseries."""
+        """Test subtraction operation between two timeseries."""
         ts = sample_ts - sample_ts
         assert isinstance(ts, Timeseries)
 
@@ -419,6 +494,38 @@ class TestTimeseriesBasicOperations:
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig - orig
+
+    def test_sub_with_ts_wrong_frequency(self, sample_ts):
+        """Test subtraction operation between two timeseries."""
+        df_with_wrong_frequency = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 0, 30, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_frequency = Timeseries(df_with_wrong_frequency)
+
+        with pytest.raises(ValueError):
+            sample_ts - ts_with_wrong_frequency
+
+    def test_sub_with_ts_wrong_timestamps(self, sample_ts):
+        """Test subtraction operation between two timeseries."""
+        df_with_wrong_timstamps = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
+
+        with pytest.raises(ValueError):
+            sample_ts - ts_with_wrong_timstamps
 
     def test_div_with_value(self, sample_ts):
         """Test division operation between a timeseries and a value."""
@@ -443,6 +550,54 @@ class TestTimeseriesBasicOperations:
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig / orig
+
+    def test_div_with_ts_wrong_frequency(self, sample_ts):
+        """Test division operation between two timeseries."""
+        df_with_wrong_frequency = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 0, 30, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_frequency = Timeseries(df_with_wrong_frequency)
+
+        with pytest.raises(ValueError):
+            sample_ts / ts_with_wrong_frequency
+
+    def test_div_with_ts_wrong_timestamps(self, sample_ts):
+        """Test division operation between two timeseries."""
+        df_with_wrong_timstamps = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
+
+        with pytest.raises(ValueError):
+            sample_ts / ts_with_wrong_timstamps
+
+    def test_div_with_zero_value_ts(self, sample_ts):
+        """Test division operation between two timeseries."""
+        df_with_zero_value = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 1, 0, 0),
+                ],
+                "value": [0.0, 20.0],
+            },
+        )
+        ts_with_zero_value = Timeseries(df_with_zero_value)
+
+        with pytest.raises(ValueError):
+            sample_ts / ts_with_zero_value
 
     def test_set_value(self, sample_ts):
         ts = Timeseries()

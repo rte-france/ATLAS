@@ -322,17 +322,18 @@ class Timeseries:
         """Multiply all numeric columns by a scalar or another Timeseries.
 
         :raises TypeError: If the object is not a timeseries or a float
+        :raises ValueError: If operation could not be done
         :return: The Timeseries where all numeric columns are multiplied by a scalar or another Timeseries
         :rtype: Timeseries
         """
         if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
         elif isinstance(other, Timeseries):
-            if self.frequency < other.frequency:
-                other = other.upsample(self.frequency, inplace=False)
-                my_ts = Timeseries(self)
-            elif self.frequency > other.frequency:
-                my_ts = self.upsample(other.frequency, inplace=False)
+            if self.frequency != other.frequency:
+                raise ValueError("Could not perform multiplication on Timeseries because frequencies don't match")
+            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+                raise ValueError("Could not perform multiplication on Timeseries because indexes of Timeseries to add "
+                                 "are not in current Timeseries")
             else:
                 my_ts = Timeseries(self)
 
@@ -354,17 +355,18 @@ class Timeseries:
         """Add all numeric columns by a scalar or timeseries.
 
         :raises TypeError: If the object is not a timeseries or a float
+        :raises ValueError: If operation could not be done
         :return: The Timeseries where a scalar or another Timeseries are added to all numeric columns
         :rtype: Timeseries
         """
         if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
         elif isinstance(other, Timeseries):
-            if self.frequency < other.frequency:
-                other = other.upsample(self.frequency, inplace=False)
-                my_ts = Timeseries(self)
-            elif self.frequency > other.frequency:
-                my_ts = self.upsample(other.frequency, inplace=False)
+            if self.frequency != other.frequency:
+                raise ValueError("Could not perform addition on Timeseries because frequencies don't match")
+            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+                raise ValueError("Could not perform addition on Timeseries because indexes of Timeseries to add are "
+                                 "not in current Timeseries")
             else:
                 my_ts = Timeseries(self)
 
@@ -386,17 +388,18 @@ class Timeseries:
         """Subtract all numeric columns by a scalar or timeseries.
 
         :raises TypeError: If the object is not a timeseries or a float
+        :raises ValueError: If operation could not be done
         :return: The Timeseries where a scalar or another Timeseries are subtract to all numeric columns
         :rtype: Timeseries
         """
         if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
         elif isinstance(other, Timeseries):
-            if self.frequency < other.frequency:
-                other = other.upsample(self.frequency, inplace=False)
-                my_ts = Timeseries(self)
-            elif self.frequency > other.frequency:
-                my_ts = self.upsample(other.frequency, inplace=False)
+            if self.frequency != other.frequency:
+                raise ValueError("Could not perform subtraction on Timeseries because frequencies don't match")
+            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+                raise ValueError("Could not perform subtraction on Timeseries because indexes of Timeseries to add are "
+                                 "not in current Timeseries")
             else:
                 my_ts = Timeseries(self)
 
@@ -418,6 +421,7 @@ class Timeseries:
         """Divide all numeric columns by a scalar or timeseries.
 
         :raises TypeError: If the object is not a timeseries or a float
+        :raises ValueError: If operation could not be done
         :return: The Timeseries where all numeric columns are divided by a scalar or another Timeseries
         :rtype: Timeseries
         """
@@ -426,11 +430,13 @@ class Timeseries:
                 raise ZeroDivisionError("Division by zero is not allowed")
             df = self.timeseries.with_columns(pl.selectors.numeric().truediv(other))
         elif isinstance(other, Timeseries):
-            if self.frequency < other.frequency:
-                other = other.upsample(self.frequency, inplace=False)
-                my_ts = Timeseries(self)
-            elif self.frequency > other.frequency:
-                my_ts = self.upsample(other.frequency, inplace=False)
+            if self.frequency != other.frequency:
+                raise ValueError("Could not perform division on Timeseries because frequencies don't match")
+            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+                raise ValueError("Could not perform division on Timeseries because indexes of Timeseries to add are "
+                                 "not in current Timeseries")
+            elif (other.dataframe["value"] == 0).any():
+                raise ValueError("Could not perform division on Timeseries because zero values are present")
             else:
                 my_ts = Timeseries(self)
 
