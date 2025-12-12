@@ -139,8 +139,6 @@ class ThermalPeakLoadOrders:
                 else:
                     # Flexible order
                     self.create_order_and_link(
-                        dataset=self.dataset,
-                        parameters=self.parameters,
                         generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
                         t=t,
@@ -159,8 +157,6 @@ class ThermalPeakLoadOrders:
                 if automated_reserves_down_procured.get_value(t) > 0.0:
                     # This order will be the child of the current inflexible order.
                     self.create_order_and_link(
-                        dataset=self.dataset,
-                        parameters=self.parameters,
                         generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
                         t=t,
@@ -177,10 +173,8 @@ class ThermalPeakLoadOrders:
                 if manual_reserves_down_procured.get_value(t) > 0.0:
                     # This order will be the child of the current inflexible order.
                     self.create_order_and_link(
-                        dataset=self.dataset,
                         generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
-                        parameters=self.parameters,
                         t=t,
                         unit=unit,
                         order_name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}",
@@ -195,10 +189,8 @@ class ThermalPeakLoadOrders:
                 if automated_reserves_up_procured.get_value(t) > 0.0:
                     # This order will be the child of the current flexible order.
                     self.create_order_and_link(
-                        dataset=self.dataset,
                         generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
-                        parameters=self.parameters,
                         t=t,
                         unit=unit,
                         order_name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}",
@@ -213,10 +205,8 @@ class ThermalPeakLoadOrders:
                 if manual_reserves_up_procured.get_value(t) > 0.0:
                     # This order will be the child of the current flexible order.
                     self.create_order_and_link(
-                        dataset=self.dataset,
                         generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
-                        parameters=self.parameters,
                         t=t,
                         unit=unit,
                         order_name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}",

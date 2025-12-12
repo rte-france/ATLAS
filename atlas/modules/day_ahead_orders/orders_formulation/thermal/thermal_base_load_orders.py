@@ -15,19 +15,16 @@ from atlas.enum import ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_bidding import ThermalBidding
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 
 
-class ThermalBaseLoadOrders:
+class ThermalBaseLoadOrders(ThermalUnitOrders):
     """Order formulation for each strategy"""
 
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
-        self.dataset = dataset
-        self.orders_time = orders_time
-        self.parameters = parameters
+        super().__init__(dataset, orders_time, parameters)
 
     def formulate_thermal_baseload_orders(self) -> None:
         """
@@ -48,7 +45,7 @@ class ThermalBaseLoadOrders:
         # Start the formulation of the orders
         for unit in equipments_list:
             # Get the states sequence and the inconsistency status of the unit.
-            states_sequence, inconsistent = self.determine_baseload_states_sequence(unit, self.parameters)
+            states_sequence, inconsistent = self.determine_baseload_states_sequence(unit)
             if inconsistent:  # skip the unit if its states sequence is inconsistent.
                 cfg.logger.warning(
                     f"*** WARNING ***\n Equipment {unit.name}'s states sequence is inconsistent. "
@@ -57,15 +54,11 @@ class ThermalBaseLoadOrders:
                 continue
 
             # Retrieve the time steps over which the unit is oneline.
-            list_of_online_timeframes = ThermalBidding.extract_online_sequences(
-                states_sequence, self.orders_time, self.parameters
-            )
+            list_of_online_timeframes = self.extract_online_sequences(states_sequence)
 
             # Formulate the orders over each online timeframe.
             for online_timeframe in list_of_online_timeframes:
-                ThermalUnitOrders.formulate_unit_orders(
-                    online_timeframe, unit, self.orders_time, self.dataset, self.parameters
-                )
+                self.formulate_unit_orders(online_timeframe, unit)
 
     # ------ Sequences identification functions ------
     # These functions aim at identifying or classifying state sequences of a unit

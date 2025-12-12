@@ -27,20 +27,17 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_7,
     combination_8,
 )
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_bidding import ThermalBidding
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization_model import (
     ThermalOptimizationModel,
 )
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 
 
-class ThermalIntermediateLoadOrders:
+class ThermalIntermediateLoadOrders(ThermalUnitOrders):
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
-        self.dataset = dataset
-        self.orders_time = orders_time
-        self.parameters = parameters
+        super().__init__(dataset, orders_time, parameters)
 
     def formulate_thermal_intermediate_load_orders(self) -> None:
         """
@@ -59,7 +56,7 @@ class ThermalIntermediateLoadOrders:
             return None
 
         # Solve the optimisation programs
-        res = ThermalIntermediateLoadOrders.solve_optimization_programs(equipments_list, self.parameters)
+        res = self.solve_optimization_programs(equipments_list)
 
         for thermal_unit in equipments_list:
             # Consider the unique cases
@@ -69,21 +66,15 @@ class ThermalIntermediateLoadOrders:
             online_timeframes = []
             for case in cases:
                 # Encode the outcome as a state sequence
-                states_sequence = self.determine_intermediate_load_states_sequence(
-                    thermal_unit, res, case, self.parameters
-                )
+                states_sequence = self.determine_intermediate_load_states_sequence(thermal_unit, res, case)
 
                 # Extract the list of online time frames
-                list_of_online_timeframes = ThermalBidding.extract_online_sequences(
-                    states_sequence, self.orders_time, self.parameters, case
-                )
+                list_of_online_timeframes = self.extract_online_sequences(states_sequence, case)
 
                 # Formulate the orders over each online timeframe.
                 for online_timeframe in list_of_online_timeframes:
                     online_timeframes.append(online_timeframe)  # Add the time frame to the list of time frames
-                    ThermalUnitOrders.formulate_unit_orders(
-                        online_timeframe, thermal_unit, self.orders_time, self.dataset, self.parameters, case=case
-                    )
+                    self.formulate_unit_orders(online_timeframe, thermal_unit, case=case)
 
             # Formulate the exclusion links between scenarios
             # Consider only the time frames that are overlapping
