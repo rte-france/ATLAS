@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import Field, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 
-from atlas.utils.api.abc_prototype_parameters import ABCPrototypeParameters
+from atlas.utils.abc_prototype_parameters import ABCPrototypeParameters
 
 
 class CleanRoundingParameters(ABCPrototypeParameters):

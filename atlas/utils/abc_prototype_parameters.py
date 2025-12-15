@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 class ABCPrototypeParameters(ABC, BaseModel):
     @classmethod
-    def from_file(cls, file_path: str | Path) -> "Self":
+    def from_file(cls, file_path: str | Path) -> "ABCPrototypeParameters":
         """
         Load parameters from a YAML or JSON file.
         :param file_path: Path to the parameters file.
