@@ -914,6 +914,24 @@ class TestTimeseriesManipulation:
         value = ts.get_value("2024-01-01 03:00:00", date_format=date_format)
         assert value == 200
 
+    def test_round(self):
+        ts = Timeseries()
+
+        date_format = "YYYY-MM-DD HH:mm:ss"
+        # Insert new values
+        ts.set_value("2025-12-15 00:00:00", 1.12345, date_format=date_format)
+        ts.set_value("2025-12-15 01:00:00", 2.0009, date_format=date_format)
+        ts.set_value("2025-12-15 02:00:00", 3.9999, date_format=date_format)
+        ts.set_value("2025-12-15 03:00:00", 4.0001, date_format=date_format)
+        ts.set_value("2025-12-15 04:00:00", 5.29, date_format=date_format)
+
+        ts.round(3)
+        assert ts.get_value("2025-12-15 00:00:00", date_format=date_format) == 1.123
+        assert ts.get_value("2025-12-15 01:00:00", date_format=date_format) == 2.001
+        assert ts.get_value("2025-12-15 02:00:00", date_format=date_format) == 4
+        assert ts.get_value("2025-12-15 03:00:00", date_format=date_format) == 4
+        assert ts.get_value("2025-12-15 04:00:00", date_format=date_format) == 5.29
+
 
 class TestTimeseriesExport:
     """Test to_fileing time series data."""

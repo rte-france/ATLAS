@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
-import pandas as pd
-
 from atlas import (
     Equipment,
     ForecastingMatrix,
@@ -54,7 +52,9 @@ def _get_minimum_and_maximum_powers(
             parameters.end_date,
             new_timeseries.timestep,
         )
-        minimum_power = Timeseries(pd.DataFrame(index=new_timeseries.index))  # TODO: fill with proper values
+        minimum_power = Timeseries.from_index(
+            new_timeseries.first_date(), new_timeseries.frequency, new_timeseries.last_date()
+        )  # TODO: fill with proper values
         return minimum_power, maximum_power
     elif isinstance(equipment, Load):
         maximum_power = equipment.maximum_power_forecast.get_forecast(
@@ -63,7 +63,9 @@ def _get_minimum_and_maximum_powers(
             parameters.end_date,
             new_timeseries.timestep,
         )
-        minimum_power = Timeseries(pd.DataFrame(index=new_timeseries.index))  # TODO: fill with proper values
+        minimum_power = Timeseries.from_index(
+            new_timeseries.first_date(), new_timeseries.frequency, new_timeseries.last_date()
+        )  # TODO: fill with proper values
         return minimum_power, maximum_power
     else:
         return equipment.minimum_power, equipment.maximum_power
@@ -84,21 +86,21 @@ def _check_bounds(
     """
     Ensures that no value was rounded above the maximum admissible power or below the minimum.
     """
-    for time in new_timeseries.index:
+    for time, value in new_timeseries.iter_rows():
         # Ensure that no value was rounded above the maximum admissible value, for all types of equipments
         new_timeseries.set_value(
             time,
-            min(new_timeseries.get_value(time), max_power.get_value(time)),
+            min(value, max_power.get_value(time)),
         )
 
         # Ensure that no value was rounded below the minimum admissible value
         if isinstance(equipment, Thermal):
-            if abs(min_power.get_value(time) - new_timeseries.get_value(time)) < parameters.epsilon:
+            if abs(min_power.get_value(time) - value) < parameters.epsilon:
                 new_timeseries.set_value(time, min_power.get_value(time))
         else:
             new_timeseries.set_value(
                 time,
-                max(new_timeseries.get_value(time), min_power.get_value(time)),
+                max(value, min_power.get_value(time)),
             )
 
 
@@ -106,12 +108,10 @@ def _post_process_timestamps_in_ramps(equipment: Equipment, new_timeseries: Time
     # Ramps (has to be performed after the entire max/min power correction)
     in_ramp = {}
     if isinstance(equipment, Thermal):
-        if equipment.minimum_stable_power_duration.in_hours() > new_timeseries.timestep.in_minutes() / 60.0:
-            for time in new_timeseries.index:
-                if time != new_timeseries.index[-1]:
-                    if new_timeseries.get_value(time) != new_timeseries.get_value(
-                        time + timedelta(minutes=new_timeseries.timestep.in_minutes())
-                    ):
+        if equipment.minimum_stable_power_duration > new_timeseries.timestep:
+            for time, value in new_timeseries.iter_rows():
+                if time != new_timeseries.last_date():
+                    if value != new_timeseries.get_value(time + new_timeseries.timestep):
                         in_ramp[time] = True
                     else:
                         in_ramp[time] = False
@@ -126,7 +126,7 @@ def _post_process_timestamps_in_ramps(equipment: Equipment, new_timeseries: Time
             total_ramp = [time]
 
             for time_step_added in range(1, len(new_timeseries.index)):
-                local_time = time + timedelta(minutes=new_timeseries.timestep.in_minutes() * time_step_added)
+                local_time = time + new_timeseries.timestep * time_step_added
                 if local_time in in_ramp.keys() and in_ramp[local_time]:
                     total_ramp.append(local_time)
 

@@ -19,11 +19,9 @@ class CleanRoundingParameters(ABCPrototypeParameters):
     """
 
     start_date: DateTime = Field(
-        default=datetime(2028, 9, 26),
         description="Start date of the rounding time frame.",
     )
     end_date: DateTime = Field(
-        default=datetime(2028, 9, 26),
         description="End date of the rounding time frame.",
     )
     rounding_precision: int = Field(
