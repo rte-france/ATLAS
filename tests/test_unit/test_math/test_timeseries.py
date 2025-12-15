@@ -439,6 +439,7 @@ class TestTimeseriesBasicOperations:
             "value": [10.0, 20.0, 30.0, 40.0],
         },
     )
+
     def test_add_with_ts_wrong_frequency(self, sample_ts):
         """Test add operation between two timeseries."""
         df_with_wrong_frequency = pl.DataFrame(
@@ -600,7 +601,6 @@ class TestTimeseriesBasicOperations:
             sample_ts / ts_with_zero_value
 
     def test_set_value(self, sample_ts):
-
         # Overwrite value
         sample_ts.set_value("2023-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
 

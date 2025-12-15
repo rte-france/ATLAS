@@ -366,8 +366,10 @@ class Timeseries:
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform multiplication on Timeseries because frequencies don't match")
             elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
-                raise ValueError("Could not perform multiplication on Timeseries because indexes of Timeseries to add "
-                                 "are not in current Timeseries")
+                raise ValueError(
+                    "Could not perform multiplication on Timeseries because indexes of Timeseries to add "
+                    "are not in current Timeseries"
+                )
             else:
                 my_ts = Timeseries(self)
 
@@ -399,8 +401,10 @@ class Timeseries:
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform addition on Timeseries because frequencies don't match")
             elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
-                raise ValueError("Could not perform addition on Timeseries because indexes of Timeseries to add are "
-                                 "not in current Timeseries")
+                raise ValueError(
+                    "Could not perform addition on Timeseries because indexes of Timeseries to add are "
+                    "not in current Timeseries"
+                )
             else:
                 my_ts = Timeseries(self)
 
@@ -432,8 +436,10 @@ class Timeseries:
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform subtraction on Timeseries because frequencies don't match")
             elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
-                raise ValueError("Could not perform subtraction on Timeseries because indexes of Timeseries to add are "
-                                 "not in current Timeseries")
+                raise ValueError(
+                    "Could not perform subtraction on Timeseries because indexes of Timeseries to add are "
+                    "not in current Timeseries"
+                )
             else:
                 my_ts = Timeseries(self)
 
@@ -467,8 +473,10 @@ class Timeseries:
             if self.frequency != other.frequency:
                 raise ValueError("Could not perform division on Timeseries because frequencies don't match")
             elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
-                raise ValueError("Could not perform division on Timeseries because indexes of Timeseries to add are "
-                                 "not in current Timeseries")
+                raise ValueError(
+                    "Could not perform division on Timeseries because indexes of Timeseries to add are "
+                    "not in current Timeseries"
+                )
             elif (other.dataframe["value"] == 0).any():
                 raise ValueError("Could not perform division on Timeseries because zero values are present")
             else:
@@ -636,8 +644,9 @@ class Timeseries:
         if self.frequency != other_ts.frequency:
             raise ValueError("Could not perform set values on Timeseries because frequencies don't match")
         if not other_ts.dataframe["time"].is_in(self.dataframe["time"]).all():
-            raise ValueError("Could not set values on Timeseries because indexes to set are not all present in "
-                             "Timeseries")
+            raise ValueError(
+                "Could not set values on Timeseries because indexes to set are not all present in Timeseries"
+            )
 
         df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"]))
         df = pl.concat([df, other_ts.dataframe]).sort("time")
@@ -739,8 +748,9 @@ class Timeseries:
         if self.frequency != other_ts.frequency:
             raise ValueError("Could not perform add indexes on Timeseries because frequency does not match")
         if other_ts.dataframe["time"].is_in(self.dataframe["time"]).any():
-            raise ValueError("Could not add indexes on Timeseries because some indexes to add are not present in "
-                             "Timeseries")
+            raise ValueError(
+                "Could not add indexes on Timeseries because some indexes to add are not present in Timeseries"
+            )
 
         df = pl.concat([self.timeseries, other_ts.dataframe]).sort("time")
 
@@ -773,8 +783,9 @@ class Timeseries:
             raise ValueError("Timeseries should not be empty")
 
         if dt in self.dataframe["time"]:
-            raise ValueError("Could not add indexes on Timeseries because some indexes to add are not present in "
-                             "Timeseries")
+            raise ValueError(
+                "Could not add indexes on Timeseries because some indexes to add are not present in Timeseries"
+            )
 
         new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
             pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),

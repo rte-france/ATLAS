@@ -3,6 +3,7 @@
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 import pytest
 
 from atlas.abstract_class.abstract_dataset import AbstractDataset
