@@ -321,6 +321,8 @@ class Timeseries:
     def __mul__(self, other: float | Timeseries) -> Timeseries:
         """Multiply all numeric columns by a scalar or another Timeseries.
 
+        :param other: Other timeseries or scalar to multiply the value of he current Timeseries
+        :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
         :raises ValueError: If operation could not be done
         :return: The Timeseries where all numeric columns are multiplied by a scalar or another Timeseries
@@ -356,6 +358,8 @@ class Timeseries:
     def __add__(self, other: float | Timeseries) -> Timeseries:
         """Add all numeric columns by a scalar or timeseries.
 
+        :param other: Other timeseries or scalar to add to value of the current Timeseries
+        :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
         :raises ValueError: If operation could not be done
         :return: The Timeseries where a scalar or another Timeseries are added to all numeric columns
@@ -391,6 +395,8 @@ class Timeseries:
     def __sub__(self, other: float | Timeseries) -> Timeseries:
         """Subtract all numeric columns by a scalar or timeseries.
 
+        :param other: Other timeseries or scalar to subtract to the value the current Timeseries
+        :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
         :raises ValueError: If operation could not be done
         :return: The Timeseries where a scalar or another Timeseries are subtract to all numeric columns
@@ -426,6 +432,8 @@ class Timeseries:
     def __truediv__(self, other: float | Timeseries) -> Timeseries:
         """Divide all numeric columns by a scalar or timeseries.
 
+        :param other: Other timeseries or scalar to divide to the value the current Timeseries
+        :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
         :raises ValueError: If operation could not be done
         :return: The Timeseries where all numeric columns are divided by a scalar or another Timeseries
@@ -570,6 +578,7 @@ class Timeseries:
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
+        :raises ValueError: If the time is not in the Timeseries
         :return: Timeseries with the set value
         :rtype: Timeseries
         """
@@ -599,6 +608,8 @@ class Timeseries:
         :type other: Timeseries
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
+        :raises ValueError: If frequency doesn't match or at least one time of the other Timeseries is not in the
+        current one
         :return: Timeseries with the new values
         :rtype: Timeseries
         """
@@ -630,15 +641,16 @@ class Timeseries:
         """
         Add to an existing value at a specific datetime.
 
-        :param time: Datetime to set
+        :param time: Datetime to add to the value
         :type time: datetime or str
-        :param value: Value to set
+        :param value: Value to add to the precedent value
         :type value: float
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: Timeseries with the added value
+        :raises ValueError: If time is not present in the Timeseries
+        :return: Timeseries with the value added to the precedent value at a specific index
         :rtype: Timeseries
         """
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
@@ -666,15 +678,16 @@ class Timeseries:
         """
         Multiply to an existing value at a specific datetime.
 
-        :param time: Datetime to set
+        :param time: Datetime to multiply by the value
         :type time: datetime or str
-        :param value: Value to set
+        :param value: Value to multiply to the precedent value
         :type value: float
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: Timeseries with the added value
+        :raises ValueError: If time is not present in the Timeseries
+        :return: Timeseries with the value multiply by the precedent value at a specific index
         :rtype: Timeseries
         """
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
@@ -700,10 +713,12 @@ class Timeseries:
         """
         Add indexes to the Timeseries based on another timeseries
 
-        :param other: other timeseries with values to updated self
+        :param other: Other timeseries with indexes / values to add to the current Timeseries
         :type other: Timeseries
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
+        :raises ValueError: If frequency doesn't match or at least one time of the other Timeseries is in the
+        current one
         :return: Timeseries with the added indexes
         :rtype: Timeseries
         """
@@ -742,6 +757,7 @@ class Timeseries:
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
+        :raises ValueError: If the time is in the current Timeseries
         :return: Timeseries with the added index
         :rtype: Timeseries
         """
