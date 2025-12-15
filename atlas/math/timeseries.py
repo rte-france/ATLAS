@@ -211,39 +211,6 @@ class Timeseries:
 
         return cls(dataframe, timezone)
 
-    @classmethod
-    def from_dict(
-        cls,
-        timeseries_dict: dict[str, list[float]],
-        timezone="UTC",
-    ) -> Timeseries:
-        """Create a Timeseries object from a dict object.
-
-        :param timeseries_dict: The input dataframe
-        :type timeseries_dict: dict[str, list[float]]
-        :param timezone: The timezone of the Timeseries, defaults to "UTC"
-        :type timezone: str, optional
-        :return: The timeseries instantiated from the dataframe-like object
-        :rtype: Timeseries
-        """
-        dataframe = Timeseries.dataframe_from_dict(timeseries_dict)
-        return cls(dataframe, timezone)
-
-    @staticmethod
-    def dataframe_from_dict(timeseries_dict: dict[str, list[float]]) -> pl.DataFrame:
-        """Create a Dataframe on Timeseries format from a dict object.
-
-        :param timeseries_dict: The input dataframe
-        :type timeseries_dict: dict[str, list[float]]
-        :return: The Dataframe instantiated from the dict-like object
-        :rtype: pl.DataFrame
-        """
-        try:
-            dataframe = pl.DataFrame(timeseries_dict)
-            return dataframe
-        except Exception as e:
-            raise ValueError("Dict cannot be formatted as a DataFrame") from e
-
     def describe(self) -> dict[str, Any]:
         """
         Get metadata about the timeseries.
