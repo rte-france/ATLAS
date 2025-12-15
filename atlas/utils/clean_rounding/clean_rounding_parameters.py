@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from pydantic import Field, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 

@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import List, Tuple
 
 from atlas import (
     Equipment,
@@ -30,7 +29,7 @@ def clean_rounding(equipment: Equipment, parameters: CleanRoundingParameters):
 
 def _get_indexes_in_time_window(
     forecasting_matrix: ForecastingMatrix, start_date: datetime, end_date: datetime
-) -> List[datetime]:
+) -> list[datetime]:
     return list(
         filter(
             lambda index: start_date <= index <= end_date,
@@ -44,8 +43,8 @@ def _get_minimum_and_maximum_powers(
     local_index: datetime,
     new_timeseries: Timeseries,
     parameters: CleanRoundingParameters,
-) -> Tuple[Timeseries, Timeseries]:
-    if isinstance(equipment, (Wind, Solar, OtherNonDispatchable)):
+) -> tuple[Timeseries, Timeseries]:
+    if isinstance(equipment, Wind | Solar | OtherNonDispatchable):
         maximum_power = equipment.maximum_power_forecast.get_forecast(
             local_index,
             parameters.start_date,
