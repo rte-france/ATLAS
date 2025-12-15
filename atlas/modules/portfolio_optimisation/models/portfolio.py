@@ -386,6 +386,8 @@ class PortfolioPO(Portfolio):
             if obj.mfrr_activated is not None:
                 return obj.mfrr_activated.get_value(time)
             return 0.0
+        elif parameters.market == MarketType.dayahead:
+            return obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0.0
         else:
             total_id = (
                 obj.total_id_cleared_quantity.get_value(time) if obj.total_id_cleared_quantity is not None else 0.0
