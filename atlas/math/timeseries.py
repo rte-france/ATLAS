@@ -22,7 +22,6 @@ import plotly.express as px
 import plotly.graph_objects
 import polars as pl
 
-import atlas.config as cfg
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
 
@@ -284,7 +283,7 @@ class Timeseries:
 
         elif isinstance(timeseries, Timeseries):
             self.timeseries = timeseries.dataframe  # type: ignore[assignment]
-            self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
+            self.frequency = infer_frequency(self.timeseries)
         else:
             try:
                 df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
@@ -303,7 +302,7 @@ class Timeseries:
 
             self.sort()
 
-            self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
+            self.frequency = infer_frequency(self.timeseries)
 
     def __getitem__(self, column_name: str) -> list[float | datetime]:
         if column_name not in ("time", "value"):
@@ -636,6 +635,7 @@ class Timeseries:
         :return: Timeseries with the new values
         :rtype: Timeseries
         """
+        other = Timeseries(other)
         if len(self.timeseries) == 0:
             other_df = other.dataframe
             return self._return_inplace(other_df, inplace)
@@ -740,6 +740,7 @@ class Timeseries:
         :return: Timeseries with the added indexes
         :rtype: Timeseries
         """
+        other = Timeseries(other)
         if len(self.timeseries) == 0:
             other_df = other.dataframe
             return self._return_inplace(other_df, inplace)
