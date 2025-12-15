@@ -716,6 +716,74 @@ class Timeseries:
 
         return self._return_inplace(df, inplace)
 
+    def add_indexes(
+        self,
+        other: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list[float]],
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Add indexes to the Timeseries based on another timeseries
+
+        :param other: other timeseries with values to updated self
+        :type other: Timeseries
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Timeseries with the added indexes
+        :rtype: Timeseries
+        """
+        if len(self.timeseries) == 0:
+            other_df = other.dataframe
+            return self._return_inplace(other_df, inplace)
+
+        other_ts = Timeseries(other)
+        if self.frequency != other_ts.frequency:
+            raise ValueError("Could not perform add indexes on Timeseries because frequency does not match")
+        if other_ts.dataframe["time"].is_in(self.dataframe["time"]).any():
+            raise ValueError("Could not add indexes on Timeseries because some indexes to add are not present in "
+                             "Timeseries")
+
+        df = pl.concat([self.timeseries, other_ts.dataframe]).sort("time")
+
+        return self._return_inplace(df, inplace)
+
+    def add_index(
+        self,
+        time: datetime | str,
+        value: float,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Add index to the Timeseries based on an index and a value
+
+        :param time: Datetime to add
+        :type time: datetime or str
+        :param value: Value to add
+        :type value: float
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Timeseries with the added index
+        :rtype: Timeseries
+        """
+        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+
+        if len(self.timeseries) == 0:
+            raise ValueError("Timeseries should not be empty")
+
+        if dt in self.dataframe["time"]:
+            raise ValueError("Could not add indexes on Timeseries because some indexes to add are not present in "
+                             "Timeseries")
+
+        new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
+        )
+        df = pl.concat([self.timeseries, new_row]).sort("time")
+
+        return self._return_inplace(df, inplace)
+
     def upsample(
         self,
         frequency: str | pendulum.Duration,

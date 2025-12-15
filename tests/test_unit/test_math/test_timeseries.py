@@ -671,6 +671,60 @@ class TestTimeseriesBasicOperations:
         with pytest.raises(ValueError):
             sample_ts.mul_value_at("2023-01-01 05:00:00", 1, "YYYY-MM-DD HH:mm:ss")
 
+    def test_add_indexes(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [50.0, 60.0],
+            },
+        )
+        new_ts = Timeseries(df)
+        sample_ts.add_indexes(new_ts)
+        assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
+
+    def test_add_indexes_with_existing_timestamp(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 3, 0, 0),
+                    datetime(2023, 1, 1, 4, 0, 0),
+                ],
+                "value": [50.0, 60.0],
+            },
+        )
+        new_ts = Timeseries(df)
+        with pytest.raises(ValueError):
+            sample_ts.add_indexes(new_ts)
+
+    def test_add_indexes_with_wrong_frequency(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 4, 30, 0),
+                ],
+                "value": [50.0, 60.0],
+            },
+        )
+        new_ts = Timeseries(df)
+        with pytest.raises(ValueError):
+            sample_ts.add_indexes(new_ts)
+
+    def test_add_index(self, sample_ts):
+        sample_ts.add_index(datetime(2023, 1, 1, 4, 0, 0), 50.0)
+        assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0, 50.0]
+
+    def test_add_index_with_existing_timestamp(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.add_index(datetime(2023, 1, 1, 3, 0, 0), 50.0)
+
+    def test_add_index_with_timestamp_not_respecting_frequency(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.add_index(datetime(2023, 1, 1, 5, 0, 0), 50.0)
+
     def test_arithmetic_operations_with_invalid_types(self, sample_ts):
         """Test arithmetic operations with invalid types."""
         # Test multiplication
