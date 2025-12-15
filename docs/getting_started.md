@@ -24,7 +24,7 @@ uv add atlas-rte # using uv
 
 ## Available solver
 
-Atlas project uses or-tools as modeller, you can use the solver of your choice. We provided a special support for the commercial Xpress solver. Here is a quick install guide :
+Atlas project uses `or-tools` as modeller, you can use the solver of your choice. We provided a special support for the commercial Xpress solver. Here is a quick install guide :
 
 ### Xpress for windows
 
