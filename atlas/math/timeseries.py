@@ -540,24 +540,6 @@ class Timeseries:
             pl.col("time").dt.convert_time_zone(timezone),
         )
 
-    def sort(
-        self,
-        inplace: bool = True,
-        descending: bool = False,
-    ) -> Timeseries:
-        """
-        Sort the Timeseries by the given variable(s).
-
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :param descending: Sort in descending order, defaults to False
-        :type descending: bool, optional
-        :return: Sorted Timeseries
-        :rtype: Timeseries
-        """
-        df = self.timeseries.sort("time", descending=descending)
-        return self._return_inplace(df, inplace)
-
     def set_value(
         self,
         time: datetime | str,
