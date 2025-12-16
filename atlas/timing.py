@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal, cast
 
 import pendulum
@@ -148,7 +148,7 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
 def generate_datetimes(
     start: str | datetime,
     end: str | datetime,
-    freq: str | pendulum.Duration,
+    freq: str | pendulum.Duration | timedelta,
     timezone: str = "UTC",
     date_format: str = "YYYY-MM-DD HH:mm:ss",
     closed: Literal["both", "left", "right", "none"] = "both",
@@ -192,13 +192,15 @@ def generate_datetimes(
     ]
 
 
-def get_duration(freq: str | pendulum.Duration) -> pendulum.Duration:
+def get_duration(freq: str | timedelta | pendulum.Duration) -> pendulum.Duration:
     if isinstance(freq, str):
         step = parse_frequency(freq)
     elif isinstance(freq, pendulum.Duration):
         step = freq
+    elif isinstance(freq, timedelta):
+        step = pendulum.duration(seconds=freq.total_seconds())
     else:
-        raise TypeError("Frequency must be a string or a pendulum.Duration")
+        raise TypeError("Frequency must be a string, a timedelta or a pendulum.Duration")
     return step
 
 
