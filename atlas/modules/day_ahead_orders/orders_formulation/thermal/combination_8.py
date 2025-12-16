@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import math
 from typing import Any
 
-from pydantic_extra_types.pendulum_dt import DateTime
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization_model import (

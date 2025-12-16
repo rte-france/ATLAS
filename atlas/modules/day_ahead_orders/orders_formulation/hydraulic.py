@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 import math
 
 import pendulum
-from pydantic_extra_types.pendulum_dt import DateTime
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas import Order, OrderCoupling, Timeseries

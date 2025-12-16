@@ -9,7 +9,7 @@ import itertools
 import math
 from collections.abc import Callable
 
-from pydantic_extra_types.pendulum_dt import DateTime
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas import OrderCoupling, ScenarioMatrix, SolverOptions, Thermal

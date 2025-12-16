@@ -7,10 +7,9 @@ This file is part of the ATLAS project.
 
 from functools import cached_property
 
-from pendulum import duration
+from pendulum import DateTime, duration
 from pendulum.duration import Duration
 from pydantic import Field, field_validator
-from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import SolverEnum

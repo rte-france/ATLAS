@@ -10,8 +10,8 @@ import os
 from datetime import datetime
 from typing import Literal
 
+from pendulum import DateTime
 from pendulum._pendulum import Duration
-from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
 from atlas import OptimisationModel, SolverOptions, generate_datetimes
