@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Union
 
 from atlas import (
     Equipment,
@@ -9,6 +10,10 @@ from atlas import (
     Thermal,
     Timeseries,
     Wind,
+    Hydro,
+    Storage,
+    LazyForecastingMatrix,
+    LazyTimeseries,
 )
 from atlas.utils.clean_rounding.clean_rounding_parameters import CleanRoundingParameters
 
@@ -18,17 +23,18 @@ def clean_rounding(equipment: Equipment, parameters: CleanRoundingParameters):
     TODO: docstring
     Modifies the equipment's timeseries in place.
     """
-    indexes_list = _get_indexes_in_time_window(equipment.power, parameters.start_date, parameters.end_date)
-    for local_index in indexes_list:
-        new_timeseries = equipment.power.select(local_index)
-        min_power, max_power = _get_minimum_and_maximum_powers(equipment, local_index, new_timeseries, parameters)
-        new_timeseries.round(parameters.rounding_precision)
-        _post_process_rounding(equipment, max_power, min_power, new_timeseries, parameters)
-        equipment.power.replace(local_index, new_timeseries)
+    if equipment.power is not None:
+        indexes_list = _get_indexes_in_time_window(equipment.power, parameters.start_date, parameters.end_date)
+        for local_index in indexes_list:
+            new_timeseries = equipment.power.select(local_index)
+            min_power, max_power = _get_minimum_and_maximum_powers(equipment, local_index, new_timeseries, parameters)
+            new_timeseries.round(parameters.rounding_precision)
+            _post_process_rounding(equipment, max_power, min_power, new_timeseries, parameters)
+            equipment.power.replace(local_index, new_timeseries)
 
 
 def _get_indexes_in_time_window(
-    forecasting_matrix: ForecastingMatrix, start_date: datetime, end_date: datetime
+    forecasting_matrix: Union[ForecastingMatrix, LazyForecastingMatrix], start_date: datetime, end_date: datetime
 ) -> list[datetime]:
     return list(
         filter(
@@ -43,31 +49,47 @@ def _get_minimum_and_maximum_powers(
     local_index: datetime,
     new_timeseries: Timeseries,
     parameters: CleanRoundingParameters,
-) -> tuple[Timeseries, Timeseries]:
-    if isinstance(equipment, Wind | Solar | OtherNonDispatchable):
-        maximum_power = equipment.maximum_power_forecast.get_forecast(
-            local_index,
-            parameters.start_date,
-            parameters.end_date,
-            new_timeseries.timestep,
-        )
-        minimum_power = Timeseries.from_index(
-            new_timeseries.first_date(), new_timeseries.frequency, new_timeseries.last_date()
-        )  # TODO: fill with proper values
-        return minimum_power, maximum_power
-    elif isinstance(equipment, Load):
-        maximum_power = equipment.maximum_power_forecast.get_forecast(
-            local_index,
-            parameters.start_date,
-            parameters.end_date,
-            new_timeseries.timestep,
-        )
-        minimum_power = Timeseries.from_index(
-            new_timeseries.first_date(), new_timeseries.frequency, new_timeseries.last_date()
-        )  # TODO: fill with proper values
+) -> tuple[Union[Timeseries, LazyTimeseries], Union[Timeseries, LazyTimeseries]]:
+    if isinstance(equipment, Hydro | Storage | Thermal):
+        minimum_power = equipment.minimum_power
+        if minimum_power is None:
+            raise ValueError("Equipment has no minimum power.")
+        maximum_power = equipment.maximum_power
+        if maximum_power is None:
+            raise ValueError("Equipment has no maximum power.")
         return minimum_power, maximum_power
     else:
-        return equipment.minimum_power, equipment.maximum_power
+        first_date = new_timeseries.first_date()
+        last_date = new_timeseries.last_date()
+        if first_date is None or last_date is None:
+            raise ValueError("Timeseries is empty.")
+        if isinstance(equipment, Wind | Solar | OtherNonDispatchable):
+            if equipment.maximum_power_forecast is None:
+                raise ValueError("Maximum power forecast is not defined for equipment.")
+            maximum_power = equipment.maximum_power_forecast.get_forecast(
+                local_index,
+                parameters.start_date,
+                parameters.end_date,
+                new_timeseries.timestep,
+            )
+            minimum_power = Timeseries.from_index(
+                first_date, new_timeseries.frequency, last_date
+            )  # TODO: fill with proper values
+            return minimum_power, maximum_power
+        elif isinstance(equipment, Load):
+            if equipment.maximum_power_forecast is None:
+                raise ValueError("Maximum power forecast is not defined for equipment.")
+            maximum_power = equipment.maximum_power_forecast.get_forecast(
+                local_index,
+                parameters.start_date,
+                parameters.end_date,
+                new_timeseries.timestep,
+            )
+            minimum_power = Timeseries.from_index(
+                first_date, new_timeseries.frequency, last_date
+            )  # TODO: fill with proper values
+            return minimum_power, maximum_power
+        raise ValueError(f"Unexpected Equipment type: {equipment.__class__.__name__}.")
 
 
 def _post_process_rounding(equipment, max_power, min_power, new_timeseries, parameters):
@@ -132,9 +154,7 @@ def _post_process_timestamps_in_ramps(equipment: Equipment, new_timeseries: Time
             # Correct the ramp
             if len(total_ramp) > 1:
                 first_value = new_timeseries.get_value(total_ramp[0])
-                last_value = new_timeseries.get_value(
-                    total_ramp[-1] + timedelta(minutes=new_timeseries.timestep.in_minutes())
-                )
+                last_value = new_timeseries.get_value(total_ramp[-1] + new_timeseries.timestep)
 
                 # Do not correct if there is a startup or a shutdown
                 if first_value == 0 or last_value == 0:
