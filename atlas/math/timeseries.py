@@ -755,7 +755,7 @@ class Timeseries:
             pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
             pl.col("value").cast(pl.Float64()),
         )
-        df = pl.concat([self.timeseries, new_row]).sort("time")
+        df = pl.concat([self.timeseries, new_row])
 
         return self._return_inplace(df, inplace)
 
