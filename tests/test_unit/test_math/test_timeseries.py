@@ -200,8 +200,8 @@ class TestTimeseriesInit:
         ts = Timeseries.from_file(csv_path, filters=("category", "A"))
 
         # Should only have rows where category is "A"
-        assert ts.frequency == pendulum.duration(hours=1)
-        assert len(ts) == 49
+        assert ts.frequency == pendulum.duration(days=2)
+        assert len(ts) == 2
 
     def test_from_file_parquet(self, tmp_path):
         """Test loading from file with filters."""

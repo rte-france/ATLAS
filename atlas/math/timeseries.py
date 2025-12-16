@@ -24,6 +24,7 @@ import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
+from atlas.typing import TimeseriesDict
 
 
 class Timeseries:
@@ -38,7 +39,7 @@ class Timeseries:
 
     def __init__(
         self,
-        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list[float]] | None = None,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | TimeseriesDict | None = None,
         timezone: str = "UTC",
     ) -> None:
         """
@@ -206,7 +207,7 @@ class Timeseries:
         :return: The timeseries instantiated from the dataframe-like object
         :rtype: Timeseries
         """
-        if not isinstance(dataframe, pl.DataFrame | pd.DataFrame):
+        if not isinstance(dataframe, pl.DataFrame | pd.DataFrame | dict):
             raise TypeError("Input has to be a dataframe-like object.")
 
         return cls(dataframe, timezone)
@@ -220,7 +221,7 @@ class Timeseries:
         """
         return get_metadata_from_frame(self.timeseries)
 
-    def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None) -> None:
+    def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | TimeseriesDict | None) -> None:
         if timeseries is None or isinstance(timeseries, Timeseries):
             return
         df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
@@ -237,7 +238,7 @@ class Timeseries:
 
     def _set_timeseries(
         self,
-        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | TimeseriesDict | None,
         timezone: str,
     ) -> None:
         if timeseries is None:
@@ -263,9 +264,6 @@ class Timeseries:
             self.timeseries = df.rename({time_column[0]: "time", value_column[0]: "value"}).with_columns(
                 pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
             )
-
-            if len(self.timeseries) == 2 and infer_frequency(self.timeseries) > pendulum.duration(days=1):
-                self.upsample("1h", interpolation_method="linear")
 
             self.sort()
 
@@ -598,7 +596,7 @@ class Timeseries:
 
     def set_values(
         self,
-        other: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list[float]],
+        other: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -627,7 +625,7 @@ class Timeseries:
             )
 
         df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"]))
-        df = pl.concat([df, other_ts.dataframe]).sort("time")
+        df = pl.concat([df, other_ts.dataframe])
 
         return self._return_inplace(df, inplace)
 
@@ -707,7 +705,7 @@ class Timeseries:
 
     def add_indexes(
         self,
-        other: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list[float]],
+        other: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         inplace: bool = True,
     ) -> Timeseries:
         """
@@ -735,7 +733,7 @@ class Timeseries:
                 "Could not add indexes on Timeseries because some indexes to add are not present in Timeseries"
             )
 
-        df = pl.concat([self.timeseries, other_ts.dataframe]).sort("time")
+        df = pl.concat([self.timeseries, other_ts.dataframe])
 
         return self._return_inplace(df, inplace)
 
