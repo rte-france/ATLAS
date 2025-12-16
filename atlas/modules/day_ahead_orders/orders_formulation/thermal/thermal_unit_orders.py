@@ -384,7 +384,7 @@ class ThermalUnitOrders:
                 q_step_down = q_min / T_stop
 
             # Initialize the overall inflexible quantity offered, on which the startup cost will be spread afterwards
-            Q = 0
+            Q = 0.0
 
             # Loop over the inflexible_time_frame to create the orders.
             inflexible_orders = []

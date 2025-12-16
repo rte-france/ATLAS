@@ -264,8 +264,8 @@ class DAOStorage:
         self, storage: Storage, Qv: dict[DateTime, float], Qa: dict[DateTime, float]
     ) -> tuple[float, float]:
         """------ Price computation ------"""
-        P_a_max = 0
-        P_v_min = 0
+        P_a_max = 0.0
+        P_v_min = 0.0
         # Get the price forecast from the dataset: estimations are at ActionHour, from StartDate to EndDate
         # The price forecast is relative to the equipment's market area
         # it is the estimation the actor has of the energy prices at the given date
@@ -299,19 +299,19 @@ class DAOStorage:
             # Else they are evaluated in a manner that makes profit =  0
 
             if P_a_max <= 0:
-                P_a_max = 0
+                P_a_max = 0.0
             if P_v_min <= 0:
-                P_v_min = 0
+                P_v_min = 0.0
 
             if Qa_empty:
                 Psale = P_v_min
-                Ppurchase = 0
+                Ppurchase = 0.0
             elif Qv_empty:
-                Psale = 0
+                Psale = 0.0
                 Ppurchase = P_a_max
             elif P_a_max == 0 and P_v_min == 0:
-                Psale = 0
-                Ppurchase = 0
+                Psale = 0.0
+                Ppurchase = 0.0
             else:
                 a = (storage.discharge_efficiency * storage.charge_efficiency * P_v_min - P_a_max) / (
                     storage.discharge_efficiency * storage.charge_efficiency * P_v_min + P_a_max
@@ -320,7 +320,7 @@ class DAOStorage:
                 Ppurchase = P_a_max * (1 + a)
 
         else:
-            Psale = 0
+            Psale = 0.0
             Ppurchase = P_a_max
 
         return Psale, Ppurchase

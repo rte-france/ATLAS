@@ -59,6 +59,31 @@ class ThermalOptimizationModel(OptimisationModel):
     UP_GRAD_AT_KEY = "UP_grad_at_"
     DOWN_GRAD_AT_KEY = "DOWN_grad_at_"
 
+    T_on: int
+    T_off: int
+    T_stable: int
+    T_start: int
+    T_stop: int
+    extended_start_date: DateTime
+    q_lower: Timeseries
+    q_upper: Timeseries
+    maximum_automated: float
+    reserves_up_procured: Timeseries
+    reserves_down_procured: Timeseries
+    feasible_automated_reserves_up_procured: Timeseries
+    feasible_automated_reserves_down_procured: Timeseries
+    automated_unsupplied_reserves: float
+    delta_q: float
+    delta_q_unconstrained: float
+    Q_max: float
+    Q_min: float
+    last_power: Timeseries
+    last_date: DateTime
+    start_date_minus_one: DateTime
+    time_frame_union_minus_one: list[DateTime]
+    start_time_steps: range
+    stop_time_steps: range
+
     def __init__(
         self,
         parameters: DayAheadOrdersParameters,
@@ -91,24 +116,8 @@ class ThermalOptimizationModel(OptimisationModel):
         self.thermal_unit: Thermal = thermal_unit
         self.prices: Timeseries = prices
         self.price_type: str = price_type
-        self.T_on: int = 0
-        self.T_off: int = 0
-        self.T_stable: int = 0
         self.time_frame: list[DateTime] = []
-        self.T_start: int = 0
-        self.T_stop: int = 0
         self.previous_time_frame: list[DateTime] = []
-        self.extended_start_date: DateTime = None
-        self.q_lower: Timeseries = None
-        self.q_upper: Timeseries = None
-        self.maximum_automated: float = 0
-        self.reserves_up_procured: Timeseries = None
-        self.reserves_down_procured: Timeseries = None
-        self.feasible_automated_reserves_up_procured: Timeseries = None
-        self.feasible_automated_reserves_down_procured: Timeseries = None
-        self.automated_unsupplied_reserves: float = 0
-        self.delta_q: float = 0
-        self.delta_q_unconstrained: float = 0
         self.q = ModelVar(
             lambda t: self.get_variable(self.power_equip_at(t)),
             lambda t: self.add_continuous_variable(self.power_equip_at(t), 0, self.q_upper.get_value(t)),
@@ -124,8 +133,6 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.on_up_equip_at(t)),
             lambda t: self.add_boolean_variable(self.on_up_equip_at(t)),
         )
-        self.start_time_steps = []
-        self.stop_time_steps = []
         self.START = ModelVar(
             lambda t: self.get_variable(self.start_equip_at(t)),
             lambda t: self.add_boolean_variable(self.start_equip_at(t)),
@@ -134,7 +141,6 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.stop_equip_at(t)),
             lambda t: self.add_boolean_variable(self.stop_equip_at(t)),
         )
-        self.start_date_minus_one: DateTime = None
         self.ON_FLAT = ModelVar(
             lambda t: self.get_variable(self.on_flat_equip_at(t)),
             lambda t: self.add_boolean_variable(self.on_flat_equip_at(t)),
@@ -149,9 +155,6 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.turned_off_equip_at(t)),
             lambda t: self.add_continuous_variable(self.turned_off_equip_at(t), 0, 1),
         )
-        self.time_frame_union_minus_one: list[DateTime] = None
-        self.Q_max: float = 0
-        self.Q_min: float = 0
         # This auxiliary variable indicates when the unit enters the FLAT state
         self.stable = ModelVar(
             lambda t: self.get_variable(self.stable_at(t)),
@@ -177,9 +180,6 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.down_grad_at(t)),
             lambda t: self.add_continuous_variable(self.down_grad_at(t), self.Q_min, self.Q_max),
         )
-        self.last_power: Timeseries = None
-        self.last_date: DateTime = None
-
         # Power gradients
         # Definition of the gradients_time_frame : starts at start_date - time_step and goes until T-1
         # Gradients are defined on a "shifted" time frame.
