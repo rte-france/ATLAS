@@ -101,7 +101,7 @@ class ThermalPeakLoadOrders:
                     # Create the instance
                     inflexible_order = Order(
                         name=f"inflexible_order_at_{t}_for_unit_{unit.name}",
-                        market_area=unit.portfolio.market_area,
+                        market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,
                         equipment=unit,
                         qmax=minimum_power,
@@ -231,7 +231,7 @@ class ThermalPeakLoadOrders:
     ) -> None:
         order = Order(
             name=order_name,
-            market_area=unit.portfolio.market_area,
+            market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
             portfolio=unit.portfolio,
             equipment=unit,
             qmax=q_max,

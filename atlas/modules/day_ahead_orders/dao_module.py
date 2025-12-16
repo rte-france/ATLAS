@@ -10,7 +10,6 @@ from pendulum import Duration
 import atlas.config as cfg
 from atlas import BusinessModel, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.abstract_class.abstract_parameters import module_parameters_type_var
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.dao_orchestrator import DayAheadOrdersOrchestrator
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
@@ -21,11 +20,11 @@ from atlas.timing import infer_frequency
 class DayAheadOrdersModule(
     AbstractModule[DayAheadOrdersParameters, DayAheadOrdersInputDataset, DayAheadOrdersOutputDataset]
 ):
-    def get_parameters_class(self) -> type[module_parameters_type_var]:
+    def get_parameters_class(self):
         return DayAheadOrdersParameters
 
     def import_data(
-        self, raw_data: dict[str, list[type[BusinessModel]]], parameters: DayAheadOrdersParameters
+        self, raw_data: dict[str, list[BusinessModel]], parameters: DayAheadOrdersParameters
     ) -> DayAheadOrdersInputDataset:
         """Imports data using business objects and parameters."""
         return DayAheadOrdersInputDataset(raw_data, parameters)

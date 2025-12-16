@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 from pendulum.duration import Duration
 
-from atlas import Equipment, SolverOptions
+from atlas import SolverOptions, Storage
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 
@@ -18,11 +18,11 @@ class BatteryModel(StorageModel):
         parameters: DayAheadOrdersParameters,
         solver_name: str,
         name: str,
-        equipment: Equipment,
+        storage: Storage,
         optimization_period: Duration,
         solver_options: SolverOptions,
     ):
-        super().__init__(parameters, solver_name, name, equipment, optimization_period, solver_options)
+        super().__init__(parameters, solver_name, name, storage, optimization_period, solver_options)
 
     def create_constraints(self, initial_stock: float | None, power_fragments: int) -> None:
         """
@@ -35,12 +35,12 @@ class BatteryModel(StorageModel):
             for i in range(power_fragments):
                 self.add_constraint(
                     self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i)) * power_fragments
-                    <= self.equipment.maximum_power.get_value(t),
+                    <= self.storage.maximum_power.get_value(t),
                     f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
                 )
                 self.add_constraint(
                     self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i)) * power_fragments
-                    <= abs(self.equipment.minimum_power.get_value(t)),
+                    <= abs(self.storage.minimum_power.get_value(t)),
                     f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
                 )
 
@@ -69,8 +69,8 @@ class BatteryModel(StorageModel):
                         initial_stock
                         + self.parameters.time_step.total_hours()
                         * (
-                            self.get_variable(StorageModel.purchased_at_key(t)) * self.equipment.charge_efficiency
-                            - self.get_variable(StorageModel.sold_at_key(t)) / self.equipment.discharge_efficiency
+                            self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
+                            - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                     ),
                     f"Stock_tracking_at_{t + self.parameters.time_step}",
@@ -81,8 +81,8 @@ class BatteryModel(StorageModel):
                     == self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.time_step))
                     + self.parameters.time_step.total_hours()
                     * (
-                        self.get_variable(StorageModel.purchased_at_key(t)) * self.equipment.charge_efficiency
-                        - self.get_variable(StorageModel.sold_at_key(t)) / self.equipment.discharge_efficiency
+                        self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
+                        - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                     ),
                     f"Stock_tracking_at_{t + self.parameters.time_step}",
                 )
@@ -90,13 +90,13 @@ class BatteryModel(StorageModel):
             # Respect of system states constraints (isSell and isV2G)
             self.add_constraint(
                 self.get_variable(StorageModel.sold_at_key(t))
-                <= self.get_variable(StorageModel.is_sell_at_key(t)) * self.equipment.maximum_power.get_value(t),
+                <= self.get_variable(StorageModel.is_sell_at_key(t)) * self.storage.maximum_power.get_value(t),
                 f"Respect_Pmax_sale_at_{t}",
             )
             self.add_constraint(
                 self.get_variable(StorageModel.purchased_at_key(t))
                 <= (1 - self.get_variable(StorageModel.is_sell_at_key(t)))
-                * abs(self.equipment.minimum_power.get_value(t)),
+                * abs(self.storage.minimum_power.get_value(t)),
                 f"Respect_Pmax_purchase_at_{t}",
             )
             self.add_constraint(self.get_variable(StorageModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
@@ -107,19 +107,19 @@ class BatteryModel(StorageModel):
             # Respect of minimum and maximum storage levels constraints
             self.add_constraint(
                 self.get_variable(StorageModel.stored_energy_at_key(t))
-                >= (self.equipment.minimum_state_of_charge.get_value(t) * self.equipment.maximum_energy.get_value(t)),
+                >= (self.storage.minimum_state_of_charge.get_value(t) * self.storage.maximum_energy.get_value(t)),
                 f"Minimum_storage_level_constraint_at_{t}",
             )
             self.add_constraint(
-                self.get_variable(StorageModel.stored_energy_at_key(t)) <= self.equipment.maximum_energy.get_value(t),
+                self.get_variable(StorageModel.stored_energy_at_key(t)) <= self.storage.maximum_energy.get_value(t),
                 f"Maximum_storage_level_constraint_at_{t}",
             )
 
         # Respect of the balance between sales and purchases
         self.add_constraint(
             sum(self.get_variable(StorageModel.purchased_at_key(t)) for t in self.time_frame)
-            * self.equipment.charge_efficiency
+            * self.storage.charge_efficiency
             == sum(self.get_variable(StorageModel.sold_at_key(t)) for t in self.time_frame)
-            / self.equipment.discharge_efficiency,
+            / self.storage.discharge_efficiency,
             "Respect_of_cycle_balance",
         )

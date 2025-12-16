@@ -65,7 +65,7 @@ class NonDispatchable:
                     # Initialize the order object
                     bid_output = Order(
                         name=f"otherND_order_at_{t}_for_unit_{unit.name}",  # Assign a unique name.
-                        market_area=unit.portfolio.market_area,
+                        market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,
                         equipment=unit,
                         qmax=production_forecast.get_value(t),

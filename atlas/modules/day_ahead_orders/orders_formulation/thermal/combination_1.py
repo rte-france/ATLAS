@@ -35,7 +35,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     else:
         # Initial condition on the power output
         for t in model.previous_time_frame:
-            model.q.set_extended(t, model.last_power.get_value(t))
+            model.q.set_extended(t, int(model.last_power.get_value(t)))
 
         # Initial conditions on the state variables
         # Only need to set one value, the mutual exclusion constraint being defined over the

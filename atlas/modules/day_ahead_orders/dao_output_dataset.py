@@ -16,6 +16,7 @@ from atlas import (
     Node,
     Order,
     OrderCoupling,
+    OtherNonDispatchable,
     Portfolio,
     Solar,
     Storage,
@@ -30,19 +31,19 @@ from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParamete
 
 class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
     def __init__(self, inputDataset: DayAheadOrdersInputDataset):
-        self.parameters = copy.deepcopy(inputDataset.parameters)
-        self.control_block = copy.deepcopy(inputDataset.control_block)
-        self.market_area = copy.deepcopy(inputDataset.market_area)
-        self.market_border = copy.deepcopy(inputDataset.market_border)
-        self.node = copy.deepcopy(inputDataset.node)
-        self.portfolio = copy.deepcopy(inputDataset.portfolio)
-        self.wind = copy.deepcopy(inputDataset.wind)
-        self.storage = copy.deepcopy(inputDataset.storage)
-        self.hydro = copy.deepcopy(inputDataset.hydro)
-        self.solar = copy.deepcopy(inputDataset.solar)
-        self.thermal = copy.deepcopy(inputDataset.thermal)
-        self.other_non_dispatchable = copy.deepcopy(inputDataset.other_non_dispatchable)
-        self.load = copy.deepcopy(inputDataset.load)
+        self.parameters: DayAheadOrdersParameters = copy.deepcopy(inputDataset.parameters)
+        self.control_block: list[ControlBlock] = copy.deepcopy(inputDataset.control_block)
+        self.market_area: list[MarketArea] = copy.deepcopy(inputDataset.market_area)
+        self.market_border: list[MarketBorder] = copy.deepcopy(inputDataset.market_border)
+        self.node: list[Node] = copy.deepcopy(inputDataset.node)
+        self.portfolio: list[Portfolio] = copy.deepcopy(inputDataset.portfolio)
+        self.wind: list[Wind] = copy.deepcopy(inputDataset.wind)
+        self.storage: list[Storage] = copy.deepcopy(inputDataset.storage)
+        self.hydro: list[Hydro] = copy.deepcopy(inputDataset.hydro)
+        self.solar: list[Solar] = copy.deepcopy(inputDataset.solar)
+        self.thermal: list[Thermal] = copy.deepcopy(inputDataset.thermal)
+        self.other_non_dispatchable: list[OtherNonDispatchable] = copy.deepcopy(inputDataset.other_non_dispatchable)
+        self.load: list[Load] = copy.deepcopy(inputDataset.load)
         self.order: list[Order] = []
         self.order_coupling: list[OrderCoupling] = []
 

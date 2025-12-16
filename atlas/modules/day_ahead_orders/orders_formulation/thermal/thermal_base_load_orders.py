@@ -121,7 +121,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
 
         # Iterate trough the unit's maximum_power and based on the current value, determine whether the unit
         for t in extended_time_frame:
-            if t in maximum_power and maximum_power.get_value(t) > 0:
+            if maximum_power is not None and t in maximum_power and maximum_power.get_value(t) > 0:
                 states_sequence.set_value(t, 1)
 
         # See if there is only one startup or shutdown over the time frame. If it is not the case,

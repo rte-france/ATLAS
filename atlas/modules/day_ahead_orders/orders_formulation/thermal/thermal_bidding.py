@@ -192,7 +192,7 @@ class ThermalBidding:
                     "Warning : da_sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
                 )
 
-                da_sell_submitted_volume = da_sell_submitted_volumes[equipment.name]
+                da_sell_submitted_volume: Timeseries = da_sell_submitted_volumes[equipment.name]
                 programms = list_of_mutually_exclusive_programms[equipment.name]
 
                 if programms:

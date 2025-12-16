@@ -260,7 +260,7 @@ class ThermalUnitOrders:
                 # Flexible part of the order
                 flexible_part = Order(
                     name=f"flexible_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
-                    market_area=unit.portfolio.market_area,
+                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=q_max,
@@ -282,7 +282,7 @@ class ThermalUnitOrders:
                 # Initialize the order object.
                 reserve_bid = Order(
                     name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
-                    market_area=unit.portfolio.market_area,
+                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=automated_reserves_down_procured.get_value(t),
@@ -304,7 +304,7 @@ class ThermalUnitOrders:
                 # Initialize the order object.
                 reserve_bid = Order(
                     name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
-                    market_area=unit.portfolio.market_area,
+                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=manual_reserves_down_procured.get_value(t),
@@ -326,7 +326,7 @@ class ThermalUnitOrders:
                 # Initialize the order object.
                 reserve_bid = Order(
                     name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
-                    market_area=unit.portfolio.market_area,
+                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=automated_reserves_up_procured.get_value(t),
@@ -348,7 +348,7 @@ class ThermalUnitOrders:
                 # Initialize the order object.
                 reserve_bid = Order(
                     name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
-                    market_area=unit.portfolio.market_area,
+                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=manual_reserves_up_procured.get_value(t),
@@ -404,7 +404,7 @@ class ThermalUnitOrders:
 
                     bid_output = Order(
                         name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
-                        market_area=unit.portfolio.market_area,
+                        market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,
                         equipment=unit,
                         qmax=q_sell,
@@ -437,7 +437,7 @@ class ThermalUnitOrders:
 
                     bid_output = Order(
                         name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
-                        market_area=unit.portfolio.market_area,
+                        market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,
                         equipment=unit,
                         qmax=q_sell,
@@ -460,7 +460,7 @@ class ThermalUnitOrders:
                 # Initialize the inflexible order object.
                 bid_output = Order(
                     name=f"order_at_{t}_for_unit_{unit.name}_under_price_{case}",
-                    market_area=unit.portfolio.market_area,
+                    market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=unit.minimum_power.get_value(t),

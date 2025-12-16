@@ -333,7 +333,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         return is_overlapping
 
-    def solve_optimization_programs(self, equipments_list: Thermal) -> dict[str, dict[str, Timeseries]]:
+    def solve_optimization_programs(self, equipments_list: list[Thermal]) -> dict[str, dict[str, Timeseries]]:
         """
         Solves the optimization programs for a list of equipment given the three price curves.
 

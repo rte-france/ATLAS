@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import Equipment, SolverOptions
+from atlas import SolverOptions, Storage
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 
@@ -16,10 +16,10 @@ class ElectricVehicleModel(StorageModel):
         parameters: DayAheadOrdersParameters,
         solver_name: str,
         name: str,
-        equipment: Equipment,
+        storage: Storage,
         solver_options: SolverOptions,
     ):
-        super().__init__(parameters, solver_name, name, equipment, parameters.ev_additional_hours, solver_options)
+        super().__init__(parameters, solver_name, name, storage, parameters.ev_additional_hours, solver_options)
 
     def create_constraints(self, initial_stock: float | None) -> None:
         # Creation of constraints
@@ -29,13 +29,13 @@ class ElectricVehicleModel(StorageModel):
                 self.add_constraint(
                     self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
                     * self.parameters.ev_nb_fragments
-                    <= self.equipment.maximum_power.get_value(t),
+                    <= self.storage.maximum_power.get_value(t),
                     f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
                 )
                 self.add_constraint(
                     self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
                     * self.parameters.ev_nb_fragments
-                    <= abs(self.equipment.minimum_power.get_value(t)),
+                    <= abs(self.storage.minimum_power.get_value(t)),
                     f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
                 )
 
@@ -64,17 +64,17 @@ class ElectricVehicleModel(StorageModel):
                     == (
                         initial_stock
                         * (
-                            self.equipment.maximum_energy.get_value(t)
-                            / self.equipment.maximum_energy.get_value(t - self.parameters.time_step)
+                            self.storage.maximum_energy.get_value(t)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.time_step)
                         )
                         + self.parameters.time_step.total_hours()
                         * (
-                            self.get_variable(StorageModel.purchased_at_key(t)) * self.equipment.charge_efficiency
-                            - self.get_variable(StorageModel.sold_at_key(t)) / self.equipment.discharge_efficiency
+                            self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
+                            - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                         + (
-                            self.equipment.displacement_energy.get_value(t)
-                            - self.equipment.displacement_energy.get_value(t - self.parameters.time_step)
+                            self.storage.displacement_energy.get_value(t)
+                            - self.storage.displacement_energy.get_value(t - self.parameters.time_step)
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -85,17 +85,17 @@ class ElectricVehicleModel(StorageModel):
                     == (
                         self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.time_step))
                         * (
-                            self.equipment.maximum_energy.get_value(t)
-                            / self.equipment.maximum_energy.get_value(t - self.parameters.time_step)
+                            self.storage.maximum_energy.get_value(t)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.time_step)
                         )
                         + self.parameters.time_step.total_hours()
                         * (
-                            self.get_variable(StorageModel.purchased_at_key(t)) * self.equipment.charge_efficiency
-                            - self.get_variable(StorageModel.sold_at_key(t)) / self.equipment.discharge_efficiency
+                            self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
+                            - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                         + (
-                            self.equipment.displacement_energy.get_value(t)
-                            - self.equipment.displacement_energy.get_value(t - self.parameters.time_step)
+                            self.storage.displacement_energy.get_value(t)
+                            - self.storage.displacement_energy.get_value(t - self.parameters.time_step)
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -104,15 +104,15 @@ class ElectricVehicleModel(StorageModel):
             # Respect of system states constraints (isSell and is_v2g)
             self.add_constraint(
                 self.get_variable(StorageModel.sold_at_key(t))
-                <= self.equipment.is_v2g
+                <= self.storage.is_v2g
                 * self.get_variable(StorageModel.is_sell_at_key(t))
-                * self.equipment.maximum_power.get_value(t),
+                * self.storage.maximum_power.get_value(t),
                 f"Respect_Pmax_sale_at_{t}",
             )
             self.add_constraint(
                 self.get_variable(StorageModel.purchased_at_key(t))
-                <= (1 - self.get_variable(StorageModel.is_sell_at_key(t)) * self.equipment.is_v2g)
-                * abs(self.equipment.minimum_power.get_value(t)),
+                <= (1 - self.get_variable(StorageModel.is_sell_at_key(t)) * self.storage.is_v2g)
+                * abs(self.storage.minimum_power.get_value(t)),
                 f"Respect_Pmax_purchase_at_{t}",
             )
             self.add_constraint(self.get_variable(StorageModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
@@ -123,11 +123,11 @@ class ElectricVehicleModel(StorageModel):
             # Respect of minimum and maximum stoage level constraints
             self.add_constraint(
                 self.get_variable(StorageModel.stored_energy_at_key(t))
-                >= self.equipment.minimum_state_of_charge.get_value(t) * self.equipment.maximum_energy.get_value(t),
+                >= self.storage.minimum_state_of_charge.get_value(t) * self.storage.maximum_energy.get_value(t),
                 f"Minimum_storage_level_constraint_at_{t}",
             )
             self.add_constraint(
-                self.get_variable(StorageModel.stored_energy_at_key(t)) <= self.equipment.maximum_energy.get_value(t),
+                self.get_variable(StorageModel.stored_energy_at_key(t)) <= self.storage.maximum_energy.get_value(t),
                 f"Maximum_storage_level_constraint_at_{t}",
             )
 
@@ -163,13 +163,13 @@ class ElectricVehicleModel(StorageModel):
         # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
         self.add_constraint(
             sum(self.get_variable(StorageModel.purchased_at_key(t)) for t in self.time_frame)
-            * self.equipment.charge_efficiency
+            * self.storage.charge_efficiency
             >= (
-                self.equipment.displacement_energy.get_value(
+                self.storage.displacement_energy.get_value(
                     self.parameters.end_date + self.optimizationPeriod - self.parameters.time_step
                 )
-                - self.equipment.displacement_energy.get_value(self.parameters.start_date - self.parameters.time_step)
+                - self.storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.time_step)
             )
             * self.parameters.ev_energy_coef,
-            f"DisplacementEnergy_compensation_for_{str(self.equipment.name)}",
+            f"DisplacementEnergy_compensation_for_{str(self.storage.name)}",
         )

@@ -10,8 +10,7 @@ import os
 from datetime import datetime
 from typing import Literal
 
-from pendulum import DateTime
-from pendulum._pendulum import Duration
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas import OptimisationModel, SolverOptions, generate_datetimes
@@ -79,7 +78,7 @@ class ThermalOptimizationModel(OptimisationModel):
             name=f"Optimization program for thermal unit {thermal_unit.name}",
             options=solver_options,
         )
-        self.parameters = parameters
+        self.parameters: DayAheadOrdersParameters = parameters
         if self.solver_name != SolverEnum.XPRESS:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
             raise ValueError(
@@ -89,27 +88,27 @@ class ThermalOptimizationModel(OptimisationModel):
         if not isinstance(thermal_unit, Thermal):
             cfg.logger.error(f"*** WARNING ***\n Equipement {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
-        self.thermal_unit = thermal_unit
+        self.thermal_unit: Thermal = thermal_unit
         self.prices: Timeseries = prices
         self.price_type: str = price_type
-        self.T_on: int = None
-        self.T_off: int = None
-        self.T_stable: int = None
+        self.T_on: int = 0
+        self.T_off: int = 0
+        self.T_stable: int = 0
         self.time_frame: list[DateTime] = []
-        self.T_start: int = None
-        self.T_stop: int = None
+        self.T_start: int = 0
+        self.T_stop: int = 0
         self.previous_time_frame: list[DateTime] = []
         self.extended_start_date: DateTime = None
         self.q_lower: Timeseries = None
         self.q_upper: Timeseries = None
-        self.maximum_automated: float = None
+        self.maximum_automated: float = 0
         self.reserves_up_procured: Timeseries = None
         self.reserves_down_procured: Timeseries = None
         self.feasible_automated_reserves_up_procured: Timeseries = None
         self.feasible_automated_reserves_down_procured: Timeseries = None
         self.automated_unsupplied_reserves: float = 0
-        self.delta_q: float = None
-        self.delta_q_unconstrained: float = None
+        self.delta_q: float = 0
+        self.delta_q_unconstrained: float = 0
         self.q = ModelVar(
             lambda t: self.get_variable(self.power_equip_at(t)),
             lambda t: self.add_continuous_variable(self.power_equip_at(t), 0, self.q_upper.get_value(t)),
@@ -125,8 +124,8 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.on_up_equip_at(t)),
             lambda t: self.add_boolean_variable(self.on_up_equip_at(t)),
         )
-        self.start_time_steps = None
-        self.stop_time_steps = None
+        self.start_time_steps = []
+        self.stop_time_steps = []
         self.START = ModelVar(
             lambda t: self.get_variable(self.start_equip_at(t)),
             lambda t: self.add_boolean_variable(self.start_equip_at(t)),
@@ -151,8 +150,8 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.add_continuous_variable(self.turned_off_equip_at(t), 0, 1),
         )
         self.time_frame_union_minus_one: list[DateTime] = None
-        self.Q_max: float = None
-        self.Q_min: float = None
+        self.Q_max: float = 0
+        self.Q_min: float = 0
         # This auxiliary variable indicates when the unit enters the FLAT state
         self.stable = ModelVar(
             lambda t: self.get_variable(self.stable_at(t)),

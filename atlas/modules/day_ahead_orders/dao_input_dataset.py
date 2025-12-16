@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from typing import cast
+
 from atlas import (
     BusinessModel,
     ControlBlock,
@@ -27,47 +29,67 @@ from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParamete
 
 class DayAheadOrdersInputDataset(AbstractDataset[DayAheadOrdersParameters]):
     def __init__(self, raw_data: dict[str, list[BusinessModel]], parameters: DayAheadOrdersParameters):
-        self.raw_data = raw_data
-        self.parameters = parameters
-
-        self.control_block = (
-            raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]
+        self.parameters: DayAheadOrdersParameters = parameters
+        self.control_block: list[ControlBlock] = (
+            [cast(ControlBlock, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]]
             if INVERSE_MODEL_MAPPING_NAME[ControlBlock] in raw_data
             else []
         )
-        self.market_area = (
-            raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]]
+        self.market_area: list[MarketArea] = (
+            [cast(MarketArea, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]]]
             if INVERSE_MODEL_MAPPING_NAME[MarketArea] in raw_data
             else []
         )
-        self.market_border = (
-            raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]]
+        self.market_border: list[MarketBorder] = (
+            [cast(MarketBorder, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]]]
             if INVERSE_MODEL_MAPPING_NAME[MarketBorder] in raw_data
             else []
         )
-        self.node = raw_data[INVERSE_MODEL_MAPPING_NAME[Node]] if INVERSE_MODEL_MAPPING_NAME[Node] in raw_data else []
-        self.portfolio = (
-            raw_data[INVERSE_MODEL_MAPPING_NAME[Portfolio]] if INVERSE_MODEL_MAPPING_NAME[Portfolio] in raw_data else []
+        self.node: list[Node] = (
+            [cast(Node, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Node]]]
+            if INVERSE_MODEL_MAPPING_NAME[Node] in raw_data
+            else []
         )
-        self.wind = raw_data[INVERSE_MODEL_MAPPING_NAME[Wind]] if INVERSE_MODEL_MAPPING_NAME[Wind] in raw_data else []
-        self.storage = (
-            raw_data[INVERSE_MODEL_MAPPING_NAME[Storage]] if INVERSE_MODEL_MAPPING_NAME[Wind] in raw_data else []
+        self.portfolio: list[Portfolio] = (
+            [cast(Portfolio, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Portfolio]]]
+            if INVERSE_MODEL_MAPPING_NAME[Portfolio] in raw_data
+            else []
         )
-        self.hydro = (
-            raw_data[INVERSE_MODEL_MAPPING_NAME[Hydro]] if INVERSE_MODEL_MAPPING_NAME[Hydro] in raw_data else []
+        self.wind: list[Wind] = (
+            [cast(Wind, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Wind]]]
+            if INVERSE_MODEL_MAPPING_NAME[Wind] in raw_data
+            else []
         )
-        self.solar = (
-            raw_data[INVERSE_MODEL_MAPPING_NAME[Solar]] if INVERSE_MODEL_MAPPING_NAME[Solar] in raw_data else []
+        self.storage: list[Storage] = (
+            [cast(Storage, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Storage]]]
+            if INVERSE_MODEL_MAPPING_NAME[Wind] in raw_data
+            else []
         )
-        self.thermal = (
-            raw_data[INVERSE_MODEL_MAPPING_NAME[Thermal]] if INVERSE_MODEL_MAPPING_NAME[Thermal] in raw_data else []
+        self.hydro: list[Hydro] = (
+            [cast(Hydro, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Hydro]]]
+            if INVERSE_MODEL_MAPPING_NAME[Hydro] in raw_data
+            else []
         )
-        self.other_non_dispatchable = (
-            raw_data[INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable]]
+        self.solar: list[Solar] = (
+            [cast(Solar, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Solar]]]
+            if INVERSE_MODEL_MAPPING_NAME[Solar] in raw_data
+            else []
+        )
+        self.thermal: list[Thermal] = (
+            [cast(Thermal, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Thermal]]]
+            if INVERSE_MODEL_MAPPING_NAME[Thermal] in raw_data
+            else []
+        )
+        self.other_non_dispatchable: list[OtherNonDispatchable] = (
+            [cast(MarketBorder, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable]]]
             if INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable] in raw_data
             else []
         )
-        self.load = raw_data[INVERSE_MODEL_MAPPING_NAME[Load]] if INVERSE_MODEL_MAPPING_NAME[Load] in raw_data else []
+        self.load: list[Load] = (
+            [cast(Load, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Load]]]
+            if INVERSE_MODEL_MAPPING_NAME[Load] in raw_data
+            else []
+        )
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
         return []

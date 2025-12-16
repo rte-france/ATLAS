@@ -7,12 +7,12 @@ This file is part of the ATLAS project.
 
 import os
 from typing import Literal
-from xmlrpc.client import DateTime
 
+from pendulum import DateTime
 from pendulum.duration import Duration
 
 import atlas.config as cfg
-from atlas import Equipment, OptimisationModel, SolverOptions, generate_datetimes
+from atlas import OptimisationModel, SolverOptions, Storage, Timeseries, generate_datetimes
 from atlas.enum import SolverEnum
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 
@@ -30,17 +30,17 @@ class StorageModel(OptimisationModel):
         parameters: DayAheadOrdersParameters,
         solver_name: str,
         name: str,
-        equipment: Equipment,
+        storage: Storage,
         optimization_period: Duration,
         solver_options: SolverOptions,
     ):
         super().__init__(solver_name, name, solver_options)
-        self.parameters = parameters
-        self.equipment = equipment
-        self.optimizationPeriod = optimization_period
-        # Get the price forecast from the dataset: estimations are at ActionHour, over the optimisation period
+        self.parameters: DayAheadOrdersParameters = parameters
+        self.storage: Storage = storage
+        self.optimizationPeriod: Duration = optimization_period
+        # Get the price forecast from the dataset: estimations are at ActionHour, over the optimization period
         # The price forecast is relative to the equipment's market area
-        self.price_forecast = self.equipment.portfolio.market_area.price_forecast_medium.get_forecast(
+        self.price_forecast: Timeseries = self.storage.portfolio.market_area.price_forecast_medium.get_forecast(
             self.parameters.execution_date,
             self.parameters.start_date,
             self.parameters.end_date + self.optimizationPeriod,
@@ -51,7 +51,7 @@ class StorageModel(OptimisationModel):
         # the optimization program will be solved.
         # Remark: we define the time series until end_date - time_step because
         # we want all time steps to lie in the [start_date, endOptimizationDate] range.
-        self.time_frame = generate_datetimes(
+        self.time_frame: list[DateTime] = generate_datetimes(
             self.parameters.start_date,
             self.parameters.end_date + self.optimizationPeriod - self.parameters.time_step,
             self.parameters.time_step,
@@ -144,7 +144,7 @@ class StorageModel(OptimisationModel):
             )
 
         if self.parameters.debug:
-            lp_file_name = os.path.join(self.parameters.output_folder, f"storage_{self.equipment.name}.lp")
+            lp_file_name = os.path.join(self.parameters.output_folder, f"storage_{self.storage.name}.lp")
             self.export_model(lp_file_name)
 
         self.solve()
