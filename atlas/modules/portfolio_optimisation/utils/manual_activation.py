@@ -132,9 +132,7 @@ def _apply_power_constraints(
             parameters.execution_date, parameters.start_date, parameters.end_date
         )
 
-    for time in new_power.index:
-        power_value = new_power.get_value(time)
-
+    for time, power_value in new_power.iter_rows():
         max_power = _get_max_power(equipment, time, max_power_forecast)
         if power_value > max_power:
             new_power.set_value(time, max_power)
@@ -227,7 +225,7 @@ def _update_stored_energy(
     # Update equipment stored energy
     if not parameters.use_forecast:
         stored_energy_matrix = equipment.stored_energy if equipment.stored_energy else ForecastingMatrix()
-        if parameters.execution_date in stored_energy_matrix.index:
+        if parameters.execution_date in stored_energy_matrix:
             equipment.stored_energy.delete(parameters.execution_date)
         equipment.stored_energy.add(new_stored_energy, parameters.execution_date)
 

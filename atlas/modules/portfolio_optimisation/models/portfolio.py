@@ -17,10 +17,15 @@ from atlas.math.timeseries import Timeseries
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
+from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
+from atlas.modules.portfolio_optimisation.models.solar import SolarPO
+from atlas.modules.portfolio_optimisation.models.storage import StoragePO
+from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
 from atlas.solver.solver_interface import OptimisationModel
@@ -165,24 +170,16 @@ class PortfolioPO(Portfolio):
         large_imbalance_down_var = model.get_variable(f"{self.name}_large_imbalance_down_{time}")
 
         if imbalance_price_up:
-            model.add_objective(
-                imbalance_price_up * small_imbalance_up_var * timestep.total_hours(), direction="minimize"
-            )
+            model.add_objective(imbalance_price_up * small_imbalance_up_var * timestep.total_hours())
 
         if imbalance_price_down:
-            model.add_objective(
-                -imbalance_price_down * small_imbalance_down_var * timestep.total_hours(), direction="minimize"
-            )
+            model.add_objective(-imbalance_price_down * small_imbalance_down_var * timestep.total_hours())
 
         if large_imbalance_price_up:
-            model.add_objective(
-                large_imbalance_price_up * large_imbalance_up_var * timestep.total_hours(), direction="minimize"
-            )
+            model.add_objective(large_imbalance_price_up * large_imbalance_up_var * timestep.total_hours())
 
         if large_imbalance_price_down:
-            model.add_objective(
-                -large_imbalance_price_down * large_imbalance_down_var * timestep.total_hours(), direction="minimize"
-            )
+            model.add_objective(-large_imbalance_price_down * large_imbalance_down_var * timestep.total_hours())
 
     def _add_reserve_penalty_terms(
         self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters
@@ -196,24 +193,20 @@ class PortfolioPO(Portfolio):
 
         model.add_objective(
             parameters.manual_unprocured_reserves_penalty * parameters.timestep.total_hours() * contracted_diff_up,
-            direction="minimize",
         )
         model.add_objective(
-            parameters.manual_unprocured_reserves_penalty * parameters.timestep.total_hours() * contracted_diff_down,
-            direction="minimize",
+            parameters.manual_unprocured_reserves_penalty * parameters.timestep.total_hours() * contracted_diff_down
         )
 
         model.add_objective(
             parameters.automated_unprocured_reserves_penalty
             * parameters.timestep.total_hours()
             * auto_contracted_diff_up,
-            direction="minimize",
         )
         model.add_objective(
             parameters.automated_unprocured_reserves_penalty
             * parameters.timestep.total_hours()
             * auto_contracted_diff_down,
-            direction="minimize",
         )
 
     def _add_imbalance_variables(
@@ -301,10 +294,10 @@ class PortfolioPO(Portfolio):
 
         for obj in forecast_based_equipment:
             upstream_energy = self._get_upstream_energy(obj, time, parameters)
-            forecast = obj.maximum_power_forecast.get_forecast(
-                parameters.execution_date, parameters.start_date, parameters.end_date
-            )
-            forecast_t = forecast.get_value(time) if time in forecast else 0
+            forecast_t = obj.maximum_power_forecast.get_forecast(
+                parameters.execution_date, time, time, default_value=0
+            ).get_value(time)
+
             residual_energy += upstream_energy - min(forecast_t, upstream_energy)
 
         other_equipment = [
@@ -393,6 +386,8 @@ class PortfolioPO(Portfolio):
             if obj.mfrr_activated is not None:
                 return obj.mfrr_activated.get_value(time)
             return 0.0
+        elif parameters.market == MarketType.dayahead:
+            return obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0.0
         else:
             total_id = (
                 obj.total_id_cleared_quantity.get_value(time) if obj.total_id_cleared_quantity is not None else 0.0
@@ -404,14 +399,13 @@ class PortfolioPO(Portfolio):
     def _get_maximum_power(
         obj: EquipmentPO, time: DateTime, execution_date: datetime | DateTime | str | None = None
     ) -> float:
-        obj_type = type(obj).__name__
-
-        if obj_type in ("HydroPO", "StoragePO", "ThermalPO"):
-            return obj.maximum_power.get_value(time)  # type: ignore[union-attr]
-        elif obj_type in ("LoadPO", "WindPO", "SolarPO", "OtherNonDispatchablePO"):
+        if isinstance(obj, HydroPO | StoragePO | ThermalPO):
+            return obj.maximum_power.get_value(time)
+        elif isinstance(obj, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
             if execution_date:
-                forecast = obj.maximum_power_forecast.get_forecast(execution_date, time, time)  # type: ignore[union-attr]
-                return forecast.get_value(time) if time in forecast else 0
+                return obj.maximum_power_forecast.get_forecast(execution_date, time, time, default_value=0).get_value(
+                    time
+                )
             else:
                 raise RuntimeError(
                     "Missing execution date argument for a Load, Wind, Solar or OtherNonDispatchable equipment"

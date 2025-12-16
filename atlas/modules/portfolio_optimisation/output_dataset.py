@@ -78,7 +78,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
                 )
 
                 if portfolio.power:
-                    if self.parameters.execution_date in portfolio.power.index:
+                    if self.parameters.execution_date in portfolio.power:
                         portfolio.power.delete(self.parameters.execution_date)
                 else:
                     portfolio.power = ForecastingMatrix(
@@ -187,7 +187,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         )
 
         if equipment.power:
-            if self.parameters.execution_date in equipment.power.index:
+            if self.parameters.execution_date in equipment.power:
                 equipment.power.replace(self.parameters.execution_date, power_ts)
             else:
                 equipment.power.add(power_ts, self.parameters.execution_date)
@@ -211,7 +211,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         )
 
         if equipment.id_po_for_orders:
-            if self.parameters.execution_date in equipment.id_po_for_orders.index:
+            if self.parameters.execution_date in equipment.id_po_for_orders:
                 equipment.id_po_for_orders.replace(self.parameters.execution_date, power_ts)
             else:
                 equipment.id_po_for_orders.add(power_ts, self.parameters.execution_date)
@@ -240,8 +240,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         )
 
         if equipment.stored_energy:
-            # Delete if exists, then add (note: different pattern than power matrix)
-            if self.parameters.execution_date in equipment.stored_energy.index:
+            if self.parameters.execution_date in equipment.stored_energy:
                 equipment.stored_energy.delete(self.parameters.execution_date)
             equipment.stored_energy.add(stored_energy_ts, self.parameters.execution_date)
         else:
@@ -257,7 +256,7 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         )
 
         if equipment.state_sequence:
-            if self.parameters.execution_date in equipment.state_sequence.index:
+            if self.parameters.execution_date in equipment.state_sequence:
                 equipment.state_sequence.replace(self.parameters.execution_date.to_datetime_string(), state_sequence_ts)
             else:
                 equipment.state_sequence.add(state_sequence_ts, self.parameters.execution_date.to_datetime_string())

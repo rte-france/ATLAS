@@ -181,13 +181,11 @@ class HydroPO(Hydro):
                 if time in parameters.target_times:
                     model.add_objective(
                         fragment_price * power_level_frag_var * parameters.timestep.total_hours(),
-                        direction="minimize",
                     )
 
                 else:
                     model.add_objective(
                         -(price_forecast - fragment_price) * power_level_frag_var * parameters.timestep.total_hours(),
-                        direction="minimize",
                     )
             cfg.logger.debug(f"Finished adding objective for hydro unit {self.name} at time {time}")
         else:
@@ -197,7 +195,7 @@ class HydroPO(Hydro):
 
     def _get_current_energy_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
         """Get the current energy level from forecast or initial level."""
-        if self._cached_energy_forecast:
+        if self._cached_energy_forecast and parameters.start_date - parameters.timestep in self._cached_energy_forecast:
             return self._cached_energy_forecast.get_value(parameters.start_date - parameters.timestep)
         else:
             return self.initial_level.get_value(parameters.start_date - parameters.timestep)

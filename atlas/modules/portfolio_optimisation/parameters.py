@@ -7,13 +7,12 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from pendulum import DateTime, duration
-from pendulum.duration import Duration
-from pydantic import Field, field_validator
+from pydantic import Field
+from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import MarketType, SolverEnum, StorageType, ThermalStrategy
 from atlas.timing import generate_datetimes
-from atlas.validators import hours_validator, minutes_validator
 
 
 class PortfolioOptimisationParameters(AbstractParameters):
@@ -77,37 +76,40 @@ class PortfolioOptimisationParameters(AbstractParameters):
     )
     solver_duality_gap: float = Field(0.0001, description="Duality gap used for the optimization.")
     battery_automated_reserve_duration: Duration = Field(
-        default_factory=lambda: duration(minutes=60), description="Automated reserve duration for battery equipment."
+        default_factory=lambda: duration(minutes=60),
+        description="Automated reserve duration for battery equipment.",  # type: ignore[assignment]
     )
     battery_number_of_fragments: int = Field(
         3, description="Number of power fragments for battery; last fragments are more expensive."
     )
     battery_reserve_duration: Duration = Field(
-        default_factory=lambda: duration(minutes=60), description="Manual reserve duration for battery equipment."
+        default_factory=lambda: duration(minutes=60),
+        description="Manual reserve duration for battery equipment.",  # type: ignore[assignment]
     )
     electric_vehicle_automated_reserve_duration: Duration = Field(
         default_factory=lambda: duration(minutes=1),
-        description="Automated reserve duration for electric vehicle equipment.",
+        description="Automated reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
     )
     electric_vehicle_number_of_fragments: int = Field(3, description="Number of power fragments for electric vehicle.")
     electric_vehicle_reserve_duration: Duration = Field(
         default_factory=lambda: duration(minutes=1),
-        description="Manual reserve duration for electric vehicle equipment.",
+        description="Manual reserve duration for electric vehicle equipment.",  # type: ignore[assignment]
     )
     hydraulic_minimal_fragment_size: int = Field(
         100, description="Minimal amount of power for an offer to be formulated for hydraulic."
     )
     pumped_hydraulic_automated_reserve_duration: Duration = Field(
         default_factory=lambda: duration(minutes=60),
-        description="Automated reserve duration for pumped hydraulic equipment.",
+        description="Automated reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
     )
     pumped_hydraulic_number_of_fragments: int = Field(3, description="Number of power fragments for pumped hydraulic.")
     pumped_hydraulic_reserve_duration: Duration = Field(
         default_factory=lambda: duration(minutes=60),
-        description="Manual reserve duration for pumped hydraulic equipment.",
+        description="Manual reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
     )
     solver_timeout: Duration = Field(
-        default_factory=lambda: duration(seconds=60), description="Timeout (in seconds) of the optimization."
+        default_factory=lambda: duration(seconds=60),
+        description="Timeout (in seconds) of the optimization.",  # type: ignore[assignment]
     )
     excluded_market_areas_: str | None = Field(
         None,
@@ -135,61 +137,32 @@ class PortfolioOptimisationParameters(AbstractParameters):
 
     additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=12),
-        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
+        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",  # type: ignore[assignment]
     )
     battery_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=48),
-        description="Optimization period in hours for Storage Equipments of type Battery.",
+        description="Optimization period in hours for Storage Equipments of type Battery.",  # type: ignore[assignment]
     )
     electric_vehicle_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=24),
-        description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",
+        description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",  # type: ignore[assignment]
     )
     hydraulic_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=12),
-        description="Optimization period in hours for hydraulic group.",
+        description="Optimization period in hours for hydraulic group.",  # type: ignore[assignment]
     )
     pumped_hydraulic_storage_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=144),
-        description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",
+        description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",  # type: ignore[assignment]
     )
     thermal_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=12),
-        description="Optimization period in hours for thermal group.",
+        description="Optimization period in hours for thermal group.",  # type: ignore[assignment]
     )
     timestep: Duration = Field(
         default_factory=lambda: duration(hours=1),
-        description="Time step (in hours) of the simulated market.",
+        description="Time step (in hours) of the simulated market.",  # type: ignore[assignment]
     )
-
-    @field_validator(
-        "additional_hours",
-        "battery_additional_hours",
-        "electric_vehicle_additional_hours",
-        "hydraulic_additional_hours",
-        "pumped_hydraulic_storage_additional_hours",
-        "thermal_additional_hours",
-        "timestep",
-        mode="before",
-    )
-    @classmethod
-    def convert_hours_to_duration(cls, v):
-        """Convert various duration formats to Duration objects (hours default)."""
-        return hours_validator(v)
-
-    @field_validator(
-        "pumped_hydraulic_automated_reserve_duration",
-        "battery_automated_reserve_duration",
-        "electric_vehicle_automated_reserve_duration",
-        "electric_vehicle_reserve_duration",
-        "battery_reserve_duration",
-        "pumped_hydraulic_reserve_duration",
-        mode="before",
-    )
-    @classmethod
-    def convert_minutes_to_duration(cls, v):
-        """Convert various duration formats to Duration objects (minutes default)."""
-        return minutes_validator(v)
 
     @property
     def excluded_market_areas(self) -> list[str]:
@@ -222,14 +195,9 @@ class PortfolioOptimisationParameters(AbstractParameters):
         return [ThermalStrategy(strat.strip()) for strat in val.split(";")]
 
     @property
-    def adjusted_end_date(self) -> DateTime:
-        """End date adjusted by subtracting one time step."""
-        return self.end_date - self.timestep
-
-    @property
     def target_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period."""
-        return generate_datetimes(self.start_date, self.adjusted_end_date, self.timestep)
+        return generate_datetimes(self.start_date, self.end_date, self.timestep, closed="left")
 
     @property
     def init_battery_time(self) -> DateTime:

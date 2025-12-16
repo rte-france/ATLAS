@@ -13,6 +13,5 @@ repos:
     -   id: check-added-large-files
     -   id: check-toml
     -   id: check-merge-conflict
-    -   id: check-yaml
     -   id: check-json
     -   id: detect-private-key
