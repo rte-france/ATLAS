@@ -490,7 +490,7 @@ def test_scenario_matrix_set_frequency_upsample():
     assert sm.matrix.shape[0] == 3
 
 
-def test_scenario_matrix_set_frequency_downsample():
+def test_matrix_set_frequency_downsample():
     """Test downsampling scenario matrix from hourly to daily frequency."""
     # Create hourly data for 2 days
     hourly_times = pd.date_range(start="2025-01-01", periods=48, freq="h")
@@ -501,7 +501,7 @@ def test_scenario_matrix_set_frequency_downsample():
             "scenario2": [x * 2 for x in range(48)],  # 0, 2, 4, ..., 94
         }
     )
-    sm = ScenarioMatrix(df)
+    sm = Matrix(df)
 
     # Downsample to daily (should aggregate by mean)
     result = sm.set_frequency("1d", inplace=False)
@@ -518,7 +518,7 @@ def test_scenario_matrix_set_frequency_downsample():
     assert abs(values1[1] - 35.5) < 0.001
 
 
-def test_scenario_matrix_set_frequency_same():
+def test_matrix_set_frequency_same():
     """Test set_frequency with same frequency (should return unchanged)."""
     df = pl.DataFrame(
         {
@@ -527,7 +527,7 @@ def test_scenario_matrix_set_frequency_same():
             "scenario2": [100.0, 200.0, 300.0],
         }
     )
-    sm = ScenarioMatrix(df)
+    sm = Matrix(df)
 
     # Set to same frequency
     result = sm.set_frequency("1d", inplace=False)
@@ -537,7 +537,7 @@ def test_scenario_matrix_set_frequency_same():
     assert result.matrix.equals(sm.matrix)
 
 
-def test_scenario_matrix_set_frequency_inplace():
+def test_matrix_set_frequency_inplace():
     """Test set_frequency with inplace=True."""
     df = pl.DataFrame(
         {
@@ -546,7 +546,7 @@ def test_scenario_matrix_set_frequency_inplace():
             "scenario2": [x * 2 for x in range(24)],
         }
     )
-    sm = ScenarioMatrix(df)
+    sm = Matrix(df)
     original_shape = sm.matrix.shape
 
     # Downsample inplace
@@ -558,13 +558,13 @@ def test_scenario_matrix_set_frequency_inplace():
     assert sm.matrix.shape != original_shape
 
 
-def test_scenario_matrix_set_frequency_empty():
+def test_matrix_set_frequency_empty():
     """Test set_frequency on empty matrix."""
     # Create empty matrix with at least one scenario column to satisfy validation
     df = pl.DataFrame(
         {"time": [], "scenario1": []}, schema={"time": pl.Datetime("us", time_zone="UTC"), "scenario1": pl.Float64()}
     )
-    sm = ScenarioMatrix(df)
+    sm = Matrix(df)
 
     result = sm.set_frequency("1h", inplace=False)
 
