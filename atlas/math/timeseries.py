@@ -1127,7 +1127,7 @@ class Timeseries:
             title=title,
             height=height,
             width=width,
-            template=template,
+            template=template,  # type:ignore [arg-type]
             line_shape=line_shape,
             color_discrete_sequence=[line_color] if line_color else None,
         )
