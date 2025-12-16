@@ -92,8 +92,6 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = to_snake_case(attr_name)
-                        if attr_name_snake == "storage_marginal_value":
-                            print("ok")
 
                         if (
                             attr_name_snake not in list(cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys())
