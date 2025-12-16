@@ -1035,7 +1035,7 @@ class Timeseries:
 
     def round(
         self,
-        rounding_precision: int,
+        rounding_precision: int = 0,
         mode: Literal["half_to_even", "half_away_from_zero"] = "half_to_even",
         inplace: bool = True,
     ) -> Timeseries:

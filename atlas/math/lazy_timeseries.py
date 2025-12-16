@@ -178,6 +178,32 @@ class LazyTimeseries:
         else:
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
 
+    def set_value(
+        self,
+        datetime: str | datetime | pendulum.DateTime,
+        value: float | None,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Set or update a value at a specific datetime. If the datetime exists, it is overwritten.
+
+        :param time: Datetime to set
+        :type time: datetime or str
+        :param value: Value to set
+        :type value: float or int
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: LazyTimeseries with the added value
+        :rtype: LazyTimeseries
+        """
+        dt = build_datetime(datetime, date_format).in_tz(self.timezone)
+        resampled_ts = self.collect().set_value(dt, value, date_format=date_format, inplace=False)
+        lf = resampled_ts.to_lazy()
+        return self._return_inplace(lf, inplace)
+
     def filter(
         self,
         item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
@@ -396,7 +422,7 @@ class LazyTimeseries:
 
     def round(
         self,
-        rounding_precision: int,
+        rounding_precision: int = 0,
         mode: Literal["half_to_even", "half_away_from_zero"] = "half_to_even",
         inplace: bool = True,
     ) -> LazyTimeseries:
@@ -409,8 +435,8 @@ class LazyTimeseries:
         :type mode: str
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: Rounded Timeseries
-        :rtype: Timeseries
+        :return: Rounded LazyTimeseries
+        :rtype: LazyTimeseries
         """
         df = self.timeseries.with_columns(pl.col("value").round(rounding_precision, mode))
         return self._return_inplace(df, inplace)
