@@ -337,38 +337,44 @@ class PortfolioPO(Portfolio):
     def get_price_forecast(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float | None:
         """Get price forecast for given time based on market type and forecast settings."""
 
-        if time in parameters.target_times:
-            if parameters.use_forecast:
-                if parameters.market == MarketType.dayahead:
-                    return (
-                        cast(ForecastingMatrix | LazyForecastingMatrix, self.market_area.price_forecast_medium)
-                        .get_forecast(parameters.execution_date, time, time)
-                        .get_value(time)
-                    )
-                elif parameters.market == MarketType.intraday:
-                    return (
-                        cast(ForecastingMatrix | LazyForecastingMatrix, self.market_area.id_price_forecast)
-                        .get_forecast(parameters.execution_date, time, time)
-                        .get_value(time)
-                    )
+        execution_date = parameters.execution_date
+        market = parameters.market
 
-            else:
-                if parameters.market == MarketType.dayahead:
-                    return cast(Timeseries | LazyTimeseries, self.market_area.da_price).get_value(time)
-                elif parameters.market == MarketType.intraday:
-                    return (
-                        cast(ForecastingMatrix | LazyForecastingMatrix, self.market_area.id_price)
-                        .get_forecast(parameters.execution_date, time, time)
-                        .get_value(time)
-                    )
-                elif parameters.market == MarketType.rr_activation:
-                    return cast(Timeseries | LazyTimeseries, self.market_area.rr_activation_price).get_value(time)
-                elif parameters.market == MarketType.mfrr_activation:
-                    return cast(Timeseries | LazyTimeseries, self.market_area.mfrr_activation_price).get_value(time)
-        else:
-            return self.market_area.price_forecast_medium.get_forecast(parameters.execution_date, time, time).get_value(
-                time
+        if time not in parameters.target_times:
+            return self.market_area.price_forecast_medium.get_forecast(execution_date, time, time).get_value(time)
+
+        if parameters.use_forecast:
+            forecast_by_market = {
+                MarketType.dayahead: self.market_area.price_forecast_medium,
+                MarketType.intraday: self.market_area.id_price_forecast,
+            }
+
+            forecast = forecast_by_market.get(market)
+            if forecast is None:
+                return None
+
+            return (
+                cast(ForecastingMatrix | LazyForecastingMatrix, forecast)
+                .get_forecast(execution_date, time, time, default_value=0)
+                .get_value(time)
             )
+
+        if market == MarketType.dayahead:
+            return cast(Timeseries | LazyTimeseries, self.market_area.da_price).get_value(time)
+
+        if market == MarketType.intraday:
+            return (
+                cast(ForecastingMatrix | LazyForecastingMatrix, self.market_area.id_price)
+                .get_forecast(execution_date, time, time, default_value=0)
+                .get_value(time)
+            )
+
+        if market == MarketType.rr_activation:
+            return cast(Timeseries | LazyTimeseries, self.market_area.rr_activation_price).get_value(time)
+
+        if market == MarketType.mfrr_activation:
+            return cast(Timeseries | LazyTimeseries, self.market_area.mfrr_activation_price).get_value(time)
+
         return None
 
     @staticmethod
@@ -379,20 +385,14 @@ class PortfolioPO(Portfolio):
     ) -> float:
         """Get upstream energy (bought or sold) based on market type."""
         if parameters.market == MarketType.rr_activation:
-            if obj.rr_activated is not None:
-                return obj.rr_activated.get_value(time)
-            return 0.0
+            return obj.rr_activated.get_value(time) if obj.rr_activated is not None else 0
         elif parameters.market == MarketType.mfrr_activation:
-            if obj.mfrr_activated is not None:
-                return obj.mfrr_activated.get_value(time)
-            return 0.0
+            return obj.mfrr_activated.get_value(time) if obj.mfrr_activated is not None else 0
         elif parameters.market == MarketType.dayahead:
-            return obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0.0
+            return obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0
         else:
-            total_id = (
-                obj.total_id_cleared_quantity.get_value(time) if obj.total_id_cleared_quantity is not None else 0.0
-            )
-            da_cleared = obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0.0
+            total_id = obj.total_id_cleared_quantity.get_value(time) if obj.total_id_cleared_quantity is not None else 0
+            da_cleared = obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0
             return total_id + da_cleared
 
     @staticmethod

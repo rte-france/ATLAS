@@ -10,6 +10,7 @@ from pendulum import Duration
 
 from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -182,7 +183,12 @@ class PortfolioOptimisationModule(
         """Check if an object is a timeseries-like type that can have frequency adjusted."""
         return isinstance(
             obj,
-            Timeseries | LazyTimeseries | ScenarioMatrix | LazyScenarioMatrix,
+            Timeseries
+            | LazyTimeseries
+            | ScenarioMatrix
+            | LazyScenarioMatrix
+            | ForecastingMatrix
+            | LazyForecastingMatrix,
         )
 
     def _validate_and_fix_timeseries(self, timeseries_obj, expected_timestep: Duration, context: str) -> dict:
@@ -230,9 +236,11 @@ class PortfolioOptimisationModule(
             if len(timeseries_obj.dataframe) < 2:
                 return None
             return infer_frequency(timeseries_obj.dataframe)
-        elif isinstance(timeseries_obj, ScenarioMatrix | LazyScenarioMatrix):
+        elif isinstance(
+            timeseries_obj, ScenarioMatrix | LazyScenarioMatrix | LazyForecastingMatrix | ForecastingMatrix
+        ):
             # For ScenarioMatrix and LazyScenarioMatrix, get frequency from matrix
-            if isinstance(timeseries_obj, LazyScenarioMatrix):
+            if isinstance(timeseries_obj, LazyScenarioMatrix | LazyForecastingMatrix):
                 matrix_df = timeseries_obj.matrix.collect()
             else:
                 matrix_df = timeseries_obj.matrix
