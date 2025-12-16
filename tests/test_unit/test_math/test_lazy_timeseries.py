@@ -790,6 +790,7 @@ def test_get_value_timezone_handling(sample_df_extended):
         value = lt.get_value(first_time)
         assert isinstance(value, float)
 
+
 def test_iter_rows(sample_df_extended):
     """Test iterating over rows of the LazyTimeseries."""
 
