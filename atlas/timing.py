@@ -148,7 +148,7 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
 def generate_datetimes(
     start: str | datetime,
     end: str | datetime,
-    freq: str | pendulum.Duration,
+    freq: str | pendulum.Duration | timedelta,
     timezone: str = "UTC",
     date_format: str = "YYYY-MM-DD HH:mm:ss",
     closed: Literal["both", "left", "right", "none"] = "both",

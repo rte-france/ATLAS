@@ -9,7 +9,7 @@ Module that implements ForecastingMatrix
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -250,7 +250,7 @@ class ForecastingMatrix(Matrix):
         execution_date: datetime | str | pendulum.DateTime,
         start_date: datetime | str | pendulum.DateTime,
         end_date: datetime | str | pendulum.DateTime,
-        timestep: str | pendulum.Duration | None = None,
+        timestep: str | timedelta | pendulum.Duration | None = None,
         default_value: float | None = None,
     ) -> Timeseries:
         """
