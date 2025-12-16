@@ -265,9 +265,7 @@ class Timeseries:
                 pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
             )
 
-            self.sort()
-
-            self.frequency = infer_frequency(self.timeseries)
+            self._return_inplace(self.timeseries, inplace=True)
 
     def __getitem__(self, column_name: str) -> list[float | datetime]:
         if column_name not in ("time", "value"):
@@ -522,6 +520,21 @@ class Timeseries:
         """
         return self.timeseries.lazy()
 
+    def sort(
+        self,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Sort the Timeseries by the given variable(s).
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :param descending: Sort in descending order, defaults to False
+        :type descending: bool, optional
+        :return: Sorted Timeseries
+        :rtype: Timeseries
+        """
+        return self._return_inplace(self.timeseries, inplace)
+
     def _get_shape(self) -> tuple[int, int]:
         """Return (rows, columns) of the underlying Polars DataFrame."""
         return self.timeseries.shape
@@ -572,7 +585,7 @@ class Timeseries:
             pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
             pl.col("value").cast(pl.Float64()),
         )
-        df = pl.concat([df, new_row]).sort("time")
+        df = pl.concat([df, new_row])
 
         return self._return_inplace(df, inplace)
 
@@ -644,7 +657,7 @@ class Timeseries:
             pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
             pl.col("value").cast(pl.Float64()),
         )
-        df = pl.concat([df, new_row]).sort("time")
+        df = pl.concat([df, new_row])
 
         return self._return_inplace(df, inplace)
 
@@ -681,7 +694,7 @@ class Timeseries:
             pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
             pl.col("value").cast(pl.Float64()),
         )
-        df = pl.concat([df, new_row]).sort("time")
+        df = pl.concat([df, new_row])
 
         return self._return_inplace(df, inplace)
 
@@ -786,15 +799,10 @@ class Timeseries:
                 self.timeseries.upsample(time_column="time", every=frequency)
                 .with_columns(pl.col("value").interpolate_by("time"))
                 .fill_null(strategy="forward")
-                .sort("time")
             )
         elif interpolation_method == "constant":
-            df = (
-                self.timeseries.upsample(time_column="time", every=frequency)
-                .fill_null(
-                    strategy="forward",
-                )
-                .sort("time")
+            df = self.timeseries.upsample(time_column="time", every=frequency).fill_null(
+                strategy="forward",
             )
         else:
             raise NotImplementedError("Unsupported interpolation method")
