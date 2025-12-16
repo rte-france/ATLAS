@@ -70,6 +70,7 @@ class PrometheusToAtlasDataParser:
                     continue
                 if object_type_snake in MAPPING_OBJECTS_TO_ATLAS:
                     object_type_snake = MAPPING_OBJECTS_TO_ATLAS[object_type_snake]
+
                 logger.info(f"Processing object type: {object_type} (as {object_type_snake})")
                 group = f[object_type]
                 instances = list(group.keys())
@@ -91,6 +92,9 @@ class PrometheusToAtlasDataParser:
 
                     for attr_name in instance_group:
                         attr_name_snake = to_snake_case(attr_name)
+                        if attr_name_snake == "storage_marginal_value":
+                            print("ok")
+
                         if (
                             attr_name_snake not in list(cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys())
                             and attr_name_snake not in NAME_MAPPING
@@ -130,10 +134,14 @@ class PrometheusToAtlasDataParser:
                                 logger.warning("Failed to get the matrix / timeseries type")
 
                             try:
-                                df = pl.read_csv(file, separator=";").with_columns(
-                                    pl.col("TimeStep").str.strptime(
-                                        pl.Datetime(), pendulum_to_datetime(self.date_format_timestep)
+                                df = (
+                                    pl.read_csv(file, separator=";")
+                                    .with_columns(
+                                        pl.col("TimeStep").str.strptime(
+                                            pl.Datetime(), pendulum_to_datetime(self.date_format_timestep)
+                                        )
                                     )
+                                    .sort("TimeStep")
                                 )
                                 read_correctly = True
                             except Exception:
@@ -188,6 +196,7 @@ class PrometheusToAtlasDataParser:
 
                                         renaming_mapping = dict(zip(indexes_sorted, new_indexes, strict=False))
                                         df = df.rename(renaming_mapping)
+
                                 try:
                                     infer_frequency(df.rename({"TimeStep": "time"}))
                                 except ValueError:
