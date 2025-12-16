@@ -19,6 +19,7 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import Matrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone
+from atlas.typing import TimeseriesDict
 
 
 class LazyMatrix:
@@ -116,7 +117,7 @@ class LazyMatrix:
 
     def add(
         self,
-        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str,
     ) -> None:
         """
@@ -167,13 +168,13 @@ class LazyMatrix:
     def replace(
         self,
         index: str,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
     ) -> None:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
         :param timeseries: Timeseries data to add.
-        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
         """
