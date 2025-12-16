@@ -4,6 +4,7 @@ import polars as pl
 import pytest
 
 from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import Matrix
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 
@@ -161,6 +162,14 @@ def test_preserves_lazy_evaluation(simple_lazyframe):
 
 
 def test_select(simple_lazyframe):
+    """Test select() returns a LazyTimeseries."""
+
     matrix = LazyMatrix(simple_lazyframe)
     ts = matrix.select("1")
-    assert ts.to_frame().shape == (2, 2)
+
+    # Verify it returns a LazyTimeseries
+    assert isinstance(ts, LazyTimeseries)
+
+    # Collect and check the shape
+    collected = ts.collect()
+    assert collected.to_frame().shape == (2, 2)

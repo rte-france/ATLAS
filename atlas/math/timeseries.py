@@ -10,6 +10,7 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 from __future__ import annotations
 
 import pickle
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -872,27 +873,11 @@ class Timeseries:
         :rtype: Timeseries
         """
         if isinstance(item, list):
-            item = [
-                pendulum.instance(i).in_tz(self.timezone)
-                if isinstance(i, datetime)
-                else pendulum.from_format(i, fmt=date_format).in_tz(self.timezone)
-                if isinstance(i, str)
-                else i.in_tz(self.timezone)
-                if isinstance(i, pendulum.DateTime)
-                else (_ for _ in ()).throw(NotImplementedError(f"Unsupported item in list: {type(i)}"))
-                for i in item
-            ]
+            item = [build_datetime(i, date_format=date_format).in_tz(self.timezone) for i in item]
             df = self.timeseries.filter(pl.col("time").is_in(item))
-        elif isinstance(item, str):
-            date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == date)
-        elif isinstance(item, datetime):
-            date = pendulum.instance(item).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == date)
-        elif isinstance(item, pendulum.DateTime):
-            df = self.timeseries.filter(pl.col("time") == item)
         else:
-            raise NotImplementedError("Invalid filter formatting")
+            date = build_datetime(item, date_format=date_format).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
 
         return self._return_inplace(df, inplace)
 
@@ -1117,3 +1102,13 @@ class Timeseries:
         if len(self.timeseries) > 0:
             return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").tail(1).item()))
         return None
+
+    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+        """
+        Iterate over rows of the Timeseries, yielding (time, value) tuples.
+
+        :return: A generator yielding tuples containing (time, value) for each row
+        :rtype: Generator[tuple[datetime, float], None, None]
+        """
+        for row in self.timeseries.iter_rows(named=True):
+            yield (row["time"], row["value"])

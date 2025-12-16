@@ -793,6 +793,34 @@ class TestTimeseriesBasicOperations:
     def test_last_date(self, sample_ts):
         assert sample_ts.last_date() == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
 
+    def test_iter_rows(self, sample_ts):
+        """Test iterating over rows of the Timeseries."""
+        rows = list(sample_ts.iter_rows())
+
+        # Check that we get the correct number of rows
+        assert len(rows) == 4
+
+        # Check that each row is a tuple of (time, value)
+        assert all(isinstance(row, tuple) and len(row) == 2 for row in rows)
+
+        # Check the first row
+        assert rows[0][0] == datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC"))
+        assert rows[0][1] == 10.0
+
+        # Check the last row
+        assert rows[-1][0] == datetime(2023, 1, 1, 3, 0, 0, tzinfo=Timezone("UTC"))
+        assert rows[-1][1] == 40.0
+
+        # Check all values
+        expected_values = [10.0, 20.0, 30.0, 40.0]
+        actual_values = [row[1] for row in rows]
+        assert actual_values == expected_values
+
+        # Test that iter_rows returns an iterable
+        rows_iterator = sample_ts.iter_rows()
+        first_row = next(rows_iterator)
+        assert first_row == (datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC")), 10.0)
+
 
 class TestTimeseriesManipulation:
     """Test time series manipulation methods."""
@@ -971,7 +999,7 @@ class TestTimeseriesManipulation:
         assert result["value"] == [40]
 
     def test_filter_invalid(self, sample_ts):
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(TypeError):
             result = sample_ts.filter(2, inplace=False)
 
     def test_slice_with_datetime(self, sample_ts):
