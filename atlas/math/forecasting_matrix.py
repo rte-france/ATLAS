@@ -29,6 +29,7 @@ from atlas.timing import (
     infer_frequency,
     pendulum_to_datetime,
 )
+from atlas.typing import TimeseriesDict
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -125,14 +126,14 @@ class ForecastingMatrix(Matrix):
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
     ) -> None:
         """
         Add a Timeseries to the matrix and keep indexes sorted.
 
         :param timeseries: Timeseries data to add.
-        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
         """
@@ -201,13 +202,13 @@ class ForecastingMatrix(Matrix):
     def replace(
         self,
         index: str | datetime | pendulum.DateTime,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
     ) -> None:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
         :param timeseries: Timeseries data to add.
-        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
         """
@@ -463,14 +464,14 @@ class LazyForecastingMatrix(LazyMatrix):
 
     def add(
         self,
-        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
     ) -> None:
         """
         Add a timeseries to the lazy forecasting matrix.
 
         :param timeseries: Timeseries data to add.
-        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime | pendulum.DateTime
         :raises KeyError: If index already exists in the matrix.
@@ -492,7 +493,7 @@ class LazyForecastingMatrix(LazyMatrix):
     def replace(
         self,
         index: str | datetime | pendulum.DateTime,
-        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
     ) -> None:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
@@ -511,6 +512,7 @@ class LazyForecastingMatrix(LazyMatrix):
         start_date: datetime | str | pendulum.DateTime,
         end_date: datetime | str | pendulum.DateTime,
         timestep: str | pendulum.Duration | None = None,
+        default_value: float | None = None,
     ) -> Timeseries:
         """
         Returns the most up-to-date forecast available per time row in the given window.
@@ -526,6 +528,8 @@ class LazyForecastingMatrix(LazyMatrix):
         :param timestep: Target frequency for the output timeseries. If None, the lowest
                         frequency found in the data will be used.
         :type timestep: str | pendulum.Duration | None
+        :param default_value: Default value used for indexes where no value is found
+        :type default_value: float | None
         :raises ValueError: If start_date is after end_date or if no forecasting dates
                            are available before the execution date.
         :return: A timeseries containing the most recent forecast values for each timestamp
@@ -533,5 +537,9 @@ class LazyForecastingMatrix(LazyMatrix):
         :rtype: Timeseries
         """
         return self.collect().get_forecast(
-            execution_date=execution_date, start_date=start_date, end_date=end_date, timestep=timestep
+            execution_date=execution_date,
+            start_date=start_date,
+            end_date=end_date,
+            timestep=timestep,
+            default_value=default_value,
         )

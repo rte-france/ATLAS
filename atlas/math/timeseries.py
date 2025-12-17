@@ -10,6 +10,7 @@ This module provides a Timeseries class for handling Timeseries data using Polar
 from __future__ import annotations
 
 import pickle
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -21,9 +22,9 @@ import plotly.express as px
 import plotly.graph_objects
 import polars as pl
 
-import atlas.config as cfg
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
+from atlas.typing import TimeseriesDict
 
 
 class Timeseries:
@@ -38,7 +39,7 @@ class Timeseries:
 
     def __init__(
         self,
-        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list[float]] | None = None,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | TimeseriesDict | None = None,
         timezone: str = "UTC",
     ) -> None:
         """
@@ -200,13 +201,13 @@ class Timeseries:
         """Create a Timeseries object from a dataframe-like object.
 
         :param dataframe: The input dataframe
-        :type dataframe: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list[float]]
+        :type dataframe: pl.DataFrame | Timeseries | pd.DataFrame
         :param timezone: The timezone of the Timeseries, defaults to "UTC"
         :type timezone: str, optional
         :return: The timeseries instantiated from the dataframe-like object
         :rtype: Timeseries
         """
-        if not isinstance(dataframe, pl.DataFrame | pd.DataFrame):
+        if not isinstance(dataframe, pl.DataFrame | pd.DataFrame | dict):
             raise TypeError("Input has to be a dataframe-like object.")
 
         return cls(dataframe, timezone)
@@ -220,7 +221,7 @@ class Timeseries:
         """
         return get_metadata_from_frame(self.timeseries)
 
-    def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None) -> None:
+    def _check_timeseries(self, timeseries: pl.DataFrame | Timeseries | pd.DataFrame | TimeseriesDict | None) -> None:
         if timeseries is None or isinstance(timeseries, Timeseries):
             return
         df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
@@ -237,7 +238,7 @@ class Timeseries:
 
     def _set_timeseries(
         self,
-        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | dict[str, list] | None,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | TimeseriesDict | None,
         timezone: str,
     ) -> None:
         if timeseries is None:
@@ -250,6 +251,7 @@ class Timeseries:
 
         elif isinstance(timeseries, Timeseries):
             self.timeseries = timeseries.dataframe  # type: ignore[assignment]
+            self.frequency = infer_frequency(self.timeseries)
         else:
             try:
                 df = timeseries if isinstance(timeseries, pl.DataFrame) else pl.DataFrame(timeseries)
@@ -263,12 +265,7 @@ class Timeseries:
                 pl.col("time").cast(pl.Datetime("us", time_zone=timezone))
             )
 
-            if len(self.timeseries) == 2 and infer_frequency(self.timeseries) > pendulum.duration(days=1):
-                self.upsample("1h", interpolation_method="linear")
-
-            self.sort()
-
-            self.frequency: pendulum.Duration = infer_frequency(self.timeseries)
+            self._return_inplace(self.timeseries, inplace=True)
 
     def __getitem__(self, column_name: str) -> list[float | datetime]:
         if column_name not in ("time", "value"):
@@ -320,18 +317,23 @@ class Timeseries:
     def __mul__(self, other: float | Timeseries) -> Timeseries:
         """Multiply all numeric columns by a scalar or another Timeseries.
 
+        :param other: Other timeseries or scalar to multiply the value of he current Timeseries
+        :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
+        :raises ValueError: If operation could not be done
         :return: The Timeseries where all numeric columns are multiplied by a scalar or another Timeseries
         :rtype: Timeseries
         """
         if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().mul(other))
         elif isinstance(other, Timeseries):
-            if self.frequency < other.frequency:
-                other = other.upsample(self.frequency, inplace=False)
-                my_ts = Timeseries(self)
-            elif self.frequency > other.frequency:
-                my_ts = self.upsample(other.frequency, inplace=False)
+            if self.frequency != other.frequency:
+                raise ValueError("Could not perform multiplication on Timeseries because frequencies don't match")
+            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+                raise ValueError(
+                    "Could not perform multiplication on Timeseries because indexes of Timeseries to add "
+                    "are not in current Timeseries"
+                )
             else:
                 my_ts = Timeseries(self)
 
@@ -352,18 +354,23 @@ class Timeseries:
     def __add__(self, other: float | Timeseries) -> Timeseries:
         """Add all numeric columns by a scalar or timeseries.
 
+        :param other: Other timeseries or scalar to add to value of the current Timeseries
+        :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
+        :raises ValueError: If operation could not be done
         :return: The Timeseries where a scalar or another Timeseries are added to all numeric columns
         :rtype: Timeseries
         """
         if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().add(other))
         elif isinstance(other, Timeseries):
-            if self.frequency < other.frequency:
-                other = other.upsample(self.frequency, inplace=False)
-                my_ts = Timeseries(self)
-            elif self.frequency > other.frequency:
-                my_ts = self.upsample(other.frequency, inplace=False)
+            if self.frequency != other.frequency:
+                raise ValueError("Could not perform addition on Timeseries because frequencies don't match")
+            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+                raise ValueError(
+                    "Could not perform addition on Timeseries because indexes of Timeseries to add are "
+                    "not in current Timeseries"
+                )
             else:
                 my_ts = Timeseries(self)
 
@@ -384,18 +391,23 @@ class Timeseries:
     def __sub__(self, other: float | Timeseries) -> Timeseries:
         """Subtract all numeric columns by a scalar or timeseries.
 
+        :param other: Other timeseries or scalar to subtract to the value the current Timeseries
+        :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
+        :raises ValueError: If operation could not be done
         :return: The Timeseries where a scalar or another Timeseries are subtract to all numeric columns
         :rtype: Timeseries
         """
         if isinstance(other, int | float):
             df = self.timeseries.with_columns(pl.selectors.numeric().sub(other))
         elif isinstance(other, Timeseries):
-            if self.frequency < other.frequency:
-                other = other.upsample(self.frequency, inplace=False)
-                my_ts = Timeseries(self)
-            elif self.frequency > other.frequency:
-                my_ts = self.upsample(other.frequency, inplace=False)
+            if self.frequency != other.frequency:
+                raise ValueError("Could not perform subtraction on Timeseries because frequencies don't match")
+            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+                raise ValueError(
+                    "Could not perform subtraction on Timeseries because indexes of Timeseries to add are "
+                    "not in current Timeseries"
+                )
             else:
                 my_ts = Timeseries(self)
 
@@ -416,7 +428,10 @@ class Timeseries:
     def __truediv__(self, other: float | Timeseries) -> Timeseries:
         """Divide all numeric columns by a scalar or timeseries.
 
+        :param other: Other timeseries or scalar to divide to the value the current Timeseries
+        :type other: float | Timeseries
         :raises TypeError: If the object is not a timeseries or a float
+        :raises ValueError: If operation could not be done
         :return: The Timeseries where all numeric columns are divided by a scalar or another Timeseries
         :rtype: Timeseries
         """
@@ -425,11 +440,15 @@ class Timeseries:
                 raise ZeroDivisionError("Division by zero is not allowed")
             df = self.timeseries.with_columns(pl.selectors.numeric().truediv(other))
         elif isinstance(other, Timeseries):
-            if self.frequency < other.frequency:
-                other = other.upsample(self.frequency, inplace=False)
-                my_ts = Timeseries(self)
-            elif self.frequency > other.frequency:
-                my_ts = self.upsample(other.frequency, inplace=False)
+            if self.frequency != other.frequency:
+                raise ValueError("Could not perform division on Timeseries because frequencies don't match")
+            elif not other.dataframe["time"].is_in(self.dataframe["time"]).all():
+                raise ValueError(
+                    "Could not perform division on Timeseries because indexes of Timeseries to add are "
+                    "not in current Timeseries"
+                )
+            elif (other.dataframe["value"] == 0).any():
+                raise ValueError("Could not perform division on Timeseries because zero values are present")
             else:
                 my_ts = Timeseries(self)
 
@@ -501,6 +520,21 @@ class Timeseries:
         """
         return self.timeseries.lazy()
 
+    def sort(
+        self,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Sort the Timeseries by the given variable(s).
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :param descending: Sort in descending order, defaults to False
+        :type descending: bool, optional
+        :return: Sorted Timeseries
+        :rtype: Timeseries
+        """
+        return self._return_inplace(self.timeseries, inplace)
+
     def _get_shape(self) -> tuple[int, int]:
         """Return (rows, columns) of the underlying Polars DataFrame."""
         return self.timeseries.shape
@@ -519,24 +553,6 @@ class Timeseries:
             pl.col("time").dt.convert_time_zone(timezone),
         )
 
-    def sort(
-        self,
-        inplace: bool = True,
-        descending: bool = False,
-    ) -> Timeseries:
-        """
-        Sort the Timeseries by the given variable(s).
-
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :param descending: Sort in descending order, defaults to False
-        :type descending: bool, optional
-        :return: Sorted Timeseries
-        :rtype: Timeseries
-        """
-        df = self.timeseries.sort("time", descending=descending)
-        return self._return_inplace(df, inplace)
-
     def set_value(
         self,
         time: datetime | str,
@@ -545,7 +561,7 @@ class Timeseries:
         inplace: bool = True,
     ) -> Timeseries:
         """
-        Set or update a value at a specific datetime. If the datetime exists, it is overwritten.
+        Update a value at a specific datetime.
 
         :param time: Datetime to set
         :type time: datetime or str
@@ -555,28 +571,60 @@ class Timeseries:
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: Timeseries with the added value
+        :raises ValueError: If the time is not in the Timeseries
+        :return: Timeseries with the set value
         :rtype: Timeseries
         """
         dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
 
-        if len(self.timeseries) == 0:
-            df = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
-                pl.col("time").dt.replace_time_zone(self.timezone),
-                pl.col("value").cast(pl.Float64()),
-            )
-            return self._return_inplace(df, inplace)
+        if dt not in self.dataframe["time"]:
+            raise ValueError(f"Could not set value at {dt} because timestamp is not in the Timeseries")
 
         df = self.timeseries.filter(pl.col("time") != dt)
         new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
             pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
             pl.col("value").cast(pl.Float64()),
         )
-        df = pl.concat([df, new_row]).sort("time")
+        df = pl.concat([df, new_row])
 
         return self._return_inplace(df, inplace)
 
-    def add_value_at(
+    def set_values(
+        self,
+        other: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Set or update values. If the datetime exists, it is overwritten.
+
+        :param other: other timeseries with values to updated self
+        :type other: Timeseries
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :raises ValueError: If frequency doesn't match or at least one time of the other Timeseries is not in the
+        current one
+        :return: Timeseries with the new values
+        :rtype: Timeseries
+        """
+        other = Timeseries(other)
+        if len(self.timeseries) == 0:
+            other_df = other.dataframe
+            return self._return_inplace(other_df, inplace)
+
+        other_ts = Timeseries(other)
+        if self.frequency != other_ts.frequency:
+            raise ValueError("Could not perform set values on Timeseries because frequencies don't match")
+        if not other_ts.dataframe["time"].is_in(self.dataframe["time"]).all():
+            raise ValueError(
+                "Could not set values on Timeseries because indexes to set are not all present in Timeseries"
+            )
+
+        df = self.timeseries.filter(~pl.col("time").is_in(other_ts.dataframe["time"]))
+        df = pl.concat([df, other_ts.dataframe])
+
+        return self._return_inplace(df, inplace)
+
+    def sum_value_at(
         self,
         time: datetime | str,
         value: float,
@@ -584,27 +632,145 @@ class Timeseries:
         inplace: bool = True,
     ) -> Timeseries:
         """
-        Set or add to an existing value at a specific datetime.
+        Add to an existing value at a specific datetime.
 
-        :param time: Datetime to set
+        :param time: Datetime to add to the value
         :type time: datetime or str
-        :param value: Value to set
+        :param value: Value to add to the precedent value
         :type value: float
         :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
         :type date_format: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: Timeseries with the added value
+        :raises ValueError: If time is not present in the Timeseries
+        :return: Timeseries with the value added to the precedent value at a specific index
         :rtype: Timeseries
         """
-        try:
-            current = self.get_value(time)
-            return self.set_value(time, value + (current if current is not None else 0), date_format, inplace)
-        except (KeyError, ValueError):
-            return self.set_value(time, value, date_format, inplace)
-        except BaseException as e:
-            cfg.logger.error(e)
-            return self
+        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+
+        if dt not in self.dataframe["time"]:
+            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+
+        old_value = self.get_value(dt)
+        df = self.timeseries.filter(pl.col("time") != dt)
+        new_row = pl.DataFrame({"time": [dt], "value": [old_value + value]}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
+        )
+        df = pl.concat([df, new_row])
+
+        return self._return_inplace(df, inplace)
+
+    def mul_value_at(
+        self,
+        time: datetime | str,
+        value: float,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Multiply to an existing value at a specific datetime.
+
+        :param time: Datetime to multiply by the value
+        :type time: datetime or str
+        :param value: Value to multiply to the precedent value
+        :type value: float
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :raises ValueError: If time is not present in the Timeseries
+        :return: Timeseries with the value multiply by the precedent value at a specific index
+        :rtype: Timeseries
+        """
+        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+
+        if dt not in self.dataframe["time"]:
+            raise ValueError(f"Could not add value at {dt} because timestamp is not in the Timeseries")
+
+        old_value = self.get_value(dt)
+        df = self.timeseries.filter(pl.col("time") != dt)
+        new_row = pl.DataFrame({"time": [dt], "value": [old_value * value]}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
+        )
+        df = pl.concat([df, new_row])
+
+        return self._return_inplace(df, inplace)
+
+    def add_indexes(
+        self,
+        other: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Add indexes to the Timeseries based on another timeseries
+
+        :param other: Other timeseries with indexes / values to add to the current Timeseries
+        :type other: Timeseries
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :raises ValueError: If frequency doesn't match or at least one time of the other Timeseries is in the
+        current one
+        :return: Timeseries with the added indexes
+        :rtype: Timeseries
+        """
+        other = Timeseries(other)
+        if len(self.timeseries) == 0:
+            other_df = other.dataframe
+            return self._return_inplace(other_df, inplace)
+
+        other_ts = Timeseries(other)
+        if self.frequency != other_ts.frequency:
+            raise ValueError("Could not perform add indexes on Timeseries because frequency does not match")
+        if other_ts.dataframe["time"].is_in(self.dataframe["time"]).any():
+            raise ValueError(
+                "Could not add indexes on Timeseries because some indexes to add are not present in Timeseries"
+            )
+
+        df = pl.concat([self.timeseries, other_ts.dataframe])
+
+        return self._return_inplace(df, inplace)
+
+    def add_index(
+        self,
+        time: datetime | str,
+        value: float,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> Timeseries:
+        """
+        Add index to the Timeseries based on an index and a value
+
+        :param time: Datetime to add
+        :type time: datetime or str
+        :param value: Value to add
+        :type value: float
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :raises ValueError: If the time is in the current Timeseries
+        :return: Timeseries with the added index
+        :rtype: Timeseries
+        """
+        dt: pendulum.DateTime = build_datetime(time, date_format).in_tz(self.timezone)
+
+        if len(self.timeseries) == 0:
+            raise ValueError("Timeseries should not be empty")
+
+        if dt in self.dataframe["time"]:
+            raise ValueError(
+                "Could not add indexes on Timeseries because some indexes to add are not present in Timeseries"
+            )
+
+        new_row = pl.DataFrame({"time": [dt], "value": [value]}).with_columns(
+            pl.col("time").cast(pl.Datetime("us", time_zone=self.timezone)),
+            pl.col("value").cast(pl.Float64()),
+        )
+        df = pl.concat([self.timeseries, new_row])
+
+        return self._return_inplace(df, inplace)
 
     def upsample(
         self,
@@ -633,15 +799,10 @@ class Timeseries:
                 self.timeseries.upsample(time_column="time", every=frequency)
                 .with_columns(pl.col("value").interpolate_by("time"))
                 .fill_null(strategy="forward")
-                .sort("time")
             )
         elif interpolation_method == "constant":
-            df = (
-                self.timeseries.upsample(time_column="time", every=frequency)
-                .fill_null(
-                    strategy="forward",
-                )
-                .sort("time")
+            df = self.timeseries.upsample(time_column="time", every=frequency).fill_null(
+                strategy="forward",
             )
         else:
             raise NotImplementedError("Unsupported interpolation method")
@@ -791,27 +952,11 @@ class Timeseries:
         :rtype: Timeseries
         """
         if isinstance(item, list):
-            item = [
-                pendulum.instance(i).in_tz(self.timezone)
-                if isinstance(i, datetime)
-                else pendulum.from_format(i, fmt=date_format).in_tz(self.timezone)
-                if isinstance(i, str)
-                else i.in_tz(self.timezone)
-                if isinstance(i, pendulum.DateTime)
-                else (_ for _ in ()).throw(NotImplementedError(f"Unsupported item in list: {type(i)}"))
-                for i in item
-            ]
+            item = [build_datetime(i, date_format=date_format).in_tz(self.timezone) for i in item]
             df = self.timeseries.filter(pl.col("time").is_in(item))
-        elif isinstance(item, str):
-            date = pendulum.from_format(item, fmt=date_format).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == date)
-        elif isinstance(item, datetime):
-            date = pendulum.instance(item).in_tz(self.timezone)
-            df = self.timeseries.filter(pl.col("time") == date)
-        elif isinstance(item, pendulum.DateTime):
-            df = self.timeseries.filter(pl.col("time") == item)
         else:
-            raise NotImplementedError("Invalid filter formatting")
+            date = build_datetime(item, date_format=date_format).in_tz(self.timezone)
+            df = self.timeseries.filter(pl.col("time") == date)
 
         return self._return_inplace(df, inplace)
 
@@ -1036,3 +1181,13 @@ class Timeseries:
         if len(self.timeseries) > 0:
             return cast(pendulum.DateTime, pendulum.instance(self.timeseries.select("time").tail(1).item()))
         return None
+
+    def iter_rows(self) -> Generator[tuple[datetime, float], None, None]:
+        """
+        Iterate over rows of the Timeseries, yielding (time, value) tuples.
+
+        :return: A generator yielding tuples containing (time, value) for each row
+        :rtype: Generator[tuple[datetime, float], None, None]
+        """
+        for row in self.timeseries.iter_rows(named=True):
+            yield (row["time"], row["value"])
