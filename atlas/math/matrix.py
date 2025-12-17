@@ -20,6 +20,7 @@ import polars as pl
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone
+from atlas.typing import TimeseriesDict
 
 
 class Matrix:
@@ -209,7 +210,7 @@ class Matrix:
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str,
     ) -> None:
         """
@@ -249,13 +250,13 @@ class Matrix:
     def replace(
         self,
         index: str,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
     ) -> None:
         """
         Replace a Timeseries in the matrix and keep indexes sorted.
 
         :param timeseries: Timeseries data to add.
-        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list]
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
         :param index: Datetime key for the new forecast.
         :type index: str | datetime
         """
