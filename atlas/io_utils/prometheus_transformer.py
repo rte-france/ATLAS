@@ -542,9 +542,9 @@ class PrometheusToAtlasDataParser:
         # Check if the expected type is Duration
         if type_attribute == Duration:
             try:
-                val = Duration(hours=float(val)).to_iso8601_string()
+                val = Duration(hours=float(val)).to_iso8601_string()  # type: ignore[assignment]
                 if val == "P":
-                    val = "PT0H"
+                    val = "PT0H"  # type: ignore[assignment]
             except Exception as e:
                 logger.debug(f"Failed to convert {val} to Duration: {e}, returning as is")
                 return val
