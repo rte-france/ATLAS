@@ -161,7 +161,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
     )
     timestep: Duration = Field(
         default_factory=lambda: duration(hours=1),
-        description="Time step (in hours) of the simulated market.",  # type: ignore[assignment]
+        description="Time step of the simulated market.",  # type: ignore[assignment]
     )
 
     @property

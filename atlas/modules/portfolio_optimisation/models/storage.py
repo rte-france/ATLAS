@@ -312,22 +312,17 @@ class StoragePO(Storage):
         )
 
     def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
-        if self.stored_energy is None:
-            return (
-                self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
-            )
+        default_energy = (
+            self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
+        )
 
-        if self._cached_energy_forecat_initial is None or len(self._cached_energy_forecat_initial) == 0:
-            return (
-                self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
-            )
+        if self.stored_energy is None or not self._cached_energy_forecat_initial:
+            return default_energy
 
-        else:
-            if self._cached_energy_forecast:
-                return self._cached_energy_forecast.dataframe.select("time").head(1).item()
-            return (
-                self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
-            )
+        if self._cached_energy_forecast:
+            return self._cached_energy_forecast.dataframe.select("time").head(1).item()
+
+        return default_energy
 
     def get_optimisation_time_window(
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
