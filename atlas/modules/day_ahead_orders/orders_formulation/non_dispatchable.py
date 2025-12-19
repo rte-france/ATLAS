@@ -8,10 +8,10 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Order
 from atlas.enum import OrderType, Product
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
 
 
 class NonDispatchable:
@@ -63,7 +63,7 @@ class NonDispatchable:
                 # We formulate as many offers as there are time stamps in orders_time.
                 for t in orders_time:
                     # Initialize the order object
-                    bid_output = Order(
+                    bid_output = OrderDAO(
                         name=f"otherND_order_at_{t}_for_unit_{unit.name}",  # Assign a unique name.
                         market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,

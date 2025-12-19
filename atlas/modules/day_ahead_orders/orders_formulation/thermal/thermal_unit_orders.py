@@ -11,11 +11,13 @@ import pendulum
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Order, OrderCoupling, Thermal, generate_datetimes
+from atlas import Thermal, generate_datetimes
 from atlas.enum import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
 
 
 class ThermalUnitOrders:
@@ -258,7 +260,7 @@ class ThermalUnitOrders:
 
             else:
                 # Flexible part of the order
-                flexible_part = Order(
+                flexible_part = OrderDAO(
                     name=f"flexible_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
@@ -280,7 +282,7 @@ class ThermalUnitOrders:
             if automated_reserves_down_procured.get_value(t) > 0.0:
                 # This order will be the child of the current inflexible order.
                 # Initialize the order object.
-                reserve_bid = Order(
+                reserve_bid = OrderDAO(
                     name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
@@ -302,7 +304,7 @@ class ThermalUnitOrders:
             if manual_reserves_down_procured.get_value(t) > 0.0:
                 # This order will be the child of the current inflexible order.
                 # Initialize the order object.
-                reserve_bid = Order(
+                reserve_bid = OrderDAO(
                     name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
@@ -324,7 +326,7 @@ class ThermalUnitOrders:
             if automated_reserves_up_procured.get_value(t) > 0.0:
                 # This order will be the child of the current flexible order.
                 # Initialize the order object.
-                reserve_bid = Order(
+                reserve_bid = OrderDAO(
                     name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
@@ -346,7 +348,7 @@ class ThermalUnitOrders:
             if manual_reserves_up_procured.get_value(t) > 0.0:
                 # This order will be the child of the current flexible order.
                 # Initialize the order object.
-                reserve_bid = Order(
+                reserve_bid = OrderDAO(
                     name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
@@ -402,7 +404,7 @@ class ThermalUnitOrders:
                     else:
                         q_sell = round(i * q_step_up)
 
-                    bid_output = Order(
+                    bid_output = OrderDAO(
                         name=f"startup_ramp_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                         market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,
@@ -435,7 +437,7 @@ class ThermalUnitOrders:
                     else:
                         q_sell = round(q_min - (T_stop - K_stop + i) * q_step_down)
 
-                    bid_output = Order(
+                    bid_output = OrderDAO(
                         name=f"shutdown_ramp_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                         market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,
@@ -458,7 +460,7 @@ class ThermalUnitOrders:
             # Part 3: inflexible orders at Pmin
             for t in flexible_time_frame:
                 # Initialize the inflexible order object.
-                bid_output = Order(
+                bid_output = OrderDAO(
                     name=f"order_at_{t}_for_unit_{unit.name}_under_price_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                     portfolio=unit.portfolio,
@@ -492,10 +494,9 @@ class ThermalUnitOrders:
                     flexible_bid = next((bid for bid in self.dataset.order if bid.name == flexible_bid_name), None)
                     if flexible_bid is not None:
                         # Add parent-children link between the flexible and inflexible parts
-                        link_flexible_inflexible = OrderCoupling(
+                        link_flexible_inflexible = OrderCouplingDAO(
                             name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                             coupling_type=CouplingType.PARENT_CHILDREN,
-                            orders=[],
                         )
                         # add the two orders
                         link_flexible_inflexible.orders.append(bid_output)
@@ -504,10 +505,9 @@ class ThermalUnitOrders:
 
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]
-            coupling = OrderCoupling(
+            coupling = OrderCouplingDAO(
                 name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{date}_with_scenario_{case}",
                 coupling_type=CouplingType.IDENTICAL_RATIO,
-                orders=[],
             )
             for order in inflexible_orders:
                 coupling.orders.append(order)

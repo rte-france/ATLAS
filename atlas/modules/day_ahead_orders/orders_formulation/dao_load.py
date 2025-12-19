@@ -8,10 +8,11 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Order, Timeseries
+from atlas import Timeseries
 from atlas.enum import LoadType, OrderType, Product
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
 
 
 class DAOLoad:
@@ -61,7 +62,7 @@ class DAOLoad:
                         # Formulate an order if max_consumption_value is strictly positive
                         if max_consumption_value > 0:
                             # Initialize the order object.
-                            bid_output = Order(
+                            bid_output = OrderDAO(
                                 name=f"load_order_at_{t}_for_unit_{load.name}",
                                 market_area=load.portfolio.market_area,
                                 portfolio=load.portfolio,

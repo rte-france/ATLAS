@@ -27,6 +27,8 @@ from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.models.business_model import BusinessModel
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
 
 
 class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
@@ -44,8 +46,8 @@ class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
         self.thermal: list[Thermal] = copy.deepcopy(inputDataset.thermal)
         self.other_non_dispatchable: list[OtherNonDispatchable] = copy.deepcopy(inputDataset.other_non_dispatchable)
         self.load: list[Load] = copy.deepcopy(inputDataset.load)
-        self.order: list[Order] = []
-        self.order_coupling: list[OrderCoupling] = []
+        self.order: list[OrderDAO] = []
+        self.order_coupling: list[OrderCouplingDAO] = []
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
         return [

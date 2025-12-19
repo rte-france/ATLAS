@@ -8,13 +8,15 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Order, OrderCoupling, SolverOptions, Storage, Timeseries
+from atlas import OrderCoupling, SolverOptions, Storage, Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, StorageType
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
+from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
 from atlas.timing import generate_datetimes
 
 
@@ -105,9 +107,8 @@ class DAOStorage:
             daily_buy_volume = sum(buy_volume * self.parameters.time_step.total_hours() for buy_volume in Qa.values())
             if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
                 # Create the order coupling instance
-                coupling_instance = OrderCoupling(
+                coupling_instance = OrderCouplingDAO(
                     name=f"COMPLEMENT_DA_{storage.name}_{self.parameters.execution_date}",
-                    orders=[],
                     coupling_type=CouplingType.COMPLEMENT,
                     complement_direction=ComplementDirection.EqualTo,
                 )
@@ -136,9 +137,9 @@ class DAOStorage:
             # All other orders
             else:
                 # Create a COMPLEMENT order coupling
-                coupling_instance = OrderCoupling(
+                coupling_instance = OrderCouplingDAO(
                     name=f"COMPLEMENT_DA_{storage.name}_{self.parameters.execution_date}",
-                    orders=[],
+                    coupling_type=CouplingType.COMPLEMENT,
                 )
 
                 for t in [i for i, e in Qa.items()]:
@@ -334,7 +335,7 @@ class DAOStorage:
         price: float,
         coupling_instance: OrderCoupling,
     ) -> None:
-        order = Order(
+        order = OrderDAO(
             name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{storage.name}",
             equipment=storage,
             portfolio=storage.portfolio,

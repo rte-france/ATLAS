@@ -8,10 +8,12 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Equipment, Order, OrderCoupling, Timeseries
+from atlas import Equipment, Order, Timeseries
 from atlas.enum import CouplingType, OrderType, Product, ThermalStrategy
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
 
 
 class ThermalPeakLoadOrders:
@@ -99,7 +101,7 @@ class ThermalPeakLoadOrders:
                     price = unit.startup_cost.get_value(t) / Q + unit.variable_cost.get_value(t)
 
                     # Create the instance
-                    inflexible_order = Order(
+                    inflexible_order = OrderDAO(
                         name=f"inflexible_order_at_{t}_for_unit_{unit.name}",
                         market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,
@@ -229,7 +231,7 @@ class ThermalPeakLoadOrders:
         price: float,
         link_name: str,
     ) -> None:
-        order = Order(
+        order = OrderDAO(
             name=order_name,
             market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
             portfolio=unit.portfolio,
@@ -248,7 +250,7 @@ class ThermalPeakLoadOrders:
 
         if generate_inflexible_order:
             # Parent-children link between the flexible and inflexible parts
-            link = OrderCoupling(name=link_name, orders=[])
+            link = OrderCouplingDAO(name=link_name, coupling_type=CouplingType.PARENT_CHILDREN)
             link.coupling_type = CouplingType.PARENT_CHILDREN
             # add the two orders
             link.orders.append(inflexible_order)  # add the parent

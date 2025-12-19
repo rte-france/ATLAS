@@ -12,11 +12,12 @@ from collections.abc import Callable
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import OrderCoupling, ScenarioMatrix, SolverOptions, Thermal
+from atlas import ScenarioMatrix, SolverOptions, Thermal
 from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_1,
     combination_2,
@@ -123,10 +124,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                             # Unwrap the two orders
                             order_1, order_2 = exclusion_combination[0], exclusion_combination[1]
                             # Create the coupling and add the two orders.
-                            coupling = OrderCoupling(
+                            coupling = OrderCouplingDAO(
                                 name=f"EXCLUSION_link_between_orders_{order_1.name}_and_{order_2.name}",
                                 coupling_type=CouplingType.EXCLUSION,
-                                orders=[],
                             )
                             coupling.orders.append(order_1)
                             coupling.orders.append(order_2)

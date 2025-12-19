@@ -11,10 +11,12 @@ import pendulum
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Order, OrderCoupling, Timeseries
+from atlas import Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
 from atlas.timing import generate_datetimes
 
 
@@ -98,9 +100,8 @@ class Hydraulic:
                 weight_sup = (energy_level - int(xpmin)) / (int(xpmax) - int(xpmin))
 
             # Create a COMPLEMENT coupling between all orders of the day to comply with MinimumEnergy constraints
-            coupling_instance = OrderCoupling(
+            coupling_instance = OrderCouplingDAO(
                 name=f"COMPLEMENT_{str(equipment.name)}_{parameters.execution_date}",
-                orders=[],
                 coupling_type=CouplingType.COMPLEMENT,
                 complement_direction=ComplementDirection.GreaterThan,
             )
@@ -147,7 +148,7 @@ class Hydraulic:
                         bid_name = f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}"
 
                         # Initialize the order object
-                        bid_output = Order(
+                        bid_output = OrderDAO(
                             name=bid_name,
                             market_area=equipment.portfolio.market_area,
                             portfolio=equipment.portfolio,

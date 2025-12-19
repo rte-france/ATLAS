@@ -8,10 +8,11 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Order, Solar, Wind
+from atlas import Solar, Wind
 from atlas.enum import OrderType, Product
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
 
 
 class WindPV:
@@ -75,7 +76,7 @@ class WindPV:
 
                     if max_production_value > 0:
                         # Initialize the order object
-                        bid_output = Order(
+                        bid_output = OrderDAO(
                             name=bid_name,
                             market_area=equipment.portfolio.market_area,
                             portfolio=equipment.portfolio,
