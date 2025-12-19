@@ -930,6 +930,30 @@ class TestTimeseriesBasicOperations:
         first_row = next(rows_iterator)
         assert first_row == (datetime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone("UTC")), 10.0)
 
+    def test_round(self):
+        ts = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": [
+                        datetime(2025, 12, 15, 0, 0, 0),
+                        datetime(2025, 12, 15, 1, 0, 0),
+                        datetime(2025, 12, 15, 2, 0, 0),
+                        datetime(2025, 12, 15, 3, 0, 0),
+                        datetime(2025, 12, 15, 4, 0, 0),
+                    ],
+                    "value": [1.12345, 2.0009, 3.9999, 4.0001, 5.29],
+                },
+            )
+        )
+
+        ts.round(3)
+
+        assert ts.get_value(datetime(2025, 12, 15, 0, 0, 0)) == 1.123
+        assert ts.get_value(datetime(2025, 12, 15, 1, 0, 0)) == 2.001
+        assert ts.get_value(datetime(2025, 12, 15, 2, 0, 0)) == 4
+        assert ts.get_value(datetime(2025, 12, 15, 3, 0, 0)) == 4
+        assert ts.get_value(datetime(2025, 12, 15, 4, 0, 0)) == 5.29
+
 
 class TestTimeseriesManipulation:
     """Test time series manipulation methods."""
