@@ -26,6 +26,7 @@ from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.models.business_model import BusinessModel
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.orders_formulation.models.thermal import ThermalDAO
@@ -41,7 +42,8 @@ class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
         self.portfolio: list[Portfolio] = copy.deepcopy(inputDataset.portfolio)
         self.wind: list[Wind] = copy.deepcopy(inputDataset.wind)
         self.storage: list[Storage] = copy.deepcopy(inputDataset.storage)
-        self.hydro: list[Hydro] = copy.deepcopy(inputDataset.hydro)
+        input_hydro: list[Hydro] = copy.deepcopy(inputDataset.hydro)
+        self.hydro: list[HydroDAO] = [cast(HydroDAO, obj) for obj in input_hydro]
         self.solar: list[Solar] = copy.deepcopy(inputDataset.solar)
         input_thermal: list[Thermal] = copy.deepcopy(inputDataset.thermal)
         self.thermal: list[ThermalDAO] = [cast(ThermalDAO, obj) for obj in input_thermal]
