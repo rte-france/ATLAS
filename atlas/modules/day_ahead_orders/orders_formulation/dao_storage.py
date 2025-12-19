@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import OrderCoupling, SolverOptions, Storage, Timeseries
+from atlas import SolverOptions, Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, StorageType
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
@@ -17,6 +17,7 @@ from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import E
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.storage import StorageDAO
 from atlas.timing import generate_datetimes
 
 
@@ -167,7 +168,7 @@ class DAOStorage:
 
     def optimize_ev(
         self,
-        storage: Storage,
+        storage: StorageDAO,
         initial_stock: float | None,
         solvers_options: SolverOptions,
     ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
@@ -209,7 +210,7 @@ class DAOStorage:
 
     def optimize_battery(
         self,
-        storage: Storage,
+        storage: StorageDAO,
         initial_stock: float | None,
         solvers_options: SolverOptions,
     ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
@@ -262,7 +263,7 @@ class DAOStorage:
         return Qvv, Qaa
 
     def price_calculation(
-        self, storage: Storage, Qv: dict[DateTime, float], Qa: dict[DateTime, float]
+        self, storage: StorageDAO, Qv: dict[DateTime, float], Qa: dict[DateTime, float]
     ) -> tuple[float, float]:
         """------ Price computation ------"""
         P_a_max = 0.0
@@ -329,11 +330,11 @@ class DAOStorage:
     def add_spot_order_with_coupling(
         self,
         order_type: OrderType,
-        storage: Storage,
+        storage: StorageDAO,
         start_date: DateTime,
         qmax: float,
         price: float,
-        coupling_instance: OrderCoupling,
+        coupling_instance: OrderCouplingDAO,
     ) -> None:
         order = OrderDAO(
             name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{storage.name}",
@@ -352,7 +353,7 @@ class DAOStorage:
         self.dataset.order.append(order)
         coupling_instance.orders.append(order)
 
-    def initiate_stock(self, storage: Storage) -> float | None:
+    def initiate_stock(self, storage: StorageDAO) -> float | None:
         # FC: The first step is to evaluate if the equipment is in an "Initial" situation or not
         # This is indicated by StoredEnergy, but one should be careful here
         # The idea is to verify that there is a value in StoredEnergy "not too long" before start_date,

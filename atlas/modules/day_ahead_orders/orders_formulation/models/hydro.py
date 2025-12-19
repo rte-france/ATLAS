@@ -9,3 +9,4 @@ class HydroDAO(Hydro):
     initial_level: Timeseries | LazyTimeseries
     storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix
     maximum_power: Timeseries | LazyTimeseries
+    maximum_curtailment_ratio: Timeseries | LazyTimeseries

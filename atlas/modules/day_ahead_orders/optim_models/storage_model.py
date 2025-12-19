@@ -12,9 +12,10 @@ from pendulum import DateTime
 from pendulum.duration import Duration
 
 import atlas.config as cfg
-from atlas import OptimisationModel, SolverOptions, Storage, Timeseries, generate_datetimes
+from atlas import OptimisationModel, SolverOptions, Timeseries, generate_datetimes
 from atlas.enum import SolverEnum
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.storage import StorageDAO
 
 
 class StorageModel(OptimisationModel):
@@ -30,13 +31,13 @@ class StorageModel(OptimisationModel):
         parameters: DayAheadOrdersParameters,
         solver_name: str,
         name: str,
-        storage: Storage,
+        storage: StorageDAO,
         optimization_period: Duration,
         solver_options: SolverOptions,
     ):
         super().__init__(solver_name, name, solver_options)
         self.parameters: DayAheadOrdersParameters = parameters
-        self.storage: Storage = storage
+        self.storage: StorageDAO = storage
         self.optimizationPeriod: Duration = optimization_period
         # Get the price forecast from the dataset: estimations are at ActionHour, over the optimization period
         # The price forecast is relative to the equipment's market area
@@ -150,5 +151,6 @@ class StorageModel(OptimisationModel):
         self.solve()
 
         if self.parameters.verbose:
-            cfg.logger.info(f"Solver status: {self.solution_info.status}")
+            status = self.solution_info.status if self.solution_info else None
+            cfg.logger.info(f"Solver status: {status}")
             cfg.logger.info(f"Objective function value: {self._objective}")

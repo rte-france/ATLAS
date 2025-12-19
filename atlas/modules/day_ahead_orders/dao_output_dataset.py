@@ -27,9 +27,13 @@ from atlas.models.business_model import BusinessModel
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.models.hydro import HydroDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.load import LoadDAO
 from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.solar import SolarDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.orders_formulation.models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.wind import WindDAO
 
 
 class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
@@ -40,15 +44,21 @@ class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
         self.market_border: list[MarketBorder] = copy.deepcopy(inputDataset.market_border)
         self.node: list[Node] = copy.deepcopy(inputDataset.node)
         self.portfolio: list[Portfolio] = copy.deepcopy(inputDataset.portfolio)
-        self.wind: list[Wind] = copy.deepcopy(inputDataset.wind)
-        self.storage: list[Storage] = copy.deepcopy(inputDataset.storage)
+        self.other_non_dispatchable: list[OtherNonDispatchable] = copy.deepcopy(inputDataset.other_non_dispatchable)
+
+        input_load: list[Load] = copy.deepcopy(inputDataset.load)
+        self.load: list[LoadDAO] = [cast(LoadDAO, obj) for obj in input_load]
+        input_storage: list[Storage] = copy.deepcopy(inputDataset.storage)
+        self.storage: list[StorageDAO] = [cast(StorageDAO, obj) for obj in input_storage]
         input_hydro: list[Hydro] = copy.deepcopy(inputDataset.hydro)
         self.hydro: list[HydroDAO] = [cast(HydroDAO, obj) for obj in input_hydro]
-        self.solar: list[Solar] = copy.deepcopy(inputDataset.solar)
+        input_solar: list[Solar] = copy.deepcopy(inputDataset.solar)
+        self.solar: list[SolarDAO] = [cast(SolarDAO, obj) for obj in input_solar]
         input_thermal: list[Thermal] = copy.deepcopy(inputDataset.thermal)
         self.thermal: list[ThermalDAO] = [cast(ThermalDAO, obj) for obj in input_thermal]
-        self.other_non_dispatchable: list[OtherNonDispatchable] = copy.deepcopy(inputDataset.other_non_dispatchable)
-        self.load: list[Load] = copy.deepcopy(inputDataset.load)
+        input_wind: list[Wind] = copy.deepcopy(inputDataset.wind)
+        self.wind: list[WindDAO] = [cast(WindDAO, obj) for obj in input_wind]
+
         self.order: list[OrderDAO] = []
         self.order_coupling: list[OrderCouplingDAO] = []
 
