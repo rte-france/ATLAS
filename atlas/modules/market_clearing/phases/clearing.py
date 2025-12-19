@@ -423,11 +423,13 @@ class Clearing(OptimisationModel):
     def create_identical_volume_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         for i, order in enumerate(order_coupling.orders[1:]):
             prev_order = order_coupling.orders[i]
+            mc_order = self.input_dataset.mc_orders[order.name]
+            mc_prev_order = self.input_dataset.mc_orders[prev_order.name]
             prev_accepted_power = self.get_variable(
-                constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name)
+                constants.accepted_power_variable_name(mc_prev_order.market_area.name, mc_prev_order.name)
             )
             accepted_power = self.get_variable(
-                constants.accepted_power_variable_name(order.market_area.name, order.name)
+                constants.accepted_power_variable_name(mc_order.market_area.name, order.name)
             )
 
             self.add_constraint(
@@ -446,8 +448,9 @@ class Clearing(OptimisationModel):
         for order in order_coupling.orders:
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
+            mc_order = self.input_dataset.mc_orders[order.name]
             accepted_power = self.get_variable(
-                constants.accepted_power_variable_name(order.market_area.name, order.name)
+                constants.accepted_power_variable_name(mc_order.market_area.name, order.name)
             )
             mc_order = self.input_dataset.mc_orders[order.name]
             if mc_order.order_type == OrderType.Sell:
@@ -486,7 +489,10 @@ class Clearing(OptimisationModel):
         for order in order_coupling.orders:
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
-            order_status = self.get_variable(constants.order_status_variable_name(order.market_area.name, order.name))
+            mc_order = self.input_dataset.mc_orders[order.name]
+            order_status = self.get_variable(
+                constants.order_status_variable_name(mc_order.market_area.name, order.name)
+            )
             aggregated_status.append(order_status)
         self.add_constraint(
             sum(aggregated_status) <= 1, constants.exclusion_order_coupling_constraint_name(order_coupling.name)
@@ -494,37 +500,43 @@ class Clearing(OptimisationModel):
 
     def create_parent_children_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         parent_order = order_coupling.orders[0]
+        mc_parent_order = self.input_dataset.mc_orders[parent_order.name]
         if not OrderMC.is_feasible(parent_order, self.input_dataset.times, self.parameters):
             return
         parent_order_status = self.get_variable(
-            constants.order_status_variable_name(parent_order.market_area.name, parent_order.name)
+            constants.order_status_variable_name(mc_parent_order.market_area.name, parent_order.name)
         )
         for order in order_coupling.orders[1:]:
+            mc_order = self.input_dataset.mc_orders[order.name]
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
-            order_status = self.get_variable(constants.order_status_variable_name(order.market_area.name, order.name))
+            order_status = self.get_variable(
+                constants.order_status_variable_name(mc_order.market_area.name, order.name)
+            )
             self.add_constraint(
                 order_status <= parent_order_status,
-                constants.parent_child_order_coupling_constraint_name(order_coupling.name, order.market_area.name),
+                constants.parent_child_order_coupling_constraint_name(order_coupling.name, mc_order.market_area.name),
             )
 
     def create_identical_ratio_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         for i, order in enumerate(order_coupling.orders[1:]):
+            mc_order = self.input_dataset.mc_orders[order.name]
             prev_order = order_coupling.orders[i]
+            mc_prev_order = self.input_dataset.mc_orders[prev_order.name]
             prev_accepted_power = self.get_variable(
-                constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name)
+                constants.accepted_power_variable_name(mc_prev_order.market_area.name, prev_order.name)
             )
             accepted_power = self.get_variable(
-                constants.accepted_power_variable_name(order.market_area.name, order.name)
+                constants.accepted_power_variable_name(mc_order.market_area.name, order.name)
             )
             if prev_order.qmin == prev_order.qmax:
-                prev_ratio = prev_accepted_power / prev_order.qmax
+                prev_ratio = prev_accepted_power / mc_prev_order.qmax
             else:
-                prev_ratio = (prev_accepted_power - prev_order.qmin) / (prev_order.qmax - prev_order.qmin)
-            if order.qmin == order.qmax:
-                ratio = accepted_power / order.qmax
+                prev_ratio = (prev_accepted_power - mc_prev_order.qmin) / (mc_prev_order.qmax - mc_prev_order.qmin)
+            if mc_order.qmin == mc_order.qmax:
+                ratio = accepted_power / mc_order.qmax
             else:
-                ratio = (accepted_power - order.qmin) / (order.qmax - order.qmin)
+                ratio = (accepted_power - mc_order.qmin) / (mc_order.qmax - mc_order.qmin)
 
             self.add_constraint(
                 ratio == prev_ratio,
