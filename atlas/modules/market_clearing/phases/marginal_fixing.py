@@ -30,7 +30,7 @@ class MarginalFixing:
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
         self.input_dataset = input_dataset
         self.parameters = parameters
-        self.accepted_powers = None
+        self.accepted_powers: dict[tuple[str, str], float] = {}
 
     def run(self, accepted_powers: dict[tuple[str, str], float], market_prices: dict[tuple[str, int], float]) -> None:
         """
