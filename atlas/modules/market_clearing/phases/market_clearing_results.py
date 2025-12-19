@@ -77,75 +77,120 @@ class MarketClearingResults:
         market_area_data.write_csv(Path(self.parameters.csv_output_path) / "market_area_data.csv")
 
     def create_day_ahead_market_areas_data(self) -> pl.DataFrame:
-        market_areas_data = None
+        market_areas_data = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "TimeStep": pl.Datetime(time_zone="UTC"),
+                "DAPrice": pl.Float64,
+                "DABalance": pl.Float64,
+            }
+        )
         for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
             for time in self.input_dataset.times:
                 market_area_dict = {
                     "Name": market_area_name,
                     "TimeStep": time,
-                    "DAPrice": mc_market_area.da_price.get_value(time),
-                    "DABalance": mc_market_area.da_balance.get_value(time),
+                    "DAPrice": mc_market_area.da_price.get_value(time) if mc_market_area.da_price is not None else 0,
+                    "DABalance": mc_market_area.da_balance.get_value(time)
+                    if mc_market_area.da_balance is not None
+                    else 0,
                 }
                 market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                if market_areas_data is None:
-                    market_areas_data = market_area_data
-                else:
-                    market_areas_data.extend(market_area_data)
+                market_areas_data.extend(market_area_data)
+
         return market_areas_data
 
     def create_intraday_market_areas_data(self) -> pl.DataFrame:
-        market_areas_data = None
+        market_areas_data = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "TimeStep": pl.Datetime(time_zone="UTC"),
+                "IDPrice": pl.Float64,
+                "TotalIDBalance": pl.Float64,
+            }
+        )
         for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
             for time in self.input_dataset.times:
+                id_price_forecast = (
+                    mc_market_area.id_price.select(self.parameters.execution_date)
+                    if mc_market_area.id_price is not None
+                    else None
+                )
+                id_price = id_price_forecast.get_value(time) if id_price_forecast is not None else 0
+                id_balance_forecast = (
+                    mc_market_area.id_balance.select(self.parameters.execution_date)
+                    if mc_market_area.id_balance is not None
+                    else None
+                )
+                id_balance = id_balance_forecast.get_value(time) if id_balance_forecast is not None else 0
                 market_area_dict = {
                     "Name": market_area_name,
                     "TimeStep": time,
-                    "IDPrice": mc_market_area.id_price.get_value(time),
-                    "TotalIDBalance": mc_market_area.id_balance.get_value(time),
+                    "IDPrice": id_price,
+                    "TotalIDBalance": id_balance,
                 }
                 market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                if market_areas_data is None:
-                    market_areas_data = market_area_data
-                else:
-                    market_areas_data.extend(market_area_data)
+                market_areas_data.extend(market_area_data)
         return market_areas_data
 
     def create_rr_market_areas_data(self) -> pl.DataFrame:
-        market_areas_data = None
+        market_areas_data = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "TimeStep": pl.Datetime(time_zone="UTC"),
+                "RRActivationPrice": pl.Float64,
+                "RRActivationBalance": pl.Float64,
+            }
+        )
         for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
             for time in self.input_dataset.times:
                 market_area_dict = {
                     "Name": market_area_name,
                     "TimeStep": time,
-                    "RRActivationPrice": mc_market_area.rr_activation_price.get_value(time),
-                    "RRActivationBalance": mc_market_area.rr_activation_balance.get_value(time),
+                    "RRActivationPrice": mc_market_area.rr_activation_price.get_value(time)
+                    if mc_market_area.rr_activation_price is not None
+                    else 0,
+                    "RRActivationBalance": mc_market_area.rr_activation_balance.get_value(time)
+                    if mc_market_area.rr_activation_balance is not None
+                    else 0,
                 }
                 market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                if market_areas_data is None:
-                    market_areas_data = market_area_data
-                else:
-                    market_areas_data.extend(market_area_data)
+                market_areas_data.extend(market_area_data)
         return market_areas_data
 
     def create_mfrr_market_areas_data(self) -> pl.DataFrame:
-        market_areas_data = None
+        market_areas_data = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "TimeStep": pl.Datetime(time_zone="UTC"),
+                "MFRRActivationPrice": pl.Float64,
+                "MFRRActivationBalance": pl.Float64,
+            }
+        )
         for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
             for time in self.input_dataset.times:
                 market_area_dict = {
                     "Name": market_area_name,
                     "TimeStep": time,
-                    "MFRRActivationPrice": mc_market_area.mfrr_activation_price.get_value(time),
-                    "MFRRActivationBalance": mc_market_area.mfrr_activation_balance.get_value(time),
+                    "MFRRActivationPrice": mc_market_area.mfrr_activation_price.get_value(time)
+                    if mc_market_area.mfrr_activation_price is not None
+                    else 0,
+                    "MFRRActivationBalance": mc_market_area.mfrr_activation_balance.get_value(time)
+                    if mc_market_area.mfrr_activation_balance is not None
+                    else 0,
                 }
                 market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                if market_areas_data is None:
-                    market_areas_data = market_area_data
-                else:
-                    market_areas_data.extend(market_area_data)
+                market_areas_data.extend(market_area_data)
         return market_areas_data
 
     def export_couplings_data(self):
-        couplings_data = None
+        couplings_data = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "Type": pl.Utf8,
+                "OrderList": pl.Utf8,
+            }
+        )
         for order_coupling_name, mc_order_coupling in self.input_dataset.mc_order_couplings.items():
             coupling_dict = {
                 "Name": order_coupling_name,
@@ -153,10 +198,7 @@ class MarketClearingResults:
                 "OrderList": ":".join([order.name for order in mc_order_coupling.orders]),
             }
             coupling_data = pl.DataFrame({k: [v] for k, v in coupling_dict.items()})
-            if couplings_data is None:
-                couplings_data = coupling_data
-            else:
-                couplings_data.extend(coupling_data)
+            couplings_data.extend(coupling_data)
         couplings_data.write_csv(Path(self.parameters.csv_output_path) / "coupling_data.csv")
 
     def export_borders_data(self):
@@ -173,52 +215,85 @@ class MarketClearingResults:
         borders_data.write_csv(Path(self.parameters.csv_output_path) / "border.csv")
 
     def create_day_ahead_borders_data(self) -> pl.DataFrame:
-        market_borders_data = None
+        market_borders_data = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "TimeStep": pl.Datetime(time_zone="UTC"),
+                "MaximumFlow": pl.Float64,
+                "MinimumFlow": pl.Float64,
+                "TotalFlow": pl.Float64,
+                "DAFlow": pl.Float64,
+            }
+        )
         for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
             for time in self.input_dataset.times:
                 market_border_dict = {
                     "Name": market_border_name,
                     "TimeStep": time,
-                    "MaximumFlow": mc_market_border.maximum_flow.get_value(time),
-                    "MinimumFlow": mc_market_border.minimum_flow.get_value(time),
-                    "TotalFlow": mc_market_border.da_flow.get_value(time),
-                    "DAFlow": mc_market_border.da_flow.get_value(time),
+                    "MaximumFlow": mc_market_border.maximum_flow.get_value(time)
+                    if mc_market_border.maximum_flow is not None
+                    else 0,
+                    "MinimumFlow": mc_market_border.minimum_flow.get_value(time)
+                    if mc_market_border.minimum_flow is not None
+                    else 0,
+                    "TotalFlow": mc_market_border.da_flow.get_value(time)
+                    if mc_market_border.da_flow is not None
+                    else 0,
+                    "DAFlow": mc_market_border.da_flow.get_value(time) if mc_market_border.da_flow is not None else 0,
                 }
                 market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                if market_borders_data is None:
-                    market_borders_data = market_border_data
-                else:
-                    market_borders_data.extend(market_border_data)
+                market_borders_data.extend(market_border_data)
         return market_borders_data
 
     def create_intraday_borders_data(self) -> pl.DataFrame:
-        market_borders_data = None
+        market_borders_data = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "TimeStep": pl.Datetime(time_zone="UTC"),
+                "MaximumFlow": pl.Float64,
+                "MinimumFlow": pl.Float64,
+                "TotalFlow": pl.Float64,
+                "TotalIDFlow": pl.Float64,
+            }
+        )
         for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
             for time in self.input_dataset.times:
-                total_flow = mc_market_border.da_flow.get_value(time)
+                total_flow = mc_market_border.da_flow.get_value(time) if mc_market_border.da_flow is not None else 0
                 total_flow += (
                     mc_market_border.total_id_flow.get_value(time) if mc_market_border.total_id_flow is not None else 0
                 )
                 market_border_dict = {
                     "Name": market_border_name,
                     "TimeStep": time,
-                    "MaximumFlow": mc_market_border.maximum_flow.get_value(time),
-                    "MinimumFlow": mc_market_border.minimum_flow.get_value(time),
+                    "MaximumFlow": mc_market_border.maximum_flow.get_value(time)
+                    if mc_market_border.maximum_flow is not None
+                    else 0,
+                    "MinimumFlow": mc_market_border.minimum_flow.get_value(time)
+                    if mc_market_border.minimum_flow is not None
+                    else 0,
                     "TotalFlow": total_flow,
-                    "TotalIDFlow": mc_market_border.total_id_flow.get_value(time),
+                    "TotalIDFlow": mc_market_border.total_id_flow.get_value(time)
+                    if mc_market_border.total_id_flow is not None
+                    else 0,
                 }
                 market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                if market_borders_data is None:
-                    market_borders_data = market_border_data
-                else:
-                    market_borders_data.extend(market_border_data)
+                market_borders_data.extend(market_border_data)
         return market_borders_data
 
     def create_rr_borders_data(self) -> pl.DataFrame:
-        market_borders_data = None
+        market_borders_data = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "TimeStep": pl.Datetime(time_zone="UTC"),
+                "MaximumFlow": pl.Float64,
+                "MinimumFlow": pl.Float64,
+                "TotalFlow": pl.Float64,
+                "RRActivated": pl.Float64,
+            }
+        )
         for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
             for time in self.input_dataset.times:
-                total_flow = mc_market_border.da_flow.get_value(time)
+                total_flow = mc_market_border.da_flow.get_value(time) if mc_market_border.da_flow is not None else 0
                 total_flow += (
                     mc_market_border.total_id_flow.get_value(time) if mc_market_border.total_id_flow is not None else 0
                 )
@@ -228,23 +303,35 @@ class MarketClearingResults:
                 market_border_dict = {
                     "Name": market_border_name,
                     "TimeStep": time,
-                    "MaximumFlow": mc_market_border.maximum_flow.get_value(time),
-                    "MinimumFlow": mc_market_border.minimum_flow.get_value(time),
+                    "MaximumFlow": mc_market_border.maximum_flow.get_value(time)
+                    if mc_market_border.maximum_flow is not None
+                    else 0,
+                    "MinimumFlow": mc_market_border.minimum_flow.get_value(time)
+                    if mc_market_border.minimum_flow is not None
+                    else 0,
                     "TotalFlow": total_flow,
-                    "RRActivated": mc_market_border.rr_activated.get_value(time),
+                    "RRActivated": mc_market_border.rr_activated.get_value(time)
+                    if mc_market_border.rr_activated is not None
+                    else 0,
                 }
                 market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                if market_borders_data is None:
-                    market_borders_data = market_border_data
-                else:
-                    market_borders_data.extend(market_border_data)
+                market_borders_data.extend(market_border_data)
         return market_borders_data
 
     def create_mfrr_borders_data(self) -> pl.DataFrame:
-        market_borders_data = None
+        market_borders_data = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "TimeStep": pl.Datetime(time_zone="UTC"),
+                "MaximumFlow": pl.Float64,
+                "MinimumFlow": pl.Float64,
+                "TotalFlow": pl.Float64,
+                "MFRRActivated": pl.Float64,
+            }
+        )
         for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
             for time in self.input_dataset.times:
-                total_flow = mc_market_border.da_flow.get_value(time)
+                total_flow = mc_market_border.da_flow.get_value(time) if mc_market_border.da_flow is not None else 0
                 total_flow += (
                     mc_market_border.total_id_flow.get_value(time) if mc_market_border.total_id_flow is not None else 0
                 )
@@ -259,14 +346,17 @@ class MarketClearingResults:
                 market_border_dict = {
                     "Name": market_border_name,
                     "TimeStep": time,
-                    "MaximumFlow": mc_market_border.maximum_flow.get_value(time),
-                    "MinimumFlow": mc_market_border.minimum_flow.get_value(time),
+                    "MaximumFlow": mc_market_border.maximum_flow.get_value(time)
+                    if mc_market_border.maximum_flow is not None
+                    else 0,
+                    "MinimumFlow": mc_market_border.minimum_flow.get_value(time)
+                    if mc_market_border.minimum_flow is not None
+                    else 0,
                     "TotalFlow": total_flow,
-                    "MFRRActivated": mc_market_border.mfrr_activated.get_value(time),
+                    "MFRRActivated": mc_market_border.mfrr_activated.get_value(time)
+                    if mc_market_border.mfrr_activated is not None
+                    else 0,
                 }
                 market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                if market_borders_data is None:
-                    market_borders_data = market_border_data
-                else:
-                    market_borders_data.extend(market_border_data)
+                market_borders_data.extend(market_border_data)
         return market_borders_data
