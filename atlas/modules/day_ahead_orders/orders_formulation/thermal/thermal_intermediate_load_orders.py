@@ -69,7 +69,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 states_sequence = self.determine_intermediate_load_states_sequence(thermal_unit, res, case)
 
                 # Extract the list of online time frames
-                list_of_online_timeframes = self.extract_online_sequences(states_sequence, case)
+                list_of_online_timeframes = self.extract_online_sequences(states_sequence)
 
                 # Formulate the orders over each online timeframe.
                 for online_timeframe in list_of_online_timeframes:
@@ -284,15 +284,13 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # Test the potential overlaps
         for pair in itertools.combinations(online_timeframes, 2):
             # Unwrap the start date and end dates of the pairs
-            name_pair_1, name_pair_2 = pair[0].name, pair[1].name
             start_pair_1, end_pair_1 = pair[0].first_date(), pair[0].last_date()
             start_pair_2, end_pair_2 = pair[1].first_date(), pair[1].last_date()
 
             # Test whether the dates are overlapping or not.
             is_overlapping = False
-            if name_pair_1 != name_pair_2:
-                if start_pair_1 <= start_pair_2 <= end_pair_1 or start_pair_2 <= start_pair_1 <= end_pair_2:
-                    is_overlapping = True
+            if start_pair_1 <= start_pair_2 <= end_pair_1 or start_pair_2 <= start_pair_1 <= end_pair_2:
+                is_overlapping = True
 
             # Save the first dates of the colliding blocks.
             if is_overlapping:

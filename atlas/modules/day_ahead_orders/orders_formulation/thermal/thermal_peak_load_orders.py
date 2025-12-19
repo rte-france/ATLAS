@@ -213,7 +213,7 @@ class ThermalPeakLoadOrders:
                         q_max=manual_reserves_up_procured.get_value(t),
                         q_min=(1 - self.parameters.imposed_proportional_reserves_penalty)
                         * manual_reserves_up_procured.get_value(t),
-                        price=unit.VariableCost.get_value(t) + self.parameters.manual_unprocured_reserves_penalty,
+                        price=unit.variable_cost.get_value(t) + self.parameters.manual_unprocured_reserves_penalty,
                         link_name=f"PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
 

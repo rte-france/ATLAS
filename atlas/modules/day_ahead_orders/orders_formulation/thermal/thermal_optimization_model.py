@@ -59,24 +59,13 @@ class ThermalOptimizationModel(OptimisationModel):
     UP_GRAD_AT_KEY = "UP_grad_at_"
     DOWN_GRAD_AT_KEY = "DOWN_grad_at_"
 
-    T_on: int
-    T_off: int
-    T_stable: int
-    T_start: int
-    T_stop: int
     extended_start_date: DateTime
     q_lower: Timeseries
     q_upper: Timeseries
-    maximum_automated: float
     reserves_up_procured: Timeseries
     reserves_down_procured: Timeseries
     feasible_automated_reserves_up_procured: Timeseries
     feasible_automated_reserves_down_procured: Timeseries
-    automated_unsupplied_reserves: float
-    delta_q: float
-    delta_q_unconstrained: float
-    Q_max: float
-    Q_min: float
     last_power: Timeseries
     last_date: DateTime
     start_date_minus_one: DateTime
@@ -188,6 +177,18 @@ class ThermalOptimizationModel(OptimisationModel):
             self.parameters.end_optimization_date - 2 * self.parameters.time_step,
             self.parameters.time_step,
         )
+
+        self.T_on: int = 0
+        self.T_off: int = 0
+        self.T_stable: int = 0
+        self.T_start: int = 0
+        self.T_stop: int = 0
+        self.maximum_automated: float = 0.0
+        self.automated_unsupplied_reserves: float = 0.0
+        self.delta_q: float = 0.0
+        self.delta_q_unconstrained: float = 0.0
+        self.Q_max: float = 0.0
+        self.Q_min: float = 0.0
 
         self._initial_setup()
         self._define_time_frame_variables()

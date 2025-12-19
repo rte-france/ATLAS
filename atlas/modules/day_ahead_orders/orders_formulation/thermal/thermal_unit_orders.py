@@ -522,7 +522,7 @@ class ThermalUnitOrders:
                 else:
                     order.price -= amortized_cost
 
-    def extract_online_sequences(self, states_sequence: Timeseries, case: str = "") -> list[Timeseries]:
+    def extract_online_sequences(self, states_sequence: Timeseries) -> list[Timeseries]:
         """
         A helper function that extracts online sequence based on a thermal unit states sequence.
 
@@ -534,8 +534,6 @@ class ThermalUnitOrders:
         - `states_sequence`: a time series containing the state sequence of the unit.
         - `orders_time` : an index of dates over which orders will be formulated.
         - `parameters`: a named tuple of subclass Parameters_List containing the parameters
-        - `case` (optional) : a string corresponding to the name of the case under consideration. This is useful when
-                               calling this function for the intermediate load and navigate across price scenarios.
 
         Returns:
         list_of_online_timeframes : a list of time series, each time serie containing a sequence over which the unit is online
@@ -569,7 +567,6 @@ class ThermalUnitOrders:
             intervals.sort()
             for i in range(int(len(intervals) / 2)):
                 window = states_sequence.slice(intervals[2 * i], intervals[2 * i + 1], "both", False)
-                window.name = case
 
                 # don't add duplicates
                 if len(list_of_online_timeframes) == 0:

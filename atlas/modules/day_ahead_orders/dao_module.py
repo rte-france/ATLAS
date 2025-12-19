@@ -52,7 +52,7 @@ class DayAheadOrdersModule(
 
         validation_errors = []
 
-        equipments = {
+        equipments: dict[str, list] = {
             "control_block": input_dataset.control_block,
             "market_area": input_dataset.market_area,
             "market_border": input_dataset.market_border,

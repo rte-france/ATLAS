@@ -163,7 +163,6 @@ class ThermalBidding:
                 if coupled_order not in list_of_relevant_orders_intermediate:
                     continue
                 if not already_considered_orders[coupled_order.name]:
-                    already_considered_orders_n = []
                     programm, list_of_considerer_orders = self.graph_search_of_connected_orders(
                         coupled_order,
                         unit_order_coupling_list,
@@ -173,7 +172,7 @@ class ThermalBidding:
                             self.parameters.end_date,
                             default_value=0,
                         ),
-                        already_considered_orders_n,
+                        [],
                     )
 
                     list_of_mutually_exclusive_programms[coupled_order.equipment.name].append(programm)

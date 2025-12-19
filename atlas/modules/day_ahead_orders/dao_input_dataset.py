@@ -81,7 +81,7 @@ class DayAheadOrdersInputDataset(AbstractDataset[DayAheadOrdersParameters]):
             else []
         )
         self.other_non_dispatchable: list[OtherNonDispatchable] = (
-            [cast(MarketBorder, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable]]]
+            [cast(OtherNonDispatchable, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable]]]
             if INVERSE_MODEL_MAPPING_NAME[OtherNonDispatchable] in raw_data
             else []
         )
