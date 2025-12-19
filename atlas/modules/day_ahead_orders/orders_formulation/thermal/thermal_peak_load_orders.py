@@ -12,8 +12,8 @@ from atlas import Equipment, Order, Timeseries
 from atlas.enum import CouplingType, OrderType, Product, ThermalStrategy
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
-from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
+from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
 
 
 class ThermalPeakLoadOrders:

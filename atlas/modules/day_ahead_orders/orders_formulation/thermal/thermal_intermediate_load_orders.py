@@ -17,8 +17,8 @@ from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.orders_formulation.models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_1,
     combination_2,

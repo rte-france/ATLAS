@@ -44,7 +44,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load
 # . Functions used to extract sequences and states
 
 
-class ThermalBidding:
+class ThermalBiddingStep:
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):

@@ -1,5 +1,5 @@
 from atlas import LazyTimeseries, Storage, Timeseries
-from atlas.modules.day_ahead_orders.orders_formulation.models.portfolio import PortfolioDAO
+from atlas.modules.day_ahead_orders.data_models.portfolio import PortfolioDAO
 
 
 class StorageDAO(Storage):

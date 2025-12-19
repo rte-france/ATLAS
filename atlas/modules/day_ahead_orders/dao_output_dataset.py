@@ -26,14 +26,14 @@ from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.models.business_model import BusinessModel
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.models.hydro import HydroDAO
-from atlas.modules.day_ahead_orders.orders_formulation.models.load import LoadDAO
-from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
-from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.orders_formulation.models.solar import SolarDAO
-from atlas.modules.day_ahead_orders.orders_formulation.models.storage import StorageDAO
-from atlas.modules.day_ahead_orders.orders_formulation.models.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.orders_formulation.models.wind import WindDAO
+from atlas.modules.day_ahead_orders.data_models.hydro import HydroDAO
+from atlas.modules.day_ahead_orders.data_models.load import LoadDAO
+from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
+from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.data_models.solar import SolarDAO
+from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
+from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.data_models.wind import WindDAO
 
 
 class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):

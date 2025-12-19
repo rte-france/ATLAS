@@ -11,10 +11,10 @@ import atlas.config as cfg
 from atlas.enum import OrderType, Product
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 
 
-class NonDispatchable:
+class NonDispatchableStep:
     @staticmethod
     def formulate_non_dispatchable_orders(
         dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters

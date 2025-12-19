@@ -11,12 +11,12 @@ import atlas.config as cfg
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.dao_load import DAOLoad
-from atlas.modules.day_ahead_orders.orders_formulation.dao_storage import DAOStorage
-from atlas.modules.day_ahead_orders.orders_formulation.hydraulic import Hydraulic
-from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable import NonDispatchable
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_bidding import ThermalBidding
-from atlas.modules.day_ahead_orders.orders_formulation.wind_pv import WindPV
+from atlas.modules.day_ahead_orders.orders_formulation.hydraulic_step import HydraulicStep
+from atlas.modules.day_ahead_orders.orders_formulation.load_step import LoadStep
+from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable_step import NonDispatchableStep
+from atlas.modules.day_ahead_orders.orders_formulation.storage_step import StorageStep
+from atlas.modules.day_ahead_orders.orders_formulation.thermal_bidding_step import ThermalBiddingStep
+from atlas.modules.day_ahead_orders.orders_formulation.wind_pv_step import WindPVStep
 from atlas.timing import generate_datetimes
 
 
@@ -42,33 +42,33 @@ class DayAheadOrdersOrchestrator:
 
             #### STEP 1 - CONSUMPTION ####
             cfg.logger.info("Formulation of the load orders...")
-            DAOLoad.formulate_load_orders(self.output_dataset, orders_time, self.parameters)
+            LoadStep.formulate_load_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Consumption orders formulated.")
 
             #### STEP 2 - NON DISPATCHABLE UNITS ####
             cfg.logger.info("Formulation of the non-dispatchable orders...")
-            NonDispatchable.formulate_non_dispatchable_orders(self.output_dataset, orders_time, self.parameters)
+            NonDispatchableStep.formulate_non_dispatchable_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Non-dispatchable orders formulated.")
 
             #### STEP 3 - STORAGE UNITS ####
             cfg.logger.info("Formulation of the storage orders...")
-            storage = DAOStorage(self.output_dataset, self.parameters)
+            storage = StorageStep(self.output_dataset, self.parameters)
             storage.formulate_storage_orders()
             cfg.logger.info("Storage orders formulated.")
 
             #### STEP 4 - LAKES UNITS ####
             cfg.logger.info("Formulation of the hydraulic orders...")
-            Hydraulic.formulate_hydraulic_orders(self.output_dataset, orders_time, self.parameters)
+            HydraulicStep.formulate_hydraulic_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Hydraulic orders formulated.")
 
             #### STEP 5 - WIND AND PV UNITS ####
             cfg.logger.info("Formulation of the wind/pv orders...")
-            WindPV.formulate_wind_and_pv_orders(self.output_dataset, orders_time, self.parameters)
+            WindPVStep.formulate_wind_and_pv_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("wind/pv orders formulated.")
 
-            #### STEP 6 - THERMIC UNITS ####
+            #### STEP 6 - THERMAL UNITS ####
             cfg.logger.info("Formulation of the thermic orders...")
-            thermal_bidding = ThermalBidding(self.output_dataset, orders_time, self.parameters)
+            thermal_bidding = ThermalBiddingStep(self.output_dataset, orders_time, self.parameters)
             thermal_bidding.formulate_thermal_orders()
             cfg.logger.info("Thermic orders formulated.")
 

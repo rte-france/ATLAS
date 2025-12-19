@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from atlas.enum import CouplingType
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 
 
 class OrderCouplingDAO(OrderCoupling):

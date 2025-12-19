@@ -12,10 +12,10 @@ from atlas import Timeseries
 from atlas.enum import LoadType, OrderType, Product
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 
 
-class DAOLoad:
+class LoadStep:
     @staticmethod
     def formulate_load_orders(
         dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
