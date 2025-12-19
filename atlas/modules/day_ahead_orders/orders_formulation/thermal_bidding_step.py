@@ -13,6 +13,7 @@ from atlas.enum import CouplingType, Product, ThermalStrategy
 from atlas.models.market.order import Order
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_intermediate_load_orders import (
     ThermalIntermediateLoadOrders,
@@ -204,7 +205,7 @@ class ThermalBiddingStep:
 
     def graph_search_of_connected_orders(
         self,
-        current_order: Order,
+        current_order: OrderDAO,
         unit_order_coupling_list: dict[str, list],
         current_programm: Timeseries,
         already_considered_orders_n: list[str],

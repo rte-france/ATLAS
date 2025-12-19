@@ -10,3 +10,5 @@ class HydroDAO(Hydro):
     storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix
     maximum_power: Timeseries | LazyTimeseries
     maximum_curtailment_ratio: Timeseries | LazyTimeseries
+    fragment_prices: list[float]
+    fragment_volumes: list[float]

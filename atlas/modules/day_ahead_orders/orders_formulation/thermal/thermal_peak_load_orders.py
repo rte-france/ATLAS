@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Equipment, Order, Timeseries
+from atlas import Equipment, Timeseries
 from atlas.enum import CouplingType, OrderType, Product, ThermalStrategy
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
@@ -165,7 +165,7 @@ class ThermalPeakLoadOrders:
                         unit=unit,
                         order_name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}",
                         q_max=automated_reserves_down_procured.get_value(t),
-                        q_min=(1 - self.parameters.imposed_proportional_reserves_penalty)
+                        q_min=(1 - self.parameters.proportional_reserves_penalty)
                         * automated_reserves_down_procured.get_value(t),
                         price=unit.variable_cost.get_value(t) - self.parameters.automated_unprocured_reserves_penalty,
                         link_name=f"PARENT_CHILDREN_automated_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
@@ -181,7 +181,7 @@ class ThermalPeakLoadOrders:
                         unit=unit,
                         order_name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}",
                         q_max=manual_reserves_down_procured.get_value(t),
-                        q_min=(1 - self.parameters.imposed_proportional_reserves_penalty)
+                        q_min=(1 - self.parameters.proportional_reserves_penalty)
                         * manual_reserves_down_procured.get_value(t),
                         price=unit.variable_cost.get_value(t) - self.parameters.manual_unprocured_reserves_penalty,
                         link_name=f"PARENT_CHILDREN_manual_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
@@ -197,7 +197,7 @@ class ThermalPeakLoadOrders:
                         unit=unit,
                         order_name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}",
                         q_max=automated_reserves_up_procured.get_value(t),
-                        q_min=(1 - self.parameters.imposed_proportional_reserves_penalty)
+                        q_min=(1 - self.parameters.proportional_reserves_penalty)
                         * automated_reserves_up_procured.get_value(t),
                         price=(unit.variable_cost.get_value(t) + self.parameters.automated_unprocured_reserves_penalty),
                         link_name=f"PARENT_CHILDREN_automated_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
@@ -213,7 +213,7 @@ class ThermalPeakLoadOrders:
                         unit=unit,
                         order_name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}",
                         q_max=manual_reserves_up_procured.get_value(t),
-                        q_min=(1 - self.parameters.imposed_proportional_reserves_penalty)
+                        q_min=(1 - self.parameters.proportional_reserves_penalty)
                         * manual_reserves_up_procured.get_value(t),
                         price=unit.variable_cost.get_value(t) + self.parameters.manual_unprocured_reserves_penalty,
                         link_name=f"PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
@@ -222,7 +222,7 @@ class ThermalPeakLoadOrders:
     def create_order_and_link(
         self,
         generate_inflexible_order: bool,
-        inflexible_order: Order,
+        inflexible_order: OrderDAO | None,
         t: DateTime,
         unit: Equipment,
         order_name: str,

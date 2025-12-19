@@ -35,9 +35,9 @@ class HydraulicStep:
         """
 
         # Keep only the hydraulic reservoir for which water values have been computed.
-        hydraulic_units = [unit for unit in dataset.hydro if len(unit.storage_marginal_value) > 0]
+        hydraulic_units = [unit for unit in dataset.hydro if len(unit.storage_marginal_value.index) > 0]
 
-        hydraulic_empty = [unit for unit in dataset.hydro if len(unit.storage_marginal_value) == 0]
+        hydraulic_empty = [unit for unit in dataset.hydro if len(unit.storage_marginal_value.index) == 0]
         for equipment in hydraulic_empty:
             msg = f"There are no water values for instance {equipment.name}. This instance will be ignored in the calculation."
             cfg.logger.warning(msg)
@@ -45,7 +45,7 @@ class HydraulicStep:
         # Loop over the market players first.
         for equipment in hydraulic_units:
             # Retrieve volumes and prices of fragments
-            delta_wu: dict[float, float] = {}
+            delta_wu: dict[float, tuple[float, float]] = {}
             for category in range(len(equipment.fragment_volumes)):
                 delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 
@@ -158,9 +158,9 @@ class HydraulicStep:
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
                             is_agent_tso=False,
-                            execution_date=str(parameters.execution_date),
-                            start_date=str(t),
-                            end_date=str(t + parameters.time_step),
+                            execution_date=parameters.execution_date,
+                            start_date=t,
+                            end_date=t + parameters.time_step,
                         )
                         if not xmin:
                             bid_output.price = level_sup.get_value(t) + delta_wu[k][1]

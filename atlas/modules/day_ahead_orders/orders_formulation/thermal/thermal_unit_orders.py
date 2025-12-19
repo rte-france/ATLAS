@@ -289,7 +289,7 @@ class ThermalUnitOrders:
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=automated_reserves_down_procured.get_value(t),
-                    qmin=(1 - self.parameters.imposed_proportional_reserves_penalty)
+                    qmin=(1 - self.parameters.proportional_reserves_penalty)
                     * automated_reserves_down_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) - self.parameters.automated_unprocured_reserves_penalty,
                     product=Product.DayAhead,
@@ -311,7 +311,7 @@ class ThermalUnitOrders:
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=manual_reserves_down_procured.get_value(t),
-                    qmin=(1 - self.parameters.imposed_proportional_reserves_penalty)
+                    qmin=(1 - self.parameters.proportional_reserves_penalty)
                     * manual_reserves_down_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) - self.parameters.manual_unprocured_reserves_penalty,
                     product=Product.DayAhead,
@@ -333,7 +333,7 @@ class ThermalUnitOrders:
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=automated_reserves_up_procured.get_value(t),
-                    qmin=(1 - self.parameters.imposed_proportional_reserves_penalty)
+                    qmin=(1 - self.parameters.proportional_reserves_penalty)
                     * automated_reserves_up_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) + self.parameters.automated_unprocured_reserves_penalty,
                     product=Product.DayAhead,
@@ -355,8 +355,7 @@ class ThermalUnitOrders:
                     portfolio=unit.portfolio,
                     equipment=unit,
                     qmax=manual_reserves_up_procured.get_value(t),
-                    qmin=(1 - self.parameters.imposed_proportional_reserves_penalty)
-                    * manual_reserves_up_procured.get_value(t),
+                    qmin=(1 - self.parameters.proportional_reserves_penalty) * manual_reserves_up_procured.get_value(t),
                     price=unit.variable_cost.get_value(t) + self.parameters.manual_unprocured_reserves_penalty,
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
