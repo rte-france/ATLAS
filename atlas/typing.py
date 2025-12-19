@@ -4,12 +4,20 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from datetime import datetime
 from types import UnionType
-from typing import get_args, get_origin
+from typing import TypedDict, get_args, get_origin
+
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.io_utils.utils import to_snake_case
 from atlas.models.business_model import BusinessModel
+
+
+class TimeseriesDict(TypedDict):
+    time: list[datetime] | list[DateTime]
+    value: list[float] | list[int]
 
 
 def get_type_attribute(object_type: str, attribute: str) -> type[BusinessModel] | str | int | float | None:

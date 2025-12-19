@@ -200,8 +200,8 @@ class TestTimeseriesInit:
         ts = Timeseries.from_file(csv_path, filters=("category", "A"))
 
         # Should only have rows where category is "A"
-        assert ts.frequency == pendulum.duration(hours=1)
-        assert len(ts) == 49
+        assert ts.frequency == pendulum.duration(days=2)
+        assert len(ts) == 2
 
     def test_from_file_parquet(self, tmp_path):
         """Test loading from file with filters."""
@@ -372,6 +372,38 @@ class TestTimeseriesBasicOperations:
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig * orig
 
+    def test_mul_with_ts_wrong_frequency(self, sample_ts):
+        """Test multiplication operation between two timeseries."""
+        df_with_wrong_frequency = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 0, 30, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_frequency = Timeseries(df_with_wrong_frequency)
+
+        with pytest.raises(ValueError):
+            sample_ts * ts_with_wrong_frequency
+
+    def test_mul_with_ts_wrong_timestamps(self, sample_ts):
+        """Test multiplication operation between two timeseries."""
+        df_with_wrong_timstamps = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
+
+        with pytest.raises(ValueError):
+            sample_ts * ts_with_wrong_timstamps
+
     def test_add_with_value(self, sample_ts):
         """Test add operation between a timeseries and a value."""
         ts = sample_ts + 2
@@ -396,8 +428,52 @@ class TestTimeseriesBasicOperations:
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig + orig
 
+    pl.DataFrame(
+        {
+            "time": [
+                datetime(2023, 1, 1, 0, 0, 0),
+                datetime(2023, 1, 1, 1, 0, 0),
+                datetime(2023, 1, 1, 2, 0, 0),
+                datetime(2023, 1, 1, 3, 0, 0),
+            ],
+            "value": [10.0, 20.0, 30.0, 40.0],
+        },
+    )
+
+    def test_add_with_ts_wrong_frequency(self, sample_ts):
+        """Test add operation between two timeseries."""
+        df_with_wrong_frequency = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 0, 30, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_frequency = Timeseries(df_with_wrong_frequency)
+
+        with pytest.raises(ValueError):
+            sample_ts + ts_with_wrong_frequency
+
+    def test_add_with_ts_wrong_timestamps(self, sample_ts):
+        """Test add operation between two timeseries."""
+        df_with_wrong_timstamps = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
+
+        with pytest.raises(ValueError):
+            sample_ts + ts_with_wrong_timstamps
+
     def test_sub_with_value(self, sample_ts):
-        """Test substraction operation between a timeseries and a value."""
+        """Test subtraction operation between a timeseries and a value."""
         ts = sample_ts - 2
         assert isinstance(ts, Timeseries)
 
@@ -409,7 +485,7 @@ class TestTimeseriesBasicOperations:
             assert new == orig - 2
 
     def test_sub_with_ts(self, sample_ts):
-        """Test substraction operation between two timeseries."""
+        """Test subtraction operation between two timeseries."""
         ts = sample_ts - sample_ts
         assert isinstance(ts, Timeseries)
 
@@ -419,6 +495,38 @@ class TestTimeseriesBasicOperations:
 
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig - orig
+
+    def test_sub_with_ts_wrong_frequency(self, sample_ts):
+        """Test subtraction operation between two timeseries."""
+        df_with_wrong_frequency = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 0, 30, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_frequency = Timeseries(df_with_wrong_frequency)
+
+        with pytest.raises(ValueError):
+            sample_ts - ts_with_wrong_frequency
+
+    def test_sub_with_ts_wrong_timestamps(self, sample_ts):
+        """Test subtraction operation between two timeseries."""
+        df_with_wrong_timstamps = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
+
+        with pytest.raises(ValueError):
+            sample_ts - ts_with_wrong_timstamps
 
     def test_div_with_value(self, sample_ts):
         """Test division operation between a timeseries and a value."""
@@ -444,34 +552,63 @@ class TestTimeseriesBasicOperations:
         for i, (orig, new) in enumerate(zip(original_values, new_values, strict=False)):
             assert new == orig / orig
 
-    def test_set_value(self, sample_ts):
-        ts = Timeseries()
-
-        # Insert new values
-        ts.set_value("2024-01-01 00:00:00", 10, "YYYY-MM-DD HH:mm:ss")
-        ts.set_value("2024-01-01 01:00:00", 20, "YYYY-MM-DD HH:mm:ss")
-
-        # Overwrite value
-        ts.set_value("2024-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
-
-        assert ts["time"] == [
-            datetime(2024, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2024, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [10, 99]
-        assert ts.timestep == pendulum.duration(hours=1)
-
-    def test_set_value_invalid_frequence(self, sample_ts):
-        ts = Timeseries()
-
-        # Insert new values
-        ts.set_value("2024-01-01 00:00:00", 10, "YYYY-MM-DD HH:mm:ss")
-        ts.set_value("2024-01-01 01:00:00", 20, "YYYY-MM-DD HH:mm:ss")
-
-        assert ts.timestep == pendulum.duration(hours=1)
+    def test_div_with_ts_wrong_frequency(self, sample_ts):
+        """Test division operation between two timeseries."""
+        df_with_wrong_frequency = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 0, 30, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_frequency = Timeseries(df_with_wrong_frequency)
 
         with pytest.raises(ValueError):
-            ts.set_value("2024-01-01 01:30:00", 30, "YYYY-MM-DD HH:mm:ss")
+            sample_ts / ts_with_wrong_frequency
+
+    def test_div_with_ts_wrong_timestamps(self, sample_ts):
+        """Test division operation between two timeseries."""
+        df_with_wrong_timstamps = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [10.0, 20.0],
+            },
+        )
+        ts_with_wrong_timstamps = Timeseries(df_with_wrong_timstamps)
+
+        with pytest.raises(ValueError):
+            sample_ts / ts_with_wrong_timstamps
+
+    def test_div_with_zero_value_ts(self, sample_ts):
+        """Test division operation between two timeseries."""
+        df_with_zero_value = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 0, 0, 0),
+                    datetime(2023, 1, 1, 1, 0, 0),
+                ],
+                "value": [0.0, 20.0],
+            },
+        )
+        ts_with_zero_value = Timeseries(df_with_zero_value)
+
+        with pytest.raises(ValueError):
+            sample_ts / ts_with_zero_value
+
+    def test_set_value(self, sample_ts):
+        # Overwrite value
+        sample_ts.set_value("2023-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
+
+        assert sample_ts["value"] == [10, 99, 30, 40]
+
+    def test_set_value_at_wrong_index(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.set_value("2024-01-01 01:00:00", 99, "YYYY-MM-DD HH:mm:ss")
 
     def test_set_values(self, sample_ts):
         ts = Timeseries.from_timeseries(sample_ts)
@@ -499,122 +636,94 @@ class TestTimeseriesBasicOperations:
         assert ts["value"] == [11, 21, 31, 40]
         assert ts.timestep == pendulum.duration(hours=1)
 
-    def test_set_values_with_new_timestamps(self, sample_ts):
+    def test_if_set_values_with_new_timestamps_then_return_error(self, sample_ts):
         ts = Timeseries.from_timeseries(sample_ts)
 
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [51.0, 61.0],
+            },
+        )
+        new_ts = Timeseries(df)
+
+        with pytest.raises(ValueError):
+            ts.set_values(new_ts)
+
+    def test_add_value_at(self, sample_ts):
+        sample_ts.sum_value_at("2023-01-01 02:00:00", 1, "YYYY-MM-DD HH:mm:ss")
+
+        assert sample_ts["value"] == [10.0, 20.0, 31.0, 40.0]
+
+    def test_add_value_at_with_wrong_timestamp(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.sum_value_at("2023-01-01 05:00:00", 1, "YYYY-MM-DD HH:mm:ss")
+
+    def test_mul_value_at(self, sample_ts):
+        sample_ts.mul_value_at("2023-01-01 02:00:00", 2, "YYYY-MM-DD HH:mm:ss")
+
+        assert sample_ts["value"] == [10.0, 20.0, 60.0, 40.0]
+
+    def test_mul_value_at_with_wrong_timestamp(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.mul_value_at("2023-01-01 05:00:00", 1, "YYYY-MM-DD HH:mm:ss")
+
+    def test_add_indexes(self, sample_ts):
+        df = pl.DataFrame(
+            {
+                "time": [
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 5, 0, 0),
+                ],
+                "value": [50.0, 60.0],
+            },
+        )
+        new_ts = Timeseries(df)
+        sample_ts.add_indexes(new_ts)
+        assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
+
+    def test_add_indexes_with_existing_timestamp(self, sample_ts):
         df = pl.DataFrame(
             {
                 "time": [
                     datetime(2023, 1, 1, 3, 0, 0),
                     datetime(2023, 1, 1, 4, 0, 0),
-                    datetime(2023, 1, 1, 5, 0, 0),
                 ],
-                "value": [41.0, 51.0, 61.0],
+                "value": [50.0, 60.0],
             },
         )
         new_ts = Timeseries(df)
-        # Insert new values
-        ts.set_values(new_ts)
+        with pytest.raises(ValueError):
+            sample_ts.add_indexes(new_ts)
 
-        assert ts["time"] == [
-            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 3, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 4, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 5, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [10, 20, 30, 41, 51, 61]
-        assert ts.timestep == pendulum.duration(hours=1)
-
-    def test_set_values_invalid_frequence(self, sample_ts):
-        ts = Timeseries.from_timeseries(sample_ts)
-
+    def test_add_indexes_with_wrong_frequency(self, sample_ts):
         df = pl.DataFrame(
             {
                 "time": [
-                    datetime(2024, 1, 1, 0, 0, 0),
-                    datetime(2024, 1, 1, 1, 0, 0),
+                    datetime(2023, 1, 1, 4, 0, 0),
+                    datetime(2023, 1, 1, 4, 30, 0),
                 ],
-                "value": [11.0, 21.0],
+                "value": [50.0, 60.0],
             },
         )
         new_ts = Timeseries(df)
-        # Insert new values
         with pytest.raises(ValueError):
-            ts.set_values(new_ts)
+            sample_ts.add_indexes(new_ts)
 
-    def test_set_values_at(self, sample_ts):
-        ts = Timeseries.from_timeseries(sample_ts)
-        times = [
-            datetime(2023, 1, 1, 0, 0, 0),
-            datetime(2023, 1, 1, 1, 0, 0),
-            datetime(2023, 1, 1, 2, 0, 0),
-        ]
-        values = [11.0, 21.0, 31.0]
+    def test_add_index(self, sample_ts):
+        sample_ts.add_index(datetime(2023, 1, 1, 4, 0, 0), 50.0)
+        assert sample_ts["value"] == [10.0, 20.0, 30.0, 40.0, 50.0]
 
-        # Insert new values
-        ts.set_values_at(times, values)
-
-        assert ts["time"] == [
-            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 3, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [11, 21, 31, 40]
-        assert ts.timestep == pendulum.duration(hours=1)
-
-    def test_set_values_at_with_new_timestamps(self, sample_ts):
-        ts = Timeseries.from_timeseries(sample_ts)
-        times = ["2023-1-1 3:00:00", "2023-1-1 4:00:00", "2023-1-1 5:00:00"]
-        values = [41.0, 51.0, 61.0]
-
-        # Insert new values
-        ts.set_values_at(times, values)
-
-        assert ts["time"] == [
-            datetime(2023, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 2, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 3, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 4, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2023, 1, 1, 5, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [10, 20, 30, 41, 51, 61]
-        assert ts.timestep == pendulum.duration(hours=1)
-
-    def test_set_values_at_invalid_frequence(self, sample_ts):
-        ts = Timeseries.from_timeseries(sample_ts)
-
-        times = [
-            datetime(2024, 1, 1, 0, 0, 0),
-            datetime(2024, 1, 1, 1, 0, 0),
-        ]
-        values = [11.0, 21.0]
-
-        # Insert new values
+    def test_add_index_with_existing_timestamp(self, sample_ts):
         with pytest.raises(ValueError):
-            ts.set_values_at(times, values)
+            sample_ts.add_index(datetime(2023, 1, 1, 3, 0, 0), 50.0)
 
-    def test_add_value_at(self, sample_ts):
-        ts = Timeseries()
-
-        # Insert new values
-        ts.add_value_at("2024-01-01 00:00:00", 2, "YYYY-MM-DD HH:mm:ss")  # work if timeseries if empty
-        ts.add_value_at("2024-01-01 01:00:00", 4, "YYYY-MM-DD HH:mm:ss")  # work if index has no value
-
-        # Overwrite value
-        ts.set_value("2024-01-01 02:00:00", 5, "YYYY-MM-DD HH:mm:ss")
-        ts.add_value_at("2024-01-01 02:00:00", 1, "YYYY-MM-DD HH:mm:ss")
-
-        assert ts["time"] == [
-            datetime(2024, 1, 1, 0, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2024, 1, 1, 1, 0, tzinfo=Timezone(key="UTC")),
-            datetime(2024, 1, 1, 2, 0, tzinfo=Timezone(key="UTC")),
-        ]
-        assert ts["value"] == [2, 4, 6]
-        assert ts.timestep == pendulum.duration(hours=1)
+    def test_add_index_with_timestamp_not_respecting_frequency(self, sample_ts):
+        with pytest.raises(ValueError):
+            sample_ts.add_index(datetime(2023, 1, 1, 5, 0, 0), 50.0)
 
     def test_arithmetic_operations_with_invalid_types(self, sample_ts):
         """Test arithmetic operations with invalid types."""
@@ -1019,24 +1128,15 @@ class TestTimeseriesManipulation:
         assert result["value"][0] == 20
         assert result["value"][1] == 30
 
-    def test_get_value(self):
+    def test_get_value(self, sample_ts):
         """Test getting a value at a specific timestamp."""
-        ts = Timeseries()
-
-        date_format = "YYYY-MM-DD HH:mm:ss"
-        # Insert new values
-        ts.set_value("2024-01-01 00:00:00", 10, date_format=date_format)
-        ts.set_value("2024-01-01 01:00:00", 20, date_format=date_format)
-        ts.set_value("2024-01-01 02:00:00", 100, date_format=date_format)
-        ts.set_value("2024-01-01 03:00:00", 200, date_format=date_format)
-        ts.set_value("2024-01-01 04:00:00", 400, date_format=date_format)
-
-        dt = datetime(2024, 1, 1, 1, 0, 0)
-        value = ts.get_value(dt)
+        dt = datetime(2023, 1, 1, 1, 0, 0)
+        value = sample_ts.get_value(dt)
         assert value == 20.0
 
-        value = ts.get_value("2024-01-01 03:00:00", date_format=date_format)
-        assert value == 200
+        date_format = "YYYY-MM-DD HH:mm:ss"
+        value = sample_ts.get_value("2023-01-01 03:00:00", date_format=date_format)
+        assert value == 40.0
 
 
 class TestTimeseriesExport:
