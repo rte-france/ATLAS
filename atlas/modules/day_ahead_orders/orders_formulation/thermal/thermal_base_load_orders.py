@@ -10,11 +10,12 @@ import math
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Thermal, generate_datetimes
+from atlas import generate_datetimes
 from atlas.enum import ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 
 
@@ -60,7 +61,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             for online_timeframe in list_of_online_timeframes:
                 self.formulate_unit_orders(online_timeframe, unit)
 
-    def determine_baseload_states_sequence(self, unit: Thermal) -> tuple[Timeseries, bool]:
+    def determine_baseload_states_sequence(self, unit: ThermalDAO) -> tuple[Timeseries, bool]:
         """
         Computes the sequence of states on a single time frame for the baseload unit passed as input.
 

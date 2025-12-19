@@ -13,11 +13,11 @@ from typing import Literal
 from pendulum import DateTime, Duration
 
 import atlas.config as cfg
-from atlas import OptimisationModel, SolverOptions, generate_datetimes
+from atlas import OptimisationModel, SolverOptions, Thermal, generate_datetimes
 from atlas.enum import SolverEnum
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.orders_formulation.models.thermal import ThermalDAO
 from atlas.solver.model_var import ModelVar
 
 
@@ -76,7 +76,7 @@ class ThermalOptimizationModel(OptimisationModel):
     def __init__(
         self,
         parameters: DayAheadOrdersParameters,
-        thermal_unit: Thermal,
+        thermal_unit: ThermalDAO,
         prices: Timeseries,
         price_type: str,
         solver_options: SolverOptions,
@@ -102,7 +102,7 @@ class ThermalOptimizationModel(OptimisationModel):
         if not isinstance(thermal_unit, Thermal):
             cfg.logger.error(f"*** WARNING ***\n Equipement {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
-        self.thermal_unit: Thermal = thermal_unit
+        self.thermal_unit: ThermalDAO = thermal_unit
         self.prices: Timeseries = prices
         self.price_type: str = price_type
         self.time_frame: list[DateTime] = []
@@ -891,7 +891,7 @@ class ThermalOptimizationModel(OptimisationModel):
             )
 
     def create_daily_energy_constraint(
-        self, thermal_unit: Thermal, time_frame: list[DateTime], time_step: Duration, q: ModelVar
+        self, thermal_unit: ThermalDAO, time_frame: list[DateTime], time_step: Duration, q: ModelVar
     ) -> None:
         # Energy limits
         if thermal_unit.has_daily_energy_constraint:

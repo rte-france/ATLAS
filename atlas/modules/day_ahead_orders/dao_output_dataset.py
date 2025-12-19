@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 import copy
+from typing import cast
 
 from atlas import (
     ControlBlock,
@@ -14,8 +15,6 @@ from atlas import (
     MarketArea,
     MarketBorder,
     Node,
-    Order,
-    OrderCoupling,
     OtherNonDispatchable,
     Portfolio,
     Solar,
@@ -29,6 +28,7 @@ from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInput
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.thermal import ThermalDAO
 
 
 class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
@@ -43,7 +43,8 @@ class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
         self.storage: list[Storage] = copy.deepcopy(inputDataset.storage)
         self.hydro: list[Hydro] = copy.deepcopy(inputDataset.hydro)
         self.solar: list[Solar] = copy.deepcopy(inputDataset.solar)
-        self.thermal: list[Thermal] = copy.deepcopy(inputDataset.thermal)
+        input_thermal: list[Thermal] = copy.deepcopy(inputDataset.thermal)
+        self.thermal: list[ThermalDAO] = [cast(ThermalDAO, obj) for obj in input_thermal]
         self.other_non_dispatchable: list[OtherNonDispatchable] = copy.deepcopy(inputDataset.other_non_dispatchable)
         self.load: list[Load] = copy.deepcopy(inputDataset.load)
         self.order: list[OrderDAO] = []
@@ -62,6 +63,6 @@ class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
             Solar,
             Thermal,
             Load,
-            Order,
-            OrderCoupling,
+            OrderDAO,
+            OrderCouplingDAO,
         ]

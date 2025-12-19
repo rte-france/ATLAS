@@ -18,6 +18,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_1,
     combination_2,
@@ -132,7 +133,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                             coupling.orders.append(order_2)
                             self.dataset.order_coupling.append(coupling)
 
-    def get_unique_cases(self, results: dict[str, dict[str, Timeseries]], thermal_unit: Thermal) -> list[str]:
+    def get_unique_cases(self, results: dict[str, dict[str, Timeseries]], thermal_unit: ThermalDAO) -> list[str]:
         """
         Returns a list of unique cases for the associated thermal unit.
 
@@ -215,7 +216,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         return cases
 
     def determine_intermediate_load_states_sequence(
-        self, unit: Thermal, res: dict[str, dict[str, Timeseries]], case: str
+        self, unit: ThermalDAO, res: dict[str, dict[str, Timeseries]], case: str
     ) -> Timeseries:
         """
         Computes the sequence of states on a single time frame for the intermediate load unit passed as input.
@@ -331,7 +332,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         return is_overlapping
 
-    def solve_optimization_programs(self, equipments_list: list[Thermal]) -> dict[str, dict[str, Timeseries]]:
+    def solve_optimization_programs(self, equipments_list: list[ThermalDAO]) -> dict[str, dict[str, Timeseries]]:
         """
         Solves the optimization programs for a list of equipment given the three price curves.
 

@@ -11,13 +11,14 @@ import pendulum
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import Thermal, generate_datetimes
+from atlas import generate_datetimes
 from atlas.enum import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.orders_formulation.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.orders_formulation.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.orders_formulation.models.thermal import ThermalDAO
 
 
 class ThermalUnitOrders:
@@ -33,7 +34,7 @@ class ThermalUnitOrders:
     def formulate_unit_orders(
         self,
         online_timeframe: Timeseries,
-        unit: Thermal,
+        unit: ThermalDAO,
         case="",
     ) -> None:
         """
