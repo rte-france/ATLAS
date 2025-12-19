@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 """
 
 from typing import cast
+
 from pydantic import BaseModel
 
 from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder
@@ -124,7 +125,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 order_dump = {
                     **MarketClearingInputDataset.shallow_dump(order),
                     "time_step": self.parameters.time_step,
-                    "id_with_status": id_with_status
+                    "id_with_status": id_with_status,
                 }
                 mc_order = OrderMC.model_validate(order_dump)
                 # Add time_index attribute -> use in pricing and output

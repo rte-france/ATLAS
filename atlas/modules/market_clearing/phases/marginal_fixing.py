@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 import copy
 from collections.abc import Generator
 
@@ -11,7 +12,6 @@ import pendulum
 from atlas.enum import OrderType
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
-from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
 from atlas.modules.market_clearing.models.order_mc import OrderMC
 
 
@@ -99,10 +99,7 @@ class MarginalFixing:
                     )
         else:
             for mc_order, _ in self.get_marginal_orders(current_time, market_area_name, spot_price):
-                if (
-                    mc_order.order_type == OrderType.Sell
-                    and max_marginal_sales * (mc_order.qmax - mc_order.qmin) != 0
-                ):
+                if mc_order.order_type == OrderType.Sell and max_marginal_sales * (mc_order.qmax - mc_order.qmin) != 0:
                     self.accepted_powers[market_area_name, mc_order.name] = (
                         mc_order.qmin + sharable_sale_power / max_marginal_sales * (mc_order.qmax - mc_order.qmin)
                     )
@@ -126,7 +123,9 @@ class MarginalFixing:
                 continue
             if not mc_order.start_date <= current_time < mc_order.end_date_processed:
                 continue
-            if (mc_order.end_datetime - mc_order.start_date).total_seconds() > self.parameters.time_step.total_seconds():
+            if (
+                mc_order.end_datetime - mc_order.start_date
+            ).total_seconds() > self.parameters.time_step.total_seconds():
                 continue
             if mc_order.price != spot_price:
                 continue

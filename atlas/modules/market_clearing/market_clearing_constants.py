@@ -3,10 +3,8 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 import pendulum
-
-from atlas.modules.market_clearing.models.order_mc import OrderMC
-
 
 ##################################
 # Clearing Constants
@@ -199,6 +197,7 @@ def border_exchanges_constraint_name(border_name: str, time_index: int) -> str:
 # First Pricing model
 # Variables
 
+
 def price_on_group_variable_name(id: int, time_index: int) -> str:
     return f"price_on_group_{id}_at_{time_index}"
 
@@ -222,12 +221,15 @@ def positive_price_diff_on_group_variable_name(id: int, other_id: int, time_inde
 def negative_price_diff_on_group_variable_name(id: int, other_id: int, time_index: int) -> str:
     return f"negative_price_diff_of_groups_{id}_and_{other_id}_at_{time_index}"
 
+
 def link_child_to_pc(index_child: int, index_pc: int):
     return f"link_s_child_{index_child}_PC_{index_pc}"
+
 
 # Constraints
 def shadow_price_constraint_name(critical_branch_name: str, time_index: int) -> str:
     return f"Complementarity_shadow_price_t_{time_index}_cb_{critical_branch_name}"
+
 
 def adverse_flow_constraint_name(border_name: str, time_index: int) -> str:
     return f"prevent_adv_flow_on_{border_name}_at_{time_index}"
@@ -265,11 +267,15 @@ def negative_parent_child_surplus_constraint_name(index_pc: int) -> str:
     return f"neg_surplus_parent_PC_{index_pc}"
 
 
-def pos_surplus_order_constraint_name(order_name: str, equipment_name: str, market_area_name: str, time_index: int) -> str:
+def pos_surplus_order_constraint_name(
+    order_name: str, equipment_name: str, market_area_name: str, time_index: int
+) -> str:
     return f"pos_surplus_order_{order_name}_area_{market_area_name}_eqpt_{equipment_name}_t_{time_index}"
 
 
-def null_marginal_order_constraint_name(order_name: str, equipment_name: str, market_area_name: str, time_index: int) -> str:
+def null_marginal_order_constraint_name(
+    order_name: str, equipment_name: str, market_area_name: str, time_index: int
+) -> str:
     return f"s_null_marginal_order_{order_name}_area_{market_area_name}_eqpt_{equipment_name}_t_{time_index}"
 
 
@@ -317,4 +323,3 @@ def paradoxical_delta_p_pc_constraint_name(index_pc: int) -> str:
 
 def paradoxical_delta_p_order_constraint_name(order_name: str, market_area_name: str, time_index: int) -> str:
     return f"paradoxical_delta_p_order_{order_name}_area_{market_area_name}_t_{time_index}"
-

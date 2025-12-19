@@ -84,23 +84,22 @@ class Clearing(OptimisationModel):
 
     def build_objective(self):
         """Create objective function for the clearing phase model"""
-        self.add_accepted_powers(self.parameters.price_modifier_lambda_1)
+        self.set_direction("maximize")
+        self.add_accepted_powers_objective(self.parameters.price_modifier_lambda_1)
         if self.parameters.flow_penalty_lambda_2 != 0.0:
-            self.add_global_exchanges(self.parameters.flow_penalty_lambda_2)
+            self.add_global_exchanges_objective(self.parameters.flow_penalty_lambda_2)
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC:
             exchange_objective_dict = {}
             if self.parameters.flow_penalty_lambda_3 != 0.0:
-                for key, value in self.add_max_exchanges(self.parameters.flow_penalty_lambda_3).items():
+                for key, value in self.add_max_exchanges_objective(self.parameters.flow_penalty_lambda_3).items():
                     exchange_objective_dict[key.name()] = value
             if self.parameters.flow_penalty_lambda_4 != 0.0:
-                for key, value in self.add_min_exchanges(self.parameters.flow_penalty_lambda_4).items():
+                for key, value in self.add_min_exchanges_objective(self.parameters.flow_penalty_lambda_4).items():
                     if key.name() not in exchange_objective_dict:
                         exchange_objective_dict[key.name()] = value
                     else:
                         exchange_objective_dict[key.name()] += value
-            self.add_objective(sum([self.get_variable(key) * value for key, value in exchange_objective_dict.items()]),
-                               direction="maximize")
-
+            self.add_objective(sum([self.get_variable(key) * value for key, value in exchange_objective_dict.items()]))
 
     ##################################
     # Variables
@@ -176,10 +175,14 @@ class Clearing(OptimisationModel):
             for mc_order in mc_market_area.mc_orders.values():
                 if not mc_order.qmin:
                     max_power = mc_order.qmax
-                    self.add_continuous_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name), 0.0, max_power)
+                    self.add_continuous_variable(
+                        constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name), 0.0, max_power
+                    )
                 else:
                     self.add_continuous_variable(
-                        constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name), -float("inf"), float("inf")
+                        constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name),
+                        -float("inf"),
+                        float("inf"),
                     )
 
     def create_orders_status(self):
@@ -199,7 +202,9 @@ class Clearing(OptimisationModel):
                 for mc_order in mc_market_area.mc_orders.values():
                     # Focus on orders comprising the current time in their duration:
                     if mc_order.start_date <= time < mc_order.end_date_processed:
-                        accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name))
+                        accepted_power = self.get_variable(
+                            constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
+                        )
                         accepted_powers.append(mc_order.production_sign * accepted_power)
                 local_balance = self.get_variable(
                     constants.local_balance_variable_name(mc_market_area.name, time_index)
@@ -211,7 +216,7 @@ class Clearing(OptimisationModel):
 
     def create_exchanges_and_local_balances_equality_constraints(self, is_atc):
         for time_index, _ in enumerate(self.input_dataset.times):
-            for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
+            for market_area_name in self.input_dataset.mc_market_areas:
                 exchanges_sum = []
                 for border_name, mc_border in self.input_dataset.mc_market_borders.items():
                     if market_area_name not in [
@@ -348,9 +353,9 @@ class Clearing(OptimisationModel):
                     mc_market_area_ptdf = self.input_dataset.mc_market_area_ptdfs[market_area_ptdf.name]
                     da_ptdf = mc_market_area_ptdf.day_ahead_ptdf
                     mc_market_area = self.input_dataset.mc_market_areas[mc_market_area_ptdf.market_area.name]
-                    relative_balance = (self.get_variable(constants.local_balance_variable_name(
-                        mc_market_area.name, time_index))
-                                        - mc_market_area.ref_balance.get_value(time))
+                    relative_balance = self.get_variable(
+                        constants.local_balance_variable_name(mc_market_area.name, time_index)
+                    ) - mc_market_area.ref_balance.get_value(time)
 
                     branch_load.append(da_ptdf.get_value(time) * relative_balance)
                 self.add_constraint(
@@ -364,8 +369,12 @@ class Clearing(OptimisationModel):
                 # Compute the constraints limiting the accepted powers of combined,
                 # indivisible and/or mutually excluding orders and linked orders (3.4):
                 if mc_order.id_with_status:
-                    order_status = self.get_variable(constants.order_status_variable_name(mc_market_area.name, mc_order.name))
-                    accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name))
+                    order_status = self.get_variable(
+                        constants.order_status_variable_name(mc_market_area.name, mc_order.name)
+                    )
+                    accepted_power = self.get_variable(
+                        constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
+                    )
                     self.create_min_accepted_power_constraint(
                         mc_market_area.name,
                         mc_order.name,
@@ -414,8 +423,12 @@ class Clearing(OptimisationModel):
     def create_identical_volume_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         for i, order in enumerate(order_coupling.orders[1:]):
             prev_order = order_coupling.orders[i]
-            prev_accepted_power = self.get_variable(constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name))
-            accepted_power = self.get_variable(constants.accepted_power_variable_name(order.market_area.name, order.name))
+            prev_accepted_power = self.get_variable(
+                constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name)
+            )
+            accepted_power = self.get_variable(
+                constants.accepted_power_variable_name(order.market_area.name, order.name)
+            )
 
             self.add_constraint(
                 accepted_power == prev_accepted_power,
@@ -433,7 +446,9 @@ class Clearing(OptimisationModel):
         for order in order_coupling.orders:
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
-            accepted_power = self.get_variable(constants.accepted_power_variable_name(order.market_area.name, order.name))
+            accepted_power = self.get_variable(
+                constants.accepted_power_variable_name(order.market_area.name, order.name)
+            )
             mc_order = self.input_dataset.mc_orders[order.name]
             if mc_order.order_type == OrderType.Sell:
                 aggregated_accepted_power.append(-accepted_power)
@@ -481,7 +496,9 @@ class Clearing(OptimisationModel):
         parent_order = order_coupling.orders[0]
         if not OrderMC.is_feasible(parent_order, self.input_dataset.times, self.parameters):
             return
-        parent_order_status = self.get_variable(constants.order_status_variable_name(parent_order.market_area.name, parent_order.name))
+        parent_order_status = self.get_variable(
+            constants.order_status_variable_name(parent_order.market_area.name, parent_order.name)
+        )
         for order in order_coupling.orders[1:]:
             if not OrderMC.is_feasible(order, self.input_dataset.times, self.parameters):
                 continue
@@ -494,8 +511,12 @@ class Clearing(OptimisationModel):
     def create_identical_ratio_order_coupling_constraints(self, order_coupling: OrderCouplingMC):
         for i, order in enumerate(order_coupling.orders[1:]):
             prev_order = order_coupling.orders[i]
-            prev_accepted_power = self.get_variable(constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name))
-            accepted_power = self.get_variable(constants.accepted_power_variable_name(order.market_area.name, order.name))
+            prev_accepted_power = self.get_variable(
+                constants.accepted_power_variable_name(prev_order.market_area.name, prev_order.name)
+            )
+            accepted_power = self.get_variable(
+                constants.accepted_power_variable_name(order.market_area.name, order.name)
+            )
             if prev_order.qmin == prev_order.qmax:
                 prev_ratio = prev_accepted_power / prev_order.qmax
             else:
@@ -513,16 +534,18 @@ class Clearing(OptimisationModel):
     ##################################
     # Objective
     ##################################
-    def add_accepted_powers(self, lambda1: float):
+    def add_accepted_powers_objective(self, lambda1: float):
         objective = []
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             for mc_order in mc_market_area.mc_orders.values():
-                accepted_power = self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name))
+                accepted_power = self.get_variable(
+                    constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
+                )
                 altered_price = mc_order.price - mc_order.production_sign * lambda1
                 objective.append(-mc_order.production_sign * altered_price * mc_order.duration * accepted_power / 60)
-        return self.add_objective(sum(objective), direction="maximize")
+        return self.add_objective(sum(objective))
 
-    def add_global_exchanges(self, lambda2: float):
+    def add_global_exchanges_objective(self, lambda2: float):
         objective = []
         for time_index, _ in enumerate(self.input_dataset.times):
             for border_name in self.input_dataset.mc_market_borders.keys():
@@ -533,9 +556,9 @@ class Clearing(OptimisationModel):
                     constants.border_neg_exchange_variable_name(border_name, time_index)
                 )
                 objective.append(border_pos_exchanges - border_neg_exchanges)
-        return self.add_objective(-lambda2 * sum(objective), direction="maximize")
+        return self.add_objective(-lambda2 * sum(objective))
 
-    def add_max_exchanges(self, lambda4: float) -> dict:
+    def add_max_exchanges_objective(self, lambda4: float) -> dict:
         objective = {}
         constant = 0.0
         for time_index, _ in enumerate(self.input_dataset.times):
@@ -545,7 +568,7 @@ class Clearing(OptimisationModel):
                 constant -= lambda4 * border_exchange.Lb()
         return objective
 
-    def add_min_exchanges(self, lambda4: float) -> dict:
+    def add_min_exchanges_objective(self, lambda4: float) -> dict:
         objective = {}
         constant = 0.0
         for time_index, _ in enumerate(self.input_dataset.times):
@@ -564,7 +587,9 @@ class Clearing(OptimisationModel):
                     not_tso = not mc_order.is_agent_tso
                     not_sale = mc_order.order_type == OrderType.Buy
                     if is_available and not_tso and not_sale:
-                        tso_sold_power += self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, order_name))
+                        tso_sold_power += self.get_variable(
+                            constants.accepted_power_variable_name(mc_order.market_area.name, order_name)
+                        )
         return tso_sold_power
 
     def get_tso_bought_power(self, time: int, control_block: ControlBlockMC):
@@ -576,7 +601,11 @@ class Clearing(OptimisationModel):
                     not_tso = not mc_order.is_agent_tso
                     is_sale = mc_order.order_type == OrderType.Sell
                     if is_available and not_tso and is_sale:
-                        tso_bought_power.append(self.get_variable(constants.accepted_power_variable_name(mc_order.market_area.name, order_name)))
+                        tso_bought_power.append(
+                            self.get_variable(
+                                constants.accepted_power_variable_name(mc_order.market_area.name, order_name)
+                            )
+                        )
         return sum(tso_bought_power)
 
     @staticmethod
@@ -606,7 +635,7 @@ class Clearing(OptimisationModel):
         return sum(max_tso_power_bought)
 
     def get_n_borders_with_losses(self) -> int:
-        """ get the number of border that have a loss factor
+        """get the number of border that have a loss factor
 
         :rtype: int
         """
@@ -617,7 +646,7 @@ class Clearing(OptimisationModel):
         return n_borders_with_losses
 
     def retrieve_local_balances(self) -> dict[tuple[str, int], float]:
-        """ Retrieve the power balance for each market area at each timestep
+        """Retrieve the power balance for each market area at each timestep
 
         :rtype: dict[tuple[str, str], float]
         """
@@ -629,7 +658,7 @@ class Clearing(OptimisationModel):
         return local_balances
 
     def retrieve_accepted_powers(self) -> dict[tuple[str, str], float]:
-        """ Retrieve tje accepted powers of each order per area
+        """Retrieve tje accepted powers of each order per area
 
         :rtype: dict[tuple[str, str], float]
         """
@@ -637,19 +666,21 @@ class Clearing(OptimisationModel):
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             for mc_order in mc_market_area.mc_orders.values():
                 accepted_power_name = constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
-                accepted_powers[mc_order.market_area.name, mc_order.name] = self.get_variable(accepted_power_name).solution_value()
+                accepted_powers[mc_order.market_area.name, mc_order.name] = self.get_variable(
+                    accepted_power_name
+                ).solution_value()
         return accepted_powers
 
     def retrieve_saturated_critical_branch(self) -> dict[tuple[str, int], float]:
-        """ Retrieve the slack value of each critical branch at each timestep
+        """Retrieve the slack value of each critical branch at each timestep
 
         :rtype: dict[tuple[str, int], float]
         """
         saturated_critical_branch = {}
         for time_index, _ in enumerate(self.input_dataset.times):
             for critical_branch_name in self.input_dataset.mc_critical_branches:
-                critical_branch_saturation = self.get_constraint_slack_value(constants.constraint_3_6_2_constraint_name(
-                    critical_branch_name, time_index)
+                critical_branch_saturation = self.get_constraint_slack_value(
+                    constants.constraint_3_6_2_constraint_name(critical_branch_name, time_index)
                 )
                 saturated_critical_branch[critical_branch_name, time_index] = critical_branch_saturation
         return saturated_critical_branch

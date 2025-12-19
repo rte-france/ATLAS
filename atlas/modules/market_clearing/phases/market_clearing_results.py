@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 from pathlib import Path
 
 import polars as pl
@@ -54,7 +55,7 @@ class MarketClearingResults:
                 "Qmin": mc_order.qmin,
                 "Qmax": mc_order.qmax,
                 "Price": mc_order.price,
-                "AcceptedPower": mc_order.accepted_power
+                "AcceptedPower": mc_order.accepted_power,
             }
             offer = pl.DataFrame({k: [v] for k, v in order_dict.items()})
             if offers is None:
@@ -195,8 +196,9 @@ class MarketClearingResults:
         for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
             for time in self.input_dataset.times:
                 total_flow = mc_market_border.da_flow.get_value(time)
-                total_flow += mc_market_border.total_id_flow.get_value(time) \
-                    if mc_market_border.total_id_flow is not None else 0
+                total_flow += (
+                    mc_market_border.total_id_flow.get_value(time) if mc_market_border.total_id_flow is not None else 0
+                )
                 market_border_dict = {
                     "Name": market_border_name,
                     "TimeStep": time,
@@ -217,10 +219,12 @@ class MarketClearingResults:
         for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
             for time in self.input_dataset.times:
                 total_flow = mc_market_border.da_flow.get_value(time)
-                total_flow += mc_market_border.total_id_flow.get_value(time) \
-                    if mc_market_border.total_id_flow is not None else 0
-                total_flow += mc_market_border.rr_activated.get_value(time) \
-                    if mc_market_border.rr_activated is not None else 0
+                total_flow += (
+                    mc_market_border.total_id_flow.get_value(time) if mc_market_border.total_id_flow is not None else 0
+                )
+                total_flow += (
+                    mc_market_border.rr_activated.get_value(time) if mc_market_border.rr_activated is not None else 0
+                )
                 market_border_dict = {
                     "Name": market_border_name,
                     "TimeStep": time,
@@ -241,12 +245,17 @@ class MarketClearingResults:
         for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
             for time in self.input_dataset.times:
                 total_flow = mc_market_border.da_flow.get_value(time)
-                total_flow += mc_market_border.total_id_flow.get_value(time) \
-                    if mc_market_border.total_id_flow is not None else 0
-                total_flow += mc_market_border.rr_activated.get_value(time) \
-                    if mc_market_border.rr_activated is not None else 0
-                total_flow += mc_market_border.mfrr_activated.get_value(time) \
-                    if mc_market_border.mfrr_activated is not None else 0
+                total_flow += (
+                    mc_market_border.total_id_flow.get_value(time) if mc_market_border.total_id_flow is not None else 0
+                )
+                total_flow += (
+                    mc_market_border.rr_activated.get_value(time) if mc_market_border.rr_activated is not None else 0
+                )
+                total_flow += (
+                    mc_market_border.mfrr_activated.get_value(time)
+                    if mc_market_border.mfrr_activated is not None
+                    else 0
+                )
                 market_border_dict = {
                     "Name": market_border_name,
                     "TimeStep": time,

@@ -429,7 +429,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                     market_area_name, time_index
                 ] - mc_market_area.ref_balance.get_value(time)
 
-        for critical_branch_name, mc_critical_branch in self.input_dataset.mc_critical_branches.items():
+        for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
             flow_values = [
                 sum(
                     [

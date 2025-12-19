@@ -7,9 +7,9 @@ This file is part of the ATLAS project.
 from pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
-from atlas.models.market.market_area import MarketArea
 from atlas.enum import OrderType, Product
 from atlas.logging import logger
+from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
 
@@ -126,4 +126,5 @@ class OrderMC(Order):
         if isinstance(other, Order) and other.name == self.name:
             return True
         return False
+
     ##########################

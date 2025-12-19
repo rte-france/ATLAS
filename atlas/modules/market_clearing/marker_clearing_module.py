@@ -53,8 +53,9 @@ class MarketClearingModule(
         border_exchanges = exchange_fixing.retrieve_border_exchanges()
 
         # Launch Pricing phase
-        pricing = Pricing(input_dataset, parameters, saturated_critical_branches, border_exchanges, local_balances,
-                          accepted_powers)
+        pricing = Pricing(
+            input_dataset, parameters, saturated_critical_branches, border_exchanges, local_balances, accepted_powers
+        )
         pricing.run()
         market_prices = pricing.retrieve_market_prices()
 
