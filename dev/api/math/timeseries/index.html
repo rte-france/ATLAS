@@ -1080,6 +1080,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#atlas.Timeseries.round" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;round
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#atlas.Timeseries.set_frequency" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;set_frequency
@@ -2108,6 +2117,15 @@
   <a href="#atlas.Timeseries.plot" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;plot
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#atlas.Timeseries.round" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;round
     </span>
   </a>
   
@@ -6739,6 +6757,159 @@ interpolation methods.</p>
 </span><span id="__span-0-1146"><a id="__codelineno-0-1146" name="__codelineno-0-1146"></a>    <span class="p">)</span>
 </span><span id="__span-0-1147"><a id="__codelineno-0-1147" name="__codelineno-0-1147"></a>
 </span><span id="__span-0-1148"><a id="__codelineno-0-1148" name="__codelineno-0-1148"></a>    <span class="k">return</span> <span class="n">fig</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="atlas.Timeseries.round" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">round</span>
+
+
+<a href="#atlas.Timeseries.round" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">round</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="nf">rounding_precision</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n"><span title="typing.Literal">Literal</span></span><span class="p">[</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="s2">&quot;half_to_even&quot;</span><span class="p">,</span> <span class="s2">&quot;half_away_from_zero&quot;</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;half_to_even&quot;</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">inplace</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            atlas.Timeseries (atlas.math.timeseries.Timeseries)" href="#atlas.Timeseries">Timeseries</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Returns a copy of the timeseries with all the numerical values rounded.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>rounding_precision</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of decimals used to round numerical values.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mode</code>
+            </td>
+            <td>
+                  <code><span title="typing.Literal">Literal</span>[&#39;half_to_even&#39;, &#39;half_away_from_zero&#39;]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Rounding strategy.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;half_to_even&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>inplace</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to modify the current instance, defaults to True</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>Timeseries</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Rounded Timeseries</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>atlas/math/timeseries.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1195">1195</a></span>
+<span class="normal"><a href="#__codelineno-0-1196">1196</a></span>
+<span class="normal"><a href="#__codelineno-0-1197">1197</a></span>
+<span class="normal"><a href="#__codelineno-0-1198">1198</a></span>
+<span class="normal"><a href="#__codelineno-0-1199">1199</a></span>
+<span class="normal"><a href="#__codelineno-0-1200">1200</a></span>
+<span class="normal"><a href="#__codelineno-0-1201">1201</a></span>
+<span class="normal"><a href="#__codelineno-0-1202">1202</a></span>
+<span class="normal"><a href="#__codelineno-0-1203">1203</a></span>
+<span class="normal"><a href="#__codelineno-0-1204">1204</a></span>
+<span class="normal"><a href="#__codelineno-0-1205">1205</a></span>
+<span class="normal"><a href="#__codelineno-0-1206">1206</a></span>
+<span class="normal"><a href="#__codelineno-0-1207">1207</a></span>
+<span class="normal"><a href="#__codelineno-0-1208">1208</a></span>
+<span class="normal"><a href="#__codelineno-0-1209">1209</a></span>
+<span class="normal"><a href="#__codelineno-0-1210">1210</a></span>
+<span class="normal"><a href="#__codelineno-0-1211">1211</a></span>
+<span class="normal"><a href="#__codelineno-0-1212">1212</a></span>
+<span class="normal"><a href="#__codelineno-0-1213">1213</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1195"><a id="__codelineno-0-1195" name="__codelineno-0-1195"></a><span class="k">def</span><span class="w"> </span><span class="nf">round</span><span class="p">(</span>
+</span><span id="__span-0-1196"><a id="__codelineno-0-1196" name="__codelineno-0-1196"></a>    <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-0-1197"><a id="__codelineno-0-1197" name="__codelineno-0-1197"></a>    <span class="n">rounding_precision</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-1198"><a id="__codelineno-0-1198" name="__codelineno-0-1198"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;half_to_even&quot;</span><span class="p">,</span> <span class="s2">&quot;half_away_from_zero&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;half_to_even&quot;</span><span class="p">,</span>
+</span><span id="__span-0-1199"><a id="__codelineno-0-1199" name="__codelineno-0-1199"></a>    <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-1200"><a id="__codelineno-0-1200" name="__codelineno-0-1200"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Timeseries</span><span class="p">:</span>
+</span><span id="__span-0-1201"><a id="__codelineno-0-1201" name="__codelineno-0-1201"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="__span-0-1202"><a id="__codelineno-0-1202" name="__codelineno-0-1202"></a><span class="sd">    Returns a copy of the timeseries with all the numerical values rounded.</span>
+</span><span id="__span-0-1203"><a id="__codelineno-0-1203" name="__codelineno-0-1203"></a><span class="sd">    :param rounding_precision: Number of decimals used to round numerical values.</span>
+</span><span id="__span-0-1204"><a id="__codelineno-0-1204" name="__codelineno-0-1204"></a><span class="sd">    :type rounding_precision: int</span>
+</span><span id="__span-0-1205"><a id="__codelineno-0-1205" name="__codelineno-0-1205"></a><span class="sd">    :param mode: Rounding strategy.</span>
+</span><span id="__span-0-1206"><a id="__codelineno-0-1206" name="__codelineno-0-1206"></a><span class="sd">    :type mode: str</span>
+</span><span id="__span-0-1207"><a id="__codelineno-0-1207" name="__codelineno-0-1207"></a><span class="sd">    :param inplace: Whether to modify the current instance, defaults to True</span>
+</span><span id="__span-0-1208"><a id="__codelineno-0-1208" name="__codelineno-0-1208"></a><span class="sd">    :type inplace: bool, optional</span>
+</span><span id="__span-0-1209"><a id="__codelineno-0-1209" name="__codelineno-0-1209"></a><span class="sd">    :return: Rounded Timeseries</span>
+</span><span id="__span-0-1210"><a id="__codelineno-0-1210" name="__codelineno-0-1210"></a><span class="sd">    :rtype: Timeseries</span>
+</span><span id="__span-0-1211"><a id="__codelineno-0-1211" name="__codelineno-0-1211"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-1212"><a id="__codelineno-0-1212" name="__codelineno-0-1212"></a>    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeseries</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;value&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">rounding_precision</span><span class="p">,</span> <span class="n">mode</span><span class="p">))</span>
+</span><span id="__span-0-1213"><a id="__codelineno-0-1213" name="__codelineno-0-1213"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_inplace</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">inplace</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
