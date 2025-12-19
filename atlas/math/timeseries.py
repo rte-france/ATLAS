@@ -1032,24 +1032,3 @@ class Timeseries:
         """
         for row in self.timeseries.iter_rows(named=True):
             yield (row["time"], row["value"])
-
-    def round(
-        self,
-        rounding_precision: int = 0,
-        mode: Literal["half_to_even", "half_away_from_zero"] = "half_to_even",
-        inplace: bool = True,
-    ) -> Timeseries:
-        """
-        Returns a copy of the timeseries with all the numerical values rounded.
-
-        :param rounding_precision: Number of decimals used to round numerical values.
-        :type rounding_precision: int
-        :param mode: Rounding strategy.
-        :type mode: str
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :return: Rounded Timeseries
-        :rtype: Timeseries
-        """
-        df = self.timeseries.with_columns(pl.col("value").round(rounding_precision, mode))
-        return self._return_inplace(df, inplace)
