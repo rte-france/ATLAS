@@ -75,11 +75,7 @@ def convert_to_duration(
         else:
             raise ValueError(f"Unsupported default_unit: {default_unit}")
     elif isinstance(value, str):
-        if value == 'P':
-            # pendulum.parse() fail to read 'P' which mean 0 duration in iso8601 format
-            duration_obj = duration()
-        else:
-            duration_obj = pendulum.parse(value)
+        duration_obj = pendulum.parse(value)
     else:
         raise ValueError(
             f"Cannot convert {type(value).__name__} to Duration. "

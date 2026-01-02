@@ -206,23 +206,20 @@ class OutputGenerator:
                             )
                             rows[idx_next_row] += "scenario_matrix"
                         elif isinstance(dump_value[field_name], bool):
-                            if dump_value[field_name]:
-                                rows[idx_next_row] += "1"
-                            else:
-                                rows[idx_next_row] += "0"
+                            rows[idx_next_row] += "1" if dump_value[field_name] else "0"
                         elif isinstance(dump_value[field_name], str):
                             rows[idx_next_row] += dump_value[field_name]
                         elif isinstance(dump_value[field_name], int) or isinstance(dump_value[field_name], float):
                             rows[idx_next_row] += str(dump_value[field_name])
                         elif isinstance(dump_value[field_name], Duration):
-                            rows[idx_next_row] += dump_value[field_name].to_iso8601_string()
+                            value = dump_value[field_name].to_iso8601_string()
+                            if value == 'P':
+                                value = "PT0H"
+                            rows[idx_next_row] += value
                         elif isinstance(dump_value[field_name], dict):
                             rows[idx_next_row] += str(dump_value[field_name]["name"])
                         elif isinstance(dump_value[field_name], list):
-                            rows[idx_next_row] += str(dump_value[field_name][0])
-                            for x in dump_value[field_name][1:]:
-                                rows[idx_next_row] += ":"
-                                rows[idx_next_row] += str(x)
+                            rows[idx_next_row] += ':'.join(map(str, dump_value[field_name][0]))
                         else:
                             rows[idx_next_row] += str(dump_value[field_name])
 
