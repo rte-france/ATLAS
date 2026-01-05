@@ -297,7 +297,7 @@ def _apply_energy_bounds(energy_value, bounds, time, parameters):
         return energy_value, 0
 
 
-def _apply_power_corrections(equipment: type[Equipment], new_power: Timeseries, corrections):
+def _apply_power_corrections(equipment: type[Equipment], new_power: Timeseries, corrections: dict):
     """Apply power corrections based on energy bound violations."""
     for time, correction in corrections.items():
         current_power = new_power.get_value(time)

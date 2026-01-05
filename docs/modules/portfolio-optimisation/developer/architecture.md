@@ -27,6 +27,7 @@ atlas/modules/portfolio_optimisation/
 ### PortfolioOptimisationModule
 
 Implements `AbstractModule` with methods:
+
 - `get_parameters_class()`: Returns `PortfolioOptimisationParameters`
 - `import_data()`: Creates `PortfolioOptimisationInputDataset`
 - `validate_data()`: Validates timestep consistency
@@ -41,6 +42,7 @@ Pydantic model inheriting from `AbstractParameters`. Defines all configuration p
 ### PortfolioOptimisationInputDataset
 
 Converts business models to portfolio-optimisation-specific models:
+
 - Groups equipment by portfolio
 - Applies manual activation rules
 - Creates PO-specific models (ThermalPO, HydroPO, StoragePO, etc.)
@@ -49,6 +51,7 @@ Converts business models to portfolio-optimisation-specific models:
 ### PortfolioOptimisationOrchestrator
 
 Coordinates optimization for multiple portfolios:
+
 - Creates `PortfolioOptimisationModel` for each portfolio
 - Handles multiprocessing if enabled
 - Returns optimization results
@@ -56,6 +59,7 @@ Coordinates optimization for multiple portfolios:
 ### PortfolioOptimisationModel
 
 Extends `OptimisationModel` (solver interface):
+
 - Builds optimization variables, constraints, and objectives
 - Calls solver
 - Returns solution
@@ -63,6 +67,7 @@ Extends `OptimisationModel` (solver interface):
 ### PortfolioOptimisationOutputDataset
 
 Processes optimization results:
+
 - Extracts variable values
 - Updates equipment `power` forecasts
 - Updates portfolio `imbalance`
@@ -70,6 +75,7 @@ Processes optimization results:
 ## Equipment Models
 
 Each equipment type has a PO-specific model (e.g., `ThermalPO`, `HydroPO`) that implements:
+
 - `add_variables()`: Create decision variables
 - `add_constraints()`: Add equipment constraints
 - `add_objective()`: Add cost/revenue terms
