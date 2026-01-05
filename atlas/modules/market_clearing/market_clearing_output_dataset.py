@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas import ForecastingMatrix, Timeseries, generate_datetimes
+from atlas import ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries, generate_datetimes
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enum import Product
 from atlas.models.business_model import BusinessModel
@@ -261,17 +261,27 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 case Product.DayAhead:
                     equipment.da_cleared_quantity = self.add_indexes(equipment.da_cleared_quantity, equipment_ts)
                 case Product.AFRRUpProcurement:
-                    equipment.afrr_up_procured = self.add_indexes(equipment.afrr_up_procured, equipment_ts)
+                    equipment.afrr_up_procured = self.add_timeseries_to_forecast(
+                        equipment.afrr_up_procured, equipment_ts
+                    )
                 case Product.AFRRDownProcurement:
-                    equipment.afrr_down_procured = self.add_indexes(equipment.afrr_down_procured, equipment_ts)
+                    equipment.afrr_down_procured = self.add_timeseries_to_forecast(
+                        equipment.afrr_down_procured, equipment_ts
+                    )
                 case Product.MFRRUpProcurement:
-                    equipment.mfrr_up_procured = self.add_indexes(equipment.mfrr_up_procured, equipment_ts)
+                    equipment.mfrr_up_procured = self.add_timeseries_to_forecast(
+                        equipment.mfrr_up_procured, equipment_ts
+                    )
                 case Product.MFRRDownProcurement:
-                    equipment.mfrr_down_procured = self.add_indexes(equipment.mfrr_down_procured, equipment_ts)
+                    equipment.mfrr_down_procured = self.add_timeseries_to_forecast(
+                        equipment.mfrr_down_procured, equipment_ts
+                    )
                 case Product.RRUpProcurement:
-                    equipment.rr_up_procured = self.add_indexes(equipment.rr_up_procured, equipment_ts)
+                    equipment.rr_up_procured = self.add_timeseries_to_forecast(equipment.rr_up_procured, equipment_ts)
                 case Product.RRDownProcurement:
-                    equipment.rr_down_procured = self.add_indexes(equipment.rr_down_procured, equipment_ts)
+                    equipment.rr_down_procured = self.add_timeseries_to_forecast(
+                        equipment.rr_down_procured, equipment_ts
+                    )
                 case Product.AFRRActivation:
                     equipment.afrr_activated = self.add_indexes(equipment.afrr_activated, equipment_ts)
                 case Product.MFRRActivation:
@@ -403,17 +413,29 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                         mc_market_border.id_shadow_price, shadow_price
                     )
                 case Product.MFRRUpProcurement:
-                    mc_market_border.mfrr_up_procured = self.add_indexes(mc_market_border.mfrr_up_procured, flow)
+                    mc_market_border.mfrr_up_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.mfrr_up_procured, flow
+                    )
                 case Product.MFRRDownProcurement:
-                    mc_market_border.mfrr_down_procured = self.add_indexes(mc_market_border.mfrr_down_procured, flow)
+                    mc_market_border.mfrr_down_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.mfrr_down_procured, flow
+                    )
                 case Product.AFRRUpProcurement:
-                    mc_market_border.afrr_up_procured = self.add_indexes(mc_market_border.afrr_up_procured, flow)
+                    mc_market_border.afrr_up_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.afrr_up_procured, flow
+                    )
                 case Product.AFRRDownProcurement:
-                    mc_market_border.afrr_down_procured = self.add_indexes(mc_market_border.afrr_down_procured, flow)
+                    mc_market_border.afrr_down_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.afrr_down_procured, flow
+                    )
                 case Product.RRUpProcurement:
-                    mc_market_border.rr_up_procured = self.add_indexes(mc_market_border.rr_up_procured, flow)
+                    mc_market_border.rr_up_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.rr_up_procured, flow
+                    )
                 case Product.RRDownProcurement:
-                    mc_market_border.rr_down_procured = self.add_indexes(mc_market_border.rr_down_procured, flow)
+                    mc_market_border.rr_down_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.rr_down_procured, flow
+                    )
                 case Product.RRActivation:
                     mc_market_border.rr_activated = self.add_indexes(mc_market_border.rr_activated, flow)
                 case Product.MFRRActivation:
@@ -444,6 +466,8 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 0.0,
             )
             for mc_market_area_ptdf in mc_critical_branch.market_area_ptdf:
+                if mc_market_area_ptdf.da_ptdf is None:
+                    continue
                 da_ptdf = mc_market_area_ptdf.da_ptdf.set_frequency(
                     self.input_dataset.parameters.time_step, False
                 ).filter(self.input_dataset.times)
@@ -461,18 +485,22 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                         "This should be corrected in future versions"
                     )
 
-    def add_indexes(self, ts_obj: Timeseries | None, other: Timeseries) -> Timeseries:
+    def add_indexes(self, ts_obj: Timeseries | LazyTimeseries | None, other: Timeseries) -> Timeseries:
         if ts_obj is None:
             return other
+        if isinstance(ts_obj, LazyTimeseries):
+            ts_obj = ts_obj.collect()
         if ts_obj.frequency > other.frequency:
             ts_obj.upsample(other.frequency)
         elif other.frequency > ts_obj.frequency:
             other.upsample(ts_obj.frequency)
         return ts_obj.add_indexes(other, inplace=False)
 
-    def add_indexes_or_sum(self, ts_obj: Timeseries, other: Timeseries) -> Timeseries:
+    def add_indexes_or_sum(self, ts_obj: Timeseries | LazyTimeseries | None, other: Timeseries) -> Timeseries:
         if ts_obj is None:
             return other
+        if isinstance(ts_obj, LazyTimeseries):
+            ts_obj = ts_obj.collect()
         if ts_obj.frequency > other.frequency:
             ts_obj.upsample(other.frequency)
         elif other.frequency > ts_obj.frequency:
@@ -487,13 +515,15 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
             return ts_obj
 
     def add_timeseries_to_forecast(
-        self, forecast_obj: ForecastingMatrix | None, other: Timeseries
-    ) -> ForecastingMatrix:
+        self, forecast_obj: ForecastingMatrix | LazyForecastingMatrix | None, other: Timeseries
+    ) -> ForecastingMatrix | LazyForecastingMatrix:
         if forecast_obj is None:
             new_forecast_obj = ForecastingMatrix()
             new_forecast_obj.add(other, self.input_dataset.parameters.execution_date)
             return new_forecast_obj
         else:
+            if isinstance(forecast_obj, LazyTimeseries):
+                forecast_obj = forecast_obj.collect()
             forecast_obj.add(other, self.input_dataset.parameters.execution_date)
             return forecast_obj
 

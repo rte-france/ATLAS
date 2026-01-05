@@ -8,6 +8,7 @@ from pathlib import Path
 
 import polars as pl
 
+from atlas import LazyForecastingMatrix
 from atlas.enum import OrderType, Product
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
@@ -110,19 +111,31 @@ class MarketClearingResults:
             }
         )
         for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
+            id_price_forecast = mc_market_area.id_price
+            id_balance_forecast = mc_market_area.id_balance
+            if id_price_forecast is None or id_balance_forecast is None:
+                continue
+
+            if isinstance(id_price_forecast, LazyForecastingMatrix):
+                id_price_forecast = id_price_forecast.collect()
+            if isinstance(id_balance_forecast, LazyForecastingMatrix):
+                id_balance_forecast = id_balance_forecast.collect()
+
+            id_price_ts = id_price_forecast.select(self.parameters.execution_date)
+            id_balance_ts = id_balance_forecast.select(self.parameters.execution_date)
+
+            if id_price_ts is not None:
+                id_price_ts = id_price_ts.set_frequency(self.input_dataset.parameters.time_step, False).filter(
+                    self.input_dataset.times
+                )
+            if id_balance_ts is not None:
+                id_balance_ts = id_balance_ts.set_frequency(self.input_dataset.parameters.time_step, False).filter(
+                    self.input_dataset.times
+                )
+
             for time in self.input_dataset.times:
-                id_price_forecast = (
-                    mc_market_area.id_price.select(self.parameters.execution_date)
-                    if mc_market_area.id_price is not None
-                    else None
-                )
-                id_price = id_price_forecast.get_value(time) if id_price_forecast is not None else 0
-                id_balance_forecast = (
-                    mc_market_area.id_balance.select(self.parameters.execution_date)
-                    if mc_market_area.id_balance is not None
-                    else None
-                )
-                id_balance = id_balance_forecast.get_value(time) if id_balance_forecast is not None else 0
+                id_price: float = id_price_ts.get_value(time) if id_price_ts is not None else 0
+                id_balance = id_balance_ts.get_value(time) if id_balance_ts is not None else 0
                 market_area_dict = {
                     "Name": market_area_name,
                     "TimeStep": time,
