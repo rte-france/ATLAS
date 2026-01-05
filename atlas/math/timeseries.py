@@ -983,7 +983,7 @@ class Timeseries:
                     # Concatenate with existing data
                     df_to_write = pl.concat([existing_df, df_to_write])
                 except Exception as e:
-                    cfg.logger.warning(f"Could not read existing file for concatenation: {e}")
+                    raise ValueError(f"Could not read existing file for concatenation: {e}") from e
 
         # Write the file
         if file_format_lower == "csv":
