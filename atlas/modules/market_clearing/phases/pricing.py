@@ -698,6 +698,8 @@ class Pricing(OptimisationModel):
             for order in parent_orders + children_orders:
                 mc_order = self.input_dataset.mc_orders[order.name]
                 time_index = mc_order.time_index
+                if time_index is None or mc_order.group_index is None:
+                    continue
                 local_cleared_power = self.clearing_accepted_powers[mc_order.market_area.name, mc_order.name]
                 local_price = self.get_variable(
                     constants.price_on_group_variable_name(mc_order.group_index, time_index)
@@ -873,7 +875,11 @@ class Pricing(OptimisationModel):
     # Append all neighbour areas recursively as long as they are not already part of the group and the connection is not
     # saturated:
     def propagate_through_unsaturated(
-        self, mc_market_area: MarketAreaMC, time_index: int, area_price_group: dict[str, int], price_group: PriceGroup
+        self,
+        mc_market_area: MarketAreaMC,
+        time_index: int,
+        area_price_group: dict[str, int | None],
+        price_group: PriceGroup,
     ):
         for mc_border, neightbour_market_area_name in self.get_market_area_neighbours(mc_market_area.name):
             if neightbour_market_area_name in price_group.market_area_names:
@@ -892,12 +898,12 @@ class Pricing(OptimisationModel):
                 self.propagate_through_unsaturated(neightbour_market_area, time_index, area_price_group, price_group)
 
     def create_price_groups(self) -> dict[int, list[PriceGroup]]:
-        price_groups = {}
+        price_groups: dict[int, list[PriceGroup]] = {}
         for time_index, _time in enumerate(self.input_dataset.times):
             price_groups[time_index] = []
             if self.input_dataset.is_atc:
                 # Initialize a dict linking each market area with a price group number:
-                areas_price_group = {}
+                areas_price_group: dict[str, int | None] = {}
                 for market_area_name in self.input_dataset.mc_market_areas:
                     areas_price_group[market_area_name] = None
 
@@ -1088,12 +1094,13 @@ class Pricing(OptimisationModel):
         parent_order, child_order = mc_order_coupling.orders[:2]
         child_mc_order = self.input_dataset.mc_orders[child_order.name]
         processed_order_couplings.append(mc_order_coupling.name)
+        order_coupling_parent_ids = child_mc_order.order_coupling_parent_ids
 
         # A parent/child link is considered transitive when the child is also a parent elsewhere
-        if child_mc_order.is_parent:
+        if child_mc_order.is_parent and order_coupling_parent_ids:
             orders.append(child_order)
-            for mc_order_coupling in child_mc_order.order_coupling_parent_ids:
-                if mc_order_coupling.name not in processed_order_couplings:
+            for mc_order_coupling_name in order_coupling_parent_ids:
+                if mc_order_coupling_name not in processed_order_couplings:
                     self.get_circular_children(mc_order_coupling, orders, processed_order_couplings)
 
             return orders

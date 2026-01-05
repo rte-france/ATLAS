@@ -4,13 +4,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import cast
+from typing import Any, cast
 
 from pydantic import BaseModel
 
 from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.config import INVERSE_MODEL_MAPPING_NAME
+from atlas.config import INVERSE_MODEL_MAPPING_NAME, logger
 from atlas.enum import CouplingType
 from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area import MarketArea
@@ -134,6 +134,9 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     if time == mc_order.start_date:
                         time_index = time_index
                         break
+                if time_index is None:
+                    logger.debbug(f"Order {order.name} is ignored : The start date is not an optimization timestep.")
+                    continue
                 mc_order.time_index = time_index
                 mc_orders[order.name] = mc_order
 
@@ -163,10 +166,11 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 if len(order_coupling.orders) > 0:
                     order = order_coupling.orders[0]
                     mc_orders[order.name].is_parent = True
-                    if mc_orders[order.name].order_coupling_parent_ids is None:
-                        mc_orders[order.name].order_coupling_parent_ids = [order_coupling.name]
-                    else:
-                        mc_orders[order.name].order_coupling_parent_ids.append(order_coupling.name)
+                    parent_ids = mc_orders[order.name].order_coupling_parent_ids
+                    if parent_ids is None:
+                        parent_ids = []
+                    parent_ids.append(order_coupling.name)
+                    mc_orders[order.name].order_coupling_parent_ids = parent_ids
 
         return mc_orders
 
@@ -215,17 +219,10 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         return mc_market_area_ptdfs
 
     @staticmethod
-    def shallow_dump(model: BaseModel) -> dict:
+    def shallow_dump(model: BaseModel) -> dict[str, Any]:
         result = {}
         for name, value in model.__dict__.items():
-            # Si c’est une liste de BaseModel, on ne touche pas
-            if isinstance(value, list) and all(isinstance(v, BaseModel) for v in value):
-                result[name] = value
-            # Si c’est un BaseModel, on ne touche pas non plus
-            elif isinstance(value, BaseModel):
-                result[name] = value
-            else:
-                result[name] = value
+            result[name] = value
         return result
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:

@@ -197,8 +197,11 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 mc_order.accepted_power = 0
                 continue
             mc_order.accepted_power = accepted_power
+            time_index = mc_order.time_index
+            if time_index is None:
+                continue
             # The surplus of an order is the gain made by its emitter computed from the present spot price:
-            spot_price = market_prices[mc_order.market_area.name, mc_order.time_index]
+            spot_price = market_prices[mc_order.market_area.name, time_index]
             if mc_order.is_sale:
                 mc_order.individual_spread = spot_price - mc_order.price
             else:
@@ -214,7 +217,11 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 continue
             if not mc_order.is_agent_tso and mc_order.equipment is not None:
                 equipment = mc_order.equipment
+                if equipment is None:
+                    continue
                 portfolio = equipment.portfolio
+                if portfolio is None:
+                    continue
                 if equipment.name not in equipments_ts:
                     equipments_ts[equipment.name] = Timeseries.from_index(
                         self.input_dataset.times[0],
@@ -392,7 +399,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 case Product.Intraday:
                     mc_market_border.total_id_flow = self.add_indexes(mc_market_border.total_id_flow, flow)
                     mc_market_border.id_flow = self.add_timeseries_to_forecast(mc_market_border.id_flow, flow)
-                    mc_market_border.shadow_price = self.add_timeseries_to_forecast(
+                    mc_market_border.id_shadow_price = self.add_timeseries_to_forecast(
                         mc_market_border.id_shadow_price, shadow_price
                     )
                 case Product.MFRRUpProcurement:
@@ -430,19 +437,18 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 ] - mc_market_area.ref_balance.get_value(time)
 
         for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
-            flow_values = [
-                sum(
-                    [
-                        mc_market_area_ptdf.da_ptdf.get_value(time)
-                        for mc_market_area_ptdf in mc_critical_branch.market_area_ptdf
-                    ]
-                )
-                for time_index, time in enumerate(self.input_dataset.times)
-            ]
-
-            flow = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.time_step, flow_values
+            flow = Timeseries.from_index(
+                self.input_dataset.times[0],
+                self.input_dataset.parameters.time_step,
+                self.input_dataset.times[-1],
+                0.0,
             )
+            for mc_market_area_ptdf in mc_critical_branch.market_area_ptdf:
+                da_ptdf = mc_market_area_ptdf.da_ptdf.set_frequency(
+                    self.input_dataset.parameters.time_step, False
+                ).filter(self.input_dataset.times)
+                flow += da_ptdf
+
             match self.input_dataset.parameters.market:
                 case Product.DayAhead:
                     mc_critical_branch.da_flow = self.add_indexes(mc_critical_branch.da_flow, flow)
@@ -487,6 +493,9 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
             new_forecast_obj = ForecastingMatrix()
             new_forecast_obj.add(other, self.input_dataset.parameters.execution_date)
             return new_forecast_obj
+        else:
+            forecast_obj.add(other, self.input_dataset.parameters.execution_date)
+            return forecast_obj
 
     @staticmethod
     def get_custom_business_model_object_modified() -> list[type[BusinessModel]]:
