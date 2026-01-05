@@ -393,3 +393,23 @@ class LazyTimeseries:
             self.timeseries = lf.sort("time")
             return self
         return LazyTimeseries(lf.sort("time"), timezone=self.timezone)
+
+    def round(
+        self,
+        rounding_precision: int = 0,
+        mode: Literal["half_to_even", "half_away_from_zero"] = "half_to_even",
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Returns a copy of the timeseries with all the numerical values rounded.
+        :param rounding_precision: Number of decimals used to round numerical values.
+        :type rounding_precision: int
+        :param mode: Rounding strategy.
+        :type mode: str
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Rounded LazyTimeseries
+        :rtype: LazyTimeseries
+        """
+        df = self.timeseries.with_columns(pl.col("value").round(rounding_precision, mode))
+        return self._return_inplace(df, inplace)
