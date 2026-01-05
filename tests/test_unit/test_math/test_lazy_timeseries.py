@@ -790,6 +790,7 @@ def test_get_value_timezone_handling(sample_df_extended):
         value = lt.get_value(first_time)
         assert isinstance(value, float)
 
+
 def test_iter_rows(sample_df_extended):
     """Test iterating over rows of the LazyTimeseries."""
 
@@ -826,3 +827,28 @@ def test_iter_rows_empty():
     lt = LazyTimeseries()
     rows = list(lt.iter_rows())
     assert len(rows) == 0
+
+
+def test_round():
+    ts = LazyTimeseries(
+        pl.DataFrame(
+            {
+                "time": [
+                    datetime(2025, 12, 15, 0, 0, 0),
+                    datetime(2025, 12, 15, 1, 0, 0),
+                    datetime(2025, 12, 15, 2, 0, 0),
+                    datetime(2025, 12, 15, 3, 0, 0),
+                    datetime(2025, 12, 15, 4, 0, 0),
+                ],
+                "value": [1.12345, 2.0009, 3.9999, 4.0001, 5.29],
+            },
+        ).lazy()
+    )
+
+    ts.round(3)
+
+    assert ts.get_value(datetime(2025, 12, 15, 0, 0, 0)) == 1.123
+    assert ts.get_value(datetime(2025, 12, 15, 1, 0, 0)) == 2.001
+    assert ts.get_value(datetime(2025, 12, 15, 2, 0, 0)) == 4
+    assert ts.get_value(datetime(2025, 12, 15, 3, 0, 0)) == 4
+    assert ts.get_value(datetime(2025, 12, 15, 4, 0, 0)) == 5.29
