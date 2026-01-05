@@ -21,6 +21,7 @@ import plotly
 import plotly.express as px
 import plotly.graph_objects
 import polars as pl
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
@@ -934,7 +935,14 @@ class Timeseries:
 
     def filter(
         self,
-        item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
+        item: list[datetime]
+        | list[pendulum.DateTime]
+        | list[DateTime]
+        | list[str]
+        | datetime
+        | pendulum.DateTime
+        | DateTime
+        | str,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> Timeseries:

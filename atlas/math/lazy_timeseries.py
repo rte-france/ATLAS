@@ -16,6 +16,7 @@ from typing import Literal
 
 import pendulum
 import polars as pl
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.io_utils.utils import scan_data_file
 from atlas.math.timeseries import Timeseries
@@ -180,7 +181,14 @@ class LazyTimeseries:
 
     def filter(
         self,
-        item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
+        item: list[datetime]
+        | list[pendulum.DateTime]
+        | list[DateTime]
+        | list[str]
+        | datetime
+        | pendulum.DateTime
+        | DateTime
+        | str,
         date_format: str = "YYYY-MM-DD HH:mm:ss",
         inplace: bool = True,
     ) -> LazyTimeseries:
