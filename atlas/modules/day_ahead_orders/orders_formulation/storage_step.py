@@ -69,7 +69,7 @@ class StorageStep:
             solver_options = SolverOptions(
                 presolve=self.parameters.use_presolve,
                 duality_gap=self.parameters.solver_duality_gap,
-                time_limit=self.parameters.solver_timeout,
+                time_limit=self.parameters.solver_time_out,
             )
             if storage.storage_type == StorageType.ELECTRIC_VEHICLE:
                 Qv, Qa = self.optimize_ev(storage, initial_stock, solver_options)

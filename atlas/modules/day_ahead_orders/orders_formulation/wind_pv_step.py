@@ -89,8 +89,8 @@ class WindPVStep:
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
                             is_agent_tso=False,
-                            execution_date=str(parameters.execution_date),
-                            start_date=str(t),
-                            end_date=str(t + parameters.time_step),
+                            execution_date=parameters.execution_date,
+                            start_date=t,
+                            end_date=t + parameters.time_step,
                         )
                         dataset.order.append(bid_output)

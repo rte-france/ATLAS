@@ -133,7 +133,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                             coupling.orders.append(order_2)
                             self.dataset.order_coupling.append(coupling)
 
-    def get_unique_cases(self, results: dict[str, dict[str, Timeseries]], thermal_unit: ThermalDAO) -> list[str]:
+    def get_unique_cases(
+        self, results: dict[str, dict[str, dict[str, Timeseries]]], thermal_unit: ThermalDAO
+    ) -> list[str]:
         """
         Returns a list of unique cases for the associated thermal unit.
 
@@ -216,7 +218,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         return cases
 
     def determine_intermediate_load_states_sequence(
-        self, unit: ThermalDAO, res: dict[str, dict[str, Timeseries]], case: str
+        self, unit: ThermalDAO, res: dict[str, dict[str, dict[str, Timeseries]]], case: str
     ) -> Timeseries:
         """
         Computes the sequence of states on a single time frame for the intermediate load unit passed as input.
@@ -249,7 +251,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # Baseline : the unit is OFF or ON_UP (or ON_DOWN)
         # Multiply OFF by 0 because this state is encoded as 0 in the states_sequence
         states_sequence = (
-            res[unit.name][case]["OFF"].__mul__(0.0) + res[unit.name][case]["ON_UP"] + res[unit.name][case]["ON_DOWN"]
+            res[unit.name][case]["OFF"] * 0.0 + res[unit.name][case]["ON_UP"] + res[unit.name][case]["ON_DOWN"]
         )
 
         # Now add the conditional states if relevant :
@@ -258,18 +260,15 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         if T_start > 0:
             # Encoded as 2 in states_sequence.
-            states_sequence += res[unit.name][case]["START"].__mul__(2.0)
+            states_sequence += res[unit.name][case]["START"] * 2.0
 
         if T_stop > 0:
             # Encoded as 3 in states_sequence
-            states_sequence += res[unit.name][case]["STOP"].__mul__(3.0)
-
-        # Edit the states_sequence properties
-        states_sequence.name = f"states sequence for unit {unit.name} under scenario {case}"
+            states_sequence += res[unit.name][case]["STOP"] * 3.0
 
         return states_sequence
 
-    def get_overlapping_timeframes(self, online_timeframes: list[Timeseries]) -> list[tuple[Timeseries]]:
+    def get_overlapping_timeframes(self, online_timeframes: list[Timeseries]) -> list[tuple[Timeseries, Timeseries]]:
         """
         Given a list of timeframes, returns the subset of overlapping timeframes.
 
@@ -280,7 +279,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         `overlapping_blocks` : a list of tuples of overlapping blocks
         """
         # Initialize the output
-        overlapping_blocks: list[tuple[Timeseries]] = []
+        overlapping_blocks: list[tuple[Timeseries, Timeseries]] = []
 
         # Test the potential overlaps
         for pair in itertools.combinations(online_timeframes, 2):
@@ -332,7 +331,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         return is_overlapping
 
-    def solve_optimization_programs(self, equipments_list: list[ThermalDAO]) -> dict[str, dict[str, Timeseries]]:
+    def solve_optimization_programs(
+        self, equipments_list: list[ThermalDAO]
+    ) -> dict[str, dict[str, dict[str, Timeseries]]]:
         """
         Solves the optimization programs for a list of equipment given the three price curves.
 
@@ -344,7 +345,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         """
 
         # create a dictionary that will store the program's outcomes.
-        results: dict[str, dict[str, Timeseries]] = {}
+        results: dict[str, dict[str, dict[str, Timeseries]]] = {}
 
         solver_options = SolverOptions(
             presolve=self.parameters.use_presolve,
@@ -395,8 +396,8 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
             # Solve three times the optimization program, one for each price curve
             # and store the optimal output quantities into the dictionaries
-            for price, value in zip(prices, price_types, strict=False):
-                model = ThermalOptimizationModel(self.parameters, unit, price, value, solver_options)
+            for price, price_type in zip(prices, price_types, strict=False):
+                model = ThermalOptimizationModel(self.parameters, unit, price, price_type, solver_options)
                 model.create_objective_function("maximize")
                 combination_functions: dict[int, Callable[..., None]] = {
                     1: combination_1.execute,
@@ -413,7 +414,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 combination_function(model=model, day_zero=day_zero)
 
                 res = model.solve_thermal_optimization()
-                results[unit.name][value] = res
+                results[unit.name][price_type] = res
 
                 # Store state sequences in the output marker
                 local_time_index = res["OFF"].index
@@ -452,6 +453,6 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
                 if unit.state_sequence is None:
                     unit.state_sequence = ScenarioMatrix()
-                unit.state_sequence.add(new_sequence_ts, f"{self.parameters.execution_date}-{value.upper()}_DAO")
+                unit.state_sequence.add(new_sequence_ts, f"{self.parameters.execution_date}-{price_type.upper()}_DAO")
 
         return results

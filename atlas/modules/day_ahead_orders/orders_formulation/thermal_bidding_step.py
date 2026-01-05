@@ -154,7 +154,9 @@ class ThermalBiddingStep:
         # This stored already considered orders to prevent double counting
         # We use a dic to access elements using hashing to improve compute time
         already_considered_orders = {order.name: False for order in list_of_relevant_orders_intermediate}
-        list_of_mutually_exclusive_programms = {equipment.name: [] for equipment in self.dataset.thermal}
+        list_of_mutually_exclusive_programms: dict[str, list[Timeseries]] = {
+            equipment.name: [] for equipment in self.dataset.thermal
+        }
 
         for coupling_instance in self.dataset.order_coupling:
             if coupling_instance.coupling_type != CouplingType.EXCLUSION:
@@ -197,7 +199,7 @@ class ThermalBiddingStep:
 
                 if programms:
                     for t in self.orders_time:
-                        da_sell_submitted_volume[t] += max([programm[t] for programm in programms])
+                        da_sell_submitted_volume.add_value_at(t, programm.max())
                 equipment.da_sell_submitted_volume = da_sell_submitted_volume
 
             else:

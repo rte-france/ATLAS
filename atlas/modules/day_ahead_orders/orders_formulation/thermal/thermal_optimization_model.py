@@ -67,7 +67,7 @@ class ThermalOptimizationModel(OptimisationModel):
     feasible_automated_reserves_up_procured: Timeseries
     feasible_automated_reserves_down_procured: Timeseries
     last_power: Timeseries
-    last_date: DateTime
+    last_date: DateTime | None
     start_date_minus_one: DateTime
     time_frame_union_minus_one: list[DateTime]
     start_time_steps: range
@@ -464,17 +464,17 @@ class ThermalOptimizationModel(OptimisationModel):
         )
 
         # Populate the time series and retrieve the infeasible automated reserve procurements.
+        maximum_afrr = self.thermal_unit.maximum_afrr if self.thermal_unit.maximum_afrr is not None else 0.0
+        maximum_fcr = self.thermal_unit.maximum_fcr if self.thermal_unit.maximum_fcr is not None else 0.0
         for t in self.time_frame:
             # retrieve the feasible part in the feasible time series
             self.feasible_automated_reserves_up_procured.set_value(
                 t,
-                min(afrr_up_procured.get_value(t), self.thermal_unit.maximum_afrr)
-                + min(fcr_up_procured.get_value(t), self.thermal_unit.maximum_fcr),
+                min(afrr_up_procured.get_value(t), maximum_afrr) + min(fcr_up_procured.get_value(t), maximum_fcr),
             )
             self.feasible_automated_reserves_down_procured.set_value(
                 t,
-                min(afrr_down_procured.get_value(t), self.thermal_unit.maximum_afrr)
-                + min(fcr_down_procured.get_value(t), self.thermal_unit.maximum_fcr),
+                min(afrr_down_procured.get_value(t), maximum_afrr) + min(fcr_down_procured.get_value(t), maximum_fcr),
             )
 
             # retrieve and save the infeasible part
