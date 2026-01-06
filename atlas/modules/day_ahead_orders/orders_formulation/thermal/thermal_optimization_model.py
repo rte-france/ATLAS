@@ -17,6 +17,7 @@ from atlas import OptimisationModel, SolverOptions, Thermal, generate_datetimes
 from atlas.enum import SolverEnum
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
 from atlas.solver.model_var import ModelVar
 
@@ -64,8 +65,8 @@ class ThermalOptimizationModel(OptimisationModel):
     q_upper: Timeseries
     reserves_up_procured: Timeseries
     reserves_down_procured: Timeseries
-    feasible_automated_reserves_up_procured: Timeseries
-    feasible_automated_reserves_down_procured: Timeseries
+    feasible_automated_reserves_up_procured: DAOTimeseries
+    feasible_automated_reserves_down_procured: DAOTimeseries
     last_power: Timeseries
     last_date: DateTime | None
     start_date_minus_one: DateTime
@@ -456,11 +457,11 @@ class ThermalOptimizationModel(OptimisationModel):
         # in a penalty added in the objective function.
 
         # Create the time series of feasible automated reserves procurements
-        self.feasible_automated_reserves_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, end_date, default_value=0
+        self.feasible_automated_reserves_up_procured = DAOTimeseries(
+            Timeseries.from_index(self.parameters.start_date, self.parameters.time_step, end_date, default_value=0)
         )
-        self.feasible_automated_reserves_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, end_date, default_value=0
+        self.feasible_automated_reserves_down_procured = DAOTimeseries(
+            Timeseries.from_index(self.parameters.start_date, self.parameters.time_step, end_date, default_value=0)
         )
 
         # Populate the time series and retrieve the infeasible automated reserve procurements.
@@ -468,11 +469,11 @@ class ThermalOptimizationModel(OptimisationModel):
         maximum_fcr = self.thermal_unit.maximum_fcr if self.thermal_unit.maximum_fcr is not None else 0.0
         for t in self.time_frame:
             # retrieve the feasible part in the feasible time series
-            self.feasible_automated_reserves_up_procured.set_value(
+            self.feasible_automated_reserves_up_procured.set_or_add_value(
                 t,
                 min(afrr_up_procured.get_value(t), maximum_afrr) + min(fcr_up_procured.get_value(t), maximum_fcr),
             )
-            self.feasible_automated_reserves_down_procured.set_value(
+            self.feasible_automated_reserves_down_procured.set_or_add_value(
                 t,
                 min(afrr_down_procured.get_value(t), maximum_afrr) + min(fcr_down_procured.get_value(t), maximum_fcr),
             )
@@ -705,12 +706,13 @@ class ThermalOptimizationModel(OptimisationModel):
         results: dict[str, Timeseries] = {}
 
         # Power output
-        q_star = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+        q_star = DAOTimeseries(
+            Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            )
         )
-
         for t in self.time_frame:
-            q_star.set_value(t, self.q.get_model_var(t).solution_value())
+            q_star.set_or_add_value(t, self.q.get_model_var(t).solution_value())
 
         # If verbose is activated, inform the user if the optimal program is such that the unit
         # provides no output
@@ -727,36 +729,44 @@ class ThermalOptimizationModel(OptimisationModel):
         # of reserves supplied (and unsupplied) for each time step. the reserves variables can take inexact values on the time steps
         # where there is no reserve to provide due to the fill up constraints.
         # Create the time series
-        contracted_difference_up_star = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+        contracted_difference_up_star = DAOTimeseries(
+            Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            )
         )
-        contracted_difference_down_star = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+        contracted_difference_down_star = DAOTimeseries(
+            Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            )
         )
 
         # Add the automatedDifference
         # Create the time series
-        automated_contracted_difference_up_star = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+        automated_contracted_difference_up_star = DAOTimeseries(
+            Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            )
         )
-        automated_contracted_difference_down_star = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+        automated_contracted_difference_down_star = DAOTimeseries(
+            Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            )
         )
 
         # Populate the time series
         for t in self.time_frame:
-            contracted_difference_up_star.set_value(
+            contracted_difference_up_star.set_or_add_value(
                 t, self.get_variable(self.contracted_difference_up_at(t)).solution_value()
             )
-            contracted_difference_down_star.set_value(
+            contracted_difference_down_star.set_or_add_value(
                 t, self.get_variable(self.contracted_difference_down_at(t)).solution_value()
             )
         # Populate the automatedDifference time series
         for t in self.time_frame:
-            automated_contracted_difference_up_star.set_value(
+            automated_contracted_difference_up_star.set_or_add_value(
                 t, self.get_variable(self.automated_contracted_difference_up_at(t)).solution_value()
             )
-            automated_contracted_difference_down_star.set_value(
+            automated_contracted_difference_down_star.set_or_add_value(
                 t, self.get_variable(self.automated_contracted_difference_down_at(t)).solution_value()
             )
 
@@ -770,21 +780,27 @@ class ThermalOptimizationModel(OptimisationModel):
 
         # Status and auxiliary variables
         # Permanent variables
-        ON_UP_star = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+        ON_UP_star = DAOTimeseries(
+            Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            )
         )
-        ON_DOWN_star = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+        ON_DOWN_star = DAOTimeseries(
+            Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            )
         )
-        OFF_star = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+        OFF_star = DAOTimeseries(
+            Timeseries.from_index(
+                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            )
         )
 
         # Populate the time series
         for t in self.time_frame:
-            ON_UP_star.set_value(t, self.ON_UP.get_model_var(t).solution_value())
-            ON_DOWN_star.set_value(t, self.ON_DOWN.get_model_var(t).solution_value())
-            OFF_star.set_value(t, self.OFF.get_model_var(t).solution_value())
+            ON_UP_star.set_or_add_value(t, self.ON_UP.get_model_var(t).solution_value())
+            ON_DOWN_star.set_or_add_value(t, self.ON_DOWN.get_model_var(t).solution_value())
+            OFF_star.set_or_add_value(t, self.OFF.get_model_var(t).solution_value())
 
         # Populate the dictionnary
         results["ON_UP"] = ON_UP_star
@@ -793,27 +809,33 @@ class ThermalOptimizationModel(OptimisationModel):
 
         # Conditional variables
         if self.T_start >= 1:
-            START_star = Timeseries.from_index(
-                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            START_star = DAOTimeseries(
+                Timeseries.from_index(
+                    self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+                )
             )
             for t in self.time_frame:
-                START_star.set_value(t, self.START.get_model_var(t).solution_value())
+                START_star.set_or_add_value(t, self.START.get_model_var(t).solution_value())
                 # Add the time series to the dictionnary.
             results["START"] = START_star
         if self.T_stop >= 1:
-            STOP_star = Timeseries.from_index(
-                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            STOP_star = DAOTimeseries(
+                Timeseries.from_index(
+                    self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+                )
             )
             for t in self.time_frame:
-                STOP_star.set_value(t, self.STOP.get_model_var(t).solution_value())
+                STOP_star.set_or_add_value(t, self.STOP.get_model_var(t).solution_value())
             # Add the time series to the dictionnary.
             results["STOP"] = STOP_star
         if self.T_stable >= 1:
-            ON_FLAT_star = Timeseries.from_index(
-                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+            ON_FLAT_star = DAOTimeseries(
+                Timeseries.from_index(
+                    self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+                )
             )
             for t in self.time_frame:
-                ON_FLAT_star.set_value(t, self.ON_FLAT.get_model_var(t).solution_value())
+                ON_FLAT_star.set_or_add_value(t, self.ON_FLAT.get_model_var(t).solution_value())
             results["ON_FLAT"] = ON_FLAT_star
 
         return results

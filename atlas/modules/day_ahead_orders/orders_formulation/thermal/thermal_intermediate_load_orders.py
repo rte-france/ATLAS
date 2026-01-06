@@ -17,6 +17,7 @@ from atlas.enum import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
@@ -419,36 +420,38 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 # Store state sequences in the output marker
                 local_time_index = res["OFF"].index
 
-                new_sequence_ts = Timeseries.from_index(
-                    self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+                new_sequence_ts = DAOTimeseries(
+                    Timeseries.from_index(
+                        self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+                    )
                 )
 
                 for time in local_time_index:
                     if res["ON_UP"].get_value(time) == 1:
-                        new_sequence_ts.set_value(time, 1)
+                        new_sequence_ts.set_or_add_value(time, 1)
                         continue
 
                     if res["ON_DOWN"].get_value(time) == 1:
-                        new_sequence_ts.set_value(time, 2)
+                        new_sequence_ts.set_or_add_value(time, 2)
                         continue
 
                     if res["OFF"].get_value(time) == 1:
-                        new_sequence_ts.set_value(time, 3)
+                        new_sequence_ts.set_or_add_value(time, 3)
                         continue
 
                     if "START" in res.keys():
                         if res["START"].get_value(time) == 1:
-                            new_sequence_ts.set_value(time, 4)
+                            new_sequence_ts.set_or_add_value(time, 4)
                             continue
 
                     if "STOP" in res.keys():
                         if res["STOP"].get_value(time) == 1:
-                            new_sequence_ts.set_value(time, 5)
+                            new_sequence_ts.set_or_add_value(time, 5)
                             continue
 
                     if "ON_FLAT" in res.keys():
                         if res["ON_FLAT"].get_value(time) == 1:
-                            new_sequence_ts.set_value(time, 6)
+                            new_sequence_ts.set_or_add_value(time, 6)
                             continue
 
                 if unit.state_sequence is None:
