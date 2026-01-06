@@ -621,6 +621,7 @@ class ThermalOptimizationModel(OptimisationModel):
         # Set-up the objective function given by eq. (2) in the documentation.
         # If self.T_stable = 0, we don't need to include automatedContractedReservesUp and automatedContractedReservesDown to the objective function.
         # otherwise we need to include them.
+        self.set_direction(direction)
         self.add_objective(
             objective_expr=(
                 sum(
@@ -647,7 +648,6 @@ class ThermalOptimizationModel(OptimisationModel):
                 * self.automated_unsupplied_reserves
             ),
         )
-        self.set_direction(direction)
 
     def determine_combination(self) -> int:
         """Determine which of the 8 constraint combinations to use.

@@ -105,6 +105,7 @@ class StorageModel(OptimisationModel):
         """Creation of objective function"""
 
         # The objective function is the total profit over the optimisation period
+        self.set_direction(direction)
         if nb_fragments == 1:
             self.add_objective(
                 objective_expr=sum(
@@ -117,7 +118,6 @@ class StorageModel(OptimisationModel):
                     for t in self.time_frame
                 )
             )
-            self.set_direction(direction)
         else:
             self.add_objective(
                 objective_expr=sum(
@@ -135,7 +135,6 @@ class StorageModel(OptimisationModel):
                     for t in self.time_frame
                 )
             )
-            self.set_direction(direction)
 
     def solve_with_xpress(self) -> None:
         if self.solver_name != SolverEnum.XPRESS:
