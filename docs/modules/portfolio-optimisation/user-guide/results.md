@@ -3,6 +3,7 @@
 ## Overview
 
 Results are stored in business model objects:
+
 - **Equipment**: `power` attribute (ForecastingMatrix)
 - **Portfolio**: `imbalance` attribute (ForecastingMatrix)
 

@@ -18,10 +18,10 @@ These parameters are inherited from `AbstractParameters`:
 ### Market & Solver
 
 - **`market`** (MarketType, default: `dayahead`): Market type for optimization
-  - Options: `"DayAhead"`, `"Intraday"`, `"RRActivation"`, `"MFRRActivation"`
+    * Options: `"DayAhead"`, `"Intraday"`, `"RRActivation"`, `"MFRRActivation"`
 
 - **`solver`** (SolverEnum, default: `XPRESS`): Optimization solver to use
-  - Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`
+    * Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`
 
 - **`solver_timeout`** (Duration, default: 60 seconds): Maximum solve time
 
@@ -32,25 +32,25 @@ These parameters are inherited from `AbstractParameters`:
 ### Optimization Scope
 
 - **`is_portfolio_bidding`** (bool, default: True):
-  - `True`: Optimize at portfolio level
-  - `False`: Optimize individual units
+    * `True`: Optimize at portfolio level
+    * `False`: Optimize individual units
 
 - **`use_forecast`** (bool, default: False):
-  - `True`: Use price forecasts (optimization before market)
-  - `False`: Use actual prices
+    * `True`: Use price forecasts (optimization before market)
+    * `False`: Use actual prices
 
 ### Exclusions
 
 - **`excluded_market_areas`** (str, default: None): Market areas to exclude from optimization
-  - Format: Semicolon-separated list (e.g., `"FR;DE"`)
-  - Special values: `"all"` or `"none"`
+    * Format: Semicolon-separated list (e.g., `"FR;DE"`)
+    * Special values: `"all"` or `"none"`
 
 - **`excluded_technologies`** (str, default: None): Equipment types to exclude
-  - Format: Semicolon-separated list
-  - Special values: `"all"` or `"none"`
+    * Format: Semicolon-separated list
+    * Special values: `"all"` or `"none"`
 
 - **`excluded_thermal_strategy`** (str, default: None): Thermal strategies to manually activate
-  - Options: `"Peak"`, `"Intermediate"`, `"Base"`, `"all"`, `None`
+    * Options: `"Peak"`, `"Intermediate"`, `"Base"`, `"all"`, `None`
 
 ## Time Horizons
 
