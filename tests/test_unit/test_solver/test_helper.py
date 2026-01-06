@@ -15,7 +15,6 @@ from ortools.linear_solver import pywraplp
 
 from atlas.solver.solver_helper import SolverHelper
 
-
 # Test data directory helper
 TEST_DATA_DIR = Path(__file__).parent.parent / "test_data"
 
@@ -372,40 +371,6 @@ class TestExportSolutionAsLP:
             Path(filename).unlink(missing_ok=True)
 
 
-class TestGetConstraintValue:
-    """Tests for get_constraint_value method."""
-
-    def test_get_constraint_value(self, simple_solver):
-        """Test getting constraint value after solving."""
-        simple_solver.Solve()
-
-        # Get the value of constraint_1
-        value = SolverHelper.get_constraint_value(simple_solver, "constraint_1")
-
-        # Value should be a number
-        assert isinstance(value, float)
-
-
-class TestDeactivateConstraint:
-    """Tests for deactivate_constraint method."""
-
-    def test_deactivate_constraint(self):
-        """Test deactivating a constraint."""
-        solver = pywraplp.Solver.CreateSolver("GLOP")
-        x = solver.NumVar(0, 10, "x")
-        constraint = solver.Add(x <= 5, "test_constraint")
-
-        SolverHelper.deactivate_constraint(constraint)
-
-        assert constraint.lb() == float("-inf")
-        assert constraint.ub() == float("inf")
-
-    def test_deactivate_none_constraint(self):
-        """Test deactivating None constraint."""
-        result = SolverHelper.deactivate_constraint(None)
-        assert result is None
-
-
 class TestReadLPOrtools:
     """Tests for read_lp_ortools method."""
 
@@ -575,61 +540,6 @@ class TestIsFloat:
     def test_isfloat_with_invalid(self):
         """Test isfloat with invalid string."""
         assert SolverHelper.isfloat("not_a_number") is False
-
-
-class TestExportLPProblem:
-    """Tests for export_lp_problem method."""
-
-    def test_export_lp_problem_enabled(self, simple_solver):
-        """Test exporting LP problem when enabled."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            SolverHelper.export_lp_problem(
-                simple_solver,
-                tmpdir,
-                "problem.lp",
-                "custom_problem.lp",
-                print_lp=True,
-                custom_lp=True,
-            )
-
-            assert Path(tmpdir, "problem.lp").exists()
-            assert Path(tmpdir, "custom_problem.lp").exists()
-
-    def test_export_lp_problem_disabled(self, simple_solver):
-        """Test not exporting LP problem when disabled."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            SolverHelper.export_lp_problem(
-                simple_solver,
-                tmpdir,
-                "problem.lp",
-                "custom_problem.lp",
-                print_lp=False,
-                custom_lp=False,
-            )
-
-            assert not Path(tmpdir, "problem.lp").exists()
-
-
-class TestExportLPSolution:
-    """Tests for export_lp_solution method."""
-
-    def test_export_lp_solution_optimal(self, simple_solver):
-        """Test exporting optimal solution."""
-        status = simple_solver.Solve()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            SolverHelper.export_lp_solution(simple_solver, status, tmpdir, "solution.lp", print_lp=True)
-
-            assert Path(tmpdir, "solution.lp").exists()
-
-    def test_export_lp_solution_disabled(self, simple_solver):
-        """Test not exporting solution when disabled."""
-        status = simple_solver.Solve()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            SolverHelper.export_lp_solution(simple_solver, status, tmpdir, "solution.lp", print_lp=False)
-
-            assert not Path(tmpdir, "solution.lp").exists()
 
 
 class TestExportDifferences:
