@@ -470,7 +470,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                     continue
                 da_ptdf = mc_market_area_ptdf.da_ptdf.set_frequency(
                     self.input_dataset.parameters.time_step, False
-                ).filter(self.input_dataset.times)
+                ).filter(self.input_dataset.times)  # type: ignore[arg-type]
                 flow += da_ptdf
 
             match self.input_dataset.parameters.market:
