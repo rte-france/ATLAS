@@ -41,8 +41,6 @@ optimized_power = thermal1.power.get_forecast(
   "export_result": true,
   "solver": "XPRESS",
   "timestep": "PT1H",
-  "thermal_additional_hours": "PT12H",
-  "battery_additional_hours": "PT48H"
 }
 ```
 
@@ -83,16 +81,6 @@ params = {
 }
 ```
 
-**Custom time horizons**:
-```python
-params = {
-    "timestep": "PT1H",
-    "thermal_additional_hours": "PT24H",
-    "battery_additional_hours": "PT72H",
-    "hydraulic_additional_hours": "PT168H",
-    ...
-}
-```
 
 **Adjust penalties**:
 ```python

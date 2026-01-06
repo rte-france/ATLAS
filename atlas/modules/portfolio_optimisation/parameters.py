@@ -145,26 +145,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
         default_factory=lambda: duration(hours=12),
         description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",  # type: ignore[assignment]
     )
-    battery_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=48),
-        description="Optimization period in hours for Storage Equipments of type Battery.",  # type: ignore[assignment]
-    )
-    electric_vehicle_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=24),
-        description="Optimization period in hours for Storage Equipments of type ElectricVehicle.",  # type: ignore[assignment]
-    )
-    hydraulic_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=12),
-        description="Optimization period in hours for hydraulic group.",  # type: ignore[assignment]
-    )
-    pumped_hydraulic_storage_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=144),
-        description="Optimization period in hours for Storage Equipments of type PumpedHydraulicStorage.",  # type: ignore[assignment]
-    )
-    thermal_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=12),
-        description="Optimization period in hours for thermal group.",  # type: ignore[assignment]
-    )
     timestep: Duration = Field(
         default_factory=lambda: duration(hours=1),
         description="Time step of the simulated market.",  # type: ignore[assignment]

@@ -17,6 +17,8 @@ These parameters are inherited from `AbstractParameters`:
 
 ### Market & Solver
 
+- **`timestep`** (Duration, default: 1 hour): Time step of the market
+
 - **`market`** (MarketType, default: `dayahead`): Market type for optimization
     * Options: `"DayAhead"`, `"Intraday"`, `"RRActivation"`, `"MFRRActivation"`
 
@@ -52,23 +54,6 @@ These parameters are inherited from `AbstractParameters`:
 - **`excluded_thermal_strategy`** (str, default: None): Thermal strategies to manually activate
     * Options: `"Peak"`, `"Intermediate"`, `"Base"`, `"all"`, `None`
 
-## Time Horizons
-
-Different equipment types have different optimization horizons:
-
-- **`timestep`** (Duration, default: 1 hour): Time step of the market
-
-- **`additional_hours`** (Duration, default: 12 hours): Default optimization period for PV, Wind, Load
-
-- **`thermal_additional_hours`** (Duration, default: 12 hours): Optimization period for thermal units
-
-- **`hydraulic_additional_hours`** (Duration, default: 12 hours): Optimization period for hydro units
-
-- **`battery_additional_hours`** (Duration, default: 48 hours): Optimization period for batteries
-
-- **`pumped_hydraulic_storage_additional_hours`** (Duration, default: 144 hours): Optimization period for pumped storage
-
-- **`electric_vehicle_additional_hours`** (Duration, default: 24 hours): Optimization period for EVs
 
 ## Penalties & Pricing
 
@@ -151,8 +136,6 @@ Different equipment types have different optimization horizons:
   "is_portfolio_bidding": true,
   "use_forecast": false,
   "use_multiprocessing": true,
-  "thermal_additional_hours": "PT12H",
-  "battery_additional_hours": "PT48H"
 }
 ```
 

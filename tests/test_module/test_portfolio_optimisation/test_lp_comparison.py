@@ -34,7 +34,6 @@ def base_parameters_dict():
         "use_multiprocessing": False,
         "use_presolve": False,
         "solver_timeout": "PT120S",  # ISO 8601 duration format
-        "electric_vehicle_additional_hours": "PT24H",
         "battery_smoothing_factor": 0.1,
         "small_imbalance_size": 0.15,
         "small_imbalance_penalty": 0.05,
