@@ -16,7 +16,6 @@ import pytest
 from atlas.io_utils.input_loader import InputLoader
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.solver.solver_helper import SolverHelper
-from tests.conftest import requires_xpress
 
 # Test data directories
 THERMAL_COMBINATIONS_DIR = Path("data/atlas-dataset/thermals")
@@ -57,7 +56,6 @@ def thermal_combination_number(request):
     return combination_num, combination_name, combination_dir, reference_lp
 
 
-@requires_xpress
 class TestThermalCombinationLPComparison:
     """Tests for comparing generated LP files against reference LP files."""
 
@@ -66,10 +64,10 @@ class TestThermalCombinationLPComparison:
         _combination_num, combination_name, combination_dir, reference_lp = thermal_combination_number
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Update parameters to export LP
             params_dict = base_parameters_dict.copy()
             params_dict["export_lp"] = True
             params_dict["export_lp_path"] = tmpdir
+            params_dict["solver"] = "SCIP"
 
             input_data = InputLoader.from_directory(combination_dir)
 
