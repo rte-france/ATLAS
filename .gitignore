@@ -181,7 +181,6 @@ data/
 *.csv
 *.parquet
 *.pickle
-*.lp
 *.pkl
 *.yml
 *.yaml
@@ -196,3 +195,6 @@ commit.sh
 test.py
 parameters.yaml
 CLAUDE.md
+
+# folders
+lp_validation/
