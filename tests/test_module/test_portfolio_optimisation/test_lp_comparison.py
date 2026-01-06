@@ -67,7 +67,7 @@ class TestThermalCombinationLPComparison:
             params_dict = base_parameters_dict.copy()
             params_dict["export_lp"] = True
             params_dict["export_lp_path"] = tmpdir
-            params_dict["solver"] = "SCIP"
+            params_dict["solver_name"] = "SCIP"
 
             input_data = InputLoader.from_directory(combination_dir)
 
