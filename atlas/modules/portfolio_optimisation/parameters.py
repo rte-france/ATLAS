@@ -13,7 +13,7 @@ from pydantic import Field
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enum import MarketType, SolverEnum, StorageType, ThermalStrategy
+from atlas.enum import MarketType, StorageType, ThermalStrategy
 from atlas.timing import generate_datetimes
 
 
@@ -135,10 +135,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
     market: MarketType = Field(
         MarketType.dayahead,
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
-    )
-    solver: SolverEnum = Field(
-        SolverEnum.XPRESS,
-        description='Solver to use. Default: "XPRESS". Other options: "PNE", "GLOP", "SCIP", "CP-SAT".',
     )
 
     additional_hours: Duration = Field(
