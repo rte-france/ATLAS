@@ -15,8 +15,8 @@ class ThermalDAO(Thermal):
     variable_cost: Timeseries | LazyTimeseries
     startup_cost: Timeseries | LazyTimeseries
     minimum_time_on: Duration
-    maximum_power: Timeseries | LazyTimeseries
-    minimum_power: Timeseries | LazyTimeseries
+    maximum_power: Timeseries
+    minimum_power: Timeseries
     minimum_stable_power_duration: Duration
     maximum_daily_energy: Timeseries | LazyTimeseries
     minimum_time_off: Duration

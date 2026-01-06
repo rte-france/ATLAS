@@ -141,7 +141,6 @@ class ThermalPeakLoadOrders:
                 else:
                     # Flexible order
                     self.create_order_and_link(
-                        generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
@@ -159,7 +158,6 @@ class ThermalPeakLoadOrders:
                 if automated_reserves_down_procured.get_value(t) > 0.0:
                     # This order will be the child of the current inflexible order.
                     self.create_order_and_link(
-                        generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
@@ -175,7 +173,6 @@ class ThermalPeakLoadOrders:
                 if manual_reserves_down_procured.get_value(t) > 0.0:
                     # This order will be the child of the current inflexible order.
                     self.create_order_and_link(
-                        generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
@@ -191,7 +188,6 @@ class ThermalPeakLoadOrders:
                 if automated_reserves_up_procured.get_value(t) > 0.0:
                     # This order will be the child of the current flexible order.
                     self.create_order_and_link(
-                        generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
@@ -207,7 +203,6 @@ class ThermalPeakLoadOrders:
                 if manual_reserves_up_procured.get_value(t) > 0.0:
                     # This order will be the child of the current flexible order.
                     self.create_order_and_link(
-                        generate_inflexible_order=generate_inflexible_order,
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
@@ -221,7 +216,6 @@ class ThermalPeakLoadOrders:
 
     def create_order_and_link(
         self,
-        generate_inflexible_order: bool,
         inflexible_order: OrderDAO | None,
         t: DateTime,
         unit: Equipment,
@@ -248,7 +242,7 @@ class ThermalPeakLoadOrders:
         )
         self.dataset.order.append(order)
 
-        if generate_inflexible_order:
+        if inflexible_order is not None:
             # Parent-children link between the flexible and inflexible parts
             link = OrderCouplingDAO(name=link_name, coupling_type=CouplingType.PARENT_CHILDREN)
             link.coupling_type = CouplingType.PARENT_CHILDREN

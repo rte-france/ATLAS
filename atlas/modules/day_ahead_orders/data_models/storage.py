@@ -7,7 +7,7 @@ class StorageDAO(Storage):
     maximum_energy: Timeseries | LazyTimeseries
     minimum_power: Timeseries | LazyTimeseries
     maximum_power: Timeseries | LazyTimeseries
-    variable_cost: Timeseries | LazyTimeseries
+    variable_cost: Timeseries
     displacement_energy: Timeseries | LazyTimeseries
     storage_initial_level: float
     minimum_state_of_charge: Timeseries | LazyTimeseries

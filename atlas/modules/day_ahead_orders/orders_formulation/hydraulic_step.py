@@ -149,6 +149,7 @@ class HydraulicStep:
                     if v != 0:
                         # Assign a unique name.
                         bid_name = f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}"
+                        bid_qmax = v
 
                         # Initialize the order object
                         bid_output = OrderDAO(
@@ -156,7 +157,7 @@ class HydraulicStep:
                             market_area=equipment.portfolio.market_area,
                             portfolio=equipment.portfolio,
                             equipment=equipment,
-                            qmax=v,
+                            qmax=bid_qmax,
                             qmin=0,
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
@@ -176,7 +177,7 @@ class HydraulicStep:
 
                         coupling_instance.orders.append(bid_output)
 
-                        submitted_volumes.set_or_add_value(t, bid_output.qmax)
+                        submitted_volumes.set_or_add_value(t, bid_qmax)
 
             dataset.order_coupling.append(coupling_instance)
             if equipment.da_sell_submitted_volume is None:
