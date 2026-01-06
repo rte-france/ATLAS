@@ -15,6 +15,7 @@ from atlas import Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
 from atlas.timing import generate_datetimes
@@ -56,7 +57,9 @@ class HydraulicStep:
                 end_date,
                 parameters.time_step,
             )
-            submitted_volumes = Timeseries.from_index(parameters.start_date, parameters.time_step, end_date, 0)
+            submitted_volumes = DAOTimeseries(
+                Timeseries.from_index(parameters.start_date, parameters.time_step, end_date, 0)
+            )
 
             local_max_energy = (
                 equipment.maximum_energy.set_frequency(parameters.time_step, False)
@@ -173,7 +176,7 @@ class HydraulicStep:
 
                         coupling_instance.orders.append(bid_output)
 
-                        submitted_volumes.sum_value_at(t, bid_output.qmax)
+                        submitted_volumes.set_or_add_value(t, bid_output.qmax)
 
             dataset.order_coupling.append(coupling_instance)
             if equipment.da_sell_submitted_volume is None:

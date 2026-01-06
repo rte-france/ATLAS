@@ -12,6 +12,7 @@ from atlas import SolverOptions, Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, StorageType
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
@@ -55,11 +56,11 @@ class StorageStep:
 
             cfg.logger.debug(f"Equipment {str(storage.name)}")
 
-            buy_submitted_volumes = Timeseries.from_index(
-                self.parameters.start_date, self.parameters.time_step, end_date, 0
+            buy_submitted_volumes = DAOTimeseries(
+                Timeseries.from_index(self.parameters.start_date, self.parameters.time_step, end_date, 0)
             )
-            sell_submitted_volumes = Timeseries.from_index(
-                self.parameters.start_date, self.parameters.time_step, end_date, 0
+            sell_submitted_volumes = DAOTimeseries(
+                Timeseries.from_index(self.parameters.start_date, self.parameters.time_step, end_date, 0)
             )
 
             # if the stock of the equipment at start date is not defined, initiate it
@@ -128,10 +129,10 @@ class StorageStep:
 
                 for t in [i for i, e in Qa.items()]:
                     self.add_spot_order_with_coupling(OrderType.Buy, storage, t, Qa[t], Ppurchase, coupling_instance)
-                    buy_submitted_volumes.sum_value_at(t, Qa[t])
+                    buy_submitted_volumes.set_or_add_value(t, Qa[t])
                 for t in [i for i, e in Qv.items()]:
                     self.add_spot_order_with_coupling(OrderType.Sell, storage, t, Qv[t], Psale, coupling_instance)
-                    sell_submitted_volumes.sum_value_at(t, Qv[t])
+                    sell_submitted_volumes.set_or_add_value(t, Qv[t])
 
                 self.dataset.order_coupling.append(coupling_instance)
 
@@ -145,10 +146,10 @@ class StorageStep:
 
                 for t in [i for i, e in Qa.items()]:
                     self.add_spot_order_with_coupling(OrderType.Buy, storage, t, Qa[t], Ppurchase, coupling_instance)
-                    buy_submitted_volumes.sum_value_at(t, Qa[t])
+                    buy_submitted_volumes.set_or_add_value(t, Qa[t])
                 for t in [i for i, e in Qv.items()]:
                     self.add_spot_order_with_coupling(OrderType.Sell, storage, t, Qv[t], Psale, coupling_instance)
-                    sell_submitted_volumes.sum_value_at(t, Qv[t])
+                    sell_submitted_volumes.set_or_add_value(t, Qv[t])
 
                 # Fill the COMPLEMENT order coupling
                 coupling_instance.coupling_type = CouplingType.COMPLEMENT
