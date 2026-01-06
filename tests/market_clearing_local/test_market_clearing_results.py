@@ -8,16 +8,15 @@ from atlas.modules.market_clearing.marker_clearing_module import MarketClearingM
 from atlas.modules.market_clearing.phases.market_clearing_results import MarketClearingResults
 
 
-
-#@pytest.mark.skip(reason="No data available")
+@pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
-        #"MarketClearing input v1.3 FB_1",
-        #"MarketClearing input v1.3 FB_2",
+        "MarketClearing input v1.3 FB_1",
+        "MarketClearing input v1.3 FB_2",
         "MarketClearing input v1.3 ATC_1",
-        #"MarketClearing input v1.3 ATC_2"
-    ]
+        "MarketClearing input v1.3 ATC_2",
+    ],
 )
 def test_compare_lp(dataset_name):
     path = os.path.join("data", "market_clearing_prometheus", dataset_name)
