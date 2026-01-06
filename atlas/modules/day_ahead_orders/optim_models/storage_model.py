@@ -115,9 +115,9 @@ class StorageModel(OptimisationModel):
                     * self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, 0))
                     * self.parameters.time_step.total_hours()
                     for t in self.time_frame
-                ),
-                direction=direction,
+                )
             )
+            self.set_direction(direction)
         else:
             self.add_objective(
                 objective_expr=sum(
@@ -133,9 +133,9 @@ class StorageModel(OptimisationModel):
                         for i in range(nb_fragments)
                     )
                     for t in self.time_frame
-                ),
-                direction=direction,
+                )
             )
+            self.set_direction(direction)
 
     def solve_with_xpress(self) -> None:
         if self.solver_name != SolverEnum.XPRESS:

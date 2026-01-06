@@ -128,10 +128,10 @@ class StorageStep:
 
                 for t in [i for i, e in Qa.items()]:
                     self.add_spot_order_with_coupling(OrderType.Buy, storage, t, Qa[t], Ppurchase, coupling_instance)
-                    buy_submitted_volumes.add_value_at(t, Qa[t])
+                    buy_submitted_volumes.sum_value_at(t, Qa[t])
                 for t in [i for i, e in Qv.items()]:
                     self.add_spot_order_with_coupling(OrderType.Sell, storage, t, Qv[t], Psale, coupling_instance)
-                    sell_submitted_volumes.add_value_at(t, Qv[t])
+                    sell_submitted_volumes.sum_value_at(t, Qv[t])
 
                 self.dataset.order_coupling.append(coupling_instance)
 
@@ -145,10 +145,10 @@ class StorageStep:
 
                 for t in [i for i, e in Qa.items()]:
                     self.add_spot_order_with_coupling(OrderType.Buy, storage, t, Qa[t], Ppurchase, coupling_instance)
-                    buy_submitted_volumes.add_value_at(t, Qa[t])
+                    buy_submitted_volumes.sum_value_at(t, Qa[t])
                 for t in [i for i, e in Qv.items()]:
                     self.add_spot_order_with_coupling(OrderType.Sell, storage, t, Qv[t], Psale, coupling_instance)
-                    sell_submitted_volumes.add_value_at(t, Qv[t])
+                    sell_submitted_volumes.sum_value_at(t, Qv[t])
 
                 # Fill the COMPLEMENT order coupling
                 coupling_instance.coupling_type = CouplingType.COMPLEMENT

@@ -645,8 +645,8 @@ class ThermalOptimizationModel(OptimisationModel):
                 * (self.parameters.time_step.total_hours())
                 * self.automated_unsupplied_reserves
             ),
-            direction=direction,
         )
+        self.set_direction(direction)
 
     def determine_combination(self) -> int:
         """Determine which of the 8 constraint combinations to use.

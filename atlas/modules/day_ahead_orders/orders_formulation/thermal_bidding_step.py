@@ -101,7 +101,7 @@ class ThermalBiddingStep:
                 and order.start_date in self.orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
-                    da_sell_submitted_volumes[order.equipment.name].add_value_at(order.start_date, order.qmax)
+                    da_sell_submitted_volumes[order.equipment.name].sum_value_at(order.start_date, order.qmax)
                 else:
                     list_of_relevant_orders_intermediate.append(order)
 
@@ -185,7 +185,7 @@ class ThermalBiddingStep:
         # Uncoupled orders or orders coupled to non exclusive groups (COMPLEMENT for instance)
         for order in list_of_relevant_orders_intermediate:
             if not already_considered_orders[order.name]:
-                da_sell_submitted_volumes[order.equipment.name].add_value_at(order.start_date, order.qmax)
+                da_sell_submitted_volumes[order.equipment.name].sum_value_at(order.start_date, order.qmax)
 
         # --- Export ---
         for equipment in self.dataset.thermal:
@@ -199,7 +199,7 @@ class ThermalBiddingStep:
 
                 if programms:
                     for t in self.orders_time:
-                        da_sell_submitted_volume.add_value_at(t, programm.max())
+                        da_sell_submitted_volume.sum_value_at(t, programm.max())
                 equipment.da_sell_submitted_volume = da_sell_submitted_volume
 
             else:
@@ -229,7 +229,7 @@ class ThermalBiddingStep:
                         return current_programm, already_considered_orders_n
 
         # Else, we add it to the current programm
-        current_programm.add_value_at(current_order.start_date, current_order.qmax)
+        current_programm.sum_value_at(current_order.start_date, current_order.qmax)
         already_considered_orders_n.append(current_order.name)
 
         # Then, we search for connected orders

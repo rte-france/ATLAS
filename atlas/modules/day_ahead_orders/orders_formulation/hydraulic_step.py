@@ -173,7 +173,7 @@ class HydraulicStep:
 
                         coupling_instance.orders.append(bid_output)
 
-                        submitted_volumes.add_value_at(t, bid_output.qmax)
+                        submitted_volumes.sum_value_at(t, bid_output.qmax)
 
             dataset.order_coupling.append(coupling_instance)
             if equipment.da_sell_submitted_volume is None:
