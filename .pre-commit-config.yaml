@@ -11,7 +11,9 @@ repos:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
     -   id: check-added-large-files
-        args: ['--maxkb=2000']  # Set max file size to 1000KB (1MB), default is 500KB
+        args: ['--maxkb=2000']  # Set max file size to 2000KB (2MB), default is 500KB
+    -   id: check-yaml
+        exclude: 'mkdocs.yml'  # Exclude mkdocs.yml due to !!python/name: tags
     -   id: check-toml
     -   id: check-merge-conflict
     -   id: check-json

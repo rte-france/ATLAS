@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from os import getcwd
+
 from pendulum import DateTime, duration
 from pydantic import Field
 from pydantic_extra_types.pendulum_dt import Duration
@@ -18,7 +20,11 @@ from atlas.timing import generate_datetimes
 class PortfolioOptimisationParameters(AbstractParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
-    debug: bool = Field(False, description="Boolean indicating if the PO is in debug mode.")
+    export_lp: bool = Field(False, description="Boolean indicating if the LP model should be exported to a file.")
+    export_lp_path: str = Field(
+        lambda: getcwd(),
+        description="Directory path where LP files will be exported if export_lp is True.",
+    )
     is_portfolio_bidding: bool = Field(
         True, description="True if optimization is on portfolios, False for individual units."
     )

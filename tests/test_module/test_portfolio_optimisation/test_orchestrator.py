@@ -12,7 +12,6 @@ import pytest
 from atlas.enum import MarketType, SolverStatus
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
-from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.portfolio_orchestrator import (
@@ -85,6 +84,8 @@ class TestOptimiseSinglePortfolio:
         params.solver_duality_gap = 0.0001
         params.solver_timeout = pendulum.duration(seconds=300)
         params.market = MarketType.dayahead
+        params.export_lp = False
+        params.export_lp_path = "/tmp/lp_files"
         return params
 
     @pytest.fixture
@@ -99,6 +100,10 @@ class TestOptimiseSinglePortfolio:
     @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioOptimisationModel")
     def test_successful_optimization(self, mock_model_class, mock_portfolio, mock_parameters, time_window):
         """Test successful portfolio optimization."""
+        # Setup mock portfolio with equipments (needed for exception handling)
+        mock_portfolio.equipments = Mock()
+        mock_portfolio.equipments.get_all_equipment.return_value = []
+
         # Setup mock model
         mock_model = Mock()
         mock_model.portfolio = mock_portfolio
@@ -158,6 +163,10 @@ class TestOptimiseSinglePortfolio:
         mock_parameters.use_presolve = True
         mock_parameters.solver_duality_gap = 0.001
         mock_parameters.solver_timeout = pendulum.duration(seconds=600)
+
+        # Setup mock portfolio with equipments (needed for exception handling)
+        mock_portfolio.equipments = Mock()
+        mock_portfolio.equipments.get_all_equipment.return_value = []
 
         # Setup mock model
         mock_model = Mock()
@@ -288,7 +297,6 @@ class TestPortfolioOptimisationOrchestrator:
             return_value=mock_input_dataset.portfolios[0].market_area
         )
 
-        # Mock PortfolioPO constructor
         mock_portfolio_instance = Mock(spec=PortfolioPO)
         mock_portfolio_instance.name = "wind_1"
         mock_portfolio_instance.market_area = Mock()

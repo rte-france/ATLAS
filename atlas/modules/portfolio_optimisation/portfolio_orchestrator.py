@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from pendulum import DateTime
 
@@ -87,7 +88,12 @@ def optimise_single_portfolio(
     try:
         model.set_direction("minimize")
         model.build(time_window)
-        model.export_model(f"lp_validation/generated_lp/po_{portfolio.name}.lp")
+
+        if parameters.export_lp:
+            lp_dir = Path(parameters.export_lp_path)
+            lp_dir.mkdir(parents=True, exist_ok=True)
+            model.export_model(str(lp_dir / f"po_{portfolio.name}.lp"))
+
         model.solve()
 
         variable_values = {var_name: model.get_variable_value(var_name) for var_name in model._variables_name}
