@@ -16,6 +16,7 @@ module.run(raw_data, raw_params)
 ```
 
 Where:
+
 - `raw_data`: Dictionary of business model objects (portfolios, equipment, market areas)
 - `raw_params`: Parameter dictionary or path to JSON/YAML file
 
