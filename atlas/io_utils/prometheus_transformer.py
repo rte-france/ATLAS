@@ -6,6 +6,7 @@ datasets, including objects, timeseries, scenario matrices, and forecasting matr
 
 import os
 import shutil
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -84,15 +85,19 @@ class PrometheusToAtlasDataParser:
         logger.info(f"Removing existing directory: {self.output_dir}")
         shutil.rmtree(self.output_dir)
 
-    def process(self) -> None:
+    def process(self, use_multiprocessing: bool = True, n_workers: int | None = None) -> None:
         """Main processing method to convert Prometheus HDF5 data to Atlas format.
 
         This method orchestrates the entire conversion process:
         1. Reads HDF5 file structure
         2. Creates output directory structure
-        3. Processes each object type and instance
+        3. Processes each object type and instance (in parallel if enabled)
         4. Converts timeseries/matrices to parquet format
         5. Exports object attributes to CSV
+
+        Args:
+            use_multiprocessing: Whether to use multiprocessing for parallel execution
+            n_workers: Number of worker processes. If None, uses os.cpu_count()
         """
         logger.info("Starting the parsing process.")
 
@@ -104,17 +109,28 @@ class PrometheusToAtlasDataParser:
             _ensure_directory(objects_dir)
 
             for object_type in object_types:
-                self._process_object_type(hdf5_file, object_type, objects_dir)
+                self._process_object_type(hdf5_file, object_type, objects_dir, use_multiprocessing, n_workers)
 
-        logger.success("Export done to Atlas dataset!")
+        logger.success(f"Export done to Atlas dataset - {self.output_dir}!")
 
-    def _process_object_type(self, hdf5_file: h5py.File, object_type: str, objects_dir: Path) -> None:
+    def _process_object_type(
+        self,
+        hdf5_file: h5py.File,
+        object_type: str,
+        objects_dir: Path,
+        use_multiprocessing: bool = False,
+        n_workers: int | None = None,
+    ) -> None:
         """Process a single object type from the HDF5 file.
+
+        Parallelizes processing at the instance level if enabled.
 
         Args:
             hdf5_file: Opened HDF5 file handle
             object_type: Name of the object type to process
             objects_dir: Directory where object CSV files will be written
+            use_multiprocessing: Whether to parallelize instance processing
+            n_workers: Number of worker processes
         """
         object_type_snake = to_snake_case(object_type)
 
@@ -142,13 +158,45 @@ class PrometheusToAtlasDataParser:
         for matrix_type in MATRIX_TYPES:
             _ensure_directory(self.output_dir / matrix_type / object_type_snake)
 
-        attrs_list = []
-        for instance in instances:
-            attrs = self._process_instance(group, instance, object_type, object_type_snake)
-            attrs_list.append(attrs)
+        # Process instances in parallel or sequentially
+        if use_multiprocessing and len(instances) > 1:
+            n_workers = n_workers or min(os.cpu_count() or 1, len(instances))
+            logger.info(f"Processing {len(instances)} instances in parallel using {n_workers} workers")
+
+            with ProcessPoolExecutor(max_workers=n_workers) as executor:
+                futures = [
+                    executor.submit(self._process_instance_wrapper, instance, object_type, object_type_snake)
+                    for instance in instances
+                ]
+                attrs_list = [future.result() for future in futures]
+        else:
+            if use_multiprocessing:
+                logger.info(f"Processing {len(instances)} instance(s) sequentially (only 1 instance)")
+            attrs_list = []
+            for instance in instances:
+                attrs = self._process_instance(group, instance, object_type, object_type_snake)
+                attrs_list.append(attrs)
 
         if attrs_list:
             self._write_object_csv(attrs_list, objects_dir, object_type_snake)
+
+    def _process_instance_wrapper(self, instance: str, object_type: str, object_type_snake: str) -> dict[str, Any]:
+        """Wrapper for processing an instance that opens its own HDF5 file handle.
+
+        This is needed for multiprocessing since HDF5 file handles cannot be shared
+        across processes.
+
+        Args:
+            instance: Name of the instance to process
+            object_type: Original object type name from HDF5
+            object_type_snake: Snake-case name of the object type
+
+        Returns:
+            Dictionary of attributes for this instance
+        """
+        with h5py.File(self.hdf5_path, "r") as hdf5_file:
+            group = hdf5_file[object_type]
+            return self._process_instance(group, instance, object_type, object_type_snake)
 
     def _process_instance(
         self, group: h5py.Group, instance: str, object_type: str, object_type_snake: str
