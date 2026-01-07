@@ -14,7 +14,6 @@ import numpy as np
 import numpy.typing as npt
 import pendulum
 import polars as pl
-import yaml
 
 import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
@@ -53,7 +52,7 @@ class PrometheusToAtlasDataParser:
     Args:
         timeseries_path: Path to directory containing CSV timeseries files
         hdf5_path: Path to the HDF5 file containing object metadata
-        root_input_directory: Root directory for the output Atlas dataset
+        output_dir: Root directory for the output Atlas dataset
         date_format_forecasting: Date format for forecasting matrix columns
         date_format_input_files: Date format for input file timestamps
         date_format_timestep: Date format for timestep column in CSV files
@@ -63,27 +62,27 @@ class PrometheusToAtlasDataParser:
         self,
         timeseries_path: str | Path,
         hdf5_path: str | Path,
-        root_input_directory: str | Path,
+        output_dir: str | Path,
         date_format_forecasting: str = DEFAULT_DATE_FORMAT_FORECASTING,
         date_format_input_files: str = DEFAULT_DATE_FORMAT_INPUT,
         date_format_timestep: str = DEFAULT_DATE_FORMAT_TIMESTEP,
     ) -> None:
         self.hdf5_path = Path(hdf5_path)
-        self.root_input_directory = Path(root_input_directory)
+        self.output_dir = Path(output_dir)
         self.timeseries_path = Path(timeseries_path)
         self.date_format_forecasting = date_format_forecasting
         self.date_format_input_files = date_format_input_files
         self.date_format_timestep = date_format_timestep
 
-        logger.info(f"Initialized parser with HDF5 path: {self.hdf5_path} and output root: {self.root_input_directory}")
+        logger.info(f"Initialized parser with HDF5 path: {self.hdf5_path} and output root: {self.output_dir}")
 
-        if self.root_input_directory.exists():
+        if self.output_dir.exists():
             self._remove_root_directory()
 
     def _remove_root_directory(self) -> None:
         """Remove the existing root directory and all its contents."""
-        logger.info(f"Removing existing directory: {self.root_input_directory}")
-        shutil.rmtree(self.root_input_directory)
+        logger.info(f"Removing existing directory: {self.output_dir}")
+        shutil.rmtree(self.output_dir)
 
     def process(self) -> None:
         """Main processing method to convert Prometheus HDF5 data to Atlas format.
@@ -101,7 +100,7 @@ class PrometheusToAtlasDataParser:
             object_types = list(hdf5_file.keys())
             logger.info(f"Found object types: {object_types}")
 
-            objects_dir = self.root_input_directory / "objects"
+            objects_dir = self.output_dir / "objects"
             _ensure_directory(objects_dir)
 
             for object_type in object_types:
@@ -141,7 +140,7 @@ class PrometheusToAtlasDataParser:
 
         # Create matrix directories
         for matrix_type in MATRIX_TYPES:
-            _ensure_directory(self.root_input_directory / matrix_type / object_type_snake)
+            _ensure_directory(self.output_dir / matrix_type / object_type_snake)
 
         attrs_list = []
         for instance in instances:
@@ -218,8 +217,8 @@ class PrometheusToAtlasDataParser:
         # Validate attribute exists in model
         model_fields = cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys()
         if attr_name_snake not in model_fields:
-            logger.warning(
-                f"The attribute {attr_name_snake} is not present in Atlas model object: {object_type_snake}, skipping it."
+            logger.debug(
+                f"The attribute '{attr_name_snake}' is not present in Atlas model object: {object_type_snake}, skipping it."
             )
             return
 
@@ -430,7 +429,7 @@ class PrometheusToAtlasDataParser:
             attrs[attr_name_snake] = None
             return
 
-        parquet_path = self.root_input_directory / matrix_type / object_type_snake / f"{instance_snake}.parquet"
+        parquet_path = self.output_dir / matrix_type / object_type_snake / f"{instance_snake}.parquet"
 
         if parquet_path.exists():
             # Concatenate with existing data
@@ -599,51 +598,6 @@ class PrometheusToAtlasDataParser:
         logger.success(f"Wrote attributes CSV for {object_type_snake} to {csv_path}")
 
 
-# Utility functions
-
-
-def deep_update(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
-    """Recursively update the base dictionary with overrides.
-
-    Args:
-        base: Base dictionary to update
-        overrides: Dictionary with override values
-
-    Returns:
-        Updated dictionary
-    """
-    for key, value in overrides.items():
-        if isinstance(value, dict) and isinstance(base.get(key), dict):
-            base[key] = deep_update(base.get(key, {}), value)
-        else:
-            base[key] = value
-    return base
-
-
-def load_config(config_path: Path) -> dict[str, Any]:
-    """Load configuration by overriding defaults with values from a YAML file.
-
-    Args:
-        config_path: Path to YAML configuration file
-
-    Returns:
-        Configuration dictionary
-    """
-    config = DEFAULT_VALUE_IO.copy()
-
-    if not config_path.exists():
-        logger.debug("Config file not found at %s. Using defaults.", config_path)
-        return config
-
-    try:
-        with config_path.open("r", encoding="utf-8") as f:
-            user_config = yaml.safe_load(f) or {}
-        return deep_update(config, user_config)
-    except (yaml.YAMLError, OSError) as e:
-        logger.warning("Failed to load config from %s: %s", config_path, e)
-        return config
-
-
 def _ensure_directory(path: Path) -> None:
     """Ensure a directory exists, creating it if necessary.
 
@@ -716,3 +670,25 @@ def _array_is_scalar(arr: Any) -> bool:
         return bool(arr_flat.size == 1 or np.all(arr_flat == arr_flat[0]))
     except Exception:
         return False
+
+
+def _find_hdf5_files(directory: Path) -> list[Path]:
+    """
+    Find all valid HDF5 files in the given directory.
+    """
+
+    if not directory.exists():
+        return []
+
+    files = [f for f in directory.iterdir() if f.is_file() and not f.name.startswith(".")]
+
+    valid_hdf5_files = []
+    for file_path in files:
+        try:
+            # Try to open the file as HDF5
+            with h5py.File(file_path, "r") as _:
+                valid_hdf5_files.append(file_path)
+        except (OSError, ValueError, KeyError):
+            continue
+
+    return valid_hdf5_files
