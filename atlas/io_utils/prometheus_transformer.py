@@ -8,7 +8,7 @@ import os
 import shutil
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import h5py  # type: ignore[import-untyped]
 import numpy as np
@@ -529,7 +529,6 @@ class PrometheusToAtlasDataParser:
             logger.debug(f"Scalar attribute: {attr_name_snake} = {attrs[attr_name_snake]}")
 
         elif isinstance(val, np.ndarray) and val.ndim == 1:
-            # Handle 1D arrays as delimited strings
             attrs[attr_name_snake] = self._process_array_attribute(val, object_type_snake, attr_name_snake)
 
         else:
@@ -574,11 +573,9 @@ class PrometheusToAtlasDataParser:
         Returns:
             Resolved type annotation
         """
-        from typing import get_args
 
         type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
         try:
-            # Get the sub-type if it's a Union or List
             return get_args(type_attribute)[0]
         except (IndexError, TypeError):
             return type_attribute
@@ -594,12 +591,9 @@ class PrometheusToAtlasDataParser:
         Returns:
             Colon-delimited string representation
         """
-        from typing import get_args
 
-        # Decode bytes if necessary
         items: list[Any] = [item.decode("utf-8") if isinstance(item, bytes) else item for item in val]
 
-        # Convert to snake_case if referencing model objects
         type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
         if type_attribute is not None:
             try:
@@ -720,7 +714,7 @@ def _array_is_scalar(arr: Any) -> bool:
         return False
 
 
-def _find_hdf5_files(directory: Path) -> list[Path]:
+def find_hdf5_files(directory: Path) -> list[Path]:
     """
     Find all valid HDF5 files in the given directory.
     """

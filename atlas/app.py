@@ -6,58 +6,9 @@ import typer
 from rich import print as rprint
 
 import atlas
-from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, _find_hdf5_files
+from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 
 app = typer.Typer()
-
-
-def _process_single_module(
-    module_dir: Path,
-    output_root_dir: Path,
-    date_format_forecasting: str,
-    date_format_input_files: str,
-    date_format_timestep: str,
-) -> tuple[str, bool, str | None]:
-    """Process a single module directory.
-
-    Args:
-        module_dir: Path to the module directory
-        output_root_dir: Root directory for outputs
-        date_format_forecasting: Date format for forecasting matrices
-        date_format_input_files: Date format for input files
-        date_format_timestep: Date format for timestep column
-
-    Returns:
-        Tuple of (module_name, success, error_message)
-    """
-    ts_dir = module_dir / "ts"
-    if not ts_dir.exists() or not ts_dir.is_dir():
-        return (module_dir.name, False, "No 'ts' directory found")
-
-    # Find valid HDF5 files
-    hdf5_files = _find_hdf5_files(module_dir)
-
-    if len(hdf5_files) == 0:
-        return (module_dir.name, False, "No valid HDF5 file found")
-    elif len(hdf5_files) > 1:
-        return (module_dir.name, False, f"Multiple HDF5 files found ({len(hdf5_files)})")
-
-    hdf5_file = hdf5_files[0]
-    output_dir = output_root_dir / module_dir.name
-
-    try:
-        transformer = PrometheusToAtlasDataParser(
-            timeseries_path=ts_dir,
-            hdf5_path=hdf5_file,
-            output_dir=output_dir,
-            date_format_forecasting=date_format_forecasting,
-            date_format_input_files=date_format_input_files,
-            date_format_timestep=date_format_timestep,
-        )
-        transformer.process()
-        return (module_dir.name, True, None)
-    except Exception as e:
-        return (module_dir.name, False, str(e))
 
 
 @app.command()
@@ -154,7 +105,6 @@ def prometheus_to_atlas_recursive(
 
     rprint(f"\n[bold cyan]Scanning directory:[/bold cyan] {root_dir}")
 
-    # Collect all valid module directories
     module_dirs = []
     for module_dir in sorted(root_dir.iterdir()):
         if module_dir.is_dir() and (module_dir / "ts").exists() and (module_dir / "ts").is_dir():
@@ -222,3 +172,51 @@ def prometheus_to_atlas_recursive(
     if modules_processed == 0:
         rprint("\n[bold yellow]No modules were processed.[/bold yellow]")
         raise typer.Exit(code=1)
+
+
+def _process_single_module(
+    module_dir: Path,
+    output_root_dir: Path,
+    date_format_forecasting: str,
+    date_format_input_files: str,
+    date_format_timestep: str,
+) -> tuple[str, bool, str | None]:
+    """Process a single module directory.
+
+    Args:
+        module_dir: Path to the module directory
+        output_root_dir: Root directory for outputs
+        date_format_forecasting: Date format for forecasting matrices
+        date_format_input_files: Date format for input files
+        date_format_timestep: Date format for timestep column
+
+    Returns:
+        Tuple of (module_name, success, error_message)
+    """
+    ts_dir = module_dir / "ts"
+    if not ts_dir.exists() or not ts_dir.is_dir():
+        return (module_dir.name, False, "No 'ts' directory found")
+
+    hdf5_files = find_hdf5_files(module_dir)
+
+    if len(hdf5_files) == 0:
+        return (module_dir.name, False, "No valid HDF5 file found")
+    elif len(hdf5_files) > 1:
+        return (module_dir.name, False, f"Multiple HDF5 files found ({len(hdf5_files)})")
+
+    hdf5_file = hdf5_files[0]
+    output_dir = output_root_dir / module_dir.name
+
+    try:
+        transformer = PrometheusToAtlasDataParser(
+            timeseries_path=ts_dir,
+            hdf5_path=hdf5_file,
+            output_dir=output_dir,
+            date_format_forecasting=date_format_forecasting,
+            date_format_input_files=date_format_input_files,
+            date_format_timestep=date_format_timestep,
+        )
+        transformer.process()
+        return (module_dir.name, True, None)
+    except Exception as e:
+        return (module_dir.name, False, str(e))
