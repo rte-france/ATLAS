@@ -9,9 +9,12 @@ Module that implements LazyMatrix
 
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
+from typing import Self
 
 import pandas as pd
+import pendulum
 import polars as pl
 
 from atlas.io_utils.utils import scan_data_file
@@ -199,3 +202,23 @@ class LazyMatrix:
         # Select time and the specified column, rename to 'value'
         lazy_ts = self.matrix.select(["time", index]).rename({index: "value"})
         return LazyTimeseries(lazy_ts, timezone=self.timezone)
+
+    def set_frequency(self, frequency: str | timedelta | pendulum.Duration, inplace: bool = True) -> Self:
+        """
+        Change the frequency (timestep) of all scenario time series in the lazy matrix.
+
+        This method collects the lazy frame, applies set_frequency, then converts back to lazy.
+
+        :param frequency: The desired frequency. Can be a string (e.g., '1d', '15m') or a `pendulum.Duration`.
+        :type frequency: str or pendulum.Duration
+        :param inplace: If True, modifies the object in place. If False, returns a new modified object.
+        :type inplace: bool
+        :return: The resampled lazy scenario matrix, either modified in place or as a new object.
+        :rtype: LazyScenarioMatrix
+        """
+        resampled_sm = self.collect().set_frequency(frequency, inplace=False)
+        if inplace:
+            self.matrix = resampled_sm.to_lazy()
+            return self
+        else:
+            return self.__class__(resampled_sm.to_lazy(), timezone=self.timezone)
