@@ -219,7 +219,7 @@ class OutputGenerator:
                         elif isinstance(dump_value[field_name], dict):
                             rows[idx_next_row] += str(dump_value[field_name]["name"])
                         elif isinstance(dump_value[field_name], list):
-                            rows[idx_next_row] += ':'.join(map(str, dump_value[field_name][0]))
+                            rows[idx_next_row] += ':'.join(map(str, dump_value[field_name]))
                         else:
                             rows[idx_next_row] += str(dump_value[field_name])
 

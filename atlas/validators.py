@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from timing import parse_frequency
 import pendulum
 from pendulum import duration
 from pendulum.duration import Duration
@@ -36,7 +37,6 @@ def parse_list_float(value: Any) -> list[float] | None:
 
 def convert_to_duration(
     value: Any,
-    default_unit: str = "hours",
     allow_zero: bool = True,
 ) -> pendulum.Duration | None:
     """
@@ -44,7 +44,6 @@ def convert_to_duration(
 
     Args:
         value: Input value to convert to Duration
-        default_unit: Default unit for numeric values ("hours", "minutes", "seconds")
         allow_zero: Whether to allow zero duration (negative values never allowed)
 
     Returns:
@@ -55,7 +54,8 @@ def convert_to_duration(
 
     Supported input formats:
         - None -> None
-        - int/float with default_unit (e.g., 2.5 -> 2.5 hours)
+        - string like '15m', '1h', or '1d30m'
+        - Duration as string using format iso_8601
         - Duration objects (both Pydantic and Pendulum) -> passthrough
     """
     if value is None:
@@ -64,22 +64,12 @@ def convert_to_duration(
     # Handle existing Duration objects
     if isinstance(value, Duration):
         duration_obj = value
-    elif isinstance(value, int | float):
-        # Numeric value with default unit
-        if default_unit == "hours":
-            duration_obj = duration(hours=value)
-        elif default_unit == "minutes":
-            duration_obj = duration(minutes=value)
-        elif default_unit == "seconds":
-            duration_obj = duration(seconds=value)
-        else:
-            raise ValueError(f"Unsupported default_unit: {default_unit}")
     elif isinstance(value, str):
-        duration_obj = pendulum.parse(value)
+        duration_obj = parse_frequency(value)
     else:
         raise ValueError(
             f"Cannot convert {type(value).__name__} to Duration. "
-            f"Supported types: None, int, float, Duration objects. Got: {value}"
+            f"Supported types: None, str, Duration objects. Got: {value}"
         )
 
     # Validation - negative values never allowed for time durations

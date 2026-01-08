@@ -9,6 +9,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Literal, cast
+from pendulum.duration import Duration
 
 import pendulum
 import polars as pl
@@ -107,6 +108,12 @@ def parse_frequency(freq: str) -> pendulum.Duration:
     :return: A pendulum Duration object representing the frequency
     :rtype: pendulum.Duration
     """
+
+    iso_format = pendulum.parse(freq)
+    if isinstance(iso_format, Duration):
+        return iso_format
+    if freq == "P": # function pendulum.parse() fails to read "P" as "PT0H"
+        return Duration(0)
 
     unit_map = {
         "y": "years",
