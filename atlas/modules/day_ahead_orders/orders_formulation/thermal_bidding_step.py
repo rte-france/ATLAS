@@ -10,7 +10,6 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas import Thermal, Timeseries
 from atlas.enum import CouplingType, Product, ThermalStrategy
-from atlas.models.market.order import Order
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
@@ -96,7 +95,7 @@ class ThermalBiddingStep:
         }
 
         # Getting only relevant orders
-        list_of_relevant_orders_intermediate: list[Order] = []
+        list_of_relevant_orders_intermediate: list[OrderDAO] = []
         for order in self.dataset.order:
             if (
                 order.product == Product.DayAhead
@@ -104,7 +103,9 @@ class ThermalBiddingStep:
                 and order.start_date in self.orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
-                    da_sell_submitted_volumes[order.equipment.name].set_or_add_value(order.start_date, order.qmax)
+                    da_sell_submitted_volumes[order.equipment.name].set_or_add_value(
+                        order.start_date, order.qmax if order.qmax is not None else 0
+                    )
                 else:
                     list_of_relevant_orders_intermediate.append(order)
 
@@ -190,7 +191,9 @@ class ThermalBiddingStep:
         # Uncoupled orders or orders coupled to non exclusive groups (COMPLEMENT for instance)
         for order in list_of_relevant_orders_intermediate:
             if not already_considered_orders[order.name]:
-                da_sell_submitted_volumes[order.equipment.name].set_or_add_value(order.start_date, order.qmax)
+                da_sell_submitted_volumes[order.equipment.name].set_or_add_value(
+                    order.start_date, order.qmax if order.qmax is not None else 0
+                )
 
         # --- Export ---
         for equipment in self.dataset.thermal:
@@ -236,7 +239,9 @@ class ThermalBiddingStep:
                         return current_programm, already_considered_orders_n
 
         # Else, we add it to the current programm
-        current_programm.set_or_add_value(current_order.start_date, current_order.qmax)
+        current_programm.set_or_add_value(
+            current_order.start_date, current_order.qmax if current_order.qmax is not None else 0
+        )
         already_considered_orders_n.append(current_order.name)
 
         # Then, we search for connected orders
