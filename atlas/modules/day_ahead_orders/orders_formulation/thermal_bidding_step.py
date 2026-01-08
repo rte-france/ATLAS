@@ -45,6 +45,12 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load
 # . Functions used to extract sequences and states
 
 
+class Coupling:
+    def __init__(self, orders: list[OrderDAO], coupling_type: str = ""):
+        self.coupling_type = coupling_type
+        self.orders = orders
+
+
 class ThermalBiddingStep:
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
@@ -111,49 +117,34 @@ class ThermalBiddingStep:
 
         # --- Intermediate ---
         # Creation of a reversed dic of all coupling in which a given order is involved
-        unit_order_coupling_list: dict[str, list] = {}
+        unit_order_coupling_list: dict[str, Coupling] = {}
         for coupling_instance in self.dataset.order_coupling:
             for order_index, order in enumerate(coupling_instance.orders):
-                if order not in list_of_relevant_orders_intermediate:
-                    continue
-
-                new_coupling = []
-
-                if coupling_instance.coupling_type == CouplingType.EXCLUSION:
-                    new_coupling.append(CouplingType.EXCLUSION)
-                    for coupled_order_index, coupled_order in enumerate(coupling_instance.orders):
-                        if coupled_order_index == order_index:
-                            continue
-                        new_coupling.append(coupled_order)
-
-                elif coupling_instance.coupling_type == CouplingType.PARENT_CHILDREN:
-                    new_coupling.append("PARENT")
-                    if order_index == 0:
-                        # order is parent
-                        for coupled_order_index, coupled_order in enumerate(coupling_instance.orders):
-                            if coupled_order_index == 0:
-                                continue
-                            new_coupling.append(coupled_order)
-
+                if order in list_of_relevant_orders_intermediate:
+                    if coupling_instance.coupling_type == CouplingType.EXCLUSION:
+                        others = [o for o in coupling_instance.orders if o is not order]
+                        new_coupling = Coupling(others, CouplingType.EXCLUSION)
+                    elif coupling_instance.coupling_type == CouplingType.PARENT_CHILDREN:
+                        if order_index == 0:
+                            # order is parent
+                            new_coupling = Coupling(coupling_instance.orders[1:], "PARENT")
+                        else:
+                            # order is child
+                            new_coupling = Coupling([coupling_instance.orders[0]], "CHILD")
+                    elif coupling_instance.coupling_type == CouplingType.IDENTICAL_VOLUME:
+                        others = [o for o in coupling_instance.orders if o is not order]
+                        new_coupling = Coupling(others, CouplingType.IDENTICAL_VOLUME)
                     else:
-                        # order is child
-                        new_coupling = ["CHILD", coupling_instance.orders[0]]
+                        # COMPLEMENT are not supposed to be connected by EXCLUSION couplings and are ignored
+                        cfg.logger.warning(
+                            "COMPLEMENT are not supposed to be connected by EXCLUSION couplings and are ignored"
+                        )
+                        break
 
-                elif coupling_instance.coupling_type == CouplingType.IDENTICAL_VOLUME:
-                    new_coupling.append(CouplingType.IDENTICAL_VOLUME)
-                    for coupled_order_index, coupled_order in enumerate(coupling_instance.orders):
-                        if coupled_order_index == order_index:
-                            continue
-                        new_coupling.append(coupled_order)
+                    if order.name not in unit_order_coupling_list:
+                        unit_order_coupling_list[order.name] = Coupling([])
 
-                else:
-                    # COMPLEMENT are not supposed to be connected by EXCLUSION couplings and are ignored
-                    break
-
-                if order.name not in unit_order_coupling_list:
-                    unit_order_coupling_list[order.name] = []
-
-                unit_order_coupling_list[order.name].append(new_coupling)
+                    unit_order_coupling_list[order.name] = new_coupling
 
         # This stored already considered orders to prevent double counting
         # We use a dic to access elements using hashing to improve compute time
@@ -218,7 +209,7 @@ class ThermalBiddingStep:
     def graph_search_of_connected_orders(
         self,
         current_order: OrderDAO,
-        unit_order_coupling_list: dict[str, list],
+        unit_order_coupling_list: dict[str, Coupling],
         current_programm: DAOTimeseries,
         already_considered_orders_n: list[str],
     ) -> tuple[DAOTimeseries, list[str]]:
@@ -232,11 +223,11 @@ class ThermalBiddingStep:
             return current_programm, already_considered_orders_n
 
         # If current_order is mutually exclusive with one order of the current_programm, we ignore it
-        for coupling in unit_order_coupling_list[current_order.name]:
-            if coupling[0] == CouplingType.EXCLUSION:
-                for coupled_order in coupling[1:]:
-                    if coupled_order.name in already_considered_orders_n:
-                        return current_programm, already_considered_orders_n
+        coupling = unit_order_coupling_list[current_order.name]
+        if coupling.coupling_type == CouplingType.EXCLUSION:
+            for coupled_order in coupling.orders:
+                if coupled_order.name in already_considered_orders_n:
+                    return current_programm, already_considered_orders_n
 
         # Else, we add it to the current programm
         current_programm.set_or_add_value(
@@ -244,13 +235,9 @@ class ThermalBiddingStep:
         )
         already_considered_orders_n.append(current_order.name)
 
-        # Then, we search for connected orders
-        for coupling in unit_order_coupling_list[current_order.name]:
-            # Exclusion orders are already dealt with
-            if coupling[0] == CouplingType.EXCLUSION:
-                continue
-
-            for coupled_order in coupling[1:]:
+        # Then, we search for connected orders Exclusion orders are already dealt with
+        if coupling.coupling_type != CouplingType.EXCLUSION:
+            for coupled_order in coupling.orders:
                 if coupled_order.name not in already_considered_orders_n:
                     current_programm, already_considered_orders_n = self.graph_search_of_connected_orders(
                         coupled_order, unit_order_coupling_list, current_programm, already_considered_orders_n
