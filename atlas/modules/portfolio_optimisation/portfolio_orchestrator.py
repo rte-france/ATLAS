@@ -61,7 +61,7 @@ class PortfolioOptimisationResult:
         return self.portfolio.name
 
     def __repr__(self) -> str:
-        return f"PortfolioOptimisationResult(portfolio={self.portfolio.name}, optimisation_status={self.solution_info.status})"
+        return f"PortfolioOptimisationResult(portfolio={self.portfolio.name}"
 
 
 def optimise_single_portfolio(
