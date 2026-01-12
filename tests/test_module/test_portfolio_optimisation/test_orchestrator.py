@@ -79,7 +79,7 @@ class TestOptimiseSinglePortfolio:
     @pytest.fixture
     def mock_parameters(self):
         """Create mock parameters."""
-        params = Mock(spec=PortfolioOptimisationParameters)
+        params = Mock()
         params.use_presolve = False
         params.solver_duality_gap = 0.0001
         params.solver_timeout = pendulum.duration(seconds=300)
@@ -194,12 +194,15 @@ class TestPortfolioOptimisationOrchestrator:
     @pytest.fixture
     def mock_parameters(self):
         """Create mock parameters."""
-        params = Mock(spec=PortfolioOptimisationParameters)
+        params = Mock()
         params.is_portfolio_bidding = True
         params.use_multiprocessing = False
         params.max_workers = None
         params.market = MarketType.dayahead
         params.use_forecast = False
+        params.start_date = pendulum.datetime(2024, 1, 1)
+        params.end_date = pendulum.datetime(2024, 1, 2)
+        params.execution_date = pendulum.datetime(2024, 1, 1)
         return params
 
     @pytest.fixture

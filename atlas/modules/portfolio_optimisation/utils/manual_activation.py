@@ -48,8 +48,31 @@ def set_manual_activation(equipments: list[EquipmentPO], parameters: PortfolioOp
 
 
 def is_excluded_technology(excluded_technologies: list[str], equipment: type[Equipment]) -> bool:
-    """Check if equipment technology is excluded."""
-    return equipment.__class__.__name__ in excluded_technologies if excluded_technologies != ["all"] else True
+    """Check if equipment technology is excluded.
+
+    Supports both friendly names (e.g., 'thermal', 'storage', 'wind') and technical class names (e.g., 'ThermalPO').
+    """
+    if excluded_technologies == ["all"]:
+        return True
+
+    mapping_name = {
+        "thermal": "ThermalPO",
+        "storage": "StoragePO",
+        "wind": "WindPO",
+        "solar": "SolarPO",
+        "hydro": "HydroPO",
+        "load": "LoadPO",
+        "other_non_dispatchable": "OtherNonDispatchablePO",
+    }
+
+    equipment_class_name = equipment.__class__.__name__
+
+    for excluded in excluded_technologies:
+        if excluded.lower() in mapping_name:
+            if equipment_class_name == mapping_name[excluded.lower()]:
+                return True
+
+    return False
 
 
 def is_excluded_thermal_strategy(excluded_thermal_strategies: list[ThermalStrategy], equipment: ThermalPO) -> bool:

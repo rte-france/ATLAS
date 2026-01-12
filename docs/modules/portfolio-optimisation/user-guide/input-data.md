@@ -48,7 +48,8 @@ These parameters are inherited from `AbstractParameters`:
     * Special values: `["all"]` or `["none"]`
 
 - **`excluded_technologies`** (list[str], default: None): Equipment types to exclude
-    * Format: List of strings (e.g., `["ThermalPO", "WindPO"]`)
+    * Format: List of strings (e.g., `["thermal", "wind"]`)
+    * Options: `"thermal"`, `"storage"`, `"wind"`, `"solar"`, `"hydro"`, `"load"`, `"other_non_dispatchable"`
     * Special values: `["all"]` or `["none"]`
 
 - **`excluded_thermal_strategy`** (list[str], default: None): Thermal strategies to manually activate
@@ -138,7 +139,7 @@ These parameters are inherited from `AbstractParameters`:
   "use_forecast": false,
   "use_multiprocessing": true,
   "excluded_market_areas": ["FR", "DE"],
-  "excluded_technologies": ["ThermalPO"],
+  "excluded_technologies": ["thermal"],
   "excluded_thermal_strategy": ["Peak"]
 }
 ```

@@ -4,16 +4,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pendulum
 import pytest
 
 from atlas import Portfolio
-from atlas.enum import LoadType, MarketType, ThermalStrategy
+from atlas.enum import LoadType, MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.solar import Solar
