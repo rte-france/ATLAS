@@ -36,6 +36,14 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimizat
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 
 
+class NamedTimeseries(Timeseries):
+    """Utility class used in get_unique_cases"""
+
+    def __init__(self, name: str, timeseries: Timeseries):
+        super().__init__(timeseries)
+        self.name = name
+
+
 class ThermalIntermediateLoadOrders(ThermalUnitOrders):
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
@@ -93,13 +101,8 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     for block in overlapping_blocks:
                         # Get the two start dates of the colliding blocks and their names (i.e. cases)
                         start_date_order_1, start_date_order_2 = block[0].first_date(), block[1].first_date()
-                        case_order_1, case_order_2 = block[0].name, block[1].name
-                        orders_names.append(
-                            f"order_at_{start_date_order_1}_for_unit_{thermal_unit.name}_under_price_{case_order_1}"
-                        )
-                        orders_names.append(
-                            f"order_at_{start_date_order_2}_for_unit_{thermal_unit.name}_under_price_{case_order_2}"
-                        )
+                        orders_names.append(f"order_at_{start_date_order_1}_for_unit_{thermal_unit.name}")
+                        orders_names.append(f"order_at_{start_date_order_2}_for_unit_{thermal_unit.name}")
 
                     # Filter the orders to keep only those with the relevant name.
                     orders_list = [order for order in self.dataset.order if order.name in orders_names]
@@ -170,37 +173,33 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # For each price curve, we collapse all ON states. This is why we needed to know whether the unit has
         # two or three ON states. Due to the mutual exclusion constraint, the resulting serie will take values in {0,1} only.
 
-        collapsed_outcomes: list[Timeseries] = []
+        collapsed_outcomes: list[NamedTimeseries] = []
 
         # consider the two possible cases
         if has_flat:
             for case in scenarios_names:
                 # Aggregate the three ON states
-                isOn_time_serie = (
-                    results[thermal_unit.name][case]["ON_UP"]
+                isOn_time_serie = NamedTimeseries(
+                    timeseries=results[thermal_unit.name][case]["ON_UP"]
                     + results[thermal_unit.name][case]["ON_DOWN"]
-                    + results[thermal_unit.name][case]["ON_FLAT"]
+                    + results[thermal_unit.name][case]["ON_FLAT"],
+                    name=case,  # the name of the new time serie, corresponds to the name of the case under consideration.
                 )
-                # Set the name of the new time serie, corresponds to the name of the case under consideration.
-                isOn_time_serie.name = case
-                # Add this time serie to the list
                 collapsed_outcomes.append(isOn_time_serie)
         else:
             for case in scenarios_names:
                 # Aggregate the two ON states
-                isOn_time_serie = (
-                    results[thermal_unit.name][case]["ON_UP"] + results[thermal_unit.name][case]["ON_DOWN"]
+                isOn_time_serie = NamedTimeseries(
+                    timeseries=results[thermal_unit.name][case]["ON_UP"] + results[thermal_unit.name][case]["ON_DOWN"],
+                    name=case,  # the name of the new time serie, corresponds to the name of the case under consideration.
                 )
-                # Set the name of the new time serie, corresponds to the name of the case under consideration.
-                isOn_time_serie.name = case
-                # Add this time serie to the list
                 collapsed_outcomes.append(isOn_time_serie)
 
         # Now based on the collapsed time series, we are able to do pairwise comparisons across all scenarios and determine whether two of them
         # are overlapping or not.
 
         # list of scenarios to be discarded (if already marked as overlapping)
-        to_discard = []
+        to_discard: list[NamedTimeseries] = []
         for pair in itertools.combinations(collapsed_outcomes, 2):
             if self.is_overlapping(pair):
                 # add the first scenario (arbitrarily) to the list of scenarios to be discarded if
