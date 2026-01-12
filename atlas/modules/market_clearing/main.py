@@ -5,8 +5,6 @@ This file is part of the ATLAS project.
 """
 
 import argparse
-import os
-import pickle
 
 import yaml
 
@@ -27,15 +25,5 @@ if __name__ == "__main__":
         raw_params = yaml.safe_load(r)
 
     mc_module = MarketClearingModule()
-    pkl_path = os.path.join(raw_data_path, "..", "raw_data.pkl")
-    if os.path.exists(pkl_path):
-        print("Chargement rapide depuis un pickle...")
-        with open(pkl_path, "rb") as f:
-            raw_data = pickle.load(f)
-    else:
-        print("Chargement long des données...")
-        raw_data = InputLoader.from_directory(raw_data_path)
-        print("Création d'un pickle...")
-        with open(pkl_path, "wb") as f:
-            pickle.dump(raw_data, f)
+    raw_data = InputLoader.from_directory(raw_data_path)
     mc_module.run(raw_data, raw_params)
