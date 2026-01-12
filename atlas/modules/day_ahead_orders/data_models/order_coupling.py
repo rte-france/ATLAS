@@ -5,11 +5,11 @@ This file is part of the ATLAS project.
 """
 
 from atlas.enum import CouplingType
+from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 
 
 class OrderCouplingDAO(OrderCoupling):
-    orders: list[OrderDAO] = []
+    orders: list[Order] = []
     complement_energy: float = 0.0
     coupling_type: CouplingType

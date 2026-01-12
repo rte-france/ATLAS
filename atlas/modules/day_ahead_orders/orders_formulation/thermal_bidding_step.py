@@ -10,6 +10,7 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas import Thermal, Timeseries
 from atlas.enum import CouplingType, Product, ThermalStrategy
+from atlas.models.market.order import Order
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
@@ -46,7 +47,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load
 
 
 class Coupling:
-    def __init__(self, orders: list[OrderDAO], coupling_type: str = ""):
+    def __init__(self, orders: list[Order], coupling_type: str = ""):
         self.coupling_type = coupling_type
         self.orders = orders
 
@@ -119,10 +120,10 @@ class ThermalBiddingStep:
         # Creation of a reversed dic of all coupling in which a given order is involved
         unit_order_coupling_list: dict[str, Coupling] = {}
         for coupling_instance in self.dataset.order_coupling:
-            for order_index, order in enumerate(coupling_instance.orders):
-                if order in list_of_relevant_orders_intermediate:
+            for order_index, order_from_coupling in enumerate(coupling_instance.orders):
+                if order_from_coupling in list_of_relevant_orders_intermediate:
                     if coupling_instance.coupling_type == CouplingType.EXCLUSION:
-                        others = [o for o in coupling_instance.orders if o is not order]
+                        others = [o for o in coupling_instance.orders if o is not order_from_coupling]
                         new_coupling = Coupling(others, CouplingType.EXCLUSION)
                     elif coupling_instance.coupling_type == CouplingType.PARENT_CHILDREN:
                         if order_index == 0:
@@ -132,7 +133,7 @@ class ThermalBiddingStep:
                             # order is child
                             new_coupling = Coupling([coupling_instance.orders[0]], "CHILD")
                     elif coupling_instance.coupling_type == CouplingType.IDENTICAL_VOLUME:
-                        others = [o for o in coupling_instance.orders if o is not order]
+                        others = [o for o in coupling_instance.orders if o is not order_from_coupling]
                         new_coupling = Coupling(others, CouplingType.IDENTICAL_VOLUME)
                     else:
                         # COMPLEMENT are not supposed to be connected by EXCLUSION couplings and are ignored
@@ -141,10 +142,10 @@ class ThermalBiddingStep:
                         )
                         break
 
-                    if order.name not in unit_order_coupling_list:
-                        unit_order_coupling_list[order.name] = Coupling([])
+                    if order_from_coupling.name not in unit_order_coupling_list:
+                        unit_order_coupling_list[order_from_coupling.name] = Coupling([])
 
-                    unit_order_coupling_list[order.name] = new_coupling
+                    unit_order_coupling_list[order_from_coupling.name] = new_coupling
 
         # This stored already considered orders to prevent double counting
         # We use a dic to access elements using hashing to improve compute time
@@ -175,7 +176,8 @@ class ThermalBiddingStep:
                         [],
                     )
 
-                    list_of_mutually_exclusive_programms[coupled_order.equipment.name].append(programm)
+                    if coupled_order.equipment is not None:
+                        list_of_mutually_exclusive_programms[coupled_order.equipment.name].append(programm)
                     for order_name in list_of_considerer_orders:
                         already_considered_orders[order_name] = True
 
@@ -208,7 +210,7 @@ class ThermalBiddingStep:
 
     def graph_search_of_connected_orders(
         self,
-        current_order: OrderDAO,
+        current_order: Order,
         unit_order_coupling_list: dict[str, Coupling],
         current_programm: DAOTimeseries,
         already_considered_orders_n: list[str],
@@ -230,9 +232,10 @@ class ThermalBiddingStep:
                     return current_programm, already_considered_orders_n
 
         # Else, we add it to the current programm
-        current_programm.set_or_add_value(
-            current_order.start_date, current_order.qmax if current_order.qmax is not None else 0
-        )
+        if current_order.start_date is not None:
+            current_programm.set_or_add_value(
+                current_order.start_date, current_order.qmax if current_order.qmax is not None else 0
+            )
         already_considered_orders_n.append(current_order.name)
 
         # Then, we search for connected orders Exclusion orders are already dealt with
