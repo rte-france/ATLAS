@@ -24,7 +24,7 @@ atlas/modules/portfolio_optimisation/
 
 ## Core Classes
 
-### PortfolioOptimisationModule
+### **`PortfolioOptimisationModule`**
 
 Implements `AbstractModule` with methods:
 
@@ -35,11 +35,11 @@ Implements `AbstractModule` with methods:
 - `validates_results()`: Validates outputs
 - `export_results()`: Updates equipment and portfolio forecasts
 
-### PortfolioOptimisationParameters
+### **`PortfolioOptimisationParameters`**
 
 Pydantic model inheriting from `AbstractParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
 
-### PortfolioOptimisationInputDataset
+### **`PortfolioOptimisationInputDataset`**
 
 Converts business models to portfolio-optimisation-specific models:
 
@@ -48,7 +48,7 @@ Converts business models to portfolio-optimisation-specific models:
 - Creates PO-specific models (ThermalPO, HydroPO, StoragePO, etc.)
 - Calculates optimization time windows
 
-### PortfolioOptimisationOrchestrator
+### **`PortfolioOptimisationOrchestrator`**
 
 Coordinates optimization for multiple portfolios:
 
@@ -56,7 +56,7 @@ Coordinates optimization for multiple portfolios:
 - Handles multiprocessing if enabled
 - Returns optimization results
 
-### PortfolioOptimisationModel
+### **`PortfolioOptimisationModel`**
 
 Extends `OptimisationModel` (solver interface):
 
@@ -64,7 +64,7 @@ Extends `OptimisationModel` (solver interface):
 - Calls solver
 - Returns solution
 
-### PortfolioOptimisationOutputDataset
+### **`PortfolioOptimisationOutputDataset`**
 
 Processes optimization results:
 
