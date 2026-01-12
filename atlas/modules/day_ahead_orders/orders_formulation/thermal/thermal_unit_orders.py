@@ -397,8 +397,6 @@ class ThermalUnitOrders:
             # unfinished startup ramps towards Pmin within the simulation timeframe for border case reasons.
             if K_start > 0:
                 for t, i in zip(start_time_frame, range(K_start + 1), strict=False):
-                    # Initialize the bid.
-
                     # Compute the parameters of the order
                     if T_endSU_in_sim:
                         q_sell = round((T_start - K_start + i) * q_step_up)
@@ -430,8 +428,6 @@ class ThermalUnitOrders:
             # shutdown ramps without the starting point at Pmin within the simulation timeframe for border case reasons.
             if K_stop > 0:
                 for t, i in zip(stop_time_frame, range(K_stop + 1), strict=False):
-                    # Initialize the bid.
-
                     # Compute the quantities to be sold.
                     if T_startSD_in_sim:
                         q_sell = round((T_stop - i) * q_step_down)
@@ -460,7 +456,6 @@ class ThermalUnitOrders:
 
             # Part 3: inflexible orders at Pmin
             for t in flexible_time_frame:
-                # Initialize the inflexible order object.
                 bid_output = OrderDAO(
                     name=f"order_at_{t}_for_unit_{unit.name}_under_price_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
