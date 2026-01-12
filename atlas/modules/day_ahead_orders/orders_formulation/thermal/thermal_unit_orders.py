@@ -19,6 +19,7 @@ from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParamete
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.named_timeseries import NamedTimeseries
 
 
 class ThermalUnitOrders:
@@ -522,7 +523,7 @@ class ThermalUnitOrders:
                 else:
                     order.price -= amortized_cost
 
-    def extract_online_sequences(self, states_sequence: Timeseries) -> list[Timeseries]:
+    def extract_online_sequences(self, states_sequence: Timeseries, case: str = "") -> list[NamedTimeseries]:
         """
         A helper function that extracts online sequence based on a thermal unit states sequence.
 
@@ -562,12 +563,13 @@ class ThermalUnitOrders:
         # If the unit is online over the whole orders_time time frame, then only one interval is generated
         # Otherwise all intervals are generated, using the fact that by construction, there is an even
         # number of time steps in the intervals list.
-        list_of_online_timeframes: list[Timeseries] = []
+        list_of_online_timeframes: list[NamedTimeseries] = []
         if intervals:
             intervals.sort()
             for i in range(int(len(intervals) / 2)):
-                window = states_sequence.slice(intervals[2 * i], intervals[2 * i + 1], "both", False)
-
+                window = NamedTimeseries(
+                    timeseries=states_sequence.slice(intervals[2 * i], intervals[2 * i + 1], "both", False), name=case
+                )
                 # don't add duplicates
                 if len(list_of_online_timeframes) == 0:
                     list_of_online_timeframes.append(window)

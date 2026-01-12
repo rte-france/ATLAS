@@ -20,6 +20,7 @@ from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParamete
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.named_timeseries import NamedTimeseries
 from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_1,
     combination_2,
@@ -34,14 +35,6 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimizat
     ThermalOptimizationModel,
 )
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
-
-
-class NamedTimeseries(Timeseries):
-    """Utility class used in get_unique_cases"""
-
-    def __init__(self, name: str, timeseries: Timeseries):
-        super().__init__(timeseries)
-        self.name = name
 
 
 class ThermalIntermediateLoadOrders(ThermalUnitOrders):
@@ -80,7 +73,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 states_sequence = self.determine_intermediate_load_states_sequence(thermal_unit, res, case)
 
                 # Extract the list of online time frames
-                list_of_online_timeframes = self.extract_online_sequences(states_sequence)
+                list_of_online_timeframes = self.extract_online_sequences(states_sequence, case)
 
                 # Formulate the orders over each online timeframe.
                 for online_timeframe in list_of_online_timeframes:
@@ -101,8 +94,13 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     for block in overlapping_blocks:
                         # Get the two start dates of the colliding blocks and their names (i.e. cases)
                         start_date_order_1, start_date_order_2 = block[0].first_date(), block[1].first_date()
-                        orders_names.append(f"order_at_{start_date_order_1}_for_unit_{thermal_unit.name}")
-                        orders_names.append(f"order_at_{start_date_order_2}_for_unit_{thermal_unit.name}")
+                        case_order_1, case_order_2 = block[0].name, block[1].name
+                        orders_names.append(
+                            f"order_at_{start_date_order_1}_for_unit_{thermal_unit.name}_under_price_{case_order_1}"
+                        )
+                        orders_names.append(
+                            f"order_at_{start_date_order_2}_for_unit_{thermal_unit.name}_under_price_{case_order_2}"
+                        )
 
                     # Filter the orders to keep only those with the relevant name.
                     orders_list = [order for order in self.dataset.order if order.name in orders_names]
@@ -271,7 +269,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         return states_sequence
 
-    def get_overlapping_timeframes(self, online_timeframes: list[Timeseries]) -> list[tuple[Timeseries, Timeseries]]:
+    def get_overlapping_timeframes(
+        self, online_timeframes: list[NamedTimeseries]
+    ) -> list[tuple[NamedTimeseries, NamedTimeseries]]:
         """
         Given a list of timeframes, returns the subset of overlapping timeframes.
 
@@ -282,18 +282,20 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         `overlapping_blocks` : a list of tuples of overlapping blocks
         """
         # Initialize the output
-        overlapping_blocks: list[tuple[Timeseries, Timeseries]] = []
+        overlapping_blocks: list[tuple[NamedTimeseries, NamedTimeseries]] = []
 
         # Test the potential overlaps
         for pair in itertools.combinations(online_timeframes, 2):
             # Unwrap the start date and end dates of the pairs
+            name_pair_1, name_pair_2 = pair[0].name, pair[1].name
             start_pair_1, end_pair_1 = pair[0].first_date(), pair[0].last_date()
             start_pair_2, end_pair_2 = pair[1].first_date(), pair[1].last_date()
 
             # Test whether the dates are overlapping or not.
             is_overlapping = False
-            if start_pair_1 <= start_pair_2 <= end_pair_1 or start_pair_2 <= start_pair_1 <= end_pair_2:
-                is_overlapping = True
+            if name_pair_1 != name_pair_2:
+                if start_pair_1 <= start_pair_2 <= end_pair_1 or start_pair_2 <= start_pair_1 <= end_pair_2:
+                    is_overlapping = True
 
             # Save the first dates of the colliding blocks.
             if is_overlapping:
