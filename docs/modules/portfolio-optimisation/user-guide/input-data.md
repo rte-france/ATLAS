@@ -22,7 +22,7 @@ These parameters are inherited from `AbstractParameters`:
 - **`market`** (MarketType, default: `dayahead`): Market type for optimization
     * Options: `"DayAhead"`, `"Intraday"`, `"RRActivation"`, `"MFRRActivation"`
 
-- **`solver`** (SolverEnum, default: `XPRESS`): Optimization solver to use
+- **`solver_name`** (SolverEnum, default: `XPRESS`): Optimization solver to use
     * Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`
 
 - **`solver_timeout`** (Duration, default: 60 seconds): Maximum solve time
@@ -43,16 +43,17 @@ These parameters are inherited from `AbstractParameters`:
 
 ### Exclusions
 
-- **`excluded_market_areas`** (str, default: None): Market areas to exclude from optimization
-    * Format: Semicolon-separated list (e.g., `"FR;DE"`)
-    * Special values: `"all"` or `"none"`
+- **`excluded_market_areas`** (list[str], default: None): Market areas to exclude from optimization
+    * Format: List of strings (e.g., `["FR", "DE"]`)
+    * Special values: `["all"]` or `["none"]`
 
-- **`excluded_technologies`** (str, default: None): Equipment types to exclude
-    * Format: Semicolon-separated list
-    * Special values: `"all"` or `"none"`
+- **`excluded_technologies`** (list[str], default: None): Equipment types to exclude
+    * Format: List of strings (e.g., `["ThermalPO", "WindPO"]`)
+    * Special values: `["all"]` or `["none"]`
 
-- **`excluded_thermal_strategy`** (str, default: None): Thermal strategies to manually activate
-    * Options: `"Peak"`, `"Intermediate"`, `"Base"`, `"all"`, `None`
+- **`excluded_thermal_strategy`** (list[str], default: None): Thermal strategies to manually activate
+    * Format: List of strings (e.g., `["Peak", "Base"]`)
+    * Options: `["Peak"]`, `["Intermediate"]`, `["Base"]`, `["all"]`, `["none"]`, or `None`
 
 
 ## Penalties & Pricing
@@ -130,12 +131,15 @@ These parameters are inherited from `AbstractParameters`:
   "execution_date": "2023-12-31T12:00:00",
   "export_result": true,
   "market": "DayAhead",
-  "solver": "XPRESS",
+  "solver_name": "XPRESS",
   "solver_timeout": "PT60S",
   "timestep": "PT1H",
   "is_portfolio_bidding": true,
   "use_forecast": false,
   "use_multiprocessing": true,
+  "excluded_market_areas": ["FR", "DE"],
+  "excluded_technologies": ["ThermalPO"],
+  "excluded_thermal_strategy": ["Peak"]
 }
 ```
 

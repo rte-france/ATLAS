@@ -19,7 +19,7 @@ params = {
     "end_date": "2024-01-02T00:00:00",
     "execution_date": "2023-12-31T12:00:00",
     "export_result": True,
-    "solver": "XPRESS",
+    "solver_name": "XPRESS",
     "timestep": "PT1H"
 }
 
@@ -39,7 +39,7 @@ optimized_power = thermal1.power.get_forecast(
   "end_date": "2024-01-02T00:00:00",
   "execution_date": "2023-12-31T12:00:00",
   "export_result": true,
-  "solver": "XPRESS",
+  "solver_name": "XPRESS",
   "timestep": "PT1H",
 }
 ```
@@ -58,9 +58,9 @@ params = {"is_portfolio_bidding": False, ...}
 **Exclude equipment**:
 ```python
 params = {
-    "excluded_technologies": "wind;solar",
-    "excluded_thermal_strategy": "Peak",
-    "excluded_market_areas": "FR",
+    "excluded_technologies": ["wind", "solar"],
+    "excluded_thermal_strategy": ["Peak"],
+    "excluded_market_areas": ["FR"],
     ...
 }
 ```
@@ -73,7 +73,7 @@ params = {"use_multiprocessing": True, "max_workers": 4, ...}
 **Solver options**:
 ```python
 params = {
-    "solver": "SCIP",
+    "solver_name": "SCIP",
     "solver_timeout": "PT300S",
     "solver_duality_gap": 0.001,
     "use_presolve": True,

@@ -64,7 +64,6 @@ def prometheus_to_atlas_recursive(
 ) -> None:
     """
     Recursively convert all Prometheus datasets in a folder to Atlas format.
-
     Expects a directory structure where each module has:
 
     - A 'ts' folder containing timeseries CSV files
@@ -84,16 +83,6 @@ def prometheus_to_atlas_recursive(
     └── market-clearing/
         ├── ts/
         └── uuid-file.hdf5
-
-    Args:
-        root_dir: Root directory containing module subdirectories
-        output_root_dir: Root directory for output datasets
-        date_format_forecasting: Date format for forecasting matrices
-        date_format_input_files: Date format for input files
-        date_format_timestep: Date format for timestep column
-        use_mp: Whether to process modules in parallel (default: True)
-        n_workers: Number of worker processes. If None, uses os.cpu_count()
-
     """
     if not root_dir.exists():
         rprint(f"[bold red]Error:[/bold red] Root directory not found: {root_dir}")

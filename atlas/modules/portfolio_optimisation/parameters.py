@@ -117,19 +117,19 @@ class PortfolioOptimisationParameters(AbstractParameters):
         default_factory=lambda: duration(seconds=60),
         description="Timeout (in seconds) of the optimization.",  # type: ignore[assignment]
     )
-    excluded_market_areas_: str | None = Field(
+    excluded_market_areas_: list[str] | None = Field(
         None,
-        description='list of market areas (separated by ";") excluded from classic optimization. None and "all" are possible values.',
+        description='list of market areas excluded from classic optimization. None and ["all"] are possible values.',
         alias="excluded_market_areas",
     )
-    excluded_technologies_: str | None = Field(
+    excluded_technologies_: list[str] | None = Field(
         None,
-        description='list of equipment types (separated by ";") excluded from classic optimization. None and "all" are possible values.',
+        description='list of equipment types excluded from classic optimization. None and ["all"] are possible values.',
         alias="excluded_technologies",
     )
-    excluded_thermal_strategies_: str | None = Field(
+    excluded_thermal_strategies_: list[str] | None = Field(
         None,
-        description='list of thermal strategies (separated by ";") for which manual activation is always used. "Peak", "Intermediate", "Base", "all", None.',
+        description='list of thermal strategies for which manual activation is always used. "Peak", "Intermediate", "Base", ["all"], None.',
         alias="excluded_thermal_strategy",
     )
     market: MarketType = Field(
@@ -150,31 +150,37 @@ class PortfolioOptimisationParameters(AbstractParameters):
     def excluded_market_areas(self) -> list[str]:
         """list of market areas excluded from optimization."""
         val = self.excluded_market_areas_
-        if val is None or val.lower() == "none":
+        if val is None:
             return []
-        if val.lower() == "all":
+        if len(val) == 1 and val[0].lower() == "none":
+            return []
+        if len(val) == 1 and val[0].lower() == "all":
             return ["all"]
-        return [area.strip() for area in val.split(";")]
+        return val
 
     @property
     def excluded_technologies(self) -> list[str]:
         """list of technologies excluded from optimization."""
         val = self.excluded_technologies_
-        if val is None or val.lower() == "none":
+        if val is None:
             return []
-        if val.lower() == "all":
+        if len(val) == 1 and val[0].lower() == "none":
+            return []
+        if len(val) == 1 and val[0].lower() == "all":
             return ["all"]
-        return [tech.strip() for tech in val.split(";")]
+        return val
 
     @property
     def excluded_thermal_strategies(self) -> list[str]:
         """list of thermal strategies excluded from optimization."""
         val = self.excluded_thermal_strategies_
-        if val is None or val.lower() == "none":
+        if val is None:
             return []
-        if val.lower() == "all":
+        if len(val) == 1 and val[0].lower() == "none":
+            return []
+        if len(val) == 1 and val[0].lower() == "all":
             return [ThermalStrategy.BASE, ThermalStrategy.INTERMEDIATE, ThermalStrategy.PEAK]
-        return [ThermalStrategy(strat.strip()) for strat in val.split(";")]
+        return [ThermalStrategy(strat) for strat in val]
 
     @property
     def target_times(self) -> list[DateTime]:

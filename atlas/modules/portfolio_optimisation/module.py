@@ -38,7 +38,6 @@ class PortfolioOptimisationModule(
         parameters: PortfolioOptimisationParameters,
     ) -> PortfolioOptimisationInputDataset:
         """Imports data using business objects and parameters."""
-        logger.info("Building Portfolio Optimisation input dataset ..")
         return PortfolioOptimisationInputDataset(raw_data, parameters)
 
     def validate_data(

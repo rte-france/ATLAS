@@ -39,7 +39,7 @@ params = {
     "end_date": "2024-01-02T00:00:00",
     "execution_date": "2023-12-31T12:00:00",
     "export_result": true,
-    "solver": "XPRESS",
+    "solver_name": "XPRESS",
     "timestep": "PT1H"
 }
 
@@ -61,4 +61,4 @@ See [Parameters](input-data.md) for full list.
 
 **Manual activation**: Use `excluded_market_areas`, `excluded_technologies`, or `excluded_thermal_strategy` to exclude equipment from optimization
 
-**Solver**: Choose solver with `solver` parameter and configure `solver_timeout`, `solver_duality_gap`, `use_presolve`
+**Solver**: Choose solver with `solver_name` parameter and configure `solver_timeout`, `solver_duality_gap`, `use_presolve`

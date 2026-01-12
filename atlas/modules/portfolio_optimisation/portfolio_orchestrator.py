@@ -60,6 +60,9 @@ class PortfolioOptimisationResult:
         """Get the portfolio name (for compatibility with model interface)."""
         return self.portfolio.name
 
+    def __repr__(self) -> str:
+        return f"PortfolioOptimisationResult(portfolio={self.portfolio.name}, optimisation_status={self.solution_info.status})"
+
 
 def optimise_single_portfolio(
     portfolio: PortfolioPO, time_window: list[DateTime], parameters: PortfolioOptimisationParameters
@@ -132,7 +135,13 @@ class PortfolioOptimisationOrchestrator:
         (picklable) instead of models with SWIG objects.
         """
         cfg.logger.info(
-            f"Starting Portfolio Optimisation | Portfolios: {len(input_dataset.portfolios)}, Manual Activation: {len(input_dataset.portfolios_manual_activation)}"
+            "Starting Portfolio Optimisation\n"
+            f"  Start Date:          {self.parameters.start_date}\n"
+            f"  End Date:            {self.parameters.end_date}\n"
+            f"  Execution Date:      {self.parameters.execution_date}\n"
+            f"  Portfolios:          {len(input_dataset.portfolios)}\n"
+            f"  Manual Activation:   {len(input_dataset.portfolios_manual_activation)}\n"
+            f"  Mode:                {'Portfolio Bidding' if self.parameters.is_portfolio_bidding else 'Individual Equipment'}\n"
         )
         optimisation_results: dict[str, PortfolioOptimisationResult] = {}
 
@@ -148,13 +157,10 @@ class PortfolioOptimisationOrchestrator:
             cfg.logger.debug("Individual equipment optimisation mode")
 
             if self.parameters.use_multiprocessing:
-                # Use multiprocessing for parallel equipment optimization
                 optimisation_results = self._run_equipment_multiprocessing(input_dataset)
             else:
-                # Use sequential for loop
                 optimisation_results = self._run_equipment_sequential(input_dataset)
 
-            # Process manual activation portfolios (sequential)
             for portfolio_manual in input_dataset.portfolios_manual_activation:
                 for equipment_type, list_equipment in portfolio_manual.equipments.iter_by_type():
                     for equipment in list_equipment:
