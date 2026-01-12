@@ -170,8 +170,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # For each price curve, we collapse all ON states. This is why we needed to know whether the unit has
         # two or three ON states. Due to the mutual exclusion constraint, the resulting serie will take values in {0,1} only.
 
-        # initialize the list of collapsed outcomes
-        collapsed_outcomes = []
+        collapsed_outcomes: list[Timeseries] = []
 
         # consider the two possible cases
         if has_flat:
@@ -182,16 +181,20 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     + results[thermal_unit.name][case]["ON_DOWN"]
                     + results[thermal_unit.name][case]["ON_FLAT"]
                 )
+                # Set the name of the new time serie, corresponds to the name of the case under consideration.
+                isOn_time_serie.name = case
+                # Add this time serie to the list
+                collapsed_outcomes.append(isOn_time_serie)
         else:
             for case in scenarios_names:
                 # Aggregate the two ON states
                 isOn_time_serie = (
                     results[thermal_unit.name][case]["ON_UP"] + results[thermal_unit.name][case]["ON_DOWN"]
                 )
-        # Set the name of the new time serie, corresponds to the name of the case under consideration.
-        isOn_time_serie.name = case
-        # Add this time serie to the list
-        collapsed_outcomes.append(isOn_time_serie)
+                # Set the name of the new time serie, corresponds to the name of the case under consideration.
+                isOn_time_serie.name = case
+                # Add this time serie to the list
+                collapsed_outcomes.append(isOn_time_serie)
 
         # Now based on the collapsed time series, we are able to do pairwise comparisons across all scenarios and determine whether two of them
         # are overlapping or not.
@@ -209,12 +212,12 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         for scenario in to_discard:
             collapsed_outcomes.remove(scenario)
 
-        if not collapsed_outcomes:  # If all scenarios are removed (i.e. all identical)
+        if len(collapsed_outcomes) == 0 and len(to_discard) > 0:  # If all scenarios are removed (i.e. all identical)
             # arbitrarily add one scenario to collapsed_outcomes
             collapsed_outcomes = [to_discard[0]]
 
         # Keep the name of the unique scenarios only.
-        cases = [item.name for item in collapsed_outcomes]
+        cases: list[str] = [item.name for item in collapsed_outcomes]
 
         return cases
 
@@ -300,7 +303,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         return overlapping_blocks
 
-    def is_overlapping(self, pair) -> bool:
+    def is_overlapping(self, pair: tuple[Timeseries, Timeseries]) -> bool:
         """
         checks whether two optimization program outcomes are overlapping or not
         Compares series containing status variables only, more precisely aggregated ON status variables.
@@ -321,11 +324,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         # by default, we assume that both scenarios perfectly overlap
         # to verify this, we see whether the difference across all time steps is 0
-        # if there exist one t such that the difference is not null, then scenarios are
-        # not perfectly overlapping
+        # if there exist one t such that the difference is not null, then scenarios are not perfectly overlapping
         is_overlapping = True
         # check each element of the time serie
-        for t in scenario_1.index():
+        for t in scenario_1.index:
             # We are comparing integer values only, so no need to round the comparison
             if scenario_1.get_value(t) != scenario_2.get_value(t):
                 is_overlapping = False
