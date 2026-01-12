@@ -1341,7 +1341,8 @@ class SolverHelper:
                 elif item_type == "variables":
                     lb1, ub1 = dict1[item]
                     lb2, ub2 = dict2[item]
-                    if abs(lb1 - lb2) <= tolerance and abs(ub1 - ub2) <= tolerance:
+                    # lb1 == lb2 and ub1 == ub2 resolve case of -inf/inf lower/upper bound
+                    if (lb1 == lb2 or abs(lb1 - lb2) <= tolerance) and (ub1 == ub2 or abs(ub1 - ub2) <= tolerance):
                         identical += 1
                     else:
                         modified += 1

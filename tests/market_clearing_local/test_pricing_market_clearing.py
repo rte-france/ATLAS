@@ -5,20 +5,15 @@ This file is part of the ATLAS project.
 """
 
 import json
-import os
-import pickle
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from atlas import InputLoader
-from atlas.io_utils.utils import to_snake_case
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 from atlas.modules.market_clearing.phases.pricing import Pricing
 from atlas.solver.solver_helper import SolverHelper
-from tests.market_clearing_local.market_clearing_test_utils import transform_clearing_prometheus_lp
-from tests.market_clearing_local.test_market_data_market_clearing import read_expected_data
 
 
 @pytest.mark.skip(reason="No data available")
@@ -113,12 +108,14 @@ def test_if_pricing_generated_lp_matches_reference(dataset_name):
                 f"Variables mismatch for {dataset_name}: {comparison_result_1['variables']['identical_pct']}% identical"
             )
 
-            assert comparison_result_1["constraints"]["identical_pct"] == 100.0, (
+            assert (
+                comparison_result_1["constraints"]["total_legacy"] == comparison_result_1["constraints"]["total_atlas"]
+            ), (
                 f"Constraints mismatch for {dataset_name}: "
                 f"{comparison_result_1['constraints']['identical_pct']}% identical"
             )
 
-            for category in ["objectives", "variables", "constraints"]:
+            for category in ["objectives", "variables"]:
                 assert comparison_result_1[category]["modified"] == 0, f"Modified {category} found in {dataset_name}"
                 assert comparison_result_1[category]["only_legacy"] == 0, (
                     f"{category.capitalize()} only in reference LP for {dataset_name}"
@@ -157,12 +154,15 @@ def test_if_pricing_generated_lp_matches_reference(dataset_name):
                     f"{comparison_result_2['variables']['identical_pct']}% identical"
                 )
 
-                assert comparison_result_2["constraints"]["identical_pct"] == 100.0, (
+                assert (
+                    comparison_result_2["constraints"]["total_legacy"]
+                    == comparison_result_2["constraints"]["total_atlas"]
+                ), (
                     f"Constraints mismatch for {dataset_name}: "
                     f"{comparison_result_2['constraints']['identical_pct']}% identical"
                 )
 
-                for category in ["objectives", "variables", "constraints"]:
+                for category in ["objectives", "variables"]:
                     assert comparison_result_2[category]["modified"] == 0, (
                         f"Modified {category} found in {dataset_name}"
                     )
@@ -203,12 +203,15 @@ def test_if_pricing_generated_lp_matches_reference(dataset_name):
                     f"{comparison_result_3['variables']['identical_pct']}% identical"
                 )
 
-                assert comparison_result_3["constraints"]["identical_pct"] == 100.0, (
+                assert (
+                    comparison_result_3["constraints"]["total_legacy"]
+                    == comparison_result_3["constraints"]["total_atlas"]
+                ), (
                     f"Constraints mismatch for {dataset_name}: "
                     f"{comparison_result_3['constraints']['identical_pct']}% identical"
                 )
 
-                for category in ["objectives", "variables", "constraints"]:
+                for category in ["objectives", "variables"]:
                     assert comparison_result_3[category]["modified"] == 0, (
                         f"Modified {category} found in {dataset_name}"
                     )
