@@ -13,7 +13,6 @@ from atlas.enum import MarketType, SolverStatus
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
-from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.portfolio_orchestrator import (
     PortfolioOptimisationOrchestrator,
     PortfolioOptimisationResult,
