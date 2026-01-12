@@ -490,6 +490,8 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
             return other
         if isinstance(ts_obj, LazyTimeseries):
             ts_obj = ts_obj.collect()
+        if ts_obj.timeseries.shape[0] < 2:
+            return other
         if ts_obj.frequency > other.frequency:
             ts_obj.upsample(other.frequency)
         elif other.frequency > ts_obj.frequency:
@@ -501,6 +503,8 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
             return other
         if isinstance(ts_obj, LazyTimeseries):
             ts_obj = ts_obj.collect()
+        if ts_obj.timeseries.shape[0] < 2:
+            return other
         if ts_obj.frequency > other.frequency:
             ts_obj.upsample(other.frequency)
         elif other.frequency > ts_obj.frequency:
