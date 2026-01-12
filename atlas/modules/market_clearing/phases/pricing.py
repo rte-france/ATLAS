@@ -122,7 +122,6 @@ class Pricing(OptimisationModel):
 
     def build_second_objective(self):
         """Create objective function for the second pricing phase model"""
-        self.set_direction("minimize")
         self.create_surplus_objective()
 
     def build_third(self):
@@ -149,7 +148,6 @@ class Pricing(OptimisationModel):
 
     def build_third_objective(self, opposite_delta_p_dict: dict[int, float]):
         """Create objective function for the third pricing phase model"""
-        self.set_direction("minimize")
         self.create_paradoxical_lo_objective()
         self.create_paradoxical_pc_objective(opposite_delta_p_dict)
         self.create_paradoxical_order_objective()
@@ -744,7 +742,11 @@ class Pricing(OptimisationModel):
         for index_pc in self.dict_parent_child_orders:
             constraint_name = constants.negative_parent_child_surplus_constraint_name(index_pc)
             if constraint_name:
-                SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                # If there is surplus
+                if constraint_name in self.constraints:
+                    SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                else:
+                    logger.debug(f"No surplus for {index_pc}")
 
     def deactivate_positive_surplus_pc_constraints(self):
         for index_pc, (_, children_orders) in self.dict_parent_child_orders.items():
@@ -1222,7 +1224,7 @@ class Pricing(OptimisationModel):
             linked_bids.extend(block_idv_idr_bids)
 
             # Remove duplicate orders
-            order_names = set(linked_bids)
+            order_names = list(set([order.name for order in linked_bids]))
             dict_linked_bids[index_lo] = [self.input_dataset.mc_orders[order_name] for order_name in order_names]
             index_lo += 1
 

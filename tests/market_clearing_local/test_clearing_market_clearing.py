@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 import json
 import os
 import pickle
@@ -44,20 +45,22 @@ def retrieve_clearing_lp(path):
     with open(os.path.join(path, "optimization_data", "clearing_local_balances.json"), "w") as f:
         json.dump([[ma, t, val] for (ma, t), val in clearing.retrieve_local_balances().items()], f)
     with open(os.path.join(path, "optimization_data", "clearing_saturated_critical_branches.json"), "w") as f:
-        json.dump([[cb, time_index, val]
-                   for (cb, time_index), val in clearing.retrieve_saturated_critical_branch().items()], f)
+        json.dump(
+            [[cb, time_index, val] for (cb, time_index), val in clearing.retrieve_saturated_critical_branch().items()],
+            f,
+        )
     return "clearing_model.lp"
 
 
-@pytest.mark.skip(reason="No data available")
+# @pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
         "MarketClearing input v1.3 FB_1",
-        "MarketClearing input v1.3 FB_2",
-        "MarketClearing input v1.3 ATC_1",
-        "MarketClearing input v1.3 ATC_2",
-    ]
+        # "MarketClearing input v1.3 FB_2",
+        # "MarketClearing input v1.3 ATC_1",
+        # "MarketClearing input v1.3 ATC_2",
+    ],
 )
 def test_compare_lp(dataset_name):
     path = os.path.join("data", "market_clearing_prometheus", dataset_name)
@@ -77,7 +80,8 @@ def test_compare_lp(dataset_name):
     clearing_lp_path = retrieve_clearing_lp(path)
 
     atlas_objectives, atlas_constraints, atlas_variables, atlas_binaries = SolverHelper.read_lp_ortools(
-        clearing_lp_path)
+        clearing_lp_path
+    )
     atlas_dict = {
         "constraints": atlas_constraints,
         "variables": atlas_variables,
@@ -99,11 +103,13 @@ def test_compare_lp(dataset_name):
     id_volume_constraint_prometheus = len([c for c in legacy_dict["constraints"] if "Constraint_3_8_id_volume" in c])
     id_parent_child_constraint_atlas = len([c for c in atlas_dict["constraints"] if "Constraint_parent_child" in c])
     id_parent_child_constraint_prometheus = len(
-        [c for c in legacy_dict["constraints"] if "Constraint_parent_child" in c])
+        [c for c in legacy_dict["constraints"] if "Constraint_parent_child" in c]
+    )
     print("id_volume atlas/prometheus : ", id_ratio_constraint_atlas, id_ratio_constraint_prometheus)
     print("id_volume atlas/prometheus : ", id_volume_constraint_atlas, id_volume_constraint_prometheus)
-    print("id_parent_child atlas/prometheus : ", id_parent_child_constraint_atlas,
-          id_parent_child_constraint_prometheus)
+    print(
+        "id_parent_child atlas/prometheus : ", id_parent_child_constraint_atlas, id_parent_child_constraint_prometheus
+    )
     # constraint ok
     add_constraint = []
     remove_constraint = []
@@ -112,12 +118,14 @@ def test_compare_lp(dataset_name):
             add_constraint.append(constraint[2])
         if "remove" == constraint[0]:
             remove_constraint.append(constraint[2])
-    if (len(remove_constraint) == len(add_constraint) and
-            id_ratio_constraint_atlas == id_ratio_constraint_prometheus and
-            id_volume_constraint_atlas == id_volume_constraint_prometheus and
-            id_parent_child_constraint_atlas == id_parent_child_constraint_prometheus and
-            id_ratio_constraint_atlas + id_volume_constraint_atlas + id_parent_child_constraint_atlas == len(
-                add_constraint)):
+    if (
+        len(remove_constraint) == len(add_constraint)
+        and id_ratio_constraint_atlas == id_ratio_constraint_prometheus
+        and id_volume_constraint_atlas == id_volume_constraint_prometheus
+        and id_parent_child_constraint_atlas == id_parent_child_constraint_prometheus
+        and id_ratio_constraint_atlas + id_volume_constraint_atlas + id_parent_child_constraint_atlas
+        == len(add_constraint)
+    ):
         print("constraint ok !!!!")
     else:
         print("constraint not ok")
