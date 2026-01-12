@@ -6,8 +6,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from pendulum import Duration
 from pydantic import Field, field_validator
-from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enum import ThermalStrategy
 from atlas.math.lazy_timeseries import LazyTimeseries

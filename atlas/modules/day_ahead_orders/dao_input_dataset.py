@@ -28,7 +28,7 @@ from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParamete
 
 
 class DayAheadOrdersInputDataset(AbstractDataset[DayAheadOrdersParameters]):
-    def __init__(self, raw_data: dict[str, list[BusinessModel]], parameters: DayAheadOrdersParameters):
+    def __init__(self, raw_data: dict[str, list[type[BusinessModel]]], parameters: DayAheadOrdersParameters):
         self.parameters: DayAheadOrdersParameters = parameters
         self.control_block: list[ControlBlock] = (
             [cast(ControlBlock, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]]
