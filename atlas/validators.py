@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from timing import parse_frequency
 import pendulum
-from pendulum import duration
 from pendulum.duration import Duration
 from pydantic import ValidationError
+
+from atlas.timing import parse_frequency
 
 
 def parse_list_float(value: Any) -> list[float] | None:
@@ -82,39 +82,3 @@ def convert_to_duration(
         raise ValueError(f"Zero duration not allowed: {duration_obj}")
 
     return duration_obj
-
-
-def duration_validator(
-    default_unit: str = "hours",
-    allow_zero: bool = True,
-):
-    """
-    Factory function to create Pydantic field validators for Duration fields.
-
-    Args:
-        default_unit: Default unit for numeric inputs ("hours", "minutes", "seconds")
-        allow_zero: Whether to allow zero duration (negative values never allowed)
-
-    Returns:
-        Validator function suitable for use with @field_validator
-
-    Example:
-        @field_validator('my_duration_field', mode='before')
-        @classmethod
-        def validate_duration(cls, v):
-            return duration_validator(default_unit="minutes")(v)
-    """
-
-    def validator(value: Any) -> pendulum.Duration | None:
-        return convert_to_duration(
-            value,
-            default_unit=default_unit,
-            allow_zero=allow_zero,
-        )
-
-    return validator
-
-
-# Common pre-configured validators
-hours_validator = duration_validator(default_unit="hours")
-minutes_validator = duration_validator(default_unit="minutes")

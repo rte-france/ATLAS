@@ -1,28 +1,34 @@
 import pytest
 from pendulum import duration
 
-from atlas.validators import convert_to_duration, hours_validator, minutes_validator
+from atlas.validators import convert_to_duration
 
 
 def test_basic_conversions():
     """Test basic number to duration conversions."""
-    # Hours (default)
-    result = convert_to_duration(2)
+    # Hours
+    result = convert_to_duration("2h")
     assert result.total_seconds() == 7200  # 2 hours
 
+    # Hours and minutes
+    result = convert_to_duration("2h30m")
+    assert result.total_seconds() == 9000  # 2 hours and 30 minutes
+
     # Minutes
-    result = convert_to_duration(30, default_unit="minutes")
+    result = convert_to_duration("30m")
     assert result.total_seconds() == 1800  # 30 minutes
 
     # Seconds
-    result = convert_to_duration(90, default_unit="seconds")
+    result = convert_to_duration("90s")
     assert result.total_seconds() == 90
 
+    # None handling
+    assert convert_to_duration(None) is None
 
 def test_none_and_zero():
     """Test None and zero inputs."""
     assert convert_to_duration(None) is None
-    assert convert_to_duration(0).total_seconds() == 0
+    assert convert_to_duration("0s").total_seconds() == 0
 
 
 def test_duration_objects():
@@ -40,26 +46,12 @@ def test_errors():
 
     # Zero not allowed
     with pytest.raises(ValueError):
-        convert_to_duration(0, allow_zero=False)
+        convert_to_duration("0s", allow_zero=False)
+
+    # Invalid value
+    with pytest.raises(ValueError):
+        convert_to_duration("invalide format")
 
     # Invalid types
     with pytest.raises(ValueError):
-        convert_to_duration("not a number")
-
-    # Invalid unit
-    with pytest.raises(ValueError):
-        convert_to_duration(5, default_unit="days")
-
-
-def test_validators():
-    """Test the validator functions."""
-    # Hours validator
-    result = hours_validator(2.5)
-    assert result.total_seconds() == 9000  # 2.5 hours
-
-    # Minutes validator
-    result = minutes_validator(45)
-    assert result.total_seconds() == 2700  # 45 minutes
-
-    # None handling
-    assert hours_validator(None) is None
+        convert_to_duration(0)

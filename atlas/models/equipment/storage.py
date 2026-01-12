@@ -12,7 +12,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import hours_validator
+from atlas.validators import convert_to_duration
 
 
 class Storage(Equipment):
@@ -91,4 +91,4 @@ class Storage(Equipment):
     @classmethod
     def convert_hours_to_duration(cls, v):
         """Convert various duration formats to Duration objects."""
-        return hours_validator(v)
+        return convert_to_duration(v)

@@ -7,7 +7,7 @@ Module that implements Output Generator Loader
 """
 
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from pydantic_extra_types.pendulum_dt import Duration
 
@@ -64,8 +64,8 @@ class OutputGenerator:
         dataset: dict[str, list[type[BusinessModel]]],
         directory_path: Path,
         separator: str = ";",
-        timeseries_file_extension: str = ".parquet",
-        matrix_file_extension: str = ".parquet",
+        timeseries_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
+        matrix_file_extension: Literal["csv", "parquet", "pickle"] = "parquet"
     ) -> None:
         """
         Deserialize data set of BusinessModel objects to a directory.
@@ -79,10 +79,10 @@ class OutputGenerator:
         :type directory_path: str or pathlib.Path
         :param separator: The separator used in CSV files (default: ";").
         :type separator: str
-        :param timeseries_file_extension: File extension for timeseries files (default: ".parquet").
-        :type timeseries_file_extension: str
-        :param matrix_file_extension: File extension for matrix files (default: ".parquet").
-        :type matrix_file_extension: str
+        :param timeseries_file_extension: File extension for timeseries files (default: "parquet").
+        :type timeseries_file_extension: Literal["csv", "parquet", "pickle"]
+        :param matrix_file_extension: File extension for matrix files (default: "parquet").
+        :type matrix_file_extension: Literal["csv", "parquet", "pickle"]
         :param lazy: Whether to use lazy loading for timeseries and matrices (default: False).
         :type lazy: bool
         :param timezone: Timezone for date parsing and object instantiation (default: "UTC").
@@ -168,11 +168,11 @@ class OutputGenerator:
                                 except PermissionError:
                                     print(f"Permission denied: Unable to create '{dir_path}'.")
                             cast(Timeseries, dump_value[field_name]).to_file_with_attribute(
-                                path=dir_path / (dump_value["name"] + config.timeseries_file_extension),
+                                path=dir_path / (dump_value["name"] + "." + config.timeseries_file_extension),
                                 attribute=field_name,
-                                file_format=config.timeseries_file_extension.replace(".", ""),
+                                file_format=config.timeseries_file_extension,
                                 separator=config.separator,
-                                concatenate=True
+                                concatenate=True,
                             )
                             rows[idx_next_row] += "timeseries"
                         elif isinstance(dump_value[field_name], ForecastingMatrix):
@@ -183,11 +183,11 @@ class OutputGenerator:
                                 except PermissionError:
                                     print(f"Permission denied: Unable to create '{dir_path}'.")
                             cast(ForecastingMatrix, dump_value[field_name]).to_file_with_attribute(
-                                path=dir_path / (dump_value["name"] + config.matrix_file_extension),
+                                path=dir_path / (dump_value["name"] + "." + config.matrix_file_extension),
                                 attribute=field_name,
-                                file_format=config.matrix_file_extension.replace(".", ""),
+                                file_format=config.matrix_file_extension,
                                 separator=config.separator,
-                                concatenate=True
+                                concatenate=True,
                             )
                             rows[idx_next_row] += "forecasting_matrix"
                         elif isinstance(dump_value[field_name], ScenarioMatrix):
@@ -198,11 +198,11 @@ class OutputGenerator:
                                 except PermissionError:
                                     print(f"Permission denied: Unable to create '{dir_path}'.")
                             cast(ScenarioMatrix, dump_value[field_name]).to_file_with_attribute(
-                                path=dir_path / (dump_value["name"] + config.matrix_file_extension),
+                                path=dir_path / (dump_value["name"] + "." + config.matrix_file_extension),
                                 attribute=field_name,
-                                file_format=config.matrix_file_extension.replace(".", ""),
+                                file_format=config.matrix_file_extension,
                                 separator=config.separator,
-                                concatenate=True
+                                concatenate=True,
                             )
                             rows[idx_next_row] += "scenario_matrix"
                         elif isinstance(dump_value[field_name], bool):
@@ -213,13 +213,14 @@ class OutputGenerator:
                             rows[idx_next_row] += str(dump_value[field_name])
                         elif isinstance(dump_value[field_name], Duration):
                             value = dump_value[field_name].to_iso8601_string()
-                            if value == 'P':
-                                value = "PT0H"
-                            rows[idx_next_row] += value
+                            if value == "P":
+                                rows[idx_next_row] += "PT0H"
+                            else:
+                                rows[idx_next_row] += value
                         elif isinstance(dump_value[field_name], dict):
                             rows[idx_next_row] += str(dump_value[field_name]["name"])
                         elif isinstance(dump_value[field_name], list):
-                            rows[idx_next_row] += ':'.join(map(str, dump_value[field_name]))
+                            rows[idx_next_row] += ":".join(map(str, dump_value[field_name]))
                         else:
                             rows[idx_next_row] += str(dump_value[field_name])
 

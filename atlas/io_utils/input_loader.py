@@ -74,8 +74,8 @@ class InputLoader:
         cls,
         directory_path: Path,
         separator: str = ";",
-        timeseries_file_extension: str = ".parquet",
-        matrix_file_extension: str = ".parquet",
+        timeseries_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
+        matrix_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
         lazy: bool = False,
         timezone: str = "UTC",
         date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss",
@@ -92,10 +92,10 @@ class InputLoader:
         :type directory_path: str or pathlib.Path
         :param separator: The separator used in CSV files (default: ";").
         :type separator: str
-        :param timeseries_file_extension: File extension for timeseries files (default: ".parquet").
-        :type timeseries_file_extension: str
-        :param matrix_file_extension: File extension for matrix files (default: ".parquet").
-        :type matrix_file_extension: str
+        :param timeseries_file_extension: File extension for timeseries files (default: "parquet").
+        :type timeseries_file_extension: Literal["csv", "parquet", "pickle"]
+        :param matrix_file_extension: File extension for matrix files (default: "parquet").
+        :type matrix_file_extension: Literal["csv", "parquet", "pickle"]
         :param lazy: Whether to use lazy loading for timeseries and matrices (default: False).
         :type lazy: bool
         :param timezone: Timezone for date parsing and object instantiation (default: "UTC").
@@ -534,7 +534,7 @@ class InputLoader:
         """Load a Timeseries or LazyTimeseries from a file with enhanced error handling."""
         timeseries_dir = config.directory_path / "timeseries"
         object_type_dir = timeseries_dir / object_type
-        timeseries_path = object_type_dir / (name + config.timeseries_file_extension)
+        timeseries_path = object_type_dir / (name + "." + config.timeseries_file_extension)
 
         # Validate directory structure
         if not timeseries_dir.exists():
@@ -586,7 +586,7 @@ class InputLoader:
 
         matrix_dir = config.directory_path / matrix_type
         object_type_dir = matrix_dir / object_type
-        matrix_file_path = object_type_dir / (name + config.matrix_file_extension)
+        matrix_file_path = object_type_dir / (name + "." + config.matrix_file_extension)
 
         # Validate directory structure
         if not matrix_dir.exists():
