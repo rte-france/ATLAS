@@ -37,7 +37,7 @@ class CriticalBranchMC(CriticalBranch):
         if self.maximum_flow:
             max_flow = self.maximum_flow.set_frequency(self.time_step, False).filter(self.times)
             if self.flow_margin is not None:
-                max_flow -= self.flow_reliability_margin
+                max_flow -= self.flow_margin
             if self.ref_flow is not None:
                 max_flow -= self.ref_flow
             return max_flow
