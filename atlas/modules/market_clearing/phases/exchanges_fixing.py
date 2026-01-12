@@ -1,3 +1,6 @@
+import json
+import os
+
 import atlas.modules.market_clearing.market_clearing_constants as constants
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
@@ -16,7 +19,12 @@ class ExchangesFixing(OptimisationModel):
         self.build(clearing_local_balances)
         self.solve()
         if self.parameters.export_lp:
-            self.export_model("exchanges_fixing_model.lp")
+            self.export_model(os.path.join(self.parameters.output_path, "exchanges_fixing_model.lp"))
+
+            with open(os.path.join(self.parameters.output_path, "exchanges_fixing_border_exchanges.json"), "w") as f:
+                json.dump(
+                    [[b, time_index, val] for (b, time_index), val in self.retrieve_border_exchanges().items()], f
+                )
 
     def build(self, clearing_local_balances: dict[tuple[str, int], float]):
         self.build_variables()

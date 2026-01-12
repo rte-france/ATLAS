@@ -1,3 +1,6 @@
+import json
+import os
+
 import pendulum
 
 import atlas.modules.market_clearing.market_clearing_constants as constants
@@ -42,18 +45,27 @@ class Pricing(OptimisationModel):
         self.build_first()
         solver_info = self.solve()
         if self.parameters.export_lp:
-            self.export_model("pricing_1_model.lp")
+            self.export_model(os.path.join(self.parameters.output_path, "pricing_1_model.lp"))
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_second()
             solver_info = self.solve()
             if self.parameters.export_lp:
-                self.export_model("pricing_2_model.lp")
+                self.export_model(os.path.join(self.parameters.output_path, "pricing_2_model.lp"))
 
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_third()
             _ = self.solve()
             if self.parameters.export_lp:
-                self.export_model("pricing_3_model.lp")
+                self.export_model(os.path.join(self.parameters.output_path, "pricing_3_model.lp"))
+        if self.parameters.export_lp:
+            with open(os.path.join(self.parameters.output_path, "pricing_market_prices.json"), "w") as f:
+                json.dump(
+                    [
+                        [market_area_name, time_index, val]
+                        for (market_area_name, time_index), val in self.retrieve_market_prices().items()
+                    ],
+                    f,
+                )
 
     def build_first(self):
         self.instantiate_order_group_index()

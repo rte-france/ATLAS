@@ -4,6 +4,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import json
+import os
+
 from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
 
 import atlas.modules.market_clearing.market_clearing_constants as constants
@@ -39,7 +42,19 @@ class Clearing(OptimisationModel):
         self.build()
         self.solve()
         if self.parameters.export_lp:
-            self.export_model("clearing_model.lp")
+            self.export_model(os.path.join(self.parameters.output_path, "clearing_model.lp"))
+            with open(os.path.join(self.parameters.output_path, "clearing_accepted_powers.json"), "w") as f:
+                json.dump([[ma, o, val] for (ma, o), val in self.retrieve_accepted_powers().items()], f)
+            with open(os.path.join(self.parameters.output_path, "clearing_local_balances.json"), "w") as f:
+                json.dump([[ma, t, val] for (ma, t), val in self.retrieve_local_balances().items()], f)
+            with open(os.path.join(self.parameters.output_path, "clearing_saturated_critical_branches.json"), "w") as f:
+                json.dump(
+                    [
+                        [cb, time_index, val]
+                        for (cb, time_index), val in self.retrieve_saturated_critical_branch().items()
+                    ],
+                    f,
+                )
 
     def build(self):
         self.build_variables()
