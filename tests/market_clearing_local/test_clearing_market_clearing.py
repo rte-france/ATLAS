@@ -4,9 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import json
-import os
-import pickle
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -14,127 +13,76 @@ from atlas import InputLoader
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.solver.solver_helper import SolverHelper
-from tests.market_clearing_local.market_clearing_test_utils import transform_clearing_prometheus_lp
-from tests.market_clearing_local.test_market_data_market_clearing import read_expected_data
 
 
-def retrieve_clearing_lp(path):
-    parameters_path = os.path.join(path, "parameters.yml")
-    dataset_path = os.path.join(path, "atlas-dataset")
-    pkl_path = os.path.join(path, "raw_data.pkl")
-    if os.path.exists(pkl_path):
-        print("Chargement rapide depuis un pickle...")
-        with open(pkl_path, "rb") as f:
-            raw_data = pickle.load(f)
-    else:
-        print("Chargement long des données...")
-        raw_data = InputLoader.from_directory(dataset_path)
-        print("Création d'un pickle...")
-        with open(pkl_path, "wb") as f:
-            pickle.dump(raw_data, f)
-
-    mc_module = MarketClearingModule()
-    parameters = mc_module.import_parameters(parameters_path)
-    input_dataset = mc_module.import_data(raw_data, parameters)
-
-    clearing = Clearing(input_dataset, parameters)
-    clearing.run()
-
-    with open(os.path.join(path, "optimization_data", "clearing_accepted_powers.json"), "w") as f:
-        json.dump([[ma, o, val] for (ma, o), val in clearing.retrieve_accepted_powers().items()], f)
-    with open(os.path.join(path, "optimization_data", "clearing_local_balances.json"), "w") as f:
-        json.dump([[ma, t, val] for (ma, t), val in clearing.retrieve_local_balances().items()], f)
-    with open(os.path.join(path, "optimization_data", "clearing_saturated_critical_branches.json"), "w") as f:
-        json.dump(
-            [[cb, time_index, val] for (cb, time_index), val in clearing.retrieve_saturated_critical_branch().items()],
-            f,
-        )
-    return "clearing_model.lp"
-
-
-# @pytest.mark.skip(reason="No data available")
+@pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
         "MarketClearing input v1.3 FB_1",
-        # "MarketClearing input v1.3 FB_2",
-        # "MarketClearing input v1.3 ATC_1",
-        # "MarketClearing input v1.3 ATC_2",
+        "MarketClearing input v1.3 FB_2",
+        "MarketClearing input v1.3 ATC_1",
+        "MarketClearing input v1.3 ATC_2",
     ],
 )
-def test_compare_lp(dataset_name):
-    path = os.path.join("data", "market_clearing_prometheus", dataset_name)
-    expected_lp_path = os.path.join(path, "optimization_data", "clearing_phase.lp")
-    lp_mapping_path = os.path.join(path, "optimization_data", "clearing_phase.lp_correspondance.csv")
+def test_if_clearing_generated_lp_matches_reference(dataset_name):
+    dataset_path = Path("data") / "market_clearing_prometheus" / dataset_name
+    dataset_data_path = dataset_path / "atlas-dataset"
+    parameters_path = dataset_path / "parameters.yml"
+    expected_clearing_path = dataset_path / "expected_results" / "clearing_model.lp"
 
-    market_data_export_path = os.path.join(path, "market_data_export")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        raw_data = InputLoader.from_directory(dataset_data_path)
 
-    expected_data = read_expected_data(market_data_export_path)
-    legacy_dict = transform_clearing_prometheus_lp(expected_lp_path, lp_mapping_path, expected_data)
-    legacy_solver = SolverHelper.model_from_dict_mc(legacy_dict, "XPRESS")
-    legacy_solver.Solve()
-    s_legacy = legacy_solver.ExportModelAsLpFormat(False)
-    with open(os.path.join(path, "clearing_test_legacy.lp"), "w") as f:
-        f.write(s_legacy)
+        try:
+            mc_module = MarketClearingModule()
+            parameters = mc_module.import_parameters(parameters_path)
+            parameters.output_path = tmpdir
+            input_dataset = mc_module.import_data(raw_data, parameters)
 
-    clearing_lp_path = retrieve_clearing_lp(path)
+            clearing = Clearing(input_dataset, parameters)
+            clearing.run()
+        except Exception as e:
+            pytest.fail(f"Clearing failed for {dataset_name}: {e}")
 
-    atlas_objectives, atlas_constraints, atlas_variables, atlas_binaries = SolverHelper.read_lp_ortools(
-        clearing_lp_path
-    )
-    atlas_dict = {
-        "constraints": atlas_constraints,
-        "variables": atlas_variables,
-        "objectives": atlas_objectives,
-        "binaries": atlas_binaries,
-    }
-    atlas_solver = SolverHelper.model_from_dict_mc(atlas_dict, "XPRESS")
-    atlas_solver.Solve()
-    s_atlas = atlas_solver.ExportModelAsLpFormat(False)
-    with open(os.path.join(path, "clearing_test_atlas.lp"), "w") as f:
-        f.write(s_atlas)
+        clearing_lp = Path(parameters.output_path) / "clearing_model.lp"
 
-    SolverHelper.add_binaries_to_lp_problems_variables(atlas_dict)
-    SolverHelper.add_binaries_to_lp_problems_variables(legacy_dict)
-    diff_constraint, diff_variables, diff_objectives = SolverHelper.compare_lp_problems(atlas_dict, legacy_dict)
-    id_ratio_constraint_atlas = len([c for c in atlas_dict["constraints"] if "Constraint_3_8_1_id_ratio" in c])
-    id_ratio_constraint_prometheus = len([c for c in legacy_dict["constraints"] if "Constraint_3_8_1_id_ratio" in c])
-    id_volume_constraint_atlas = len([c for c in atlas_dict["constraints"] if "Constraint_3_8_id_volume" in c])
-    id_volume_constraint_prometheus = len([c for c in legacy_dict["constraints"] if "Constraint_3_8_id_volume" in c])
-    id_parent_child_constraint_atlas = len([c for c in atlas_dict["constraints"] if "Constraint_parent_child" in c])
-    id_parent_child_constraint_prometheus = len(
-        [c for c in legacy_dict["constraints"] if "Constraint_parent_child" in c]
-    )
-    print("id_volume atlas/prometheus : ", id_ratio_constraint_atlas, id_ratio_constraint_prometheus)
-    print("id_volume atlas/prometheus : ", id_volume_constraint_atlas, id_volume_constraint_prometheus)
-    print(
-        "id_parent_child atlas/prometheus : ", id_parent_child_constraint_atlas, id_parent_child_constraint_prometheus
-    )
-    # constraint ok
-    add_constraint = []
-    remove_constraint = []
-    for constraint in diff_constraint:
-        if "add" == constraint[0]:
-            add_constraint.append(constraint[2])
-        if "remove" == constraint[0]:
-            remove_constraint.append(constraint[2])
-    if (
-        len(remove_constraint) == len(add_constraint)
-        and id_ratio_constraint_atlas == id_ratio_constraint_prometheus
-        and id_volume_constraint_atlas == id_volume_constraint_prometheus
-        and id_parent_child_constraint_atlas == id_parent_child_constraint_prometheus
-        and id_ratio_constraint_atlas + id_volume_constraint_atlas + id_parent_child_constraint_atlas
-        == len(add_constraint)
-    ):
-        print("constraint ok !!!!")
-    else:
-        print("constraint not ok")
-        assert False
-    print("diff_variables")
-    print(diff_variables)
-    print("diff_objectives")
-    print(diff_objectives)
-    print("diff_constraint")
-    print(diff_constraint)
-    assert len(diff_objectives) == 0
-    assert len(diff_variables) == 0
+        try:
+            generated_lp_data = SolverHelper.read_lp_ortools(str(clearing_lp))
+            reference_lp_data = SolverHelper.read_lp_ortools(str(expected_clearing_path))
+        except Exception as e:
+            pytest.fail(f"Failed to read LP files: {e}")
+
+        with tempfile.TemporaryDirectory() as compare_dir:
+            comparison_result = SolverHelper.compare_lp_problems(
+                reference_lp_data,
+                generated_lp_data,
+                output_dir=compare_dir,
+                pb1_name="Reference",
+                pb2_name="Generated",
+                tolerance=1,
+                normalize_names=True,
+                keep_identical=False,
+            )
+
+            assert comparison_result["objectives"]["identical_pct"] == 100.0, (
+                f"Objectives mismatch for {dataset_name}: {comparison_result['objectives']['identical_pct']}% identical"
+            )
+
+            assert comparison_result["variables"]["identical_pct"] == 100.0, (
+                f"Variables mismatch for {dataset_name}: {comparison_result['variables']['identical_pct']}% identical"
+            )
+
+            assert comparison_result["constraints"]["identical_pct"] == 100.0, (
+                f"Constraints mismatch for {dataset_name}: "
+                f"{comparison_result['constraints']['identical_pct']}% identical"
+            )
+
+            for category in ["objectives", "variables", "constraints"]:
+                assert comparison_result[category]["modified"] == 0, f"Modified {category} found in {dataset_name}"
+                assert comparison_result[category]["only_legacy"] == 0, (
+                    f"{category.capitalize()} only in reference LP for {dataset_name}"
+                )
+                assert comparison_result[category]["only_atlas"] == 0, (
+                    f"{category.capitalize()} only in generated LP for {dataset_name}"
+                )
