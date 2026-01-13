@@ -586,7 +586,7 @@ class PrometheusToAtlasDataParser:
             Converted value (ISO8601 duration string for Duration types, original value otherwise)
         """
         # Check if the expected type is Duration
-        if type_attribute == Duration:
+        if type_attribute in (Duration, pendulum.Duration):
             try:
                 val = Duration(hours=float(val)).to_iso8601_string()  # type: ignore[assignment]
             except Exception as e:

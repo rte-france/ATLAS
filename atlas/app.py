@@ -119,6 +119,7 @@ def prometheus_to_atlas_recursive(
                     date_format_forecasting,
                     date_format_input_files,
                     date_format_timestep,
+                    use_mp,
                 )
                 for module_dir in module_dirs
             ]
@@ -137,6 +138,7 @@ def prometheus_to_atlas_recursive(
                 date_format_forecasting,
                 date_format_input_files,
                 date_format_timestep,
+                use_mp,
             )
             results.append(result)
 
@@ -169,6 +171,7 @@ def _process_single_module(
     date_format_forecasting: str,
     date_format_input_files: str,
     date_format_timestep: str,
+    use_mp: bool = True,
 ) -> tuple[str, bool, str | None]:
     """Process a single module directory.
 
@@ -205,7 +208,7 @@ def _process_single_module(
             date_format_input_files=date_format_input_files,
             date_format_timestep=date_format_timestep,
         )
-        transformer.process()
+        transformer.process(use_multiprocessing=use_mp)
         return (module_dir.name, True, None)
     except Exception as e:
         return (module_dir.name, False, str(e))

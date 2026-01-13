@@ -48,6 +48,4 @@ class MarketAreaPO(MarketArea):
     def set_market_context(self, market_type: MarketType, use_forecast: bool = False):
         """Set market context for validation."""
         # Re-validate with market context
-        return self.model_validate(
-            self.model_dump(), context={"market_type": market_type, "use_forecast": use_forecast}
-        )
+        return self.model_validate(dict(self), context={"market_type": market_type, "use_forecast": use_forecast})

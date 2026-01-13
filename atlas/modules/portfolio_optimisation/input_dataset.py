@@ -21,8 +21,10 @@ from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
+from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
+from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
@@ -46,17 +48,16 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.input_data = input_data
         self.parameters = parameters
 
-        loads: list[LoadPO] = [LoadPO.model_validate(load.model_dump()) for load in self.input_data.get("load", [])]
+        loads: list[LoadPO] = [LoadPO(**(dict(load))) for load in self.input_data.get("load", [])]
 
         self.equipments = PortfolioEquipments(
-            wind=[WindPO.model_validate(wind.model_dump()) for wind in self.input_data.get("wind", [])],
-            storage=[StoragePO.model_validate(storage.model_dump()) for storage in self.input_data.get("storage", [])],
-            hydro=[HydroPO.model_validate(hydro.model_dump()) for hydro in self.input_data.get("hydro", [])],
-            solar=[SolarPO.model_validate(solar.model_dump()) for solar in self.input_data.get("solar", [])],
-            thermal=[ThermalPO.model_validate(thermal.model_dump()) for thermal in self.input_data.get("thermal", [])],
+            wind=[WindPO(**dict(wind)) for wind in self.input_data.get("wind", [])],
+            storage=[StoragePO(**dict(storage)) for storage in self.input_data.get("storage", [])],
+            hydro=[HydroPO(**dict(hydro)) for hydro in self.input_data.get("hydro", [])],
+            solar=[SolarPO(**dict(solar)) for solar in self.input_data.get("solar", [])],
+            thermal=[ThermalPO(**dict(thermal)) for thermal in self.input_data.get("thermal", [])],
             other_non_dispatchable=[
-                OtherNonDispatchablePO.model_validate(other.model_dump())
-                for other in self.input_data.get("other_non_dispatchable", [])
+                OtherNonDispatchablePO(**dict(other)) for other in self.input_data.get("other_non_dispatchable", [])
             ],
             dispatchable_load=[load for load in loads if load.load_type == LoadType.POWER_TO_GAS],
             non_dispatchable_load=[load for load in loads if load.load_type != LoadType.POWER_TO_GAS],
@@ -126,15 +127,26 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                         setattr(equipment_manual, equipment_type, equipments)
 
             if equipment_included.get_all_equipment():
-                portfolio_po = PortfolioPO(**original_portfolio.model_dump(), equipments=equipment_included)
-                # Apply market validation to the MarketAreaPO based on parameters
+                portfolio_dict = dict(original_portfolio)
+                portfolio_dict["market_area"] = MarketAreaPO(**dict(original_portfolio.market_area))
+                portfolio_dict["control_block"] = ControlBlockPO(**dict(original_portfolio.control_block))
+                portfolio_dict["equipments"] = equipment_included
+
+                portfolio_po = PortfolioPO(**portfolio_dict)
+
                 portfolio_po.market_area = portfolio_po.market_area.set_market_context(
                     self.parameters.market, self.parameters.use_forecast
                 )
                 self.portfolios.append(portfolio_po)
 
             if equipment_manual.get_all_equipment():
-                portfolio_po_manual = PortfolioPO(**original_portfolio.model_dump(), equipments=equipment_manual)
+                # Convert market_area and control_block to their PO versions
+                portfolio_dict = dict(original_portfolio)
+                portfolio_dict["market_area"] = MarketAreaPO(**dict(original_portfolio.market_area))
+                portfolio_dict["control_block"] = ControlBlockPO(**dict(original_portfolio.control_block))
+                portfolio_dict["equipments"] = equipment_manual
+
+                portfolio_po_manual = PortfolioPO(**portfolio_dict)
                 # Apply market validation to the MarketAreaPO based on parameters
                 portfolio_po_manual.market_area = portfolio_po_manual.market_area.set_market_context(
                     self.parameters.market, self.parameters.use_forecast
