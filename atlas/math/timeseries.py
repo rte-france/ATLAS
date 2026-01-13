@@ -14,6 +14,7 @@ from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
+from pydantic_core import core_schema
 
 import pandas as pd
 import pendulum
@@ -53,6 +54,16 @@ class Timeseries:
 
         self._check_timeseries(timeseries)
         self._set_timeseries(timeseries, timezone)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: 'timeseries',
+                when_used='json'
+            )
+        )
 
     @classmethod
     def from_file(

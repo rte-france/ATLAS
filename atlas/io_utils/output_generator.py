@@ -141,7 +141,7 @@ class OutputGenerator:
                 rows = []
 
                 # Generate first row
-                columns_name = list(object_values[0].model_dump().keys())
+                columns_name = list(object_values[0].model_dump(mode="json").keys())
                 columns_name.remove("name")
                 columns_name.sort()
                 rows.append("name")
@@ -152,7 +152,7 @@ class OutputGenerator:
                 # Compute other rows
                 idx_next_row = 0
                 for value in object_values:
-                    dump_value = value.model_dump()
+                    dump_value = value.model_dump(mode="json")
                     rows.append(dump_value["name"])
                     idx_next_row += 1
 
@@ -160,7 +160,20 @@ class OutputGenerator:
                         rows[idx_next_row] += config.separator
                         if dump_value[field_name] is None:
                             continue
-                        elif isinstance(dump_value[field_name], Timeseries):
+                        elif isinstance(dump_value[field_name], dict):
+                            rows[idx_next_row] += str(dump_value[field_name]["name"])
+                        elif isinstance(dump_value[field_name], list):
+                            rows[idx_next_row] += ":".join(map(str, dump_value[field_name]))
+                        elif dump_value[field_name] == "P":
+                            rows[idx_next_row] += "PT0H"
+                        else:
+                            rows[idx_next_row] += str(dump_value[field_name])
+
+                # Generate matrix and timeseries
+                for value in object_values:
+                    dump_value = value.model_dump()
+                    for field_name in columns_name:
+                        if isinstance(dump_value[field_name], Timeseries):
                             dir_path = timeseries_dir / object_key
                             if not dir_path.is_dir():
                                 try:
@@ -174,7 +187,6 @@ class OutputGenerator:
                                 separator=config.separator,
                                 concatenate=True,
                             )
-                            rows[idx_next_row] += "timeseries"
                         elif isinstance(dump_value[field_name], ForecastingMatrix):
                             dir_path = forecasting_matrix_dir / object_key
                             if not dir_path.is_dir():
@@ -189,7 +201,6 @@ class OutputGenerator:
                                 separator=config.separator,
                                 concatenate=True,
                             )
-                            rows[idx_next_row] += "forecasting_matrix"
                         elif isinstance(dump_value[field_name], ScenarioMatrix):
                             dir_path = scenario_matrix_dir / object_key
                             if not dir_path.is_dir():
@@ -204,25 +215,6 @@ class OutputGenerator:
                                 separator=config.separator,
                                 concatenate=True,
                             )
-                            rows[idx_next_row] += "scenario_matrix"
-                        elif isinstance(dump_value[field_name], bool):
-                            rows[idx_next_row] += "1" if dump_value[field_name] else "0"
-                        elif isinstance(dump_value[field_name], str):
-                            rows[idx_next_row] += dump_value[field_name]
-                        elif isinstance(dump_value[field_name], int) or isinstance(dump_value[field_name], float):
-                            rows[idx_next_row] += str(dump_value[field_name])
-                        elif isinstance(dump_value[field_name], Duration):
-                            value = dump_value[field_name].to_iso8601_string()
-                            if value == "P":
-                                rows[idx_next_row] += "PT0H"
-                            else:
-                                rows[idx_next_row] += value
-                        elif isinstance(dump_value[field_name], dict):
-                            rows[idx_next_row] += str(dump_value[field_name]["name"])
-                        elif isinstance(dump_value[field_name], list):
-                            rows[idx_next_row] += ":".join(map(str, dump_value[field_name]))
-                        else:
-                            rows[idx_next_row] += str(dump_value[field_name])
 
                 # Write file
                 with open(file_path, "w") as file:
