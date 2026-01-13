@@ -186,6 +186,55 @@ class TestOptimiseSinglePortfolio:
         assert solver_options.duality_gap == 0.001
         assert solver_options.time_limit == pendulum.duration(seconds=600)
 
+    @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioOptimisationModel")
+    def test_lp_export_when_enabled(self, mock_model_class, mock_parameters, time_window):
+        """Test that LP files are exported when export_lp is True."""
+        # Setup
+        mock_parameters.export_lp = True
+        mock_parameters.export_lp_path = "/tmp/lp_export"
+
+        # Create a fresh mock portfolio
+        test_portfolio = Mock(spec=PortfolioPO)
+        test_portfolio.name = "test_portfolio"
+        test_portfolio.equipments = Mock()
+        test_portfolio.equipments.get_all_equipment.return_value = []
+
+        # Setup mock model
+        mock_model = Mock()
+        mock_model.portfolio = test_portfolio
+        mock_model._variables_name = []
+        mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
+        mock_model_class.return_value = mock_model
+
+        # Call function
+        optimise_single_portfolio(test_portfolio, time_window, mock_parameters)
+
+        # Verify LP export was called
+        mock_model.export_model.assert_called_once_with("/tmp/lp_export/po_test_portfolio.lp")
+
+    @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioOptimisationModel")
+    def test_lp_export_when_disabled(self, mock_model_class, mock_portfolio, mock_parameters, time_window):
+        """Test that LP files are not exported when export_lp is False."""
+        # Setup
+        mock_parameters.export_lp = False
+
+        # Setup mock portfolio with equipments
+        mock_portfolio.equipments = Mock()
+        mock_portfolio.equipments.get_all_equipment.return_value = []
+
+        # Setup mock model
+        mock_model = Mock()
+        mock_model.portfolio = mock_portfolio
+        mock_model._variables_name = []
+        mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
+        mock_model_class.return_value = mock_model
+
+        # Call function
+        optimise_single_portfolio(mock_portfolio, time_window, mock_parameters)
+
+        # Verify LP export was not called
+        mock_model.export_model.assert_not_called()
+
 
 class TestPortfolioOptimisationOrchestrator:
     """Test suite for PortfolioOptimisationOrchestrator class."""
@@ -485,3 +534,178 @@ class TestPortfolioOptimisationOrchestrator:
 
         # Verify ProcessPoolExecutor was created with correct max_workers
         mock_executor_class.assert_called_once_with(max_workers=4)
+
+    @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.ProcessPoolExecutor")
+    @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.optimise_single_portfolio")
+    def test_run_equipment_multiprocessing_error_handling(
+        self, mock_optimise, mock_executor_class, mock_parameters, mock_input_dataset
+    ):
+        """Test error handling in equipment multiprocessing mode."""
+        # Setup
+        mock_parameters.is_portfolio_bidding = False
+        mock_parameters.use_multiprocessing = True
+
+        # Add equipment to portfolio
+        mock_wind = Mock(spec=WindPO)
+        mock_wind.name = "wind_1"
+        mock_input_dataset.portfolios[0].equipments.iter_by_type = Mock(return_value=[("wind", [mock_wind])])
+        mock_input_dataset.portfolios[0].control_block = Mock()
+        mock_input_dataset.portfolios[0].market_area = Mock()
+        mock_input_dataset.portfolios[0].market_area.set_market_context = Mock()
+        mock_input_dataset.portfolios[1].equipments.iter_by_type = Mock(return_value=[])
+
+        # Mock executor and futures
+        mock_executor = MagicMock()
+        mock_executor_class.return_value.__enter__.return_value = mock_executor
+
+        # Mock future that raises exception
+        future1 = MagicMock()
+        future1.result.side_effect = Exception("Equipment optimization failed")
+
+        mock_executor.submit.return_value = future1
+
+        with patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.as_completed") as mock_as_completed:
+            with patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioPO"):
+                mock_as_completed.return_value = [future1]
+
+                orchestrator = PortfolioOptimisationOrchestrator(mock_parameters)
+                results = orchestrator.run(mock_input_dataset)
+
+                # Should handle error gracefully and continue
+                assert isinstance(results, dict)
+
+    @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.optimise_single_portfolio")
+    def test_run_portfolio_sequential_with_multiple_errors(self, mock_optimise, mock_parameters, mock_input_dataset):
+        """Test that sequential mode handles multiple errors gracefully."""
+        # Setup
+        mock_parameters.is_portfolio_bidding = True
+        mock_parameters.use_multiprocessing = False
+
+        # All optimizations fail
+        mock_optimise.side_effect = [
+            Exception("First portfolio failed"),
+            Exception("Second portfolio failed"),
+        ]
+
+        orchestrator = PortfolioOptimisationOrchestrator(mock_parameters)
+        results = orchestrator.run(mock_input_dataset)
+
+        # Should still process manual activation portfolio
+        assert "manual_portfolio" in results
+        assert mock_optimise.call_count == 2
+
+    def test_portfolio_result_repr(self):
+        """Test PortfolioOptimisationResult __repr__ method."""
+        portfolio = Mock(spec=PortfolioPO)
+        portfolio.name = "test_portfolio"
+
+        result = PortfolioOptimisationResult(
+            portfolio=portfolio,
+            variable_values={},
+            solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
+        )
+
+        repr_str = repr(result)
+        assert "PortfolioOptimisationResult" in repr_str
+        assert "test_portfolio" in repr_str
+
+    @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioPO")
+    @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.optimise_single_portfolio")
+    def test_equipment_mode_market_context_set(
+        self, mock_optimise, mock_portfolio_po_class, mock_parameters, mock_input_dataset
+    ):
+        """Test that market context is properly set in equipment mode."""
+        # Setup
+        mock_parameters.is_portfolio_bidding = False
+        mock_parameters.use_multiprocessing = False
+        mock_parameters.market = MarketType.intraday
+        mock_parameters.use_forecast = True
+
+        # Add equipment to portfolio
+        mock_wind = Mock(spec=WindPO)
+        mock_wind.name = "wind_1"
+        mock_input_dataset.portfolios[0].equipments.iter_by_type = Mock(return_value=[("wind", [mock_wind])])
+        mock_input_dataset.portfolios[0].control_block = Mock()
+        mock_input_dataset.portfolios[0].market_area = Mock()
+        mock_input_dataset.portfolios[1].equipments.iter_by_type = Mock(return_value=[])
+
+        # Mock PortfolioPO
+        mock_portfolio_instance = Mock(spec=PortfolioPO)
+        mock_portfolio_instance.name = "wind_1"
+        mock_portfolio_instance.equipments = Mock()
+        mock_portfolio_instance.market_area = Mock()
+        mock_portfolio_po_class.return_value = mock_portfolio_instance
+
+        result = PortfolioOptimisationResult(
+            portfolio=mock_portfolio_instance,
+            variable_values={},
+            solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
+        )
+        mock_optimise.return_value = ("wind_1", result)
+
+        orchestrator = PortfolioOptimisationOrchestrator(mock_parameters)
+        orchestrator.run(mock_input_dataset)
+
+        # Verify market context was set with correct parameters
+        mock_portfolio_instance.market_area.set_market_context.assert_called_with(MarketType.intraday, True)
+
+    def test_optimization_result_default_variable_values(self):
+        """Test that PortfolioOptimisationResult has empty dict by default."""
+        portfolio = Mock(spec=PortfolioPO)
+        portfolio.name = "test"
+
+        result = PortfolioOptimisationResult(
+            portfolio=portfolio,
+            solution_info=SolutionInfo(status=SolverStatus.OPTIMAL),
+        )
+
+        assert result.variable_values == {}
+        assert result.get_variable_value("any_var") == 0.0
+
+    @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.optimise_single_portfolio")
+    def test_run_with_only_manual_activation_portfolios(self, mock_optimise, mock_parameters):
+        """Test running when all portfolios use manual activation."""
+        # Setup dataset with only manual activation portfolios
+        dataset = Mock(spec=PortfolioOptimisationInputDataset)
+        dataset.portfolios = []  # No regular portfolios
+
+        manual_portfolio = Mock(spec=PortfolioPO)
+        manual_portfolio.name = "manual_only"
+        manual_portfolio.equipments = Mock()
+        manual_portfolio.equipments.get_all_equipment.return_value = []
+
+        dataset.portfolios_manual_activation = [manual_portfolio]
+        dataset.time_windows = {}
+
+        mock_parameters.is_portfolio_bidding = True
+        mock_parameters.use_multiprocessing = False
+
+        orchestrator = PortfolioOptimisationOrchestrator(mock_parameters)
+        results = orchestrator.run(dataset)
+
+        # Should have result for manual portfolio only
+        assert len(results) == 1
+        assert "manual_only" in results
+        # optimise_single_portfolio should not be called
+        mock_optimise.assert_not_called()
+
+    @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.ProcessPoolExecutor")
+    def test_multiprocessing_with_none_max_workers(self, mock_executor_class, mock_parameters, mock_input_dataset):
+        """Test that multiprocessing works with max_workers=None (default CPU count)."""
+        # Setup
+        mock_parameters.is_portfolio_bidding = True
+        mock_parameters.use_multiprocessing = True
+        mock_parameters.max_workers = None  # Should use default
+
+        mock_executor = MagicMock()
+        mock_executor_class.return_value.__enter__.return_value = mock_executor
+        mock_executor.submit.return_value = MagicMock()
+
+        with patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.as_completed") as mock_as_completed:
+            mock_as_completed.return_value = []
+
+            orchestrator = PortfolioOptimisationOrchestrator(mock_parameters)
+            orchestrator.run(mock_input_dataset)
+
+        # Verify ProcessPoolExecutor was created with None (defaults to CPU count)
+        mock_executor_class.assert_called_once_with(max_workers=None)

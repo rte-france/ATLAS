@@ -9,12 +9,13 @@ from __future__ import annotations
 from os import getcwd
 
 from pendulum import DateTime, duration
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import MarketType, StorageType, ThermalStrategy
 from atlas.timing import generate_datetimes
+from atlas.validators import convert_to_duration
 
 
 class PortfolioOptimisationParameters(AbstractParameters):
@@ -137,14 +138,26 @@ class PortfolioOptimisationParameters(AbstractParameters):
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
     )
 
-    additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=12),
-        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",  # type: ignore[assignment]
-    )
     timestep: Duration = Field(
         default_factory=lambda: duration(hours=1),
         description="Time step of the simulated market.",  # type: ignore[assignment]
     )
+
+    @field_validator(
+        "timestep",
+        "solver_timeout",
+        "battery_automated_reserve_duration",
+        "battery_reserve_duration",
+        "electric_vehicle_automated_reserve_duration",
+        "electric_vehicle_reserve_duration",
+        "pumped_hydraulic_automated_reserve_duration",
+        "pumped_hydraulic_reserve_duration",
+        mode="before",
+    )
+    @classmethod
+    def parse_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)
 
     @property
     def excluded_market_areas(self) -> list[str]:
