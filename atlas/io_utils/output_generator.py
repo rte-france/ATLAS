@@ -59,7 +59,7 @@ class OutputGenerator:
     @classmethod
     def to_directory(
         cls,
-        dataset: dict[str, list[type[BusinessModel]]],
+        dataset: dict[str, list[BusinessModel]],
         directory_path: Path,
         separator: str = ";",
         timeseries_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
@@ -72,7 +72,7 @@ class OutputGenerator:
         constructs intermediate mathematical objects.
 
         :param dataset: The set of data to deserialize.
-        :type dataset: dict[str, list[type[BusinessModel]]]
+        :type dataset: dict[str, list[BusinessModel]]
         :param directory_path: The root path to the directory containing input data.
         :type directory_path: str or pathlib.Path
         :param separator: The separator used in CSV files (default: ";").
