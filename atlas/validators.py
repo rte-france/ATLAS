@@ -42,7 +42,7 @@ def serializer_list_float(value: list[float] | None) -> str | None:
         return None
     if isinstance(value, list):
         return ":".join(map(str, value))
-    raise ValidationError(
+    raise ValueError(
         f"Expected list of floats, got: {value}",
     )
 
@@ -52,7 +52,7 @@ def serializer_business_model(value: BusinessModel | None) -> str | None:
         return None
     if isinstance(value, BusinessModel):
         return value.name
-    raise ValidationError(
+    raise ValueError(
         f"Expected BusinessModel instance, got: {value}",
     )
 
@@ -62,8 +62,8 @@ def serializer_list_business_model(value: list[BusinessModel] | None) -> str | N
         return None
     if isinstance(value, list):
         return ":".join(str(bm.name) for bm in value)
-    raise ValidationError(
-        f"Expected list of floats, got: {value}",
+    raise ValueError(
+        f"Expected list of BusinessModel instances, got: {value}",
     )
 
 
