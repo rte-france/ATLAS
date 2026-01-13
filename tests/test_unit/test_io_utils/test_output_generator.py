@@ -1,7 +1,6 @@
 """Unit tests for OutputGenerator class."""
 
 import shutil
-from pathlib import Path
 
 import pendulum
 import polars as pl
@@ -11,7 +10,7 @@ from atlas.io_utils.output_generator import OutputGenerator
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.business_model import BusinessModel
+from atlas.models.equipment.equipment import Equipment
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
 
@@ -108,7 +107,6 @@ class TestOutputGeneratorToDirectory:
 
     def test_to_directory_with_none_values(self, temp_output_dir):
         """Test that None values are exported as empty strings in CSV."""
-        from atlas.models.equipment.equipment import Equipment
 
         # Create equipment with some None values
         equipment = Equipment(
@@ -142,7 +140,6 @@ class TestOutputGeneratorToDirectory:
 
     def test_to_directory_with_timeseries(self, temp_output_dir, simple_timeseries):
         """Test exporting objects with Timeseries fields."""
-        from atlas.models.equipment.equipment import Equipment
 
         # Create equipment with timeseries
         equipment = Equipment(
@@ -177,7 +174,6 @@ class TestOutputGeneratorToDirectory:
 
     def test_to_directory_with_forecasting_matrix(self, temp_output_dir, simple_forecasting_matrix):
         """Test exporting objects with ForecastingMatrix fields."""
-        from atlas.models.equipment.equipment import Equipment
 
         # Create equipment with forecasting matrix
         equipment = Equipment(
@@ -208,7 +204,6 @@ class TestOutputGeneratorToDirectory:
 
     def test_to_directory_with_scenario_matrix(self, temp_output_dir, simple_scenario_matrix):
         """Test exporting objects with ScenarioMatrix fields."""
-        from atlas.models.equipment.equipment import Equipment
 
         # Create equipment with scenario matrix
         equipment = Equipment(
@@ -239,7 +234,6 @@ class TestOutputGeneratorToDirectory:
 
     def test_to_directory_multiple_objects(self, temp_output_dir, simple_timeseries):
         """Test exporting multiple objects of the same type."""
-        from atlas.models.equipment.equipment import Equipment
 
         # Create multiple equipment objects
         equipment1 = Equipment(name="equipment_1", co2_emission_factor=0.5)
@@ -282,7 +276,6 @@ class TestOutputGeneratorToDirectory:
 
     def test_to_directory_with_business_model_references(self, temp_output_dir):
         """Test exporting objects with BusinessModel reference fields."""
-        from atlas.models.equipment.equipment import Equipment
 
         # Create related business models
         node = Node(name="test_node")
