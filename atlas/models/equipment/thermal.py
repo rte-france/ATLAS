@@ -14,7 +14,7 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import hours_validator
+from atlas.validators import convert_to_duration
 
 
 class Thermal(Equipment):
@@ -107,6 +107,6 @@ class Thermal(Equipment):
         mode="before",
     )
     @classmethod
-    def convert_hours_to_duration(cls, v):
+    def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""
-        return hours_validator(v)
+        return convert_to_duration(v)

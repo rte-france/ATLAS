@@ -5,12 +5,13 @@ This file is part of the ATLAS project.
 """
 
 from pendulum import Duration, duration
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
+from atlas.validators import convert_to_duration
 
 
 class OtherNonDispatchable(Equipment):
@@ -28,3 +29,9 @@ class OtherNonDispatchable(Equipment):
         default_factory=lambda: duration(hours=0),
         description="Default optimization period for other non dispatchable equipment.",
     )
+
+    @field_validator("additional_hours", mode="before")
+    @classmethod
+    def convert_hours_to_duration(cls, v):
+        """Convert various duration formats to Duration objects (hours default)."""
+        return convert_to_duration(v)

@@ -7,6 +7,7 @@ datasets, including objects, timeseries, scenario matrices, and forecasting matr
 import os
 import shutil
 from concurrent.futures import ProcessPoolExecutor
+from datetime import datetime
 from pathlib import Path
 from typing import Any, get_args
 
@@ -15,6 +16,7 @@ import numpy as np
 import numpy.typing as npt
 import pendulum
 import polars as pl
+from pydantic_extra_types.pendulum_dt import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
@@ -508,9 +510,13 @@ class PrometheusToAtlasDataParser:
             # Handle scalar values
             attrs[attr_name_snake] = self._extract_scalar_value(val)
 
-            # Apply type conversions
+            # Apply type conversions based on the pydantic model type
+            type_attribute = self._get_resolved_type(object_type_snake, attr_name_snake)
+
             if isinstance(attrs[attr_name_snake], bytes):
-                attrs[attr_name_snake] = self._decode_bytes_attribute(attrs[attr_name_snake])
+                attrs[attr_name_snake] = self._decode_bytes_attribute(attrs[attr_name_snake], type_attribute)
+            elif isinstance(attrs[attr_name_snake], float | int):
+                attrs[attr_name_snake] = self._convert_numeric_by_type(attrs[attr_name_snake], type_attribute)
 
             # Handle None/empty values
             if attrs[attr_name_snake] in ("None", ""):
@@ -522,7 +528,6 @@ class PrometheusToAtlasDataParser:
                 attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
 
             # Convert to snake_case if referencing another model object
-            type_attribute = self._get_resolved_type(object_type_snake, attr_name_snake)
             if attr_name_snake == "equipment" or type_attribute in cfg.MODEL_MAPPING_NAME.values():
                 attrs[attr_name_snake] = to_snake_case(attrs[attr_name_snake])
 
@@ -548,20 +553,47 @@ class PrometheusToAtlasDataParser:
             return val.item()
         return val
 
-    def _decode_bytes_attribute(self, val: bytes) -> str:
-        """Decode bytes attribute and attempt to parse as datetime.
+    def _decode_bytes_attribute(self, val: bytes, type_attribute: Any) -> str:
+        """Decode bytes attribute and convert based on expected type.
 
         Args:
             val: Bytes value to decode
+            type_attribute: Expected type from pydantic model
 
         Returns:
-            Decoded string, potentially converted to datetime format
+            Decoded string, potentially converted to datetime or duration format
         """
         decoded = val.decode("utf-8")
-        try:
-            return pendulum.from_format(decoded, self.date_format_input_files).to_datetime_string()
-        except Exception:
-            return decoded
+
+        # Check if the expected type is datetime or DateTime
+        if type_attribute in (datetime, pendulum.DateTime, DateTime):
+            try:
+                return pendulum.from_format(decoded, self.date_format_input_files).to_datetime_string()
+            except Exception:
+                logger.debug(f"Failed to parse '{decoded}' as datetime, returning as string")
+                return decoded
+
+        return decoded
+
+    def _convert_numeric_by_type(self, val: float | int, type_attribute: Any) -> str | float | int:
+        """Convert numeric values based on expected type.
+
+        Args:
+            val: Numeric value
+            type_attribute: Expected type from pydantic model
+
+        Returns:
+            Converted value (ISO8601 duration string for Duration types, original value otherwise)
+        """
+        # Check if the expected type is Duration
+        if type_attribute == Duration:
+            try:
+                val = Duration(hours=float(val)).to_iso8601_string()  # type: ignore[assignment]
+            except Exception as e:
+                logger.debug(f"Failed to convert {val} to Duration: {e}, returning as is")
+                return val
+
+        return val
 
     def _get_resolved_type(self, object_type_snake: str, attr_name_snake: str) -> Any:
         """Get the resolved type of an attribute, unwrapping Union/Optional if needed.

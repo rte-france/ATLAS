@@ -21,6 +21,7 @@ import plotly
 import plotly.express as px
 import plotly.graph_objects
 import polars as pl
+from pydantic_core import core_schema
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
@@ -53,6 +54,13 @@ class Timeseries:
 
         self._check_timeseries(timeseries)
         self._set_timeseries(timeseries, timezone)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(lambda x: "timeseries", when_used="json"),
+        )
 
     @classmethod
     def from_file(
@@ -928,6 +936,70 @@ class Timeseries:
             self.timeseries.write_parquet(path)
         elif file_format_lower == "pickle":
             with open(path, "wb") as f:
+                pickle.dump(self, f)
+        else:
+            raise NotImplementedError("Format not supported")
+
+    def to_file_with_attribute(
+        self,
+        path: str | Path,
+        attribute: str,
+        file_format: Literal["csv", "parquet", "pickle"] = "csv",
+        separator: str = ";",
+        concatenate: bool = True,
+    ) -> None:
+        """
+        Export the Timeseries to a file with an attribute column.
+
+        If the file already exists and concatenate is True, the new data will be
+        appended to the existing data.
+
+        :param path: Destination file path
+        :type path: str or Path
+        :param attribute: Attribute name to add as a column
+        :type attribute: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: Literal["csv", "parquet", "pickle"], optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
+        :param concatenate: If True, concatenate with existing file data, defaults to True
+        :type concatenate: bool, optional
+        :raises ValueError: If file extension doesn't match format
+        :raises NotImplementedError: If the file format is not supported
+        """
+        file_format_lower = file_format.lower()
+
+        if isinstance(path, Path):
+            path_str = str(path)
+        else:
+            path_str = path
+
+        if not path_str.lower().endswith(file_format_lower):
+            raise ValueError("Format and file extension don't match.")
+
+        df_to_write = self.timeseries.insert_column(1, pl.lit(attribute).alias("attribute"))
+
+        if concatenate:
+            path_obj = Path(path_str)
+            if path_obj.exists() and file_format_lower != "pickle":
+                try:
+                    if file_format_lower == "csv":
+                        existing_df = pl.read_csv(path_str, separator=separator)
+                    elif file_format_lower == "parquet":
+                        existing_df = pl.read_parquet(path_str)
+
+                    # Concatenate with existing data
+                    df_to_write = pl.concat([existing_df, df_to_write])
+                except Exception as e:
+                    raise ValueError(f"Could not read existing file for concatenation: {e}") from e
+
+        # Write the file
+        if file_format_lower == "csv":
+            df_to_write.write_csv(path_str, separator=separator)
+        elif file_format_lower == "parquet":
+            df_to_write.write_parquet(path_str)
+        elif file_format_lower == "pickle":
+            with open(path_str, "wb") as f:
                 pickle.dump(self, f)
         else:
             raise NotImplementedError("Format not supported")

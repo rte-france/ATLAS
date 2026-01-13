@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 import pendulum
 from pydantic import BaseModel, field_validator, model_validator
@@ -12,19 +13,12 @@ class InputLoaderConfig(BaseModel):
 
     directory_path: Path
     separator: str = ";"
-    timeseries_file_extension: str = ".parquet"
-    matrix_file_extension: str = ".parquet"
+    timeseries_file_extension: Literal["csv", "parquet", "pickle"] = "parquet"
+    matrix_file_extension: Literal["csv", "parquet", "pickle"] = "parquet"
     lazy: bool = False
     timezone: str = "UTC"
     date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss"
     date_format_input_files: str = "YYYY-MM-DD HH:mm:ss"
-
-    @field_validator("timeseries_file_extension", "matrix_file_extension")
-    @classmethod
-    def validate_file_extensions(cls, v: str) -> str:
-        if not v or not v.startswith("."):
-            raise ValueError("File extension must start with '.' (e.g., '.parquet')")
-        return v
 
     @field_validator("timezone")
     @classmethod
@@ -87,3 +81,34 @@ class InputLoaderConfig(BaseModel):
             )
 
         return self
+
+
+class OutputGeneratorConfig(BaseModel):
+    """Pydantic model for OutputGenerator configuration validation."""
+
+    directory_path: Path
+    separator: str = ";"
+    timeseries_file_extension: Literal["csv", "parquet", "pickle"] = "parquet"
+    matrix_file_extension: Literal["csv", "parquet", "pickle"] = "parquet"
+    lazy: bool = False
+    timezone: str = "UTC"
+    date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss"
+    date_format_input_files: str = "YYYY-MM-DD HH:mm:ss"
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, v: str) -> str:
+        try:
+            pendulum.timezone(v)
+        except Exception as e:
+            raise ValueError(f"Invalid timezone '{v}': {str(e)}") from e
+        return v
+
+    @field_validator("date_format_forecasting_matrix", "date_format_input_files")
+    @classmethod
+    def validate_date_formats(cls, v: str) -> str:
+        try:
+            pendulum.now().format(v)
+        except Exception as e:
+            raise ValueError(f"Invalid date format '{v}': {str(e)}") from e
+        return v

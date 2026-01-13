@@ -7,14 +7,14 @@ This file is part of the ATLAS project.
 from typing import Any
 
 from pendulum import Duration, duration
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 
 from atlas.enum import InflowFrequency
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import hours_validator, parse_list_float
+from atlas.validators import convert_to_duration, parse_list_float, serializer_list_float
 
 
 class FragmentData(BaseModel):
@@ -87,14 +87,19 @@ class Hydro(Equipment):
 
     @field_validator("additional_hours", mode="before")
     @classmethod
-    def convert_hours_to_duration(cls, v):
-        """Convert various duration formats to Duration objects (hours default)."""
-        return hours_validator(v)
+    def parse_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)
 
     @field_validator("fragment_prices", "fragment_volumes", mode="before")
     @classmethod
     def validate_fragment_prices_and_volumes(cls, value: Any):
         return parse_list_float(value)
+
+    @field_serializer("fragment_prices", "fragment_volumes", mode="plain")
+    def serialize_fragment_prices_and_volumes(self, value: list[float] | None) -> str | None:
+        """Serialize fragment prices and volumes to a string."""
+        return serializer_list_float(value)
 
     @model_validator(mode="after")
     def build_fragment_data(self) -> "Hydro":

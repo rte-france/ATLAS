@@ -126,10 +126,11 @@ def parse_frequency(freq: str) -> pendulum.Duration:
     if not matches:
         raise ValueError(f"Unsupported or malformed frequency string: {freq}")
 
-    duration_kwargs: dict[str, float] = {}
-    for value, unit in matches:
-        key = unit_map.get(unit, "")
-        duration_kwargs[key] = duration_kwargs.get(key, 0) + int(value)
+    if matches:
+        duration_kwargs: dict[str, float] = {}
+        for value, unit in matches:
+            key = unit_map.get(unit, "")
+            duration_kwargs[key] = duration_kwargs.get(key, 0) + int(value)
 
     return pendulum.duration(**duration_kwargs)
 
