@@ -9,6 +9,7 @@ Module that implements ScenarioMatrix
 
 import pandas as pd
 import polars as pl
+from pydantic_core import core_schema
 
 from atlas.math.lazy_matrix import LazyMatrix
 from atlas.math.matrix import Matrix
@@ -25,6 +26,15 @@ class ScenarioMatrix(Matrix):
 
     def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix | None = None, timezone: str = "UTC") -> None:
         super().__init__(matrix, timezone)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: "scenario_matrix", when_used="json"
+            ),
+        )
 
     def __repr__(self):
         """Provide a string representation of the Matrix object."""

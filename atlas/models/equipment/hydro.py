@@ -6,14 +6,14 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_serializer, field_validator
 
 from atlas.enum import InflowFrequency
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import parse_list_float
+from atlas.validators import parse_list_float, serializer_list_float
 
 
 class Hydro(Equipment):
@@ -74,3 +74,8 @@ class Hydro(Equipment):
     @classmethod
     def validate_fragment_prices_and_volumes(cls, value: Any):
         return parse_list_float(value)
+
+    @field_serializer("fragment_prices", "fragment_volumes", mode="plain")
+    def serialize_fragment_prices_and_volumes(self, value: list[float] | None) -> str | None:
+        """Serialize fragment prices and volumes to a string."""
+        return serializer_list_float(value)
