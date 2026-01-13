@@ -93,7 +93,7 @@ class TestThermalCombinationLPComparison:
                 comparison_result = SolverHelper.compare_lp_problems(
                     reference_lp_data,
                     generated_lp_data,
-                    output_dir="lp_comparison_results",
+                    output_dir=compare_dir,
                     pb1_name="Reference",
                     pb2_name="Generated",
                     tolerance=1,
