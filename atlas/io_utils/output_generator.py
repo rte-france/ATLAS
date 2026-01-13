@@ -7,7 +7,7 @@ Module that implements Output Generator Loader
 """
 
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 import atlas.config as cfg
 from atlas.custom_errors import InputLoaderError
@@ -133,92 +133,66 @@ class OutputGenerator:
                 except PermissionError:
                     print(f"Permission denied: Unable to create '{forecasting_matrix_dir}'.")
 
-            for object_key, object_values in dataset.items():
-                file_name = object_key + ".csv"
+            for object_type, objects_list in dataset.items():
+                file_name = object_type + ".csv"
                 file_path = objects_dir / file_name
-                rows = []
 
-                # Generate first row
-                columns_name = list(object_values[0].model_dump(mode="json").keys())
-                columns_name.remove("name")
-                columns_name.sort()
-                rows.append("name")
+                if not objects_list:
+                    continue
 
-                for key in columns_name:
-                    rows[0] += config.separator + key
+                first_dump = objects_list[0].model_dump(mode="json")
+                columns_name = [col for col in sorted(first_dump.keys()) if col != "name"]
 
-                # Compute other rows
-                idx_next_row = 0
-                for value in object_values:
-                    dump_value = value.model_dump(mode="json")
-                    rows.append(dump_value["name"])
-                    idx_next_row += 1
+                csv_rows = []
+                header_row = ["name"] + columns_name
+                csv_rows.append(config.separator.join(header_row))
 
-                    for field_name in columns_name:
-                        rows[idx_next_row] += config.separator
-                        if dump_value[field_name] is None:
+                for business_object in objects_list:
+                    for field_name, field_value in business_object:
+                        if field_name == "name":
                             continue
-                        elif isinstance(dump_value[field_name], dict):
-                            rows[idx_next_row] += str(dump_value[field_name]["name"])
-                        elif isinstance(dump_value[field_name], list):
-                            rows[idx_next_row] += ":".join(map(str, dump_value[field_name]))
-                        elif dump_value[field_name] == "P":
-                            rows[idx_next_row] += "PT0H"
-                        else:
-                            rows[idx_next_row] += str(dump_value[field_name])
 
-                # Generate matrix and timeseries
-                for value in object_values:
-                    dump_value = value.model_dump()
-                    for field_name in columns_name:
-                        if isinstance(dump_value[field_name], Timeseries):
-                            dir_path = timeseries_dir / object_key
-                            if not dir_path.is_dir():
-                                try:
-                                    dir_path.mkdir()
-                                except PermissionError:
-                                    print(f"Permission denied: Unable to create '{dir_path}'.")
-                            cast(Timeseries, dump_value[field_name]).to_file_with_attribute(
-                                path=dir_path / (dump_value["name"] + "." + config.timeseries_file_extension),
+                        if isinstance(field_value, Timeseries):
+                            dir_path = timeseries_dir / object_type
+                            dir_path.mkdir(exist_ok=True)
+                            field_value.to_file_with_attribute(
+                                path=dir_path / (business_object.name + "." + config.timeseries_file_extension),
                                 attribute=field_name,
                                 file_format=config.timeseries_file_extension,
                                 separator=config.separator,
                                 concatenate=True,
                             )
-                        elif isinstance(dump_value[field_name], ForecastingMatrix):
-                            dir_path = forecasting_matrix_dir / object_key
-                            if not dir_path.is_dir():
-                                try:
-                                    dir_path.mkdir()
-                                except PermissionError:
-                                    print(f"Permission denied: Unable to create '{dir_path}'.")
-                            cast(ForecastingMatrix, dump_value[field_name]).to_file_with_attribute(
-                                path=dir_path / (dump_value["name"] + "." + config.matrix_file_extension),
-                                attribute=field_name,
-                                file_format=config.matrix_file_extension,
-                                separator=config.separator,
-                                concatenate=True,
-                            )
-                        elif isinstance(dump_value[field_name], ScenarioMatrix):
-                            dir_path = scenario_matrix_dir / object_key
-                            if not dir_path.is_dir():
-                                try:
-                                    dir_path.mkdir()
-                                except PermissionError:
-                                    print(f"Permission denied: Unable to create '{dir_path}'.")
-                            cast(ScenarioMatrix, dump_value[field_name]).to_file_with_attribute(
-                                path=dir_path / (dump_value["name"] + "." + config.matrix_file_extension),
+
+                        elif isinstance(field_value, ForecastingMatrix):
+                            dir_path = forecasting_matrix_dir / object_type
+                            dir_path.mkdir(exist_ok=True)
+                            field_value.to_file_with_attribute(
+                                path=dir_path / (business_object.name + "." + config.matrix_file_extension),
                                 attribute=field_name,
                                 file_format=config.matrix_file_extension,
                                 separator=config.separator,
                                 concatenate=True,
                             )
 
-                # Write file
+                        elif isinstance(field_value, ScenarioMatrix):
+                            dir_path = scenario_matrix_dir / object_type
+                            dir_path.mkdir(exist_ok=True)
+                            field_value.to_file_with_attribute(
+                                path=dir_path / (business_object.name + "." + config.matrix_file_extension),
+                                attribute=field_name,
+                                file_format=config.matrix_file_extension,
+                                separator=config.separator,
+                                concatenate=True,
+                            )
+
+                    dump_value = business_object.model_dump(mode="json")
+                    row_values = [str(dump_value["name"])] + [
+                        "" if dump_value[col] is None else str(dump_value[col]) for col in columns_name
+                    ]
+                    csv_rows.append(config.separator.join(row_values))
+
                 with open(file_path, "w") as file:
-                    for r in rows:
-                        file.write(r)
-                        file.write("\n")
+                    file.write("\n".join(csv_rows) + "\n")
 
             cfg.logger.success("Atlas data exported successfully.")
 

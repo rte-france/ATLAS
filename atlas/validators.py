@@ -12,6 +12,7 @@ import pendulum
 from pendulum.duration import Duration
 from pydantic import ValidationError
 
+from atlas.models.business_model import BusinessModel
 from atlas.timing import parse_frequency
 
 
@@ -33,6 +34,37 @@ def parse_list_float(value: Any) -> list[float] | None:
         raise ValidationError(
             f"Failed to parse list attribute '{value}': {e}",
         ) from e
+
+
+def serializer_list_float(value: list[float] | None) -> str | None:
+    """Serialize list attributes to string."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return ":".join(map(str, value))
+    raise ValidationError(
+        f"Expected list of floats, got: {value}",
+    )
+
+
+def serializer_business_model(value: BusinessModel | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, BusinessModel):
+        return value.name
+    raise ValidationError(
+        f"Expected BusinessModel instance, got: {value}",
+    )
+
+
+def serializer_list_business_model(value: list[BusinessModel] | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return ":".join(str(bm.name) for bm in value)
+    raise ValidationError(
+        f"Expected list of floats, got: {value}",
+    )
 
 
 def convert_to_duration(
@@ -65,7 +97,19 @@ def convert_to_duration(
     if isinstance(value, Duration):
         duration_obj = value
     elif isinstance(value, str):
-        duration_obj = parse_frequency(value)
+        if value == "P":
+            duration_obj = pendulum.duration(hours=0)
+            return duration_obj
+        if value.startswith("P") or "T" in value:
+            try:
+                obj = pendulum.parse(value)
+                if not isinstance(obj, Duration):
+                    raise ValueError(f"Parsed value is not a Duration: {obj}")
+                duration_obj = obj
+            except Exception as e:
+                raise ValueError(f"Failed to parse ISO 8601 duration string '{value}': {e}") from e
+        else:
+            duration_obj = parse_frequency(value)
     else:
         raise ValueError(
             f"Cannot convert {type(value).__name__} to Duration. "

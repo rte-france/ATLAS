@@ -89,6 +89,6 @@ class Storage(Equipment):
         mode="before",
     )
     @classmethod
-    def convert_hours_to_duration(cls, v):
+    def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""
         return convert_to_duration(v)

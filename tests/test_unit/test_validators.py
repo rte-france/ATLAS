@@ -25,6 +25,7 @@ def test_basic_conversions():
     # None handling
     assert convert_to_duration(None) is None
 
+
 def test_none_and_zero():
     """Test None and zero inputs."""
     assert convert_to_duration(None) is None
@@ -36,6 +37,14 @@ def test_duration_objects():
     dur = duration(hours=1, minutes=30)
     result = convert_to_duration(dur)
     assert result.total_seconds() == dur.total_seconds()
+
+
+def test_duration_P_stirng():
+    """Test that duration objects pass through."""
+    dur = "P"
+
+    result = convert_to_duration(dur)
+    assert result.total_seconds() == 0
 
 
 def test_errors():

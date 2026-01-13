@@ -13,7 +13,6 @@ from typing import Literal, cast
 import pendulum
 import polars as pl
 import pytz
-from pendulum.duration import Duration
 
 
 def datetime_to_pendulum(fmt: str) -> str:
@@ -124,21 +123,16 @@ def parse_frequency(freq: str) -> pendulum.Duration:
     pattern = re.compile(r"(\d+)(ms|us|[yMwdhms])")
     matches = pattern.findall(freq)
 
+    if not matches:
+        raise ValueError(f"Unsupported or malformed frequency string: {freq}")
+
     if matches:
         duration_kwargs: dict[str, float] = {}
         for value, unit in matches:
             key = unit_map.get(unit, "")
             duration_kwargs[key] = duration_kwargs.get(key, 0) + int(value)
 
-        return pendulum.duration(**duration_kwargs)
-
-    iso_format = pendulum.parse(freq)
-    if isinstance(iso_format, Duration):
-        return iso_format
-    if freq == "P":  # function pendulum.parse() fails to read "P" as "PT0H"
-        return Duration(0)
-
-    raise ValueError(f"Unsupported or malformed frequency string: {freq}")
+    return pendulum.duration(**duration_kwargs)
 
 
 def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-DD HH:mm:ss") -> pendulum.DateTime:

@@ -4,9 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pydantic import field_serializer
+
 from atlas.enum import ComplementDirection, CouplingType
 from atlas.models.business_model import BusinessModel
 from atlas.models.market.order import Order
+from atlas.validators import serializer_list_business_model
 
 
 class OrderCoupling(BusinessModel):
@@ -24,3 +27,7 @@ class OrderCoupling(BusinessModel):
     complement_direction: ComplementDirection | None = None
     complement_energy: float | None = None
     coupling_type: CouplingType | None = None
+
+    @field_serializer("orders", mode="plain")
+    def serializer_orders(self, value: list[BusinessModel] | None) -> str | None:
+        return serializer_list_business_model(value)
