@@ -277,10 +277,11 @@ class OptimisationModel:
         terms one at a time. The optimization direction must be set using set_direction()
         before calling this method.
 
-        Examples:
-        model.set_direction("maximize")
-        model.add_objective(x + 2 * y)
-        model.add_objective(3 * z)  # Adds to existing objective
+        **Example**
+
+            model.set_direction("maximize")
+            model.add_objective(x + 2 * y)
+            model.add_objective(3 * z)  # Adds to existing objective
 
         :param objective_expr: OR-Tools expression to add to the objective
         :type objective_expr: Any (OR-Tools expression object)
@@ -308,8 +309,11 @@ class OptimisationModel:
         must be set using set_direction() before calling this method.
 
         This method allows you to set objectives directly like:
-        model.set_direction("maximize")
-        model.set_objective(x + 2 * y)
+
+        **Example**
+
+            model.set_direction("maximize")
+            model.set_objective(x + 2 * y)
 
         :param objective_expr: OR-Tools expression for the objective
         :type objective_expr: Any (OR-Tools expression object)
