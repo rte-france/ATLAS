@@ -12,10 +12,10 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
-from pydantic_core import core_schema
 
 import pendulum
 import polars as pl
+from pydantic_core import core_schema
 
 from atlas.io_utils.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
@@ -70,9 +70,8 @@ class ForecastingMatrix(Matrix):
         return core_schema.is_instance_schema(
             cls,
             serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda x: 'forecasting_matrix',
-                when_used='json'
-            )
+                lambda x: "forecasting_matrix", when_used="json"
+            ),
         )
 
     def __repr__(self):

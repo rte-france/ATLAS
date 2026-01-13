@@ -9,8 +9,6 @@ Module that implements Output Generator Loader
 from pathlib import Path
 from typing import Literal, cast
 
-from pydantic_extra_types.pendulum_dt import Duration
-
 import atlas.config as cfg
 from atlas.custom_errors import InputLoaderError
 from atlas.io_utils.models import OutputGeneratorConfig
@@ -65,7 +63,7 @@ class OutputGenerator:
         directory_path: Path,
         separator: str = ";",
         timeseries_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
-        matrix_file_extension: Literal["csv", "parquet", "pickle"] = "parquet"
+        matrix_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
     ) -> None:
         """
         Deserialize data set of BusinessModel objects to a directory.

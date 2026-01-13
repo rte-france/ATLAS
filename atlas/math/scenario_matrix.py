@@ -36,9 +36,8 @@ class ScenarioMatrix(Matrix):
         return core_schema.is_instance_schema(
             cls,
             serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda x: 'scenario_matrix',
-                when_used='json'
-            )
+                lambda x: "scenario_matrix", when_used="json"
+            ),
         )
 
     def __repr__(self):

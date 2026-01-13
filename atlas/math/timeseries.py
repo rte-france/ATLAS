@@ -14,7 +14,6 @@ from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
-from pydantic_core import core_schema
 
 import pandas as pd
 import pendulum
@@ -22,6 +21,7 @@ import plotly
 import plotly.express as px
 import plotly.graph_objects
 import polars as pl
+from pydantic_core import core_schema
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
@@ -59,10 +59,7 @@ class Timeseries:
     def __get_pydantic_core_schema__(cls, source_type, handler):
         return core_schema.is_instance_schema(
             cls,
-            serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda x: 'timeseries',
-                when_used='json'
-            )
+            serialization=core_schema.plain_serializer_function_ser_schema(lambda x: "timeseries", when_used="json"),
         )
 
     @classmethod
