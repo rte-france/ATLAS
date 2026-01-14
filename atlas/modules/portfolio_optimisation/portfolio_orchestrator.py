@@ -29,11 +29,12 @@ class PortfolioOptimisationResult:
     This class stores the optimization results without the unpicklable solver object,
     making it suitable for multiprocessing with ProcessPoolExecutor.
 
-    Attributes:
-        portfolio: The optimized portfolio object
-        parameters: Optimization parameters used
-        variable_values: Dictionary mapping variable names to their optimized values
-        solution_info: Dictionary containing solver status, objective value, and solve time
+    :param portfolio: The optimized portfolio object
+    :type portfolio: PortfolioPO
+    :param solution_info: Dictionary containing solver status, objective value, and solve time
+    :type solution_info: SolutionInfo | None
+    :param variable_values: Dictionary mapping variable names to their optimized values
+    :type variable_values: dict[str, float]
     """
 
     portfolio: PortfolioPO
@@ -47,11 +48,10 @@ class PortfolioOptimisationResult:
         This method provides the same interface as PortfolioOptimisationModel.get_variable_value(),
         allowing transparent usage in the output dataset.
 
-        Args:
-            var_name: Name of the variable
-
-        Returns:
-            The variable's optimized value, or 0.0 if the variable doesn't exist
+        :param var_name: Name of the variable
+        :type var_name: str
+        :return: The variable's optimized value, or 0.0 if the variable doesn't exist
+        :rtype: float
         """
         return self.variable_values.get(var_name, 0.0)
 
@@ -73,13 +73,14 @@ def optimise_single_portfolio(
     Builds and solves the optimization model, then extracts results into a picklable
     PortfolioOptimisationResult object (avoiding SWIG solver objects).
 
-    Args:
-        portfolio: Portfolio to optimize
-        time_window: Time window for optimization
-        parameters: Optimization parameters
-
-    Returns:
-        Tuple of (portfolio_name, optimization_result)
+    :param portfolio: Portfolio to optimize
+    :type portfolio: PortfolioPO
+    :param time_window: Time window for optimization
+    :type time_window: list[DateTime]
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: Tuple of (portfolio_name, optimization_result)
+    :rtype: tuple[str, PortfolioOptimisationResult]
     """
     solver_options = SolverOptions(
         presolve=parameters.use_presolve,
@@ -317,11 +318,10 @@ class PortfolioOptimisationOrchestrator:
         """
         Create a result object for manually activated portfolios.
 
-        Args:
-            portfolio: Portfolio to manually activate
-
-        Returns:
-            PortfolioOptimisationResult with manual activation applied
+        :param portfolio: Portfolio to manually activate
+        :type portfolio: PortfolioPO
+        :return: PortfolioOptimisationResult with manual activation applied
+        :rtype: PortfolioOptimisationResult
         """
         cfg.logger.info(f"Manual activation for portfolio: {portfolio.name}")
         cfg.logger.debug("Manual activation optimisation not yet implemented")

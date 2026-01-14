@@ -42,7 +42,16 @@ class PortfolioPO(Portfolio):
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
-        """Build portfolio-level optimization variables."""
+        """
+        Build portfolio-level optimization variables.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
 
         if time in parameters.target_times:
             cfg.logger.debug(f"Adding variables for portfolio :{self.name} at time {time}")
@@ -55,6 +64,16 @@ class PortfolioPO(Portfolio):
             cfg.logger.debug(f"Skipping variables adding for portfolio :{self.name} at non-target time {time}")
 
     def add_constraints(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
+        """
+        Add global portfolio constraints.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         if time in parameters.target_times:
             cfg.logger.debug(f"Adding constraints for portfolio :{self.name}")
             self._add_global_constraints(time, model, parameters)
@@ -109,7 +128,16 @@ class PortfolioPO(Portfolio):
     def _add_global_constraints(
         self, time: DateTime, model: OptimisationModel, parameters: PortfolioOptimisationParameters
     ):
-        """Add global portfolio constraints."""
+        """
+        Add global portfolio constraints.
+
+        :param time: Current time period
+        :type time: DateTime
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         # Power balance constraint
         residual_energy = self._compute_residual_energy(time, parameters)
         max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
@@ -162,7 +190,24 @@ class PortfolioPO(Portfolio):
         large_imbalance_price_up: float,
         timestep: Duration,
     ) -> None:
-        """Get imbalance cost terms as OR-Tools expressions."""
+        """
+        Get imbalance cost terms as OR-Tools expressions.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param imbalance_price_down: Price for downward small imbalance
+        :type imbalance_price_down: float
+        :param imbalance_price_up: Price for upward small imbalance
+        :type imbalance_price_up: float
+        :param large_imbalance_price_down: Price for downward large imbalance
+        :type large_imbalance_price_down: float
+        :param large_imbalance_price_up: Price for upward large imbalance
+        :type large_imbalance_price_up: float
+        :param timestep: Time step duration
+        :type timestep: Duration
+        """
 
         small_imbalance_up_var = model.get_variable(f"{self.name}_small_imbalance_up_{time}")
         small_imbalance_down_var = model.get_variable(f"{self.name}_small_imbalance_down_{time}")
@@ -184,7 +229,16 @@ class PortfolioPO(Portfolio):
     def _add_reserve_penalty_terms(
         self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters
     ) -> None:
-        """Get reserve penalty terms as OR-Tools expressions."""
+        """
+        Get reserve penalty terms as OR-Tools expressions.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
 
         contracted_diff_up = model.get_variable(f"contracted_diff_up_{self.name}_{time}")
         contracted_diff_down = model.get_variable(f"contracted_diff_down_{self.name}_{time}")
@@ -217,7 +271,20 @@ class PortfolioPO(Portfolio):
         maximum_power: float,
         parameters: PortfolioOptimisationParameters,
     ) -> None:
-        """Add imbalance variables to the optimization model."""
+        """
+        Add imbalance variables to the optimization model.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param residual_energy: Residual energy value
+        :type residual_energy: float
+        :param maximum_power: Maximum power capacity
+        :type maximum_power: float
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         small_imbalance_limit = maximum_power * parameters.small_imbalance_size
         max_overall_imbal = max(residual_energy, parameters.maximum_imbalance)
 
@@ -245,7 +312,16 @@ class PortfolioPO(Portfolio):
     def _add_contract_difference_variables(
         self, model: OptimisationModel, time: DateTime, maximum_power: float
     ) -> None:
-        """Add contract difference variables to the optimization model."""
+        """
+        Add contract difference variables to the optimization model.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param maximum_power: Maximum power capacity
+        :type maximum_power: float
+        """
         for v in [
             "contracted_diff_up",
             "contracted_diff_down",
@@ -259,7 +335,16 @@ class PortfolioPO(Portfolio):
         model: OptimisationModel,
         time: DateTime,
     ) -> float:
-        """Get the sum of all power level variables for a specific time."""
+        """
+        Get the sum of all power level variables for a specific time.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :return: Sum of all power level variables
+        :rtype: float
+        """
         total_power = 0
 
         for storage in self.equipments.storage:
@@ -284,7 +369,16 @@ class PortfolioPO(Portfolio):
         return total_power
 
     def _compute_residual_energy(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
-        """Compute residual energy metrics for all times."""
+        """
+        Compute residual energy metrics for all times.
+
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Residual energy value
+        :rtype: float
+        """
         residual_energy = 0.0
 
         forecast_based_equipment: list[LoadPO | OtherNonDispatchablePO] = [
@@ -315,7 +409,16 @@ class PortfolioPO(Portfolio):
         return residual_energy
 
     def _compute_maximum_power(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float:
-        """Compute maximum power and energy metrics for all times."""
+        """
+        Compute maximum power and energy metrics for all times.
+
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Maximum power value
+        :rtype: float
+        """
         return sum(
             abs(self._get_maximum_power(obj, time, parameters.execution_date))
             for _, equipment_list in self.equipments.get_dispatchable_equipment_types()
@@ -325,7 +428,16 @@ class PortfolioPO(Portfolio):
     def _compute_reserves_time(
         self, time: DateTime, parameters: PortfolioOptimisationParameters
     ) -> tuple[float, float, float, float]:
-        """Compute reserves and power metrics for a specific time."""
+        """
+        Compute reserves and power metrics for a specific time.
+
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Tuple of (reserves_up, reserves_down, automated_reserves_up, automated_reserves_down)
+        :rtype: tuple[float, float, float, float]
+        """
         all_reserves = [
             self._get_reserve(obj, time, parameters)
             for _, equipment_list in self.equipments.get_dispatchable_equipment_types()
@@ -335,7 +447,16 @@ class PortfolioPO(Portfolio):
         return tuple(sum(values) for values in zip(*all_reserves)) if all_reserves else (0.0, 0.0, 0.0, 0.0)  # noqa: B905
 
     def get_price_forecast(self, time: DateTime, parameters: PortfolioOptimisationParameters) -> float | None:
-        """Get price forecast for given time based on market type and forecast settings."""
+        """
+        Get price forecast for given time based on market type and forecast settings.
+
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Price forecast value or None if not available
+        :rtype: float | None
+        """
 
         execution_date = parameters.execution_date
         market = parameters.market
@@ -383,7 +504,18 @@ class PortfolioPO(Portfolio):
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ) -> float:
-        """Get upstream energy (bought or sold) based on market type."""
+        """
+        Get upstream energy (bought or sold) based on market type.
+
+        :param obj: Equipment object
+        :type obj: EquipmentPO
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Upstream energy value
+        :rtype: float
+        """
         if parameters.market == MarketType.rr_activation:
             return obj.rr_activated.get_value(time) if obj.rr_activated is not None else 0
         elif parameters.market == MarketType.mfrr_activation:
@@ -419,7 +551,18 @@ class PortfolioPO(Portfolio):
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ) -> tuple[float, float, float, float]:
-        """Calculate reserve values for equipment object."""
+        """
+        Calculate reserve values for equipment object.
+
+        :param obj: Equipment object
+        :type obj: EquipmentPO
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Tuple of (reserves_up, reserves_down, automated_reserves_up, automated_reserves_down)
+        :rtype: tuple[float, float, float, float]
+        """
         maximum_afrr = obj.maximum_afrr
         maximum_fcr = obj.maximum_fcr
 
@@ -449,7 +592,20 @@ class PortfolioPO(Portfolio):
     def get_reserve_value(
         obj: EquipmentPO, time: DateTime, reserve_type: str, parameters: PortfolioOptimisationParameters
     ) -> float:
-        """Helper to get reserve value from forecast."""
+        """
+        Helper to get reserve value from forecast.
+
+        :param obj: Equipment object
+        :type obj: EquipmentPO
+        :param time: Current time period
+        :type time: DateTime
+        :param reserve_type: Type of reserve (e.g., 'afrr_up', 'mfrr_down')
+        :type reserve_type: str
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Reserve value
+        :rtype: float
+        """
         reserve_attr = getattr(obj, f"{reserve_type}_procured")
         if reserve_attr:
             return (

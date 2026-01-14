@@ -19,7 +19,16 @@ class OtherNonDispatchablePO(OtherNonDispatchable):
     optimisation_time_window: list[DateTime] = []
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
-        """Build variables for non dispatchable equipment."""
+        """
+        Build variables for non dispatchable equipment.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         pass
 
     def add_constraints(
@@ -40,12 +49,35 @@ class OtherNonDispatchablePO(OtherNonDispatchable):
         price_forecast: float,
         parameters: PortfolioOptimisationParameters,
     ):
+        """
+        Add objective function terms for non dispatchable equipment.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param price_forecast: Price forecast value
+        :type price_forecast: float
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         pass
 
     def get_optimisation_time_window(
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
-        """Get optimisation time windows based on additional hours."""
+        """
+        Get optimisation time windows based on additional hours.
+
+        :param start_date: Start date of optimization period
+        :type start_date: DateTime
+        :param end_date: End date of optimization period
+        :type end_date: DateTime
+        :param timestep: Time step duration
+        :type timestep: Duration
+        :return: List of datetime periods in optimization window
+        :rtype: list[DateTime]
+        """
 
         self.optimisation_time_window = generate_datetimes(
             start=start_date, end=end_date + self.additional_hours, freq=timestep

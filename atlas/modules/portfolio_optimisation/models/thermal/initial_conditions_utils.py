@@ -29,10 +29,10 @@ def initialize_day_zero_core(
     - Turned on/off transitions = 0
     - Power level = 0
 
-    Args:
-        obj: The thermal unit to initialize
-        model: The optimization model
-        time: The current time step
+    :param obj: The thermal unit to initialize
+    :type obj: ThermalPO
+    :param time: The current time step
+    :type time: DateTime
     """
 
     obj.off_var.set_extended(time, 1)
@@ -50,10 +50,10 @@ def initialize_day_zero_on_states(
 
     For T_stable = 0
 
-    Args:
-        obj: The thermal unit to initialize
-        model: The optimization model
-        time: The current time step
+    :param obj: The thermal unit to initialize
+    :type obj: ThermalPO
+    :param time: The current time step
+    :type time: DateTime
     """
 
     obj.on_up_var.set_extended(time, 0)
@@ -69,10 +69,10 @@ def initialize_day_zero_gradient_vars(
 
     T_stable >= 1.
 
-    Args:
-        obj: The thermal unit to initialize
-        model: The optimization model
-        time: The current time step
+    :param obj: The thermal unit to initialize
+    :type obj: ThermalPO
+    :param time: The current time step
+    :type time: DateTime
     """
     obj.up_grad_var.set_extended(time, 0)
     obj.down_grad_var.set_extended(time, 0)
@@ -89,11 +89,10 @@ def initialize_day_zero_stable_vars(
 
     T_stable >= 1. For stable timeframe.
 
-    Args:
-        obj: The thermal unit to initialize
-        model: The optimization model
-        parameters: Portfolio optimization parameters
-        time: The current time step
+    :param obj: The thermal unit to initialize
+    :type obj: ThermalPO
+    :param time: The current time step
+    :type time: DateTime
     """
 
     obj.on_flat_var.set_extended(time, 0)

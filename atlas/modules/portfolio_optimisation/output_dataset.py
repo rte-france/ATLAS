@@ -94,13 +94,14 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         """
         Extract power and stored energy values from optimization variables.
 
-        Args:
-            equipment: Equipment instance
-            equipment_type: Type of equipment
-            model: Optimization result containing the solved variables
-
-        Returns:
-            Tuple of (power_values, stored_energy_values)
+        :param equipment: Equipment instance
+        :type equipment: EquipmentPO
+        :param equipment_type: Type of equipment
+        :type equipment_type: str
+        :param model: Optimization result containing the solved variables
+        :type model: PortfolioOptimisationResult
+        :return: Tuple of (power_values, stored_energy_values, state_sequence)
+        :rtype: tuple[list[float], list[float], list[float]]
         """
         power_values: list[float] = []
         stored_energy_values: list[float] = []
@@ -176,9 +177,10 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         """
         Update equipment's power forecasting matrix with optimized power values.
 
-        Args:
-            equipment: Equipment instance to update
-            power_values: List of power values for target times
+        :param equipment: Equipment instance to update
+        :type equipment: EquipmentPO
+        :param power_values: List of power values for target times
+        :type power_values: list[float]
         """
         power_ts = Timeseries.from_values(
             start_date=self.parameters.target_times[0],
@@ -200,9 +202,10 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         """
         Update equipment's id po orders forecasting matrix with optimized power values.
 
-        Args:
-            equipment: Equipment instance to update
-            power_values: List of power values for target times
+        :param equipment: Equipment instance to update
+        :type equipment: EquipmentPO
+        :param power_values: List of power values for target times
+        :type power_values: list[float]
         """
         power_ts = Timeseries.from_values(
             start_date=self.parameters.target_times[0],
@@ -226,9 +229,10 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         """
         Update equipment's stored energy forecasting matrix.
 
-        Args:
-            equipment: Equipment instance to update (must be HydroPO or StoragePO)
-            stored_energy_values: List of stored energy values for target times
+        :param equipment: Equipment instance to update (must be HydroPO or StoragePO)
+        :type equipment: HydroPO | StoragePO
+        :param stored_energy_values: List of stored energy values for target times
+        :type stored_energy_values: list[float]
         """
         if not stored_energy_values:
             return
@@ -274,10 +278,12 @@ class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationPa
         Extracts power and stored energy values from optimization variables and updates
         the equipment's forecasting matrices.
 
-        Args:
-            model: Optimization result containing the solved variables
-            equipment_type: Type of equipment (e.g., 'thermal', 'hydro', 'storage', etc.)
-            equipment_list: List of equipment instances to update
+        :param model: Optimization result containing the solved variables
+        :type model: PortfolioOptimisationResult
+        :param equipment_type: Type of equipment (e.g., 'thermal', 'hydro', 'storage', etc.)
+        :type equipment_type: str
+        :param equipment_list: List of equipment instances to update
+        :type equipment_list: list[EquipmentPO]
         """
         if equipment_type in ["other_non_dispatchable", "non_dispatchable_load"]:
             return

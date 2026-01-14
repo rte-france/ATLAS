@@ -48,7 +48,7 @@ def test_duration_objects():
     assert result.total_seconds() == dur.total_seconds()
 
 
-def test_duration_P_stirng():
+def test_duration_P_string():
     """Test that duration objects pass through."""
     dur = "P"
 

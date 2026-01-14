@@ -82,7 +82,12 @@ class ThermalPO(Thermal):
     dd_grad_var: ModelVar = None  # type:ignore [assignment]
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
-        """Compute time step parameters from duration constraints."""
+        """
+        Compute time step parameters from duration constraints.
+
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
 
         # Convert time durations to time steps
         if self.minimum_time_on and self.minimum_time_on.total_minutes() > 0:
@@ -122,7 +127,12 @@ class ThermalPO(Thermal):
         self._combination = self._determine_combination()
 
     def _determine_combination(self) -> int:
-        """Determine which of the 8 constraint combinations to use."""
+        """
+        Determine which of the 8 constraint combinations to use.
+
+        :return: Combination number (1-8)
+        :rtype: int
+        """
         if self._T_stop == 0 and self._T_start == 0 and self._T_stable == 0:
             return 1
         elif self._T_stop >= 1 and self._T_start == 0 and self._T_stable == 0:
@@ -149,7 +159,16 @@ class ThermalPO(Thermal):
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
-        """Build variables for complex thermal unit commitment."""
+        """
+        Build variables for complex thermal unit commitment.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
 
         # Always defined state variables for optimization time frame
         if time in self.optimisation_time_window:
@@ -223,7 +242,16 @@ class ThermalPO(Thermal):
         time: DateTime,
         parameters: PortfolioOptimisationParameters,
     ):
-        """Add constraints based on the determined combination."""
+        """
+        Add constraints based on the determined combination.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         if time in self.optimisation_time_window:
             constraint_functions = {
                 1: combination_1.add_constraints,
@@ -248,7 +276,18 @@ class ThermalPO(Thermal):
         price_forecast: float,
         parameters: PortfolioOptimisationParameters,
     ):
-        """Add objective function terms for thermal equipment."""
+        """
+        Add objective function terms for thermal equipment.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param price_forecast: Forecasted price
+        :type price_forecast: float
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         if time in self.optimisation_time_window:
             variable_cost = self.variable_cost.get_value(time)
             power_level_var = self.power_level_var.get_value(time)
@@ -291,7 +330,18 @@ class ThermalPO(Thermal):
     def get_optimisation_time_window(
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
-        """Get optimisation time windows based on additional hours."""
+        """
+        Get optimisation time windows based on additional hours.
+
+        :param start_date: Start date for optimization window
+        :type start_date: DateTime
+        :param end_date: End date for optimization window
+        :type end_date: DateTime
+        :param timestep: Time step duration
+        :type timestep: Duration
+        :return: List of datetime objects representing the optimization time window
+        :rtype: list[DateTime]
+        """
 
         self.optimisation_time_window = generate_datetimes(
             start=start_date, end=end_date + self.additional_hours, freq=timestep

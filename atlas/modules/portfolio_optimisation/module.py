@@ -29,7 +29,12 @@ class PortfolioOptimisationModule(
     ]
 ):
     def get_parameters_class(self):
-        """Returns the concrete Parameters class for this module."""
+        """
+        Returns the concrete Parameters class for this module.
+
+        :return: The PortfolioOptimisationParameters class
+        :rtype: type[PortfolioOptimisationParameters]
+        """
         return PortfolioOptimisationParameters
 
     def import_data(
@@ -37,7 +42,16 @@ class PortfolioOptimisationModule(
         raw_data: dict[str, list[BusinessModel]],
         parameters: PortfolioOptimisationParameters,
     ) -> PortfolioOptimisationInputDataset:
-        """Imports data using business objects and parameters."""
+        """
+        Imports data using business objects and parameters.
+
+        :param raw_data: Dictionary of business model objects
+        :type raw_data: dict[str, list[BusinessModel]]
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Input dataset for portfolio optimization
+        :rtype: PortfolioOptimisationInputDataset
+        """
         return PortfolioOptimisationInputDataset(raw_data, parameters)
 
     def validate_data(
@@ -45,7 +59,16 @@ class PortfolioOptimisationModule(
         parameters: PortfolioOptimisationParameters,
         input_dataset: PortfolioOptimisationInputDataset,
     ) -> bool:
-        """Validates imported or generated data."""
+        """
+        Validates imported or generated data.
+
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :param input_dataset: Input dataset to validate
+        :type input_dataset: PortfolioOptimisationInputDataset
+        :return: True if validation passes, False otherwise
+        :rtype: bool
+        """
         logger.debug("Validating timeseries timestep consistency for portfolio optimization")
 
         try:
@@ -62,7 +85,18 @@ class PortfolioOptimisationModule(
         input_dataset: PortfolioOptimisationInputDataset,
         output_dataset: PortfolioOptimisationOutputDataset,
     ) -> bool:
-        """Validates results"""
+        """
+        Validates results.
+
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :param input_dataset: Input dataset
+        :type input_dataset: PortfolioOptimisationInputDataset
+        :param output_dataset: Output dataset to validate
+        :type output_dataset: PortfolioOptimisationOutputDataset
+        :return: True if validation passes
+        :rtype: bool
+        """
         return True
 
     def export_results(
@@ -71,7 +105,16 @@ class PortfolioOptimisationModule(
         input_dataset: PortfolioOptimisationInputDataset,
         output_dataset: PortfolioOptimisationOutputDataset,
     ) -> None:
-        """Exports results."""
+        """
+        Exports results.
+
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :param input_dataset: Input dataset
+        :type input_dataset: PortfolioOptimisationInputDataset
+        :param output_dataset: Output dataset to export
+        :type output_dataset: PortfolioOptimisationOutputDataset
+        """
         logger.debug("Exporting Portfolio Optimisation results ..")
 
     def execute(
@@ -79,7 +122,16 @@ class PortfolioOptimisationModule(
         parameters: PortfolioOptimisationParameters,
         dataset: PortfolioOptimisationInputDataset,
     ) -> PortfolioOptimisationOutputDataset:
-        """Executes the module's main logic."""
+        """
+        Executes the module's main logic.
+
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :param dataset: Input dataset
+        :type dataset: PortfolioOptimisationInputDataset
+        :return: Output dataset containing optimization results
+        :rtype: PortfolioOptimisationOutputDataset
+        """
         model = PortfolioOptimisationOrchestrator(parameters)
         optimisation_results = model.run(dataset)
         output_dataset = PortfolioOptimisationOutputDataset(
@@ -94,7 +146,15 @@ class PortfolioOptimisationModule(
         parameters: PortfolioOptimisationParameters,
         input_dataset: PortfolioOptimisationInputDataset,
     ) -> None:
-        """Validate that all timeseries data have timesteps consistent with the optimization parameters."""
+        """
+        Validate that all timeseries data have timesteps consistent with the optimization parameters.
+
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :param input_dataset: Input dataset to validate
+        :type input_dataset: PortfolioOptimisationInputDataset
+        :raises ValueError: If timestep validation fails
+        """
         expected_timestep = parameters.timestep
         logger.debug(f"Expected timestep: {expected_timestep}")
 
@@ -114,7 +174,18 @@ class PortfolioOptimisationModule(
             raise ValueError(error_message)
 
     def _validate_equipment_timeseries(self, equipment, expected_timestep: Duration, equipment_type: str) -> list[str]:
-        """Validate timeseries timestep consistency for a single equipment using dynamic attribute discovery."""
+        """
+        Validate timeseries timestep consistency for a single equipment using dynamic attribute discovery.
+
+        :param equipment: Equipment object to validate
+        :type equipment: Any
+        :param expected_timestep: Expected timestep duration
+        :type expected_timestep: Duration
+        :param equipment_type: Type of equipment
+        :type equipment_type: str
+        :return: List of validation error messages
+        :rtype: list[str]
+        """
         errors = []
         equipment_name = getattr(equipment, "name", f"unknown_{equipment_type}")
 
@@ -138,7 +209,16 @@ class PortfolioOptimisationModule(
         return errors
 
     def _validate_portfolio_timeseries(self, portfolio, expected_timestep: Duration) -> list[str]:
-        """Validate timeseries timestep consistency for a portfolio using dynamic attribute discovery."""
+        """
+        Validate timeseries timestep consistency for a portfolio using dynamic attribute discovery.
+
+        :param portfolio: Portfolio object to validate
+        :type portfolio: Any
+        :param expected_timestep: Expected timestep duration
+        :type expected_timestep: Duration
+        :return: List of validation error messages
+        :rtype: list[str]
+        """
         errors = []
         portfolio_name = getattr(portfolio, "name", "unknown_portfolio")
 
@@ -179,7 +259,14 @@ class PortfolioOptimisationModule(
         return errors
 
     def _is_timeseries_type(self, obj) -> bool:
-        """Check if an object is a timeseries-like type that can have frequency adjusted."""
+        """
+        Check if an object is a timeseries-like type that can have frequency adjusted.
+
+        :param obj: Object to check
+        :type obj: Any
+        :return: True if object is a timeseries type
+        :rtype: bool
+        """
         return isinstance(
             obj,
             Timeseries
@@ -193,7 +280,15 @@ class PortfolioOptimisationModule(
     def _validate_and_fix_timeseries(self, timeseries_obj, expected_timestep: Duration, context: str) -> dict:
         """
         Validate and potentially fix a timeseries object's timestep.
-        Returns dict with keys: 'error', 'fixed', 'timeseries'
+
+        :param timeseries_obj: Timeseries object to validate and fix
+        :type timeseries_obj: Any
+        :param expected_timestep: Expected timestep duration
+        :type expected_timestep: Duration
+        :param context: Context string for error messages
+        :type context: str
+        :return: Dictionary with keys 'error', 'fixed', 'timeseries'
+        :rtype: dict
         """
         result = {"error": None, "fixed": False, "timeseries": timeseries_obj}
 
@@ -225,7 +320,14 @@ class PortfolioOptimisationModule(
         return result
 
     def _get_timeseries_timestep(self, timeseries_obj) -> Duration | None:
-        """Extract the timestep from a timeseries object."""
+        """
+        Extract the timestep from a timeseries object.
+
+        :param timeseries_obj: Timeseries object
+        :type timeseries_obj: Any
+        :return: Timestep duration or None if cannot be determined
+        :rtype: Duration | None
+        """
         if isinstance(timeseries_obj, LazyTimeseries):
             collected_ts = timeseries_obj.collect()
             if len(collected_ts.dataframe) < 2:

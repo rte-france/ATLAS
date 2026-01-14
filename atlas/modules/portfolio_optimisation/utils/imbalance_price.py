@@ -27,6 +27,15 @@ def _get_reference_price(
 
     Returns either forecast or actual price depending on parameters.use_forecast
     and parameters.market type.
+
+    :param time: Current time period
+    :type time: DateTime
+    :param market_area: Market area object
+    :type market_area: MarketAreaPO
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: Reference price
+    :rtype: float
     """
     if parameters.use_forecast:
         return _get_forecast_price(time, market_area, parameters)
@@ -38,7 +47,18 @@ def _get_forecast_price(
     market_area: MarketAreaPO,
     parameters: PortfolioOptimisationParameters,
 ) -> float:
-    """Get forecast price based on market type."""
+    """
+    Get forecast price based on market type.
+
+    :param time: Current time period
+    :type time: DateTime
+    :param market_area: Market area object
+    :type market_area: MarketAreaPO
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: Forecast price
+    :rtype: float
+    """
     if parameters.market == MarketType.dayahead:
         return (
             cast(ForecastingMatrix | LazyForecastingMatrix, market_area.price_forecast_medium)
@@ -59,7 +79,18 @@ def _get_actual_price(
     market_area: MarketAreaPO,
     parameters: PortfolioOptimisationParameters,
 ) -> float:
-    """Get actual price based on market type."""
+    """
+    Get actual price based on market type.
+
+    :param time: Current time period
+    :type time: DateTime
+    :param market_area: Market area object
+    :type market_area: MarketAreaPO
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: Actual price
+    :rtype: float
+    """
     if parameters.market == MarketType.dayahead:
         return cast(Timeseries | LazyTimeseries, market_area.da_price).get_value(time)
     elif parameters.market == MarketType.intraday:
@@ -85,16 +116,19 @@ def _calculate_imbalance_with_penalty(
     """
     Calculate imbalance prices with penalties applied.
 
-    Args:
-        base_price: Reference price to apply penalties to
-        lower_bound: Minimum absolute price threshold
-        small_penalty: Penalty factor for small imbalances
-        large_penalty: Penalty factor for large imbalances
-        apply_upward: If True, penalties increase prices (upward imbalance).
-                      If False, penalties decrease prices (downward imbalance).
-
-    Returns:
-        Tuple of (small_imbalance_price, large_imbalance_price)
+    :param base_price: Reference price to apply penalties to
+    :type base_price: float
+    :param lower_bound: Minimum absolute price threshold
+    :type lower_bound: float
+    :param small_penalty: Penalty factor for small imbalances
+    :type small_penalty: float
+    :param large_penalty: Penalty factor for large imbalances
+    :type large_penalty: float
+    :param apply_upward: If True, penalties increase prices (upward imbalance).
+                        If False, penalties decrease prices (downward imbalance).
+    :type apply_upward: bool
+    :return: Tuple of (small_imbalance_price, large_imbalance_price)
+    :rtype: tuple[float, float]
     """
     # Determine effective price considering lower bound
     if abs(base_price) < lower_bound:
@@ -141,6 +175,17 @@ def estimate_imbalance_prices(
     Uses either forecast or actual reference price depending on `parameters.use_forecast`,
     and applies either provided imbalance price markers or calculates them using
     French regulation method with penalties and lower bounds.
+
+    :param time: Current time period
+    :type time: DateTime
+    :param market_area: Market area object
+    :type market_area: MarketAreaPO
+    :param control_block: Control block object
+    :type control_block: ControlBlockPO
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: Tuple of (imbalance_price_down, imbalance_price_up, large_imbalance_price_down, large_imbalance_price_up)
+    :rtype: tuple[float, float, float, float]
     """
     # Get reference price
     price = _get_reference_price(time, market_area, parameters)

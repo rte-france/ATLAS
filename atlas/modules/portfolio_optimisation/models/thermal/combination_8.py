@@ -35,7 +35,21 @@ def add_initial_conditions(
     day_zero: bool,
     **kwargs,
 ) -> None:
-    """Combination 8: T_stop>=1, T_start>=1, T_stable>=1"""
+    """
+    Combination 8: T_stop>=1, T_start>=1, T_stable>=1.
+
+    :param obj: The thermal unit to initialize
+    :type obj: ThermalPO
+    :param parameters: Portfolio optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :param extended_start_date: The extended start date for initialization
+    :type extended_start_date: DateTime
+    :param day_zero: Whether this is day zero (no historical data)
+    :type day_zero: bool
+    :param kwargs: Additional keyword arguments
+    :return: None
+    :rtype: None
+    """
     if day_zero:
         for time in kwargs.get("initial_times", []):
             initialize_day_zero_core(obj, time)
@@ -173,7 +187,20 @@ def add_constraints(
     model: OptimisationModel,
     parameters: PortfolioOptimisationParameters,
 ) -> None:
-    """Add constraints for Combination 8: T_start >= 1, T_stable >= 1, T_stop >= 1"""
+    """
+    Add constraints for Combination 8: T_start >= 1, T_stable >= 1, T_stop >= 1.
+
+    :param obj: The thermal unit
+    :type obj: ThermalPO
+    :param time: Current time period
+    :type time: DateTime
+    :param model: Optimization model
+    :type model: OptimisationModel
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: None
+    :rtype: None
+    """
     if obj.minimum_power is None or obj.maximum_power is None:
         raise ValueError("minimum_power and maximum_power cannot be None")
 

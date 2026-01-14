@@ -28,9 +28,10 @@ def set_manual_activation(equipments: list[EquipmentPO], parameters: PortfolioOp
     """
     Update power matrix and stored energy for equipment portfolio based on market clearing.
 
-    Args:
-        equipments: List of equipment objects to process
-        parameters: Configuration parameters containing market type, dates, etc.
+    :param equipments: List of equipment objects to process
+    :type equipments: list[EquipmentPO]
+    :param parameters: Configuration parameters containing market type, dates, etc.
+    :type parameters: PortfolioOptimisationParameters
     """
     for equipment in equipments:
         new_power = _calculate_new_power(equipment, parameters)
@@ -48,9 +49,17 @@ def set_manual_activation(equipments: list[EquipmentPO], parameters: PortfolioOp
 
 
 def is_excluded_technology(excluded_technologies: list[str], equipment: type[Equipment]) -> bool:
-    """Check if equipment technology is excluded.
+    """
+    Check if equipment technology is excluded.
 
     Supports both friendly names (e.g., 'thermal', 'storage', 'wind') and technical class names (e.g., 'ThermalPO').
+
+    :param excluded_technologies: List of technologies to exclude
+    :type excluded_technologies: list[str]
+    :param equipment: Equipment instance
+    :type equipment: type[Equipment]
+    :return: True if equipment is excluded
+    :rtype: bool
     """
     if excluded_technologies == ["all"]:
         return True
@@ -76,7 +85,16 @@ def is_excluded_technology(excluded_technologies: list[str], equipment: type[Equ
 
 
 def is_excluded_thermal_strategy(excluded_thermal_strategies: list[ThermalStrategy], equipment: ThermalPO) -> bool:
-    """Check if thermal equipment strategy is excluded."""
+    """
+    Check if thermal equipment strategy is excluded.
+
+    :param excluded_thermal_strategies: List of thermal strategies to exclude
+    :type excluded_thermal_strategies: list[ThermalStrategy]
+    :param equipment: Thermal equipment instance
+    :type equipment: ThermalPO
+    :return: True if equipment strategy is excluded
+    :rtype: bool
+    """
     if isinstance(equipment, ThermalPO):
         if equipment.strategy:
             return equipment.strategy in excluded_thermal_strategies
@@ -84,7 +102,18 @@ def is_excluded_thermal_strategy(excluded_thermal_strategies: list[ThermalStrate
 
 
 def is_excluded_market_area(use_forecast: bool, excluded_market_areas: list[str], market_area: str) -> bool:
-    """Check if portfolio market area is excluded."""
+    """
+    Check if portfolio market area is excluded.
+
+    :param use_forecast: Whether forecast mode is used
+    :type use_forecast: bool
+    :param excluded_market_areas: List of market areas to exclude
+    :type excluded_market_areas: list[str]
+    :param market_area: Market area name
+    :type market_area: str
+    :return: True if market area is excluded
+    :rtype: bool
+    """
     return not use_forecast and market_area in excluded_market_areas if excluded_market_areas != ["all"] else True
 
 
@@ -93,14 +122,34 @@ def should_manually_activate(
     excluded_technologies: list[str],
     excluded_thermal_strategies: list[ThermalStrategy] | ThermalPO,
 ) -> bool:
-    """Determine if equipment should be manually activated."""
+    """
+    Determine if equipment should be manually activated.
+
+    :param equipment: Equipment instance
+    :type equipment: type[Equipment]
+    :param excluded_technologies: List of technologies to exclude
+    :type excluded_technologies: list[str]
+    :param excluded_thermal_strategies: List of thermal strategies to exclude
+    :type excluded_thermal_strategies: list[ThermalStrategy] | ThermalPO
+    :return: True if equipment should be manually activated
+    :rtype: bool
+    """
     return is_excluded_technology(excluded_technologies, equipment) or is_excluded_thermal_strategy(
         excluded_thermal_strategies, equipment
     )
 
 
 def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimisationParameters) -> Timeseries:
-    """Calculate new power based on market type."""
+    """
+    Calculate new power based on market type.
+
+    :param equipment: Equipment instance
+    :type equipment: type[Equipment]
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: New power timeseries
+    :rtype: Timeseries
+    """
     if parameters.market == MarketType.dayahead:
         return cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times)
 
@@ -113,7 +162,16 @@ def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimi
 
 
 def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimisationParameters):
-    """Calculate activated power for validation."""
+    """
+    Calculate activated power for validation.
+
+    :param equipment: Equipment instance
+    :type equipment: Equipment
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: Activated power timeseries
+    :rtype: Timeseries
+    """
     if parameters.market == MarketType.dayahead:
         return cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times)
 

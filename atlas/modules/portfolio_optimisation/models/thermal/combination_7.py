@@ -32,17 +32,19 @@ def add_initial_conditions(
     day_zero: bool,
     **kwargs,
 ) -> None:
-    """Combination 7: T_stop=1, T_start>=1, T_stable>=0
+    """
+    Combination 7: T_stop=1, T_start>=1, T_stable>=0
 
-    Args:
-        obj: The thermal unit to initialize
-        model: The optimization model
-        parameters: Portfolio optimization parameters
-        extended_start_date: The extended start date for initialization
-        day_zero: Whether this is day zero (no historical data)
-        **kwargs: Additional arguments including:
-            - power_ts: Historical power data (required if day_zero=False)
-            - initial_times: List of times to initialize
+    :param obj: The thermal unit to initialize
+    :type obj: ThermalPO
+    :param parameters: Portfolio optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :param extended_start_date: The extended start date for initialization
+    :type extended_start_date: DateTime
+    :param day_zero: Whether this is day zero (no historical data)
+    :type day_zero: bool
+    :param kwargs: Additional arguments including power_ts (historical power data) and initial_times (list of times to initialize)
+    :type kwargs: dict
     """
     if day_zero:
         for time in kwargs.get("initial_times", []):

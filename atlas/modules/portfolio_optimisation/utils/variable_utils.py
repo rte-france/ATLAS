@@ -20,7 +20,28 @@ def add_reserve_variables(
     storage_equipment: bool,
     thermal_equipment: bool,
 ):
-    """Add reserve variables for solar/wind equipment"""
+    """
+    Add reserve variables for solar/wind equipment.
+
+    :param model: Optimization model
+    :type model: OptimisationModel
+    :param name: Equipment name
+    :type name: str
+    :param time: Current time period
+    :type time: DateTime
+    :param min_power: Minimum power output
+    :type min_power: float
+    :param max_power: Maximum power output
+    :type max_power: float
+    :param maximum_automated: Maximum automated reserve capacity
+    :type maximum_automated: float
+    :param relaxed_reserves: Whether to relax reserve constraints
+    :type relaxed_reserves: bool
+    :param storage_equipment: Whether this is storage equipment
+    :type storage_equipment: bool
+    :param thermal_equipment: Whether this is thermal equipment
+    :type thermal_equipment: bool
+    """
     model.add_continuous_variable(
         name=f"reserves_up_{name}_{time}",
         lower_bound=0,

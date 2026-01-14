@@ -27,7 +27,16 @@ class LoadPO(Load):
     _cached_forecast: Timeseries | None = None
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
-        """Build variables for load equipment."""
+        """
+        Build variables for load equipment.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for load unit {self.name} at time {time}")
             max_power = (
@@ -84,7 +93,18 @@ class LoadPO(Load):
     def get_optimisation_time_window(
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
-        """Get optimisation time windows based on additional hours."""
+        """
+        Get optimisation time windows based on additional hours.
+
+        :param start_date: Start date of optimization period
+        :type start_date: DateTime
+        :param end_date: End date of optimization period
+        :type end_date: DateTime
+        :param timestep: Time step duration
+        :type timestep: Duration
+        :return: List of datetime periods in optimization window
+        :rtype: list[DateTime]
+        """
 
         self.optimisation_time_window = generate_datetimes(
             start=start_date, end=end_date + self.additional_hours, freq=timestep
@@ -92,7 +112,12 @@ class LoadPO(Load):
         return self.optimisation_time_window
 
     def prefetch_forecasts(self, execution_date: DateTime):
-        """Pre-fetch and cache forecasts for the entire optimization time window."""
+        """
+        Pre-fetch and cache forecasts for the entire optimization time window.
+
+        :param execution_date: Execution date for the forecast
+        :type execution_date: DateTime
+        """
         if not self.optimisation_time_window:
             return
 

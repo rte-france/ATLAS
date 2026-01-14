@@ -16,10 +16,15 @@ class MarketAreaPO(MarketArea):
 
     @model_validator(mode="after")
     def validate_market_specific_prices(self, info):
-        """Validate that required price fields are present based on market type and use_forecast.
+        """
+        Validate that required price fields are present based on market type and use_forecast.
 
         This validation requires external context (market type and use_forecast) to be provided
         during model instantiation via the model_validate method with context.
+
+        :param info: Validation info containing context
+        :return: Self after validation
+        :rtype: MarketAreaPO
         """
         # Get market context from validation info context
         if info.context is None:
@@ -46,6 +51,15 @@ class MarketAreaPO(MarketArea):
         return self
 
     def set_market_context(self, market_type: MarketType, use_forecast: bool = False):
-        """Set market context for validation."""
+        """
+        Set market context for validation.
+
+        :param market_type: Type of market
+        :type market_type: MarketType
+        :param use_forecast: Whether to use forecast
+        :type use_forecast: bool
+        :return: Validated market area with context
+        :rtype: MarketAreaPO
+        """
         # Re-validate with market context
         return self.model_validate(dict(self), context={"market_type": market_type, "use_forecast": use_forecast})

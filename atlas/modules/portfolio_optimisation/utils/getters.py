@@ -15,10 +15,28 @@ if TYPE_CHECKING:
 
 
 def get_variable_cost(obj: EquipmentPO, time: DateTime):
+    """
+    Get variable cost for equipment at specified time.
+
+    :param obj: Equipment object
+    :type obj: EquipmentPO
+    :param time: Current time period
+    :type time: DateTime
+    :return: Variable cost value
+    :rtype: float
+    """
     if obj.variable_cost is not None:
         return obj.variable_cost.get_value(time)
     return 0.0
 
 
 def get_maximum_automated(obj: EquipmentPO) -> float:
+    """
+    Get maximum automated reserve capacity for equipment.
+
+    :param obj: Equipment object
+    :type obj: EquipmentPO
+    :return: Maximum automated reserve (sum of AFRR and FCR)
+    :rtype: float
+    """
     return (obj.maximum_afrr or 0.0) + (obj.maximum_fcr or 0.0)

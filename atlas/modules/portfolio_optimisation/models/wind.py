@@ -28,7 +28,16 @@ class WindPO(Wind):
     _cached_forecast: Timeseries | None = None
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
-        """Build variables for solar and wind equipment."""
+        """
+        Build variables for solar and wind equipment.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for wind unit {self.name} at time {time}")
             max_power = self._cached_forecast.get_value(time) if self._cached_forecast else 0
@@ -62,7 +71,14 @@ class WindPO(Wind):
         parameters: PortfolioOptimisationParameters,
     ):
         """
-        This function formulates the wind equipments constraints.
+        Formulate the wind equipment constraints.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
         """
 
         if time in self.optimisation_time_window:

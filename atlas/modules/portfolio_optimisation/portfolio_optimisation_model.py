@@ -14,7 +14,16 @@ from atlas.solver.solver_interface import OptimisationModel
 
 
 class PortfolioOptimisationModel(OptimisationModel):
-    """Portfolio-specific optimization model that inherits OR-Tools capabilities."""
+    """
+    Portfolio-specific optimization model that inherits OR-Tools capabilities.
+
+    :param portfolio: Portfolio to optimize
+    :type portfolio: PortfolioPO
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :param solver_options: Solver configuration options
+    :type solver_options: SolverOptions
+    """
 
     def __init__(
         self, portfolio: PortfolioPO, parameters: PortfolioOptimisationParameters, solver_options: SolverOptions
@@ -47,13 +56,16 @@ class PortfolioOptimisationModel(OptimisationModel):
         cfg.logger.debug("Completed pre-fetching forecasts.")
 
     def build(self, time_window: list[DateTime]) -> None:
-        """Build the optimization model by adding variables, constraints, and objectives."""
+        """
+        Build the optimization model by adding variables, constraints, and objectives.
+
+        :param time_window: List of time periods to optimize over
+        :type time_window: list[DateTime]
+        """
         cfg.logger.info(f"Building optimisation model for portfolio: {self.portfolio.name} ..")
 
-        # Pre-fetch forecasts for all equipment to avoid redundant get_forecast calls
         self._prefetch_equipment_forecasts()
 
-        # Add initial conditions for thermal equipment
         for thermal in self.portfolio.equipments.thermal:
             thermal.add_initial_conditions(self, self.parameters)
 

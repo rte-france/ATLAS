@@ -34,7 +34,16 @@ class StoragePO(Storage):
     _cached_energy_forecat_initial: Timeseries | None = None
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
-        """Build variables for storage equipment."""
+        """
+        Build variables for storage equipment.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
 
         nbr_fragment: int = parameters.storage_mapping[self.storage_type]["nb_fragment"]
 
@@ -327,7 +336,18 @@ class StoragePO(Storage):
     def get_optimisation_time_window(
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
-        """Get optimisation time windows based on additional hours."""
+        """
+        Get optimisation time windows based on additional hours.
+
+        :param start_date: Start date for optimization window
+        :type start_date: DateTime
+        :param end_date: End date for optimization window
+        :type end_date: DateTime
+        :param timestep: Time step duration
+        :type timestep: Duration
+        :return: List of datetime objects representing the optimization time window
+        :rtype: list[DateTime]
+        """
 
         self.optimisation_time_window = generate_datetimes(
             start=start_date, end=end_date + self.additional_hours, freq=timestep
@@ -335,7 +355,14 @@ class StoragePO(Storage):
         return self.optimisation_time_window
 
     def prefetch_forecasts(self, execution_date: DateTime, init_battery_time: DateTime):
-        """Pre-fetch and cache forecasts for the entire optimization time window."""
+        """
+        Pre-fetch and cache forecasts for the entire optimization time window.
+
+        :param execution_date: Execution date for forecasts
+        :type execution_date: DateTime
+        :param init_battery_time: Initial battery time
+        :type init_battery_time: DateTime
+        """
         if self.stored_energy:
             self._cached_energy_forecat_initial = self.stored_energy.get_forecast(
                 execution_date, init_battery_time.subtract(days=2), init_battery_time

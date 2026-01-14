@@ -36,7 +36,16 @@ class HydroPO(Hydro):
     _cached_energy_forecast: Timeseries | None = None
 
     def add_variables(self, model: OptimisationModel, time: DateTime, parameters: PortfolioOptimisationParameters):
-        """Build variables for hydro equipment."""
+        """
+        Build variables for hydro equipment.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        """
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for hydro unit {self.name} at time {time}")
             min_power = self.minimum_power.get_value(time)
@@ -71,7 +80,14 @@ class HydroPO(Hydro):
         model: OptimisationModel,
         time: DateTime,
     ):
-        """Formulates hydraulic reservoir offers by calculating fragment prices and volumes."""
+        """
+        Formulates hydraulic reservoir offers by calculating fragment prices and volumes.
+
+        :param model: Optimization model
+        :type model: OptimisationModel
+        :param time: Current time period
+        :type time: DateTime
+        """
 
         for category, fragment in self.fragment_data.items():
             volume = self.maximum_power.get_value(time) * fragment.volume
@@ -194,14 +210,28 @@ class HydroPO(Hydro):
             )
 
     def _get_current_energy_level(self: HydroPO, parameters: PortfolioOptimisationParameters) -> float:
-        """Get the current energy level from forecast or initial level."""
+        """
+        Get the current energy level from forecast or initial level.
+
+        :param parameters: Optimization parameters
+        :type parameters: PortfolioOptimisationParameters
+        :return: Current energy level
+        :rtype: float
+        """
         if self._cached_energy_forecast and parameters.start_date - parameters.timestep in self._cached_energy_forecast:
             return self._cached_energy_forecast.get_value(parameters.start_date - parameters.timestep)
         else:
             return self.initial_level.get_value(parameters.start_date - parameters.timestep)
 
     def _calculate_marginal_weights(self, energy_level: float) -> dict:
-        """Calculate marginal value weights based on current energy level."""
+        """
+        Calculate marginal value weights based on current energy level.
+
+        :param energy_level: Current energy level
+        :type energy_level: float
+        :return: Dictionary containing marginal weights and related data
+        :rtype: dict
+        """
         storage_indices = self.storage_marginal_value.index
 
         x_min_candidates = [x for x in storage_indices if int(x) <= energy_level]
@@ -233,7 +263,18 @@ class HydroPO(Hydro):
         return weights
 
     def _calculate_fragment_price(self, fragment_price: float, marginal_weights: dict, time: DateTime) -> float:
-        """Calculate the final fragment price including marginal values."""
+        """
+        Calculate the final fragment price including marginal values.
+
+        :param fragment_price: Base fragment price
+        :type fragment_price: float
+        :param marginal_weights: Marginal weights dictionary
+        :type marginal_weights: dict
+        :param time: Current time period
+        :type time: DateTime
+        :return: Final fragment price
+        :rtype: float
+        """
         base_price = fragment_price
 
         # Apply marginal value adjustments based on available bounds
@@ -257,7 +298,18 @@ class HydroPO(Hydro):
     def get_optimisation_time_window(
         self, start_date: DateTime, end_date: DateTime, timestep: Duration
     ) -> list[DateTime]:
-        """Get optimisation time windows based on additional hours."""
+        """
+        Get optimisation time windows based on additional hours.
+
+        :param start_date: Start date for optimization window
+        :type start_date: DateTime
+        :param end_date: End date for optimization window
+        :type end_date: DateTime
+        :param timestep: Time step duration
+        :type timestep: Duration
+        :return: List of datetime objects representing the optimization time window
+        :rtype: list[DateTime]
+        """
 
         self.optimisation_time_window = generate_datetimes(
             start=start_date, end=end_date + self.additional_hours, freq=timestep
@@ -265,7 +317,16 @@ class HydroPO(Hydro):
         return self.optimisation_time_window
 
     def prefetch_forecasts(self, execution_date: DateTime, timestep: Duration, start_date: DateTime):
-        """Pre-fetch and cache forecasts for the entire optimization time window."""
+        """
+        Pre-fetch and cache forecasts for the entire optimization time window.
+
+        :param execution_date: Execution date for forecasts
+        :type execution_date: DateTime
+        :param timestep: Time step duration
+        :type timestep: Duration
+        :param start_date: Start date for optimization
+        :type start_date: DateTime
+        """
         if self.stored_energy:
             # For hydro, we need the energy level at start_date - timestep
             initial_time = start_date - timestep
