@@ -110,7 +110,15 @@ def initialize_gradient_initial_conditions(
 ) -> None:
     """
     Initialize gradient variables based on historical power data.
+
     For T_stable >= 1.
+
+    :param obj: The thermal unit to initialize
+    :type obj: ThermalPO
+    :param parameters: Portfolio optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: None
+    :rtype: None
     """
     start_date_minus_one = parameters.start_date - parameters.timestep
     start_date_minus_two = parameters.start_date - 2 * parameters.timestep
@@ -139,7 +147,19 @@ def initialize_flat_down_stop_initial_conditions(
 ) -> None:
     """
     Initialize flat_down_stop variable based on historical power data.
+
     For T_stop >= 1 and T_stable >= 1.
+
+    :param obj: The thermal unit to initialize
+    :type obj: ThermalPO
+    :param time: Current time
+    :type time: DateTime
+    :param time_minus_one: Time minus one timestep
+    :type time_minus_one: DateTime
+    :param time_minus_two: Time minus two timesteps
+    :type time_minus_two: DateTime
+    :return: None
+    :rtype: None
     """
 
     obj.flat_down_stop.set_extended(

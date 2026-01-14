@@ -377,7 +377,16 @@ def _update_stored_energy(
 
 
 def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: PortfolioOptimisationParameters):
-    """Get initial stored energy level for equipment."""
+    """
+    Get initial stored energy level for equipment.
+
+    :param equipment: Hydro or storage equipment instance
+    :type equipment: HydroPO | StoragePO
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: Initial stored energy level
+    :rtype: float
+    """
     stored_energy_matrix = equipment.stored_energy
 
     if stored_energy_matrix:
@@ -406,7 +415,21 @@ def _calculate_new_energy_value(
     new_power: Timeseries | LazyTimeseries,
     parameters: PortfolioOptimisationParameters,
 ):
-    """Calculate new energy value based on power and efficiency."""
+    """
+    Calculate new energy value based on power and efficiency.
+
+    :param equipment: Storage or hydro equipment instance
+    :type equipment: StoragePO | HydroPO
+    :param time: Current time
+    :type time: DateTime
+    :param previous_energy: Previous energy level
+    :param new_power: New power timeseries
+    :type new_power: Timeseries | LazyTimeseries
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: New energy value
+    :rtype: float
+    """
     power_value = new_power.get_value(time)
     time_factor = parameters.timestep
 
@@ -430,7 +453,16 @@ def _calculate_new_energy_value(
 
 
 def _apply_energy_bounds(energy_value, bounds, time, parameters):
-    """Apply energy bounds and return corrected value and correction amount."""
+    """
+    Apply energy bounds and return corrected value and correction amount.
+
+    :param energy_value: Energy value to check
+    :param bounds: Tuple of (min_energy, max_energy)
+    :param time: Current time
+    :param parameters: Optimization parameters
+    :return: Tuple of (corrected_energy, correction)
+    :rtype: tuple[float, float]
+    """
     min_energy, max_energy = bounds
 
     if energy_value > max_energy:
@@ -444,7 +476,18 @@ def _apply_energy_bounds(energy_value, bounds, time, parameters):
 
 
 def _apply_power_corrections(equipment: type[Equipment], new_power: Timeseries, corrections: dict):
-    """Apply power corrections based on energy bound violations."""
+    """
+    Apply power corrections based on energy bound violations.
+
+    :param equipment: Equipment instance
+    :type equipment: type[Equipment]
+    :param new_power: New power timeseries
+    :type new_power: Timeseries
+    :param corrections: Dictionary of time -> correction pairs
+    :type corrections: dict
+    :return: None
+    :rtype: None
+    """
     for time, correction in corrections.items():
         current_power = new_power.get_value(time)
 
@@ -462,7 +505,18 @@ def _apply_power_corrections(equipment: type[Equipment], new_power: Timeseries, 
 def _finalize_power_update(
     equipment: type[Equipment], new_power: Timeseries, parameters: PortfolioOptimisationParameters
 ):
-    """Finalize power update by adding extra timestep and updating equipment."""
+    """
+    Finalize power update by adding extra timestep and updating equipment.
+
+    :param equipment: Equipment instance
+    :type equipment: type[Equipment]
+    :param new_power: New power timeseries
+    :type new_power: Timeseries
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: None
+    :rtype: None
+    """
     # Add extra timestep for interpolation
     next_time = parameters.end_date + parameters.timestep
     next_power_value = equipment.power.get_forecast(parameters.execution_date, next_time, next_time).get_value(
