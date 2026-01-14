@@ -78,7 +78,6 @@ class WindPVStep:
                     min_production_value = max_production_value * (1 - equipment.maximum_curtailment_ratio.get_value(t))
 
                     if max_production_value > 0:
-                        # Initialize the order object
                         bid_output = OrderDAO(
                             name=bid_name,
                             market_area=equipment.portfolio.market_area,

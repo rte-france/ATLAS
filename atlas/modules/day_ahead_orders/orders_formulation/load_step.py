@@ -64,7 +64,6 @@ class LoadStep:
 
                         # Formulate an order if max_consumption_value is strictly positive
                         if max_consumption_value > 0:
-                            # Initialize the order object.
                             bid_output = OrderDAO(
                                 name=f"load_order_at_{t}_for_unit_{load.name}",
                                 market_area=load.portfolio.market_area,

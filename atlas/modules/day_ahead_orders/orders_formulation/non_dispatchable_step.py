@@ -65,7 +65,6 @@ class NonDispatchableStep:
                 # Now we loop over the time stamps for which we want an offer to be made.
                 # We formulate as many offers as there are time stamps in orders_time.
                 for t in orders_time:
-                    # Initialize the order object
                     bid_output = OrderDAO(
                         name=f"otherND_order_at_{t}_for_unit_{unit.name}",  # Assign a unique name.
                         market_area=unit.portfolio.market_area if unit.portfolio is not None else None,

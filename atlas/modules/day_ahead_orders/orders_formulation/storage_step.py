@@ -108,7 +108,7 @@ class StorageStep:
                 storage.variable_cost.set_value(self.parameters.start_date, round(Psale, 2))
                 storage.variable_cost.set_value(self.parameters.penultimate_date, round(Psale, 2))
                 cfg.logger.warning(
-                    f"WARNING: ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
+                    f"ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
                     "This is not supposed to be the case, as the default value for these is 1 and not 0"
                 )
 
@@ -325,8 +325,7 @@ class StorageStep:
 
         if (storage.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]) or (storage.is_v2g):
             # if negative prices, Psale and Ppurchase are set to zero
-            # Else they are evaluated in a manner that makes profit =  0
-
+            # Else they are evaluated in a manner that makes profit = 0
             if P_a_max <= 0:
                 P_a_max = 0.0
             if P_v_min <= 0:
@@ -347,7 +346,6 @@ class StorageStep:
                 )
                 Psale = P_v_min * (1 - a)
                 Ppurchase = P_a_max * (1 + a)
-
         else:
             Psale = 0.0
             Ppurchase = P_a_max

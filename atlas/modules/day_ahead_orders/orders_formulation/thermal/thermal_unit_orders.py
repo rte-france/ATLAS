@@ -288,7 +288,6 @@ class ThermalUnitOrders:
             # Automated downward reserves requirements
             if automated_reserves_down_procured.get_value(t) > 0.0:
                 # This order will be the child of the current inflexible order.
-                # Initialize the order object.
                 reserve_bid = OrderDAO(
                     name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
@@ -310,7 +309,6 @@ class ThermalUnitOrders:
             # Manual downard reserves requirements
             if manual_reserves_down_procured.get_value(t) > 0.0:
                 # This order will be the child of the current inflexible order.
-                # Initialize the order object.
                 reserve_bid = OrderDAO(
                     name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
@@ -332,7 +330,6 @@ class ThermalUnitOrders:
             # Automated upward reserves requirements
             if automated_reserves_up_procured.get_value(t) > 0.0:
                 # This order will be the child of the current flexible order.
-                # Initialize the order object.
                 reserve_bid = OrderDAO(
                     name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
@@ -354,7 +351,6 @@ class ThermalUnitOrders:
             # Manual upward reserves requirements
             if manual_reserves_up_procured.get_value(t) > 0.0:
                 # This order will be the child of the current flexible order.
-                # Initialize the order object.
                 reserve_bid = OrderDAO(
                     name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,

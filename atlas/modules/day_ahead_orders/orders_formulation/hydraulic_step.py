@@ -153,7 +153,6 @@ class HydraulicStep:
                         bid_name = f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}"
                         bid_qmax = v
 
-                        # Initialize the order object
                         bid_output = OrderDAO(
                             name=bid_name,
                             market_area=equipment.portfolio.market_area,

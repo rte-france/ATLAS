@@ -723,7 +723,6 @@ class ThermalOptimizationModel(OptimisationModel):
         # Export the results
         # Final step : export the results of the program. We initialize a dictionnary that will store the results.
         # This dictionnary is returned to the user.
-        # Initialize the dictionnary
         results: dict[str, Timeseries] = {}
 
         # Power output
@@ -1011,13 +1010,13 @@ class ThermalOptimizationModel(OptimisationModel):
         if len(self.last_power) == 0:
             # Initialization of the program as DayZero and warn the user
             if self.parameters.verbose:
-                cfg.logger.warning("***WARNING***\n The program is initialized for the first time.")
+                cfg.logger.warning("The program is initialized for the first time.")
             day_zero = True  # Boolean to keep track of the status
         elif self.last_date != self.parameters.start_date - self.parameters.time_step:
             # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
             if self.parameters.verbose:
                 cfg.logger.warning(
-                    f"***WARNING***\n The last_date found in Power of equipement {self.thermal_unit.name} "
+                    f"The last_date found in Power of equipement {self.thermal_unit.name} "
                     "does not match the start_date of the current program. \n "
                     "The program will be initialized as DayZero."
                 )

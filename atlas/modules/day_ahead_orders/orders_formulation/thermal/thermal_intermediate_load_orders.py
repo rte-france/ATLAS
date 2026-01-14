@@ -289,7 +289,6 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         :return: a list of tuples of overlapping blocks
         :rtype: list[tuple[NamedTimeseries, NamedTimeseries]]
         """
-        # Initialize the output
         overlapping_blocks: list[tuple[NamedTimeseries, NamedTimeseries]] = []
 
         # Test the potential overlaps
@@ -364,7 +363,6 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         )
 
         for unit in equipments_list:
-            # Initialize a key with the unit's name.
             results[unit.name] = {}
 
             # Retrieve the price forecasts types, extract the corresponding time series and store it in a list
@@ -398,11 +396,8 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
                 else:
                     cfg.logger.error(
-                        "WARNING: Wrong PriceForecastsType indicated as parameters. \n"
-                        "Possible values are: 'Low', 'Medium', 'High'"
+                        "Wrong PriceForecastsType indicated as parameters. Possible values are: 'Low', 'Medium', 'High'"
                     )
-
-            # Initialize the output of the function
 
             # Solve three times the optimization program, one for each price curve
             # and store the optimal output quantities into the dictionaries

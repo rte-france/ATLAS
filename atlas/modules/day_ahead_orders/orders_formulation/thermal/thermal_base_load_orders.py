@@ -106,17 +106,13 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         T_start = int(math.floor(unit.startup_duration / self.parameters.time_step))
         T_stop = int(math.floor(unit.shutdown_duration / self.parameters.time_step))
 
-        # MaximumPower of the unit
         maximum_power = unit.maximum_power
 
         # Compute T_traceback
         T_traceback = int(max(T_on + T_start, T_off + T_stop)) + 1
 
-        # extended_start_date and extended_end_date
         extended_start_date = self.parameters.start_date - T_traceback * self.parameters.time_step
         extended_end_date = self.parameters.end_date - T_traceback * self.parameters.time_step
-
-        # extended_time_frame
         extended_time_frame = generate_datetimes(extended_start_date, extended_end_date, self.parameters.time_step)
 
         # Initialize the output time series
@@ -129,7 +125,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             )
         )
 
-        # Iterate trough the unit's maximum_power and based on the current value, determine whether the unit
+        # Iterate through the unit's maximum_power and based on the current value, determine whether the unit
         for t in extended_time_frame:
             if maximum_power is not None and t in maximum_power and maximum_power.get_value(t) > 0:
                 states_sequence.set_or_add_value(t, 1)
