@@ -188,7 +188,18 @@ def _should_skip_equipment(
     activated_power: Timeseries,
     parameters: PortfolioOptimisationParameters,
 ):
-    """Check if equipment should be skipped due to zero activation."""
+    """
+    Check if equipment should be skipped due to zero activation.
+
+    :param equipment: Equipment instance
+    :type equipment: type[Equipment]
+    :param activated_power: Activated power timeseries
+    :type activated_power: Timeseries
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: True if equipment should be skipped
+    :rtype: bool
+    """
     if parameters.use_forecast:
         return False
 
@@ -205,7 +216,18 @@ def _should_skip_equipment(
 def _apply_power_constraints(
     equipment: type[Equipment], new_power: Timeseries, parameters: PortfolioOptimisationParameters
 ):
-    """Apply power constraints based on equipment type."""
+    """
+    Apply power constraints based on equipment type.
+
+    :param equipment: Equipment instance
+    :type equipment: type[Equipment]
+    :param new_power: New power timeseries
+    :type new_power: Timeseries
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: None
+    :rtype: None
+    """
     # Preload maximum power forecast for certain equipment types
     max_power_forecast = None
     if isinstance(equipment, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
@@ -231,7 +253,18 @@ def _apply_power_constraints(
 
 
 def _get_max_power(equipment: type[Equipment], time: DateTime, max_power_forecast: Timeseries | LazyTimeseries):
-    """Get maximum power limit for equipment at given time."""
+    """
+    Get maximum power limit for equipment at given time.
+
+    :param equipment: Equipment instance
+    :type equipment: type[Equipment]
+    :param time: Current time
+    :type time: DateTime
+    :param max_power_forecast: Maximum power forecast timeseries
+    :type max_power_forecast: Timeseries | LazyTimeseries
+    :return: Maximum power limit
+    :rtype: float
+    """
     if isinstance(equipment, LoadPO):
         return 0
     elif isinstance(equipment, WindPO | SolarPO | OtherNonDispatchablePO):
@@ -241,7 +274,19 @@ def _get_max_power(equipment: type[Equipment], time: DateTime, max_power_forecas
 
 
 def _get_min_power(equipment, time, max_power_forecast: Timeseries | LazyTimeseries, max_power) -> float:
-    """Get minimum power limit for equipment at given time."""
+    """
+    Get minimum power limit for equipment at given time.
+
+    :param equipment: Equipment instance
+    :param time: Current time
+    :type time: DateTime
+    :param max_power_forecast: Maximum power forecast timeseries
+    :type max_power_forecast: Timeseries | LazyTimeseries
+    :param max_power: Maximum power value
+    :type max_power: float
+    :return: Minimum power limit
+    :rtype: float
+    """
     if isinstance(equipment, LoadPO):
         return max_power_forecast.get_value(time)
     elif isinstance(equipment, WindPO | SolarPO):
@@ -256,7 +301,16 @@ def _get_min_power(equipment, time, max_power_forecast: Timeseries | LazyTimeser
 
 
 def _get_energy_bounds(obj: HydroPO | StoragePO, time: DateTime):
-    """Get energy bounds for equipment at given time."""
+    """
+    Get energy bounds for equipment at given time.
+
+    :param obj: Hydro or storage equipment instance
+    :type obj: HydroPO | StoragePO
+    :param time: Current time
+    :type time: DateTime
+    :return: Tuple of (min_energy, max_energy)
+    :rtype: tuple[float, float]
+    """
     max_energy = obj.maximum_energy.get_value(time)
 
     if isinstance(obj, StoragePO):
@@ -270,7 +324,18 @@ def _get_energy_bounds(obj: HydroPO | StoragePO, time: DateTime):
 def _update_stored_energy(
     equipment: HydroPO | StoragePO, new_power: Timeseries | LazyTimeseries, parameters: PortfolioOptimisationParameters
 ):
-    """Update stored energy for storage and hydraulic equipment."""
+    """
+    Update stored energy for storage and hydraulic equipment.
+
+    :param equipment: Hydro or storage equipment instance
+    :type equipment: HydroPO | StoragePO
+    :param new_power: New power timeseries
+    :type new_power: Timeseries | LazyTimeseries
+    :param parameters: Optimization parameters
+    :type parameters: PortfolioOptimisationParameters
+    :return: None
+    :rtype: None
+    """
 
     new_stored_energy = Timeseries.from_index(
         parameters.start_date, parameters.timestep, parameters.end_date, default_value=0
