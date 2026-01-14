@@ -161,7 +161,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         # Quick sanity check on the class of the equipment supplied as input.
         if not isinstance(thermal_unit, Thermal):
-            cfg.logger.error(f"*** WARNING ***\n Equipement {thermal_unit.name} is not of type thermic.")
+            cfg.logger.error(f"Equipement {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
 
         # extract the list of scenarios.

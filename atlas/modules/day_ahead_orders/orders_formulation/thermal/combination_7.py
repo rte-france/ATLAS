@@ -397,7 +397,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             )  # Downward gradient
     else:  # Raise an error since no gradients have been detected.
         cfg.logger.error(
-            f"*** WARNING ***\n No gradients have been defined for equipment {model.thermal_unit.name}. \n "
+            f"No gradients have been defined for equipment {model.thermal_unit.name}. \n "
             "Please check the value of `maximum_gradient`."
         )
         raise ValueError("Missing gradients for thermic units.")

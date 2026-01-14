@@ -262,10 +262,9 @@ class ThermalUnitOrders:
             if q_max <= 0.0:
                 if self.parameters.verbose:
                     cfg.logger.warning(
-                        f"*** WARNING ***\n Negative or null amount of energy in the flexible order to be offered by unit {unit.name} at time {str(t)}. "
+                        f"Negative or null amount of energy in the flexible order to be offered by unit {unit.name} at time {str(t)}. "
                         "The order will therefore not be created."
                     )
-
             else:
                 # Flexible part of the order
                 flexible_part = OrderDAO(

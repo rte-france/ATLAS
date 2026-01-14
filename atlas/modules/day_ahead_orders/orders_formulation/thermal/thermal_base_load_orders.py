@@ -58,7 +58,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             states_sequence, inconsistent = self.determine_baseload_states_sequence(unit)
             if inconsistent:  # skip the unit if its states sequence is inconsistent.
                 cfg.logger.warning(
-                    f"*** WARNING ***\n Equipment {unit.name}'s states sequence is inconsistent. "
+                    f"Equipment {unit.name}'s states sequence is inconsistent. "
                     "No orders have been formulated for this unit"
                 )
                 continue
@@ -97,7 +97,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
 
         # Sanity check : see whether the unit passed as an input is a baselaod unit. Otherwise raise an error.
         if not unit.strategy == ThermalStrategy.BASE:
-            cfg.logger.error(f"*** WARNING ***\n Equipement {unit.name} is not of strategy 'Base'.")
+            cfg.logger.error(f"Equipement {unit.name} is not of strategy 'Base'.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
 
         # Parameters from the unit

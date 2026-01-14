@@ -107,7 +107,7 @@ class ThermalOptimizationModel(OptimisationModel):
             )
         # Quick sanity check on the class of the equipment supplied as input.
         if not isinstance(thermal_unit, Thermal):
-            cfg.logger.error(f"*** WARNING ***\n Equipement {thermal_unit.name} is not of type thermic.")
+            cfg.logger.error(f"Equipement {thermal_unit.name} is not of type thermic.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
         self.thermal_unit: ThermalDAO = thermal_unit
         self.prices: Timeseries = prices
@@ -291,7 +291,7 @@ class ThermalOptimizationModel(OptimisationModel):
         # than the end_date.
         if self.parameters.start_date > self.parameters.end_optimization_date:
             cfg.logger.error(
-                "*** WARNING ***\n The end_optimization_date is earlier than or identical to the start_date. \n"
+                "The end_optimization_date is earlier than or identical to the start_date. \n"
                 "The time frame cannot be defined. Please check the values of start_date, EndDate and AdditionalHours"
             )
             raise ValueError("Improper dates")
