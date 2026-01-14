@@ -22,15 +22,25 @@ from atlas.timing import generate_datetimes
 
 class DayAheadOrdersOrchestrator:
     def __init__(self, parameters: DayAheadOrdersParameters, dataset: DayAheadOrdersInputDataset):
+        """
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        :param dataset: the input dataset
+        :type dataset: DayAheadOrdersInputDataset
+        """
         self.parameters = parameters
         self.input_dataset = dataset
         self.output_dataset = DayAheadOrdersOutputDataset(dataset)
         pass
 
     def execute(self) -> DayAheadOrdersOutputDataset:
-        # Formulation of bids and orders on the day-ahead market.
-        # In practice, several functions are run. Each function extract data from the dataset
-        # and formulates bids or offers in the output dataset. The latter is of class "Offer".
+        """
+        Formulation of bids and orders on the day-ahead market.
+        In practice, several functions are run. Each function extract data from the dataset
+        and formulates bids or offers in the output dataset. The latter is of class "Offer".
+        :return: the output dataset
+        :rtype: DayAheadOrdersOutputDataset
+        """
 
         cfg.logger.info("Initialization of the Day-Ahead Orders module...")
 
@@ -81,11 +91,11 @@ class DayAheadOrdersOrchestrator:
     def define_orders_time(self) -> list[pendulum.DateTime]:
         """
         This function creates a sequence of timestamps between a start_date and a end_date
-        with step deltaTime. It returns a list of DateTime objects.
+        with frequency matching the time_step parameter.
         In particular, it makes sure that no time step crosses the end_date boundary.
 
-        Arguments:
-        - `parameters` an instance of DayAheadOrdersParameters.
+        :return: a list of DateTime objects
+        :rtype: list[DateTime]
         """
         orders_time = []
         if self.parameters.start_date < self.parameters.end_date:

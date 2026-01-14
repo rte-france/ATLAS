@@ -23,13 +23,29 @@ class BatteryModel(StorageModel):
         optimization_period: Duration,
         solver_options: SolverOptions,
     ):
+        """
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        :param solver_name: name of the solver
+        :type solver_name: str
+        :param name: name of the model
+        :type name: str
+        :param storage: storage object
+        :type storage: StorageDAO
+        :param optimization_period: duration of the optimization
+        :type optimization_period: Duration
+        :param solver_options: solver options
+        :type solver_options: SolverOptions
+        """
         super().__init__(parameters, solver_name, name, storage, optimization_period, solver_options)
 
     def create_constraints(self, initial_stock: float | None, power_fragments: int) -> None:
         """
         Creation of constraints
         :param initial_stock: initial stock
+        :type initial_stock: float | None
         :param power_fragments: power fragments
+        :type power_fragments: int
         :return: None
         """
         for t in self.time_frame:

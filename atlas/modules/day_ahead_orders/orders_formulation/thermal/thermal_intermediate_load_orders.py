@@ -41,14 +41,21 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
+        """
+        :param dataset: the dataset
+        :type dataset: DayAheadOrdersOutputDataset
+        :param orders_time: a list of dates over which orders will be formulated.
+        :type orders_time: list[DateTime]
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        """
         super().__init__(dataset, orders_time, parameters)
 
     def formulate_thermal_intermediate_load_orders(self) -> None:
         """
         This function formulates orders for the thermic intermediate load units.
         Intermediate load units are identified from an attribute of the thermic class.
-
-        Returns None
+        :return: None
         """
 
         # Filter the intermediate load instances
@@ -144,12 +151,12 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         For instance, if there are three cases Low, Medium and High and that the outcomes under cases Medium and High
         are identical, then cases = ["Low", "Medium"]
 
-        Arguments:
-        `results` : the dictionary of results
-        `thermal_unit`the unit from which the results need to be retrieved
-
-        Returns:
-        cases : a list of cases names (string) each of which is unique.
+        :param results: the dictionary of results
+        :type results: dict[str, dict[str, dict[str, Timeseries]]]
+        :param thermal_unit: the unit from which the results need to be retrieved
+        :type thermal_unit: ThermalDAO
+        :return: a list of cases names (string) each of which is unique.
+        :rtype: list[str]
         """
 
         # Quick sanity check on the class of the equipment supplied as input.
@@ -233,13 +240,15 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
         The sequence of states is computed over the timeFrame
 
-        Arguments :
-        `unit`: the unit to be analysed
-        `res` : the dictionary of results
-        `case` : a string corresponding to the name of the scenario
+        :param unit: the unit to be analyzed
+        :type unit: ThermalDAO
+        :param res: the dictionary of results
+        :type res: dict[str, dict[str, dict[str, Timeseries]]]
+        :param case: a string corresponding to the name of the scenario
+        :type case: str
+        :return: a timeSeries object encoding the states at each time t.
+        :rtype: Timeseries
 
-        Returns :
-        states_sequence : a timeSeries object encoding the states at each time t.
         """
 
         # Compute T_stable, T_start and T_stop : will be used to see which states will be incorporated
@@ -275,11 +284,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         """
         Given a list of timeframes, returns the subset of overlapping timeframes.
 
-        Argument:
-        `online_timeframes` : a list of time frames.
-
-        Return :
-        `overlapping_blocks` : a list of tuples of overlapping blocks
+        :param online_timeframes: a list of time frames.
+        :type online_timeframes: list[NamedTimeseries]
+        :return: a list of tuples of overlapping blocks
+        :rtype: list[tuple[NamedTimeseries, NamedTimeseries]]
         """
         # Initialize the output
         overlapping_blocks: list[tuple[NamedTimeseries, NamedTimeseries]] = []
@@ -309,11 +317,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         checks whether two optimization program outcomes are overlapping or not
         Compares series containing status variables only, more precisely aggregated ON status variables.
 
-        Arguments:
-        - pair : a tuple of scenarios of size 2
-
-        Returns :
-        - is_overlapping : a boolean indicating whether the scenarios are overlapping or not.
+        :param pair: a tuple of scenarios of size 2
+        :type pair: tuple[Timeseries, Timeseries]
+        :return: a boolean indicating whether the scenarios are overlapping or not.
+        :rtype: bool
         """
 
         # Quick sanity check on the length of the input variable.
@@ -341,11 +348,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         """
         Solves the optimization programs for a list of equipment given the three price curves.
 
-        Arguments:
-        equiment_list : a list of thermal equipments
-
-        Returns:
-        results : a two stage dictionary containing for each equipment the optimal quantities given a price curve.
+        :param equiment_list: a list of thermal equipments
+        :type equiment_list: list[ThermalDAO]
+        :return: a two stage dictionary containing for each equipment the optimal quantities given a price curve.
+        :rtype: dict[str, dict[str, dict[str, Timeseries]]]
         """
 
         # create a dictionary that will store the program's outcomes.

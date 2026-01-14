@@ -26,10 +26,13 @@ class LoadStep:
         stored in the Power forecasting matrix of a "Load" equipment.
 
         The function takes the following arguments:
-
-        - `dataset`: a dataset.
-        - `orders_time`: a list of dates at which orders must be formulated.
-        - `parameters` a named tuple of parameters, containing the common parameters.
+        :param dataset: the dataset
+        :type dataset: DayAheadOrdersOutputDataset
+        :param orders_time: a list of dates over which orders will be formulated.
+        :type orders_time: list[DateTime]
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        :return: None
         """
 
         # Loop over the market players first

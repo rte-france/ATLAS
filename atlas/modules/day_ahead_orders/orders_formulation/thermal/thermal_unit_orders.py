@@ -28,6 +28,14 @@ class ThermalUnitOrders:
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
+        """
+        :param dataset: the dataset
+        :type dataset: DayAheadOrdersOutputDataset
+        :param orders_time: a list of dates over which orders will be formulated.
+        :type orders_time: list[DateTime]
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        """
         self.dataset = dataset
         self.orders_time = orders_time
         self.parameters = parameters
@@ -36,7 +44,7 @@ class ThermalUnitOrders:
         self,
         online_timeframe: Timeseries,
         unit: ThermalDAO,
-        case="",
+        case: str = "",
     ) -> None:
         """
         Formulate orders for one thermic power plant.
@@ -44,15 +52,13 @@ class ThermalUnitOrders:
         Given a time series of states on which the unit is online (ON_., START and STOP), this function formulates orders according to the
         strategy presented in the documentation.
 
-        Arguments
-        `online_timeframe` : a time series over which the unit is online.
-        `unit` : the unit for which the orders are formulated.
-        `orders_time` : an index of dates over which orders will be formulated.
-        `outputMarker` : the marker on which the orders are written
-        `p` : a signed tuple of parameters
-        `case` : (optional) a string that aims at identifying the price scenario if relevant
-
-        Returns None
+        :param online_timeframe: a time series over which the unit is online.
+        :type online_timeframe: Timeseries
+        :param unit: the unit for which the orders are formulated.
+        :type unit: ThermalDAO
+        :param case: (optional) a string that aims at identifying the price scenario if relevant
+        :type case: str
+        :return: None
         """
 
         # Determine if the unit is offline or not. A sufficient condition is that the online_timeframe doesn't contain a 1
@@ -521,20 +527,15 @@ class ThermalUnitOrders:
     def extract_online_sequences(self, states_sequence: Timeseries, case: str = "") -> list[NamedTimeseries]:
         """
         A helper function that extracts online sequence based on a thermal unit states sequence.
-
         This in particular allows for the formulation of order on several sub-intervals if the unit
         were to be restarted over the orders_time time frame.
 
-        Arguments:
-        - `unit` : the thermal unit considered
-        - `states_sequence`: a time series containing the state sequence of the unit.
-        - `orders_time` : an index of dates over which orders will be formulated.
-        - `parameters`: a named tuple of subclass Parameters_List containing the parameters
-
-        Returns:
-        list_of_online_timeframes : a list of time series, each time serie containing a sequence over which the unit is online
-                                empty if the unit is offline over the whole time frame
-        startup : a boolean indicating whether the unit has started up or not.
+        :param states_sequence: a time series containing the state sequence of the unit.
+        :type states_sequence: Timeseries
+        :param case: (optional) a string that aims at identifying the price scenario if relevant
+        :type case: str
+        :return: a list of time series, each time series containing a sequence over which the unit is online empty if the unit is offline over the whole time frame
+        :rtype: list[NamedTimeseries]
         """
         # Get the time steps for which the unit is online (defined as a non-zero state):
         # Consistency of the online states wrt the minimum duration is ensured by definition of the

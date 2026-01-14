@@ -1,4 +1,5 @@
-"""Copyright (c) 2025, RTE (www.rte-france.com)
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
 
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
@@ -15,7 +16,12 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimizat
 
 
 def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
-    """Combination 2 : T_stop >= 1, model.T_stable = T_start = 0"""
+    """
+    Combination 2 : T_stop >= 1, model.T_stable = T_start = 0
+    :param model: the model
+    :type day_zero: bool
+    :return: None
+    """
     # In this case, there are three state variables and two auxiliary variables.
     # We review the initial conditions, then the constraints on the state variables
     # and finally the constraints on the power output.

@@ -26,6 +26,14 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
+        """
+        :param dataset: the dataset
+        :type dataset: DayAheadOrdersOutputDataset
+        :param orders_time: a list of dates over which orders will be formulated.
+        :type orders_time: list[DateTime]
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        """
         super().__init__(dataset, orders_time, parameters)
 
     def formulate_thermal_baseload_orders(self) -> None:
@@ -77,13 +85,11 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
 
         REMARK : if there are more than one start up and one shutdown over the period, the program will be considered as inconsistent.
 
-        Arguments :
-        unit : the unit to be analysed
-
-        Returns :
-        states_sequence : a timeSeries object encoding the states at each time t.
-        inconsistent : a boolean indicating whether the reconstructed time series exhibits any inconsistency
+        :param unit: the unit to be analysed
+        :type unit: ThermalDAO
+        :returns: states_sequence : a timeSeries object encoding the states at each time t. inconsistent : a boolean indicating whether the reconstructed time series exhibits any inconsistency
                        with respect to the unit's parameters.
+        :rtype: tuple[Timeseries, bool]
         """
 
         # Intialize the value of the boolean inconsistent

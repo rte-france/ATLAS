@@ -20,11 +20,27 @@ class ElectricVehicleModel(StorageModel):
         storage: StorageDAO,
         solver_options: SolverOptions,
     ):
+        """
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        :param solver_name: name of the solver
+        :type solver_name: str
+        :param name: name of the model
+        :type name: str
+        :param storage: storage object
+        :type storage: StorageDAO
+        :param solver_options: solver options
+        :type solver_options: SolverOptions
+        """
         super().__init__(parameters, solver_name, name, storage, parameters.ev_additional_hours, solver_options)
 
     def create_constraints(self, initial_stock: float | None) -> None:
-        # Creation of constraints
-
+        """
+        Creation of constraints
+        :param initial_stock: initial stock
+        :type initial_stock: float | None
+        :return: None
+        """
         for t in self.time_frame:
             for i in range(self.parameters.ev_nb_fragments):
                 self.add_constraint(
@@ -138,7 +154,7 @@ class ElectricVehicleModel(StorageModel):
             # Explanation note: the ratio that determines the part of the fleet that is fully charged or discharged is evaluated
             # on the previous time step, since StoredEnergy(t) is unkown prior to the optimization. This is assumed to be a good estimation
             # of the ratio at t. Every other value is taken at t.
-            # FC: We need to recode this one, the concept is very interesting but solving the optimization
+            # We need to recode this one, the concept is very interesting but solving the optimization
             # becomes exponentially longer with each additional hour. And currently impossible to solve for 7 days.
             """
             if t == p.start_date:

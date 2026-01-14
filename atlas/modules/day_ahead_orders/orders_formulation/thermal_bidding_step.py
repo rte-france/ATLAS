@@ -38,7 +38,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load
 #
 # Pointe à faire
 
-# FC: New improved structure of this file for clarity, organized as follows:
+# New improved structure of this file for clarity, organized as follows:
 # . Main function, calling order formulation functions for each strategy
 # . Orders formulation per strategy
 # . Function formulating orders for each individual units (used for Baseload and Intermediate strategies)
@@ -56,12 +56,23 @@ class ThermalBiddingStep:
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
+        """
+        :param dataset: the dataset
+        :type dataset: DayAheadOrdersOutputDataset
+        :param orders_time: a list of dates over which orders will be formulated.
+        :type orders_time: list[DateTime]
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        """
         self.dataset = dataset
         self.orders_time = orders_time
         self.parameters = parameters
 
     def formulate_thermal_orders(self) -> None:
-        """This wrapper function formulates orders for all thermic units."""
+        """
+        This wrapper function formulates orders for all thermic units.
+        :return: None
+        """
 
         # Formulate baseload orders
         cfg.logger.info("Formulation of the thermic baseload orders...")
@@ -92,6 +103,10 @@ class ThermalBiddingStep:
         cfg.logger.info("End of computation.")
 
     def computeDASellSubmittedVolumes(self) -> None:
+        """
+        compute DA sell submitted volumes
+        :return: None
+        """
         da_sell_submitted_volumes = {
             equipment.name: DAOTimeseries(
                 Timeseries.from_index(
@@ -117,7 +132,7 @@ class ThermalBiddingStep:
                     list_of_relevant_orders_intermediate.append(order)
 
         # --- Intermediate ---
-        # Creation of a reversed dic of all coupling in which a given order is involved
+        # Creation of a reversed dict of all coupling in which a given order is involved
         unit_order_coupling_list: dict[str, Coupling] = {}
         for coupling_instance in self.dataset.order_coupling:
             for order_index, order_from_coupling in enumerate(coupling_instance.orders):
@@ -136,7 +151,6 @@ class ThermalBiddingStep:
                         others = [o for o in coupling_instance.orders if o is not order_from_coupling]
                         new_coupling = Coupling(others, CouplingType.IDENTICAL_VOLUME)
                     else:
-                        # COMPLEMENT are not supposed to be connected by EXCLUSION couplings and are ignored
                         cfg.logger.warning(
                             "COMPLEMENT are not supposed to be connected by EXCLUSION couplings and are ignored"
                         )
@@ -148,7 +162,7 @@ class ThermalBiddingStep:
                     unit_order_coupling_list[order_from_coupling.name] = new_coupling
 
         # This stored already considered orders to prevent double counting
-        # We use a dic to access elements using hashing to improve compute time
+        # We use a dict to access elements using hashing to improve compute time
         already_considered_orders = {order.name: False for order in list_of_relevant_orders_intermediate}
         list_of_mutually_exclusive_programms: dict[str, list[Timeseries]] = {
             equipment.name: [] for equipment in self.dataset.thermal
@@ -181,7 +195,7 @@ class ThermalBiddingStep:
                     for order_name in list_of_considerer_orders:
                         already_considered_orders[order_name] = True
 
-        # Uncoupled orders or orders coupled to non exclusive groups (COMPLEMENT for instance)
+        # Uncoupled orders or orders coupled to non-exclusive groups (COMPLEMENT for instance)
         for order in list_of_relevant_orders_intermediate:
             if not already_considered_orders[order.name]:
                 da_sell_submitted_volumes[order.equipment.name].set_or_add_value(
@@ -220,6 +234,17 @@ class ThermalBiddingStep:
         It also prevents from double computation
         This is valid only if at most one internal EXCLUSION order exists
         This search might not behave correctly if one internal EXCLUSION coupling exists between two PARENTS (CHILDREN might be added)
+
+        :param current_order: the current order
+        :type current_order: Order
+        :param unit_order_coupling_list: a reversed dict of all coupling in which a given order is involved
+        :type unit_order_coupling_list: dict[str, Coupling]
+        :param current_programm: The current timeseries program
+        :type current_programm: DAOTimeseries
+        :param already_considered_orders_n: the list of already considered orders
+        :type already_considered_orders_n: list[str]
+        :return: the connected orders
+        :rtype: tuple[DAOTimeseries, list[str]]
         """
         if current_order.name in already_considered_orders_n:  # This checks prevents cycles and ensures termination
             return current_programm, already_considered_orders_n

@@ -28,10 +28,13 @@ class WindPVStep:
         For all bids, Qmax corresponds to the production forecast at the time for wich
         the offer is made. Qmin corresponds to a ratio of Qmax given by the property MaximumCurtailmentRatio.
 
-        Arguments:
-        - `dataset`: a dataset
-        - `orders_time`: a list of dates at which orders must be formulated.
-        - `parameters` a named tuple of parameters, containing the common parameters.
+        :param dataset: the dataset
+        :type dataset: DayAheadOrdersOutputDataset
+        :param orders_time: a list of dates over which orders will be formulated.
+        :type orders_time: list[DateTime]
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        :return: None
         """
 
         # Create a list of the different non dispatchable portfolios.

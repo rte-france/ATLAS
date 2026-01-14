@@ -84,9 +84,15 @@ class ThermalOptimizationModel(OptimisationModel):
     ):
         """
         :param parameters: a DayAheadOrdersParameters instance
+        :type parameters: DayAheadOrdersParameters
         :param thermal_unit: a Thermal instance
+        :type thermal_unit: ThermalDAO
         :param prices: a price timeseries based on which optimization will be conducted.
+        :type prices: Timeseries
         :param price_type: the price_type
+        :type price_type: str
+        :param solver_options: the solver options
+        :type solver_options: SolverOptions
         """
         super().__init__(
             solver_name=parameters.solver.upper(),
@@ -276,7 +282,10 @@ class ThermalOptimizationModel(OptimisationModel):
         return f"{self.AUX_UP_GRAD_AT_KEY}{t}_equip_{self.thermal_unit.name}"
 
     def _initial_setup(self) -> None:
-        """STEP 0 : Retrieve the parameters of the program and set up the time frame"""
+        """
+        STEP 0 : Retrieve the parameters of the program and set up the time frame
+        :return: None
+        """
 
         # Sanity check on the start_date and the end_date. A warning message is sent to the user if the start_date is later
         # than the end_date.
@@ -402,8 +411,7 @@ class ThermalOptimizationModel(OptimisationModel):
         self.T_stable = self.T_stable if self.T_stable >= 2 else 0
 
         # Set-up the time frames
-        # Definition of the time_frame time frame : the time frame on which
-        # the optimization program will be solved.
+        # Definition of the time_frame time frame : the time frame on which the optimization program will be solved.
         # Remark: we define the time series until end_date - time_step because
         # we want all time steps to lie in the [start_date, end_optimization_date] range.
         end_date = self.parameters.end_optimization_date - self.parameters.time_step
@@ -417,7 +425,7 @@ class ThermalOptimizationModel(OptimisationModel):
         for k in range(1, T_traceback + 1):
             self.previous_time_frame.append(self.parameters.start_date - k * self.parameters.time_step)
 
-            # Define the extendedTimeFrame, ranging from the last element of the previous_time_frame to end_optimization_date.
+        # Define the extendedTimeFrame, ranging from the last element of the previous_time_frame to end_optimization_date.
         # We also start from 1 in order to exclude start_date from the previous_time_frame.
         self.extended_start_date = self.previous_time_frame[-1]  # Last date in the previous_time_frame
 
@@ -494,7 +502,10 @@ class ThermalOptimizationModel(OptimisationModel):
         self.delta_q_unconstrained = self.thermal_unit.maximum_power.max()
 
     def _define_time_frame_variables(self) -> None:
-        """STEP 1 : Definition of the state, auxiliary and control variables over the time_frame."""
+        """
+        STEP 1 : Definition of the state, auxiliary and control variables over the time_frame.
+        :return: none
+        """
 
         # 1.1. Control variables :
         #    - the power output of the unit
@@ -617,7 +628,12 @@ class ThermalOptimizationModel(OptimisationModel):
                 )
 
     def create_objective_function(self, direction: Literal["maximize", "minimize"] = "maximize") -> None:
-        """STEP 2 : Creation of objective function"""
+        """
+        STEP 2 : Creation of objective function
+        :param direction: the direction of the objective function
+        :type direction: Literal["maximize", "minimize"]
+        :return: None
+        """
         # Set-up the objective function given by eq. (2) in the documentation.
         # If self.T_stable = 0, we don't need to include automatedContractedReservesUp and automatedContractedReservesDown to the objective function.
         # otherwise we need to include them.
@@ -650,15 +666,19 @@ class ThermalOptimizationModel(OptimisationModel):
         )
 
     def determine_combination(self) -> int:
-        """Determine which of the 8 constraint combinations to use.
+        """
+        Determine which of the 8 constraint combinations to use.
         STEP 3 : Constraints and initial conditions
-        # Constraints and initial conditions are defined based on state and auxiliary variables.
-        # Since these variables are not necessarily defined, in the following we go through all
-        # 8 possible combinations of state and auxiliary variables and write the corresponding
-        # initial conditions and set of constraints all at once.
-        #
-        # Initial conditions are defined on the previous_time_frame, constraints on the state and
-        # control variables are defined on the time_frame.
+        Constraints and initial conditions are defined based on state and auxiliary variables.
+        Since these variables are not necessarily defined, in the following we go through all
+        8 possible combinations of state and auxiliary variables and write the corresponding
+        initial conditions and set of constraints all at once.
+
+        Initial conditions are defined on the previous_time_frame, constraints on the state and
+        control variables are defined on the time_frame.
+
+        :return: determine the combination to use
+        :rtype: int
         """
         if self.T_stop == 0 and self.T_start == 0 and self.T_stable == 0:
             return 1
@@ -682,12 +702,13 @@ class ThermalOptimizationModel(OptimisationModel):
     def solve_thermal_optimization(self) -> dict[str, Timeseries]:
         """
         STEP 4 : Solving the problem
-        :return: - `results`: a dictionnary containing the optimal values of the decision variables,
+        :return: results: a dictionary containing the optimal values of the decision variables,
                     namely :
                         . q*, the optimal power output
                         . ON_.*, OFF*, START* and STOP* (when relevant), the optimal values of the state variables
                     All these results are returned in the form of a TimeSeries object ranging over the optimization period
                     (i.e. [start_date, end_optimization_date]).
+        :rtype: dict[str, Timeseries]
         """
         if self.parameters.debug:
             lp_file_name = os.path.join(
@@ -843,7 +864,20 @@ class ThermalOptimizationModel(OptimisationModel):
     def create_fill_up_constraints(
         self, time_frame: list[DateTime], q: ModelVar, q_upper: Timeseries, epsilon: float, q_lower: Timeseries
     ) -> None:
-        """Upward and downward "fill up" constraints"""
+        """
+        Upward and downward "fill up" constraints
+        :param time_frame: the time frame
+        :type time_frame: list[DateTime]
+        :param q: the model variable
+        :type q: ModelVar
+        :param q_upper: power bound
+        :type q_upper: Timeseries
+        :param epsilon: epsilon parameter
+        :type epsilon: float
+        :param q_lower: power bound
+        :type q_lower: Timeseries
+        :return: None
+        """
         for t in time_frame:
             self.add_constraint(
                 q.get_value(t)
@@ -889,7 +923,20 @@ class ThermalOptimizationModel(OptimisationModel):
         feasible_automated_reserves_up_procured: Timeseries,
         feasible_automated_reserves_down_procured: Timeseries,
     ) -> None:
-        """Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))"""
+        """
+        Constraints on contractedDifference (eq. (40)) and on automatedContractedDifference (eq. (39))
+        :param time_frame: the time frame
+        :type time_frame: list[DateTime]
+        :param reserves_up_procured: manual reserves
+        :type reserves_up_procured: Timeseries
+        :param reserves_down_procured: manual reserves
+        :type reserves_down_procured: Timeseries
+        :param feasible_automated_reserves_up_procured: time series of feasible automated reserves procurements
+        :type feasible_automated_reserves_up_procured: Timeseries
+        :param feasible_automated_reserves_down_procured: time series of feasible automated reserves procurements
+        :type feasible_automated_reserves_down_procured: Timeseries
+        :return: None
+        """
         for t in time_frame:
             # contractedDifference
             self.add_constraint(
@@ -915,6 +962,18 @@ class ThermalOptimizationModel(OptimisationModel):
     def create_daily_energy_constraint(
         self, thermal_unit: ThermalDAO, time_frame: list[DateTime], time_step: Duration, q: ModelVar
     ) -> None:
+        """
+        Creation of daily energy constraint
+        :param thermal_unit: the thermal unit
+        :type thermal_unit: ThermalDAO
+        :param time_frame: the time frame
+        :type time_frame: list[DateTime]
+        :param time_step: the time step
+        :type time_step: Duration
+        :param q: the model variable
+        :type q: ModelVar
+        :return: None
+        """
         # Energy limits
         if thermal_unit.has_daily_energy_constraint:
             days_in_time_frame = []
@@ -944,7 +1003,11 @@ class ThermalOptimizationModel(OptimisationModel):
                     )
 
     def is_day_zero(self) -> bool:
-        # See if the program needs to be initialized as DayZero or not
+        """
+        See if the program needs to be initialized as DayZero or not
+        :return: if the program needs to be initialized as DayZero or not
+        :rtype: bool
+        """
         if len(self.last_power) == 0:
             # Initialization of the program as DayZero and warn the user
             if self.parameters.verbose:

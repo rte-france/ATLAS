@@ -24,6 +24,13 @@ from atlas.timing import generate_datetimes
 
 class StorageStep:
     def __init__(self, dataset: DayAheadOrdersOutputDataset, parameters: DayAheadOrdersParameters) -> None:
+        """
+        :param dataset: the dataset
+        :type dataset: DayAheadOrdersOutputDataset
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        :return: None
+        """
         self.dataset = dataset
         self.parameters = parameters
 
@@ -31,7 +38,8 @@ class StorageStep:
         """
         Formulates storage bids on the spot market.
         Uses the parameters specified by the user and the dataset to create bids based on the forecast
-        stored in the Power forecasting matrix of a "Storage" equipement.
+        stored in the Power forecasting matrix of a "Storage" equipment.
+        :return: None
         """
 
         # Loop on all the actors that have EV storage capacity
@@ -175,10 +183,14 @@ class StorageStep:
     ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
         """
         Optimization function for ElectricVehicle units
-        :param storage: Storage
-        :param initial_stock: InitialStock
-        :param parameters: parameters
+        :param storage: the storage object
+        :type storage: StorageDAO
+        :param initial_stock: the initial stock
+        :type initial_stock: float | None
+        :param solvers_options: solvers options
+        :type solvers_options: SolverOptions
         :return: output variables
+        :rtype: tuple[dict[DateTime, float], dict[DateTime, float]]
         """
         # Creation of optimization problem
         model = ElectricVehicleModel(
@@ -217,10 +229,14 @@ class StorageStep:
     ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
         """
         Optimization function for Battery and PHS units
-        :param storage: Storage
-        :param initial_stock: initial_stock
-        :param solvers_options: solver options
-        :return:
+        :param storage: the storage object
+        :type storage: StorageDAO
+        :param initial_stock: the initial stock
+        :type initial_stock: float | None
+        :param solvers_options: solvers options
+        :type solvers_options: SolverOptions
+        :return: output variables
+        :rtype: tuple[dict[DateTime, float], dict[DateTime, float]]
         """
         if storage.storage_type == StorageType.BATTERY:
             optimization_period = self.parameters.battery_additional_hours
@@ -266,7 +282,17 @@ class StorageStep:
     def price_calculation(
         self, storage: StorageDAO, Qv: dict[DateTime, float], Qa: dict[DateTime, float]
     ) -> tuple[float, float]:
-        """------ Price computation ------"""
+        """
+        Price computation
+        :param storage: the storage object
+        :type storage: StorageDAO
+        :param Qv: the Qv
+        :type Qv: dict[DateTime, float]
+        :param Qa: the Qa
+        :type Qa: dict[DateTime, float]
+        :return: Psale, Ppurchase
+        :rtype: tuple[float, float]
+        """
         P_a_max = 0.0
         P_v_min = 0.0
         # Get the price forecast from the dataset: estimations are at ActionHour, from StartDate to EndDate
@@ -337,6 +363,22 @@ class StorageStep:
         price: float,
         coupling_instance: OrderCouplingDAO,
     ) -> None:
+        """
+        Add a spot order with a coupling instance to the model
+        :param order_type: the order type
+        :type order_type: OrderType
+        :param storage: the storage object
+        :type storage: StorageDAO
+        :param start_date: the start date
+        :type start_date: DateTime
+        :param qmax: the maximum power
+        :type qmax: float
+        :param price: the price
+        :type price: float
+        :param coupling_instance: the coupling instance
+        :type coupling_instance: OrderCouplingDAO
+        :return: None
+        """
         order = OrderDAO(
             name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{storage.name}",
             equipment=storage,
@@ -355,10 +397,17 @@ class StorageStep:
         coupling_instance.orders.append(order)
 
     def initiate_stock(self, storage: StorageDAO) -> float | None:
-        # FC: The first step is to evaluate if the equipment is in an "Initial" situation or not
-        # This is indicated by StoredEnergy, but one should be careful here
-        # The idea is to verify that there is a value in StoredEnergy "not too long" before start_date,
-        # and we arbitrarily choose to look as far as two days before to verify this. Assumption could be discussed.
+        """
+        The first step is to evaluate if the equipment is in an "Initial" situation or not
+        This is indicated by StoredEnergy, but one should be careful here
+        The idea is to verify that there is a value in StoredEnergy "not too long" before start_date,
+        and we arbitrarily choose to look as far as two days before to verify this. Assumption could be discussed.
+
+        :param storage: the storage object
+        :type storage: StorageDAO
+        :return: the initial stock
+        :rtype: float | None
+        """
         if storage.stored_energy is None:
             initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(self.parameters.start_date)
         else:

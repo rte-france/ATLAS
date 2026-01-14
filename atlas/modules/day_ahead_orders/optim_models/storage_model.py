@@ -35,6 +35,20 @@ class StorageModel(OptimisationModel):
         optimization_period: Duration,
         solver_options: SolverOptions,
     ):
+        """
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        :param solver_name: name of the solver
+        :type solver_name: str
+        :param name: name of the model
+        :type name: str
+        :param storage: storage object
+        :type storage: StorageDAO
+        :param optimization_period: duration of the optimization
+        :type optimization_period: Duration
+        :param solver_options: solver options
+        :type solver_options: SolverOptions
+        """
         super().__init__(solver_name, name, solver_options)
         self.parameters: DayAheadOrdersParameters = parameters
         self.storage: StorageDAO = storage
@@ -102,7 +116,16 @@ class StorageModel(OptimisationModel):
     def create_objective_function(
         self, nb_fragments: int, smoothing_factor: float, direction: Literal["maximize", "minimize"] = "maximize"
     ) -> None:
-        """Creation of objective function"""
+        """
+        Creation of objective function
+        :param nb_fragments: number of fragments
+        :type nb_fragments: int
+        :param smoothing_factor: smoothing factor
+        :type smoothing_factor: float
+        :param direction: direction
+        :type direction: Literal["maximize", "minimize"]
+        :return: None
+        """
 
         # The objective function is the total profit over the optimisation period
         self.set_direction(direction)
@@ -137,6 +160,10 @@ class StorageModel(OptimisationModel):
             )
 
     def solve_with_xpress(self) -> None:
+        """
+        Solve the optimization problem using Xpress
+        :return: None
+        """
         if self.solver_name != SolverEnum.XPRESS:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
             raise ValueError(

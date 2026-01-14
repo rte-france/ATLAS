@@ -20,6 +20,14 @@ class ThermalPeakLoadOrders:
     def __init__(
         self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
+        """
+        :param dataset: the dataset
+        :type dataset: DayAheadOrdersOutputDataset
+        :param orders_time: a list of dates over which orders will be formulated.
+        :type orders_time: list[DateTime]
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        """
         self.dataset = dataset
         self.orders_time = orders_time
         self.parameters = parameters
@@ -31,7 +39,7 @@ class ThermalPeakLoadOrders:
         two orders that are submitted on different timestamps.
         Peak load units are identified from an attribute of the thermic class.
 
-        Returns None
+        :return: None
         """
 
         # Filter the peak load instances
@@ -225,6 +233,25 @@ class ThermalPeakLoadOrders:
         price: float,
         link_name: str,
     ) -> None:
+        """
+        :param inflexible_order: a InflexibleOrder instance
+        :type inflexible_order: InflexibleOrder
+        :param t: the current time
+        :type t: DateTime
+        :param unit: the unit
+        :type unit: Equipment
+        :param order_name: the name of the order
+        :type order_name: str
+        :param q_max: the maximum power
+        :type q_max: float
+        :param q_min: the minimum power
+        :type q_min: float
+        :param price: the price
+        :type price: float
+        :param link_name: the link name
+        :type link_name: str
+        :return: None
+        """
         order = OrderDAO(
             name=order_name,
             market_area=unit.portfolio.market_area if unit.portfolio is not None else None,

@@ -29,12 +29,14 @@ class HydraulicStep:
         """
         This function formulates the hydraulic reservoir offers.
 
-         Arguments:
-        - `dataset`: a dataset
-        - `orders_time`: a list of dates at which orders must be formulated.
-        - `parameters` a named tuple of parameters, containing the common parameters.
+        :param dataset: the dataset
+        :type dataset: DayAheadOrdersOutputDataset
+        :param orders_time: a list of dates over which orders will be formulated.
+        :type orders_time: list[DateTime]
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        :return: None
         """
-
         # Keep only the hydraulic reservoir for which water values have been computed.
         hydraulic_units = [unit for unit in dataset.hydro if len(unit.storage_marginal_value.index) > 0]
 
@@ -71,7 +73,7 @@ class HydraulicStep:
                     cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
                 continue
 
-            # FC: Assumption for the identification of the "initial" level, see the storage formulation for more details
+            # Assumption for the identification of the "initial" level, see the storage formulation for more details
             if equipment.stored_energy is not None:
                 energy_forecast = equipment.stored_energy.get_forecast(
                     parameters.execution_date,
