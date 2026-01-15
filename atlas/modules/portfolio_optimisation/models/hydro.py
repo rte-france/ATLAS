@@ -15,14 +15,14 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.hydro import Hydro
+from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
-from atlas.timing import generate_datetimes
 
 
-class HydroPO(Hydro):
+class HydroPO(BaseEquipmentPO, Hydro):
     maximum_energy: Timeseries | LazyTimeseries
     minimum_energy: Timeseries | LazyTimeseries
     maximum_fcr: float
@@ -139,6 +139,7 @@ class HydroPO(Hydro):
             )
 
         if time in parameters.target_times:
+            # Default to 0 if inflows data is not provided (e.g., reservoir without natural inflows)
             inflow = self.inflows.get_value(time) * parameters.timestep.total_days() if self.inflows is not None else 0
 
             if time == parameters.start_date:
@@ -294,27 +295,6 @@ class HydroPO(Hydro):
             marginal_adjustment = 0.0
 
         return base_price + marginal_adjustment
-
-    def get_optimisation_time_window(
-        self, start_date: DateTime, end_date: DateTime, timestep: Duration
-    ) -> list[DateTime]:
-        """
-        Get optimisation time windows based on additional hours.
-
-        :param start_date: Start date for optimization window
-        :type start_date: DateTime
-        :param end_date: End date for optimization window
-        :type end_date: DateTime
-        :param timestep: Time step duration
-        :type timestep: Duration
-        :return: List of datetime objects representing the optimization time window
-        :rtype: list[DateTime]
-        """
-
-        self.optimisation_time_window = generate_datetimes(
-            start=start_date, end=end_date + self.additional_hours, freq=timestep
-        )
-        return self.optimisation_time_window
 
     def prefetch_forecasts(self, execution_date: DateTime, timestep: Duration, start_date: DateTime):
         """

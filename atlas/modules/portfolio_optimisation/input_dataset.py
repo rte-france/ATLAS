@@ -68,9 +68,9 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
         self.time_windows: dict[str, list[DateTime]] = {}
 
         self._create_portfolios()
-        self._get_optimisation_time_window()
+        self._set_optimisation_time_window()
 
-    def _get_optimisation_time_window(self) -> None:
+    def _set_optimisation_time_window(self) -> None:
         """Get the longest optimisation time periods across all portfolios."""
         self.time_windows = {
             p.name: max(
@@ -92,7 +92,6 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
         all_equipments_with_type_and_status = []
 
-        # Collecte de tous les équipements avec leur type et statut
         for equipment_type, equipment_list in self.equipments.iter_by_type():
             for equipment in equipment_list:
                 is_manual = should_manually_activate(
@@ -126,28 +125,21 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                     elif status == "manual":
                         setattr(equipment_manual, equipment_type, equipments)
 
+            portfolio_dict = dict(original_portfolio)
+            portfolio_dict["market_area"] = MarketAreaPO(**dict(original_portfolio.market_area))
+            portfolio_dict["control_block"] = ControlBlockPO(**dict(original_portfolio.control_block))
+
             if equipment_included.get_all_equipment():
-                portfolio_dict = dict(original_portfolio)
-                portfolio_dict["market_area"] = MarketAreaPO(**dict(original_portfolio.market_area))
-                portfolio_dict["control_block"] = ControlBlockPO(**dict(original_portfolio.control_block))
                 portfolio_dict["equipments"] = equipment_included
-
                 portfolio_po = PortfolioPO(**portfolio_dict)
-
                 portfolio_po.market_area = portfolio_po.market_area.set_market_context(
                     self.parameters.market, self.parameters.use_forecast
                 )
                 self.portfolios.append(portfolio_po)
 
             if equipment_manual.get_all_equipment():
-                # Convert market_area and control_block to their PO versions
-                portfolio_dict = dict(original_portfolio)
-                portfolio_dict["market_area"] = MarketAreaPO(**dict(original_portfolio.market_area))
-                portfolio_dict["control_block"] = ControlBlockPO(**dict(original_portfolio.control_block))
                 portfolio_dict["equipments"] = equipment_manual
-
                 portfolio_po_manual = PortfolioPO(**portfolio_dict)
-                # Apply market validation to the MarketAreaPO based on parameters
                 portfolio_po_manual.market_area = portfolio_po_manual.market_area.set_market_context(
                     self.parameters.market, self.parameters.use_forecast
                 )

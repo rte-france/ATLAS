@@ -71,6 +71,8 @@ def _get_forecast_price(
             .get_forecast(parameters.execution_date, time, time)
             .get_value(time)
         )
+
+    # For rr_activation and mfrr_activation, no forecast is defined; return 0
     return 0.0
 
 
@@ -103,6 +105,8 @@ def _get_actual_price(
         return cast(Timeseries | LazyTimeseries, market_area.rr_activation_price).get_value(time)
     elif parameters.market == MarketType.mfrr_activation:
         return cast(Timeseries | LazyTimeseries, market_area.mfrr_activation_price).get_value(time)
+
+    # Default return 0.0 if market type is unrecognized
     return 0.0
 
 

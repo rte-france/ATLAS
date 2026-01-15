@@ -6,20 +6,20 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enum import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.load import Load
+from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_variable_cost
 from atlas.solver.solver_interface import OptimisationModel
-from atlas.timing import generate_datetimes
 
 
-class LoadPO(Load):
+class LoadPO(BaseEquipmentPO, Load):
     load_type: LoadType
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
 
@@ -39,6 +39,7 @@ class LoadPO(Load):
         """
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for load unit {self.name} at time {time}")
+            # Default to 0 if forecast is not available or time not in forecast range
             max_power = (
                 self._cached_forecast.get_value(time) if self._cached_forecast and time in self._cached_forecast else 0
             )
@@ -57,6 +58,7 @@ class LoadPO(Load):
         """
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for load unit {self.name} at time {time}")
+            # Default to 0 if forecast is not available or time not in forecast range
             max_power = (
                 self._cached_forecast.get_value(time) if self._cached_forecast and time in self._cached_forecast else 0
             )
@@ -89,27 +91,6 @@ class LoadPO(Load):
                 )
         else:
             cfg.logger.debug(f"Skipping objective for load unit {self.name} at non-target time {time}")
-
-    def get_optimisation_time_window(
-        self, start_date: DateTime, end_date: DateTime, timestep: Duration
-    ) -> list[DateTime]:
-        """
-        Get optimisation time windows based on additional hours.
-
-        :param start_date: Start date of optimization period
-        :type start_date: DateTime
-        :param end_date: End date of optimization period
-        :type end_date: DateTime
-        :param timestep: Time step duration
-        :type timestep: Duration
-        :return: List of datetime periods in optimization window
-        :rtype: list[DateTime]
-        """
-
-        self.optimisation_time_window = generate_datetimes(
-            start=start_date, end=end_date + self.additional_hours, freq=timestep
-        )
-        return self.optimisation_time_window
 
     def prefetch_forecasts(self, execution_date: DateTime):
         """

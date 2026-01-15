@@ -4,21 +4,21 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.wind import Wind
+from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated, get_variable_cost
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
-from atlas.timing import generate_datetimes
 
 
-class WindPO(Wind):
+class WindPO(BaseEquipmentPO, Wind):
     maximum_fcr: float
     maximum_afrr: float
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
@@ -40,6 +40,7 @@ class WindPO(Wind):
         """
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding variables for wind unit {self.name} at time {time}")
+            # Default to 0 if forecast is not available (e.g., equipment not in operation)
             max_power = self._cached_forecast.get_value(time) if self._cached_forecast else 0
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
             maximum_automated = get_maximum_automated(self)
@@ -84,6 +85,7 @@ class WindPO(Wind):
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for wind unit {self.name} at time {time}")
 
+            # Default to 0 if forecast is not available (e.g., equipment not in operation)
             max_power = self._cached_forecast.get_value(time) if self._cached_forecast else 0
             min_power = (1 - self.maximum_curtailment_ratio.get_value(time)) * max_power
             maximum_automated = get_maximum_automated(self)
@@ -118,16 +120,6 @@ class WindPO(Wind):
             )
         else:
             cfg.logger.debug(f"Skipping objective for wind unit {self.name} at non-target time {time}")
-
-    def get_optimisation_time_window(
-        self, start_date: DateTime, end_date: DateTime, timestep: Duration
-    ) -> list[DateTime]:
-        """Get optimisation time windows based on additional hours."""
-
-        self.optimisation_time_window = generate_datetimes(
-            start=start_date, end=end_date + self.additional_hours, freq=timestep
-        )
-        return self.optimisation_time_window
 
     def prefetch_forecasts(self, execution_date: DateTime):
         """Pre-fetch and cache forecasts for the entire optimization time window."""

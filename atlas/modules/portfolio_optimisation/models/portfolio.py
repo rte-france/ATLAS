@@ -517,12 +517,16 @@ class PortfolioPO(Portfolio):
         :rtype: float
         """
         if parameters.market == MarketType.rr_activation:
+            # Default to 0 if no activation data available for this market
             return obj.rr_activated.get_value(time) if obj.rr_activated is not None else 0
         elif parameters.market == MarketType.mfrr_activation:
+            # Default to 0 if no activation data available for this market
             return obj.mfrr_activated.get_value(time) if obj.mfrr_activated is not None else 0
         elif parameters.market == MarketType.dayahead:
+            # Default to 0 if no cleared quantity data available
             return obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0
         else:
+            # Default to 0 if data is missing for intraday or day-ahead markets
             total_id = obj.total_id_cleared_quantity.get_value(time) if obj.total_id_cleared_quantity is not None else 0
             da_cleared = obj.da_cleared_quantity.get_value(time) if obj.da_cleared_quantity is not None else 0
             return total_id + da_cleared

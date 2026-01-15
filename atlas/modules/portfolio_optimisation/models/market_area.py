@@ -4,7 +4,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import model_validator
+from typing import Self
+
+from pydantic import ValidationInfo, model_validator
 
 from atlas.enum import MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -15,7 +17,7 @@ class MarketAreaPO(MarketArea):
     price_forecast_medium: ForecastingMatrix | LazyForecastingMatrix
 
     @model_validator(mode="after")
-    def validate_market_specific_prices(self, info):
+    def validate_market_specific_prices(self, info: ValidationInfo) -> Self:
         """
         Validate that required price fields are present based on market type and use_forecast.
 

@@ -4,21 +4,21 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enum import StorageType
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.storage import Storage
+from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
 from atlas.solver.solver_interface import OptimisationModel
-from atlas.timing import generate_datetimes
 
 
-class StoragePO(Storage):
+class StoragePO(BaseEquipmentPO, Storage):
     storage_type: StorageType
     maximum_fcr: float
     maximum_afrr: float
@@ -332,27 +332,6 @@ class StoragePO(Storage):
             return self._cached_energy_forecast.dataframe.select("time").head(1).item()
 
         return default_energy
-
-    def get_optimisation_time_window(
-        self, start_date: DateTime, end_date: DateTime, timestep: Duration
-    ) -> list[DateTime]:
-        """
-        Get optimisation time windows based on additional hours.
-
-        :param start_date: Start date for optimization window
-        :type start_date: DateTime
-        :param end_date: End date for optimization window
-        :type end_date: DateTime
-        :param timestep: Time step duration
-        :type timestep: Duration
-        :return: List of datetime objects representing the optimization time window
-        :rtype: list[DateTime]
-        """
-
-        self.optimisation_time_window = generate_datetimes(
-            start=start_date, end=end_date + self.additional_hours, freq=timestep
-        )
-        return self.optimisation_time_window
 
     def prefetch_forecasts(self, execution_date: DateTime, init_battery_time: DateTime):
         """
