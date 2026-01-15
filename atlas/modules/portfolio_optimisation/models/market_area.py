@@ -52,7 +52,7 @@ class MarketAreaPO(MarketArea):
             raise ValueError("da_price is required when market=day_ahead")
         return self
 
-    def set_market_context(self, market_type: MarketType, use_forecast: bool = False):
+    def set_market_context(self, market_type: MarketType, use_forecast: bool = False) -> Self:
         """
         Set market context for validation.
 
