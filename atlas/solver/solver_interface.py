@@ -14,7 +14,12 @@ from ortools.linear_solver import pywraplp
 from atlas.config import logger
 from atlas.enum import SolverEnum, SolverStatus
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions
-from atlas.solver.solver_parameters import GenericParameterBuilder, SolverParameterBuilder, XPRESSParameterBuilder
+from atlas.solver.solver_parameters import (
+    GenericParameterBuilder,
+    SCIPParameterBuilder,
+    SolverParameterBuilder,
+    XPRESSParameterBuilder,
+)
 from atlas.timing import timer
 
 
@@ -78,6 +83,8 @@ class OptimisationModel:
         """
         if self.solver_name == SolverEnum.XPRESS:
             return XPRESSParameterBuilder(self._solver)
+        elif self.solver_name == SolverEnum.SCIP:
+            return SCIPParameterBuilder(self._solver)
         else:
             return GenericParameterBuilder(self._solver)
 
