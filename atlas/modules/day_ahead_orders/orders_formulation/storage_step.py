@@ -91,7 +91,9 @@ class StorageStep:
             # Store Ppurchase as price reference in variable_cost, in the dataset.
             # Psale can then be deduced from Ppurchase, Charge and and Discharge efficiency
             if storage.variable_cost is None:
-                storage.variable_cost = Timeseries(None)
+                storage.variable_cost = Timeseries.from_index(
+                    self.parameters.start_date, self.parameters.time_step, end_date, 0
+                )
             if Ppurchase != 0:
                 storage.variable_cost.set_value(self.parameters.start_date, round(Ppurchase, 2))
                 storage.variable_cost.set_value(self.parameters.penultimate_date, round(Ppurchase, 2))
