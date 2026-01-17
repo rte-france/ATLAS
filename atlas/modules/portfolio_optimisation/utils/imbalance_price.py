@@ -106,8 +106,8 @@ def _get_actual_price(
     elif parameters.market == MarketType.mfrr_activation:
         return cast(Timeseries | LazyTimeseries, market_area.mfrr_activation_price).get_value(time)
 
-    # Default return 0.0 if market type is unrecognized
-    return 0.0
+    else:
+        raise KeyError("Market type unkown.")
 
 
 def _calculate_imbalance_with_penalty(
