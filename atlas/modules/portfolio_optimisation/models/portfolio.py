@@ -618,4 +618,5 @@ class PortfolioPO(Portfolio):
                 .get_value(time)
             )
         else:
-            raise KeyError("Reserve type is unknown.")
+            # reserve attribute is None. Returning O.
+            return 0
