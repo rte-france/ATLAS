@@ -14,9 +14,9 @@ from atlas.enum import MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
+from atlas.models.control_block import ControlBlock
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
-from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
@@ -33,7 +33,7 @@ from atlas.solver.solver_interface import OptimisationModel
 
 class PortfolioPO(Portfolio):
     market_area: MarketAreaPO
-    control_block: ControlBlockPO
+    control_block: ControlBlock
     equipments: PortfolioEquipments
 
     def add_variables(

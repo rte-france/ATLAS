@@ -12,7 +12,7 @@ from atlas.enum import MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
+from atlas.models.control_block import ControlBlock
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
@@ -164,7 +164,7 @@ def _calculate_imbalance_with_penalty(
 def estimate_imbalance_prices(
     time: DateTime,
     market_area: MarketAreaPO,
-    control_block: ControlBlockPO,
+    control_block: ControlBlock,
     parameters: PortfolioOptimisationParameters,
 ) -> tuple[float, float, float, float]:
     """
@@ -185,7 +185,7 @@ def estimate_imbalance_prices(
     :param market_area: Market area object
     :type market_area: MarketAreaPO
     :param control_block: Control block object
-    :type control_block: ControlBlockPO
+    :type control_block: ControlBlock
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
     :return: Tuple of (imbalance_price_down, imbalance_price_up, large_imbalance_price_down, large_imbalance_price_up)

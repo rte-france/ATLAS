@@ -21,7 +21,6 @@ from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
-from atlas.modules.portfolio_optimisation.models.control_block import ControlBlockPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
@@ -127,7 +126,6 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
             portfolio_dict = dict(original_portfolio)
             portfolio_dict["market_area"] = MarketAreaPO(**dict(original_portfolio.market_area))
-            portfolio_dict["control_block"] = ControlBlockPO(**dict(original_portfolio.control_block))
 
             if equipment_included.get_all_equipment():
                 portfolio_dict["equipments"] = equipment_included
