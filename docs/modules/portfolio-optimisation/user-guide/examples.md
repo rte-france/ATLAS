@@ -7,7 +7,7 @@ from atlas.modules.portfolio_optimisation import PortfolioOptimisationModule
 
 module = PortfolioOptimisationModule()
 
-raw_data = {
+input_data = {
     "portfolio": [portfolio1],
     "thermal": [thermal1],
     "hydro": [hydro1],
@@ -23,7 +23,7 @@ params = {
     "timestep": "PT1H"
 }
 
-module.run(raw_data, params)
+module.run(input_data, params)
 
 # Access results
 optimized_power = thermal1.power.get_forecast(
@@ -45,7 +45,7 @@ optimized_power = thermal1.power.get_forecast(
 ```
 
 ```python
-module.run(raw_data, "config/parameters.json")
+module.run(input_data, "config/parameters.json")
 ```
 
 ## Configuration Examples

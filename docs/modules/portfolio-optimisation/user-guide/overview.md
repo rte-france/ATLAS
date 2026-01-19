@@ -6,13 +6,11 @@ The Portfolio Optimisation module optimizes energy portfolios to determine optim
 
 ## How to Use
 
-The module follows ATLAS's standard `AbstractModule` pattern:
+The module follows Atla's standard `AbstractModule` pattern, run it simply by calling `run` method:
 
 ```python
-from atlas.modules.portfolio_optimisation import PortfolioOptimisationModule
-
 module = PortfolioOptimisationModule()
-module.run(raw_data, raw_params)
+module.run(input_data: dict[str, list[BusinessModel]], parameters: PortfolioOptimisationParameters)
 ```
 
 Where:
