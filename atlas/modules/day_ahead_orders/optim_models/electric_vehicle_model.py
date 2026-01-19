@@ -183,7 +183,7 @@ class ElectricVehicleModel(StorageModel):
             * self.storage.charge_efficiency
             >= (
                 self.storage.displacement_energy.get_value(
-                    self.parameters.end_date + self.optimizationPeriod - self.parameters.time_step
+                    self.parameters.end_date + self.optimization_period - self.parameters.time_step
                 )
                 - self.storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.time_step)
             )

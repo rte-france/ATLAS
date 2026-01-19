@@ -52,23 +52,23 @@ class StorageModel(OptimisationModel):
         super().__init__(solver_name, name, solver_options)
         self.parameters: DayAheadOrdersParameters = parameters
         self.storage: StorageDAO = storage
-        self.optimizationPeriod: Duration = optimization_period
+        self.optimization_period: Duration = optimization_period
         # Get the price forecast from the dataset: estimations are at ActionHour, over the optimization period
         # The price forecast is relative to the equipment's market area
         self.price_forecast: Timeseries = self.storage.portfolio.market_area.price_forecast_medium.get_forecast(
             self.parameters.execution_date,
             self.parameters.start_date,
-            self.parameters.end_date + self.optimizationPeriod,
+            self.parameters.end_date + self.optimization_period,
             self.parameters.time_step,
         )
         # Set-up the time frames
         # Definition of the time_frame time frame: the time frame on which
         # the optimization program will be solved.
         # Remark: we define the time series until end_date - time_step because
-        # we want all time steps to lie in the [start_date, endOptimizationDate] range.
+        # we want all time steps to lie in the [start_date, end_optimization_date] range.
         self.time_frame: list[DateTime] = generate_datetimes(
             self.parameters.start_date,
-            self.parameters.end_date + self.optimizationPeriod - self.parameters.time_step,
+            self.parameters.end_date + self.optimization_period - self.parameters.time_step,
             self.parameters.time_step,
         )
 
