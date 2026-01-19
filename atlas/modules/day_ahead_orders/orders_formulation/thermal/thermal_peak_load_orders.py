@@ -94,7 +94,7 @@ class ThermalPeakLoadOrders:
                 if unit.maximum_power.get_value(t) == 0.0 or unit.maximum_power.get_value(t) < minimum_power:
                     if self.parameters.verbose:
                         cfg.logger.warning(
-                            f"MaximumPower is nul or lower than MinimumPower for unit {unit.name} at time {str(t)}. "
+                            f"MaximumPower is null or lower than MinimumPower for unit {unit.name} at time {str(t)}. "
                             "No order will therefore be created."
                         )
                     continue

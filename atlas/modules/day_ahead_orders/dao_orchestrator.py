@@ -31,7 +31,6 @@ class DayAheadOrdersOrchestrator:
         self.parameters = parameters
         self.input_dataset = dataset
         self.output_dataset = DayAheadOrdersOutputDataset(dataset)
-        pass
 
     def execute(self) -> DayAheadOrdersOutputDataset:
         """
@@ -97,12 +96,7 @@ class DayAheadOrdersOrchestrator:
         :return: a list of DateTime objects
         :rtype: list[DateTime]
         """
-        orders_time = []
-        if self.parameters.start_date < self.parameters.end_date:
-            orders_time = generate_datetimes(
-                self.parameters.start_date, self.parameters.penultimate_date, self.parameters.time_step
-            )
-        else:
-            msg = "The end_date parameter must be posterior to the start_date parameter."
-            cfg.logger.error(msg)
+        orders_time = generate_datetimes(
+            self.parameters.start_date, self.parameters.penultimate_date, self.parameters.time_step
+        )
         return orders_time

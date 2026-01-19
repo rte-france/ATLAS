@@ -12,7 +12,6 @@ from pendulum.duration import Duration
 from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enum import SolverEnum
 from atlas.validators import hours_validator, minutes_validator
 
 
@@ -130,12 +129,6 @@ class DayAheadOrdersParameters(AbstractParameters):
         ["Medium", "High", "Low"],
         description="List of available PriceForecasts in the input data, separated by ';'. The default value should "
         "always include 'Medium'.",
-    )
-    solver: str = Field(
-        SolverEnum.XPRESS,
-        description="Name of the solver to use in the optimization problems. Note that only 'XPRESS' is maintained "
-        "and tested, other solvers may result in unexpected behaviour. Other possible values : "
-        "'GLPK', 'PNE', 'GLOP' (for linear problems only), 'SCIP', 'CP-SAT'.",
     )
 
     @cached_property
