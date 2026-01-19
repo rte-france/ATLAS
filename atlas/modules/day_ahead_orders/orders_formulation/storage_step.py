@@ -197,7 +197,7 @@ class StorageStep:
         # Creation of optimization problem
         model = ElectricVehicleModel(
             self.parameters,
-            self.parameters.solver.upper(),
+            self.parameters.solver_name,
             "Optimization of the storage unit " + storage.name,
             storage,
             solvers_options,
@@ -256,7 +256,7 @@ class StorageStep:
         # Creation of optimization problem
         model = BatteryModel(
             self.parameters,
-            self.parameters.solver.upper(),
+            self.parameters.solver_name,
             "Optimization of the storage unit " + storage.name,
             storage,
             optimization_period,

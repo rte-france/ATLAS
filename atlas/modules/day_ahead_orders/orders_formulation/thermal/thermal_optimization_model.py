@@ -95,7 +95,7 @@ class ThermalOptimizationModel(OptimisationModel):
         :type solver_options: SolverOptions
         """
         super().__init__(
-            solver_name=parameters.solver.upper(),
+            solver_name=parameters.solver_name,
             name=f"Optimization program for thermal unit {thermal_unit.name}",
             options=solver_options,
         )
