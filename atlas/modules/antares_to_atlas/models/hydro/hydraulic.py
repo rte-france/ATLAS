@@ -1,16 +1,17 @@
-import API
 import os
+
+import API
 import inflows
 
 
-def conversion_hydraulic(antares_input_marker, atlas_output_marker, p):
+def conversion_hydraulic(antares_dataset, atlas_dataset, p):
     # Hydraulic reservoir file
     hydro_reservoirs = {}
     hydro_index = {}
     inflows_dictionary = {}
 
     if os.path.isfile(p.hydro_reservoirs_file):
-        f = open(p.hydro_reservoirs_file, "r")
+        f = open(p.hydro_reservoirs_file)
         lines_list = f.readlines()
         f.close()
         interval_length = len(lines_list)
@@ -28,23 +29,21 @@ def conversion_hydraulic(antares_input_marker, atlas_output_marker, p):
                 splitted_line = line.split(";")
                 if not len(splitted_line) == len(headers):
                     msg = (
-                        "The number of columns is invalid on line {}. "
-                        "Please modify the HydraulicReservoirs file before proceeding again.".format(str(row_index + 1))
+                        f"The number of columns is invalid on line {str(row_index + 1)}. "
+                        "Please modify the HydraulicReservoirs file before proceeding again."
                     )
                     raise ValueError(msg)
 
                 for key, value in hydro_index.items():
                     hydro_reservoirs[key][splitted_line[0]] = float(splitted_line[value])
 
-    for antares_node in antares_input_marker.Node.GetAllInstances():
+    for antares_node in antares_dataset.Node.GetAllInstances():
         if antares_node.Name in p.market_areas_list:
             # define the indices used to access the desired MC scenario in the Antares marker
             try:
                 sc_hydro = antares_node.HydroReservoir.HydroSelectedScenario[p.scenario - 1]
             except SystemError:
-                msg = "Error with scenario {} for unit {}_hydro, potentially out of bounds".format(
-                    p.scenario, antares_node.Name
-                )
+                msg = f"Error with scenario {p.scenario} for unit {antares_node.Name}_hydro, potentially out of bounds"
                 raise SystemError(msg)
 
             if str(p.scenario) in antares_node.HydroReservoir.CalculatedStorageProduction.Index:
@@ -55,16 +54,16 @@ def conversion_hydraulic(antares_input_marker, atlas_output_marker, p):
                     and hydro_reservoirs[antares_node.Name]["ReservoirCapacity"] == 0
                 ):
                     continue
-                hydro = atlas_output_marker.Equipment.Hydraulic.CreateInstance("{}_hydro".format(antares_node.Name))
+                hydro = atlas_dataset.Equipment.Hydraulic.CreateInstance(f"{antares_node.Name}_hydro")
                 if p.consumption_production_separation:
-                    hydro.Portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "generator_{}".format(antares_node.Name)
+                    hydro.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
+                        f"generator_{antares_node.Name}"
                     )
                 else:
-                    hydro.Portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "portfolio_{}".format(antares_node.Name)
+                    hydro.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
+                        f"portfolio_{antares_node.Name}"
                     )
-                hydro.Node = atlas_output_marker.Network.Node.GetInstanceByName(antares_node.Name)
+                hydro.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
                 hydro.EnergyTargetFrequency = "Daily"
                 hydro.InflowFrequency = "Daily"
                 hydro.MaximumPower = antares_node.HydroReservoir.GeneratingMaxPower
@@ -89,8 +88,8 @@ def conversion_hydraulic(antares_input_marker, atlas_output_marker, p):
 
                     if antares_node.HydroReservoir.ReservoirCapacity == 0:
                         API.IO.Trace.Log(
-                            "Warning, Reservoir Capacity of Equipment {} is set to 0. "
-                            "Water values won't be calculated for this Equipment".format(hydro.Name)
+                            f"Warning, Reservoir Capacity of Equipment {hydro.Name} is set to 0. "
+                            "Water values won't be calculated for this Equipment"
                         )
 
                 else:
@@ -106,8 +105,8 @@ def conversion_hydraulic(antares_input_marker, atlas_output_marker, p):
 
                     if hydro_reservoirs[antares_node.Name] == 0:
                         API.IO.Trace.Log(
-                            "Warning, Reservoir Capacity of Equipment {} is set to 0. "
-                            "Water values won't be calculated for this Equipment".format(hydro.Name)
+                            f"Warning, Reservoir Capacity of Equipment {hydro.Name} is set to 0. "
+                            "Water values won't be calculated for this Equipment"
                         )
 
                 # Retrieve or recompute Inflows and generate water values, based on the following logic:

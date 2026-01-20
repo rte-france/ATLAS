@@ -1,10 +1,7 @@
-import API
-
-
 # Construct the MarketBorder objects based on the Link objects of the input marker
 # Select only the Link between areas defined in the parameter MarketAreas
-def conversion_link(antares_input_marker, atlas_output_marker, p):
-    for links in antares_input_marker.Link.GetAllInstances():
+def conversion_link(antares_dataset, atlas_dataset, p):
+    for links in antares_dataset.Link.GetAllInstances():
         if not (links.UphillNode.Name in p.market_areas_list and links.DownhillNode.Name in p.market_areas_list):
             continue
         if (
@@ -13,11 +10,11 @@ def conversion_link(antares_input_marker, atlas_output_marker, p):
         ):
             continue
 
-        mkt_border = atlas_output_marker.Market.MarketBorder.CreateInstance(links.Name)
-        node_1 = atlas_output_marker.Market.MarketArea.GetInstanceByName(links.UphillNode.Name)
-        node_2 = atlas_output_marker.Market.MarketArea.GetInstanceByName(links.DownhillNode.Name)
-        ctrl_block_1 = atlas_output_marker.NetworkOperator.ControlBlock.GetInstanceByName(links.UphillNode.Name)
-        ctrl_block_2 = atlas_output_marker.NetworkOperator.ControlBlock.GetInstanceByName(links.DownhillNode.Name)
+        mkt_border = atlas_dataset.Market.MarketBorder.CreateInstance(links.Name)
+        node_1 = atlas_dataset.Market.MarketArea.GetInstanceByName(links.UphillNode.Name)
+        node_2 = atlas_dataset.Market.MarketArea.GetInstanceByName(links.DownhillNode.Name)
+        ctrl_block_1 = atlas_dataset.NetworkOperator.ControlBlock.GetInstanceByName(links.UphillNode.Name)
+        ctrl_block_2 = atlas_dataset.NetworkOperator.ControlBlock.GetInstanceByName(links.DownhillNode.Name)
         mkt_border.UphillMarketArea = node_1
         mkt_border.DownhillMarketArea = node_2
         mkt_border.UphillControlBlock = ctrl_block_1

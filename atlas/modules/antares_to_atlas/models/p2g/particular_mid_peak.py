@@ -1,5 +1,3 @@
-# coding: utf-8
-
 import API
 import functions
 
@@ -10,40 +8,34 @@ import functions
 # If there is a pcomp_peak in the node, we create a thermic group with caracteristics of TAC
 
 
-def pcomp_mid(antares_input_marker, atlas_output_marker, p):
+def pcomp_mid(antares_dataset, atlas_dataset, p):
     # If there is a pcomp_mid in the node, we create a thermic group with caracteristics of CCG (=Gas in this study)
 
-    for antares_node in antares_input_marker.Node.GetAllInstances():
+    for antares_node in antares_dataset.Node.GetAllInstances():
         if antares_node.Name in p.market_areas_list:
-            thermal_node = "{}_{}_Gas_pcomp_mid".format(
-                antares_node.Name, functions.node_special_format(antares_node.Name)
-            )
-            antares_instance = antares_input_marker.ThermalTechnology.GetInstanceByName(thermal_node)
+            thermal_node = f"{antares_node.Name}_{functions.node_special_format(antares_node.Name)}_Gas_pcomp_mid"
+            antares_instance = antares_dataset.ThermalTechnology.GetInstanceByName(thermal_node)
             if antares_instance:
                 # We create a thermic group with caracteristics of CCG (=Gas)
                 if not antares_instance.Enabled or antares_instance.NominalCapacity * antares_instance.UnitCount == 0.0:
                     continue
 
-                msg = "Creating a thermic group named {}".format(thermal_node)
+                msg = f"Creating a thermic group named {thermal_node}"
                 API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
                 # Check if the unit already exists, possible in some specific Antares studies
-                pcomp_mid_equipment = atlas_output_marker.Equipment.Thermic.GetInstanceByName(thermal_node)
+                pcomp_mid_equipment = atlas_dataset.Equipment.Thermic.GetInstanceByName(thermal_node)
 
                 if not pcomp_mid_equipment:
-                    pcomp_mid_equipment = atlas_output_marker.Equipment.Thermic.CreateInstance(thermal_node)
+                    pcomp_mid_equipment = atlas_dataset.Equipment.Thermic.CreateInstance(thermal_node)
 
                 # general properties of a group
                 if p.consumption_production_separation:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "generator_{}".format(antares_node.Name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{antares_node.Name}")
                 else:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "portfolio_{}".format(antares_node.Name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{antares_node.Name}")
 
-                pcomp_mid_equipment.Node = atlas_output_marker.Network.Node.GetInstanceByName(antares_node.Name)
+                pcomp_mid_equipment.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
                 pcomp_mid_equipment.Portfolio = portfolio
 
                 # special properties of a thermic group
@@ -75,7 +67,7 @@ def pcomp_mid(antares_input_marker, atlas_output_marker, p):
                     p.start_date.ToString(),
                     "1Y",
                     2,
-                    float((antares_instance.MinStablePower)),
+                    float(antares_instance.MinStablePower),
                     "MW",
                 )
                 pcomp_mid_equipment.InstalledCapacity = antares_instance.NominalCapacity * antares_instance.UnitCount
@@ -106,40 +98,34 @@ def pcomp_mid(antares_input_marker, atlas_output_marker, p):
     return 0
 
 
-def pcomp_peak(antares_input_marker, atlas_output_marker, p):
+def pcomp_peak(antares_dataset, atlas_dataset, p):
     # If there is a pcomp_mid in the node, we create a thermic group with caracteristics of CCG (=Gas in this study)
 
-    for antares_node in antares_input_marker.Node.GetAllInstances():
+    for antares_node in antares_dataset.Node.GetAllInstances():
         if antares_node.Name in p.market_areas_list:
-            thermal_node = "{}_{}_Gas_pcomp_peak".format(
-                antares_node.Name, functions.node_special_format(antares_node.Name)
-            )
-            antares_instance = antares_input_marker.ThermalTechnology.GetInstanceByName(thermal_node)
+            thermal_node = f"{antares_node.Name}_{functions.node_special_format(antares_node.Name)}_Gas_pcomp_peak"
+            antares_instance = antares_dataset.ThermalTechnology.GetInstanceByName(thermal_node)
             if antares_instance:
                 # We create a thermic group with caracteristics of CCG (=Gas)
                 if not antares_instance.Enabled or antares_instance.NominalCapacity * antares_instance.UnitCount == 0.0:
                     continue
 
-                msg = "Creating a thermic group named {}".format(thermal_node)
+                msg = f"Creating a thermic group named {thermal_node}"
                 API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
                 # Check if the unit already exists, possible in some specific Antares studies
-                pcomp_peak_equipment = atlas_output_marker.Equipment.Thermic.GetInstanceByName(thermal_node)
+                pcomp_peak_equipment = atlas_dataset.Equipment.Thermic.GetInstanceByName(thermal_node)
 
                 if not pcomp_peak_equipment:
-                    pcomp_peak_equipment = atlas_output_marker.Equipment.Thermic.CreateInstance(thermal_node)
+                    pcomp_peak_equipment = atlas_dataset.Equipment.Thermic.CreateInstance(thermal_node)
 
                 # general properties of a group
                 if p.consumption_production_separation:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "generator_{}".format(antares_node.Name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{antares_node.Name}")
                 else:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "portfolio_{}".format(antares_node.Name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{antares_node.Name}")
 
-                pcomp_peak_equipment.Node = atlas_output_marker.Network.Node.GetInstanceByName(antares_node.Name)
+                pcomp_peak_equipment.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
                 pcomp_peak_equipment.Portfolio = portfolio
 
                 # special properties of a thermic group
@@ -171,7 +157,7 @@ def pcomp_peak(antares_input_marker, atlas_output_marker, p):
                     p.start_date.ToString(),
                     "1Y",
                     2,
-                    float((antares_instance.MinStablePower)),
+                    float(antares_instance.MinStablePower),
                     "MW",
                 )
                 pcomp_peak_equipment.InstalledCapacity = antares_instance.NominalCapacity * antares_instance.UnitCount

@@ -1,14 +1,12 @@
-# coding: utf-8
-
 import API
 
 
 # Function adding the modulation part to FR nuclear equipments
-def add_nuclear_modulation(antares_input_marker, atlas_output_marker, p):
+def add_nuclear_modulation(antares_dataset, atlas_dataset, p):
     # Retrieve all nuclear equipments from area fr, and impose a DailyMaximumEnergy constraint
     # based on the binding constraint nuc_modulation_daily
 
-    for equipment in atlas_output_marker.Equipment.Thermic.GetAllInstances():
+    for equipment in atlas_dataset.Equipment.Thermic.GetAllInstances():
         # Filter only relevant equipments
         if "fr_" not in equipment.Name:
             continue
@@ -18,14 +16,14 @@ def add_nuclear_modulation(antares_input_marker, atlas_output_marker, p):
 
         # Delete all "Nuclear_peak" instances
         if "Nuclear_peak" in equipment.Name:
-            atlas_output_marker.Equipment.Thermic.DeleteInstanceByName(equipment.Name)
+            atlas_dataset.Equipment.Thermic.DeleteInstanceByName(equipment.Name)
             continue
 
         # Set HasDailyEnergyConstraint to True
         equipment.HasDailyEnergyConstraint = True
 
         # Load the binding constraint
-        binding_constraint = antares_input_marker.BindingConstraint.GetInstanceByName("nuc_modulation_daily")
+        binding_constraint = antares_dataset.BindingConstraint.GetInstanceByName("nuc_modulation_daily")
 
         # Update MaximumDailyEnergy
         one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1).AddHours(-1), "1d")

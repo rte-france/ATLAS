@@ -1,5 +1,3 @@
-# coding: utf-8
-
 import API
 import functions
 
@@ -10,26 +8,26 @@ import functions
 # HasDailyEnergyConstraint is always set to True.
 
 
-def dsr_fr(antares_input_marker, atlas_output_marker, p):
+def dsr_fr(antares_dataset, atlas_dataset, p):
     # Retrieve the information from BindingConstraints in the Antares input marker
-    time_series_dsr_indus = antares_input_marker.BindingConstraint.GetInstanceByName("fr_dsr_industrie_stock").LessThan
-    time_series_dsr_tert = antares_input_marker.BindingConstraint.GetInstanceByName("fr_dsr_tertiaire_stock").LessThan
+    time_series_dsr_indus = antares_dataset.BindingConstraint.GetInstanceByName("fr_dsr_industrie_stock").LessThan
+    time_series_dsr_tert = antares_dataset.BindingConstraint.GetInstanceByName("fr_dsr_tertiaire_stock").LessThan
 
     # Now in ATLAS
     # We create equipment for indus and tert as Thermal equipments
-    dsr_fr_indus_equipment = atlas_output_marker.Equipment.Thermic.CreateInstance("fr_dsr_indus")
-    dsr_fr_tert_equipment = atlas_output_marker.Equipment.Thermic.CreateInstance("fr_dsr_tert")
-    dsr_fr_implicite_equipment = atlas_output_marker.Equipment.Thermic.CreateInstance("fr_dsr_implicite")
+    dsr_fr_indus_equipment = atlas_dataset.Equipment.Thermic.CreateInstance("fr_dsr_indus")
+    dsr_fr_tert_equipment = atlas_dataset.Equipment.Thermic.CreateInstance("fr_dsr_tert")
+    dsr_fr_implicite_equipment = atlas_dataset.Equipment.Thermic.CreateInstance("fr_dsr_implicite")
 
     # General properties of each unit
     if p.consumption_production_separation:
-        portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName("generator_fr")
+        portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName("generator_fr")
     else:
-        portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName("portfolio_fr")
+        portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName("portfolio_fr")
 
-    dsr_fr_indus_equipment.Node = atlas_output_marker.Network.Node.GetInstanceByName("fr")
-    dsr_fr_tert_equipment.Node = atlas_output_marker.Network.Node.GetInstanceByName("fr")
-    dsr_fr_implicite_equipment.Node = atlas_output_marker.Network.Node.GetInstanceByName("fr")
+    dsr_fr_indus_equipment.Node = atlas_dataset.Network.Node.GetInstanceByName("fr")
+    dsr_fr_tert_equipment.Node = atlas_dataset.Network.Node.GetInstanceByName("fr")
+    dsr_fr_implicite_equipment.Node = atlas_dataset.Network.Node.GetInstanceByName("fr")
 
     dsr_fr_indus_equipment.Portfolio = portfolio
     dsr_fr_tert_equipment.Portfolio = portfolio
@@ -51,9 +49,9 @@ def dsr_fr(antares_input_marker, atlas_output_marker, p):
     # MaximumPower is extracted from the Disponibility information in the ThermalTechnology of the Antares marker
     # NB: currently, all Disponibility timeseries are identical for DSR equipments. The p.scenario is taken arbitrarily,
     # this assumption may need to be reevaluated if the DSR modeling is improved in Antares
-    dsr_indus_instance_antares = antares_input_marker.ThermalTechnology.GetInstanceByName("fr_FR_DSR_industrie")
-    dsr_tert_instance_antares = antares_input_marker.ThermalTechnology.GetInstanceByName("fr_FR_DSR_tertiaire")
-    dsr_implicite_instance_antares = antares_input_marker.ThermalTechnology.GetInstanceByName("fr_FR_DSR_implicite")
+    dsr_indus_instance_antares = antares_dataset.ThermalTechnology.GetInstanceByName("fr_FR_DSR_industrie")
+    dsr_tert_instance_antares = antares_dataset.ThermalTechnology.GetInstanceByName("fr_FR_DSR_tertiaire")
+    dsr_implicite_instance_antares = antares_dataset.ThermalTechnology.GetInstanceByName("fr_FR_DSR_implicite")
 
     dsr_fr_indus_equipment.MaximumPower = dsr_indus_instance_antares.Disponibility[str(p.scenario)]
     dsr_fr_tert_equipment.MaximumPower = dsr_tert_instance_antares.Disponibility[str(p.scenario)]
@@ -75,15 +73,15 @@ def dsr_fr(antares_input_marker, atlas_output_marker, p):
     return 0
 
 
-def dsr_other_countries(antares_input_marker, atlas_output_marker, p):
+def dsr_other_countries(antares_dataset, atlas_dataset, p):
     # Loop on nodes in the Antares marker
-    for node in antares_input_marker.Node.GetAllInstances():
+    for node in antares_dataset.Node.GetAllInstances():
         if node.Name not in p.market_areas_list:
             continue
 
         # Loop on BindingConstraints and retain only those matching the current node
-        for bc in antares_input_marker.BindingConstraint.GetAllInstances():
-            dsr_node = "dsr_{}_stock".format(node.Name)
+        for bc in antares_dataset.BindingConstraint.GetAllInstances():
+            dsr_node = f"dsr_{node.Name}_stock"
 
             if bc.Name == dsr_node:
                 # We take the time series "less than" related to our antares binding constraint
@@ -91,30 +89,26 @@ def dsr_other_countries(antares_input_marker, atlas_output_marker, p):
 
                 # We take the TS Disponbility from input marker to have the MaximumPower of the output marker
                 # Retrieve the thermal techno name
-                thermal_name = "{}_{}_DSR_0".format(node.Name, functions.node_special_format(node.Name))
+                thermal_name = f"{node.Name}_{functions.node_special_format(node.Name)}_DSR_0"
 
                 # Retrieve the Antares ThermalTechnology
-                dsr_instance_antares = antares_input_marker.ThermalTechnology.GetInstanceByName(thermal_name)
+                dsr_instance_antares = antares_dataset.ThermalTechnology.GetInstanceByName(thermal_name)
 
                 if not dsr_instance_antares:
-                    API.IO.Trace.Log("No instance : {}".format(thermal_name), API.IO.LogType.Warn)
+                    API.IO.Trace.Log(f"No instance : {thermal_name}", API.IO.LogType.Warn)
 
                 # We create a thermic group in ATLAS (only for non empty Antares instances)
                 if dsr_instance_antares.Disponibility[str(p.scenario)].Abs().Max() == 0.0:
                     continue
-                dsr_equipment = atlas_output_marker.Equipment.Thermic.CreateInstance("{}_dsr".format(node.Name))
+                dsr_equipment = atlas_dataset.Equipment.Thermic.CreateInstance(f"{node.Name}_dsr")
 
                 # General properties of a group
                 if p.consumption_production_separation:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "generator_{}".format(node.Name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node.Name}")
                 else:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "portfolio_{}".format(node.Name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node.Name}")
 
-                dsr_equipment.Node = atlas_output_marker.Network.Node.GetInstanceByName(node.Name)
+                dsr_equipment.Node = atlas_dataset.Network.Node.GetInstanceByName(node.Name)
                 dsr_equipment.Portfolio = portfolio
 
                 # Special properties of dsr

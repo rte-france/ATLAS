@@ -1,13 +1,12 @@
-# coding: utf-8
-
-import API
 import sys
 
+import API
 
-def compute_water_value(antares_input_marker, atlas_output_marker, inflows_dictionary, p):
-    for antares_node in antares_input_marker.Node.GetAllInstances():
+
+def compute_water_value(antares_dataset, atlas_dataset, inflows_dictionary, p):
+    for antares_node in antares_dataset.Node.GetAllInstances():
         if antares_node.Name in p.market_areas_list:
-            hydro = atlas_output_marker.Equipment.Hydraulic.GetInstanceByName(antares_node.Name + "_hydro")
+            hydro = atlas_dataset.Equipment.Hydraulic.GetInstanceByName(antares_node.Name + "_hydro")
 
             node_water_value_computation(antares_node, hydro, inflows_dictionary, p)
 
@@ -23,12 +22,10 @@ def node_water_value_computation(antares_node, hydro, inflows_dictionary, p):
         scenarios = scenario_parameter.split(sep=";")
         for s in range(len(scenarios)):
             scenarios[s] = int(scenarios[s])
-            if not scenarios[s] in available_scenarios:
+            if scenarios[s] not in available_scenarios:
                 msg = (
-                    "Cannot compute water values for {}: the scenario '{}' specified in the parameter WaterValueScenarios does not exist "
-                    "in the CalculatedMarginalPrice matrix of node {}. Available price scenarios in {} are: {}".format(
-                        hydro.Name, scenarios[s], antares_node.Name, antares_node.Name, available_scenarios
-                    )
+                    f"Cannot compute water values for {hydro.Name}: the scenario '{scenarios[s]}' specified in the parameter WaterValueScenarios does not exist "
+                    f"in the CalculatedMarginalPrice matrix of node {antares_node.Name}. Available price scenarios in {antares_node.Name} are: {available_scenarios}"
                 )
                 raise Exception(msg)
 
@@ -37,7 +34,7 @@ def node_water_value_computation(antares_node, hydro, inflows_dictionary, p):
     API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
     if antares_node.Name not in inflows_dictionary:
-        msg = "No hydro unit for node {}, no water values computed".format(antares_node.Name)
+        msg = f"No hydro unit for node {antares_node.Name}, no water values computed"
         API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
         return None
 
@@ -69,7 +66,7 @@ def node_water_value_computation(antares_node, hydro, inflows_dictionary, p):
 
     Capacity = int(hydro.MaximumEnergy.FirstValue)
     Stock = range(0, Capacity, CapacityStep)
-    msg = "Total capacity: {}, capacity step: {}".format(Capacity, CapacityStep)
+    msg = f"Total capacity: {Capacity}, capacity step: {CapacityStep}"
     API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
     WV = {}
@@ -82,7 +79,7 @@ def node_water_value_computation(antares_node, hydro, inflows_dictionary, p):
     for sc in range(len(scenarios)):
         # Water Value per scenario per time per level, time only first year
         WV_sc = {}
-        msg = "Scenario {}".format(scenarios[sc])
+        msg = f"Scenario {scenarios[sc]}"
         API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
         PriceForecast_sc = antares_node.CalculatedMarginalPrice.GetTimeSeriesByName(str(scenarios[sc]))
         # Bellman value per time per level

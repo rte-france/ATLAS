@@ -1,17 +1,16 @@
-# coding: utf-8
+import os
 
 import API
 import functions
-import os
 
 
 # Function creating a PumpedHydraulicStorage Equipment based on an open loop PHS in the Antares input marker
-def creation_phs_open(antares_input_marker, atlas_output_marker, hydro_reservoirs, inflows_dictionary, p):
+def creation_phs_open(antares_dataset, atlas_dataset, hydro_reservoirs, inflows_dictionary, p):
     # Define a list storing all open_phs equipemnts created
     open_phs_list = []
 
     # if a link (pump or turb, doesnt matter) exists between an open phs and a node w_hydro_open_node, it creates a phs
-    for links in antares_input_marker.Link.GetAllInstances():
+    for links in antares_dataset.Link.GetAllInstances():
         # we are searching for links between an open phs and a node (w_hydro_open_node in reality)
         if links.DownhillNode.Name == "x_open_turb":
             hydro_name = links.UphillNode.Name
@@ -30,29 +29,25 @@ def creation_phs_open(antares_input_marker, atlas_output_marker, hydro_reservoir
 
             # Load useful informations from the input_marker
             w_hydro_open_node = links.UphillNode
-            w_hydro_open_link = antares_input_marker.Link.GetInstanceByName(node_name + "_" + hydro_name)
-            binding_constraint = functions.find_binding_constraint_phs(antares_input_marker, links)
+            w_hydro_open_link = antares_dataset.Link.GetInstanceByName(node_name + "_" + hydro_name)
+            binding_constraint = functions.find_binding_constraint_phs(antares_dataset, links)
 
             # we create the node phs
-            msg = "Creating phs equipment in Node {}".format(node_name)
+            msg = f"Creating phs equipment in Node {node_name}"
             API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
-            instance_name = "{}_phs_open".format(node_name)
-            atlas_output_marker.Equipment.Storage.CreateInstance(instance_name)
+            instance_name = f"{node_name}_phs_open"
+            atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
 
-            open_phs = atlas_output_marker.Equipment.Storage.GetInstanceByName(instance_name)
+            open_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
 
             if p.consumption_production_separation:
-                portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                    "generator_{}".format(node_name)
-                )
+                portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
             else:
-                portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                    "portfolio_{}".format(node_name)
-                )
+                portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
 
             # general properties of a storage equipment
-            open_phs.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
+            open_phs.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
             open_phs.Portfolio = portfolio
             open_phs.StorageType = "PumpedHydraulicStorage"
             if binding_constraint:
@@ -80,32 +75,32 @@ def creation_phs_open(antares_input_marker, atlas_output_marker, hydro_reservoir
             power_link_w_node = w_hydro_open_link.IndirectTransferCapacity.GetTimeSeriesByName("1")
 
             # difference added to the hydro power of the node
-            hydro_equipment = atlas_output_marker.Equipment.Hydraulic.GetInstanceByName("{}_hydro".format(node_name))
+            hydro_equipment = atlas_dataset.Equipment.Hydraulic.GetInstanceByName(f"{node_name}_hydro")
             if not hydro_equipment:
                 # If the hydro power does not exists, we create one to append to inflows of the open phs
-                hydro_equipment = atlas_output_marker.Equipment.Hydraulic.CreateInstance("{}_hydro".format(node_name))
+                hydro_equipment = atlas_dataset.Equipment.Hydraulic.CreateInstance(f"{node_name}_hydro")
 
                 # Inflows are empty
                 available_scenarios = [
                     ts.Name
-                    for ts in antares_input_marker.Node.GetInstanceByName(node_name).CalculatedMarginalPrice.TimeSeries
+                    for ts in antares_dataset.Node.GetInstanceByName(node_name).CalculatedMarginalPrice.TimeSeries
                 ]
                 if p.water_value_scenarios == "All":
                     scenarios = available_scenarios
                 else:
                     scenarios = p.water_value_scenarios.split(sep=";")
                 empty_ts = API.TimeSeries.NewTimeSeries("", API.TimeSeries.Constant, "", power_link_phs_w.Index, 0.0)
-                inflows_dictionary[node_name] = {scenario: empty_ts for scenario in scenarios}
+                inflows_dictionary[node_name] = dict.fromkeys(scenarios, empty_ts)
 
                 if p.consumption_production_separation:
-                    hydro_equipment.Portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "generator_{}".format(node_name)
+                    hydro_equipment.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
+                        f"generator_{node_name}"
                     )
                 else:
-                    hydro_equipment.Portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "portfolio_{}".format(node_name)
+                    hydro_equipment.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
+                        f"portfolio_{node_name}"
                     )
-                hydro_equipment.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
+                hydro_equipment.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
                 hydro_equipment.EnergyTargetFrequency = "Daily"
                 hydro_equipment.InflowFrequency = "Daily"
                 hydro_equipment.MaximumPower = API.TimeSeries.NewTimeSeries(
@@ -197,8 +192,7 @@ def creation_phs_open(antares_input_marker, atlas_output_marker, hydro_reservoir
             # --- Update inflows contained in inflows_dictionary according to those in w_hydro_open_node
             # An accurate PHS inflow profile is used, taken from the inflow csvs
             available_scenarios = [
-                ts.Name
-                for ts in antares_input_marker.Node.GetInstanceByName(node_name).CalculatedMarginalPrice.TimeSeries
+                ts.Name for ts in antares_dataset.Node.GetInstanceByName(node_name).CalculatedMarginalPrice.TimeSeries
             ]
             if p.water_value_scenarios == "All":
                 scenarios = available_scenarios
@@ -209,11 +203,11 @@ def creation_phs_open(antares_input_marker, atlas_output_marker, hydro_reservoir
 
             # First, read the inflow csv corresponding to the current node,
             # and store all values in TimeSeries within a dictionary
-            path2 = "{}_phs.csv".format(node_name)
+            path2 = f"{node_name}_phs.csv"
             csv_path = os.path.join(p.path_inflows, path2)
 
             if os.path.isfile(csv_path):
-                f = open(csv_path, "r")
+                f = open(csv_path)
                 lines_list = f.readlines()
                 f.close()
 
@@ -239,11 +233,9 @@ def creation_phs_open(antares_input_marker, atlas_output_marker, hydro_reservoir
             # Raise a warning if there are more wv scenarios than inflow scenarios
             if len(inflows_csv_timeseries.keys()) < len(scenarios):
                 API.IO.Trace.Log(
-                    "WARNING: There are {} water values scenarios, and "
-                    " only {} inflow scenarios for node {}. "
-                    "Results may be invalid. ".format(
-                        str(len(scenarios)), str(len(inflows_csv_timeseries.keys())), node_name
-                    ),
+                    f"WARNING: There are {str(len(scenarios))} water values scenarios, and "
+                    f" only {str(len(inflows_csv_timeseries.keys()))} inflow scenarios for node {node_name}. "
+                    "Results may be invalid. ",
                     API.IO.LogTypeWarn,
                 )
 
@@ -322,30 +314,30 @@ def creation_phs_open(antares_input_marker, atlas_output_marker, hydro_reservoir
 
 
 # Function creating a PumpedHydraulicStorage Equipment based on an open loop PHS in the Antares input marker, specific to the FR node
-def creation_phs_open_fr(antares_input_marker, atlas_output_marker, hydro_reservoirs, open_phs_list, p):
-    link = antares_input_marker.Link.GetInstanceByName("fr_x_open_turb")
+def creation_phs_open_fr(antares_dataset, atlas_dataset, hydro_reservoirs, open_phs_list, p):
+    link = antares_dataset.Link.GetInstanceByName("fr_x_open_turb")
 
     # looking for the node name
     node_name = "fr"
 
     # we create the node phs
-    msg = "Creating phs equipment in Node {}".format(node_name)
+    msg = f"Creating phs equipment in Node {node_name}"
     API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
-    instance_name = "{}_phs_open".format(node_name)
-    atlas_output_marker.Equipment.Storage.CreateInstance(instance_name)
+    instance_name = f"{node_name}_phs_open"
+    atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
 
-    open_phs = atlas_output_marker.Equipment.Storage.GetInstanceByName(instance_name)
+    open_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
 
-    binding_constraint = functions.find_binding_constraint_phs(antares_input_marker, link)
+    binding_constraint = functions.find_binding_constraint_phs(antares_dataset, link)
 
     if p.consumption_production_separation:
-        portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName("generator_{}".format(node_name))
+        portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
     else:
-        portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName("portfolio_{}".format(node_name))
+        portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
 
     # general properties of a storage equipment
-    open_phs.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
+    open_phs.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
     open_phs.Portfolio = portfolio
     open_phs.StorageType = "PumpedHydraulicStorage"
     open_phs.isV2G = False

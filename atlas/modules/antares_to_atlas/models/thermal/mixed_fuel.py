@@ -1,12 +1,10 @@
-# coding: utf-8
-
 import API
 
 
 # Function adding the modulation part to FR nuclear equipments
-def add_mixed_fuel(antares_input_marker, atlas_output_marker, thermic_parameter, thermic_properties, p):
+def add_mixed_fuel(antares_dataset, atlas_dataset, thermic_parameter, thermic_properties, p):
     # Retrieve all Mixed Fuel thermal equipments
-    for antares_thermal in antares_input_marker.ThermalTechnology.GetAllInstances():
+    for antares_thermal in antares_dataset.ThermalTechnology.GetAllInstances():
         if antares_thermal.Group != "Mixed_fuel":
             continue
 
@@ -20,28 +18,28 @@ def add_mixed_fuel(antares_input_marker, atlas_output_marker, thermic_parameter,
 
                 if prod.Abs().Max() > 0:
                     # Check if a Waste equipment already exists for this market_area
-                    waste_equipment = atlas_output_marker.Equipment.OtherNonDispatchable.GetInstanceByName(
-                        "{}_Waste".format(mkt_name)
+                    waste_equipment = atlas_dataset.Equipment.OtherNonDispatchable.GetInstanceByName(
+                        f"{mkt_name}_Waste"
                     )
 
                     if not waste_equipment:
                         previous_power = 0
 
-                        waste_equipment = atlas_output_marker.Equipment.OtherNonDispatchable.CreateInstance(
-                            "{}_Waste".format(mkt_name)
+                        waste_equipment = atlas_dataset.Equipment.OtherNonDispatchable.CreateInstance(
+                            f"{mkt_name}_Waste"
                         )
 
                         if p.consumption_production_separation:
-                            atlas_portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                                "generator_{}".format(mkt_name)
+                            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
+                                f"generator_{mkt_name}"
                             )
                         else:
-                            atlas_portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                                "portfolio_{}".format(mkt_name)
+                            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
+                                f"portfolio_{mkt_name}"
                             )
 
                         waste_equipment.Portfolio = atlas_portfolio
-                        waste_equipment.Node = atlas_output_marker.Network.Node.GetInstanceByName(str(mkt_name))
+                        waste_equipment.Node = atlas_dataset.Network.Node.GetInstanceByName(str(mkt_name))
 
                     else:
                         previous_power = waste_equipment.Power[p.execution_date]
@@ -74,23 +72,19 @@ def add_mixed_fuel(antares_input_marker, atlas_output_marker, thermic_parameter,
             if antares_thermal.NominalCapacity * antares_thermal.UnitCount == 0.0:
                 continue
 
-            equipment = atlas_output_marker.Equipment.Thermic.CreateInstance(antares_thermal.Name)
+            equipment = atlas_dataset.Equipment.Thermic.CreateInstance(antares_thermal.Name)
 
             # FC: Following property previously set to True, corrected to False because
             # Thermic equipments have no value in MinimumDailyEnergy and MaximumDailyEnergy as of February 2022
             equipment.HasDailyEnergyConstraint = False
 
-            node = atlas_output_marker.Network.Node.GetInstanceByName(mkt_name)
+            node = atlas_dataset.Network.Node.GetInstanceByName(mkt_name)
             equipment.Node = node
 
             if p.consumption_production_separation:
-                equipment.Portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                    "generator_{}".format(mkt_name)
-                )
+                equipment.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{mkt_name}")
             else:
-                equipment.Portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                    "portfolio_{}".format(mkt_name)
-                )
+                equipment.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{mkt_name}")
 
             try:
                 sc = antares_thermal.ThermalSelectedScenario[p.scenario - 1]
@@ -110,7 +104,7 @@ def add_mixed_fuel(antares_input_marker, atlas_output_marker, thermic_parameter,
                 p.start_date.ToString(),
                 "1Y",
                 2,
-                float((antares_thermal.MinStablePower)),
+                float(antares_thermal.MinStablePower),
                 "MW",
             )
             equipment.InstalledCapacity = antares_thermal.NominalCapacity * antares_thermal.UnitCount

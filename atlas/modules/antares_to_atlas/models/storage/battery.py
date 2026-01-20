@@ -1,13 +1,11 @@
-# coding: utf-8
-
 import API
 import functions
 
 
 # Convert battery technologies of the Antares input marker into ATLAS Storage Equipments
-def creation_battery(antares_input_marker, atlas_output_marker, p):
+def creation_battery(antares_dataset, atlas_dataset, p):
     ### NORMAL
-    for links in antares_input_marker.Link.GetAllInstances():
+    for links in antares_dataset.Link.GetAllInstances():
         if links.DownhillNode.Name == "z_batteries":
             # looking for the node name, and filtering nodes that should not be considered
 
@@ -17,52 +15,46 @@ def creation_battery(antares_input_marker, atlas_output_marker, p):
                 continue
 
             ### NORMAL battery
-            binding_constraint = antares_input_marker.BindingConstraint.GetInstanceByName(
-                "batteries_{}".format(node_name)
-            )
+            binding_constraint = antares_dataset.BindingConstraint.GetInstanceByName(f"batteries_{node_name}")
             if not binding_constraint:
                 API.IO.Trace.Log(
-                    "WARNING for techno {}, binding constraint not found".format("batteries_{}".format(node_name)),
+                    "WARNING for techno {}, binding constraint not found".format(f"batteries_{node_name}"),
                     API.IO.LogTypeWarn,
                 )
 
             # Create the Storage Equipment only if the corresponding BindingConstraint exists
             if binding_constraint:
-                power_discharge, maximum_power = get_batteries_inj_data(antares_input_marker, node_name, p, False)
+                power_discharge, maximum_power = get_batteries_inj_data(antares_dataset, node_name, p, False)
 
                 if not maximum_power or maximum_power.Abs().Max() == 0:
                     continue
 
                 # MaximumEnergy (ie: reservoir capacity). Convention : stock_1 is in MWh and not in MW so ok
                 try:  # for nodes that do not have thermaltechnology
-                    stock_1 = antares_input_marker.ThermalTechnology.GetInstanceByName(
+                    stock_1 = antares_dataset.ThermalTechnology.GetInstanceByName(
                         "z_batteries_batteries_" + functions.node_special_format(node_name) + "_1"
                     ).Disponibility[str(p.scenario)]
                 except:  # If Stock 1 is empty, MaximumEnergy is 0 so no battery instance is created
                     continue
 
-                msg = "Creating battery equipment in Node {}".format(node_name)
+                msg = f"Creating battery equipment in Node {node_name}"
                 API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
-                instance_name = "{}_battery".format(node_name)
-                atlas_output_marker.Equipment.Storage.CreateInstance(instance_name)
+                instance_name = f"{node_name}_battery"
+                atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
 
-                battery = atlas_output_marker.Equipment.Storage.GetInstanceByName(instance_name)
+                battery = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
 
                 battery.MaximumPower = maximum_power
                 battery.MaximumEnergy = stock_1
 
                 if p.consumption_production_separation:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "generator_{}".format(node_name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
                 else:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "portfolio_{}".format(node_name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
 
                 # general properties of a storage equipment
-                battery.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
+                battery.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
                 battery.Portfolio = portfolio
                 battery.StorageType = "Battery"
                 try:
@@ -118,62 +110,54 @@ def creation_battery(antares_input_marker, atlas_output_marker, p):
 
             elif p.verbose:
                 API.IO.Trace.Log(
-                    "No BindingConstraint found for batteries of node {}, no Storage equipment created".format(
-                        node_name
-                    ),
+                    f"No BindingConstraint found for batteries of node {node_name}, no Storage equipment created",
                     API.IO.LogTypeInfo,
                 )
 
     ### PCOMP battery
-    for links in antares_input_marker.Link.GetAllInstances():
+    for links in antares_dataset.Link.GetAllInstances():
         if links.DownhillNode.Name == "z_batteries_pcomp":
             node_name = links.UphillNode.Name
 
-            binding_constraint = antares_input_marker.BindingConstraint.GetInstanceByName(
-                "batteries_pcomp_{}".format(node_name)
-            )
+            binding_constraint = antares_dataset.BindingConstraint.GetInstanceByName(f"batteries_pcomp_{node_name}")
 
             # Create the Storage Equipment only if the corresponding BindingConstraint exists
             if binding_constraint:
-                power_discharge, maximum_power = get_batteries_inj_data(antares_input_marker, node_name, p, True)
+                power_discharge, maximum_power = get_batteries_inj_data(antares_dataset, node_name, p, True)
 
                 if not maximum_power or maximum_power.Abs().Max() == 0:
                     continue
 
                 # MaximumEnergy (ie: reservoir capacity). Convention : stock_1 is in MWh and not in MW so ok
                 try:  # for nodes that do not have thermaltechnology
-                    stock_1 = antares_input_marker.ThermalTechnology.GetInstanceByName(
+                    stock_1 = antares_dataset.ThermalTechnology.GetInstanceByName(
                         "z_batteries_pcomp_" + functions.node_special_format(node_name) + "_1"
                     ).Disponibility[str(p.scenario)]
                 except:  # If Stock 1 is empty, MaximumEnergy is 0 so no battery instance is created
                     continue
 
-                msg = "Creating battery_pcomp equipment in Node {}".format(node_name)
+                msg = f"Creating battery_pcomp equipment in Node {node_name}"
                 API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
-                normal_battery = atlas_output_marker.Equipment.Storage.GetInstanceByName("{}_battery".format(node_name))
+                normal_battery = atlas_dataset.Equipment.Storage.GetInstanceByName(f"{node_name}_battery")
                 if not normal_battery:
-                    instance_name = "{}_battery".format(node_name)
+                    instance_name = f"{node_name}_battery"
                 else:
-                    instance_name = "{}_battery_pcomp".format(node_name)
-                atlas_output_marker.Equipment.Storage.CreateInstance(instance_name)
+                    instance_name = f"{node_name}_battery_pcomp"
+                atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
 
-                battery = atlas_output_marker.Equipment.Storage.GetInstanceByName(instance_name)
+                battery = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
 
                 battery.MaximumPower = maximum_power
                 battery.MaximumEnergy = stock_1
 
                 if p.consumption_production_separation:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "generator_{}".format(node_name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
                 else:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "portfolio_{}".format(node_name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
 
                 # general properties of a storage equipment
-                battery.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
+                battery.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
                 battery.Portfolio = portfolio
                 battery.StorageType = "Battery"
                 try:
@@ -230,15 +214,13 @@ def creation_battery(antares_input_marker, atlas_output_marker, p):
 
             elif p.verbose:
                 API.IO.Trace.Log(
-                    "No BindingConstraint found for batteries_pcomp of node {}, no Storage equipment created".format(
-                        node_name
-                    ),
+                    f"No BindingConstraint found for batteries_pcomp of node {node_name}, no Storage equipment created",
                     API.IO.LogTypeInfo,
                 )
 
     # MERGE
-    normal_instance = atlas_output_marker.Equipment.Storage.GetInstanceByName("{}_battery".format(node_name))
-    pcomp_instance = atlas_output_marker.Equipment.Storage.GetInstanceByName("{}_battery_pcomp".format(node_name))
+    normal_instance = atlas_dataset.Equipment.Storage.GetInstanceByName(f"{node_name}_battery")
+    pcomp_instance = atlas_dataset.Equipment.Storage.GetInstanceByName(f"{node_name}_battery_pcomp")
     if normal_instance and pcomp_instance:
         normal_instance.MaximumPower += pcomp_instance.MaximumPower
         normal_instance.MinimumPower += pcomp_instance.MinimumPower
@@ -264,20 +246,20 @@ def creation_battery(antares_input_marker, atlas_output_marker, p):
         normal_instance.Power.DeleteTimeSeries(p.execution_date)
         normal_instance.Power.AddTimeSeries(p.execution_date, power_timeseries)
 
-        atlas_output_marker.Equipment.Storage.DeleteInstanceByName("{}_battery_pcomp".format(node_name))
+        atlas_dataset.Equipment.Storage.DeleteInstanceByName(f"{node_name}_battery_pcomp")
 
     return 0
 
 
 # Retrieve the correct Disponibility TimeSeries of the "batteries_inj" thermal technology
-def get_batteries_inj_data(antares_input_marker, node, p, is_pcomp):
+def get_batteries_inj_data(antares_dataset, node, p, is_pcomp):
     # we want to have the time series of the thermal technology "batteries_inj" of the node
     node_special_format = functions.node_special_format(node)
     if is_pcomp:
-        node_batteries_inj = "{}_{}_batteries_pcomp_inj".format(node, node_special_format)
+        node_batteries_inj = f"{node}_{node_special_format}_batteries_pcomp_inj"
     else:
-        node_batteries_inj = "{}_{}_batteries_inj".format(node, node_special_format)
-    thermal = antares_input_marker.ThermalTechnology.GetInstanceByName(node_batteries_inj)
+        node_batteries_inj = f"{node}_{node_special_format}_batteries_inj"
+    thermal = antares_dataset.ThermalTechnology.GetInstanceByName(node_batteries_inj)
     time_series_pmax = thermal.Disponibility[str(p.scenario)]
     time_series_power = thermal.CalculatedPower[str(p.scenario)]
 

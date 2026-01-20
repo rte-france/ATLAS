@@ -1,16 +1,14 @@
-# coding: utf-8
-
 import API
 import functions
 
 
 # Function creating a PumpedHydraulicStorage Equipment based on an open PHS in the Antares input marker
-def creation_phs_closed(antares_input_marker, atlas_output_marker, hydro_reservoirs, p):
+def creation_phs_closed(antares_dataset, atlas_dataset, hydro_reservoirs, p):
     # Define a list storing all closed_phs equipemnts created
     closed_phs_list = []
 
     # First, find links pointing to turb virtual nodes and create the corresponding phs equipments
-    for links in antares_input_marker.Link.GetAllInstances():
+    for links in antares_dataset.Link.GetAllInstances():
         if links.DownhillNode.Name == "x_closed_turb":
             # looking for the node name, and filter it according to market_areas_list
             node_name = links.UphillNode.Name
@@ -25,27 +23,23 @@ def creation_phs_closed(antares_input_marker, atlas_output_marker, hydro_reservo
                 continue
 
             # we create the phs equipment in ATLAS
-            msg = "Creating phs equipment in Node {}".format(node_name)
+            msg = f"Creating phs equipment in Node {node_name}"
             API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
-            instance_name = "{}_phs".format(node_name)
-            atlas_output_marker.Equipment.Storage.CreateInstance(instance_name)
+            instance_name = f"{node_name}_phs"
+            atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
 
-            closed_phs = atlas_output_marker.Equipment.Storage.GetInstanceByName(instance_name)
+            closed_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
 
-            binding_constraint = functions.find_binding_constraint_phs(antares_input_marker, links)
+            binding_constraint = functions.find_binding_constraint_phs(antares_dataset, links)
 
             if p.consumption_production_separation:
-                portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                    "generator_{}".format(node_name)
-                )
+                portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
             else:
-                portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                    "portfolio_{}".format(node_name)
-                )
+                portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
 
             # general properties of a storage equipment
-            closed_phs.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
+            closed_phs.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
             closed_phs.Portfolio = portfolio
             closed_phs.StorageType = "PumpedHydraulicStorage"
             if binding_constraint:
@@ -87,7 +81,7 @@ def creation_phs_closed(antares_input_marker, atlas_output_marker, hydro_reservo
             closed_phs_list.append(node_name)
 
     # Then, find links pointing to pump virtual nodes and update the corresponding phs ATLAS equipments
-    for links in antares_input_marker.Link.GetAllInstances():
+    for links in antares_dataset.Link.GetAllInstances():
         if links.DownhillNode.Name == "x_closed_pump":
             # looking for the node name, and filter it according to market_areas_list
             node_name = links.UphillNode.Name
@@ -102,7 +96,7 @@ def creation_phs_closed(antares_input_marker, atlas_output_marker, hydro_reservo
                 continue
 
             # Find the closed_phs equipment in the output marker, if it has been created before
-            closed_phs = atlas_output_marker.Equipment.Storage.GetInstanceByName("{}_phs".format(node_name))
+            closed_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(f"{node_name}_phs")
 
             if not closed_phs:
                 API.IO.Trace.Log(
@@ -110,27 +104,23 @@ def creation_phs_closed(antares_input_marker, atlas_output_marker, hydro_reservo
                     API.IO.LogTypeWarn,
                 )
 
-                msg = "Creating phs equipment in Node {}".format(node_name)
+                msg = f"Creating phs equipment in Node {node_name}"
                 API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
 
-                instance_name = "{}_phs".format(node_name)
-                atlas_output_marker.Equipment.Storage.CreateInstance(instance_name)
+                instance_name = f"{node_name}_phs"
+                atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
 
-                closed_phs = atlas_output_marker.Equipment.Storage.GetInstanceByName(instance_name)
+                closed_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
 
-                binding_constraint = functions.find_binding_constraint_phs(antares_input_marker, links)
+                binding_constraint = functions.find_binding_constraint_phs(antares_dataset, links)
 
                 if p.consumption_production_separation:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "generator_{}".format(node_name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
                 else:
-                    portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                        "portfolio_{}".format(node_name)
-                    )
+                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
 
                 # general properties of a storage equipment
-                closed_phs.Node = atlas_output_marker.Network.Node.GetInstanceByName(node_name)
+                closed_phs.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
                 closed_phs.Portfolio = portfolio
                 closed_phs.StorageType = "PumpedHydraulicStorage"
                 if binding_constraint:

@@ -1,17 +1,16 @@
-# coding: utf-8
+import os
 
 import API
-import os
 import functions
 
 
 # Core
-def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
+def convert_electric_vehicle(antares_dataset, atlas_dataset, p):
     # Load file parameters, and convert csv into dictionaries or timeseries
     # ==============
     # Baseline DisplacementEnergy
     if os.path.isfile(p.baseline_displacement_energy):
-        f = open(p.baseline_displacement_energy, "r")
+        f = open(p.baseline_displacement_energy)
         lines_list = f.readlines()
         f.close()
         csv_length = len(lines_list)
@@ -35,7 +34,7 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
     specific_node_parameters = {}
 
     if os.path.isfile(p.disp_energy_node_parameters):
-        f = open(p.disp_energy_node_parameters, "r")
+        f = open(p.disp_energy_node_parameters)
         lines_list = f.readlines()
         f.close()
         csv_length = len(lines_list)
@@ -52,7 +51,7 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
     # ==============
     API.IO.Trace.Log("*** Converting standard EV ***")
 
-    for antares_node in antares_input_marker.Node.GetAllInstances():
+    for antares_node in antares_dataset.Node.GetAllInstances():
         if antares_node.Name not in p.market_areas_list:
             continue
 
@@ -62,21 +61,17 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
         if antares_node.Name in ["fr"]:
             continue
 
-        API.IO.Trace.Log("Node {}".format(antares_node.Name))
+        API.IO.Trace.Log(f"Node {antares_node.Name}")
 
         # Get all useful data and instances
         if p.consumption_production_separation:
-            atlas_portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                "generator_{}".format(antares_node.Name)
-            )
+            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{antares_node.Name}")
         else:
-            atlas_portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                "portfolio_{}".format(antares_node.Name)
-            )
-        atlas_node = atlas_output_marker.Network.Node.GetInstanceByName(antares_node.Name)
+            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{antares_node.Name}")
+        atlas_node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
 
-        ev_inj = antares_input_marker.ThermalTechnology.GetInstanceByName(
-            "{}_{}_VE_inj".format(antares_node.Name, functions.node_special_format(antares_node.Name))
+        ev_inj = antares_dataset.ThermalTechnology.GetInstanceByName(
+            f"{antares_node.Name}_{functions.node_special_format(antares_node.Name)}_VE_inj"
         )
 
         # Check if ev_inj instance exists, if not skip this node
@@ -85,11 +80,11 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
 
         dispo_scenario = ev_inj.ThermalSelectedScenario[p.scenario - 1]
 
-        ev_link = antares_input_marker.Link.GetInstanceByName("{}_ve_eu".format(antares_node.Name))
-        ev_stock_bc = antares_input_marker.BindingConstraint.GetInstanceByName("ve_stock_{}".format(antares_node.Name))
+        ev_link = antares_dataset.Link.GetInstanceByName(f"{antares_node.Name}_ve_eu")
+        ev_stock_bc = antares_dataset.BindingConstraint.GetInstanceByName(f"ve_stock_{antares_node.Name}")
 
-        ev_stor = antares_input_marker.ThermalTechnology.GetInstanceByName(
-            "ve_vhr_storage_VE_VHR_storage_VE_{}_1".format(functions.node_special_format(antares_node.Name))
+        ev_stor = antares_dataset.ThermalTechnology.GetInstanceByName(
+            f"ve_vhr_storage_VE_VHR_storage_VE_{functions.node_special_format(antares_node.Name)}_1"
         )
 
         if ev_stock_bc:
@@ -99,7 +94,7 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
                 or ev_stor.Disponibility.GetTimeSeriesByName(str(dispo_scenario)).Abs().Max() == 0.0
             ):
                 continue
-            ev_instance = atlas_output_marker.Equipment.Storage.CreateInstance(antares_node.Name + "_ev")
+            ev_instance = atlas_dataset.Equipment.Storage.CreateInstance(antares_node.Name + "_ev")
             ev_instance.Portfolio = atlas_portfolio
             ev_instance.Node = atlas_node
             ev_instance.isV2G = True
@@ -134,9 +129,7 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
             )
 
         else:
-            API.IO.Trace.Log(
-                "No binding constraint found for node {}, no EV instance created".format(antares_node.Name)
-            )
+            API.IO.Trace.Log(f"No binding constraint found for node {antares_node.Name}, no EV instance created")
 
     API.IO.Trace.Log("*** Standard EV conversion done ***")
 
@@ -155,16 +148,16 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
         # - DisplacementEnergy
 
         # Retrieve useful data from the Antares input marker
-        antares_node = antares_input_marker.Node.GetInstanceByName("fr")
-        ve_fr_total_node = antares_input_marker.Node.GetInstanceByName("ve_fr_load_total")
+        antares_node = antares_dataset.Node.GetInstanceByName("fr")
+        ve_fr_total_node = antares_dataset.Node.GetInstanceByName("ve_fr_load_total")
 
-        ev_link_total = antares_input_marker.Link.GetInstanceByName(antares_node.Name + "_ve_fr_load_total")
-        ev_inj = antares_input_marker.ThermalTechnology.GetInstanceByName("fr_FR_VE_inj")
-        ev_stor = antares_input_marker.ThermalTechnology.GetInstanceByName("ve_vhr_storage_VE_VHR_storage_VE_FR_1")
+        ev_link_total = antares_dataset.Link.GetInstanceByName(antares_node.Name + "_ve_fr_load_total")
+        ev_inj = antares_dataset.ThermalTechnology.GetInstanceByName("fr_FR_VE_inj")
+        ev_stor = antares_dataset.ThermalTechnology.GetInstanceByName("ve_vhr_storage_VE_VHR_storage_VE_FR_1")
 
-        ve_fr_load_min = antares_input_marker.BindingConstraint.GetInstanceByName("ve_fr_load_min")
-        ve_fr_night_load_min = antares_input_marker.BindingConstraint.GetInstanceByName("ve_fr_night_load_min")
-        ve_stock_fr = antares_input_marker.BindingConstraint.GetInstanceByName("ve_stock_fr")
+        ve_fr_load_min = antares_dataset.BindingConstraint.GetInstanceByName("ve_fr_load_min")
+        ve_fr_night_load_min = antares_dataset.BindingConstraint.GetInstanceByName("ve_fr_night_load_min")
+        ve_stock_fr = antares_dataset.BindingConstraint.GetInstanceByName("ve_stock_fr")
 
         # Create a timeseries of 1 and 0 indicating when night EV are connected
         night_connection_capacity = ev_link_total.DirectTransferCapacity.GetTimeSeriesByName("1")
@@ -212,16 +205,12 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
 
         # Create an ATLAS Storage instance and fill its properties
         if p.consumption_production_separation:
-            atlas_portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                "generator_{}".format(antares_node.Name)
-            )
+            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{antares_node.Name}")
         else:
-            atlas_portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                "portfolio_{}".format(antares_node.Name)
-            )
-        atlas_node = atlas_output_marker.Network.Node.GetInstanceByName(antares_node.Name)
+            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{antares_node.Name}")
+        atlas_node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
 
-        ev_instance = atlas_output_marker.Equipment.Storage.CreateInstance("{}_ev_night".format(antares_node.Name))
+        ev_instance = atlas_dataset.Equipment.Storage.CreateInstance(f"{antares_node.Name}_ev_night")
         ev_instance.Portfolio = atlas_portfolio
         ev_instance.Node = atlas_node
         ev_instance.isV2G = True
@@ -291,10 +280,10 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
         ev_instance.DisplacementEnergy = night_displacement_energy.Round()
 
         # --- Regular EV ---
-        ev_link_total = antares_input_marker.Link.GetInstanceByName("{}_ve_fr_load_total".format(antares_node.Name))
+        ev_link_total = antares_dataset.Link.GetInstanceByName(f"{antares_node.Name}_ve_fr_load_total")
 
         # Create an ATLAS Storage instance and fill its properties
-        ev_instance = atlas_output_marker.Equipment.Storage.CreateInstance("{}_ev_regular".format(antares_node.Name))
+        ev_instance = atlas_dataset.Equipment.Storage.CreateInstance(f"{antares_node.Name}_ev_regular")
         ev_instance.Portfolio = atlas_portfolio
         ev_instance.Node = atlas_node
         ev_instance.isV2G = True
@@ -333,7 +322,7 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
 
         # QB: For multi-energy only ?
         """#Maximum V2G constraint is stored in the fr_ev_regular instance but applies to the sum of both fr ev instances
-        ve_fr_p2g_max_daily = antares_input_marker.BindingConstraint.GetInstanceByName("VE_P2G_limit")
+        ve_fr_p2g_max_daily = antares_dataset.BindingConstraint.GetInstanceByName("VE_P2G_limit")
         one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1).AddHours(-1), "1d")
         ev_instance.MaximumDailyEnergy = ve_fr_p2g_max_daily.LessThan.Extract("", one_year_days_index) * ve_fr_p2g_max_daily.Weights[0]"""
 
@@ -344,21 +333,17 @@ def convert_electric_vehicle(antares_input_marker, atlas_output_marker, p):
         API.IO.Trace.Log("*** Converting FR Mobilite lourde ***")
 
         # Retrieve useful informations
-        antares_node = antares_input_marker.Node.GetInstanceByName("fr")
-        HV_link = antares_input_marker.Link.GetInstanceByName("fr_ve_fr_mobilite_lourde")
+        antares_node = antares_dataset.Node.GetInstanceByName("fr")
+        HV_link = antares_dataset.Link.GetInstanceByName("fr_ve_fr_mobilite_lourde")
 
         # Create a Load equipment in the Atlas output marker
         if p.consumption_production_separation:
-            atlas_portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                "supplier_{}".format(antares_node.Name)
-            )
+            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"supplier_{antares_node.Name}")
         else:
-            atlas_portfolio = atlas_output_marker.MarketAgent.Portfolio.GetInstanceByName(
-                "portfolio_{}".format(antares_node.Name)
-            )
-        atlas_node = atlas_output_marker.Network.Node.GetInstanceByName(antares_node.Name)
+            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{antares_node.Name}")
+        atlas_node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
 
-        hv_instance = atlas_output_marker.Equipment.Load.CreateInstance("fr_heavy_vehicles")
+        hv_instance = atlas_dataset.Equipment.Load.CreateInstance("fr_heavy_vehicles")
         hv_instance.Portfolio = atlas_portfolio
         hv_instance.Node = atlas_node
 
