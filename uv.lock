@@ -27,6 +27,55 @@ wheels = [
 ]
 
 [[package]]
+name = "antares-craft"
+version = "0.9.5"
+source = { registry = "https://pypi.org/simple/" }
+dependencies = [
+    { name = "antares-study-version" },
+    { name = "antares-timeseries-generation" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "polars" },
+    { name = "psutil" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/00/ac/80a95d09d5808919d96f3a9f1230e7fcb02b13f06dc9ce75f1b6cc010369/antares_craft-0.9.5.tar.gz", hash = "sha256:d80f6b8768820d0bb66ccbe0b1e076cb8d21c5bd420e02379d570f1766e8a7bb", size = 144514, upload-time = "2026-01-13T18:42:16.557Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2e/15/93d6bf32a5572da0a15d73bcbaca36665510ca2e9fca34f60dd7e606451e/antares_craft-0.9.5-py3-none-any.whl", hash = "sha256:b9dda322f8d5917720d9bf3690abb41645d5522cff29a06d8e28950ddf7ef8df", size = 219348, upload-time = "2026-01-13T18:42:15.177Z" },
+]
+
+[[package]]
+name = "antares-study-version"
+version = "1.0.20"
+source = { registry = "https://pypi.org/simple/" }
+dependencies = [
+    { name = "click" },
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d8/e3/745bc7ce527a0b2a639f9d04fde47e19a779dc6ebc6bed892459d1c58dc6/antares_study_version-1.0.20.tar.gz", hash = "sha256:a598a82c2e4373240ee36ac6e3a90fde43a898038193a3265240b276d779656e", size = 881716, upload-time = "2025-07-31T09:31:08.754Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5f/c9/0d8213316e186684ef6c66e7cd1bf74febc72026219be6b28537b549e52c/antares_study_version-1.0.20-py3-none-any.whl", hash = "sha256:cf37e2aeb0f06236bc619e5f6919e691e42307beff29800f735e9ae1d0c5fcc4", size = 1746991, upload-time = "2025-07-31T09:31:06.97Z" },
+]
+
+[[package]]
+name = "antares-timeseries-generation"
+version = "0.1.9"
+source = { registry = "https://pypi.org/simple/" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple/" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2d/6e/b59a4f1c6f24ff1d32d40cc58184a7b5e14f187f119f3f7ce076ea6a9946/antares_timeseries_generation-0.1.9.tar.gz", hash = "sha256:0c19a3f56e424ac3105686691ff1d1ef6c0320244af986e852698dc9b71619c6", size = 21504, upload-time = "2025-12-04T16:31:35.851Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/e4/a81417ac4ac1607aab01b5e91f5de9d202688348d5af687aa4629d7367ff/antares_timeseries_generation-0.1.9-py3-none-any.whl", hash = "sha256:e69799290b9f29e8ed2ebc6ad49ce128a8559fc4af5804428eb620801295e4c4", size = 20185, upload-time = "2025-12-04T16:31:35.008Z" },
+]
+
+[[package]]
 name = "anyio"
 version = "4.12.0"
 source = { registry = "https://pypi.org/simple/" }
@@ -136,6 +185,7 @@ name = "atlas"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "antares-craft" },
     { name = "dictdiffer" },
     { name = "fastparquet" },
     { name = "h5py" },
@@ -184,6 +234,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
+    { name = "antares-craft", specifier = ">=0.9.5" },
     { name = "dictdiffer", specifier = ">=0.9.0" },
     { name = "fastparquet", specifier = ">=2024.11.0" },
     { name = "h5py", specifier = ">=3.13.0" },
