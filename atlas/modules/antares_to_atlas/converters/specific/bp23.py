@@ -8,7 +8,7 @@ BP23 (Bilan Prévisionnel 2023) specific converters.
 from typing import Any
 
 from atlas.models.business_model import BusinessModel
-from atlas.modules.antares_to_atlas.converters.base import SpecificConverter
+from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 # Import legacy conversion functions
@@ -30,10 +30,8 @@ except ImportError:
     HAS_LEGACY = False
 
 
-class MixedFuelConverterBP23(SpecificConverter):
+class MixedFuelConverterBP23(Converter):
     """Converter for mixed fuel thermal units (BP23 specific)."""
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -65,10 +63,8 @@ class MixedFuelConverterBP23(SpecificConverter):
         )
 
 
-class ElectricVehicleConverterBP23(SpecificConverter):
+class ElectricVehicleConverterBP23(Converter):
     """Converter for electric vehicle storage (BP23 specific)."""
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -90,10 +86,8 @@ class ElectricVehicleConverterBP23(SpecificConverter):
         return electric_vehicle.convert_electric_vehicle(antares_dataset, parameters)
 
 
-class ParticularMidPeakConverterBP23(SpecificConverter):
+class ParticularMidPeakConverterBP23(Converter):
     """Converter for particular mid/peak gas units (BP23 specific)."""
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -117,10 +111,8 @@ class ParticularMidPeakConverterBP23(SpecificConverter):
         )
 
 
-class P2GConverterBP23(SpecificConverter):
+class P2GConverterBP23(Converter):
     """Converter for Power-to-Gas units (BP23 specific)."""
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -142,13 +134,11 @@ class P2GConverterBP23(SpecificConverter):
         return p2g_main.P2G(antares_dataset, parameters)
 
 
-class MultiEnergyConverterBP23(SpecificConverter):
+class MultiEnergyConverterBP23(Converter):
     """Converter for multi-energy modeling (BP23 specific).
 
     This should run after all thermic units are created.
     """
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -176,10 +166,8 @@ class MultiEnergyConverterBP23(SpecificConverter):
         return multi_energy.update_variable_cost_unit_using_gas(antares_dataset, parameters)
 
 
-class BatteryConverterBP23(SpecificConverter):
+class BatteryConverterBP23(Converter):
     """Converter for battery storage (BP23 specific)."""
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -201,10 +189,8 @@ class BatteryConverterBP23(SpecificConverter):
         return battery.creation_battery(antares_dataset, parameters)
 
 
-class DSRConverterBP23(SpecificConverter):
+class DSRConverterBP23(Converter):
     """Converter for Demand Side Response (BP23 specific)."""
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -230,10 +216,8 @@ class DSRConverterBP23(SpecificConverter):
         return dsr.dsr_other_countries(antares_dataset, parameters)
 
 
-class PHSConverterBP23(SpecificConverter):
+class PHSConverterBP23(Converter):
     """Converter for Pumped Hydro Storage (BP23 specific)."""
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -283,13 +267,11 @@ class PHSConverterBP23(SpecificConverter):
         return {"inflows_dictionary": inflows_dictionary}
 
 
-class WaterValueConverterBP23(SpecificConverter):
+class WaterValueConverterBP23(Converter):
     """Converter for water value computation (BP23 specific).
 
     This should run after PHS conversion to account for new inflows and reservoir sizes.
     """
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -326,10 +308,8 @@ class WaterValueConverterBP23(SpecificConverter):
         return water_value.compute_water_value(antares_dataset, inflows_dictionary, parameters)
 
 
-class InitialLevelConverterBP23(SpecificConverter):
+class InitialLevelConverterBP23(Converter):
     """Converter for initial level computation (BP23 specific)."""
-
-    supported_hypotheses = ["BP23"]
 
     @property
     def name(self) -> str:
@@ -351,10 +331,9 @@ class InitialLevelConverterBP23(SpecificConverter):
         return initial_level.initial_level_computation(antares_dataset, parameters)
 
 
-class NuclearModulationConverterBP23(SpecificConverter):
+class NuclearModulationConverterBP23(Converter):
     """Converter for nuclear modulation (BP23 specific, France only)."""
 
-    supported_hypotheses = ["BP23"]
     required_market_areas = ["fr"]
 
     @property

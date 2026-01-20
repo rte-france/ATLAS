@@ -10,10 +10,10 @@ from pathlib import Path
 from pydantic import Field, field_validator, model_validator
 from typing_extensions import Self
 
-from atlas.io_utils.parameters import Parameters
+from atlas.io_utils.parameters import ParametersParser
 
 
-class AntaresToAtlasParameters(Parameters):
+class AntaresToAtlasParameters(ParametersParser):
     """Parameters for Antares to Atlas data conversion.
 
     This class defines all configuration needed to convert Antares simulation data

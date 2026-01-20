@@ -5,6 +5,8 @@ This file is part of the ATLAS project.
 Main Antares to Atlas converter orchestrator.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 from loguru import logger
@@ -65,7 +67,7 @@ class AntaresToAtlas:
         self.registry = self._build_registry()
 
     @classmethod
-    def from_file(cls, parameters_file: str) -> "AntaresToAtlas":
+    def from_file(cls, parameters_file: str) -> AntaresToAtlas:
         """Create converter from a parameters file.
 
         :param parameters_file: Path to YAML or JSON parameters file
@@ -77,7 +79,7 @@ class AntaresToAtlas:
         return cls(parameters)
 
     @classmethod
-    def from_dict(cls, parameters_dict: dict[str, Any]) -> "AntaresToAtlas":
+    def from_dict(cls, parameters_dict: dict[str, Any]) -> AntaresToAtlas:
         """Create converter from a parameters dictionary.
 
         :param parameters_dict: Parameters as dictionary
@@ -89,93 +91,79 @@ class AntaresToAtlas:
         return cls(parameters)
 
     def _build_registry(self) -> ConverterRegistry:
-        """Build the converter registry with standard and specific converters.
+        """Build the converter registry with all converters.
 
         The order of registration determines the execution order.
-        Standard converters are registered first, followed by specific converters.
+        Standard converters are registered first, followed by hypothesis-specific converters.
 
         :return: Configured converter registry
         :rtype: ConverterRegistry
         """
         registry = ConverterRegistry()
 
-        registry.register_standard(NodeConverter)
-        registry.register_standard(LoadConverter)
-        registry.register_standard(WindConverter)
-        registry.register_standard(PVConverter)
-        registry.register_standard(HydroConverter)
-        registry.register_standard(LinkConverter)
-        registry.register_standard(ThermalConverter)
-        registry.register_standard(NonDispatchableConverter)
+        # Register standard converters
+        standard_converters = [
+            NodeConverter,
+            LoadConverter,
+            WindConverter,
+            PVConverter,
+            HydroConverter,
+            LinkConverter,
+            ThermalConverter,
+            NonDispatchableConverter,
+        ]
+        for converter in standard_converters:
+            registry.register(converter)
 
+        # Register hypothesis-specific converters
         if self.parameters.hypothesis == "BP23":
             self._register_bp23_converters(registry)
+        # Add more hypotheses here as needed
+        # elif self.parameters.hypothesis == "BP24":
+        #     self._register_bp24_converters(registry)
 
         return registry
 
     def _register_bp23_converters(self, registry: ConverterRegistry) -> None:
-        """Register BP23-specific converters.
+        """Register BP23-specific converters in execution order.
 
         :param registry: Converter registry
         :type registry: ConverterRegistry
         """
-        # Mixed fuel depends on thermal converter
-        registry.register_specific(MixedFuelConverterBP23)
+        bp23_converters = [
+            MixedFuelConverterBP23,  # Depends on thermal converter
+            ElectricVehicleConverterBP23,
+            BatteryConverterBP23,
+            ParticularMidPeakConverterBP23,
+            P2GConverterBP23,
+            MultiEnergyConverterBP23,  # Must run after all thermic units
+            DSRConverterBP23,
+            PHSConverterBP23,  # Depends on hydro converter
+            WaterValueConverterBP23,  # Depends on PHS (for updated inflows)
+            InitialLevelConverterBP23,
+            NuclearModulationConverterBP23,  # France-specific
+        ]
+        for converter in bp23_converters:
+            registry.register(converter)
 
-        # Independent storage converters
-        registry.register_specific(ElectricVehicleConverterBP23)
-        registry.register_specific(BatteryConverterBP23)
-
-        # Gas-related converters
-        registry.register_specific(ParticularMidPeakConverterBP23)
-        registry.register_specific(P2GConverterBP23)
-
-        # Multi-energy must run after all thermic units
-        registry.register_specific(MultiEnergyConverterBP23)
-
-        # DSR converter
-        registry.register_specific(DSRConverterBP23)
-
-        # PHS depends on hydro converter
-        registry.register_specific(PHSConverterBP23)
-
-        # Water value depends on PHS (must run after to account for new inflows)
-        registry.register_specific(WaterValueConverterBP23)
-
-        # Initial level computation
-        registry.register_specific(InitialLevelConverterBP23)
-
-        # Nuclear modulation (France-specific)
-        registry.register_specific(NuclearModulationConverterBP23)
-
-    def convert(self, antares_dataset: Any, atlas_dataset: Any) -> dict[str, dict]:
+    def convert(self, antares_input_marker: Any) -> dict[str, dict]:
         """Execute the conversion process.
 
-        :param antares_dataset: Antares input data marker (API object)
-        :type antares_dataset: Any
-        :param atlas_dataset: Atlas output data marker (API object)
-        :type atlas_dataset: Any
+        :param antares_input_marker: Antares input data marker (API object)
+        :type antares_input_marker: Any
         :return: Dictionary of conversion results from each converter
         :rtype: dict[str, dict]
         """
-        logger.info("=" * 70)
-        logger.info("Starting Antares to Atlas Conversion")
         logger.info(f"Antares Version: {self.parameters.antares_version}")
         logger.info(f"Hypothesis: {self.parameters.hypothesis}")
         logger.info(f"Market Areas: {', '.join(self.parameters.market_areas)}")
         logger.info(f"Scenario: {self.parameters.scenario}")
-        logger.info("=" * 70)
-
-        # Log parameters if verbose
-        if self.parameters.verbose:
-            logger.info("Conversion Parameters:")
-            logger.info(self.parameters.model_dump_json(indent=2))
 
         # Create shared state for data sharing between converters
         shared_state: dict[str, Any] = {}
 
         # Execute all converters
-        results = self.registry.execute_all(antares_dataset, atlas_dataset, self.parameters, shared_state)
+        results = self.registry.execute_all(antares_input_marker, self.parameters, shared_state)
 
         logger.info("=" * 70)
         logger.info("Conversion completed successfully")
@@ -183,10 +171,10 @@ class AntaresToAtlas:
 
         return results
 
-    def list_converters(self) -> dict[str, list[str]]:
+    def list_converters(self) -> list[str]:
         """List all registered converters.
 
-        :return: Dictionary with 'standard' and 'specific' keys containing converter names
-        :rtype: dict[str, list[str]]
+        :return: List of converter names in registration order
+        :rtype: list[str]
         """
         return self.registry.get_converter_names()

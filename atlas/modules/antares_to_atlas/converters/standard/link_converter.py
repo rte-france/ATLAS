@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 from typing import Any
 
 from atlas.models.business_model import BusinessModel
-from atlas.modules.antares_to_atlas.converters.base import StandardConverter
+from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 try:
@@ -17,7 +17,7 @@ except ImportError:
     HAS_LEGACY = False
 
 
-class LinkConverter(StandardConverter):
+class LinkConverter(Converter):
     """Converter for inter-area links."""
 
     @property

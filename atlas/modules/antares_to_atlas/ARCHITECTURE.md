@@ -41,33 +41,3 @@ The converter uses the **Strategy Pattern** with a **Registry** system:
                     │      A       │  │      B       │  │      C       │
                     └──────────────┘  └──────────────┘  └──────────────┘
 ```
-
-## Class Hierarchy
-
-```
-BaseConverter (ABC)
-│
-├── StandardConverter
-│   ├── NodeConverter
-│   ├── LoadConverter
-│   ├── WindConverter
-│   ├── PVConverter
-│   ├── HydroConverter
-│   ├── LinkConverter
-│   ├── ThermalConverter
-│   └── NonDispatchableConverter
-│
-└── SpecificConverter
-    ├── BP23 Converters
-    │   ├── MixedFuelConverterBP23
-    │   ├── ElectricVehicleConverterBP23
-    │   ├── BatteryConverterBP23
-    │   ├── DSRConverterBP23
-    │   ├── PHSConverterBP23
-    │   ├── WaterValueConverterBP23
-    │   ├── InitialLevelConverterBP23
-    │   └── NuclearModulationConverterBP23
-    │
-    └── BP24 Converters (future)
-        └── ...
-```
