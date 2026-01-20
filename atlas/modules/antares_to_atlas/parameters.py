@@ -18,87 +18,6 @@ class AntaresToAtlasParameters(ParametersParser):
 
     This class defines all configuration needed to convert Antares simulation data
     to Atlas format, including version-specific and hypothesis-specific settings.
-
-    :param antares_version: Version of Antares (e.g., "8.2", "8.6")
-    :type antares_version: str
-    :param hypothesis: Hypothesis identifier (e.g., "BP23" for Bilan Prévisionnel 2023)
-    :type hypothesis: str
-    :param market_areas: List of market areas to convert (e.g., ["fr", "de", "es"])
-    :type market_areas: list[str]
-    :param scenario: Scenario number to extract from Antares
-    :type scenario: int
-    :param verbose: Enable verbose logging
-    :type verbose: bool
-    :param excluded_thermic_groups: List of thermic groups to exclude from conversion
-    :type excluded_thermic_groups: list[str]
-    :param minimum_price: Minimum price for optimization (€/MWh)
-    :type minimum_price: float
-    :param maximum_price: Maximum price for optimization (€/MWh)
-    :type maximum_price: float
-    :param wind_max_curtailment_ratio: Maximum curtailment ratio for wind (0-1)
-    :type wind_max_curtailment_ratio: float
-    :param pv_max_curtailment_ratio: Maximum curtailment ratio for PV (0-1)
-    :type pv_max_curtailment_ratio: float
-    :param wind_curtailment_cost: Cost of wind curtailment (€/MWh)
-    :type wind_curtailment_cost: float
-    :param pv_curtailment_cost: Cost of PV curtailment (€/MWh)
-    :type pv_curtailment_cost: float
-    :param use_hydro_heuristic: Use heuristic for hydro management
-    :type use_hydro_heuristic: bool
-    :param hydro_min_energy_coeff: Minimum energy coefficient for hydro
-    :type hydro_min_energy_coeff: float
-    :param hydro_max_energy_coeff: Maximum energy coefficient for hydro
-    :type hydro_max_energy_coeff: float
-    :param use_water_value: Enable water value calculation
-    :type use_water_value: bool
-    :param water_value_scenarios: Number of scenarios for water value
-    :type water_value_scenarios: int
-    :param water_value_nb_years: Number of years for water value calculation
-    :type water_value_nb_years: int
-    :param hydro_storage_subdivision: Storage subdivision for water value
-    :type hydro_storage_subdivision: int
-    :param hydro_initialization_curve: Path to hydro initialization curve file
-    :type hydro_initialization_curve: Path | None
-    :param beta: Beta parameter for water value Bellman computation
-    :type beta: float
-    :param water_value_time_step: Time step for water value (hours)
-    :type water_value_time_step: int
-    :param use_bellman_interpolation: Use interpolation in Bellman computation
-    :type use_bellman_interpolation: bool
-    :param nb_storage_levels: Number of storage levels for water value
-    :type nb_storage_levels: int
-    :param inflows_time_step: Time step for inflows (hours)
-    :type inflows_time_step: int
-    :param path_inflows: Path to inflows data directory
-    :type path_inflows: Path | None
-    :param hydro_reservoirs_file: Path to hydraulic reservoirs configuration file
-    :type hydro_reservoirs_file: Path | None
-    :param hydraulic_fragments_file: Path to hydraulic fragments configuration file
-    :type hydraulic_fragments_file: Path | None
-    :param battery_initial_level: Initial level for battery storage (0-1)
-    :type battery_initial_level: float
-    :param ev_initial_level: Initial level for electric vehicle storage (0-1)
-    :type ev_initial_level: float
-    :param phs_initial_level: Initial level for pumped hydro storage (0-1)
-    :type phs_initial_level: float
-    :param baseline_displacement_energy: Path to baseline displacement energy file
-    :type baseline_displacement_energy: Path | None
-    :param disp_energy_node_parameters: Path to displacement energy node parameters file
-    :type disp_energy_node_parameters: Path | None
-    :param thermic_config_file: Path to thermic parameters configuration file
-    :type thermic_config_file: Path | None
-    :param consumption_production_separation: Enable separation of consumption and production portfolios
-    :type consumption_production_separation: bool
-    :param co2_emission_factors_file: Path to CO2 emission factors file
-    :type co2_emission_factors_file: Path | None
-    :param use_multi_energy: Enable multi-energy modeling
-    :type use_multi_energy: bool
-    :param enable_standard_conversions: Enable standard conversion steps
-    :type enable_standard_conversions: bool
-    :param enable_specific_conversions: Enable hypothesis-specific conversion steps
-    :type enable_specific_conversions: bool
-    :param conversion_steps: Specific conversion steps to execute (if empty, use defaults)
-    :type conversion_steps: list[str]
     """
 
     # Version and hypothesis
@@ -158,8 +77,6 @@ class AntaresToAtlasParameters(ParametersParser):
     use_multi_energy: bool = Field(default=False, description="Enable multi-energy modeling")
 
     # Conversion control
-    enable_standard_conversions: bool = Field(default=True, description="Enable standard conversions")
-    enable_specific_conversions: bool = Field(default=True, description="Enable specific conversions")
     conversion_steps: list[str] = Field(default_factory=list, description="Specific steps to execute (empty = all)")
 
     @field_validator("market_areas")
