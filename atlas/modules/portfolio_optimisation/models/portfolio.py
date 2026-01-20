@@ -403,7 +403,7 @@ class PortfolioPO(Portfolio):
             *self.equipments.dispatchable_load,
         ]
 
-        for equipment in other_equipment:
+        for equipment in other_equipment:  # type: ignore [assignment]
             residual_energy += self._get_upstream_energy(equipment, time, parameters)  # type:ignore [arg-type]
 
         return residual_energy
