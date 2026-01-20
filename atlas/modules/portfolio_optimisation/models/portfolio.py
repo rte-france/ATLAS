@@ -386,9 +386,9 @@ class PortfolioPO(Portfolio):
             *self.equipments.other_non_dispatchable,
         ]
 
-        for obj in forecast_based_equipment:
-            upstream_energy = self._get_upstream_energy(obj, time, parameters)
-            forecast_t = obj.maximum_power_forecast.get_forecast(
+        for equipment in forecast_based_equipment:
+            upstream_energy = self._get_upstream_energy(equipment, time, parameters)
+            forecast_t = equipment.maximum_power_forecast.get_forecast(
                 parameters.execution_date, time, time, default_value=0
             ).get_value(time)
 
