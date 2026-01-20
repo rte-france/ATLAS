@@ -1,16 +1,14 @@
 import pendulum
 
 import atlas.config as cfg
-from atlas.modules.price_forcast.price_forcast_timeseries import PriceForcastTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.modules.price_forcast.price_forcast_input_dataset import PriceForcastInputDataset
 from atlas.modules.price_forcast.price_forcast_output_dataset import PriceForcastOutputDataset
 from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
 from atlas.timing import generate_datetimes
-from atlas.math.timeseries import Timeseries
 
 
 class PriceForcastOrchestrator:
-
     def __init__(self, parameters: PriceForcastParameters, input_dataset: PriceForcastInputDataset):
         """
         :param parameters: the parameters
@@ -37,28 +35,34 @@ class PriceForcastOrchestrator:
             cfg.logger.info(str(self.parameters))
 
         index = self.define_orders_time()
-        next_to_end_date = self.parameters.end_date.add(-self.parameters.time_step)
 
-        for market_area in self.input_dataset.market_area:
-
+        for market_area in self.output_dataset.market_area:
             if self.parameters.verbose:
                 cfg.logger.info(f"Computing forecast for: {market_area.name}")
 
-            load_list = [load for load in self.output_dataset.load if load.portfolio.market_area.name == market_area.name and load.load_type == "BaseLoad"]
-            solar_list = [solar for solar in self.output_dataset.solar if solar.portfolio.market_area.name == market_area.name]
-            wind_list = [wind for wind in self.output_dataset.solar if wind.portfolio.market_area.name == market_area.name]
+            load_list = [
+                load
+                for load in self.output_dataset.load
+                if load.portfolio.market_area.name == market_area.name and load.load_type == "BaseLoad"
+            ]
+            solar_list = [
+                solar for solar in self.output_dataset.solar if solar.portfolio.market_area.name == market_area.name
+            ]
+            wind_list = [
+                wind for wind in self.output_dataset.solar if wind.portfolio.market_area.name == market_area.name
+            ]
 
             # ------ ID Price Forecast calculation ------
             # Create a time series that store the differences in price in two scenarios
             price_high = market_area.price_forecast_high.get_forecast(
                 execution_date=self.parameters.execution_date_scenarios,
                 start_date=self.parameters.start_date,
-                end_date=next_to_end_date
+                end_date=self.parameters.penultimate_date,
             )
             price_low = market_area.price_forecast_low.get_forecast(
                 execution_date=self.parameters.execution_date_scenarios,
                 start_date=self.parameters.start_date,
-                end_date=next_to_end_date
+                end_date=self.parameters.penultimate_date,
             )
             price_diff = price_high - price_low
 
@@ -69,7 +73,7 @@ class PriceForcastOrchestrator:
                 if load.power_forecast_high and load.power_forecast_low:
                     conso_diff += load.power_forecast_low - load.power_forecast_high
                 else:
-                    cfg.logger.error(f"Error, missing PowerForecast high or low for unit {load.Name}")
+                    cfg.logger.error(f"Error, missing PowerForecast high or low for unit {load.name}")
 
             # Create a time series that store the ratio between the series above
             ratio = self.generate_empty_timeseries()
@@ -82,42 +86,42 @@ class PriceForcastOrchestrator:
                 ratio.set_value(time, result_ti)
 
             # Calculation of residual consumption:
-            conso_day_ahead = PriceForcastTimeseries(self.generate_empty_timeseries())
-            conso_id = PriceForcastTimeseries(self.generate_empty_timeseries())
+            conso_day_ahead = self.generate_empty_timeseries()
+            conso_id = self.generate_empty_timeseries()
             for load in load_list:
                 conso_day_ahead -= load.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
                     start_date=self.parameters.start_date,
-                    end_date=next_to_end_date
+                    end_date=self.parameters.penultimate_date,
                 )
                 conso_id -= load.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date,
                     start_date=self.parameters.start_date,
-                    end_date=next_to_end_date
+                    end_date=self.parameters.penultimate_date,
                 )
 
             for photovoltaic in solar_list:
                 conso_day_ahead -= photovoltaic.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
                     start_date=self.parameters.start_date,
-                    end_date=next_to_end_date
+                    end_date=self.parameters.penultimate_date,
                 )
                 conso_id -= photovoltaic.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date,
                     start_date=self.parameters.start_date,
-                    end_date=next_to_end_date
+                    end_date=self.parameters.penultimate_date,
                 )
 
             for wind in wind_list:
                 conso_day_ahead -= wind.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
                     start_date=self.parameters.start_date,
-                    end_date=next_to_end_date
+                    end_date=self.parameters.penultimate_date,
                 )
                 conso_id -= wind.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date,
                     start_date=self.parameters.start_date,
-                    end_date=next_to_end_date
+                    end_date=self.parameters.penultimate_date,
                 )
 
             # The difference in consumption is stored in the following time series:
@@ -125,7 +129,7 @@ class PriceForcastOrchestrator:
             delta_conso = self.generate_empty_timeseries()
 
             for time in index:
-                err = conso_id.get_value_zero_if_empty(time) - conso_day_ahead.get_value_zero_if_empty(time)
+                err = self.get_value_zero_if_empty(conso_id, time) - self.get_value_zero_if_empty(conso_day_ahead, time)
                 delta_conso.set_value(time, err)
 
             # We can make a price forecast by summing this deltaPrice with the last established price in the MarketClearing:
@@ -134,9 +138,11 @@ class PriceForcastOrchestrator:
                 last_price = market_area.da_price
                 last_price_str = "DA price"
             else:
-                last_id_price = id_prices[len(id_prices) - 1]
-                if self.parameters.start_date not in last_id_price \
-                        or next_to_end_date not in last_id_price:
+                last_id_price = id_prices[id_prices.indexes[len(id_prices) - 1]]
+                if (
+                    self.parameters.start_date not in last_id_price
+                    or self.parameters.penultimate_date not in last_id_price
+                ):
                     last_price = market_area.da_price
                     last_price_str = "DA price"
                 else:
@@ -146,30 +152,38 @@ class PriceForcastOrchestrator:
             prev_ij = last_price + ratio * delta_conso
 
             for time in index:
-                if prev_ij.get_value(time) < 0.:
-                    prev_ij.set_value(time, 0.)
+                if prev_ij.get_value(time) < 0.0:
+                    prev_ij.set_value(time, 0.0)
 
             # Cap the price forecast to the price caps of the intraday market
             # A margin is taken around the price caps, to ensure that the ratio
             # between buy and sell offers is still meaningful
 
             # Upper cap first
-            if prev_ij.slice(self.parameters.start_date, self.parameters.end_date).max() \
-                    > self.parameters.intraday_positive_price_cap:
-                corrective_ratio = float(self.parameters.intraday_positive_price_cap
-                                         / prev_ij.slice(self.parameters.start_date, self.parameters.end_date).max())
+            if (
+                prev_ij.slice(self.parameters.start_date, self.parameters.end_date).max()
+                > self.parameters.intraday_positive_price_cap
+            ):
+                corrective_ratio = float(
+                    self.parameters.intraday_positive_price_cap
+                    / prev_ij.slice(self.parameters.start_date, self.parameters.end_date).max()
+                )
 
                 if self.parameters.verbose:
-                    cfg.logger.info(f"ID price forecasts upper capped in area {market_area.Name}")
+                    cfg.logger.info(f"ID price forecasts upper capped in area {market_area.name}")
 
                 for t in index:
                     prev_ij.set_value(t, prev_ij.get_value(t) * corrective_ratio)
 
             # Lower cap
-            if prev_ij.slice(self.parameters.start_date, self.parameters.end_date).min() \
-                    < self.parameters.intraday_negative_price_cap:
-                corrective_ratio = float(self.parameters.intraday_negative_price_cap
-                                         / prev_ij.slice(self.parameters.start_date, self.parameters.end_date).min())
+            if (
+                prev_ij.slice(self.parameters.start_date, self.parameters.end_date).min()
+                < self.parameters.intraday_negative_price_cap
+            ):
+                corrective_ratio = float(
+                    self.parameters.intraday_negative_price_cap
+                    / prev_ij.slice(self.parameters.start_date, self.parameters.end_date).min()
+                )
 
                 if self.parameters.verbose:
                     cfg.logger.info(f"ID price forecasts lower capped in area {market_area.name}")
@@ -179,8 +193,8 @@ class PriceForcastOrchestrator:
 
             # Saving the result in the Price Forecast Matrix:
             market_area.id_price_forecast.add(prev_ij, self.parameters.execution_date)
-            cfg.logger.info(f"The update of {market_area.Name} price has been done using {last_price_str}")
-            return self.output_dataset
+            cfg.logger.info(f"The update of {market_area.name} price has been done using {last_price_str}")
+        return self.output_dataset
 
     # TODO - This function is also used by module Day-Ahead-Order and maybe used by other module
     #   Can we consider making this function on a more global scale
@@ -208,5 +222,15 @@ class PriceForcastOrchestrator:
             start_date=self.parameters.start_date,
             frequency=self.parameters.time_step,
             end_date=self.parameters.end_date,
-            default_value=0
+            default_value=0,
         )
+
+    def get_value_zero_if_empty(self, timeseries: Timeseries | None, time: pendulum.DateTime | str) -> float:
+        """
+        Try to get timeseries value, if time series is empty, return 0
+        """
+        value = 0.0
+        if timeseries is not None:
+            if len(timeseries) > 0:
+                value = timeseries.get_value(time)
+        return value

@@ -1,11 +1,12 @@
+from functools import cached_property
 
-from atlas.timing import build_datetime
-from atlas.validators import convert_to_duration
 from pendulum import DateTime, duration
 from pendulum.duration import Duration
 from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.timing import build_datetime
+from atlas.validators import convert_to_duration
 
 
 class PriceForcastParameters(AbstractParameters):
@@ -30,13 +31,17 @@ class PriceForcastParameters(AbstractParameters):
         description="Time step (in minutes) of the simulated market.",
     )
     execution_date_day_ahead: DateTime = Field(
-        "2028/09/01 12:00:00",
+        default_factory=lambda: DateTime(year=2028, month=9, day=1, hour=12),
         description="Reference date from DayAhead market.",
     )
     execution_date_scenarios: DateTime = Field(
-        "2028/07/01 00:00:00",
+        default_factory=lambda: DateTime(year=2028, month=7, day=1),
         description="Reference date for the scenarios from price forecast matrix.",
     )
+
+    @cached_property
+    def penultimate_date(self) -> DateTime:
+        return self.end_date - self.time_step
 
     # FIXME Should we create a validator in validator.py that convert various type of DateTime,
     #       as we do with Duration using function convert_to_duration?

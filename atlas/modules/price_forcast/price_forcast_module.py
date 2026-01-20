@@ -1,14 +1,12 @@
-from atlas.abstract_class.abstract_module import AbstractModule
-
 from atlas import BusinessModel
-from atlas.modules.price_forcast.price_forcast_orchestrator import PriceForcastOrchestrator
+from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.price_forcast.price_forcast_input_dataset import PriceForcastInputDataset
+from atlas.modules.price_forcast.price_forcast_orchestrator import PriceForcastOrchestrator
 from atlas.modules.price_forcast.price_forcast_output_dataset import PriceForcastOutputDataset
 from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
 
-class MarketClearingModule(
-    AbstractModule[PriceForcastParameters, PriceForcastInputDataset, PriceForcastOutputDataset]
-):
+
+class MarketClearingModule(AbstractModule[PriceForcastParameters, PriceForcastInputDataset, PriceForcastOutputDataset]):
     def get_parameters_class(self):
         """Returns the concrete Parameters class for this module."""
         return PriceForcastParameters

@@ -1,8 +1,7 @@
-
-from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
-
 from typing import cast
+
 from atlas import (
+    BusinessModel,
     Load,
     MarketArea,
     Solar,
@@ -10,7 +9,7 @@ from atlas import (
 )
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME
-from atlas import BusinessModel
+from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
 
 
 class PriceForcastInputDataset(AbstractDataset[PriceForcastParameters]):
