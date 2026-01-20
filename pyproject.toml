@@ -91,8 +91,7 @@ url = "https://pypi.org/simple/"
 disable_error_code = ["operator"]
 [[tool.mypy.overrides]]
 module = ["atlas.solver.solver_interface",
-          "atlas.solver.solver_helper",
-          "atlas.modules.portfolio_optimisation.utils.manual_activation"]
+          "atlas.solver.solver_helper"]
 ignore_errors = true
 
 [tool.coverage.run]

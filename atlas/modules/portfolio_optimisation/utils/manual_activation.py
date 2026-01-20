@@ -4,6 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from datetime import datetime
 from typing import cast
 
 from pendulum import DateTime
@@ -48,7 +49,7 @@ def set_manual_activation(equipments: list[EquipmentPO], parameters: PortfolioOp
         _finalize_power_update(equipment, new_power, parameters)
 
 
-def is_excluded_technology(excluded_technologies: list[str], equipment: type[Equipment]) -> bool:
+def is_excluded_technology(excluded_technologies: list[str], equipment: EquipmentPO) -> bool:
     """
     Check if equipment technology is excluded.
 
@@ -57,7 +58,7 @@ def is_excluded_technology(excluded_technologies: list[str], equipment: type[Equ
     :param excluded_technologies: List of technologies to exclude
     :type excluded_technologies: list[str]
     :param equipment: Equipment instance
-    :type equipment: type[Equipment]
+    :type equipment: EquipmentPO
     :return: True if equipment is excluded
     :rtype: bool
     """
@@ -118,47 +119,57 @@ def is_excluded_market_area(use_forecast: bool, excluded_market_areas: list[str]
 
 
 def should_manually_activate(
-    equipment: type[Equipment],
+    equipment: EquipmentPO,
     excluded_technologies: list[str],
-    excluded_thermal_strategies: list[ThermalStrategy] | ThermalPO,
+    excluded_thermal_strategies: list[ThermalStrategy],
 ) -> bool:
     """
     Determine if equipment should be manually activated.
 
     :param equipment: Equipment instance
-    :type equipment: type[Equipment]
+    :type equipment: EquipmentPO
     :param excluded_technologies: List of technologies to exclude
     :type excluded_technologies: list[str]
     :param excluded_thermal_strategies: List of thermal strategies to exclude
-    :type excluded_thermal_strategies: list[ThermalStrategy] | ThermalPO
+    :type excluded_thermal_strategies: list[ThermalStrategy]
     :return: True if equipment should be manually activated
     :rtype: bool
     """
+    if not isinstance(equipment, ThermalPO):
+        return is_excluded_technology(excluded_technologies, equipment)
     return is_excluded_technology(excluded_technologies, equipment) or is_excluded_thermal_strategy(
         excluded_thermal_strategies, equipment
     )
 
 
-def _calculate_new_power(equipment: type[Equipment], parameters: PortfolioOptimisationParameters) -> Timeseries:
+def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisationParameters) -> Timeseries:
     """
     Calculate new power based on market type.
 
     :param equipment: Equipment instance
-    :type equipment: type[Equipment]
+    :type equipment: EquipmentPO
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
     :return: New power timeseries
     :rtype: Timeseries
     """
     if parameters.market == MarketType.dayahead:
-        return cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times)
+        filtered = cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(
+            parameters.target_times, inplace=False
+        )
+        return cast(Timeseries, filtered)
 
     elif parameters.market == MarketType.intraday:
-        da_power = cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times)
-        id_power = cast(Timeseries | LazyTimeseries, equipment.total_id_cleared_quantity).filter(
-            parameters.target_times
+        da_power = cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(
+            parameters.target_times, inplace=False
         )
-        return da_power + id_power
+        id_power = cast(Timeseries | LazyTimeseries, equipment.total_id_cleared_quantity).filter(
+            parameters.target_times, inplace=False
+        )
+        result = da_power + id_power
+        return cast(Timeseries, result)
+
+    raise ValueError(f"Unsupported market type: {parameters.market}")
 
 
 def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimisationParameters):
@@ -173,26 +184,28 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
     :rtype: Timeseries
     """
     if parameters.market == MarketType.dayahead:
-        return cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times)
+        return cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(
+            parameters.target_times, inplace=False
+        )
 
     elif parameters.market == MarketType.intraday:
         return (
             cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_cleared_quantity)
             .get_forecast(parameters.execution_date, parameters.start_date, parameters.end_date)
-            .filter(parameters.target_times)
+            .filter(parameters.target_times, inplace=False)
         )
 
 
 def _should_skip_equipment(
-    equipment: type[Equipment],
+    equipment: EquipmentPO,
     activated_power: Timeseries,
     parameters: PortfolioOptimisationParameters,
-):
+) -> bool:
     """
     Check if equipment should be skipped due to zero activation.
 
     :param equipment: Equipment instance
-    :type equipment: type[Equipment]
+    :type equipment: EquipmentPO
     :param activated_power: Activated power timeseries
     :type activated_power: Timeseries
     :param parameters: Optimization parameters
@@ -214,13 +227,13 @@ def _should_skip_equipment(
 
 
 def _apply_power_constraints(
-    equipment: type[Equipment], new_power: Timeseries, parameters: PortfolioOptimisationParameters
-):
+    equipment: EquipmentPO, new_power: Timeseries, parameters: PortfolioOptimisationParameters
+) -> None:
     """
     Apply power constraints based on equipment type.
 
     :param equipment: Equipment instance
-    :type equipment: type[Equipment]
+    :type equipment: EquipmentPO
     :param new_power: New power timeseries
     :type new_power: Timeseries
     :param parameters: Optimization parameters
@@ -229,7 +242,7 @@ def _apply_power_constraints(
     :rtype: None
     """
     # Preload maximum power forecast for certain equipment types
-    max_power_forecast = None
+    max_power_forecast: Timeseries | LazyTimeseries | None = None
     if isinstance(equipment, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
         max_power_forecast = equipment.maximum_power_forecast.get_forecast(
             parameters.execution_date, parameters.start_date, parameters.end_date
@@ -252,44 +265,60 @@ def _apply_power_constraints(
                 new_power.set_value(time, min_power)
 
 
-def _get_max_power(equipment: type[Equipment], time: DateTime, max_power_forecast: Timeseries | LazyTimeseries):
+def _get_max_power(
+    equipment: EquipmentPO, time: DateTime | datetime, max_power_forecast: Timeseries | LazyTimeseries | None
+) -> float:
     """
     Get maximum power limit for equipment at given time.
 
     :param equipment: Equipment instance
-    :type equipment: type[Equipment]
+    :type equipment: EquipmentPO
     :param time: Current time
     :type time: DateTime
     :param max_power_forecast: Maximum power forecast timeseries
-    :type max_power_forecast: Timeseries | LazyTimeseries
+    :type max_power_forecast: Timeseries | LazyTimeseries | None
     :return: Maximum power limit
     :rtype: float
     """
     if isinstance(equipment, LoadPO):
         return 0
     elif isinstance(equipment, WindPO | SolarPO | OtherNonDispatchablePO):
+        if max_power_forecast is None:
+            return 0
         return max_power_forecast.get_value(time)
     else:
-        return equipment.maximum_power.get_value(time)
+        if hasattr(equipment, "maximum_power") and equipment.maximum_power and time in equipment.maximum_power:
+            return equipment.maximum_power.get_value(time)
+        return 0
 
 
-def _get_min_power(equipment, time, max_power_forecast: Timeseries | LazyTimeseries, max_power) -> float:
+def _get_min_power(
+    equipment: EquipmentPO,
+    time: DateTime | datetime,
+    max_power_forecast: Timeseries | LazyTimeseries | None,
+    max_power: float,
+) -> float:
     """
     Get minimum power limit for equipment at given time.
 
     :param equipment: Equipment instance
+    :type equipment: EquipmentPO
     :param time: Current time
     :type time: DateTime
     :param max_power_forecast: Maximum power forecast timeseries
-    :type max_power_forecast: Timeseries | LazyTimeseries
+    :type max_power_forecast: Timeseries | LazyTimeseries | None
     :param max_power: Maximum power value
     :type max_power: float
     :return: Minimum power limit
     :rtype: float
     """
     if isinstance(equipment, LoadPO):
+        if max_power_forecast is None:
+            return 0
         return max_power_forecast.get_value(time)
     elif isinstance(equipment, WindPO | SolarPO):
+        if max_power_forecast is None:
+            return 0
         curtailment_ratio = equipment.maximum_curtailment_ratio.get_value(time)
         return max_power_forecast.get_value(time) * (1 - curtailment_ratio)
     elif isinstance(equipment, StoragePO | HydroPO):
@@ -322,8 +351,8 @@ def _get_energy_bounds(obj: HydroPO | StoragePO, time: DateTime):
 
 
 def _update_stored_energy(
-    equipment: HydroPO | StoragePO, new_power: Timeseries | LazyTimeseries, parameters: PortfolioOptimisationParameters
-):
+    equipment: HydroPO | StoragePO, new_power: Timeseries, parameters: PortfolioOptimisationParameters
+) -> None:
     """
     Update stored energy for storage and hydraulic equipment.
 
@@ -369,14 +398,14 @@ def _update_stored_energy(
     )
 
     # Update equipment stored energy
-    if not parameters.use_forecast:
-        stored_energy_matrix = equipment.stored_energy if equipment.stored_energy else ForecastingMatrix()
+    if not parameters.use_forecast and equipment.stored_energy:
+        stored_energy_matrix = equipment.stored_energy
         if parameters.execution_date in stored_energy_matrix:
-            equipment.stored_energy.delete(parameters.execution_date)
-        equipment.stored_energy.add(new_stored_energy, parameters.execution_date)
+            stored_energy_matrix.delete(parameters.execution_date)
+        stored_energy_matrix.add(new_stored_energy, parameters.execution_date)
 
 
-def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: PortfolioOptimisationParameters):
+def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: PortfolioOptimisationParameters) -> float:
     """
     Get initial stored energy level for equipment.
 
@@ -411,10 +440,10 @@ def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: Portf
 def _calculate_new_energy_value(
     equipment: StoragePO | HydroPO,
     time: DateTime,
-    previous_energy,
+    previous_energy: float,
     new_power: Timeseries | LazyTimeseries,
     parameters: PortfolioOptimisationParameters,
-):
+) -> float:
     """
     Calculate new energy value based on power and efficiency.
 
@@ -431,7 +460,7 @@ def _calculate_new_energy_value(
     :rtype: float
     """
     power_value = new_power.get_value(time)
-    time_factor = parameters.timestep
+    time_factor_hours = parameters.timestep.in_hours()
 
     if isinstance(equipment, StoragePO):
         if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
@@ -446,13 +475,18 @@ def _calculate_new_energy_value(
         else:  # Charging
             efficiency = equipment.charge_efficiency
 
-        return previous_energy - power_value * time_factor * efficiency
+        return previous_energy - power_value * time_factor_hours * efficiency
 
     else:
-        return previous_energy - power_value * time_factor
+        return previous_energy - power_value * time_factor_hours
 
 
-def _apply_energy_bounds(energy_value, bounds, time, parameters):
+def _apply_energy_bounds(
+    energy_value: float,
+    bounds: tuple[float, float],
+    time: DateTime,
+    parameters: PortfolioOptimisationParameters,
+) -> tuple[float, float]:
     """
     Apply energy bounds and return corrected value and correction amount.
 
@@ -464,27 +498,30 @@ def _apply_energy_bounds(energy_value, bounds, time, parameters):
     :rtype: tuple[float, float]
     """
     min_energy, max_energy = bounds
+    timestep_hours = parameters.timestep.total_hours()
 
     if energy_value > max_energy:
-        correction = (max_energy - energy_value) * parameters.timestep
+        correction = (max_energy - energy_value) * timestep_hours
         return max_energy, correction
     elif energy_value < min_energy:
-        correction = (min_energy - energy_value) * parameters.timestep
+        correction = (min_energy - energy_value) * timestep_hours
         return min_energy, correction
     else:
-        return energy_value, 0
+        return energy_value, 0.0
 
 
-def _apply_power_corrections(equipment: type[Equipment], new_power: Timeseries, corrections: dict):
+def _apply_power_corrections(
+    equipment: HydroPO | StoragePO, new_power: Timeseries, corrections: dict[DateTime, float]
+) -> None:
     """
     Apply power corrections based on energy bound violations.
 
     :param equipment: Equipment instance
-    :type equipment: type[Equipment]
+    :type equipment: HydroPO | StoragePO
     :param new_power: New power timeseries
     :type new_power: Timeseries
     :param corrections: Dictionary of time -> correction pairs
-    :type corrections: dict
+    :type corrections: dict[DateTime, float]
     :return: None
     :rtype: None
     """
@@ -503,13 +540,13 @@ def _apply_power_corrections(equipment: type[Equipment], new_power: Timeseries, 
 
 
 def _finalize_power_update(
-    equipment: type[Equipment], new_power: Timeseries, parameters: PortfolioOptimisationParameters
-):
+    equipment: EquipmentPO, new_power: Timeseries, parameters: PortfolioOptimisationParameters
+) -> None:
     """
     Finalize power update by adding extra timestep and updating equipment.
 
     :param equipment: Equipment instance
-    :type equipment: type[Equipment]
+    :type equipment: EquipmentPO
     :param new_power: New power timeseries
     :type new_power: Timeseries
     :param parameters: Optimization parameters
@@ -519,16 +556,18 @@ def _finalize_power_update(
     """
     # Add extra timestep for interpolation
     next_time = parameters.end_date + parameters.timestep
-    next_power_value = equipment.power.get_forecast(parameters.execution_date, next_time, next_time).get_value(
-        next_time
-    )
-    new_power.set_value(next_time, next_power_value)
+    if equipment.power:
+        next_power_value = equipment.power.get_forecast(parameters.execution_date, next_time, next_time).get_value(
+            next_time
+        )
+        new_power.set_value(next_time, next_power_value)
 
     # Update equipment power
     if parameters.use_forecast:
-        cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_po_for_orders).add(
-            new_power, parameters.execution_date
-        )
+        if equipment.id_po_for_orders:
+            cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_po_for_orders).add(
+                new_power, parameters.execution_date
+            )
     else:
         if equipment.power:
             equipment.power.replace(
