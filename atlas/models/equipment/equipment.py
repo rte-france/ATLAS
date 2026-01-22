@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field
+from pydantic import Field, field_serializer
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -13,6 +13,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
+from atlas.validators import serializer_business_model
 
 
 class Equipment(BusinessModel):
@@ -109,7 +110,7 @@ class Equipment(BusinessModel):
 
     node: Node | None = Field(None, description="Class Business model Node")
     portfolio: Portfolio | None = Field(None, description="Class Business model Portfolio")
-    coe2_emission_factor: float | None = Field(None, description="COE2 emission factor")
+    co2_emission_factor: float | None = Field(None, description="COE2 emission factor")
     has_daily_energy_constraint: bool | None = None
     maximum_afrr: float | None = None
     maximum_fcr: float | None = None
@@ -118,7 +119,6 @@ class Equipment(BusinessModel):
     unit_count: int | None = Field(None, ge=0, description="Unit count (must be positive)")
     afrr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     afrr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
-    co2_emission_factor: float | None = Field(None, ge=0)
     co2_emissions: ForecastingMatrix | LazyForecastingMatrix | None = None
     fcr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     fcr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
@@ -149,3 +149,8 @@ class Equipment(BusinessModel):
     total_id_cleared_quantity: Timeseries | LazyTimeseries | None = None
     total_id_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
     variable_cost: Timeseries | LazyTimeseries | None = None
+
+    @field_serializer("node", "portfolio", mode="plain")
+    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
+        """Serialize BusinessModel attributes to string."""
+        return serializer_business_model(value)
