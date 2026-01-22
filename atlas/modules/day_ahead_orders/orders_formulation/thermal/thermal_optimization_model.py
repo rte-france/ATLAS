@@ -100,11 +100,6 @@ class ThermalOptimizationModel(OptimisationModel):
             options=solver_options,
         )
         self.parameters: DayAheadOrdersParameters = parameters
-        if self.solver_name != SolverEnum.XPRESS:
-            # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
-            raise ValueError(
-                "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
-            )
         # Quick sanity check on the class of the equipment supplied as input.
         if not isinstance(thermal_unit, Thermal):
             cfg.logger.error(f"Equipement {thermal_unit.name} is not of type thermic.")
@@ -710,6 +705,12 @@ class ThermalOptimizationModel(OptimisationModel):
                     (i.e. [start_date, end_optimization_date]).
         :rtype: dict[str, Timeseries]
         """
+        if self.solver_name != SolverEnum.XPRESS:
+            # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
+            cfg.logger.warning(
+                "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
+            )
+
         if self.parameters.debug:
             lp_file_name = os.path.join(
                 self.parameters.output_folder, f"{self.thermal_unit.name}_price_{self.price_type}.lp"

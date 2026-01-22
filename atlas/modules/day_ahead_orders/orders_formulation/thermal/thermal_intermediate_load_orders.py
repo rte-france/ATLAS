@@ -347,8 +347,8 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         """
         Solves the optimization programs for a list of equipment given the three price curves.
 
-        :param equiment_list: a list of thermal equipments
-        :type equiment_list: list[ThermalDAO]
+        :param equipments_list: a list of thermal equipments
+        :type equipments_list: list[ThermalDAO]
         :return: a two stage dictionary containing for each equipment the optimal quantities given a price curve.
         :rtype: dict[str, dict[str, dict[str, Timeseries]]]
         """

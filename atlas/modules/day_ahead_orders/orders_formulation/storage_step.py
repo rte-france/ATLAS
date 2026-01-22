@@ -209,7 +209,7 @@ class StorageStep:
         model.create_constraints(initial_stock)
 
         # Solving the problem
-        model.solve_with_xpress()
+        model.solve_model()
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [StartDate, EndDate]
@@ -267,7 +267,7 @@ class StorageStep:
         model.create_constraints(initial_stock, power_fragments)
 
         # Solving the problem
-        model.solve_with_xpress()
+        model.solve_model()
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [StartDate, EndDate]

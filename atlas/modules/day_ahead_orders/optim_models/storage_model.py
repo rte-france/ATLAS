@@ -159,14 +159,14 @@ class StorageModel(OptimisationModel):
                 )
             )
 
-    def solve_with_xpress(self) -> None:
+    def solve_model(self) -> None:
         """
-        Solve the optimization problem using Xpress
+        Solve the optimization problem
         :return: None
         """
         if self.solver_name != SolverEnum.XPRESS:
             # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
-            raise ValueError(
+            cfg.logger.warning(
                 "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
             )
 
