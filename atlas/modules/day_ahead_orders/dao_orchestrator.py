@@ -5,8 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import pendulum
-
 import atlas.config as cfg
 from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
@@ -45,7 +43,9 @@ class DayAheadOrdersOrchestrator:
 
         # Create the sequence of orders times. In particular, this sequence is such that the endDate of the last order will be before
         # the endDate of the overall time frame.
-        orders_time = self.define_orders_time()
+        orders_time = generate_datetimes(
+            self.parameters.start_date, self.parameters.penultimate_date, self.parameters.time_step
+        )
         if len(orders_time) > 0:
             cfg.logger.info("Extraction completed, now starting the formulation of orders...")
 
@@ -86,17 +86,3 @@ class DayAheadOrdersOrchestrator:
             cfg.logger.error("orders_time is empty.")
 
         return self.output_dataset
-
-    def define_orders_time(self) -> list[pendulum.DateTime]:
-        """
-        This function creates a sequence of timestamps between a start_date and a end_date
-        with frequency matching the time_step parameter.
-        In particular, it makes sure that no time step crosses the end_date boundary.
-
-        :return: a list of DateTime objects
-        :rtype: list[DateTime]
-        """
-        orders_time = generate_datetimes(
-            self.parameters.start_date, self.parameters.penultimate_date, self.parameters.time_step
-        )
-        return orders_time
