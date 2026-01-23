@@ -116,6 +116,17 @@ class OrderMC(Order):
             )
             return False
 
+        if order.market_area is None:
+            logger.info(f"Order {order.name} is not considered because there is no market area")
+            return False
+
+        # Check if order is in a market area considered
+        if order.market_area.name not in parameters.market_area_names:
+            logger.info(
+                f"Order {order.name} is not considered because not in market area considered : {parameters.market_area_names}"
+            )
+            return False
+
         return True
 
     # Useful for pricing only

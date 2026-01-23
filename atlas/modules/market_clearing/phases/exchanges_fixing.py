@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 
 import atlas.modules.market_clearing.market_clearing_constants as constants
