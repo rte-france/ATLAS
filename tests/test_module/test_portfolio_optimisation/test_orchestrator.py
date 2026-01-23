@@ -4,6 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pendulum
@@ -210,7 +211,7 @@ class TestOptimiseSinglePortfolio:
         optimise_single_portfolio(test_portfolio, time_window, mock_parameters)
 
         # Verify LP export was called
-        mock_model.export_model.assert_called_once_with("/tmp/lp_export/po_test_portfolio.lp")
+        mock_model.export_model.assert_called_once_with(Path("/tmp/lp_export/po_test_portfolio.lp"))
 
     @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioOptimisationModel")
     def test_lp_export_when_disabled(self, mock_model_class, mock_portfolio, mock_parameters, time_window):
