@@ -9,7 +9,7 @@ from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enum import Enum, Product, SolverEnum
-from atlas.validators import minutes_validator
+from atlas.validators import convert_to_duration
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -217,6 +217,32 @@ class MarketClearingParameters(AbstractParameters):
 
     @field_validator("time_step", mode="before")
     @classmethod
-    def convert_minutes_to_duration(cls, v):
+    def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""
-        return minutes_validator(v)
+        return convert_to_duration(v)
+
+    @field_validator("market_area_names", mode="before")
+    @classmethod
+    def parse_market_area_names(cls, v):
+        # case default
+        if v == "All":
+            return v
+
+        # already a list
+        if isinstance(v, list):
+            return v
+
+        # string like "[es, fr]"
+        if isinstance(v, str):
+            v = v.strip()
+
+            if not (v.startswith("[") and v.endswith("]")):
+                raise ValueError("market_area_names must be 'All' or a list like [es, fr]")
+
+            content = v[1:-1].strip()
+            if not content:
+                return []
+
+            return [item.strip() for item in content.split(",")]
+
+        raise ValueError("Invalid value for market_area_names")

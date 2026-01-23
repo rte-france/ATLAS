@@ -1,5 +1,7 @@
 import json
 import os
+from pathlib import Path
+from typing import Any
 
 import pendulum
 
@@ -44,21 +46,23 @@ class Pricing(OptimisationModel):
     def run(self):
         self.build_first()
         solver_info = self.solve()
+        output_path = Path(self.parameters.output_path)
         if self.parameters.export_lp:
-            self.export_model(os.path.join(self.parameters.output_path, "pricing_1_model.lp"))
+            output_path.mkdir(parents=True, exist_ok=True)
+            self.export_model(str(output_path / "pricing_1_model.lp"))
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_second()
             solver_info = self.solve()
             if self.parameters.export_lp:
-                self.export_model(os.path.join(self.parameters.output_path, "pricing_2_model.lp"))
+                self.export_model(str(output_path / "pricing_2_model.lp"))
 
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_third()
             _ = self.solve()
             if self.parameters.export_lp:
-                self.export_model(os.path.join(self.parameters.output_path, "pricing_3_model.lp"))
+                self.export_model(str(output_path / "pricing_3_model.lp"))
         if self.parameters.export_lp:
-            with open(os.path.join(self.parameters.output_path, "pricing_market_prices.json"), "w") as f:
+            with open(output_path / "pricing_market_prices.json", "w") as f:
                 json.dump(
                     [
                         [market_area_name, time_index, val]

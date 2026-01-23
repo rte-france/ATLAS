@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import atlas.modules.market_clearing.market_clearing_constants as constants
 from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
@@ -19,9 +20,11 @@ class ExchangesFixing(OptimisationModel):
         self.build(clearing_local_balances)
         self.solve()
         if self.parameters.export_lp:
-            self.export_model(os.path.join(self.parameters.output_path, "exchanges_fixing_model.lp"))
+            output_path = Path(self.parameters.output_path)
+            output_path.mkdir(parents=True, exist_ok=True)
+            self.export_model(str(output_path / "exchanges_fixing_model.lp"))
 
-            with open(os.path.join(self.parameters.output_path, "exchanges_fixing_border_exchanges.json"), "w") as f:
+            with open(output_path / "exchanges_fixing_border_exchanges.json", "w") as f:
                 json.dump(
                     [[b, time_index, val] for (b, time_index), val in self.retrieve_border_exchanges().items()], f
                 )

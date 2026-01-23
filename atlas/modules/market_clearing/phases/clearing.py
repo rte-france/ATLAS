@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import json
-import os
+from pathlib import Path
 
 from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
 
@@ -42,12 +42,14 @@ class Clearing(OptimisationModel):
         self.build()
         self.solve()
         if self.parameters.export_lp:
-            self.export_model(os.path.join(self.parameters.output_path, "clearing_model.lp"))
-            with open(os.path.join(self.parameters.output_path, "clearing_accepted_powers.json"), "w") as f:
+            output_path = Path(self.parameters.output_path)
+            output_path.mkdir(parents=True, exist_ok=True)
+            self.export_model(str(output_path / "clearing_model.lp"))
+            with open(output_path / "clearing_accepted_powers.json", "w") as f:
                 json.dump([[ma, o, val] for (ma, o), val in self.retrieve_accepted_powers().items()], f)
-            with open(os.path.join(self.parameters.output_path, "clearing_local_balances.json"), "w") as f:
+            with open(output_path / "clearing_local_balances.json", "w") as f:
                 json.dump([[ma, t, val] for (ma, t), val in self.retrieve_local_balances().items()], f)
-            with open(os.path.join(self.parameters.output_path, "clearing_saturated_critical_branches.json"), "w") as f:
+            with open(output_path / "clearing_saturated_critical_branches.json", "w") as f:
                 json.dump(
                     [
                         [cb, time_index, val]

@@ -6,8 +6,6 @@ This file is part of the ATLAS project.
 
 import argparse
 
-import yaml
-
 from atlas.io_utils.input_loader import InputLoader
 from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
 
@@ -21,9 +19,7 @@ if __name__ == "__main__":
 
     raw_data_path = args.data
     raw_params_path = args.parameters
-    with open(raw_params_path) as r:
-        raw_params = yaml.safe_load(r)
 
     mc_module = MarketClearingModule()
     raw_data = InputLoader.from_directory(raw_data_path)
-    mc_module.run(raw_data, raw_params)
+    mc_module.run(raw_data, raw_params_path)

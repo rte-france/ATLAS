@@ -8,6 +8,7 @@ This file is part of the ATLAS project.
 import re
 from collections import OrderedDict
 from pathlib import Path
+from typing import Any
 
 from ortools.linear_solver import pywraplp
 
@@ -1394,3 +1395,16 @@ class SolverHelper:
             new_line = pattern_underscore.sub(r"\3_\2_\1_\4_\5_\6_00_00", new_line)
             lines.append(new_line + "\n")
         return lines
+
+    @staticmethod
+    def deactivate_constraint(constraint: Any):
+        """
+        Deactivate a constraint by setting its bounds to (-inf, +inf)
+
+        :param constraint: OrTools Constraint. The constraint  to deactivate
+        :return: The deactivated constraint
+        """
+        if constraint is None:
+            return
+        constraint.SetBounds(float("-inf"), float("inf"))
+        return constraint

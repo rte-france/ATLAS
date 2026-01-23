@@ -40,7 +40,24 @@ class MarketClearingResults:
             self.export_borders_data()
 
     def export_offers(self):
-        offers = None
+        offers = pl.DataFrame(
+            schema={
+                "Name": pl.Utf8,
+                "IsAgentTSO": pl.Boolean,
+                "Equipment": pl.Utf8,
+                "MarketArea": pl.Utf8,
+                "StartDate": pl.Datetime(time_zone="UTC"),
+                "EndDate": pl.Datetime(time_zone="UTC"),
+                "ExecutionDate": pl.Datetime(time_zone="UTC"),
+                "OrderType": pl.Utf8,
+                "isSell": pl.Boolean,
+                "Product": pl.Utf8,
+                "Qmin": pl.Float64,
+                "Qmax": pl.Float64,
+                "Price": pl.Float64,
+                "AcceptedPower": pl.Float64,
+            }
+        )
         for order_name, mc_order in self.input_dataset.mc_orders.items():
             order_dict = {
                 "Name": order_name,
@@ -62,7 +79,7 @@ class MarketClearingResults:
             if offers is None:
                 offers = offer
             else:
-                offers.extend(offer)
+                offers.extend(offer.cast(offers.schema))
         offers.write_csv(Path(self.parameters.output_path) / "offers.csv")
 
     def export_market_areas_data(self):
@@ -97,7 +114,7 @@ class MarketClearingResults:
                     else 0,
                 }
                 market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                market_areas_data.extend(market_area_data)
+                market_areas_data.extend(market_area_data.cast(market_areas_data.schema))
 
         return market_areas_data
 
@@ -143,7 +160,7 @@ class MarketClearingResults:
                     "TotalIDBalance": id_balance,
                 }
                 market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                market_areas_data.extend(market_area_data)
+                market_areas_data.extend(market_area_data.cast(market_areas_data.schema))
         return market_areas_data
 
     def create_rr_market_areas_data(self) -> pl.DataFrame:
@@ -168,7 +185,7 @@ class MarketClearingResults:
                     else 0,
                 }
                 market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                market_areas_data.extend(market_area_data)
+                market_areas_data.extend(market_area_data.cast(market_areas_data.schema))
         return market_areas_data
 
     def create_mfrr_market_areas_data(self) -> pl.DataFrame:
@@ -193,7 +210,7 @@ class MarketClearingResults:
                     else 0,
                 }
                 market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                market_areas_data.extend(market_area_data)
+                market_areas_data.extend(market_area_data.cast(market_areas_data.schema))
         return market_areas_data
 
     def export_couplings_data(self):
@@ -211,7 +228,7 @@ class MarketClearingResults:
                 "OrderList": ":".join([order.name for order in mc_order_coupling.orders]),
             }
             coupling_data = pl.DataFrame({k: [v] for k, v in coupling_dict.items()})
-            couplings_data.extend(coupling_data)
+            couplings_data.extend(coupling_data.cast(couplings_data.schema))
         couplings_data.write_csv(Path(self.parameters.output_path) / "coupling_data.csv")
 
     def export_borders_data(self):
@@ -255,7 +272,7 @@ class MarketClearingResults:
                     "DAFlow": mc_market_border.da_flow.get_value(time) if mc_market_border.da_flow is not None else 0,
                 }
                 market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                market_borders_data.extend(market_border_data)
+                market_borders_data.extend(market_border_data.cast(market_borders_data.schema))
         return market_borders_data
 
     def create_intraday_borders_data(self) -> pl.DataFrame:
@@ -290,7 +307,7 @@ class MarketClearingResults:
                     else 0,
                 }
                 market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                market_borders_data.extend(market_border_data)
+                market_borders_data.extend(market_border_data.cast(market_borders_data.schema))
         return market_borders_data
 
     def create_rr_borders_data(self) -> pl.DataFrame:
@@ -328,7 +345,7 @@ class MarketClearingResults:
                     else 0,
                 }
                 market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                market_borders_data.extend(market_border_data)
+                market_borders_data.extend(market_border_data.cast(market_borders_data.schema))
         return market_borders_data
 
     def create_mfrr_borders_data(self) -> pl.DataFrame:
@@ -371,5 +388,5 @@ class MarketClearingResults:
                     else 0,
                 }
                 market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                market_borders_data.extend(market_border_data)
+                market_borders_data.extend(market_border_data.cast(market_borders_data.schema))
         return market_borders_data
