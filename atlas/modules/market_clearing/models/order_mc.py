@@ -121,7 +121,10 @@ class OrderMC(Order):
             return False
 
         # Check if order is in a market area considered
-        if order.market_area.name not in parameters.market_area_names:
+        if (
+            isinstance(parameters.market_area_names, list)
+            and order.market_area.name not in parameters.market_area_names
+        ):
             logger.info(
                 f"Order {order.name} is not considered because not in market area considered : {parameters.market_area_names}"
             )

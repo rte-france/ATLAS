@@ -203,16 +203,17 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
     def get_market_borders(self, market_borders: list[MarketBorder]) -> dict[str, MarketBorderMC]:
         mc_market_borders = {}
         for market_border in market_borders:
-            if (
-                market_border.uphill_market_area is None
-                or market_border.uphill_market_area.name not in self.parameters.market_area_names
-            ):
-                continue
-            if (
-                market_border.downhill_market_area is None
-                or market_border.downhill_market_area.name not in self.parameters.market_area_names
-            ):
-                continue
+            if self.parameters.market_area_names != "All":
+                if (
+                    market_border.uphill_market_area is None
+                    or market_border.uphill_market_area.name not in self.parameters.market_area_names
+                ):
+                    continue
+                if (
+                    market_border.downhill_market_area is None
+                    or market_border.downhill_market_area.name not in self.parameters.market_area_names
+                ):
+                    continue
             market_border_dump = {
                 **MarketClearingInputDataset.shallow_dump(market_border),
                 "time_step": self.parameters.time_step,
