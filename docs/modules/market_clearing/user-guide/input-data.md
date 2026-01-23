@@ -11,7 +11,6 @@ These parameters are inherited from `AbstractParameters`:
 - **`start_date`** (DateTime): Start of the optimization period
 - **`end_date`** (DateTime): End of the optimization period
 - **`execution_date`** (DateTime): Date when the optimization is executed
-- **`export_result`** (bool): Whether to export results
 
 # Market Clearing – Parameters
 
@@ -124,15 +123,16 @@ This document describes all configuration parameters available for the **Market 
 
 * **`output_dataset_path`** (`str | None`, default: `None`): Path where the market clearing output dataset is exported.
 
-* **`csv_output_path`** (`str | None`, default: `None`): Path where CSV output files are exported.
+* **`output_path`** (`str`, default: `""`): Path where the market clearing outputs are exported (csv and lp).
+
+* **`export_csv`** (`boolean`, default: `False`): True if output csv files are exported else False .
 
   * Includes offers, market areas, order couplings, and market borders
-
 ---
 ## Example Configuration
 
 ```yml
-time_step: 60
+time_step: "60m"
 start_date:  "2028-09-27 00:00:00"
 end_date: "2028-09-28 00:00:00"
 execution_date: "2028-09-26 12:00:00"
@@ -154,11 +154,11 @@ solver: "XPRESS"
 use_presolve: True
 log_level: "DEBUG"
 product: "DayAhead"
-print_lp: False
+export_lp: True
+export_csv: True
 allowed_round_off_error: 1e-3
 execution_datetime_tolerance: 5
-input_marker_path: "path/to/marker/folder"
-output_marker_path: "path/to/marker/folder"
+output_path: ""
 ```
 
 ## Next Steps
