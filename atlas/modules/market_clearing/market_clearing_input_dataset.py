@@ -42,24 +42,30 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
 
-        order_couplings = [cast(OrderCoupling, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[OrderCoupling]]]
+        order_couplings = [
+            cast(OrderCoupling, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[OrderCoupling], [])
+        ]
         self.mc_order_couplings = self.get_order_couplings(order_couplings)
-        orders = [cast(Order, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[Order]]]
+        orders = [cast(Order, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[Order], [])]
         self.mc_orders = self.get_orders(orders, self.mc_order_couplings)
-        market_areas = [cast(MarketArea, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketArea]]]
+        market_areas = [cast(MarketArea, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[MarketArea], [])]
         self.mc_market_areas = self.get_market_areas(market_areas, self.mc_orders)
-        market_borders = [cast(MarketBorder, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketBorder]]]
+        market_borders = [
+            cast(MarketBorder, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[MarketBorder], [])
+        ]
         self.mc_market_borders = self.get_market_borders(market_borders)
-        control_blocks = [cast(ControlBlock, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[ControlBlock]]]
+        control_blocks = [
+            cast(ControlBlock, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[ControlBlock], [])
+        ]
         self.mc_control_blocks = self.get_control_blocks(control_blocks)
 
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
             critical_branches = [
-                cast(CriticalBranch, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[CriticalBranch]]
+                cast(CriticalBranch, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[CriticalBranch], [])
             ]
             self.mc_critical_branches = self.get_critical_branches(critical_branches)
             market_area_ptdfs = [
-                cast(MarketAreaPtdf, obj) for obj in raw_data[INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf]]
+                cast(MarketAreaPtdf, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf], [])
             ]
             self.mc_market_area_ptdfs = self.get_market_area_ptdfs(market_area_ptdfs)
         else:
