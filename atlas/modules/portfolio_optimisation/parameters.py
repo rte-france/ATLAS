@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from os import getcwd
+from pathlib import Path
 
 from pendulum import DateTime, duration
 from pydantic import Field, field_validator
@@ -22,8 +23,8 @@ class PortfolioOptimisationParameters(AbstractParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
     export_lp: bool = Field(False, description="Boolean indicating if the LP model should be exported to a file.")
-    export_lp_path: str = Field(
-        lambda: getcwd(),  # type: ignore[assignment]
+    export_lp_path: Path = Field(
+        lambda: Path(getcwd()),  # type: ignore[assignment]
         description="Directory path where LP files will be exported if export_lp is True.",
     )
     is_portfolio_bidding: bool = Field(
