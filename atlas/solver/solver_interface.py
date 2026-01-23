@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 Module that implements OR-Tools optimisation interface.
 """
 
+from pathlib import Path
 from typing import Any, Literal
 
 from ortools.linear_solver import pywraplp
@@ -437,7 +438,7 @@ class OptimisationModel:
         slack_value = constraint.ub() - sum_coeff if constraint.ub() != float("inf") else constraint.lb() - sum_coeff
         return slack_value
 
-    def export_model(self, filename: str) -> None:
+    def export_model(self, filename: str | Path) -> None:
         """
         Export the model to a file.
 
