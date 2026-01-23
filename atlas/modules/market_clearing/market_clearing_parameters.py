@@ -221,7 +221,7 @@ class MarketClearingParameters(AbstractParameters):
         """Convert various duration formats to Duration objects."""
         return convert_to_duration(v)
 
-    @field_validator("market_area_names", mode="before")
+    @field_validator("market_area_names", "control_block_names", mode="before")
     @classmethod
     def parse_market_area_names(cls, v):
         # case default

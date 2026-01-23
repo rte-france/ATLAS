@@ -87,14 +87,24 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         return mc_critical_branches
 
     def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlockMC]:
-        control_blocks_to_keep = {}
-        for control_block in control_blocks:
+        # filter by the parameters control_block_names
+        if self.parameters.control_block_names == "All":
+            control_blocks_to_keep = control_blocks
+        else:
+            control_blocks_to_keep = [
+                control_block
+                for control_block in control_blocks
+                if control_block.name in self.parameters.control_block_names
+            ]
+        # filter by the present market_area
+        control_blocks_mc = {}
+        for control_block in control_blocks_to_keep:
             for mc_market_area in self.mc_market_areas.values():
                 if control_block == mc_market_area.control_block:
                     control_block_dump = MarketClearingInputDataset.shallow_dump(control_block)
                     mc_control_block = ControlBlockMC.model_validate(control_block_dump)
-                    control_blocks_to_keep[control_block.name] = mc_control_block
-        return control_blocks_to_keep
+                    control_blocks_mc[control_block.name] = mc_control_block
+        return control_blocks_mc
 
     def get_market_areas(
         self, market_areas: list[MarketArea], mc_orders: dict[str, OrderMC]
