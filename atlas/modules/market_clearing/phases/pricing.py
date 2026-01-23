@@ -12,7 +12,7 @@ from atlas.modules.market_clearing.market_clearing_parameters import MarketClear
 from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
 from atlas.modules.market_clearing.models.market_border_mc import MarketBorderMC
 from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
-from atlas.modules.market_clearing.PriceGroup import PriceGroup
+from atlas.modules.market_clearing.price_group import PriceGroup
 from atlas.solver.solver_helper import SolverHelper
 
 
