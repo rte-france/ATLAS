@@ -238,10 +238,6 @@ class AtlasDataset(BaseModel):
 
         :param file_path: Path to the pickle file to write
         :type file_path: str or pathlib.Path
-
-        Example:
-            >>> dataset = AtlasDataset.from_directory("data/atlas-dataset")
-            >>> dataset.to_pickle("dataset.pkl")
         """
         if isinstance(file_path, str):
             file_path = Path(file_path)
@@ -258,9 +254,6 @@ class AtlasDataset(BaseModel):
         :type file_path: str or pathlib.Path
         :return: An AtlasDataset instance
         :rtype: AtlasDataset
-
-        Example:
-            >>> dataset = AtlasDataset.from_pickle("dataset.pkl")
         """
         if isinstance(file_path, str):
             file_path = Path(file_path)
