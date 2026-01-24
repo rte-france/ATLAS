@@ -9,7 +9,7 @@ Module that implements AtlasDataset
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -34,8 +34,6 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
-
-T = TypeVar("T", bound=BusinessModel)
 
 
 class AtlasDataset(BaseModel):
