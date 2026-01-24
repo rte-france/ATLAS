@@ -22,7 +22,7 @@ class TestAtlasDatasetBasic:
         assert len(dataset) == 0
         assert dataset.node == []
         assert dataset.hydro == []
-        assert "node" not in dataset
+        assert "any_object_name" not in dataset
 
     def test_dataset_with_objects(self):
         """Test creating a dataset with objects."""
@@ -37,7 +37,7 @@ class TestAtlasDatasetBasic:
         assert len(dataset.node) == 2
         assert dataset.node[0].name == "node1"
         assert dataset.node[1].name == "node2"
-        assert "node" in dataset
+        assert "node1" in dataset
 
     def test_attribute_access(self):
         """Test attribute-style access to object types."""
@@ -59,12 +59,32 @@ class TestAtlasDatasetBasic:
         assert dataset["thermal"] == []
 
     def test_contains_operator(self):
-        """Test the 'in' operator."""
-        nodes = [Node(name="node1")]
-        dataset = AtlasDataset(node=nodes)
+        """Test the 'in' operator checks for object names and instances."""
+        nodes = [Node(name="node1"), Node(name="node2")]
+        control_blocks = [ControlBlock(name="cb1")]
+        dataset = AtlasDataset(node=nodes, control_block=control_blocks)
 
-        assert "node" in dataset
-        assert "thermal" not in dataset
+        # Test that object names (str) are found
+        assert "node1" in dataset
+        assert "node2" in dataset
+        assert "cb1" in dataset
+
+        # Test that non-existent names are not found
+        assert "node3" not in dataset
+        assert "nonexistent" not in dataset
+
+        # Test that object instances are found
+        assert nodes[0] in dataset
+        assert nodes[1] in dataset
+        assert control_blocks[0] in dataset
+
+        # Test that a different instance with same name is not found
+        different_node = Node(name="node1")
+        assert different_node not in dataset
+
+        # Test invalid type returns False
+        assert 123 not in dataset
+        assert None not in dataset
 
     def test_len_operator(self):
         """Test the len() operator."""

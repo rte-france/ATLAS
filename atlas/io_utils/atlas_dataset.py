@@ -321,16 +321,27 @@ class AtlasDataset(BaseModel):
         """
         return self.get_all(key)
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, item: str | BusinessModel) -> bool:
         """
-        Check if the dataset contains any objects of a given type.
+        Check if the dataset contains an object with the given name or instance.
 
-        :param key: The object type name
-        :type key: str
-        :return: True if objects of this type exist in the dataset
+        :param item: The object name (str) or BusinessModel instance to search for
+        :type item: str | BusinessModel
+        :return: True if an object with this name or instance exists in the dataset
         :rtype: bool
         """
-        return key in self._indices and len(self._indices[key]) > 0
+        if isinstance(item, str):
+            for type_index in self._indices.values():
+                if item in type_index:
+                    return True
+            return False
+        elif isinstance(item, BusinessModel):
+            for type_index in self._indices.values():
+                if item.name in type_index and type_index[item.name] is item:
+                    return True
+            return False
+        else:
+            return False
 
     def __iter__(self):
         """
