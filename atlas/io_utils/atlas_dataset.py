@@ -44,6 +44,7 @@ class AtlasDataset(BaseModel):
     A Pydantic-based container for ATLAS BusinessModel objects with efficient lookup and I/O operations.
 
     This class provides:
+
     - Type-safe attribute access to different BusinessModel types
     - O(1) lookup by name for each object type
     - Serialization/deserialization via from_directory and to_directory
@@ -51,6 +52,7 @@ class AtlasDataset(BaseModel):
     - Dictionary-style and attribute-style access
 
     Example:
+
         >>> dataset = AtlasDataset.from_directory("data/atlas-dataset")
         >>> # Attribute access
         >>> nodes = dataset.node
@@ -204,7 +206,6 @@ class AtlasDataset(BaseModel):
         :param matrix_file_extension: File extension for matrix files (default: "parquet").
         :type matrix_file_extension: Literal["csv", "parquet", "pickle"]
 
-        :raises DataValidationError: If data validation fails
         """
         if isinstance(directory_path, str):
             directory_path = Path(directory_path)
@@ -272,10 +273,6 @@ class AtlasDataset(BaseModel):
         :type name: str
         :return: The BusinessModel object if found, None otherwise
         :rtype: BusinessModel | None
-
-        Example:
-            >>> dataset = AtlasDataset.from_directory("data")
-            >>> thermal = dataset.get("thermal", "my_thermal_plant")
         """
         if object_type not in self._indices:
             return None
@@ -289,15 +286,32 @@ class AtlasDataset(BaseModel):
         :type object_type: str
         :return: List of BusinessModel objects of the specified type
         :rtype: list[BusinessModel]
-
-        Example:
-            >>> dataset = AtlasDataset.from_directory("data")
-            >>> all_nodes = dataset.get_all("node")
         """
         if object_type not in cfg.MODEL_MAPPING_NAME:
             raise ValueError(f"Invalid object type '{object_type}'. Valid types: {list(cfg.MODEL_MAPPING_NAME.keys())}")
 
         return getattr(self, object_type, [])
+
+    def iter_by_types(self, *object_types: str):
+        """
+        Iterator over objects of one or more specific types.
+
+        :param object_types: One or more object type names (e.g., "equipment", "node")
+        :type object_types: str
+        :yield: BusinessModel objects of the specified types
+        :raises ValueError: If any object_type is not valid
+        """
+        # Validate all object types first
+        for object_type in object_types:
+            if object_type not in cfg.MODEL_MAPPING_NAME:
+                raise ValueError(
+                    f"Invalid object type '{object_type}'. Valid types: {list(cfg.MODEL_MAPPING_NAME.keys())}"
+                )
+
+        # Yield objects from each type
+        for object_type in object_types:
+            objects = getattr(self, object_type, [])
+            yield from objects
 
     def __getitem__(self, key: str) -> list[BusinessModel]:
         """
@@ -307,9 +321,6 @@ class AtlasDataset(BaseModel):
         :type key: str
         :return: List of BusinessModel objects
         :rtype: list[BusinessModel]
-
-        Example:
-            >>> dataset['node']  # Returns list[Node]
         """
         return self.get_all(key)
 
@@ -323,6 +334,18 @@ class AtlasDataset(BaseModel):
         :rtype: bool
         """
         return key in self._indices and len(self._indices[key]) > 0
+
+    def __iter__(self):
+        """
+        Iterate over all objects in the dataset across all types.
+
+        Yields objects in the order defined by MODEL_MAPPING_NAME configuration.
+
+        :yield: All BusinessModel objects in the dataset
+        """
+        for object_type in cfg.MODEL_MAPPING_NAME.keys():
+            objects = getattr(self, object_type, [])
+            yield from objects
 
     def __len__(self) -> int:
         """

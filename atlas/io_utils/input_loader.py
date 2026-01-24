@@ -39,7 +39,7 @@ def load_from_directory(
     timezone: str = "UTC",
     date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss",
     date_format_input_files: str = "YYYY-MM-DD HH:mm:ss",
-) -> dict[str, list[type[BusinessModel]]]:
+) -> dict[str, list[BusinessModel]]:
     """
     Load input data from a directory and return instantiated BusinessModel objects.
 
@@ -88,7 +88,7 @@ def load_from_directory(
             )
 
         objects_instantiated_with_math_objects = {}
-        objects_instantiated: dict[str, list[type[BusinessModel]]] = {}
+        objects_instantiated: dict[str, list[BusinessModel]] = {}
 
         objects_type_sorted = sorted(objects, key=lambda x: cfg.MODEL_ORDER_INSTANTIATION.index(x))
 
@@ -395,8 +395,8 @@ def _load_matrix(
 def _build_business_models(
     object_list: list[dict[str, Any]],
     object_type: str,
-    objects_instantiated: dict[str, list[type[BusinessModel]]],
-) -> list[type[BusinessModel]]:
+    objects_instantiated: dict[str, list[BusinessModel]],
+) -> list[BusinessModel]:
     """Instantiate final BusinessModel objects from intermediate math object dictionaries."""
     # Pre-build lookup indices once for performance
     object_indices = _build_object_indices(objects_instantiated)
@@ -405,7 +405,7 @@ def _build_business_models(
 
     for _, obj in enumerate(object_list):
         try:
-            business_model = _build_single_business_model(obj, object_type, objects_instantiated, object_indices)
+            business_model = _build_single_business_model(obj, object_type, object_indices)
             business_models.append(business_model)
         except Exception as e:
             object_name: str = obj["name"]
@@ -417,8 +417,8 @@ def _build_business_models(
 
 
 def _build_object_indices(
-    objects_instantiated: dict[str, list[type[BusinessModel]]],
-) -> dict[str, dict[str, type[BusinessModel]]]:
+    objects_instantiated: dict[str, list[BusinessModel]],
+) -> dict[str, dict[str, BusinessModel]]:
     """
     Pre-build lookup indices for all object types for O(1) lookups.
     This dramatically improves performance by avoiding repeated dict comprehensions.
@@ -444,9 +444,8 @@ def _build_object_indices(
 def _build_single_business_model(
     object_dict: dict[str, Any],
     object_type: str,
-    objects_instantiated: dict[str, list[type[BusinessModel]]],
-    object_indices: dict[str, dict[str, type[BusinessModel]]],
-) -> type[BusinessModel]:
+    object_indices: dict[str, dict[str, BusinessModel]],
+) -> BusinessModel:
     """Instantiate a single BusinessModel object from its attributes."""
     object_name = object_dict.get("name", "unnamed_object")
 
@@ -478,7 +477,7 @@ def _build_single_business_model(
                     f"Error resolving attribute '{attribute}' for object '{object_name}': {str(e)}"
                 ) from e
 
-        return cast(type[BusinessModel], cfg.MODEL_MAPPING_NAME[object_type].model_validate(object_dict))
+        return cast(BusinessModel, cfg.MODEL_MAPPING_NAME[object_type].model_validate(object_dict))
 
     except Exception as e:
         if isinstance(e, ObjectInstantiationError):
@@ -490,7 +489,7 @@ def _build_single_business_model(
 
 def _resolve_equipment_reference(
     object_dict: dict[str, Any],
-    object_indices: dict[str, dict[str, type[BusinessModel]]],
+    object_indices: dict[str, dict[str, BusinessModel]],
 ) -> None:
     """Equipment reference resolution using pre-built indices."""
     equipment_name = object_dict.get("equipment")
@@ -510,7 +509,7 @@ def _resolve_single_object_reference(
     object_dict: dict[str, Any],
     attribute: str,
     attribute_type: type[BusinessModel],
-    object_indices: dict[str, dict[str, type[BusinessModel]]],
+    object_indices: dict[str, dict[str, BusinessModel]],
 ) -> None:
     """Single object reference resolution using pre-built indices."""
     object_name: str = object_dict[attribute]
@@ -535,7 +534,7 @@ def _resolve_list_object_reference(
     object_dict: dict[str, Any],
     attribute: str,
     attribute_type: type[BusinessModel] | float | str | int | None,
-    object_indices: dict[str, dict[str, type[BusinessModel]]],
+    object_indices: dict[str, dict[str, BusinessModel]],
 ) -> None:
     """List object reference resolution using pre-built indices."""
     object_list_string = object_dict[attribute]

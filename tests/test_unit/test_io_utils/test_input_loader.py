@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic_extra_types.pendulum_dt import DateTime
 
 import atlas.config as cfg
+from atlas.io_utils import input_loader
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.models import InputLoaderConfig
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -136,8 +137,8 @@ def complex_input_dir(tmp_path, mock_model_mapping):
 
 
 @patch.dict(cfg.__dict__, {"MODEL_MAPPING_NAME": {"hydro": MagicMock()}})
-@patch("atlas.io_utils.input_loader.load_from_directory._load_timeseries", return_value=Timeseries())
-@patch("atlas.io_utils.input_loader.load_from_directory._load_matrix")
+@patch("atlas.io_utils.input_loader._load_timeseries", return_value=Timeseries())
+@patch("atlas.io_utils.input_loader._load_matrix")
 def test_from_directory_success(mock_matrix, mock_ts, temp_input_dir, mock_model_mapping):
     mock_matrix.side_effect = [ScenarioMatrix(), ForecastingMatrix()]
 
@@ -172,11 +173,9 @@ def test_instantiate_model_object_with_equipment_reference(monkeypatch):
     object_dict = {"name": "obj1", "equipment": "eq1"}
 
     # Build indices like the actual method does
-    object_indices = load_from_directory._build_object_indices(objects_instantiated)
+    object_indices = input_loader._build_object_indices(objects_instantiated)
 
-    result = load_from_directory._build_single_business_model(
-        object_dict.copy(), "my_object", objects_instantiated, object_indices
-    )
+    result = input_loader._build_single_business_model(object_dict.copy(), "my_object", object_indices)
 
     assert isinstance(result, DummyReferencing)
     assert result.name == "obj1"
@@ -206,11 +205,9 @@ def test_instantiate_model_object_with_cross_reference(monkeypatch):
     }
 
     # Build indices like the actual method does
-    object_indices = load_from_directory._build_object_indices(objects_instantiated)
+    object_indices = input_loader._build_object_indices(objects_instantiated)
 
-    result = load_from_directory._build_single_business_model(
-        object_dict.copy(), "dummy_referencing", objects_instantiated, object_indices
-    )
+    result = input_loader._build_single_business_model(object_dict.copy(), "dummy_referencing", object_indices)
 
     assert isinstance(result, DummyReferencing)
     assert result.name == "obj1"
@@ -234,7 +231,7 @@ def test_load_matrix(tmp_path):
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
     config = InputLoaderConfig(directory_path=tmp_path)
-    result = load_from_directory._load_matrix(
+    result = input_loader._load_matrix(
         object_type="hydro",
         name="fr_hydro",
         attribute_name="attribute",
@@ -259,7 +256,7 @@ def test_load_forecasting_matrix(tmp_path):
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
     config = InputLoaderConfig(directory_path=tmp_path)
-    result = load_from_directory._load_matrix(
+    result = input_loader._load_matrix(
         object_type="hydro",
         name="fr_hydro",
         attribute_name="attribute",
@@ -284,7 +281,7 @@ def test_load_lazy_matrix(tmp_path):
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
     config = InputLoaderConfig(directory_path=tmp_path, lazy=True)
-    result = load_from_directory._load_matrix(
+    result = input_loader._load_matrix(
         object_type="hydro",
         name="fr_hydro",
         attribute_name="attribute",
@@ -309,7 +306,7 @@ def test_load_lazy_forecasting_matrix(tmp_path):
     ).write_parquet(matrix_path / "fr_hydro.parquet")
 
     config = InputLoaderConfig(directory_path=tmp_path, lazy=True)
-    result = load_from_directory._load_matrix(
+    result = input_loader._load_matrix(
         object_type="hydro",
         name="fr_hydro",
         attribute_name="attribute",
@@ -333,7 +330,7 @@ def test_load_timeseries(tmp_path):
     ).write_parquet(ts_path / "fr_hydro.parquet")
 
     config = InputLoaderConfig(directory_path=tmp_path)
-    result = load_from_directory._load_timeseries(
+    result = input_loader._load_timeseries(
         object_type="hydro", name="fr_hydro", attribute_name="attribute", config=config
     )
     assert isinstance(result, Timeseries)
@@ -350,7 +347,7 @@ def test_load_lazy_timeseries(tmp_path):
     )
 
     config = InputLoaderConfig(directory_path=tmp_path, lazy=True)
-    result = load_from_directory._load_timeseries(
+    result = input_loader._load_timeseries(
         object_type="hydro", name="fr_hydro", attribute_name="attribute", config=config
     )
     assert isinstance(result, LazyTimeseries)
@@ -364,6 +361,6 @@ def test_parse_objects_multiple_models(tmp_path):
     df1.write_csv(tmp_path / "objects" / "hydro.csv", separator=";")
     df2.write_csv(tmp_path / "objects" / "solar.csv", separator=";")
 
-    result = load_from_directory._parse_objects_files(tmp_path / "objects")
+    result = input_loader._parse_objects_files(tmp_path / "objects")
     assert "hydro" in result
     assert "solar" in result

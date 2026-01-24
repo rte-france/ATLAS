@@ -87,6 +87,46 @@ class TestAtlasDatasetBasic:
         str_str = str(dataset)
         assert str_str == repr_str
 
+    def test_iter_operator(self):
+        """Test iterating over the entire dataset."""
+        nodes = [Node(name="node1"), Node(name="node2")]
+        control_blocks = [ControlBlock(name="cb1")]
+
+        dataset = AtlasDataset(node=nodes, control_block=control_blocks)
+
+        # Collect all objects
+        all_objects = list(dataset)
+        assert len(all_objects) == 3
+
+        # Verify we got all objects
+        names = [obj.name for obj in all_objects]
+        assert "node1" in names
+        assert "node2" in names
+        assert "cb1" in names
+
+    def test_iter_operator_empty(self):
+        """Test iterating over an empty dataset."""
+        dataset = AtlasDataset()
+
+        all_objects = list(dataset)
+        assert all_objects == []
+
+    def test_iter_operator_multiple_times(self):
+        """Test that iteration can be performed multiple times."""
+        nodes = [Node(name="node1"), Node(name="node2")]
+        dataset = AtlasDataset(node=nodes)
+
+        # First iteration
+        first_count = sum(1 for _ in dataset)
+        assert first_count == 2
+
+        # Second iteration (should work again)
+        second_count = sum(1 for _ in dataset)
+        assert second_count == 2
+
+        # Both should produce same results
+        assert first_count == second_count
+
 
 class TestAtlasDatasetLookup:
     """Test efficient lookup functionality."""
@@ -138,6 +178,59 @@ class TestAtlasDatasetLookup:
 
         with pytest.raises(ValueError, match="Invalid object type"):
             dataset.get_all("invalid_type")
+
+    def test_iter_by_types_single(self):
+        """Test iter_by_types method with a single type."""
+        nodes = [Node(name="node1"), Node(name="node2"), Node(name="node3")]
+        dataset = AtlasDataset(node=nodes)
+
+        # Test iteration over single type
+        collected_nodes = list(dataset.iter_by_types("node"))
+        assert collected_nodes == nodes
+        assert len(collected_nodes) == 3
+
+        # Test with empty type
+        collected_thermal = list(dataset.iter_by_types("thermal"))
+        assert collected_thermal == []
+
+    def test_iter_by_types_multiple(self):
+        """Test iter_by_types method with multiple types."""
+        nodes = [Node(name="node1"), Node(name="node2")]
+        control_blocks = [ControlBlock(name="cb1"), ControlBlock(name="cb2")]
+        dataset = AtlasDataset(node=nodes, control_block=control_blocks)
+
+        # Test iteration over multiple types
+        collected = list(dataset.iter_by_types("node", "control_block"))
+        assert len(collected) == 4
+        # First nodes, then control_blocks (order matters)
+        assert collected[:2] == nodes
+        assert collected[2:] == control_blocks
+
+    def test_iter_by_types_invalid_type(self):
+        """Test iter_by_types with invalid type raises error."""
+        dataset = AtlasDataset()
+
+        with pytest.raises(ValueError, match="Invalid object type"):
+            list(dataset.iter_by_types("invalid_type"))
+
+        # Test with mix of valid and invalid
+        nodes = [Node(name="node1")]
+        dataset = AtlasDataset(node=nodes)
+        with pytest.raises(ValueError, match="Invalid object type"):
+            list(dataset.iter_by_types("node", "invalid_type"))
+
+    def test_iter_by_types_lazy_evaluation(self):
+        """Test that iter_by_types is a generator and can be consumed multiple times."""
+        nodes = [Node(name="node1"), Node(name="node2")]
+        dataset = AtlasDataset(node=nodes)
+
+        # First iteration
+        count1 = sum(1 for _ in dataset.iter_by_types("node"))
+        assert count1 == 2
+
+        # Second iteration (should work again)
+        count2 = sum(1 for _ in dataset.iter_by_types("node"))
+        assert count2 == 2
 
     def test_duplicate_names_validation(self):
         """Test that duplicate names within a type are detected."""

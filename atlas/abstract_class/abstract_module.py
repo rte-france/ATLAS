@@ -29,18 +29,18 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
     def get_parameters_class(self) -> type[module_parameters_type_var]:
         """Returns the concrete Parameters class for this module."""
 
-    def import_parameters(self, raw_params: dict[str, Any] | str | Path) -> module_parameters_type_var:
+    def import_parameters(self, parameters: dict[str, Any] | str | Path) -> module_parameters_type_var:
         """Creates a concrete parameters object from raw dictionary or file path.
 
         This method provides a default implementation that handles both formats:
-        - If raw_params is dict: uses Parameters.model_validate(raw_params)
-        - If raw_params is str/Path: uses Parameters.from_file(raw_params)
+        - If parameters is dict: uses Parameters.model_validate(parameters)
+        - If parameters is str/Path: uses Parameters.from_file(parameters)
         """
         parameters_class = self.get_parameters_class()
 
-        if isinstance(raw_params, str | Path):
-            return parameters_class.from_file(raw_params)
-        return parameters_class.model_validate(raw_params)
+        if isinstance(parameters, str | Path):
+            return parameters_class.from_file(parameters)
+        return parameters_class.model_validate(parameters)
 
     @abstractmethod
     def import_data(self, input_data: AtlasDataset, parameters: module_parameters_type_var) -> input_dataset_type_var:
@@ -74,11 +74,11 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
     ) -> None:
         """Exports results."""
 
-    def run(self, input_data: AtlasDataset, parameters: module_parameters_type_var) -> None:
+    def run(self, input_data: AtlasDataset, raw_params: dict[str, Any] | str | Path) -> None:
         """Orchestrates the preparation and execution of the module.
         Should not be overridden in subclass
         """
-        parameters = self.import_parameters(parameters)
+        parameters = self.import_parameters(raw_params)
 
         input_dataset = self.import_data(input_data, parameters)
         validate_data_ok = self.validate_data(parameters, input_dataset)

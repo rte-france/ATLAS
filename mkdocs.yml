@@ -105,7 +105,7 @@ nav:
       - LazyTimeseries: api/math/lazy_timeseries.md
       - LazyMatrix: api/math/lazy_matrix.md
     - I/O:
-      - Input Loader: api/io/input_loader.md
+      - AtlasDataset: api/io/atlas_dataset.md
       - Parameters: api/io/parameters.md
     - Models:
       - Equipement: api/models/equipment.md
