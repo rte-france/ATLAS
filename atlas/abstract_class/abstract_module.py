@@ -11,9 +11,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Generic
 
-from atlas import BusinessModel
 from atlas.abstract_class.abstract_dataset import input_dataset_type_var, output_dataset_type_var
 from atlas.abstract_class.abstract_parameters import module_parameters_type_var
+from atlas.io_utils.atlas_dataset import AtlasDataset
 
 
 class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type_var, output_dataset_type_var]):
@@ -43,9 +43,7 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
         return parameters_class.model_validate(raw_params)
 
     @abstractmethod
-    def import_data(
-        self, raw_data: dict[str, list[type[BusinessModel]]], parameters: module_parameters_type_var
-    ) -> input_dataset_type_var:
+    def import_data(self, input_data: AtlasDataset, parameters: module_parameters_type_var) -> input_dataset_type_var:
         """Imports data using business objects and parameters."""
 
     @abstractmethod
@@ -76,13 +74,13 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
     ) -> None:
         """Exports results."""
 
-    def run(self, raw_data: dict[str, list[type[BusinessModel]]], raw_params: dict[str, Any] | str | Path) -> None:
+    def run(self, input_data: AtlasDataset, parameters: module_parameters_type_var) -> None:
         """Orchestrates the preparation and execution of the module.
         Should not be overridden in subclass
         """
-        parameters = self.import_parameters(raw_params)
+        parameters = self.import_parameters(parameters)
 
-        input_dataset = self.import_data(raw_data, parameters)
+        input_dataset = self.import_data(input_data, parameters)
         validate_data_ok = self.validate_data(parameters, input_dataset)
         if not validate_data_ok:
             raise AssertionError("Input Data/Parameters validation has not passed")
