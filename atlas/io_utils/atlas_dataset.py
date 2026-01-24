@@ -8,6 +8,7 @@ Module that implements AtlasDataset
 
 from __future__ import annotations
 
+import pickle
 from pathlib import Path
 from typing import Any, Literal
 
@@ -231,6 +232,42 @@ class AtlasDataset(BaseModel):
 
         return result
 
+    def to_pickle(self, file_path: Path | str) -> None:
+        """
+        Serialize the AtlasDataset to a pickle file.
+
+        :param file_path: Path to the pickle file to write
+        :type file_path: str or pathlib.Path
+
+        Example:
+            >>> dataset = AtlasDataset.from_directory("data/atlas-dataset")
+            >>> dataset.to_pickle("dataset.pkl")
+        """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
+        with open(file_path, "wb") as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def from_pickle(cls, file_path: Path | str) -> AtlasDataset:
+        """
+        Load an AtlasDataset from a pickle file.
+
+        :param file_path: Path to the pickle file to read
+        :type file_path: str or pathlib.Path
+        :return: An AtlasDataset instance
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset.from_pickle("dataset.pkl")
+        """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
+        with open(file_path, "rb") as f:
+            return pickle.load(f)
+
     @model_validator(mode="after")
     def _build_indices(self) -> AtlasDataset:
         """
@@ -353,3 +390,32 @@ class AtlasDataset(BaseModel):
     def __str__(self) -> str:
         """User-friendly string representation."""
         return self.__repr__()
+
+    def __getstate__(self) -> dict[str, Any]:
+        """
+        Prepare the object for pickling.
+
+        Returns the model's state, excluding the _indices cache which will be rebuilt on unpickling.
+
+        :return: Dictionary containing the object's state
+        :rtype: dict[str, Any]
+        """
+        # Get the default state from Pydantic
+        state = self.__dict__.copy()
+        # Remove the _indices cache as it will be rebuilt by _build_indices validator
+        state.pop("_indices", None)
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """
+        Restore the object from pickled state.
+
+        Reconstructs the object and rebuilds the _indices cache.
+
+        :param state: Dictionary containing the object's pickled state
+        :type state: dict[str, Any]
+        """
+        # Restore the state
+        self.__dict__.update(state)
+        # Rebuild indices (the validator will be called automatically by Pydantic)
+        self._build_indices()

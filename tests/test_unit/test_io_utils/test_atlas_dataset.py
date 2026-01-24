@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 Test suite for AtlasDataset
 """
 
+import pickle
+
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -430,3 +432,93 @@ class TestAtlasDatasetEdgeCases:
         assert dataset.get("node", "n2") is not None
         assert dataset.get("control_block", "cb1") is not None
         assert dataset.get("thermal", "anything") is None
+
+
+class TestAtlasDatasetPickling:
+    """Test pickling support for AtlasDataset."""
+
+    def test_to_pickle_method(self, tmp_path):
+        """Test the to_pickle method."""
+        nodes = [Node(name="node1"), Node(name="node2")]
+        control_blocks = [ControlBlock(name="cb1")]
+        dataset = AtlasDataset(node=nodes, control_block=control_blocks)
+
+        # Save to pickle file
+        pickle_file = tmp_path / "dataset.pkl"
+        dataset.to_pickle(pickle_file)
+
+        # Verify file was created
+        assert pickle_file.exists()
+
+        # Load manually to verify
+
+        with open(pickle_file, "rb") as f:
+            restored = pickle.load(f)
+
+        assert isinstance(restored, AtlasDataset)
+        assert len(restored) == 3
+        assert restored.node[0].name == "node1"
+
+    def test_from_pickle_method(self, tmp_path):
+        """Test the from_pickle method."""
+        nodes = [Node(name="node1"), Node(name="node2")]
+        control_blocks = [ControlBlock(name="cb1")]
+        dataset = AtlasDataset(node=nodes, control_block=control_blocks)
+
+        # Save using standard pickle
+        pickle_file = tmp_path / "dataset.pkl"
+
+        with open(pickle_file, "wb") as f:
+            pickle.dump(dataset, f)
+
+        # Load using from_pickle method
+        restored = AtlasDataset.from_pickle(pickle_file)
+
+        assert isinstance(restored, AtlasDataset)
+        assert len(restored) == 3
+        assert restored.node[0].name == "node1"
+        assert restored.node[1].name == "node2"
+        assert restored.control_block[0].name == "cb1"
+
+    def test_roundtrip_pickle_methods(self, tmp_path):
+        """Test roundtrip using to_pickle and from_pickle methods."""
+        nodes = [Node(name="node1"), Node(name="node2"), Node(name="node3")]
+        control_blocks = [ControlBlock(name="cb1"), ControlBlock(name="cb2")]
+        dataset1 = AtlasDataset(node=nodes, control_block=control_blocks)
+
+        # Save and load
+        pickle_file = tmp_path / "dataset.pkl"
+        dataset1.to_pickle(pickle_file)
+        dataset2 = AtlasDataset.from_pickle(pickle_file)
+
+        # Verify all data is preserved
+        assert len(dataset2) == len(dataset1)
+        assert len(dataset2.node) == len(dataset1.node)
+        assert len(dataset2.control_block) == len(dataset1.control_block)
+
+        # Verify object names
+        for i, node in enumerate(dataset1.node):
+            assert dataset2.node[i].name == node.name
+
+        for i, cb in enumerate(dataset1.control_block):
+            assert dataset2.control_block[i].name == cb.name
+
+        # Verify lookups work
+        assert dataset2.get("node", "node2") is not None
+        assert dataset2.get("control_block", "cb1") is not None
+
+    def test_pickle_methods_with_string_path(self, tmp_path):
+        """Test that pickle methods accept string paths."""
+        nodes = [Node(name="node1")]
+        dataset = AtlasDataset(node=nodes)
+
+        # Test with string path
+        pickle_file = str(tmp_path / "dataset.pkl")
+        dataset.to_pickle(pickle_file)
+
+        # Load with string path
+        restored = AtlasDataset.from_pickle(pickle_file)
+
+        assert isinstance(restored, AtlasDataset)
+        assert len(restored) == 1
+        assert restored.node[0].name == "node1"
