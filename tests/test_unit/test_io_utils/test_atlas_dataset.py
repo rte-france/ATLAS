@@ -50,14 +50,6 @@ class TestAtlasDatasetBasic:
         assert dataset.node == nodes
         assert dataset.thermal == []
 
-    def test_dictionary_access(self):
-        """Test dictionary-style access to object types."""
-        nodes = [Node(name="node1")]
-        dataset = AtlasDataset(node=nodes)
-
-        assert dataset["node"] == nodes
-        assert dataset["thermal"] == []
-
     def test_contains_operator(self):
         """Test the 'in' operator checks for object names and instances."""
         nodes = [Node(name="node1"), Node(name="node2")]
@@ -180,24 +172,6 @@ class TestAtlasDatasetLookup:
 
         found = dataset.get("thermal", "anything")
         assert found is None
-
-    def test_get_all(self):
-        """Test get_all method."""
-        nodes = [Node(name="node1"), Node(name="node2")]
-        dataset = AtlasDataset(node=nodes)
-
-        all_nodes = dataset.get_all("node")
-        assert all_nodes == nodes
-
-        all_thermal = dataset.get_all("thermal")
-        assert all_thermal == []
-
-    def test_get_all_invalid_type(self):
-        """Test get_all with invalid type raises error."""
-        dataset = AtlasDataset()
-
-        with pytest.raises(ValueError, match="Invalid object type"):
-            dataset.get_all("invalid_type")
 
     def test_iter_by_types_single(self):
         """Test iter_by_types method with a single type."""

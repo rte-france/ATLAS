@@ -273,20 +273,6 @@ class AtlasDataset(BaseModel):
             return None
         return self._indices[object_type].get(name)
 
-    def get_all(self, object_type: str) -> list[BusinessModel]:
-        """
-        Get all objects of a specific type.
-
-        :param object_type: The type of object (e.g., "hydro", "node")
-        :type object_type: str
-        :return: List of BusinessModel objects of the specified type
-        :rtype: list[BusinessModel]
-        """
-        if object_type not in cfg.MODEL_MAPPING_NAME:
-            raise ValueError(f"Invalid object type '{object_type}'. Valid types: {cfg.MODEL_ORDER_INSTANTIATION}")
-
-        return getattr(self, object_type, [])
-
     def iter_by_types(self, *object_types: str):
         """
         Iterator over objects of one or more specific types.
@@ -307,17 +293,6 @@ class AtlasDataset(BaseModel):
         for object_type in object_types:
             objects = getattr(self, object_type, [])
             yield from objects
-
-    def __getitem__(self, key: str) -> list[BusinessModel]:
-        """
-        Dictionary-style access to object lists.
-
-        :param key: The object type name
-        :type key: str
-        :return: List of BusinessModel objects
-        :rtype: list[BusinessModel]
-        """
-        return self.get_all(key)
 
     def __contains__(self, item: str | BusinessModel) -> bool:
         """
