@@ -21,7 +21,7 @@ class TestAtlasDatasetBasic:
         dataset = AtlasDataset()
         assert len(dataset) == 0
         assert dataset.node == []
-        assert dataset.equipment == []
+        assert dataset.hydro == []
         assert "node" not in dataset
 
     def test_dataset_with_objects(self):

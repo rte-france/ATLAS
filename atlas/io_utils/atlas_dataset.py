@@ -18,7 +18,6 @@ from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
-from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
@@ -56,7 +55,6 @@ class AtlasDataset(BaseModel):
         >>> dataset = AtlasDataset.from_directory("data/atlas-dataset")
         >>> # Attribute access
         >>> nodes = dataset.node
-        >>> equipment = dataset.equipment
         >>> # Efficient lookup by name
         >>> thermal_plant = dataset.get("thermal", "my_plant")
         >>> # Export to directory
@@ -67,7 +65,6 @@ class AtlasDataset(BaseModel):
 
     control_block: list[ControlBlock] = Field(default_factory=list)
     critical_branch: list[CriticalBranch] = Field(default_factory=list)
-    equipment: list[Equipment] = Field(default_factory=list)
     hydro: list[Hydro] = Field(default_factory=list)
     load: list[Load] = Field(default_factory=list)
     market_area: list[MarketArea] = Field(default_factory=list)
@@ -267,7 +264,7 @@ class AtlasDataset(BaseModel):
         """
         Get a BusinessModel object by type and name with O(1) lookup.
 
-        :param object_type: The type of object (e.g., "equipment", "node")
+        :param object_type: The type of object (e.g., "hydro", "node")
         :type object_type: str
         :param name: The name of the object to retrieve
         :type name: str
@@ -282,13 +279,13 @@ class AtlasDataset(BaseModel):
         """
         Get all objects of a specific type.
 
-        :param object_type: The type of object (e.g., "equipment", "node")
+        :param object_type: The type of object (e.g., "hydro", "node")
         :type object_type: str
         :return: List of BusinessModel objects of the specified type
         :rtype: list[BusinessModel]
         """
         if object_type not in cfg.MODEL_MAPPING_NAME:
-            raise ValueError(f"Invalid object type '{object_type}'. Valid types: {list(cfg.MODEL_MAPPING_NAME.keys())}")
+            raise ValueError(f"Invalid object type '{object_type}'. Valid types: {cfg.MODEL_ORDER_INSTANTIATION}")
 
         return getattr(self, object_type, [])
 
@@ -296,7 +293,7 @@ class AtlasDataset(BaseModel):
         """
         Iterator over objects of one or more specific types.
 
-        :param object_types: One or more object type names (e.g., "equipment", "node")
+        :param object_types: One or more object type names (e.g., "hydro", "node")
         :type object_types: str
         :yield: BusinessModel objects of the specified types
         :raises ValueError: If any object_type is not valid
