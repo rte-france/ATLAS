@@ -633,7 +633,6 @@ class TestAtlasDatasetPickling:
             qmin=10.0,
         )
 
-        # EDGE CASE 3: Test list of BusinessModel type with OrderCoupling
         order_coupling = OrderCoupling(
             name="coupling1",
             orders=[order1, order2],
@@ -642,7 +641,6 @@ class TestAtlasDatasetPickling:
             complement_energy=250.0,
         )
 
-        # Create dataset with all dependencies including edge cases
         dataset1 = AtlasDataset(
             control_block=[control_block],
             market_area=[market_area],
@@ -654,7 +652,6 @@ class TestAtlasDatasetPickling:
             order_coupling=[order_coupling],
         )
 
-        # Test round-trip with parquet format (most common)
         output_dir = tmp_path / "output"
         dataset1.to_directory(output_dir)
 
