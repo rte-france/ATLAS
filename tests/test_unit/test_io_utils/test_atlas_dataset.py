@@ -11,13 +11,18 @@ from datetime import datetime
 
 import polars as pl
 import pytest
+from pendulum import DateTime, Duration, Timezone
 
+from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, ThermalStrategy
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.hydro import Hydro
+from atlas.models.equipment.thermal import Thermal
 from atlas.models.market.market_area import MarketArea
+from atlas.models.market.order import Order
+from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
 
@@ -531,14 +536,13 @@ class TestAtlasDatasetPickling:
         assert restored.node[0].name == "node1"
 
     def test_roundtrip_io_reading_writing(self, tmp_path):
-        """Test round-trip with dataset containing timeseries, matrices, references, and lists."""
-        # Create prerequisite objects - ensure all optional references are filled to avoid None serialization issues
+        """Test round-trip with dataset containing timeseries, matrices, references, lists, Duration, DateTime, and list of BusinessModels."""
+
         control_block = ControlBlock(name="cb1")
         market_area = MarketArea(name="ma1", control_block=control_block)
         node = Node(name="node1", control_block=control_block, market_area=market_area)
         portfolio = Portfolio(name="portfolio1", control_block=control_block, market_area=market_area)
 
-        # Create timeseries data
         timeseries_inflows = Timeseries.from_values(
             start_date="2024-01-01 00:00:00",
             frequency="1h",
@@ -552,7 +556,6 @@ class TestAtlasDatasetPickling:
             timezone="UTC",
         )
 
-        # Create forecasting matrix data
         matrix_df = pl.DataFrame(
             {
                 "time": pl.datetime_range(
@@ -587,46 +590,127 @@ class TestAtlasDatasetPickling:
             fragment_volumes=[0.6, 0.4],
         )
 
-        # Create dataset with all dependencies
+        thermal = Thermal(
+            name="thermal1",
+            node=node,
+            portfolio=portfolio,
+            installed_capacity=1000.0,
+            minimum_stable_power_duration=Duration(hours=2),
+            minimum_time_off=Duration(hours=4),
+            minimum_time_on=Duration(hours=6),
+            shutdown_duration=Duration(hours=1),
+            startup_duration=Duration(hours=1.5),
+            strategy=ThermalStrategy.BASE,
+        )
+
+        order1 = Order(
+            name="order1",
+            equipment=thermal,
+            market_area=market_area,
+            portfolio=portfolio,
+            execution_date=DateTime(2024, 1, 1, 10, 0, 0),
+            start_date=DateTime(2024, 1, 1, 12, 0, 0),
+            end_date=DateTime(2024, 1, 1, 18, 0, 0),
+            order_type=OrderType.Sell,
+            product=Product.DayAhead,
+            price=50.0,
+            qmax=100.0,
+            qmin=0.0,
+        )
+
+        order2 = Order(
+            name="order2",
+            equipment=hydro1,
+            market_area=market_area,
+            portfolio=portfolio,
+            execution_date=DateTime(2024, 1, 1, 11, 0, 0),
+            start_date=DateTime(2024, 1, 1, 13, 0, 0),
+            end_date=DateTime(2024, 1, 1, 19, 0, 0),
+            order_type=OrderType.Buy,
+            product=Product.DayAhead,
+            price=45.0,
+            qmax=150.0,
+            qmin=10.0,
+        )
+
+        # EDGE CASE 3: Test list of BusinessModel type with OrderCoupling
+        order_coupling = OrderCoupling(
+            name="coupling1",
+            orders=[order1, order2],
+            coupling_type=CouplingType.COMPLEMENT,
+            complement_direction=ComplementDirection.EqualTo,
+            complement_energy=250.0,
+        )
+
+        # Create dataset with all dependencies including edge cases
         dataset1 = AtlasDataset(
             control_block=[control_block],
             market_area=[market_area],
             node=[node],
             portfolio=[portfolio],
             hydro=[hydro1, hydro2],
+            thermal=[thermal],
+            order=[order1, order2],
+            order_coupling=[order_coupling],
         )
 
         # Test round-trip with parquet format (most common)
-        output_dir = tmp_path / "hydro_output"
+        output_dir = tmp_path / "output"
         dataset1.to_directory(output_dir)
 
         # Read back
         dataset2 = AtlasDataset.from_directory(output_dir)
 
-        assert len(dataset2) == 6
+        assert len(dataset2) == 10
         assert len(dataset2.hydro) == 2
         assert len(dataset2.node) == 1
         assert len(dataset2.portfolio) == 1
         assert len(dataset2.control_block) == 1
         assert len(dataset2.market_area) == 1
+        assert len(dataset2.thermal) == 1
+        assert len(dataset2.order) == 2
+        assert len(dataset2.order_coupling) == 1
 
-        # Verify object names
         assert dataset2.hydro[0].name == "hydro1"
         assert dataset2.hydro[1].name == "hydro2"
 
-        # Verify BusinessModel references are preserved
         assert dataset2.hydro[0].node.name == "node1"
         assert dataset2.hydro[0].portfolio.name == "portfolio1"
 
-        # Verify timeseries data preservation using direct equality
         assert dataset2.hydro[0].inflows == timeseries_inflows
         assert dataset2.hydro[0].maximum_power == timeseries_max_power
 
-        # Verify forecasting matrix preservation using direct equality
         assert dataset2.hydro[0].stored_energy == forecasting_matrix
 
-        # Verify list of float preservation
         assert dataset2.hydro[0].fragment_prices == [10.0, 20.0, 30.0]
         assert dataset2.hydro[0].fragment_volumes == [0.3, 0.5, 0.2]
         assert dataset2.hydro[1].fragment_prices == [15.0, 25.0]
         assert dataset2.hydro[1].fragment_volumes == [0.6, 0.4]
+
+        assert dataset2.thermal[0].name == "thermal1"
+        assert dataset2.thermal[0].minimum_stable_power_duration == Duration(hours=2)
+        assert dataset2.thermal[0].minimum_time_off == Duration(hours=4)
+        assert dataset2.thermal[0].minimum_time_on == Duration(hours=6)
+        assert dataset2.thermal[0].shutdown_duration == Duration(hours=1)
+        assert dataset2.thermal[0].startup_duration == Duration(hours=1.5)
+        assert dataset2.thermal[0].strategy == ThermalStrategy.BASE
+
+        assert dataset2.order[0].name == "order1"
+        assert dataset2.order[0].execution_date == DateTime(2024, 1, 1, 10, 0, 0, tzinfo=Timezone("UTC"))
+        assert dataset2.order[0].start_date == DateTime(2024, 1, 1, 12, 0, 0, tzinfo=Timezone("UTC"))
+        assert dataset2.order[0].end_date == DateTime(2024, 1, 1, 18, 0, 0, tzinfo=Timezone("UTC"))
+        assert dataset2.order[0].order_type == OrderType.Sell
+        assert dataset2.order[0].product == Product.DayAhead
+
+        assert dataset2.order[1].name == "order2"
+        assert dataset2.order[1].execution_date == DateTime(2024, 1, 1, 11, 0, 0, tzinfo=Timezone("UTC"))
+        assert dataset2.order[1].start_date == DateTime(2024, 1, 1, 13, 0, 0, tzinfo=Timezone("UTC"))
+        assert dataset2.order[1].end_date == DateTime(2024, 1, 1, 19, 0, 0, tzinfo=Timezone("UTC"))
+
+        assert dataset2.order_coupling[0].name == "coupling1"
+        assert len(dataset2.order_coupling[0].orders) == 2
+        assert dataset2.order_coupling[0].orders[0].name == "order1"
+        assert dataset2.order_coupling[0].orders[1].name == "order2"
+        assert dataset2.order_coupling[0].coupling_type == CouplingType.COMPLEMENT
+        assert dataset2.order_coupling[0].complement_direction == ComplementDirection.EqualTo
+        assert dataset2.order_coupling[0].complement_energy == 250.0
