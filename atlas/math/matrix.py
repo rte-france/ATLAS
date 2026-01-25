@@ -351,7 +351,7 @@ class Matrix:
             if path_obj.exists() and file_format_lower != "pickle":
                 try:
                     if file_format_lower == "csv":
-                        existing_df = pl.read_csv(path_str, separator=separator)
+                        existing_df = pl.read_csv(path_str, separator=separator, try_parse_dates=True)
                     elif file_format_lower == "parquet":
                         existing_df = pl.read_parquet(path_str)
 
