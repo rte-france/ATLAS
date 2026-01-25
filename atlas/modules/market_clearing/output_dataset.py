@@ -15,8 +15,8 @@ from atlas.models.market.market_area import MarketArea
 from atlas.models.market.market_border import MarketBorder
 from atlas.models.market.order import Order
 from atlas.models.portfolio import Portfolio
-from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 
 
 class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):

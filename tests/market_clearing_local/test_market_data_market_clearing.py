@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 import ast
 import math
 import os
@@ -18,7 +19,7 @@ import pytest
 from atlas import InputLoader
 from atlas.io_utils.utils import to_snake_case
 from atlas.math.timeseries import Timeseries
-from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
+from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.phases.clearing import Clearing
 
 
@@ -27,7 +28,7 @@ def transform_dataframe_to_dict(df: pd.DataFrame):
     for name, df_group in df.groupby("Name"):
         _dict[name] = {}
         # Convert to dictionary with Attribute as key and Value as value
-        _dict[name] = dict(zip(df_group['Attribute'], df_group['Value']))
+        _dict[name] = dict(zip(df_group["Attribute"], df_group["Value"]))
     return _dict
 
 
@@ -50,7 +51,7 @@ def parse_orders(raw_text):
                 parsed_value = value == "True"
             else:
                 try:
-                    parsed_value = float(value) if '.' in value else int(value)
+                    parsed_value = float(value) if "." in value else int(value)
                 except ValueError:
                     parsed_value = value  # Leave as string if not a number
             order_dict[key] = parsed_value
@@ -109,7 +110,7 @@ def read_market_borders_csv(path):
 def read_market_data_csv(path):
     market_data_df = pd.read_csv(Path(path) / "market_data.csv", sep=";")
     # Convert to dictionary with Attribute as key and Value as value
-    market_data = dict(zip(market_data_df['Attribute'], market_data_df['Value']))
+    market_data = dict(zip(market_data_df["Attribute"], market_data_df["Value"]))
     market_data["control_blocks"] = re.findall(r"\('([^']+)',", market_data["control_blocks"])
     market_data["coupling_groups"] = market_data["coupling_groups"].count("<OrderCoupling object at")
     market_data["market_borders"] = market_data["market_borders"].count("<MarketBorder object at")
@@ -133,40 +134,46 @@ def compare_market_area(market_areas_expected, input_dataset):
         assert market_area_mc.market_area.control_block.name == to_snake_case(market_area_expected["control_block"])
         for order_name_expected, order_expected in market_area_expected["orders"].items():
             assert to_snake_case(order_name_expected) in market_area_mc.orders
-        assert compare_timeseries_to_dict(market_area_mc.max_price, market_area_expected['max_price'])
-        assert compare_timeseries_to_dict(market_area_mc.min_price, market_area_expected['min_price'])
-        assert compare_timeseries_to_dict(market_area_mc.ref_balance, market_area_expected['ref_balance'])
+        assert compare_timeseries_to_dict(market_area_mc.max_price, market_area_expected["max_price"])
+        assert compare_timeseries_to_dict(market_area_mc.min_price, market_area_expected["min_price"])
+        assert compare_timeseries_to_dict(market_area_mc.ref_balance, market_area_expected["ref_balance"])
 
 
 def compare_control_block(control_blocks_expected, input_dataset):
     clearing = Clearing(input_dataset, input_dataset.parameters)
     for control_block_expected in control_blocks_expected.values():
-        for time_index in range(len(control_block_expected['max_tso_power_sold'])):
-            max_tso_power_bought = clearing.get_max_tso_power_bought(input_dataset.times[time_index],
-                                                                     input_dataset.mc_control_blocks[
-                                                                         control_block_expected["name"]],
-                                                                     input_dataset.mc_market_areas)
-            max_tso_power_sold = clearing.get_max_tso_power_sold(input_dataset.times[time_index],
-                                                                 input_dataset.mc_control_blocks[
-                                                                     control_block_expected["name"]],
-                                                                 input_dataset.mc_market_areas)
-            assert max_tso_power_bought == pytest.approx(control_block_expected['max_tso_power_bought'][time_index],
-                                                         rel=1e-9)
-            assert max_tso_power_sold == pytest.approx(control_block_expected['max_tso_power_sold'][time_index],
-                                                       rel=1e-9)
+        for time_index in range(len(control_block_expected["max_tso_power_sold"])):
+            max_tso_power_bought = clearing.get_max_tso_power_bought(
+                input_dataset.times[time_index],
+                input_dataset.mc_control_blocks[control_block_expected["name"]],
+                input_dataset.mc_market_areas,
+            )
+            max_tso_power_sold = clearing.get_max_tso_power_sold(
+                input_dataset.times[time_index],
+                input_dataset.mc_control_blocks[control_block_expected["name"]],
+                input_dataset.mc_market_areas,
+            )
+            assert max_tso_power_bought == pytest.approx(
+                control_block_expected["max_tso_power_bought"][time_index], rel=1e-9
+            )
+            assert max_tso_power_sold == pytest.approx(
+                control_block_expected["max_tso_power_sold"][time_index], rel=1e-9
+            )
 
 
 def compare_market_borders(market_borders_expected, input_dataset):
     for market_border_expected in market_borders_expected.values():
         mc_market_border = input_dataset.mc_market_borders[market_border_expected["name"]]
-        assert mc_market_border.border.loss_factor == pytest.approx(float(market_border_expected["loss_factor"]),
-                                                                    rel=1e-9)
-        assert mc_market_border.time_resolution == pytest.approx(float(market_border_expected["time_resolution"]),
-                                                                 rel=1e-9)
-        assert mc_market_border.border.uphill_market_area.name == market_border_expected['upstream_market']
-        assert mc_market_border.border.downhill_market_area.name == market_border_expected['downstream_market']
-        assert compare_timeseries_to_dict(mc_market_border.max_flow, market_border_expected['max_flow'])
-        assert compare_timeseries_to_dict(mc_market_border.min_flow, market_border_expected['min_flow'])
+        assert mc_market_border.border.loss_factor == pytest.approx(
+            float(market_border_expected["loss_factor"]), rel=1e-9
+        )
+        assert mc_market_border.time_resolution == pytest.approx(
+            float(market_border_expected["time_resolution"]), rel=1e-9
+        )
+        assert mc_market_border.border.uphill_market_area.name == market_border_expected["upstream_market"]
+        assert mc_market_border.border.downhill_market_area.name == market_border_expected["downstream_market"]
+        assert compare_timeseries_to_dict(mc_market_border.max_flow, market_border_expected["max_flow"])
+        assert compare_timeseries_to_dict(mc_market_border.min_flow, market_border_expected["min_flow"])
 
 
 def compare_market_data(market_data_expected, input_dataset):
@@ -202,7 +209,7 @@ def compare_orders_couplings(order_couplings_expected, order_couplings_dict):
 
 def compare_timeseries_to_dict(timeseries: Timeseries, _dict: dict[str, float]):
     for time, value in _dict.items():
-        time_formated = pendulum.from_format(time, 'DD/MM/YYYY HH:mm:ss')
+        time_formated = pendulum.from_format(time, "DD/MM/YYYY HH:mm:ss")
         if abs(timeseries.get_value(time_formated) - value) > 1e-9:
             return False
     return True
@@ -215,8 +222,8 @@ def compare_timeseries_to_dict(timeseries: Timeseries, _dict: dict[str, float]):
         "MarketClearing input v1.3 FB_1",
         "MarketClearing input v1.3 FB_2",
         "MarketClearing input v1.3 ATC_1",
-        "MarketClearing input v1.3 ATC_2"
-    ]
+        "MarketClearing input v1.3 ATC_2",
+    ],
 )
 def test_input(dataset_name):
     path = Path("C:/Users/aboutet/Documents/atlas 2/ATLAS/data/market_clearing_prometheus/") / dataset_name
@@ -241,8 +248,14 @@ def test_input(dataset_name):
 
     input_dataset = mc_module.import_data(raw_data, parameters)
 
-    (coupling_groups_expected, market_areas_expected, control_blocks_expected, market_borders_expected,
-     market_data_expected, critical_branches_data) = read_expected_data(expected_data_path)
+    (
+        coupling_groups_expected,
+        market_areas_expected,
+        control_blocks_expected,
+        market_borders_expected,
+        market_data_expected,
+        critical_branches_data,
+    ) = read_expected_data(expected_data_path)
     compare_orders_couplings(coupling_groups_expected, input_dataset.mc_order_couplings)
     compare_market_area(market_areas_expected, input_dataset)
     compare_control_block(control_blocks_expected, input_dataset)

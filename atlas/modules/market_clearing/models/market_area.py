@@ -11,7 +11,7 @@ from atlas import ControlBlock
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.market.market_area import MarketArea
-from atlas.modules.market_clearing.models.order_mc import OrderMC
+from atlas.modules.market_clearing.models.order import OrderMC
 
 INITIAL_MAX_PRICE = 1.0e8
 INITIAL_MIN_PRICE = -1.0e8

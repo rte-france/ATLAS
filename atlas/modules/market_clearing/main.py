@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import argparse
 
 from atlas.io_utils.input_loader import InputLoader
-from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
+from atlas.modules.market_clearing.module import MarketClearingModule
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

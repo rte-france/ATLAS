@@ -12,9 +12,9 @@ from collections.abc import Generator
 import pendulum
 
 from atlas.enum import OrderType
-from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
-from atlas.modules.market_clearing.models.order_mc import OrderMC
+from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.models.order import OrderMC
+from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
 
 class MarginalFixing:

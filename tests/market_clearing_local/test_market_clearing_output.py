@@ -10,8 +10,8 @@ from atlas import InputLoader
 from atlas.config import EQUIPMENT_MODELS
 from atlas.io_utils.utils import to_snake_case
 from atlas.models.portfolio import Portfolio
-from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
-from atlas.modules.market_clearing.market_clearing_output_dataset import MarketClearingOutputDataset
+from atlas.modules.market_clearing.module import MarketClearingModule
+from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from tests.market_clearing_local.test_market_data_market_clearing import read_expected_data
 
 

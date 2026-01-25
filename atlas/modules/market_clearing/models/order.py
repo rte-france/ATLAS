@@ -11,7 +11,7 @@ from atlas.enum import OrderType, Product
 from atlas.logging import logger
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
-from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
+from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
 
 class OrderMC(Order):

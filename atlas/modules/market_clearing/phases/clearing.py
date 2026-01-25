@@ -9,16 +9,15 @@ from pathlib import Path
 
 from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
 
-import atlas.modules.market_clearing.market_clearing_constants as constants
+import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.enum import ComplementDirection, CouplingType, OrderType
 from atlas.models.control_block import ControlBlock
-from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
-from atlas.modules.market_clearing.models.control_block_mc import ControlBlockMC
-from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
-from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
-from atlas.modules.market_clearing.models.order_mc import OrderMC
+from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.models.market_area import MarketAreaMC
+from atlas.modules.market_clearing.models.order import OrderMC
+from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
+from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.solver.solver_interface import OptimisationModel
 
 # Static definition of default bounds on exchanges (can be changed at will):
@@ -607,7 +606,7 @@ class Clearing(OptimisationModel):
                 constant += lambda4 * border_exchange.Lb()
         return objective
 
-    def get_tso_sold_power(self, time: int, control_block: ControlBlockMC):
+    def get_tso_sold_power(self, time: int, control_block: ControlBlock):
         tso_sold_power = 0.0
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             if control_block.name == mc_market_area.control_block.name:
@@ -621,7 +620,7 @@ class Clearing(OptimisationModel):
                         )
         return tso_sold_power
 
-    def get_tso_bought_power(self, time: int, control_block: ControlBlockMC):
+    def get_tso_bought_power(self, time: int, control_block: ControlBlock):
         tso_bought_power = []
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             if control_block.name == mc_market_area.control_block.name:

@@ -10,8 +10,8 @@ import polars as pl
 
 from atlas import LazyForecastingMatrix
 from atlas.enum import OrderType, Product
-from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
+from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
 
 class MarketClearingResults:

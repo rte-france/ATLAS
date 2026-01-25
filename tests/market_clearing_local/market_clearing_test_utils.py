@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 import pandas as pd
 
-import atlas.modules.market_clearing.market_clearing_constants as mc_constants
+import atlas.modules.market_clearing.constants as mc_constants
 from atlas.io_utils.utils import to_snake_case
 from atlas.solver.solver_helper import SolverHelper
 
@@ -53,8 +53,14 @@ def map_args(pattern: str, encoded_str: str) -> list[str]:
     return [args_map[i] for i in sorted(args_map.keys())]
 
 
-def find_func(name, func_with_start, coupling_groups_expected, market_areas_expected, market_borders_expected,
-              critical_branches_expected):
+def find_func(
+    name,
+    func_with_start,
+    coupling_groups_expected,
+    market_areas_expected,
+    market_borders_expected,
+    critical_branches_expected,
+):
     fun_associated = None
     for func_start in func_with_start:
         if func_start in name and func_start[:2] == name[:2]:
@@ -72,8 +78,9 @@ def find_func(name, func_with_start, coupling_groups_expected, market_areas_expe
     order_coupling = None
     if "order_coupling_name" in func_with_start[fun_associated][1]:
         index = func_with_start[fun_associated][1].index("order_coupling_name")
-        order_coupling = \
-        [key for key, value in coupling_groups_expected.items() if str(value["id"]) == f"{arguments[index]}"][0]
+        order_coupling = [
+            key for key, value in coupling_groups_expected.items() if str(value["id"]) == f"{arguments[index]}"
+        ][0]
         arguments[index] = to_snake_case(order_coupling)
     if "order_name" in func_with_start[fun_associated][1]:
         index = func_with_start[fun_associated][1].index("order_name")
@@ -82,31 +89,41 @@ def find_func(name, func_with_start, coupling_groups_expected, market_areas_expe
             arguments[index] = order_id
         if market_area:
             arguments[index] = to_snake_case(
-                [key for key, value in market_areas_expected[market_area]["orders"].items() if
-                 str(value["id"]) == f"{arguments[index]}"][0])
+                [
+                    key
+                    for key, value in market_areas_expected[market_area]["orders"].items()
+                    if str(value["id"]) == f"{arguments[index]}"
+                ][0]
+            )
     if "border_name" in func_with_start[fun_associated][1]:
         index = func_with_start[fun_associated][1].index("border_name")
-        border_name = \
-        [key for key, value in market_borders_expected.items() if str(value["id"]) == f"{arguments[index]}"][0]
+        border_name = [
+            key for key, value in market_borders_expected.items() if str(value["id"]) == f"{arguments[index]}"
+        ][0]
         arguments[index] = to_snake_case(border_name)
     if "branch_name" in func_with_start[fun_associated][1]:
         index = func_with_start[fun_associated][1].index("branch_name")
-        branch_name = \
-        [key for key, value in critical_branches_expected.items() if str(value["id"]) == f"{arguments[index]}"][0]
+        branch_name = [
+            key for key, value in critical_branches_expected.items() if str(value["id"]) == f"{arguments[index]}"
+        ][0]
         arguments[index] = to_snake_case(branch_name)
     return fun_associated, arguments
 
 
 def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expected_data):
-    (coupling_groups_expected, market_areas_expected, _, market_borders_expected,
-     _, critical_branches_expected) = expected_data
+    (coupling_groups_expected, market_areas_expected, _, market_borders_expected, _, critical_branches_expected) = (
+        expected_data
+    )
     mapping_df = pd.read_csv(lp_mapping_path, delimiter=";")[["New Name", "Original Name"]]
-    prometheus_objectives, prometheus_constraints, prometheus_variables, prometheus_binaries = SolverHelper.read_lp_legacy(
-        prometheus_lp_path)
+    prometheus_objectives, prometheus_constraints, prometheus_variables, prometheus_binaries = (
+        SolverHelper.read_lp_legacy(prometheus_lp_path)
+    )
     variable_mapping = mapping_df[mapping_df["New Name"].str.contains("V_")]
     constraint_mapping = mapping_df[mapping_df["New Name"].str.contains("C_")]
-    new_prometheus_binaries = [variable_mapping[variable_mapping["New Name"] == v_name]["Original Name"].values[0] for
-                               v_name in prometheus_binaries]
+    new_prometheus_binaries = [
+        variable_mapping[variable_mapping["New Name"] == v_name]["Original Name"].values[0]
+        for v_name in prometheus_binaries
+    ]
     new_prometheus_constraints = {}
     new_prometheus_variables = {}
     new_prometheus_objectives = {}
@@ -139,27 +156,35 @@ def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expect
     for _, func in naming_functions:
         parameters = list(inspect.signature(func).parameters)
         name = func(*[f";{i};" for i in range(len(parameters))])
-        start = name[:name.find(";")]
+        start = name[: name.find(";")]
         func_with_start[start] = (func, parameters, name)
 
     mapping = {}
     variable_dict = {}
     for var_name in new_prometheus_variables:
-        fun_associated, arguments = find_func(var_name, func_with_start, coupling_groups_expected,
-                                              market_areas_expected, market_borders_expected,
-                                              critical_branches_expected)
+        fun_associated, arguments = find_func(
+            var_name,
+            func_with_start,
+            coupling_groups_expected,
+            market_areas_expected,
+            market_borders_expected,
+            critical_branches_expected,
+        )
         variable_dict[var_name] = func_with_start[fun_associated][0](*arguments)
         mapping[variable_dict[var_name]] = var_name
-    prometheus_variables = {
-        variable_dict[key]: value for key, value in new_prometheus_variables.items()
-    }
+    prometheus_variables = {variable_dict[key]: value for key, value in new_prometheus_variables.items()}
 
     binaries_dict = {}
     prometheus_binaries = []
     for var_name in new_prometheus_binaries:
-        fun_associated, arguments = find_func(var_name, func_with_start, coupling_groups_expected,
-                                              market_areas_expected, market_borders_expected,
-                                              critical_branches_expected)
+        fun_associated, arguments = find_func(
+            var_name,
+            func_with_start,
+            coupling_groups_expected,
+            market_areas_expected,
+            market_borders_expected,
+            critical_branches_expected,
+        )
         prometheus_binaries.append(func_with_start[fun_associated][0](*arguments))
         binaries_dict[var_name] = func_with_start[fun_associated][0](*arguments)
         mapping[binaries_dict[var_name]] = var_name
@@ -169,8 +194,14 @@ def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expect
         # manage price group bound create as constraint in prometheus
         if "_bound_PG" in c_name or "part_price_group_" in c_name or "_part_price_diff_groups_" in c_name:
             continue
-        fun_associated, arguments = find_func(c_name, func_with_start, coupling_groups_expected, market_areas_expected,
-                                              market_borders_expected, critical_branches_expected)
+        fun_associated, arguments = find_func(
+            c_name,
+            func_with_start,
+            coupling_groups_expected,
+            market_areas_expected,
+            market_borders_expected,
+            critical_branches_expected,
+        )
         constraint_name = to_snake_case(func_with_start[fun_associated][0](*arguments))
         mapping[constraint_name] = c_name
         constraints = {}
@@ -184,7 +215,8 @@ def transform_clearing_prometheus_lp(prometheus_lp_path, lp_mapping_path, expect
         prometheus_constraints[constraint_name] = constraints
 
     prometheus_objectives = {
-        variable_dict[var_name]: new_prometheus_objectives[var_name] for var_name in new_prometheus_objectives
+        variable_dict[var_name]: new_prometheus_objectives[var_name]
+        for var_name in new_prometheus_objectives
         if "Constant" != var_name
     }
     mapping_path, _ = os.path.splitext(prometheus_lp_path)

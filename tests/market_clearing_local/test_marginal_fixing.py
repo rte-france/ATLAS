@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from atlas.io_utils.input_loader import InputLoader
-from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
+from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 
 

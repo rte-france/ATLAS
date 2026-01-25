@@ -6,9 +6,9 @@ This file is part of the ATLAS project.
 
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.models.business_model import BusinessModel
-from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.market_clearing_output_dataset import MarketClearingOutputDataset
-from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
+from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
+from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.modules.market_clearing.phases.exchanges_fixing import ExchangesFixing
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing

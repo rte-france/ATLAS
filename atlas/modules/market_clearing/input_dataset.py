@@ -16,14 +16,13 @@ from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.modules.market_clearing.market_clearing_parameters import ExchangeConstraintsType, MarketClearingParameters
-from atlas.modules.market_clearing.models.control_block_mc import ControlBlockMC
-from atlas.modules.market_clearing.models.critical_branch_mc import CriticalBranchMC
-from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
-from atlas.modules.market_clearing.models.market_area_ptdf_mc import MarketAreaPtdfMC
-from atlas.modules.market_clearing.models.market_border_mc import MarketBorderMC
-from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
-from atlas.modules.market_clearing.models.order_mc import OrderMC
+from atlas.modules.market_clearing.models.critical_branch import CriticalBranchMC
+from atlas.modules.market_clearing.models.market_area import MarketAreaMC
+from atlas.modules.market_clearing.models.market_area_ptdf import MarketAreaPtdfMC
+from atlas.modules.market_clearing.models.market_border import MarketBorderMC
+from atlas.modules.market_clearing.models.order import OrderMC
+from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
+from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 
 
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
@@ -86,7 +85,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             mc_critical_branches[critical_branch.name] = mc_critical_branch
         return mc_critical_branches
 
-    def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlockMC]:
+    def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlock]:
         # filter by the parameters control_block_names
         if self.parameters.control_block_names == "All":
             control_blocks_to_keep = control_blocks
@@ -102,7 +101,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             for mc_market_area in self.mc_market_areas.values():
                 if control_block == mc_market_area.control_block:
                     control_block_dump = MarketClearingInputDataset.shallow_dump(control_block)
-                    mc_control_block = ControlBlockMC.model_validate(control_block_dump)
+                    mc_control_block = ControlBlock.model_validate(control_block_dump)
                     control_blocks_mc[control_block.name] = mc_control_block
         return control_blocks_mc
 

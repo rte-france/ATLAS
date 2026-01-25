@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from atlas import InputLoader
-from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
+from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.phases.exchanges_fixing import ExchangesFixing
 from atlas.solver.solver_helper import SolverHelper
 

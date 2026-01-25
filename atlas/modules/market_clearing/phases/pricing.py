@@ -9,15 +9,15 @@ from pathlib import Path
 
 import pendulum
 
-import atlas.modules.market_clearing.market_clearing_constants as constants
+import atlas.modules.market_clearing.constants as constants
 from atlas import OptimisationModel, Order
 from atlas.config import logger
 from atlas.enum import ComplementDirection, CouplingType, SolverStatus
-from atlas.modules.market_clearing.market_clearing_input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.market_clearing_parameters import MarketClearingParameters
-from atlas.modules.market_clearing.models.market_area_mc import MarketAreaMC
-from atlas.modules.market_clearing.models.market_border_mc import MarketBorderMC
-from atlas.modules.market_clearing.models.order_coupling_mc import OrderCouplingMC
+from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.models.market_area import MarketAreaMC
+from atlas.modules.market_clearing.models.market_border import MarketBorderMC
+from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
+from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.price_group import PriceGroup
 from atlas.solver.solver_helper import SolverHelper
 

@@ -4,7 +4,7 @@ import pickle
 import pytest
 
 from atlas import InputLoader
-from atlas.modules.market_clearing.marker_clearing_module import MarketClearingModule
+from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.phases.market_clearing_results import MarketClearingResults
 
 
