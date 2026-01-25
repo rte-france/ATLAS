@@ -7,12 +7,19 @@ Test suite for AtlasDataset
 """
 
 import pickle
+from datetime import datetime
 
+import polars as pl
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
+from atlas.models.equipment.hydro import Hydro
+from atlas.models.market.market_area import MarketArea
 from atlas.models.node import Node
+from atlas.models.portfolio import Portfolio
 
 
 class TestAtlasDatasetBasic:
@@ -522,3 +529,104 @@ class TestAtlasDatasetPickling:
         assert isinstance(restored, AtlasDataset)
         assert len(restored) == 1
         assert restored.node[0].name == "node1"
+
+    def test_roundtrip_io_reading_writing(self, tmp_path):
+        """Test round-trip with dataset containing timeseries, matrices, references, and lists."""
+        # Create prerequisite objects - ensure all optional references are filled to avoid None serialization issues
+        control_block = ControlBlock(name="cb1")
+        market_area = MarketArea(name="ma1", control_block=control_block)
+        node = Node(name="node1", control_block=control_block, market_area=market_area)
+        portfolio = Portfolio(name="portfolio1", control_block=control_block, market_area=market_area)
+
+        # Create timeseries data
+        timeseries_inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 110.0, 120.0],
+            timezone="UTC",
+        )
+        timeseries_max_power = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[500.0, 500.0, 500.0],
+            timezone="UTC",
+        )
+
+        # Create forecasting matrix data
+        matrix_df = pl.DataFrame(
+            {
+                "time": pl.datetime_range(
+                    start=datetime(2024, 1, 1, 0, 0, 0),
+                    end=datetime(2024, 1, 1, 2, 0, 0),
+                    interval="1h",
+                    time_unit="us",
+                    eager=True,
+                ),
+                "2024-01-01 00:00:00": [150.0, 160.0, 170.0],
+                "2024-01-01 01:00:00": [180.0, 190.0, 200.0],
+            }
+        )
+        forecasting_matrix = ForecastingMatrix(matrix_df)
+
+        hydro1 = Hydro(
+            name="hydro1",
+            node=node,
+            portfolio=portfolio,
+            inflows=timeseries_inflows,
+            maximum_power=timeseries_max_power,
+            stored_energy=forecasting_matrix,
+            fragment_prices=[10.0, 20.0, 30.0],
+            fragment_volumes=[0.3, 0.5, 0.2],
+        )
+
+        hydro2 = Hydro(
+            name="hydro2",
+            node=node,
+            portfolio=portfolio,
+            fragment_prices=[15.0, 25.0],
+            fragment_volumes=[0.6, 0.4],
+        )
+
+        # Create dataset with all dependencies
+        dataset1 = AtlasDataset(
+            control_block=[control_block],
+            market_area=[market_area],
+            node=[node],
+            portfolio=[portfolio],
+            hydro=[hydro1, hydro2],
+        )
+
+        # Test round-trip with parquet format (most common)
+        output_dir = tmp_path / "hydro_output"
+        dataset1.to_directory(output_dir)
+
+        # Read back
+        dataset2 = AtlasDataset.from_directory(output_dir)
+
+        assert len(dataset2) == 6
+        assert len(dataset2.hydro) == 2
+        assert len(dataset2.node) == 1
+        assert len(dataset2.portfolio) == 1
+        assert len(dataset2.control_block) == 1
+        assert len(dataset2.market_area) == 1
+
+        # Verify object names
+        assert dataset2.hydro[0].name == "hydro1"
+        assert dataset2.hydro[1].name == "hydro2"
+
+        # Verify BusinessModel references are preserved
+        assert dataset2.hydro[0].node.name == "node1"
+        assert dataset2.hydro[0].portfolio.name == "portfolio1"
+
+        # Verify timeseries data preservation using direct equality
+        assert dataset2.hydro[0].inflows == timeseries_inflows
+        assert dataset2.hydro[0].maximum_power == timeseries_max_power
+
+        # Verify forecasting matrix preservation using direct equality
+        assert dataset2.hydro[0].stored_energy == forecasting_matrix
+
+        # Verify list of float preservation
+        assert dataset2.hydro[0].fragment_prices == [10.0, 20.0, 30.0]
+        assert dataset2.hydro[0].fragment_volumes == [0.3, 0.5, 0.2]
+        assert dataset2.hydro[1].fragment_prices == [15.0, 25.0]
+        assert dataset2.hydro[1].fragment_volumes == [0.6, 0.4]

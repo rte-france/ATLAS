@@ -344,7 +344,7 @@ class Matrix:
         if not path_str.lower().endswith(file_format_lower):
             raise ValueError("Format and file extension don't match.")
 
-        df_to_write = self.matrix.insert_column(1, pl.lit(attribute).alias("attribute"))
+        df_to_write = self.matrix.clone().insert_column(1, pl.lit(attribute).alias("attribute"))
 
         if concatenate:
             path_obj = Path(path_str)

@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 Functional module for saving ATLAS datasets to directories.
 """
 
+import shutil
 from pathlib import Path
 from typing import Literal
 
@@ -54,7 +55,9 @@ def save_to_directory(
             matrix_file_extension=matrix_file_extension,
         )
 
-        # Create directory structure
+        if config.directory_path.exists():
+            shutil.rmtree(config.directory_path)
+
         _create_directory_structure(config)
 
         # Export each object type
