@@ -312,7 +312,6 @@ class TestAtlasDatasetIO:
         (test_dir / "objects").mkdir()
 
         # Create minimal test data
-        import polars as pl
 
         pl.DataFrame([{"name": "node1"}]).write_csv(test_dir / "objects" / "node.csv", separator=";")
 
@@ -336,7 +335,6 @@ class TestAtlasDatasetIO:
         assert (output_dir / "objects" / "node.csv").exists()
 
         # Verify content
-        import polars as pl
 
         df = pl.read_csv(output_dir / "objects" / "node.csv", separator=";")
         assert len(df) == 1
@@ -365,8 +363,6 @@ class TestAtlasDatasetIO:
         test_dir = tmp_path / "test_data"
         test_dir.mkdir()
         (test_dir / "objects").mkdir()
-
-        import polars as pl
 
         pl.DataFrame([{"name": "node1"}]).write_csv(test_dir / "objects" / "node.csv", separator=";")
 
@@ -461,8 +457,6 @@ class TestAtlasDatasetPickling:
 
         # Verify file was created
         assert pickle_file.exists()
-
-        # Load manually to verify
 
         with open(pickle_file, "rb") as f:
             restored = pickle.load(f)
