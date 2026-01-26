@@ -17,7 +17,7 @@ from atlas.solver.solver_interface import OptimisationModel
 
 class ExchangesFixing(OptimisationModel):
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
-        solver_option = SolverOptions(presolve=True if int(parameters.use_presolve) else False)
+        solver_option = SolverOptions(presolve=parameters.use_presolve)
         super().__init__(parameters.solver_name, options=solver_option)
         self.input_dataset = input_dataset
         self.parameters = parameters

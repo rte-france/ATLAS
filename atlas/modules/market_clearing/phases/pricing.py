@@ -32,7 +32,7 @@ class Pricing(OptimisationModel):
         clearing_local_balances: dict[tuple[str, int], float],
         clearing_accepted_powers: dict[tuple[str, str], float],
     ):
-        solver_option = SolverOptions(presolve=True if int(parameters.use_presolve) else False)
+        solver_option = SolverOptions(presolve=parameters.use_presolve)
         super().__init__(parameters.solver_name, options=solver_option)
         super().__init__(parameters.solver_name)
         self.input_dataset = input_dataset
