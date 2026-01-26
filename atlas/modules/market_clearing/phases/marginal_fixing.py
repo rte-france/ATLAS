@@ -51,7 +51,7 @@ class MarginalFixing:
                 spot_price = market_prices[market_area_name, time_index]
                 self.update_accepted_power(market_area_name, time, spot_price)
         if self.parameters.export_lp:
-            with open(os.path.join(self.parameters.output_path, "marginal_fixing_accepted_powers.json"), "w") as f:
+            with open(self.parameters.output_path / "marginal_fixing_accepted_powers.json", "w") as f:
                 json.dump([[ma, o, val] for (ma, o), val in self.retrieve_accepted_powers().items()], f)
 
     def update_accepted_power(self, market_area_name: str, current_time: pendulum.DateTime, spot_price: float) -> None:

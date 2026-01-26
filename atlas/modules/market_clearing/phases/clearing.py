@@ -35,7 +35,7 @@ class Clearing(OptimisationModel):
         self.build()
         self.solve()
         if self.parameters.export_lp:
-            output_path = Path(self.parameters.output_path)
+            output_path = self.parameters.output_path
             output_path.mkdir(parents=True, exist_ok=True)
             self.export_model(str(output_path / "clearing_model.lp"))
             with open(output_path / "clearing_accepted_powers.json", "w") as f:
