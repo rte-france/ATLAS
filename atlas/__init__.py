@@ -28,13 +28,13 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
+from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 from atlas.workflow.workflow import Workflow
 from atlas.workflow.workflow_parameters_parser import WorkflowParameters, WorkflowParametersParser
 from atlas.workflow.workflow_step import WorkflowStep
-from atlas.modules.market_clearing.module import MarketClearingModule
 
 __all__ = [
     "Parameters",

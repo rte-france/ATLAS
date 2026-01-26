@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 from typing import Any, cast
 
+import pendulum
 from pydantic import BaseModel
 
 from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder, generate_datetimes
@@ -31,8 +32,11 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
     def __init__(self, raw_data: dict[str, list[type[BusinessModel]]], parameters: MarketClearingParameters):
         self.raw_data = raw_data
         self.parameters = parameters
-
-        self.times = generate_datetimes(self.parameters.start_date, self.parameters.end_date, self.parameters.timestep)
+        self.times = generate_datetimes(
+            self.parameters.start_date,
+            cast(pendulum.DateTime, self.parameters.end_date - self.parameters.timestep),
+            self.parameters.timestep,
+        )
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
 
