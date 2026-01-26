@@ -169,7 +169,7 @@ class StorageModel(OptimisationModel):
                 "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
             )
 
-        if self.parameters.debug:
+        if self.parameters.export_lp:
             lp_file_name = self.parameters.output_folder / f"storage_{self.storage.name}.lp"
             self.export_model(str(lp_file_name))
 

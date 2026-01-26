@@ -710,7 +710,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
             )
 
-        if self.parameters.debug:
+        if self.parameters.export_lp:
             lp_file_name = self.parameters.output_folder / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
             self.export_model(str(lp_file_name))
 

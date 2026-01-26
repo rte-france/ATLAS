@@ -25,10 +25,7 @@ class DayAheadOrdersParameters(AbstractParameters):
         True,
         description="A boolean indicating whether or not the program shall return detailed logs.",
     )
-    debug: bool = Field(
-        True,
-        description="A boolean indicating if the script will run in debug mode.",
-    )
+    export_lp: bool = Field(False, description="Boolean indicating if the LP model should be exported to a file.")
     proportional_reserves_penalty: bool = Field(
         True,
         description="A boolean indicating whether the amount of reserves offered is flexible, resulting in a "
