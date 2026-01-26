@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import atlas.modules.market_clearing.constants as constants
+from atlas import SolverOptions
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.models.market_border import DEFAULT_MAX_FLOW, DEFAULT_MIN_FLOW
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
@@ -16,7 +17,8 @@ from atlas.solver.solver_interface import OptimisationModel
 
 class ExchangesFixing(OptimisationModel):
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
-        super().__init__(parameters.solver_name)
+        solver_option = SolverOptions(presolve=True if int(parameters.use_presolve) else False)
+        super().__init__(parameters.solver_name, options=solver_option)
         self.input_dataset = input_dataset
         self.parameters = parameters
         self.exchange_fixing = None

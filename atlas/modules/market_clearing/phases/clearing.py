@@ -7,9 +7,8 @@ This file is part of the ATLAS project.
 import json
 from pathlib import Path
 
-from ortools.linear_solver import pywraplp  # type: ignore[attr-defined]
-
 import atlas.modules.market_clearing.constants as constants
+from atlas import SolverOptions
 from atlas.config import logger
 from atlas.enum import ComplementDirection, CouplingType, OrderType
 from atlas.models.control_block import ControlBlock
@@ -27,15 +26,10 @@ DEFAULT_MIN_FLOW = -10000.0
 
 class Clearing(OptimisationModel):
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
-        super().__init__(parameters.solver_name)
+        solver_option = SolverOptions(presolve=True if int(parameters.use_presolve) else False)
+        super().__init__(parameters.solver_name, options=solver_option)
         self.input_dataset = input_dataset
         self.parameters = parameters
-
-    @staticmethod
-    def create_solver_parameters(use_presolve: bool) -> pywraplp.MPSolverParameters:
-        solver_params = pywraplp.MPSolverParameters()
-        solver_params.PRESOLVE = int(use_presolve)
-        return solver_params
 
     def run(self):
         self.build()
