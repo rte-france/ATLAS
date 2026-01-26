@@ -1244,8 +1244,7 @@ class Pricing(OptimisationModel):
             linked_bids.extend(circularly_linked_bids)
             linked_bids.extend(block_idv_idr_bids)
 
-            # Remove duplicate orders
-            order_names = list(set([order.name for order in linked_bids]))
+            order_names = list(dict.fromkeys(order.name for order in linked_bids))
             dict_linked_bids[index_lo] = [self.input_dataset.mc_orders[order_name] for order_name in order_names]
             index_lo += 1
 
