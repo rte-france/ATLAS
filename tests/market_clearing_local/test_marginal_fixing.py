@@ -33,7 +33,7 @@ def test_if_marginal_fixing_generated_lp_matches_reference(dataset_name):
         try:
             mc_module = MarketClearingModule()
             parameters = mc_module.import_parameters(parameters_path)
-            parameters.output_path = tmpdir
+            parameters.output_path = Path(tmpdir)
             input_dataset = mc_module.import_data(raw_data, parameters)
             with open(clearing_accepted_powers_path, "r") as f:
                 accepted_powers = {(ma, t): val for ma, t, val in json.load(f)}

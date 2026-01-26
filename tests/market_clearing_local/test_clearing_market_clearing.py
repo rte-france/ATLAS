@@ -15,7 +15,7 @@ from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.solver.solver_helper import SolverHelper
 
 
-@pytest.mark.skip(reason="No data available")
+# @pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
@@ -37,7 +37,7 @@ def test_if_clearing_generated_lp_matches_reference(dataset_name):
         try:
             mc_module = MarketClearingModule()
             parameters = mc_module.import_parameters(parameters_path)
-            parameters.output_path = tmpdir
+            parameters.output_path = Path(tmpdir)
             input_dataset = mc_module.import_data(raw_data, parameters)
 
             clearing = Clearing(input_dataset, parameters)

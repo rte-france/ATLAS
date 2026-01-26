@@ -39,7 +39,7 @@ def test_if_exchange_fixing_generated_lp_matches_reference(dataset_name):
         try:
             mc_module = MarketClearingModule()
             parameters = mc_module.import_parameters(parameters_path)
-            parameters.output_path = tmpdir
+            parameters.output_path = Path(tmpdir)
             input_dataset = mc_module.import_data(raw_data, parameters)
 
             with open(local_balances_path, "r") as f:
