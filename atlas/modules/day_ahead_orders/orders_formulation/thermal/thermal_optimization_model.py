@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 """
 
 import math
-import os
 from datetime import datetime
 from typing import Literal
 
@@ -712,10 +711,8 @@ class ThermalOptimizationModel(OptimisationModel):
             )
 
         if self.parameters.debug:
-            lp_file_name = os.path.join(
-                self.parameters.output_folder, f"{self.thermal_unit.name}_price_{self.price_type}.lp"
-            )
-            self.export_model(lp_file_name)
+            lp_file_name = self.parameters.output_folder / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
+            self.export_model(str(lp_file_name))
 
         self.solve()
 

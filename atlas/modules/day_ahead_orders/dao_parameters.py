@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from functools import cached_property
+from pathlib import Path
 
 from pendulum import DateTime, duration
 from pendulum.duration import Duration
@@ -16,10 +17,9 @@ from atlas.validators import hours_validator, minutes_validator
 
 
 class DayAheadOrdersParameters(AbstractParameters):
-    output_folder: str = Field(
-        "DAO",
-        description="Optional parameter to choose an output folder in the SAMBA folder where the LPs will be exported. "
-        "If None, a folder will be created named 'DAO/{ExecutionDate}'.",
+    output_folder: Path = Field(
+        Path("DAO_lp_exports"),
+        description="Optional parameter to choose an output folder in the folder where the LPs will be exported.",
     )
     verbose: bool = Field(
         True,

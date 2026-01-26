@@ -5,7 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import os
 from typing import Literal
 
 from pendulum import DateTime
@@ -171,8 +170,8 @@ class StorageModel(OptimisationModel):
             )
 
         if self.parameters.debug:
-            lp_file_name = os.path.join(self.parameters.output_folder, f"storage_{self.storage.name}.lp")
-            self.export_model(lp_file_name)
+            lp_file_name = self.parameters.output_folder / f"storage_{self.storage.name}.lp"
+            self.export_model(str(lp_file_name))
 
         self.solve()
 
