@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas import ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries, generate_datetimes
+from atlas import ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enum import Product
 from atlas.models.business_model import BusinessModel
@@ -17,6 +17,7 @@ from atlas.models.market.order import Order
 from atlas.models.portfolio import Portfolio
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.timing import generate_datetimes
 
 
 class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):

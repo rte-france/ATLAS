@@ -9,12 +9,15 @@ from typing import Any, cast
 import pendulum
 from pydantic import BaseModel
 
-from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder, generate_datetimes
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME, logger
 from atlas.enum import CouplingType
 from atlas.models.business_model import BusinessModel
+from atlas.models.control_block import ControlBlock
+from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
+from atlas.models.market.market_area_ptdf import MarketAreaPtdf
+from atlas.models.market.market_border import MarketBorder
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.modules.market_clearing.models.critical_branch import CriticalBranchMC
@@ -24,6 +27,7 @@ from atlas.modules.market_clearing.models.market_border import MarketBorderMC
 from atlas.modules.market_clearing.models.order import OrderMC
 from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.timing import generate_datetimes
 
 
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
