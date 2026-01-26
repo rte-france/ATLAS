@@ -208,8 +208,16 @@ class StorageStep:
         )
         model.create_constraints(initial_stock)
 
-        # Solving the problem
-        model.solve_model()
+        if self.parameters.export_lp:
+            lp_file_name = self.parameters.output_folder / f"storage_{model.storage.name}.lp"
+            model.export_model(str(lp_file_name))
+
+        model.solve()
+
+        if self.parameters.verbose:
+            status = model.solution_info.status if model.solution_info else None
+            cfg.logger.info(f"Solver status: {status}")
+            cfg.logger.info(f"Objective function value: {model._objective}")
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [StartDate, EndDate]
@@ -266,8 +274,16 @@ class StorageStep:
         model.create_objective_function(power_fragments, smoothing_factor, "maximize")
         model.create_constraints(initial_stock, power_fragments)
 
-        # Solving the problem
-        model.solve_model()
+        if self.parameters.export_lp:
+            lp_file_name = self.parameters.output_folder / f"storage_{model.storage.name}.lp"
+            model.export_model(str(lp_file_name))
+
+        model.solve()
+
+        if self.parameters.verbose:
+            status = model.solution_info.status if model.solution_info else None
+            cfg.logger.info(f"Solver status: {status}")
+            cfg.logger.info(f"Objective function value: {model._objective}")
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [StartDate, EndDate]

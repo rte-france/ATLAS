@@ -10,9 +10,7 @@ from typing import Literal
 from pendulum import DateTime
 from pendulum.duration import Duration
 
-import atlas.config as cfg
 from atlas import OptimisationModel, SolverOptions, Timeseries, generate_datetimes
-from atlas.enum import SolverEnum
 from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
@@ -157,25 +155,3 @@ class StorageModel(OptimisationModel):
                     for t in self.time_frame
                 )
             )
-
-    def solve_model(self) -> None:
-        """
-        Solve the optimization problem
-        :return: None
-        """
-        if self.solver_name != SolverEnum.XPRESS:
-            # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
-            cfg.logger.warning(
-                "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
-            )
-
-        if self.parameters.export_lp:
-            lp_file_name = self.parameters.output_folder / f"storage_{self.storage.name}.lp"
-            self.export_model(str(lp_file_name))
-
-        self.solve()
-
-        if self.parameters.verbose:
-            status = self.solution_info.status if self.solution_info else None
-            cfg.logger.info(f"Solver status: {status}")
-            cfg.logger.info(f"Objective function value: {self._objective}")
