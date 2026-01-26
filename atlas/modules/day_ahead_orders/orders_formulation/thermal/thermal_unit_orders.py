@@ -16,10 +16,10 @@ from atlas.enum import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.named_timeseries import NamedTimeseries
 
 
 class ThermalUnitOrders:
@@ -519,7 +519,7 @@ class ThermalUnitOrders:
                 else:
                     order.price -= amortized_cost
 
-    def extract_online_sequences(self, states_sequence: Timeseries, case: str = "") -> list[NamedTimeseries]:
+    def extract_online_sequences(self, states_sequence: Timeseries, case: str = "") -> list[DAOTimeseries]:
         """
         A helper function that extracts online sequence based on a thermal unit states sequence.
         This in particular allows for the formulation of order on several sub-intervals if the unit
@@ -530,7 +530,7 @@ class ThermalUnitOrders:
         :param case: (optional) a string that aims at identifying the price scenario if relevant
         :type case: str
         :return: a list of time series, each time series containing a sequence over which the unit is online empty if the unit is offline over the whole time frame
-        :rtype: list[NamedTimeseries]
+        :rtype: list[DAOTimeseries]
         """
         # Get the time steps for which the unit is online (defined as a non-zero state):
         # Consistency of the online states wrt the minimum duration is ensured by definition of the
@@ -554,11 +554,11 @@ class ThermalUnitOrders:
         # If the unit is online over the whole orders_time time frame, then only one interval is generated
         # Otherwise all intervals are generated, using the fact that by construction, there is an even
         # number of time steps in the intervals list.
-        list_of_online_timeframes: list[NamedTimeseries] = []
+        list_of_online_timeframes: list[DAOTimeseries] = []
         if intervals:
             intervals.sort()
             for i in range(int(len(intervals) / 2)):
-                window = NamedTimeseries(
+                window = DAOTimeseries(
                     timeseries=states_sequence.slice(intervals[2 * i], intervals[2 * i + 1], "both", False), name=case
                 )
                 # don't add duplicates

@@ -20,7 +20,6 @@ from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParamete
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.named_timeseries import NamedTimeseries
 from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_1,
     combination_2,
@@ -178,13 +177,13 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # For each price curve, we collapse all ON states. This is why we needed to know whether the unit has
         # two or three ON states. Due to the mutual exclusion constraint, the resulting serie will take values in {0,1} only.
 
-        collapsed_outcomes: list[NamedTimeseries] = []
+        collapsed_outcomes: list[DAOTimeseries] = []
 
         # consider the two possible cases
         if has_flat:
             for case in scenarios_names:
                 # Aggregate the three ON states
-                isOn_time_serie = NamedTimeseries(
+                isOn_time_serie = DAOTimeseries(
                     timeseries=results[thermal_unit.name][case]["ON_UP"]
                     + results[thermal_unit.name][case]["ON_DOWN"]
                     + results[thermal_unit.name][case]["ON_FLAT"],
@@ -194,7 +193,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         else:
             for case in scenarios_names:
                 # Aggregate the two ON states
-                isOn_time_serie = NamedTimeseries(
+                isOn_time_serie = DAOTimeseries(
                     timeseries=results[thermal_unit.name][case]["ON_UP"] + results[thermal_unit.name][case]["ON_DOWN"],
                     name=case,  # the name of the new time serie, corresponds to the name of the case under consideration.
                 )
@@ -204,7 +203,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # are overlapping or not.
 
         # list of scenarios to be discarded (if already marked as overlapping)
-        to_discard: list[NamedTimeseries] = []
+        to_discard: list[DAOTimeseries] = []
         for pair in itertools.combinations(collapsed_outcomes, 2):
             if self.is_overlapping(pair):
                 # add the first scenario (arbitrarily) to the list of scenarios to be discarded if
@@ -279,17 +278,17 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         return states_sequence
 
     def get_overlapping_timeframes(
-        self, online_timeframes: list[NamedTimeseries]
-    ) -> list[tuple[NamedTimeseries, NamedTimeseries]]:
+        self, online_timeframes: list[DAOTimeseries]
+    ) -> list[tuple[DAOTimeseries, DAOTimeseries]]:
         """
         Given a list of timeframes, returns the subset of overlapping timeframes.
 
         :param online_timeframes: a list of time frames.
-        :type online_timeframes: list[NamedTimeseries]
+        :type online_timeframes: list[DAOTimeseries]
         :return: a list of tuples of overlapping blocks
-        :rtype: list[tuple[NamedTimeseries, NamedTimeseries]]
+        :rtype: list[tuple[DAOTimeseries, DAOTimeseries]]
         """
-        overlapping_blocks: list[tuple[NamedTimeseries, NamedTimeseries]] = []
+        overlapping_blocks: list[tuple[DAOTimeseries, DAOTimeseries]] = []
 
         # Test the potential overlaps
         for pair in itertools.combinations(online_timeframes, 2):

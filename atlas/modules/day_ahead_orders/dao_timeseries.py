@@ -7,11 +7,34 @@ This file is part of the ATLAS project.
 
 from datetime import datetime
 
+import pandas as pd
+import polars as pl
+
 from atlas import Timeseries
+from atlas.typing import TimeseriesDict
 
 
 class DAOTimeseries(Timeseries):
     """wrapper class for Timeseries in order to add utilities functions"""
+
+    name: str
+
+    def __init__(
+        self,
+        timeseries: pl.DataFrame | Timeseries | pd.DataFrame | TimeseriesDict | None = None,
+        timezone: str = "UTC",
+        name: str = "",
+    ):
+        """
+        :param timeseries: the timeseries
+        :type timeseries: pl.DataFrame | Timeseries | pd.DataFrame | TimeseriesDict
+        :param timezone: the timezone to use
+        :type timezone: str
+        :param name: the name of the timeseries
+        :type name: str
+        """
+        super().__init__(timeseries, timezone)
+        self.name = name
 
     def set_or_add_value(self, time: datetime | str, value: float) -> None:
         """
