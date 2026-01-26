@@ -15,7 +15,7 @@ from atlas.modules.market_clearing.phases.clearing import Clearing
 from atlas.solver.solver_helper import SolverHelper
 
 
-# @pytest.mark.skip(reason="No data available")
+@pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
