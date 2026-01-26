@@ -5,7 +5,8 @@ This file is part of the ATLAS project.
 """
 
 import pendulum
-from pendulum import DateTime, Duration
+from pendulum import Duration
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enum import OrderType, Product
 from atlas.logging import logger
@@ -73,7 +74,7 @@ class OrderMC(Order):
         return self.start_date + self.duration
 
     @staticmethod
-    def is_feasible(order: Order, times: list[DateTime], parameters: MarketClearingParameters) -> bool:
+    def is_feasible(order: Order, times: list[pendulum.DateTime], parameters: MarketClearingParameters) -> bool:
         """Check if an order from the marker is feasible or not.
 
         The first attributes to check are dates: they must lie in the time window of the simulation, as defined in the
