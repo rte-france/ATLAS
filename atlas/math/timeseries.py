@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pickle
 from collections.abc import Generator
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -92,7 +92,7 @@ class Timeseries:
     def from_values(
         cls,
         start_date: str | datetime | pendulum.DateTime,
-        frequency: str | pendulum.Duration,
+        frequency: str | timedelta | pendulum.Duration,
         values: list[float],
         date_format="YYYY-MM-DD HH:mm:ss",
         timezone: str = "UTC",
@@ -131,7 +131,7 @@ class Timeseries:
     def from_index(
         cls,
         start_date: str | datetime | pendulum.DateTime,
-        frequency: str | pendulum.Duration,
+        frequency: str | timedelta | pendulum.Duration,
         end_date: str | datetime | pendulum.DateTime,
         default_value: list[float] | float = 0,
         date_format="YYYY-MM-DD HH:mm:ss",
