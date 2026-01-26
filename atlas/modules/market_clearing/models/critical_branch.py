@@ -15,27 +15,27 @@ class CriticalBranchMC(CriticalBranch):
     market_area_ptdf: list[MarketAreaPtdf]
 
     # Attributes from market clearing parameter
-    time_step: Duration
+    timestep: Duration
     times: list[pendulum.DateTime]
 
     @property
     def flow_margin(self) -> Timeseries | LazyTimeseries | None:
         if self.flow_reliability_margin:
-            return self.flow_reliability_margin.set_frequency(self.time_step, False).filter(self.times)
+            return self.flow_reliability_margin.set_frequency(self.timestep, False).filter(self.times)
         else:
             return None
 
     @property
     def ref_flow(self) -> Timeseries | LazyTimeseries | None:
         if self.reference_flow:
-            return self.reference_flow.set_frequency(self.time_step, False).filter(self.times)
+            return self.reference_flow.set_frequency(self.timestep, False).filter(self.times)
         else:
             return None
 
     @property
     def max_flow(self) -> Timeseries | LazyTimeseries | None:
         if self.maximum_flow:
-            max_flow = self.maximum_flow.set_frequency(self.time_step, False).filter(self.times)
+            max_flow = self.maximum_flow.set_frequency(self.timestep, False).filter(self.times)
             if self.flow_margin is not None:
                 max_flow -= self.flow_margin
             if self.ref_flow is not None:

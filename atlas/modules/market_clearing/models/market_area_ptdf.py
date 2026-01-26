@@ -14,9 +14,9 @@ class MarketAreaPtdfMC(MarketAreaPtdf):
     da_ptdf: Timeseries | LazyTimeseries
 
     # Attributes from market clearing parameter
-    time_step: Duration
+    timestep: Duration
     times: list[DateTime]
 
     @property
     def day_ahead_ptdf(self) -> Timeseries | LazyTimeseries:
-        return self.da_ptdf.set_frequency(self.time_step, False).filter(self.times)
+        return self.da_ptdf.set_frequency(self.timestep, False).filter(self.times)

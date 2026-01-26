@@ -128,9 +128,7 @@ class MarginalFixing:
                 continue
             if not mc_order.start_date <= current_time < mc_order.end_date_processed:
                 continue
-            if (
-                mc_order.end_datetime - mc_order.start_date
-            ).total_seconds() > self.parameters.time_step.total_seconds():
+            if (mc_order.end_datetime - mc_order.start_date).total_seconds() > self.parameters.timestep.total_seconds():
                 continue
             if mc_order.price != spot_price:
                 continue

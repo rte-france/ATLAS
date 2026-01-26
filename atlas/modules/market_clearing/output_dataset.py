@@ -225,7 +225,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 if equipment.name not in equipments_ts:
                     equipments_ts[equipment.name] = Timeseries.from_index(
                         self.input_dataset.times[0],
-                        self.input_dataset.parameters.time_step,
+                        self.input_dataset.parameters.timestep,
                         self.input_dataset.times[-1],
                         0.0,
                     )
@@ -233,7 +233,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 if portfolio.name not in portfolios_ts:
                     portfolios_ts[portfolio.name] = Timeseries.from_index(
                         self.input_dataset.times[0],
-                        self.input_dataset.parameters.time_step,
+                        self.input_dataset.parameters.timestep,
                         self.input_dataset.times[-1],
                         0.0,
                     )
@@ -241,8 +241,8 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
 
                 indexes = generate_datetimes(
                     mc_order.start_date,
-                    mc_order.end_datetime - self.input_dataset.parameters.time_step,
-                    self.input_dataset.parameters.time_step,
+                    mc_order.end_datetime - self.input_dataset.parameters.timestep,
+                    self.input_dataset.parameters.timestep,
                 )
                 values_sold = [mc_order.accepted_power * mc_order.production_sign for _ in range(len(indexes))]
                 if len(values_sold) == 1:
@@ -250,7 +250,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                     portfolios_ts[portfolio.name].sum_value_at(mc_order.start_date, values_sold[0])
                 else:
                     value_sold_ts = Timeseries.from_values(
-                        mc_order.start_date, self.input_dataset.parameters.time_step, values_sold
+                        mc_order.start_date, self.input_dataset.parameters.timestep, values_sold
                     )
                     equipments_ts[equipment.name] += value_sold_ts
                     portfolios_ts[portfolio.name] += value_sold_ts
@@ -343,10 +343,10 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
             ]
 
             values_bal = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.time_step, balance_values
+                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, balance_values
             )
             values_price = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.time_step, price_values
+                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, price_values
             )
 
             match self.input_dataset.parameters.market:
@@ -397,10 +397,10 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
             ]
 
             flow = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.time_step, flow_values
+                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, flow_values
             )
             shadow_price = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.time_step, shadow_price_values
+                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, shadow_price_values
             )
             match self.input_dataset.parameters.market:
                 case Product.DayAhead:
@@ -461,7 +461,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
         for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
             flow = Timeseries.from_index(
                 self.input_dataset.times[0],
-                self.input_dataset.parameters.time_step,
+                self.input_dataset.parameters.timestep,
                 self.input_dataset.times[-1],
                 0.0,
             )
@@ -469,7 +469,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 if mc_market_area_ptdf.da_ptdf is None:
                     continue
                 da_ptdf = mc_market_area_ptdf.da_ptdf.set_frequency(
-                    self.input_dataset.parameters.time_step, False
+                    self.input_dataset.parameters.timestep, False
                 ).filter(self.input_dataset.times)  # type: ignore[arg-type]
                 flow += da_ptdf
 
@@ -511,7 +511,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
             other.upsample(ts_obj.frequency)
         if other.index[0] not in ts_obj:
             null_ts = Timeseries.from_index(
-                self.input_dataset.times[0], self.input_dataset.parameters.time_step, self.input_dataset.times[-1], 0.0
+                self.input_dataset.times[0], self.input_dataset.parameters.timestep, self.input_dataset.times[-1], 0.0
             )
             return self.add_indexes(ts_obj, null_ts)
         else:

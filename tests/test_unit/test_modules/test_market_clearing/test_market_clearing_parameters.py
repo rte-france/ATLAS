@@ -18,7 +18,7 @@ from atlas.modules.market_clearing.parameters import (
 
 def test_default_parameters():
     params = MarketClearingParameters(start_date=DateTime.now(), end_date=DateTime.now(), execution_date=DateTime.now())
-    assert params.time_step == Duration(hours=1)
+    assert params.timestep == Duration(hours=1)
     assert params.solver_name == SolverEnum.XPRESS
     assert params.allowed_round_off_error == 0.001
     assert params.exchange_constraints_type == ExchangeConstraintsType.ATC
@@ -38,7 +38,7 @@ def test_custom_parameters():
         start_date=DateTime.now(),
         end_date=DateTime.now(),
         execution_date=DateTime.now(),
-        time_step=Duration(minutes=15),
+        timestep=Duration(minutes=15),
         solver_name=SolverEnum.XPRESS,
         control_block_names=["CB1", "CB2"],
         market_area_names="MA",
@@ -48,7 +48,7 @@ def test_custom_parameters():
         use_presolve=False,
         paradoxically_rejected_penalty_N=2000,
     )
-    assert params.time_step == Duration(minutes=15)
+    assert params.timestep == Duration(minutes=15)
     assert params.price_modifier_lambda_1 == 0.05
     assert params.control_block_names == ["CB1", "CB2"]
     assert params.market_area_names == "MA"
@@ -58,9 +58,9 @@ def test_custom_parameters():
     assert params.paradoxically_rejected_penalty_N == 2000
 
 
-def test_invalid_time_step_raises():
+def test_invalid_timestep_raises():
     with pytest.raises(ValidationError):
-        MarketClearingParameters(time_step="")
+        MarketClearingParameters(timestep="")
 
 
 def test_invalid_enum_for_exchange_constraints_type_raises():

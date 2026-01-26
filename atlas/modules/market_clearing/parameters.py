@@ -27,8 +27,8 @@ class ExchangeConstraintsType(str, Enum):
 class MarketClearingParameters(AbstractParameters):
     """Parameters of for Market Clearing module
 
-    :param time_step: Timestep of the studied market, in minutes : must be superior to 0, default value is 60
-    :type time_step: int
+    :param timestep: Timestep of the studied market, in minutes : must be superior to 0, default value is 60
+    :type timestep: int
     :param price_modifier_lambda_1: Price modifier that allows to alter prices for a better optimization :
     default value is 0
     :type price_modifier_lambda_1: float
@@ -91,7 +91,7 @@ class MarketClearingParameters(AbstractParameters):
     solver_name: SolverEnum = Field(
         SolverEnum.XPRESS, description="Name of the solver to use : default value is Xpress"
     )
-    time_step: Duration = Field(
+    timestep: Duration = Field(
         default_factory=lambda: duration(hours=1),
         description="Timestep of the studied market",
     )
@@ -215,7 +215,7 @@ class MarketClearingParameters(AbstractParameters):
         "lp and optimization variables",
     )
 
-    @field_validator("time_step", mode="before")
+    @field_validator("timestep", mode="before")
     @classmethod
     def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""

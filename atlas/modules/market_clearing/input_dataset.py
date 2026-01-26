@@ -4,9 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import Any, cast
-
-from pydantic import BaseModel
+from typing import cast
 
 from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder
 from atlas.abstract_class.abstract_dataset import AbstractDataset
@@ -32,11 +30,11 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.raw_data = raw_data
         self.parameters = parameters
 
-        step = self.parameters.time_step
+        step = self.parameters.timestep
         total_minutes = (self.parameters.end_date - self.parameters.start_date).in_minutes()
         self.times = [
             self.parameters.start_date + step * i
-            for i in range(0, total_minutes // int(self.parameters.time_step.total_minutes()))
+            for i in range(0, total_minutes // int(self.parameters.timestep.total_minutes()))
         ]
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
@@ -78,7 +76,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         for critical_branch in critical_branches:
             critical_branch_dump = {
                 **critical_branch.model_dump(),
-                "time_step": self.parameters.time_step,
+                "timestep": self.parameters.timestep,
                 "times": self.times,
             }
             mc_critical_branch = CriticalBranchMC.model_validate(critical_branch_dump)
@@ -123,7 +121,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             }
             market_area_dump = {
                 **market_area.model_dump(),
-                "time_step": self.parameters.time_step,
+                "timestep": self.parameters.timestep,
                 "times": self.times,
                 "mc_orders": market_area_orders,
             }
@@ -139,7 +137,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 id_with_status = True if order.qmin and order.qmin > self.parameters.allowed_round_off_error else False
                 order_dump = {
                     **order.model_dump(),
-                    "time_step": self.parameters.time_step,
+                    "timestep": self.parameters.timestep,
                     "id_with_status": id_with_status,
                 }
                 mc_order = OrderMC.model_validate(order_dump)
@@ -225,7 +223,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     continue
             market_border_dump = {
                 **market_border.model_dump(),
-                "time_step": self.parameters.time_step,
+                "timestep": self.parameters.timestep,
                 "times": self.times,
             }
             mc_market_border = MarketBorderMC.model_validate(market_border_dump)
@@ -237,7 +235,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         for market_area_ptdf in market_area_ptdfs:
             market_area_ptdf_dump = {
                 **market_area_ptdf.model_dump(),
-                "time_step": self.parameters.time_step,
+                "timestep": self.parameters.timestep,
                 "times": self.times,
             }
             mc_market_area_ptdf = MarketAreaPtdfMC.model_validate(market_area_ptdf_dump)

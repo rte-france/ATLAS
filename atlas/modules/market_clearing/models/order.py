@@ -42,7 +42,7 @@ class OrderMC(Order):
     circular_pc_id: int | None = None
 
     # Attributes from market clearing parameter
-    time_step: Duration
+    timestep: Duration
 
     @property
     def production_sign(self) -> int:
@@ -58,7 +58,7 @@ class OrderMC(Order):
     @property
     def duration(self) -> int:
         return int(
-            (((self.end_date - self.start_date).total_seconds() / 60) // int(self.time_step.total_minutes())) * 60
+            (((self.end_date - self.start_date).total_seconds() / 60) // int(self.timestep.total_minutes())) * 60
         )
 
     @property
@@ -110,9 +110,9 @@ class OrderMC(Order):
 
         # MS
         duration_span = Duration(seconds=(order.end_date - order.start_date).total_seconds())
-        if parameters.time_step > duration_span:
+        if parameters.timestep > duration_span:
             logger.info(
-                f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.time_step} min"
+                f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.timestep} min"
             )
             return False
 
