@@ -34,6 +34,7 @@ from atlas.timing import generate_datetimes
 from atlas.workflow.workflow import Workflow
 from atlas.workflow.workflow_parameters_parser import WorkflowParameters, WorkflowParametersParser
 from atlas.workflow.workflow_step import WorkflowStep
+from atlas.modules.market_clearing.module import MarketClearingModule
 
 __all__ = [
     "Parameters",
