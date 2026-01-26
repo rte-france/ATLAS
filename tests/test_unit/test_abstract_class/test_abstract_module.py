@@ -6,8 +6,6 @@ This file is part of the ATLAS project.
 Test AbstractModule
 """
 
-from pathlib import Path
-from typing import Any
 from unittest.mock import Mock
 
 from atlas import BusinessModel

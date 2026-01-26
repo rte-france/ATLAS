@@ -1,6 +1,6 @@
 from importlib.metadata import version
 
-from atlas.io_utils.input_loader import InputLoader
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import Parameters, ParametersParser
 from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
 from atlas.logging import Logger
@@ -28,7 +28,8 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
-from atlas.solver.models import SolverOptions
+from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
+from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 from atlas.workflow.workflow import Workflow
@@ -36,6 +37,7 @@ from atlas.workflow.workflow_parameters_parser import WorkflowParameters, Workfl
 from atlas.workflow.workflow_step import WorkflowStep
 
 __all__ = [
+    "AtlasDataset",
     "Parameters",
     "ParametersParser",
     "Workflow",
@@ -77,6 +79,7 @@ __all__ = [
     "Thermal",
     "Timeseries",
     "Wind",
+    "PortfolioOptimisationModule",
 ]
 
 __version__ = version("atlas")

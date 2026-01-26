@@ -26,7 +26,7 @@ def get_type_attribute(object_type: str, attribute: str) -> type[BusinessModel] 
         raise ValueError(f"Object type {object_type} is not valid.")
 
     if attribute not in cfg.MODEL_MAPPING_NAME[object_type].model_fields:
-        cfg.logger.warning(f"The attribute {attribute} is not present in Atlas model object : {object_type}")
+        cfg.logger.debug(f"The attribute '{attribute}' is not present in Atlas model object : {object_type}")
         return None
     attribute_type = cfg.MODEL_MAPPING_NAME[object_type].model_fields[attribute].annotation
 

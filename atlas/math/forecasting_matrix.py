@@ -9,12 +9,13 @@ Module that implements ForecastingMatrix
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import pendulum
 import polars as pl
+from pydantic_core import core_schema
 
 from atlas.io_utils.utils import read_data_file
 from atlas.math.lazy_matrix import LazyMatrix
@@ -63,6 +64,15 @@ class ForecastingMatrix(Matrix):
         self._sort_indexes()
         self._parsed_indexes_cache: pl.DataFrame | None = None
         self._frequency_cache: dict[str, pendulum.Duration] = {}
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: "forecasting_matrix", when_used="json"
+            ),
+        )
 
     def __repr__(self):
         """Provide a string representation of the Matrix object."""
@@ -250,7 +260,7 @@ class ForecastingMatrix(Matrix):
         execution_date: datetime | str | pendulum.DateTime,
         start_date: datetime | str | pendulum.DateTime,
         end_date: datetime | str | pendulum.DateTime,
-        timestep: str | pendulum.Duration | None = None,
+        timestep: str | timedelta | pendulum.Duration | None = None,
         default_value: float | None = None,
     ) -> Timeseries:
         """

@@ -6,15 +6,17 @@ datasets, including objects, timeseries, scenario matrices, and forecasting matr
 
 import os
 import shutil
+from concurrent.futures import ProcessPoolExecutor
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import h5py  # type: ignore[import-untyped]
 import numpy as np
 import numpy.typing as npt
 import pendulum
 import polars as pl
-import yaml
+from pydantic_extra_types.pendulum_dt import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
@@ -53,7 +55,7 @@ class PrometheusToAtlasDataParser:
     Args:
         timeseries_path: Path to directory containing CSV timeseries files
         hdf5_path: Path to the HDF5 file containing object metadata
-        root_input_directory: Root directory for the output Atlas dataset
+        output_dir: Root directory for the output Atlas dataset
         date_format_forecasting: Date format for forecasting matrix columns
         date_format_input_files: Date format for input file timestamps
         date_format_timestep: Date format for timestep column in CSV files
@@ -63,37 +65,41 @@ class PrometheusToAtlasDataParser:
         self,
         timeseries_path: str | Path,
         hdf5_path: str | Path,
-        root_input_directory: str | Path,
+        output_dir: str | Path,
         date_format_forecasting: str = DEFAULT_DATE_FORMAT_FORECASTING,
         date_format_input_files: str = DEFAULT_DATE_FORMAT_INPUT,
         date_format_timestep: str = DEFAULT_DATE_FORMAT_TIMESTEP,
     ) -> None:
         self.hdf5_path = Path(hdf5_path)
-        self.root_input_directory = Path(root_input_directory)
+        self.output_dir = Path(output_dir)
         self.timeseries_path = Path(timeseries_path)
         self.date_format_forecasting = date_format_forecasting
         self.date_format_input_files = date_format_input_files
         self.date_format_timestep = date_format_timestep
 
-        logger.info(f"Initialized parser with HDF5 path: {self.hdf5_path} and output root: {self.root_input_directory}")
+        logger.info(f"Initialized parser with HDF5 path: {self.hdf5_path} and output root: {self.output_dir}")
 
-        if self.root_input_directory.exists():
+        if self.output_dir.exists():
             self._remove_root_directory()
 
     def _remove_root_directory(self) -> None:
         """Remove the existing root directory and all its contents."""
-        logger.info(f"Removing existing directory: {self.root_input_directory}")
-        shutil.rmtree(self.root_input_directory)
+        logger.info(f"Removing existing directory: {self.output_dir}")
+        shutil.rmtree(self.output_dir)
 
-    def process(self) -> None:
+    def process(self, use_multiprocessing: bool = True, n_workers: int | None = None) -> None:
         """Main processing method to convert Prometheus HDF5 data to Atlas format.
 
         This method orchestrates the entire conversion process:
         1. Reads HDF5 file structure
         2. Creates output directory structure
-        3. Processes each object type and instance
+        3. Processes each object type and instance (in parallel if enabled)
         4. Converts timeseries/matrices to parquet format
         5. Exports object attributes to CSV
+
+        Args:
+            use_multiprocessing: Whether to use multiprocessing for parallel execution
+            n_workers: Number of worker processes. If None, uses os.cpu_count()
         """
         logger.info("Starting the parsing process.")
 
@@ -101,21 +107,32 @@ class PrometheusToAtlasDataParser:
             object_types = list(hdf5_file.keys())
             logger.info(f"Found object types: {object_types}")
 
-            objects_dir = self.root_input_directory / "objects"
+            objects_dir = self.output_dir / "objects"
             _ensure_directory(objects_dir)
 
             for object_type in object_types:
-                self._process_object_type(hdf5_file, object_type, objects_dir)
+                self._process_object_type(hdf5_file, object_type, objects_dir, use_multiprocessing, n_workers)
 
-        logger.success("Export done to Atlas dataset!")
+        logger.success(f"Export done to Atlas dataset - {self.output_dir}!")
 
-    def _process_object_type(self, hdf5_file: h5py.File, object_type: str, objects_dir: Path) -> None:
+    def _process_object_type(
+        self,
+        hdf5_file: h5py.File,
+        object_type: str,
+        objects_dir: Path,
+        use_multiprocessing: bool = False,
+        n_workers: int | None = None,
+    ) -> None:
         """Process a single object type from the HDF5 file.
+
+        Parallelizes processing at the instance level if enabled.
 
         Args:
             hdf5_file: Opened HDF5 file handle
             object_type: Name of the object type to process
             objects_dir: Directory where object CSV files will be written
+            use_multiprocessing: Whether to parallelize instance processing
+            n_workers: Number of worker processes
         """
         object_type_snake = to_snake_case(object_type)
 
@@ -141,15 +158,47 @@ class PrometheusToAtlasDataParser:
 
         # Create matrix directories
         for matrix_type in MATRIX_TYPES:
-            _ensure_directory(self.root_input_directory / matrix_type / object_type_snake)
+            _ensure_directory(self.output_dir / matrix_type / object_type_snake)
 
-        attrs_list = []
-        for instance in instances:
-            attrs = self._process_instance(group, instance, object_type, object_type_snake)
-            attrs_list.append(attrs)
+        # Process instances in parallel or sequentially
+        if use_multiprocessing and len(instances) > 1:
+            n_workers = n_workers or min(os.cpu_count() or 1, len(instances))
+            logger.info(f"Processing {len(instances)} instances in parallel using {n_workers} workers")
+
+            with ProcessPoolExecutor(max_workers=n_workers) as executor:
+                futures = [
+                    executor.submit(self._process_instance_wrapper, instance, object_type, object_type_snake)
+                    for instance in instances
+                ]
+                attrs_list = [future.result() for future in futures]
+        else:
+            if use_multiprocessing:
+                logger.info(f"Processing {len(instances)} instance(s) sequentially (only 1 instance)")
+            attrs_list = []
+            for instance in instances:
+                attrs = self._process_instance(group, instance, object_type, object_type_snake)
+                attrs_list.append(attrs)
 
         if attrs_list:
             self._write_object_csv(attrs_list, objects_dir, object_type_snake)
+
+    def _process_instance_wrapper(self, instance: str, object_type: str, object_type_snake: str) -> dict[str, Any]:
+        """Wrapper for processing an instance that opens its own HDF5 file handle.
+
+        This is needed for multiprocessing since HDF5 file handles cannot be shared
+        across processes.
+
+        Args:
+            instance: Name of the instance to process
+            object_type: Original object type name from HDF5
+            object_type_snake: Snake-case name of the object type
+
+        Returns:
+            Dictionary of attributes for this instance
+        """
+        with h5py.File(self.hdf5_path, "r") as hdf5_file:
+            group = hdf5_file[object_type]
+            return self._process_instance(group, instance, object_type, object_type_snake)
 
     def _process_instance(
         self, group: h5py.Group, instance: str, object_type: str, object_type_snake: str
@@ -218,8 +267,8 @@ class PrometheusToAtlasDataParser:
         # Validate attribute exists in model
         model_fields = cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys()
         if attr_name_snake not in model_fields:
-            logger.warning(
-                f"The attribute {attr_name_snake} is not present in Atlas model object: {object_type_snake}, skipping it."
+            logger.debug(
+                f"The attribute '{attr_name_snake}' is not present in Atlas model object: {object_type_snake}, skipping it."
             )
             return
 
@@ -430,7 +479,7 @@ class PrometheusToAtlasDataParser:
             attrs[attr_name_snake] = None
             return
 
-        parquet_path = self.root_input_directory / matrix_type / object_type_snake / f"{instance_snake}.parquet"
+        parquet_path = self.output_dir / matrix_type / object_type_snake / f"{instance_snake}.parquet"
 
         if parquet_path.exists():
             # Concatenate with existing data
@@ -461,9 +510,13 @@ class PrometheusToAtlasDataParser:
             # Handle scalar values
             attrs[attr_name_snake] = self._extract_scalar_value(val)
 
-            # Apply type conversions
+            # Apply type conversions based on the pydantic model type
+            type_attribute = self._get_resolved_type(object_type_snake, attr_name_snake)
+
             if isinstance(attrs[attr_name_snake], bytes):
-                attrs[attr_name_snake] = self._decode_bytes_attribute(attrs[attr_name_snake])
+                attrs[attr_name_snake] = self._decode_bytes_attribute(attrs[attr_name_snake], type_attribute)
+            elif isinstance(attrs[attr_name_snake], float | int):
+                attrs[attr_name_snake] = self._convert_numeric_by_type(attrs[attr_name_snake], type_attribute)
 
             # Handle None/empty values
             if attrs[attr_name_snake] in ("None", ""):
@@ -475,14 +528,12 @@ class PrometheusToAtlasDataParser:
                 attrs[attr_name_snake] = NAME_MAPPING[attrs[attr_name_snake]]
 
             # Convert to snake_case if referencing another model object
-            type_attribute = self._get_resolved_type(object_type_snake, attr_name_snake)
             if attr_name_snake == "equipment" or type_attribute in cfg.MODEL_MAPPING_NAME.values():
                 attrs[attr_name_snake] = to_snake_case(attrs[attr_name_snake])
 
             logger.debug(f"Scalar attribute: {attr_name_snake} = {attrs[attr_name_snake]}")
 
         elif isinstance(val, np.ndarray) and val.ndim == 1:
-            # Handle 1D arrays as delimited strings
             attrs[attr_name_snake] = self._process_array_attribute(val, object_type_snake, attr_name_snake)
 
         else:
@@ -502,20 +553,47 @@ class PrometheusToAtlasDataParser:
             return val.item()
         return val
 
-    def _decode_bytes_attribute(self, val: bytes) -> str:
-        """Decode bytes attribute and attempt to parse as datetime.
+    def _decode_bytes_attribute(self, val: bytes, type_attribute: Any) -> str:
+        """Decode bytes attribute and convert based on expected type.
 
         Args:
             val: Bytes value to decode
+            type_attribute: Expected type from pydantic model
 
         Returns:
-            Decoded string, potentially converted to datetime format
+            Decoded string, potentially converted to datetime or duration format
         """
         decoded = val.decode("utf-8")
-        try:
-            return pendulum.from_format(decoded, self.date_format_input_files).to_datetime_string()
-        except Exception:
-            return decoded
+
+        # Check if the expected type is datetime or DateTime
+        if type_attribute in (datetime, pendulum.DateTime, DateTime):
+            try:
+                return pendulum.from_format(decoded, self.date_format_input_files).to_datetime_string()
+            except Exception:
+                logger.debug(f"Failed to parse '{decoded}' as datetime, returning as string")
+                return decoded
+
+        return decoded
+
+    def _convert_numeric_by_type(self, val: float | int, type_attribute: Any) -> str | float | int:
+        """Convert numeric values based on expected type.
+
+        Args:
+            val: Numeric value
+            type_attribute: Expected type from pydantic model
+
+        Returns:
+            Converted value (ISO8601 duration string for Duration types, original value otherwise)
+        """
+        # Check if the expected type is Duration
+        if type_attribute in (Duration, pendulum.Duration):
+            try:
+                val = Duration(hours=float(val)).to_iso8601_string()  # type: ignore[assignment]
+            except Exception as e:
+                logger.debug(f"Failed to convert {val} to Duration: {e}, returning as is")
+                return val
+
+        return val
 
     def _get_resolved_type(self, object_type_snake: str, attr_name_snake: str) -> Any:
         """Get the resolved type of an attribute, unwrapping Union/Optional if needed.
@@ -527,11 +605,9 @@ class PrometheusToAtlasDataParser:
         Returns:
             Resolved type annotation
         """
-        from typing import get_args
 
         type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
         try:
-            # Get the sub-type if it's a Union or List
             return get_args(type_attribute)[0]
         except (IndexError, TypeError):
             return type_attribute
@@ -547,12 +623,9 @@ class PrometheusToAtlasDataParser:
         Returns:
             Colon-delimited string representation
         """
-        from typing import get_args
 
-        # Decode bytes if necessary
         items: list[Any] = [item.decode("utf-8") if isinstance(item, bytes) else item for item in val]
 
-        # Convert to snake_case if referencing model objects
         type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
         if type_attribute is not None:
             try:
@@ -597,51 +670,6 @@ class PrometheusToAtlasDataParser:
         csv_path = objects_dir / f"{object_type_snake}.csv"
         df_attrs.write_csv(csv_path, separator=CSV_SEPARATOR)
         logger.success(f"Wrote attributes CSV for {object_type_snake} to {csv_path}")
-
-
-# Utility functions
-
-
-def deep_update(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
-    """Recursively update the base dictionary with overrides.
-
-    Args:
-        base: Base dictionary to update
-        overrides: Dictionary with override values
-
-    Returns:
-        Updated dictionary
-    """
-    for key, value in overrides.items():
-        if isinstance(value, dict) and isinstance(base.get(key), dict):
-            base[key] = deep_update(base.get(key, {}), value)
-        else:
-            base[key] = value
-    return base
-
-
-def load_config(config_path: Path) -> dict[str, Any]:
-    """Load configuration by overriding defaults with values from a YAML file.
-
-    Args:
-        config_path: Path to YAML configuration file
-
-    Returns:
-        Configuration dictionary
-    """
-    config = DEFAULT_VALUE_IO.copy()
-
-    if not config_path.exists():
-        logger.debug("Config file not found at %s. Using defaults.", config_path)
-        return config
-
-    try:
-        with config_path.open("r", encoding="utf-8") as f:
-            user_config = yaml.safe_load(f) or {}
-        return deep_update(config, user_config)
-    except (yaml.YAMLError, OSError) as e:
-        logger.warning("Failed to load config from %s: %s", config_path, e)
-        return config
 
 
 def _ensure_directory(path: Path) -> None:
@@ -716,3 +744,25 @@ def _array_is_scalar(arr: Any) -> bool:
         return bool(arr_flat.size == 1 or np.all(arr_flat == arr_flat[0]))
     except Exception:
         return False
+
+
+def find_hdf5_files(directory: Path) -> list[Path]:
+    """
+    Find all valid HDF5 files in the given directory.
+    """
+
+    if not directory.exists():
+        return []
+
+    files = [f for f in directory.iterdir() if f.is_file() and not f.name.startswith(".")]
+
+    valid_hdf5_files = []
+    for file_path in files:
+        try:
+            # Try to open the file as HDF5
+            with h5py.File(file_path, "r") as _:
+                valid_hdf5_files.append(file_path)
+        except (OSError, ValueError, KeyError):
+            continue
+
+    return valid_hdf5_files

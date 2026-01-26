@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.13'
 
       - name: Install uv
         run: pip install uv
@@ -27,7 +27,7 @@ jobs:
         run: uv sync
 
       - name: Test with pytest and coverage
-        run: uv run pytest --cov=atlas --cov-report=xml --disable-warnings
+        run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings
 
       # - name: Upload coverage to Codecov
       #   uses: codecov/codecov-action@v4
