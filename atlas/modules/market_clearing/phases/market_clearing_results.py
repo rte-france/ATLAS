@@ -4,8 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pathlib import Path
-
 import polars as pl
 
 from atlas import LazyForecastingMatrix

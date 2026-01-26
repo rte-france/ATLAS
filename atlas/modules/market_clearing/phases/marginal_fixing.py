@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 
 import copy
 import json
-import os
 from collections.abc import Generator
 
 import pendulum

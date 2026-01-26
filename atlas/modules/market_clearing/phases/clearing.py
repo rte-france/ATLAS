@@ -5,7 +5,6 @@ This file is part of the ATLAS project.
 """
 
 import json
-from pathlib import Path
 
 import atlas.modules.market_clearing.constants as constants
 from atlas import SolverOptions

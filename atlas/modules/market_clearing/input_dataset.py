@@ -4,7 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import cast, Any
+from typing import Any, cast
+
 from pydantic import BaseModel
 
 from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder
