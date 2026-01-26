@@ -155,22 +155,22 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
         [MarketArea, MarketBorder, CriticalBranch, Order, Equipment, Portfolio]"""
         # Create modified MarketArea
         for mc_market_area in self.input_dataset.mc_market_areas.values():
-            mc_market_area_dump = MarketClearingInputDataset.shallow_dump(mc_market_area)
+            mc_market_area_dump = mc_market_area.model_dump()
             market_area = MarketArea.model_validate(mc_market_area_dump)
             self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[MarketArea]].append(market_area)
         # Create modified MarketBorder
         for mc_market_border in self.input_dataset.mc_market_borders.values():
-            mc_market_border_dump = MarketClearingInputDataset.shallow_dump(mc_market_border)
+            mc_market_border_dump = mc_market_border.model_dump()
             market_border = MarketBorder.model_validate(mc_market_border_dump)
             self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[MarketBorder]].append(market_border)
         # Create modified CriticalBranch
         for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
-            mc_critical_branch_dump = MarketClearingInputDataset.shallow_dump(mc_critical_branch)
+            mc_critical_branch_dump = mc_critical_branch.model_dump()
             critical_branch = CriticalBranch.model_validate(mc_critical_branch_dump)
             self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[CriticalBranch]].append(critical_branch)
         # Create modified Order
         for mc_order in self.input_dataset.mc_orders.values():
-            mc_order_dump = MarketClearingInputDataset.shallow_dump(mc_order)
+            mc_order_dump = mc_order.model_dump()
             order = Order.model_validate(mc_order_dump)
             self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[Order]].append(order)
 

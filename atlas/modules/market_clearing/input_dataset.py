@@ -77,7 +77,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_critical_branches = {}
         for critical_branch in critical_branches:
             critical_branch_dump = {
-                **MarketClearingInputDataset.shallow_dump(critical_branch),
+                **critical_branch.model_dump(),
                 "time_step": self.parameters.time_step,
                 "times": self.times,
             }
@@ -100,7 +100,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         for control_block in control_blocks_to_keep:
             for mc_market_area in self.mc_market_areas.values():
                 if control_block == mc_market_area.control_block:
-                    control_block_dump = MarketClearingInputDataset.shallow_dump(control_block)
+                    control_block_dump = control_block.model_dump()
                     mc_control_block = ControlBlock.model_validate(control_block_dump)
                     control_blocks_mc[control_block.name] = mc_control_block
         return control_blocks_mc
@@ -122,7 +122,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 if mc_order.market_area.name == market_area.name
             }
             market_area_dump = {
-                **MarketClearingInputDataset.shallow_dump(market_area),
+                **market_area.model_dump(),
                 "time_step": self.parameters.time_step,
                 "times": self.times,
                 "mc_orders": market_area_orders,
@@ -138,7 +138,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             if OrderMC.is_feasible(order, self.times, self.parameters):
                 id_with_status = True if order.qmin and order.qmin > self.parameters.allowed_round_off_error else False
                 order_dump = {
-                    **MarketClearingInputDataset.shallow_dump(order),
+                    **order.model_dump(),
                     "time_step": self.parameters.time_step,
                     "id_with_status": id_with_status,
                 }
@@ -193,7 +193,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_order_couplings = {}
         for order_coupling in order_couplings:
             if self.is_order_coupling_feasible(order_coupling):
-                order_coupling_dump = MarketClearingInputDataset.shallow_dump(order_coupling)
+                order_coupling_dump = order_coupling.model_dump()
                 mc_order_coupling = OrderCouplingMC.model_validate(order_coupling_dump)
                 mc_order_couplings[order_coupling.name] = mc_order_coupling
         return mc_order_couplings
@@ -224,7 +224,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 ):
                     continue
             market_border_dump = {
-                **MarketClearingInputDataset.shallow_dump(market_border),
+                **market_border.model_dump(),
                 "time_step": self.parameters.time_step,
                 "times": self.times,
             }
@@ -236,20 +236,13 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         mc_market_area_ptdfs = {}
         for market_area_ptdf in market_area_ptdfs:
             market_area_ptdf_dump = {
-                **MarketClearingInputDataset.shallow_dump(market_area_ptdf),
+                **market_area_ptdf.model_dump(),
                 "time_step": self.parameters.time_step,
                 "times": self.times,
             }
             mc_market_area_ptdf = MarketAreaPtdfMC.model_validate(market_area_ptdf_dump)
             mc_market_area_ptdfs[market_area_ptdf.name] = mc_market_area_ptdf
         return mc_market_area_ptdfs
-
-    @staticmethod
-    def shallow_dump(model: BaseModel) -> dict[str, Any]:
-        result = {}
-        for name, value in model.__dict__.items():
-            result[name] = value
-        return result
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
         return []
