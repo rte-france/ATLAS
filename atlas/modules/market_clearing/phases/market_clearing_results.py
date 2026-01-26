@@ -73,11 +73,11 @@ class MarketClearingResults:
                 "Price": mc_order.price,
                 "AcceptedPower": mc_order.accepted_power,
             }
-            offer = pl.DataFrame({k: [v] for k, v in order_dict.items()})
+            offer = pl.DataFrame({k: [v] for k, v in order_dict.items()}, schema=offers.schema)
             if offers is None:
                 offers = offer
             else:
-                offers.extend(offer.cast(offers.schema))
+                offers.extend(offer)
         offers.write_csv(self.parameters.output_path / "offers.csv")
 
     def export_market_areas_data(self):
@@ -111,8 +111,10 @@ class MarketClearingResults:
                     if mc_market_area.da_balance is not None
                     else 0,
                 }
-                market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                market_areas_data.extend(market_area_data.cast(market_areas_data.schema))
+                market_area_data = pl.DataFrame(
+                    {k: [v] for k, v in market_area_dict.items()}, schema=market_areas_data.schema
+                )
+                market_areas_data.extend(market_area_data)
 
         return market_areas_data
 
@@ -157,8 +159,10 @@ class MarketClearingResults:
                     "IDPrice": id_price,
                     "TotalIDBalance": id_balance,
                 }
-                market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                market_areas_data.extend(market_area_data.cast(market_areas_data.schema))
+                market_area_data = pl.DataFrame(
+                    {k: [v] for k, v in market_area_dict.items()}, schema=market_areas_data.schema
+                )
+                market_areas_data.extend(market_area_data)
         return market_areas_data
 
     def create_rr_market_areas_data(self) -> pl.DataFrame:
@@ -182,8 +186,10 @@ class MarketClearingResults:
                     if mc_market_area.rr_activation_balance is not None
                     else 0,
                 }
-                market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                market_areas_data.extend(market_area_data.cast(market_areas_data.schema))
+                market_area_data = pl.DataFrame(
+                    {k: [v] for k, v in market_area_dict.items()}, schema=market_areas_data.schema
+                )
+                market_areas_data.extend(market_area_data)
         return market_areas_data
 
     def create_mfrr_market_areas_data(self) -> pl.DataFrame:
@@ -207,8 +213,10 @@ class MarketClearingResults:
                     if mc_market_area.mfrr_activation_balance is not None
                     else 0,
                 }
-                market_area_data = pl.DataFrame({k: [v] for k, v in market_area_dict.items()})
-                market_areas_data.extend(market_area_data.cast(market_areas_data.schema))
+                market_area_data = pl.DataFrame(
+                    {k: [v] for k, v in market_area_dict.items()}, schema=market_areas_data.schema
+                )
+                market_areas_data.extend(market_area_data)
         return market_areas_data
 
     def export_couplings_data(self):
@@ -225,8 +233,8 @@ class MarketClearingResults:
                 "Type": mc_order_coupling.coupling_type.value,
                 "OrderList": ":".join([order.name for order in mc_order_coupling.orders]),
             }
-            coupling_data = pl.DataFrame({k: [v] for k, v in coupling_dict.items()})
-            couplings_data.extend(coupling_data.cast(couplings_data.schema))
+            coupling_data = pl.DataFrame({k: [v] for k, v in coupling_dict.items()}, schema=couplings_data.schema)
+            couplings_data.extend(coupling_data)
         couplings_data.write_csv(self.parameters.output_path / "coupling_data.csv")
 
     def export_borders_data(self):
@@ -269,8 +277,10 @@ class MarketClearingResults:
                     else 0,
                     "DAFlow": mc_market_border.da_flow.get_value(time) if mc_market_border.da_flow is not None else 0,
                 }
-                market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                market_borders_data.extend(market_border_data.cast(market_borders_data.schema))
+                market_border_data = pl.DataFrame(
+                    {k: [v] for k, v in market_border_dict.items()}, schema=market_borders_data.schema
+                )
+                market_borders_data.extend(market_border_data)
         return market_borders_data
 
     def create_intraday_borders_data(self) -> pl.DataFrame:
@@ -304,8 +314,10 @@ class MarketClearingResults:
                     if mc_market_border.total_id_flow is not None
                     else 0,
                 }
-                market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                market_borders_data.extend(market_border_data.cast(market_borders_data.schema))
+                market_border_data = pl.DataFrame(
+                    {k: [v] for k, v in market_border_dict.items()}, schema=market_borders_data.schema
+                )
+                market_borders_data.extend(market_border_data)
         return market_borders_data
 
     def create_rr_borders_data(self) -> pl.DataFrame:
@@ -342,8 +354,10 @@ class MarketClearingResults:
                     if mc_market_border.rr_activated is not None
                     else 0,
                 }
-                market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                market_borders_data.extend(market_border_data.cast(market_borders_data.schema))
+                market_border_data = pl.DataFrame(
+                    {k: [v] for k, v in market_border_dict.items()}, schema=market_borders_data.schema
+                )
+                market_borders_data.extend(market_border_data)
         return market_borders_data
 
     def create_mfrr_borders_data(self) -> pl.DataFrame:
@@ -385,6 +399,8 @@ class MarketClearingResults:
                     if mc_market_border.mfrr_activated is not None
                     else 0,
                 }
-                market_border_data = pl.DataFrame({k: [v] for k, v in market_border_dict.items()})
-                market_borders_data.extend(market_border_data.cast(market_borders_data.schema))
+                market_border_data = pl.DataFrame(
+                    {k: [v] for k, v in market_border_dict.items()}, schema=market_borders_data.schema
+                )
+                market_borders_data.extend(market_border_data)
         return market_borders_data

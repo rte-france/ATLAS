@@ -5,8 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import pendulum
-from pendulum import Duration
-from pydantic_extra_types.pendulum_dt import DateTime
+from pendulum import DateTime, Duration
 
 from atlas.enum import OrderType, Product
 from atlas.logging import logger
