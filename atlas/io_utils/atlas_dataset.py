@@ -44,10 +44,7 @@ class AtlasDataset(BaseModel):
     This class provides:
 
     - Type-safe attribute access to different BusinessModel types
-    - O(1) lookup by name for each object type
-    - Serialization/deserialization via from_directory and to_directory
-    - Validation of object references
-    - Dictionary-style and attribute-style access
+    - Serialization/deserialization via from_directory / to_directory, from_dict / to_dict methods, and pickle support
 
     Example:
 
