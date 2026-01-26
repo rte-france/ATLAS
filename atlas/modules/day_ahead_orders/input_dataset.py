@@ -24,7 +24,7 @@ from atlas import (
 )
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
 class DayAheadOrdersInputDataset(AbstractDataset[DayAheadOrdersParameters]):

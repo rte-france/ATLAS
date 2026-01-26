@@ -24,8 +24,6 @@ from atlas import (
 )
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.models.business_model import BusinessModel
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.data_models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.data_models.load import LoadDAO
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
@@ -34,6 +32,8 @@ from atlas.modules.day_ahead_orders.data_models.solar import SolarDAO
 from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.data_models.wind import WindDAO
+from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
 class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):

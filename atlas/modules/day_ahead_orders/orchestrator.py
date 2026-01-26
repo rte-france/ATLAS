@@ -6,15 +6,15 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.orders_formulation.hydraulic_step import HydraulicStep
 from atlas.modules.day_ahead_orders.orders_formulation.load_step import LoadStep
 from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable_step import NonDispatchableStep
 from atlas.modules.day_ahead_orders.orders_formulation.storage_step import StorageStep
 from atlas.modules.day_ahead_orders.orders_formulation.thermal_bidding_step import ThermalBiddingStep
 from atlas.modules.day_ahead_orders.orders_formulation.wind_pv_step import WindPVStep
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.timing import generate_datetimes
 
 

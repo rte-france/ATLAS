@@ -15,9 +15,9 @@ import atlas.config as cfg
 from atlas import OptimisationModel, SolverOptions, Thermal, generate_datetimes
 from atlas.enum import SolverEnum
 from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.solver.model_var import ModelVar
 
 

@@ -10,10 +10,10 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas import Equipment, Timeseries
 from atlas.enum import CouplingType, OrderType, Product, ThermalStrategy
-from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
 class ThermalPeakLoadOrders:

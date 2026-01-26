@@ -11,8 +11,6 @@ import atlas.config as cfg
 from atlas import Thermal, Timeseries
 from atlas.enum import CouplingType, Product, ThermalStrategy
 from atlas.models.market.order import Order
-from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
@@ -20,6 +18,8 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_intermedi
     ThermalIntermediateLoadOrders,
 )
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load_orders import ThermalPeakLoadOrders
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 ##### Etat des lieux au 16.10.2020 ####
 #

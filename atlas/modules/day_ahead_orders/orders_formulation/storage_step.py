@@ -10,8 +10,6 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas import SolverOptions, Timeseries
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, StorageType
-from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
@@ -19,6 +17,8 @@ from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.timing import generate_datetimes
 
 

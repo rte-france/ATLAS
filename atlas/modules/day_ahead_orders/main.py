@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import argparse
 
 from atlas import InputLoader
-from atlas.modules.day_ahead_orders.dao_module import DayAheadOrdersModule
+from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

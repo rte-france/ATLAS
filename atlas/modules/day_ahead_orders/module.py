@@ -10,10 +10,10 @@ from pendulum import Duration
 import atlas.config as cfg
 from atlas import BusinessModel, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.modules.day_ahead_orders.dao_input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.dao_orchestrator import DayAheadOrdersOrchestrator
-from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
+from atlas.modules.day_ahead_orders.orchestrator import DayAheadOrdersOrchestrator
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.timing import infer_frequency
 
 

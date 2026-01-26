@@ -13,8 +13,8 @@ from pendulum.duration import Duration
 import atlas.config as cfg
 from atlas import OptimisationModel, SolverOptions, Timeseries, generate_datetimes
 from atlas.enum import SolverEnum
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
 class StorageModel(OptimisationModel):

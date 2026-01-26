@@ -10,9 +10,9 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas import Timeseries
 from atlas.enum import LoadType, OrderType, Product
-from atlas.modules.day_ahead_orders.dao_output_dataset import DayAheadOrdersOutputDataset
-from atlas.modules.day_ahead_orders.dao_parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
 class LoadStep:
