@@ -136,11 +136,9 @@ class MarginalFixing:
                 continue
             if mc_order.is_linked or mc_order.id_with_status:
                 continue
-            if mc_order.name == "other_nd_order_at_27_09_2028_12_00_00_for_unit_es_other":
-                print(current_time)
+
             accepted_power = self.accepted_powers[market_area_name, mc_order.name]
             if mc_order.qmin == 0.0 or (mc_order.qmax != mc_order.qmin and accepted_power != 0.0):
-                # TODO: return only order
                 yield mc_order, accepted_power
 
     def retrieve_accepted_powers(self) -> dict[tuple[str, str], float]:
