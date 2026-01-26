@@ -14,7 +14,7 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import hours_validator
+from atlas.validators import convert_to_duration
 
 
 class Thermal(Equipment):
@@ -91,6 +91,11 @@ class Thermal(Equipment):
     maximum_power: Timeseries | LazyTimeseries | None = None
     minimum_power: Timeseries | LazyTimeseries | None = None
 
+    additional_hours: Duration = Field(
+        default_factory=lambda: Duration(hours=12),
+        description="Default optimization period in hours for thermal equipment",
+    )
+
     @field_validator(
         "minimum_stable_power_duration",
         "minimum_time_off",
@@ -98,9 +103,10 @@ class Thermal(Equipment):
         "outage_mean_duration",
         "shutdown_duration",
         "startup_duration",
+        "additional_hours",
         mode="before",
     )
     @classmethod
-    def convert_hours_to_duration(cls, v):
+    def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""
-        return hours_validator(v)
+        return convert_to_duration(v)

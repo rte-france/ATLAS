@@ -323,6 +323,56 @@ def test_to_file_extension_mismatch(sample_polars_df):
         matrix.to_file("test.csv", file_format="parquet")
 
 
+def test_to_file_with_attribute_csv(tmp_path, sample_polars_df):
+    """Test to_file_with_attribute with CSV format."""
+    path = tmp_path / "test_attr.csv"
+    matrix = Matrix(sample_polars_df)
+
+    # Write file with attribute
+    matrix.to_file_with_attribute(path, attribute="power", file_format="csv")
+    assert path.exists()
+
+    # Check if file contains attribute column
+    df = pl.read_csv(path, separator=";")
+    assert "attribute" in df.columns
+    assert df["attribute"].unique().to_list() == ["power"]
+    assert len(df) == len(matrix.dataframe)
+
+
+def test_to_file_with_attribute_concatenate(tmp_path, sample_polars_df):
+    """Test to_file_with_attribute with concatenation of existing file."""
+    path = tmp_path / "test_concat.parquet"
+
+    # Create first matrix
+    matrix1 = Matrix(sample_polars_df)
+
+    # Write first matrix with attribute "power"
+    matrix1.to_file_with_attribute(path, attribute="power", file_format="parquet")
+
+    # Create second matrix with different data
+    df2 = pl.DataFrame(
+        {
+            "time": pd.date_range(start="2025-01-04", periods=2, freq="D"),
+            "scenario1": [4, 5],
+            "scenario2": [8, 9],
+        }
+    )
+    matrix2 = Matrix(df2)
+
+    # Write second matrix with attribute "capacity"
+    matrix2.to_file_with_attribute(path, attribute="capacity", file_format="parquet")
+
+    # Read concatenated file
+    df_concat = pl.read_parquet(path)
+
+    # Check that both attributes are present
+    assert "attribute" in df_concat.columns
+    assert set(df_concat["attribute"].unique().to_list()) == {"power", "capacity"}
+
+    # Check total length
+    assert len(df_concat) == len(matrix1.dataframe) + len(matrix2.dataframe)
+
+
 def test_to_lazy(sample_polars_df):
     matrix = Matrix(sample_polars_df)
     lazy = matrix.to_lazy()

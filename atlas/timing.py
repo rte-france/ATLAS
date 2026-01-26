@@ -13,7 +13,6 @@ from typing import Literal, cast
 import pendulum
 import polars as pl
 import pytz
-from pendulum import DateTime
 
 
 def datetime_to_pendulum(fmt: str) -> str:
@@ -93,9 +92,9 @@ def pendulum_to_datetime(fmt: str) -> str:
 
 @contextmanager
 def timer() -> Generator[Callable[[], str], None, None]:
-    """Context manager to measure elapsed time in seconds."""
+    """Context manager to measure elapsed time with milliseconds precision."""
     start = pendulum.now()
-    yield lambda: str((pendulum.now() - start).as_duration())
+    yield lambda: f"{(pendulum.now() - start).total_seconds():.3f}s"
 
 
 def parse_frequency(freq: str) -> pendulum.Duration:
@@ -147,9 +146,9 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
 
 
 def generate_datetimes(
-    start: str | datetime | DateTime,
-    end: str | datetime | DateTime,
-    freq: str | pendulum.Duration,
+    start: str | datetime,
+    end: str | datetime,
+    freq: str | pendulum.Duration | timedelta,
     timezone: str = "UTC",
     date_format: str = "YYYY-MM-DD HH:mm:ss",
     closed: Literal["both", "left", "right", "none"] = "both",
