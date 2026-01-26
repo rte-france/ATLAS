@@ -82,7 +82,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
 
     def get_control_blocks(self, control_blocks: list[ControlBlock]) -> dict[str, ControlBlock]:
         # filter by the parameters control_block_names
-        if self.parameters.control_block_names == "All":
+        if self.parameters.control_block_names == "all":
             control_blocks_to_keep = control_blocks
         else:
             control_blocks_to_keep = [
@@ -103,7 +103,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
     def get_market_areas(
         self, market_areas: list[MarketArea], mc_orders: dict[str, OrderMC]
     ) -> dict[str, MarketAreaMC]:
-        if self.parameters.market_area_names == "All":
+        if self.parameters.market_area_names == "all":
             market_areas_to_keep = market_areas
         else:
             market_areas_to_keep = [
@@ -207,7 +207,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
     def get_market_borders(self, market_borders: list[MarketBorder]) -> dict[str, MarketBorderMC]:
         mc_market_borders = {}
         for market_border in market_borders:
-            if self.parameters.market_area_names != "All":
+            if self.parameters.market_area_names != "all":
                 if (
                     market_border.uphill_market_area is None
                     or market_border.uphill_market_area.name not in self.parameters.market_area_names

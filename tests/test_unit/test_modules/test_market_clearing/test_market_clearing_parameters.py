@@ -41,7 +41,7 @@ def test_custom_parameters():
         timestep=Duration(minutes=15),
         solver_name=SolverEnum.XPRESS,
         control_block_names=["CB1", "CB2"],
-        market_area_names="MA",
+        market_area_names="[MA]",
         price_modifier_lambda_1=0.05,
         exchange_constraints_type=ExchangeConstraintsType.FB,
         market=Product.Intraday,
@@ -51,7 +51,7 @@ def test_custom_parameters():
     assert params.timestep == Duration(minutes=15)
     assert params.price_modifier_lambda_1 == 0.05
     assert params.control_block_names == ["CB1", "CB2"]
-    assert params.market_area_names == "MA"
+    assert params.market_area_names == ["MA"]
     assert params.exchange_constraints_type == ExchangeConstraintsType.FB
     assert params.market == Product.Intraday
     assert not params.use_presolve

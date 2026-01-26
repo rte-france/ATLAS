@@ -235,8 +235,8 @@ class MarketClearingParameters(AbstractParameters):
     @classmethod
     def parse_market_area_names(cls, v):
         # case default
-        if v == "All":
-            return v
+        if v.lower() == "all":
+            return v.lower()
 
         # already a list
         if isinstance(v, list):
