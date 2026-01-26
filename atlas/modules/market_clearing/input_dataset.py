@@ -8,7 +8,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel
 
-from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder
+from atlas import ControlBlock, CriticalBranch, MarketAreaPtdf, MarketBorder, generate_datetimes
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import INVERSE_MODEL_MAPPING_NAME, logger
 from atlas.enum import CouplingType
@@ -32,12 +32,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.raw_data = raw_data
         self.parameters = parameters
 
-        step = self.parameters.timestep
-        total_minutes = (self.parameters.end_date - self.parameters.start_date).in_minutes()
-        self.times = [
-            self.parameters.start_date + step * i
-            for i in range(0, total_minutes // int(self.parameters.timestep.total_minutes()))
-        ]
+        self.times = generate_datetimes(self.parameters.start_date, self.parameters.end_date, self.parameters.timestep)
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
 
