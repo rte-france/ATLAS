@@ -51,7 +51,7 @@ class OrderMC(Order):
 
     @property
     def is_sale(self) -> bool:
-        return True if self.production_sign == 1 else False
+        return self.production_sign == 1
 
     # Deduce duration from list of DataTime and the parameter time step (the end datetime may have to be modified so that
     # everything stays consistent).
