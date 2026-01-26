@@ -88,6 +88,14 @@ class MarketClearingParameters(AbstractParameters):
     :param market_area_names: Custom selection of market areas to be included in the computation or string 'All' to
     select all market area. the default value is 'All'
     :type market_area_names: str | list[str]
+    :param export_lp: True if lp/variables must be exported
+    :type export_lp: bool
+    :param export_csv: True if csv output must be exported
+    :type export_csv: bool
+    :param output_dataset_path: Path where to export the output dataset. None if no export
+    :type output_dataset_path: Path | None
+    :param output_path: Path where to export the outputs (csv/lp/...)
+    :type output_path: Path
     """
 
     solver_name: SolverEnum = Field(
