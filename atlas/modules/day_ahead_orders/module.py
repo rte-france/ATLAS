@@ -24,7 +24,7 @@ class DayAheadOrdersModule(
         return DayAheadOrdersParameters
 
     def import_data(
-        self, raw_data: dict[str, list[type[BusinessModel]]], parameters: DayAheadOrdersParameters
+        self, raw_data: dict[str, list[BusinessModel]], parameters: DayAheadOrdersParameters
     ) -> DayAheadOrdersInputDataset:
         """Imports data using business objects and parameters."""
         return DayAheadOrdersInputDataset(raw_data, parameters)

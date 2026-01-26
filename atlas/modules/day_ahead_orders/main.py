@@ -20,4 +20,4 @@ if __name__ == "__main__":
 
     mc_module = DayAheadOrdersModule()
     raw_data = InputLoader.from_directory(raw_data_path)
-    mc_module.run(raw_data, raw_params_path)
+    mc_module.run(raw_data, raw_params_path)  # type:ignore [arg-type]
