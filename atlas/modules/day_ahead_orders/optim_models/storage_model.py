@@ -58,7 +58,7 @@ class StorageModel(OptimisationModel):
             self.parameters.execution_date,
             self.parameters.start_date,
             self.parameters.end_date + self.optimization_period,
-            self.parameters.time_step,
+            self.parameters.timestep,
         )
         # Set-up the time frames
         # Definition of the time_frame time frame: the time frame on which
@@ -67,8 +67,8 @@ class StorageModel(OptimisationModel):
         # we want all time steps to lie in the [start_date, end_optimization_date] range.
         self.time_frame: list[DateTime] = generate_datetimes(
             self.parameters.start_date,
-            self.parameters.end_date + self.optimization_period - self.parameters.time_step,
-            self.parameters.time_step,
+            self.parameters.end_date + self.optimization_period - self.parameters.timestep,
+            self.parameters.timestep,
         )
 
     @classmethod
@@ -133,10 +133,10 @@ class StorageModel(OptimisationModel):
                 objective_expr=sum(
                     self.price_forecast.get_value(t)
                     * self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, 0))
-                    * self.parameters.time_step.total_hours()
+                    * self.parameters.timestep.total_hours()
                     - self.price_forecast.get_value(t)
                     * self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, 0))
-                    * self.parameters.time_step.total_hours()
+                    * self.parameters.timestep.total_hours()
                     for t in self.time_frame
                 )
             )
@@ -147,11 +147,11 @@ class StorageModel(OptimisationModel):
                         self.price_forecast.get_value(t)
                         * (1 - i * smoothing_factor / (nb_fragments - 1))
                         * self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
-                        * self.parameters.time_step.total_hours()
+                        * self.parameters.timestep.total_hours()
                         - self.price_forecast.get_value(t)
                         * (1 + i * smoothing_factor / (nb_fragments - 1))
                         * self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
-                        * self.parameters.time_step.total_hours()
+                        * self.parameters.timestep.total_hours()
                         for i in range(nb_fragments)
                     )
                     for t in self.time_frame

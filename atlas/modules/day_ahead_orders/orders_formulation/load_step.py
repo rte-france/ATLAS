@@ -45,7 +45,7 @@ class LoadStep:
                     parameters.execution_date,
                     parameters.start_date,
                     parameters.penultimate_date,
-                    parameters.time_step,
+                    parameters.timestep,
                 )
 
                 if load.da_buy_submitted_volume is None:
@@ -76,7 +76,7 @@ class LoadStep:
                                 is_agent_tso=False,
                                 execution_date=parameters.execution_date,
                                 start_date=t,
-                                end_date=t + parameters.time_step,
+                                end_date=t + parameters.timestep,
                                 price=load.variable_cost.get_value(t)
                                 if load.load_type == LoadType.POWER_TO_GAS
                                 else parameters.load_price,

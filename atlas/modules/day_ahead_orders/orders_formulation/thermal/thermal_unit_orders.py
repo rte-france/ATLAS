@@ -79,16 +79,16 @@ class ThermalUnitOrders:
         ## Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements
 
         automated_reserves_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
         )
         automated_reserves_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
         )
         manual_reserves_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
         )
         manual_reserves_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+            self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
         )
 
         if unit.afrr_up_procured and unit.fcr_up_procured:
@@ -117,8 +117,8 @@ class ThermalUnitOrders:
             )
 
         ## Get the unit-specific parameters:
-        T_start = int(math.floor(unit.startup_duration / self.parameters.time_step))
-        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.time_step))
+        T_start = int(math.floor(unit.startup_duration / self.parameters.timestep))
+        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.timestep))
         q_min = unit.minimum_power.max()
 
         ## See whether the unit will bid inflexible orders over the whole orders_time sequence:
@@ -141,7 +141,7 @@ class ThermalUnitOrders:
         T_startSD_in_sim = False
         if 3 in online_timeframe.values:
             for t in list(online_timeframe.index)[:-1]:
-                t_next = t + self.parameters.time_step
+                t_next = t + self.parameters.timestep
                 if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 2:
                     # passage from 1 to 3 in sequence, indicating the beginning of a shutdown
                     T_startSD_in_sim = True
@@ -149,7 +149,7 @@ class ThermalUnitOrders:
         T_endSU_in_sim = False
         if startup:
             for t in list(online_timeframe.index)[:-1]:
-                t_next = t + self.parameters.time_step
+                t_next = t + self.parameters.timestep
                 if online_timeframe.get_value(t) - online_timeframe.get_value(t_next) == 1:
                     # passage from 2 to 1 in sequence, indicating the end of a startup
                     T_endSU_in_sim = True
@@ -191,15 +191,15 @@ class ThermalUnitOrders:
         if K_start > 0:
             start_time_frame = generate_datetimes(
                 begin_of_startTimeFrame,
-                begin_of_startTimeFrame + K_start * self.parameters.time_step,
-                self.parameters.time_step,
+                begin_of_startTimeFrame + K_start * self.parameters.timestep,
+                self.parameters.timestep,
             )
         if K_stop > 0:  # Shift by one time step because the time frame encompasses the last time step in the ON state
             # and remove one index because the last time step (null power) is formally excluded.
             stop_time_frame = generate_datetimes(
-                begin_of_stopTimeFrame - self.parameters.time_step,
-                begin_of_stopTimeFrame + (K_stop - 1) * self.parameters.time_step,
-                self.parameters.time_step,
+                begin_of_stopTimeFrame - self.parameters.timestep,
+                begin_of_stopTimeFrame + (K_stop - 1) * self.parameters.timestep,
+                self.parameters.timestep,
             )
 
         # In corner cases on the border of the time frame, remove excess time indexes.
@@ -280,7 +280,7 @@ class ThermalUnitOrders:
                     is_agent_tso=False,
                     execution_date=self.parameters.execution_date,
                     start_date=t,
-                    end_date=t + self.parameters.time_step,
+                    end_date=t + self.parameters.timestep,
                 )
                 self.dataset.order.append(flexible_part)
 
@@ -302,7 +302,7 @@ class ThermalUnitOrders:
                     is_agent_tso=False,
                     execution_date=self.parameters.execution_date,
                     start_date=t,
-                    end_date=t + self.parameters.time_step,
+                    end_date=t + self.parameters.timestep,
                 )
                 self.dataset.order.append(reserve_bid)
 
@@ -323,7 +323,7 @@ class ThermalUnitOrders:
                     is_agent_tso=False,
                     execution_date=self.parameters.execution_date,
                     start_date=t,
-                    end_date=t + self.parameters.time_step,
+                    end_date=t + self.parameters.timestep,
                 )
                 self.dataset.order.append(reserve_bid)
 
@@ -344,7 +344,7 @@ class ThermalUnitOrders:
                     is_agent_tso=False,
                     execution_date=self.parameters.execution_date,
                     start_date=t,
-                    end_date=t + self.parameters.time_step,
+                    end_date=t + self.parameters.timestep,
                 )
                 self.dataset.order.append(reserve_bid)
 
@@ -364,7 +364,7 @@ class ThermalUnitOrders:
                     is_agent_tso=False,
                     execution_date=self.parameters.execution_date,
                     start_date=t,
-                    end_date=t + self.parameters.time_step,
+                    end_date=t + self.parameters.timestep,
                 )
                 self.dataset.order.append(reserve_bid)
 
@@ -417,7 +417,7 @@ class ThermalUnitOrders:
                         is_agent_tso=False,
                         execution_date=self.parameters.execution_date,
                         start_date=t,
-                        end_date=t + self.parameters.time_step,
+                        end_date=t + self.parameters.timestep,
                     )
                     self.dataset.order.append(bid_output)
 
@@ -448,7 +448,7 @@ class ThermalUnitOrders:
                         is_agent_tso=False,
                         execution_date=self.parameters.execution_date,
                         start_date=t,
-                        end_date=t + self.parameters.time_step,
+                        end_date=t + self.parameters.timestep,
                     )
                     self.dataset.order.append(bid_output)
 
@@ -470,7 +470,7 @@ class ThermalUnitOrders:
                     is_agent_tso=False,
                     execution_date=self.parameters.execution_date,
                     start_date=t,
-                    end_date=t + self.parameters.time_step,
+                    end_date=t + self.parameters.timestep,
                 )
                 self.dataset.order.append(bid_output)
 
@@ -545,7 +545,7 @@ class ThermalUnitOrders:
             intervals.append(online_at_t[0])
             if len(online_at_t) >= 2:
                 for i in range(len(online_at_t) - 1):
-                    if not (online_at_t[i + 1] - online_at_t[i]) == self.parameters.time_step:
+                    if not (online_at_t[i + 1] - online_at_t[i]) == self.parameters.timestep:
                         intervals.append(online_at_t[i])
                         intervals.append(online_at_t[i + 1])
             intervals.append(online_at_t[-1])  # Add the element. This allows for potential singletons

@@ -49,7 +49,7 @@ class NonDispatchableStep:
                     parameters.execution_date,
                     parameters.start_date,
                     parameters.penultimate_date,
-                    parameters.time_step,
+                    parameters.timestep,
                 )
 
                 if unit.da_sell_submitted_volume is None:
@@ -78,6 +78,6 @@ class NonDispatchableStep:
                         is_agent_tso=False,
                         execution_date=parameters.execution_date,
                         start_date=t,
-                        end_date=t + parameters.time_step,
+                        end_date=t + parameters.timestep,
                     )
                     dataset.order.append(bid_output)

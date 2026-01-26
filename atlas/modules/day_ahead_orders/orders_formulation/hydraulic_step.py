@@ -57,14 +57,14 @@ class HydraulicStep:
             local_index = generate_datetimes(
                 parameters.start_date,
                 end_date,
-                parameters.time_step,
+                parameters.timestep,
             )
             submitted_volumes = DAOTimeseries(
-                Timeseries.from_index(parameters.start_date, parameters.time_step, end_date, 0)
+                Timeseries.from_index(parameters.start_date, parameters.timestep, end_date, 0)
             )
 
             local_max_energy = (
-                equipment.maximum_energy.set_frequency(parameters.time_step, False)
+                equipment.maximum_energy.set_frequency(parameters.timestep, False)
                 .filter(item=local_index, inplace=False)
                 .max()
             )
@@ -78,10 +78,10 @@ class HydraulicStep:
                 energy_forecast = equipment.stored_energy.get_forecast(
                     parameters.execution_date,
                     parameters.start_date.subtract(days=1),
-                    parameters.start_date - parameters.time_step,
+                    parameters.start_date - parameters.timestep,
                 )
                 if len(energy_forecast) > 0:
-                    energy_level = energy_forecast.get_value(parameters.start_date - parameters.time_step)
+                    energy_level = energy_forecast.get_value(parameters.start_date - parameters.timestep)
                 else:
                     energy_level = equipment.initial_level.get_value(parameters.start_date)
             else:
@@ -165,7 +165,7 @@ class HydraulicStep:
                             is_agent_tso=False,
                             execution_date=parameters.execution_date,
                             start_date=t,
-                            end_date=t + parameters.time_step,
+                            end_date=t + parameters.timestep,
                         )
                         if not xmin:
                             bid_output.price = level_sup.get_value(t) + delta_wu[k][1]

@@ -93,6 +93,6 @@ class WindPVStep:
                             is_agent_tso=False,
                             execution_date=parameters.execution_date,
                             start_date=t,
-                            end_date=t + parameters.time_step,
+                            end_date=t + parameters.timestep,
                         )
                         dataset.order.append(bid_output)

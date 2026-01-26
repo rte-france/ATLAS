@@ -44,7 +44,7 @@ class DayAheadOrdersOrchestrator:
         # Create the sequence of orders times. In particular, this sequence is such that the endDate of the last order will be before
         # the endDate of the overall time frame.
         orders_time = generate_datetimes(
-            self.parameters.start_date, self.parameters.penultimate_date, self.parameters.time_step
+            self.parameters.start_date, self.parameters.penultimate_date, self.parameters.timestep
         )
         if len(orders_time) > 0:
             cfg.logger.info("Extraction completed, now starting the formulation of orders...")

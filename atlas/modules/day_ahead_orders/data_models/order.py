@@ -13,6 +13,6 @@ from atlas.models.market.order import Order
 
 class OrderDAO(Order):
     equipment: Equipment
-    execution_date: DateTime
-    start_date: DateTime
-    end_date: DateTime
+    execution_date: DateTime  # type:ignore[assignment]
+    start_date: DateTime  # type:ignore[assignment]
+    end_date: DateTime  # type:ignore[assignment]

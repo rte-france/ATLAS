@@ -82,16 +82,16 @@ class ElectricVehicleModel(StorageModel):
                         initial_stock
                         * (
                             self.storage.maximum_energy.get_value(t)
-                            / self.storage.maximum_energy.get_value(t - self.parameters.time_step)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.timestep)
                         )
-                        + self.parameters.time_step.total_hours()
+                        + self.parameters.timestep.total_hours()
                         * (
                             self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
                             - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                         + (
                             self.storage.displacement_energy.get_value(t)
-                            - self.storage.displacement_energy.get_value(t - self.parameters.time_step)
+                            - self.storage.displacement_energy.get_value(t - self.parameters.timestep)
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -100,19 +100,19 @@ class ElectricVehicleModel(StorageModel):
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (
-                        self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.time_step))
+                        self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.timestep))
                         * (
                             self.storage.maximum_energy.get_value(t)
-                            / self.storage.maximum_energy.get_value(t - self.parameters.time_step)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.timestep)
                         )
-                        + self.parameters.time_step.total_hours()
+                        + self.parameters.timestep.total_hours()
                         * (
                             self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
                             - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                         + (
                             self.storage.displacement_energy.get_value(t)
-                            - self.storage.displacement_energy.get_value(t - self.parameters.time_step)
+                            - self.storage.displacement_energy.get_value(t - self.parameters.timestep)
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -183,9 +183,9 @@ class ElectricVehicleModel(StorageModel):
             * self.storage.charge_efficiency
             >= (
                 self.storage.displacement_energy.get_value(
-                    self.parameters.end_date + self.optimization_period - self.parameters.time_step
+                    self.parameters.end_date + self.optimization_period - self.parameters.timestep
                 )
-                - self.storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.time_step)
+                - self.storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.timestep)
             )
             * self.parameters.ev_energy_coef,
             f"DisplacementEnergy_compensation_for_{str(self.storage.name)}",

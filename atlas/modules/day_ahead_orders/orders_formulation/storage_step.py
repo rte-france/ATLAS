@@ -49,11 +49,11 @@ class StorageStep:
             local_index = generate_datetimes(
                 self.parameters.start_date,
                 end_date,
-                self.parameters.time_step,
+                self.parameters.timestep,
             )
 
             local_max_energy = (
-                storage.maximum_energy.set_frequency(self.parameters.time_step, False)
+                storage.maximum_energy.set_frequency(self.parameters.timestep, False)
                 .filter(item=local_index, inplace=False)
                 .max()
             )
@@ -65,10 +65,10 @@ class StorageStep:
             cfg.logger.debug(f"Equipment {str(storage.name)}")
 
             buy_submitted_volumes = DAOTimeseries(
-                Timeseries.from_index(self.parameters.start_date, self.parameters.time_step, end_date, 0)
+                Timeseries.from_index(self.parameters.start_date, self.parameters.timestep, end_date, 0)
             )
             sell_submitted_volumes = DAOTimeseries(
-                Timeseries.from_index(self.parameters.start_date, self.parameters.time_step, end_date, 0)
+                Timeseries.from_index(self.parameters.start_date, self.parameters.timestep, end_date, 0)
             )
 
             # if the stock of the equipment at start date is not defined, initiate it
@@ -92,7 +92,7 @@ class StorageStep:
             # Psale can then be deduced from Ppurchase, Charge and and Discharge efficiency
             if storage.variable_cost is None:
                 storage.variable_cost = Timeseries.from_index(
-                    self.parameters.start_date, self.parameters.time_step, end_date, 0
+                    self.parameters.start_date, self.parameters.timestep, end_date, 0
                 )
             if Ppurchase != 0:
                 storage.variable_cost.set_value(self.parameters.start_date, round(Ppurchase, 2))
@@ -116,7 +116,7 @@ class StorageStep:
 
             # --- Formulate orders, possibly with associated coupling instances
             # First, orders that are included in a COMPLEMENT coupling
-            daily_buy_volume = sum(buy_volume * self.parameters.time_step.total_hours() for buy_volume in Qa.values())
+            daily_buy_volume = sum(buy_volume * self.parameters.timestep.total_hours() for buy_volume in Qa.values())
             if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
                 # Create the order coupling instance
                 coupling_instance = OrderCouplingDAO(
@@ -130,7 +130,7 @@ class StorageStep:
                 # If not, the energy requirement is capped to the feasible limit
                 energy_requirement = storage.displacement_energy.get_value(
                     self.parameters.penultimate_date
-                ) - storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.time_step)
+                ) - storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.timestep)
 
                 if energy_requirement > daily_buy_volume:
                     coupling_instance.complement_energy = daily_buy_volume
@@ -304,7 +304,7 @@ class StorageStep:
             self.parameters.execution_date,
             self.parameters.start_date,
             self.parameters.end_date,
-            self.parameters.time_step,
+            self.parameters.timestep,
         )
 
         # Check if either Qv or Qa is empty (i.e. contains only 0)
@@ -386,7 +386,7 @@ class StorageStep:
             market_area=storage.portfolio.market_area,
             execution_date=self.parameters.execution_date,
             start_date=start_date,
-            end_date=start_date + self.parameters.time_step,
+            end_date=start_date + self.parameters.timestep,
             order_type=order_type,
             product=Product.DayAhead,
             qmax=qmax,
@@ -414,13 +414,13 @@ class StorageStep:
             energy_forecast = storage.stored_energy.get_forecast(
                 self.parameters.execution_date,
                 self.parameters.start_date.subtract(days=2),
-                self.parameters.start_date - self.parameters.time_step,
-                self.parameters.time_step,
+                self.parameters.start_date - self.parameters.timestep,
+                self.parameters.timestep,
             )
             if len(energy_forecast) == 0:
                 initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(
                     self.parameters.start_date
                 )
             else:
-                initial_stock = energy_forecast.get_value(self.parameters.start_date - self.parameters.time_step)
+                initial_stock = energy_forecast.get_value(self.parameters.start_date - self.parameters.timestep)
         return initial_stock

@@ -13,7 +13,7 @@ from pendulum.duration import Duration
 from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.validators import hours_validator, minutes_validator
+from atlas.validators import convert_to_duration
 
 
 class DayAheadOrdersParameters(AbstractParameters):
@@ -120,7 +120,7 @@ class DayAheadOrdersParameters(AbstractParameters):
     solver_time_out: Duration = Field(
         default_factory=lambda: duration(minutes=4), description="Timeout (in seconds) of the optimization."
     )
-    time_step: Duration = Field(
+    timestep: Duration = Field(
         default_factory=lambda: duration(minutes=60),
         description="Discretization step of the simulated time interval, expressed as a string giving an integer "
         "number of minutes",
@@ -133,7 +133,7 @@ class DayAheadOrdersParameters(AbstractParameters):
 
     @cached_property
     def penultimate_date(self) -> DateTime:
-        return self.end_date - self.time_step
+        return self.end_date - self.timestep
 
     @cached_property
     def end_optimization_date(self) -> DateTime:
@@ -144,19 +144,11 @@ class DayAheadOrdersParameters(AbstractParameters):
         "ev_additional_hours",
         "battery_additional_hours",
         "thermic_additional_hours",
-        mode="before",
-    )
-    @classmethod
-    def convert_hours_to_duration(cls, v):
-        """Convert various duration formats to Duration objects (hours default)."""
-        return hours_validator(v)
-
-    @field_validator(
-        "time_step",
+        "timestep",
         "solver_time_out",
         mode="before",
     )
     @classmethod
-    def convert_minutes_to_duration(cls, v):
-        """Convert various duration formats to Duration objects (minutes default)."""
-        return minutes_validator(v)
+    def parse_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)

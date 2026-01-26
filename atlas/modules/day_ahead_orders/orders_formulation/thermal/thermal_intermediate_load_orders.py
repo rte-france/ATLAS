@@ -251,9 +251,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         """
 
         # Compute T_stable, T_start and T_stop : will be used to see which states will be incorporated
-        T_start = int(math.floor(unit.startup_duration / self.parameters.time_step))
-        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.time_step))
-        T_stable = int(math.ceil(unit.minimum_stable_power_duration / self.parameters.time_step))
+        T_start = int(math.floor(unit.startup_duration / self.parameters.timestep))
+        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.timestep))
+        T_stable = int(math.ceil(unit.minimum_stable_power_duration / self.parameters.timestep))
 
         # Since states are mutually exclusive, we need to sum them in order to collapse them on a single time series.
 
@@ -425,7 +425,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
                 new_sequence_ts = DAOTimeseries(
                     Timeseries.from_index(
-                        self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, default_value=0
+                        self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, default_value=0
                     )
                 )
 

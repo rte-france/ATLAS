@@ -48,16 +48,16 @@ class ThermalPeakLoadOrders:
         for unit in equipments_list:
             # Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements
             automated_reserves_up_procured = Timeseries.from_index(
-                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+                self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
             )
             automated_reserves_down_procured = Timeseries.from_index(
-                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+                self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
             )
             manual_reserves_up_procured = Timeseries.from_index(
-                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+                self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
             )
             manual_reserves_down_procured = Timeseries.from_index(
-                self.parameters.start_date, self.parameters.time_step, self.parameters.end_date, 0
+                self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
             )
 
             if unit.afrr_up_procured and unit.fcr_up_procured:
@@ -122,7 +122,7 @@ class ThermalPeakLoadOrders:
                         is_agent_tso=False,
                         execution_date=self.parameters.execution_date,
                         start_date=t,
-                        end_date=t + self.parameters.time_step,
+                        end_date=t + self.parameters.timestep,
                     )
                     self.dataset.order.append(inflexible_order)
 
@@ -265,7 +265,7 @@ class ThermalPeakLoadOrders:
             is_agent_tso=False,
             execution_date=self.parameters.execution_date,
             start_date=t,
-            end_date=t + self.parameters.time_step,
+            end_date=t + self.parameters.timestep,
         )
         self.dataset.order.append(order)
 
