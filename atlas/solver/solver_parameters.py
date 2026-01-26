@@ -60,6 +60,38 @@ class XPRESSParameterBuilder(SolverParameterBuilder):
             self.solver.SetSolverSpecificParametersAsString(param_string)
 
 
+class SCIPParameterBuilder(SolverParameterBuilder):
+    """Parameter builder for SCIP solver."""
+
+    def apply_options(self, options: SolverOptions) -> None:
+        """Apply options using SCIP-specific parameter format.
+
+        SCIP requires parameters in the format 'parameter/name = value'.
+        Multiple parameters should be separated by newlines or semicolons.
+
+        :param options: Solver options to apply
+        :type options: SolverOptions
+        """
+        # Time limit - use native method (milliseconds)
+        if options.time_limit is not None:
+            time_limit_ms = int(options.time_limit.total_seconds() * 1000)
+            self.solver.SetTimeLimit(time_limit_ms)
+
+        # Build SCIP-format parameters
+        param_parts = []
+
+        if not options.presolve:
+            param_parts.append("presolving/maxrounds = 0")
+
+        if options.duality_gap is not None:
+            param_parts.append(f"limits/gap = {options.duality_gap}")
+
+        # Apply string parameters with newline separator for SCIP
+        if param_parts:
+            param_string = "\n".join(param_parts)
+            self.solver.SetSolverSpecificParametersAsString(param_string)
+
+
 class GenericParameterBuilder(SolverParameterBuilder):
     """
     Generic parameter builder for non-XPRESS solvers.

@@ -6,14 +6,22 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
-from pydantic import Field, field_serializer, field_validator
+from pendulum import Duration, duration
+from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 
 from atlas.enum import InflowFrequency
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import parse_list_float, serializer_list_float
+from atlas.validators import convert_to_duration, parse_list_float, serializer_list_float
+
+
+class FragmentData(BaseModel):
+    """Data structure to hold fragment volume and price information."""
+
+    volume: float
+    price: float
 
 
 class Hydro(Equipment):
@@ -54,6 +62,8 @@ class Hydro(Equipment):
     )
     fragment_volumes: list[float] | None = Field(None, description="List of positive volumes")
 
+    fragment_data: dict[int, FragmentData] = Field(default_factory=dict, exclude=True)
+
     stored_energy: ForecastingMatrix | LazyForecastingMatrix | None = None
 
     da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
@@ -70,6 +80,17 @@ class Hydro(Equipment):
     maximum_power: Timeseries | LazyTimeseries | None = None
     minimum_power: Timeseries | LazyTimeseries | None = None
 
+    additional_hours: Duration = Field(
+        default_factory=lambda: duration(hours=12),
+        description="Optimization period in hours for hydraulic group.",
+    )
+
+    @field_validator("additional_hours", mode="before")
+    @classmethod
+    def parse_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)
+
     @field_validator("fragment_prices", "fragment_volumes", mode="before")
     @classmethod
     def validate_fragment_prices_and_volumes(cls, value: Any):
@@ -79,3 +100,16 @@ class Hydro(Equipment):
     def serialize_fragment_prices_and_volumes(self, value: list[float] | None) -> str | None:
         """Serialize fragment prices and volumes to a string."""
         return serializer_list_float(value)
+
+    @model_validator(mode="after")
+    def build_fragment_data(self) -> "Hydro":
+        """Build fragment data at instantiation and cache it."""
+        if self.fragment_prices is not None and self.fragment_volumes is not None:
+            if len(self.fragment_volumes) != len(self.fragment_prices):
+                raise ValueError("Fragment volumes and prices must have the same length")
+
+            self.fragment_data = {
+                category: FragmentData(volume=self.fragment_volumes[category], price=self.fragment_prices[category])
+                for category in range(len(self.fragment_volumes))
+            }
+        return self
