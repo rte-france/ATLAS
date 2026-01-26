@@ -564,7 +564,9 @@ class Clearing(OptimisationModel):
                     constants.accepted_power_variable_name(mc_order.market_area.name, mc_order.name)
                 )
                 altered_price = mc_order.price - mc_order.production_sign * lambda1
-                objective.append(-mc_order.production_sign * altered_price * mc_order.duration * accepted_power / 60)
+                objective.append(
+                    -mc_order.production_sign * altered_price * mc_order.duration.total_minutes() * accepted_power / 60
+                )
         return self.add_objective(sum(objective))
 
     def add_global_exchanges_objective(self, lambda2: float):

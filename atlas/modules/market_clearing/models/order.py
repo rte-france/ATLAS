@@ -4,6 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import pendulum
 from pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
@@ -56,18 +57,21 @@ class OrderMC(Order):
     # everything stays consistent).
     # NB: by convention, self.end_date are actually starts of a last time step:
     @property
-    def duration(self) -> int:
-        return int(
-            (((self.end_date - self.start_date).total_seconds() / 60) // int(self.timestep.total_minutes())) * 60
+    def duration(self) -> pendulum.Duration:
+        minutes = (
+            self.end_date.diff(self.start_date).in_minutes()
+            // self.timestep.total_minutes()
+            * self.timestep.total_minutes()
         )
+        return pendulum.duration(minutes=minutes)
 
     @property
     def end_datetime(self) -> DateTime:
-        return self.start_date.add(minutes=self.duration)
+        return self.start_date + self.duration
 
     @property
     def end_date_processed(self) -> DateTime:
-        return self.start_date.add(minutes=self.duration)
+        return self.start_date + self.duration
 
     @staticmethod
     def is_feasible(order: Order, times: list[DateTime], parameters: MarketClearingParameters) -> bool:
@@ -109,7 +113,7 @@ class OrderMC(Order):
             return False
 
         # MS
-        duration_span = Duration(seconds=(order.end_date - order.start_date).total_seconds())
+        duration_span = order.end_date.diff(order.start_date).as_duration()
         if parameters.timestep > duration_span:
             logger.info(
                 f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.timestep} min"
