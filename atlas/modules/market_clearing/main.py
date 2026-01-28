@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 import argparse
 
-from atlas.io_utils.input_loader import InputLoader
+from atlas import AtlasDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
 
 if __name__ == "__main__":
@@ -21,5 +21,5 @@ if __name__ == "__main__":
     raw_params_path = args.parameters
 
     mc_module = MarketClearingModule()
-    raw_data = InputLoader.from_directory(raw_data_path)
+    raw_data = AtlasDataset.from_directory(raw_data_path)
     mc_module.run(raw_data, raw_params_path)

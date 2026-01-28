@@ -4,8 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from atlas import AtlasDataset
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.models.business_model import BusinessModel
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
@@ -27,9 +27,7 @@ class MarketClearingModule(
         """Returns the concrete Parameters class for this module."""
         return MarketClearingParameters
 
-    def import_data(
-        self, raw_data: dict[str, list[type[BusinessModel]]], parameters: MarketClearingParameters
-    ) -> MarketClearingInputDataset:
+    def import_data(self, raw_data: AtlasDataset, parameters: MarketClearingParameters) -> MarketClearingInputDataset:
         input_dataset = MarketClearingInputDataset(raw_data, parameters)
         return input_dataset
 

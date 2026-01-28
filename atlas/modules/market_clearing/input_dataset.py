@@ -9,8 +9,9 @@ from typing import Any, cast
 import pendulum
 from pydantic import BaseModel
 
+from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.config import INVERSE_MODEL_MAPPING_NAME, logger
+from atlas.config import logger
 from atlas.enum import CouplingType
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
@@ -33,7 +34,7 @@ from atlas.timing import generate_datetimes
 class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
     """Input dataset for Market Clearing module"""
 
-    def __init__(self, raw_data: dict[str, list[type[BusinessModel]]], parameters: MarketClearingParameters):
+    def __init__(self, raw_data: AtlasDataset, parameters: MarketClearingParameters):
         self.raw_data = raw_data
         self.parameters = parameters
         self.times = generate_datetimes(
@@ -44,31 +45,21 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
 
-        order_couplings = [
-            cast(OrderCoupling, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[OrderCoupling], [])
-        ]
+        order_couplings = [cast(OrderCoupling, obj) for obj in raw_data.order_coupling]
         self.mc_order_couplings = self.get_order_couplings(order_couplings)
-        orders = [cast(Order, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[Order], [])]
+        orders = [cast(Order, obj) for obj in raw_data.order]
         self.mc_orders = self.get_orders(orders, self.mc_order_couplings)
-        market_areas = [cast(MarketArea, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[MarketArea], [])]
+        market_areas = [cast(MarketArea, obj) for obj in raw_data.market_area]
         self.mc_market_areas = self.get_market_areas(market_areas, self.mc_orders)
-        market_borders = [
-            cast(MarketBorder, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[MarketBorder], [])
-        ]
+        market_borders = [cast(MarketBorder, obj) for obj in raw_data.market_border]
         self.mc_market_borders = self.get_market_borders(market_borders)
-        control_blocks = [
-            cast(ControlBlock, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[ControlBlock], [])
-        ]
+        control_blocks = [cast(ControlBlock, obj) for obj in raw_data.control_block]
         self.mc_control_blocks = self.get_control_blocks(control_blocks)
 
         if self.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
-            critical_branches = [
-                cast(CriticalBranch, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[CriticalBranch], [])
-            ]
+            critical_branches = [cast(CriticalBranch, obj) for obj in raw_data.critical_branch]
             self.mc_critical_branches = self.get_critical_branches(critical_branches)
-            market_area_ptdfs = [
-                cast(MarketAreaPtdf, obj) for obj in self.raw_data.get(INVERSE_MODEL_MAPPING_NAME[MarketAreaPtdf], [])
-            ]
+            market_area_ptdfs = [cast(MarketAreaPtdf, obj) for obj in raw_data.market_area_ptdf]
             self.mc_market_area_ptdfs = self.get_market_area_ptdfs(market_area_ptdfs)
         else:
             self.mc_critical_branches = {}
