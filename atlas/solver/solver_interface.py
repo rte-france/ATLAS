@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 Module that implements OR-Tools optimisation interface.
 """
 
+from pathlib import Path
 from typing import Any, Literal
 
 from ortools.linear_solver import pywraplp
@@ -14,7 +15,12 @@ from ortools.linear_solver import pywraplp
 from atlas.config import logger
 from atlas.enum import SolverEnum, SolverStatus
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions
-from atlas.solver.solver_parameters import GenericParameterBuilder, SolverParameterBuilder, XPRESSParameterBuilder
+from atlas.solver.solver_parameters import (
+    GenericParameterBuilder,
+    SCIPParameterBuilder,
+    SolverParameterBuilder,
+    XPRESSParameterBuilder,
+)
 from atlas.timing import timer
 
 
@@ -78,6 +84,8 @@ class OptimisationModel:
         """
         if self.solver_name == SolverEnum.XPRESS:
             return XPRESSParameterBuilder(self._solver)
+        elif self.solver_name == SolverEnum.SCIP:
+            return SCIPParameterBuilder(self._solver)
         else:
             return GenericParameterBuilder(self._solver)
 
@@ -430,7 +438,7 @@ class OptimisationModel:
         slack_value = constraint.ub() - sum_coeff if constraint.ub() != float("inf") else constraint.lb() - sum_coeff
         return slack_value
 
-    def export_model(self, filename: str) -> None:
+    def export_model(self, filename: str | Path) -> None:
         """
         Export the model to a file.
 

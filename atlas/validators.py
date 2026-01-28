@@ -27,7 +27,6 @@ def parse_list_float(value: Any) -> list[float] | None:
             raise ValidationError(
                 f"All elements in the list must be of type float. Got: {value}",
             )
-
     try:
         return list(map(float, value.split(":")))
     except Exception as e:

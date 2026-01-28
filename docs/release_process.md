@@ -14,12 +14,11 @@ The Atlas project uses an automated release workflow that:
 
 ### 1. Prepare for Release
 
-1. **Update Version**: Update the version in `pyproject.toml`:
+1. **Update Version**: Update the version using `uv`:
 
-   ```toml
-   [project]
-   name = "atlas"
-   version = "0.2.0"  # Update this
+   ```python
+   uv version --bump major
+   # possible values: major, minor, patch, stable, alpha, beta, rc, post, dev]
    ```
 
 2. **Update Changelog**: Add release notes to `docs/changelog.md`
