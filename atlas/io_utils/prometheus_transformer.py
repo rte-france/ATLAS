@@ -20,6 +20,7 @@ from pydantic_extra_types.pendulum_dt import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
+from atlas.enum import BusinessModelName
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.typing import get_class_inheritance_chain, get_type_attribute
@@ -265,7 +266,7 @@ class PrometheusToAtlasDataParser:
             attr_name_snake = NAME_MAPPING[attr_name_snake]
 
         # Validate attribute exists in model
-        model_fields = cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys()
+        model_fields = cfg.MODEL_MAPPING_NAME[BusinessModelName(object_type_snake)].model_fields.keys()
         if attr_name_snake not in model_fields:
             logger.debug(
                 f"The attribute '{attr_name_snake}' is not present in Atlas model object: {object_type_snake}, skipping it."
@@ -606,7 +607,7 @@ class PrometheusToAtlasDataParser:
             Resolved type annotation
         """
 
-        type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
+        type_attribute = get_type_attribute(BusinessModelName(object_type_snake), attr_name_snake)
         try:
             return get_args(type_attribute)[0]
         except (IndexError, TypeError):
@@ -626,7 +627,7 @@ class PrometheusToAtlasDataParser:
 
         items: list[Any] = [item.decode("utf-8") if isinstance(item, bytes) else item for item in val]
 
-        type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
+        type_attribute = get_type_attribute(BusinessModelName(object_type_snake), attr_name_snake)
         if type_attribute is not None:
             try:
                 type_args = get_args(type_attribute)
@@ -646,12 +647,12 @@ class PrometheusToAtlasDataParser:
             attrs: Dictionary to update with default values
             object_type_snake: Snake-case object type
         """
-        inheritance_chain = get_class_inheritance_chain(object_type_snake)
+        inheritance_chain = get_class_inheritance_chain(BusinessModelName(object_type_snake))
         for base_class in inheritance_chain:
             # base_class is str from the inheritance chain
             base_class_str = str(base_class) if not isinstance(base_class, str) else base_class
             if base_class_str in DEFAULT_VALUE_IO:
-                defaults = DEFAULT_VALUE_IO[base_class_str]
+                defaults = DEFAULT_VALUE_IO[BusinessModelName(base_class_str)]
                 if isinstance(defaults, dict):
                     for default_attr_name, default_value in defaults.items():
                         if default_attr_name not in attrs:
