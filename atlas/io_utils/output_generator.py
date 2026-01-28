@@ -107,31 +107,11 @@ class OutputGenerator:
             scenario_matrix_dir = config.directory_path / "scenario_matrix"
             forecasting_matrix_dir = config.directory_path / "forecasting_matrix"
 
-            if not config.directory_path.is_dir():
-                try:
-                    config.directory_path.mkdir(parents=True, exist_ok=True)
-                except PermissionError:
-                    print(f"Permission denied: Unable to create '{config.directory_path}'.")
-            if not objects_dir.is_dir():
-                try:
-                    objects_dir.mkdir()
-                except PermissionError:
-                    print(f"Permission denied: Unable to create '{objects_dir}'.")
-            if not timeseries_dir.is_dir():
-                try:
-                    timeseries_dir.mkdir()
-                except PermissionError:
-                    print(f"Permission denied: Unable to create '{timeseries_dir}'.")
-            if not scenario_matrix_dir.is_dir():
-                try:
-                    scenario_matrix_dir.mkdir()
-                except PermissionError:
-                    print(f"Permission denied: Unable to create '{scenario_matrix_dir}'.")
-            if not forecasting_matrix_dir.is_dir():
-                try:
-                    forecasting_matrix_dir.mkdir()
-                except PermissionError:
-                    print(f"Permission denied: Unable to create '{forecasting_matrix_dir}'.")
+            config.directory_path.mkdir(parents=True, exist_ok=True)
+            objects_dir.mkdir(exist_ok=True)
+            timeseries_dir.mkdir(exist_ok=True)
+            scenario_matrix_dir.mkdir(exist_ok=True)
+            forecasting_matrix_dir.mkdir(exist_ok=True)
 
             for object_type, objects_list in dataset.items():
                 file_name = object_type + ".csv"
@@ -193,6 +173,9 @@ class OutputGenerator:
 
                 with open(file_path, "w") as file:
                     file.write("\n".join(csv_rows) + "\n")
+                cfg.logger.info(
+                    f"Exported {len(objects_list)} objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
+                )
 
             cfg.logger.success("Atlas data exported successfully.")
 

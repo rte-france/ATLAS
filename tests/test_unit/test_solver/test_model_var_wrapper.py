@@ -146,7 +146,7 @@ class TestModelVar:
 
             # Check that warning was logged
             log_content = log_output.getvalue()
-            assert "duplicate" in log_content.lower()
+            assert "already exists" in log_content.lower()
             assert str(sample_datetime) in log_content
         finally:
             logger.remove(handler_id)

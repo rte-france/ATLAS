@@ -74,6 +74,10 @@ markdown_extensions:
   - pymdownx.snippets
   - pymdownx.superfences
   - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - toc:
       permalink: true
 
@@ -97,6 +101,17 @@ nav:
     - Authors: authors.md
   - Concepts:
     - Overview: concepts/overview.md
+  - Modules:
+    - Portfolio Optimisation:
+      - Overview: modules/portfolio-optimisation/index.md
+      - User Guide:
+        - Overview: modules/portfolio-optimisation/user-guide/overview.md
+        - Parameters: modules/portfolio-optimisation/user-guide/input-data.md
+        - Running: modules/portfolio-optimisation/user-guide/running.md
+        - Results: modules/portfolio-optimisation/user-guide/results.md
+        - Examples: modules/portfolio-optimisation/user-guide/examples.md
+      - Developer:
+        - Architecture: modules/portfolio-optimisation/developer/architecture.md
   - API Reference:
     - Math Objects:
       - Timeseries: api/math/timeseries.md
@@ -114,15 +129,16 @@ nav:
       - Workflow: api/workflow/workflow.md
       - Workflow step: api/workflow/workflow_step.md
       - Workflow parameters: api/workflow/workflow_parameters.md
+    - Optimisation:
+      - Solver Interface: api/solver/interface.md
+      - Other : api/solver/models.md
     - Others:
-      - Solver Interace: api/optimisation.md
       - Enum: api/enum.md
       - Logging: api/logging.md
 
 extra:
   version:
     provider: mike
-    default: 0.1.0
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/rte-france/ATLAS
