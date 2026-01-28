@@ -18,6 +18,7 @@ from atlas.custom_errors import (
     InputLoaderError,
     ObjectInstantiationError,
 )
+from atlas.enum import BusinessModelName
 from atlas.io_utils.models import InputLoaderConfig
 from atlas.io_utils.utils import read_data_file
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -125,7 +126,7 @@ def load_from_directory(
         raise InputLoaderError(f"Unexpected error during data loading: {str(e)}") from e
 
 
-def _parse_objects_files(objects_path: Path, separator: str = ";") -> dict[str, list[dict[str, str]]]:
+def _parse_objects_files(objects_path: Path, separator: str = ";") -> dict[BusinessModelName, list[dict[str, str]]]:
     """Parse object definitions from the 'objects' directory with enhanced error handling."""
     cfg.logger.debug(f"Parsing objects from directory: {objects_path}")
     result = {}
@@ -139,7 +140,7 @@ def _parse_objects_files(objects_path: Path, separator: str = ";") -> dict[str, 
             cfg.logger.debug(f"Skipping subdirectory: {file_path}")
             continue
 
-        key = file_path.stem
+        key = BusinessModelName(file_path.stem)
 
         if key not in cfg.MODEL_MAPPING_NAME:
             cfg.logger.warning(
@@ -181,7 +182,7 @@ def _parse_objects_files(objects_path: Path, separator: str = ";") -> dict[str, 
 
 def _build_math_objects(
     object_list: list[dict[str, Any]],
-    object_type: str,
+    object_type: BusinessModelName,
     config: InputLoaderConfig,
 ) -> list[dict[str, Any]]:
     """Parallel version of _build_math_objects for better performance with I/O operations."""
@@ -216,7 +217,7 @@ def _build_math_objects(
 
 def _process_single_object_math(
     obj: dict[str, Any],
-    object_type: str,
+    object_type: BusinessModelName,
     config: InputLoaderConfig,
     obj_index: int,
 ) -> dict[str, Any]:
@@ -394,7 +395,7 @@ def _load_matrix(
 
 def _build_business_models(
     object_list: list[dict[str, Any]],
-    object_type: str,
+    object_type: BusinessModelName,
     objects_instantiated: dict[str, list[BusinessModel]],
 ) -> list[BusinessModel]:
     """Instantiate final BusinessModel objects from intermediate math object dictionaries."""
@@ -443,7 +444,7 @@ def _build_object_indices(
 
 def _build_single_business_model(
     object_dict: dict[str, Any],
-    object_type: str,
+    object_type: BusinessModelName,
     object_indices: dict[str, dict[str, BusinessModel]],
 ) -> BusinessModel:
     """Instantiate a single BusinessModel object from its attributes."""
@@ -459,7 +460,7 @@ def _build_single_business_model(
                 attribute_type = get_type_attribute(object_type, attribute)
 
                 if attribute_type in cfg.INVERSE_MODEL_MAPPING_NAME:
-                    if attribute_type is cfg.MODEL_MAPPING_NAME["equipment"]:
+                    if attribute_type is cfg.MODEL_MAPPING_NAME[BusinessModelName.EQUIPMENT]:
                         _resolve_equipment_reference(object_dict, object_indices)
                     else:
                         _resolve_single_object_reference(

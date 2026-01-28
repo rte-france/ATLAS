@@ -5,7 +5,27 @@ This file is part of the ATLAS project.
 """
 
 from atlas.enum import BusinessModelName
-from atlas.io_utils.specific_container import *
+from atlas.io_utils.container import Container
+from atlas.io_utils.specific_container import (
+    ControlBlockContainer,
+    CriticalBranchContainer,
+    EquipmentContainer,
+    HydroContainer,
+    LoadContainer,
+    MarketAreaContainer,
+    MarketAreaPtdfContainer,
+    MarketBorderContainer,
+    NodeContainer,
+    NodePtdfContainer,
+    OrderContainer,
+    OrderCouplingContainer,
+    OtherNonDispatchableContainer,
+    PortfolioContainer,
+    SolarContainer,
+    StorageContainer,
+    ThermalContainer,
+    WindContainer,
+)
 from atlas.logging import Logger
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
@@ -29,6 +49,7 @@ from atlas.models.portfolio import Portfolio
 
 logger = Logger().get_logger()
 
+
 MODEL_MAPPING_NAME: dict[BusinessModelName, type[BusinessModel]] = {
     BusinessModelName.CONTROL_BLOCK: ControlBlock,
     BusinessModelName.CRITICAL_BRANCH: CriticalBranch,
@@ -50,7 +71,7 @@ MODEL_MAPPING_NAME: dict[BusinessModelName, type[BusinessModel]] = {
     BusinessModelName.WIND: Wind,
 }
 
-MODEL_CONTAINER_MAPPING_NAME: dict[BusinessModelName, type[BusinessModel]] = {
+MODEL_CONTAINER_MAPPING_NAME: dict[BusinessModelName, type[Container]] = {
     BusinessModelName.CONTROL_BLOCK: ControlBlockContainer,
     BusinessModelName.CRITICAL_BRANCH: CriticalBranchContainer,
     BusinessModelName.EQUIPMENT: EquipmentContainer,

@@ -15,26 +15,29 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 import atlas.config as cfg
+from atlas.enum import BusinessModelName
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
+from atlas.io_utils.specific_container import (
+    ControlBlockContainer,
+    CriticalBranchContainer,
+    HydroContainer,
+    LoadContainer,
+    MarketAreaContainer,
+    MarketAreaPtdfContainer,
+    MarketBorderContainer,
+    NodeContainer,
+    NodePtdfContainer,
+    OrderContainer,
+    OrderCouplingContainer,
+    OtherNonDispatchableContainer,
+    PortfolioContainer,
+    SolarContainer,
+    StorageContainer,
+    ThermalContainer,
+    WindContainer,
+)
 from atlas.models.business_model import BusinessModel
-from atlas.models.control_block import ControlBlock
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
-from atlas.models.equipment.wind import Wind
-from atlas.models.market.critical_branch import CriticalBranch
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.market_area_ptdf import MarketAreaPtdf
-from atlas.models.market.market_border import MarketBorder
-from atlas.models.market.node_ptdf import NodePtdf
-from atlas.models.market.order import Order
-from atlas.models.market.order_coupling import OrderCoupling
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
 
 
 class AtlasDataset(BaseModel):
@@ -59,23 +62,23 @@ class AtlasDataset(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
-    control_block: list[ControlBlock] = Field(default_factory=list)
-    critical_branch: list[CriticalBranch] = Field(default_factory=list)
-    hydro: list[Hydro] = Field(default_factory=list)
-    load: list[Load] = Field(default_factory=list)
-    market_area: list[MarketArea] = Field(default_factory=list)
-    market_area_ptdf: list[MarketAreaPtdf] = Field(default_factory=list)
-    market_border: list[MarketBorder] = Field(default_factory=list)
-    node: list[Node] = Field(default_factory=list)
-    node_ptdf: list[NodePtdf] = Field(default_factory=list)
-    order: list[Order] = Field(default_factory=list)
-    order_coupling: list[OrderCoupling] = Field(default_factory=list)
-    other_non_dispatchable: list[OtherNonDispatchable] = Field(default_factory=list)
-    solar: list[Solar] = Field(default_factory=list)
-    portfolio: list[Portfolio] = Field(default_factory=list)
-    storage: list[Storage] = Field(default_factory=list)
-    thermal: list[Thermal] = Field(default_factory=list)
-    wind: list[Wind] = Field(default_factory=list)
+    control_block: ControlBlockContainer = Field(default_factory=ControlBlockContainer)
+    critical_branch: CriticalBranchContainer = Field(default_factory=CriticalBranchContainer)
+    hydro: HydroContainer = Field(default_factory=HydroContainer)
+    load: LoadContainer = Field(default_factory=LoadContainer)
+    market_area: MarketAreaContainer = Field(default_factory=MarketAreaContainer)
+    market_area_ptdf: MarketAreaPtdfContainer = Field(default_factory=MarketAreaPtdfContainer)
+    market_border: MarketBorderContainer = Field(default_factory=MarketBorderContainer)
+    node: NodeContainer = Field(default_factory=NodeContainer)
+    node_ptdf: NodePtdfContainer = Field(default_factory=NodePtdfContainer)
+    order: OrderContainer = Field(default_factory=OrderContainer)
+    order_coupling: OrderCouplingContainer = Field(default_factory=OrderCouplingContainer)
+    other_non_dispatchable: OtherNonDispatchableContainer = Field(default_factory=OtherNonDispatchableContainer)
+    solar: SolarContainer = Field(default_factory=SolarContainer)
+    portfolio: PortfolioContainer = Field(default_factory=PortfolioContainer)
+    storage: StorageContainer = Field(default_factory=StorageContainer)
+    thermal: ThermalContainer = Field(default_factory=ThermalContainer)
+    wind: WindContainer = Field(default_factory=WindContainer)
 
     _indices: dict[str, dict[str, BusinessModel]] = {}
 
@@ -172,8 +175,9 @@ class AtlasDataset(BaseModel):
         :rtype: AtlasDataset
         """
         # Initialize with empty lists for all fields, then update with provided data
-        kwargs: dict[str, Any] = {key: [] for key in cfg.MODEL_MAPPING_NAME.keys()}
-        kwargs.update(data)
+        kwargs: dict[str, Any] = {}
+        for bm_type, bm_list in data.items():
+            kwargs[bm_type] = cfg.MODEL_CONTAINER_MAPPING_NAME[BusinessModelName(bm_type)](bm_list)
 
         return cls(**kwargs)
 
@@ -225,7 +229,7 @@ class AtlasDataset(BaseModel):
         for object_type in cfg.MODEL_MAPPING_NAME.keys():
             objects = getattr(self, object_type, [])
             if objects:  # Only include non-empty lists
-                result[object_type] = objects
+                result[object_type] = list(objects)
 
         return result
 
