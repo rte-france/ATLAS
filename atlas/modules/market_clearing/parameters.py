@@ -233,9 +233,9 @@ class MarketClearingParameters(AbstractParameters):
 
     @field_validator("market_area_names", "control_block_names", mode="before")
     @classmethod
-    def parse_market_area_names(cls, v):
+    def parse_included_objects(cls, v):
         # case default
-        if v.lower() == "all":
+        if isinstance(v, str) and v.lower() == "all":
             return v.lower()
 
         # already a list
