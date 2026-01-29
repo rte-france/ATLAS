@@ -67,7 +67,7 @@ Examples:
 │                                                         │
 │  Template methods:                                     │
 │  - abstractmethod: _get_data() → df or lf              │
-│  - abstractmethod: _wrap(data, inplace) → self or new  │
+│  - abstractmethod: _return(data, inplace) → self or new  │
 └─────────────────────────────────────────────────────────┘
                             ▲
                             │ inherits
@@ -80,7 +80,7 @@ Examples:
 │ _get_data()           │   │ _get_data()           │
 │   → DataFrame         │   │   → LazyFrame         │
 │                       │   │                       │
-│ _wrap()               │   │ _wrap()               │
+│ _return()               │   │ _return()               │
 │   → Timeseries        │   │   → LazyTimeseries    │
 │                       │   │                       │
 │ Orange Zone:          │   │ Orange Zone:          │
@@ -97,7 +97,7 @@ Examples:
 2. **No duplication**: Shared logic in base class
 3. **Clear hierarchy**: Single inheritance
 4. **Pythonic**: Standard library ABC pattern
-5. **Template Method**: Subclasses customize via `_get_data()` and `_wrap()`
+5. **Template Method**: Subclasses customize via `_get_data()` and `_return()`
 
 ### 3. Implementation Example
 
@@ -119,8 +119,8 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         pass
 
     @abstractmethod
-    def _wrap(self, data: TBackend, inplace: bool) -> Self:
-        """Wrap data into appropriate type."""
+    def _return(self, data: TBackend, inplace: bool) -> Self:
+        """return data into appropriate type."""
         pass
 
     # Green Zone: Shared implementation
@@ -128,12 +128,12 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         backend = self._get_data()
         # ... filtering logic works on both DataFrame and LazyFrame
         filtered = backend.filter(...)
-        return self._wrap(filtered, inplace)
+        return self._return(filtered, inplace)
 
     def abs(self, inplace=True) -> Self:
         backend = self._get_data()
         result = backend.with_columns(pl.col("value").abs())
-        return self._wrap(result, inplace)
+        return self._return(result, inplace)
 
     # Yellow Zone: Abstract (different implementations)
     @abstractmethod
@@ -156,7 +156,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
     def _get_data(self) -> pl.DataFrame:
         return self.timeseries
 
-    def _wrap(self, data: pl.DataFrame, inplace: bool) -> Timeseries:
+    def _return(self, data: pl.DataFrame, inplace: bool) -> Timeseries:
         if inplace:
             self.timeseries = data.sort("time")
             return self
@@ -186,7 +186,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
     def _get_data(self) -> pl.LazyFrame:
         return self.timeseries
 
-    def _wrap(self, data: pl.LazyFrame, inplace: bool) -> LazyTimeseries:
+    def _return(self, data: pl.LazyFrame, inplace: bool) -> LazyTimeseries:
         if inplace:
             self.timeseries = data.sort("time")
             return self
@@ -258,7 +258,7 @@ ts.set_value("2024-01-01 12:00:00", 42.0)
 1. **ABC pattern**: Simpler than mixins, fewer objects, standard Python
 2. **Orange Zone on both types**: `set_frequency()`, `upsample()`, `groupby()` exist on both with clear warnings
 3. **Four zones**: Green (lazy-preserving), Yellow (scalars), Orange (full collection), Red (avoid)
-4. **Template Method**: `_get_data()` and `_wrap()` customize behavior
+4. **Template Method**: `_get_data()` and `_return()` customize behavior
 
 
 ### Architecture Benefits
