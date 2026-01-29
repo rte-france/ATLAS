@@ -56,7 +56,7 @@ Examples:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│             BaseTimeseries (ABC)                        │
+│             AbstractTimeseries (ABC)                        │
 │                                                         │
 │  Shared implementation (Green Zone):                   │
 │  - filter(), slice(), abs(), round()                   │
@@ -93,7 +93,7 @@ Examples:
 ```
 
 **Why This Design?**
-1. **Simple**: Only 3 classes (BaseTimeseries, Timeseries, LazyTimeseries)
+1. **Simple**: Only 3 classes (AbstractTimeseries, Timeseries, LazyTimeseries)
 2. **No duplication**: Shared logic in base class
 3. **Clear hierarchy**: Single inheritance
 4. **Pythonic**: Standard library ABC pattern
@@ -110,7 +110,7 @@ import polars as pl
 
 TBackend = TypeVar('TBackend', pl.DataFrame, pl.LazyFrame)
 
-class BaseTimeseries(ABC, Generic[TBackend]):
+class AbstractTimeseries(ABC, Generic[TBackend]):
     timezone: str
 
     @abstractmethod
@@ -148,7 +148,7 @@ class BaseTimeseries(ABC, Generic[TBackend]):
 #### Eager Implementation
 
 ```python
-class Timeseries(BaseTimeseries[pl.DataFrame]):
+class Timeseries(AbstractTimeseries[pl.DataFrame]):
     def __init__(self, timeseries, timezone="UTC"):
         self.timeseries: pl.DataFrame = ...
         self.timezone = timezone
@@ -178,7 +178,7 @@ class Timeseries(BaseTimeseries[pl.DataFrame]):
 #### Lazy Implementation
 
 ```python
-class LazyTimeseries(BaseTimeseries[pl.LazyFrame]):
+class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
     def __init__(self, timeseries, timezone="UTC"):
         self.timeseries: pl.LazyFrame = ...
         self.timezone = timezone
@@ -277,5 +277,5 @@ ts.set_value("2024-01-01 12:00:00", 42.0)
 
 ### Applies To
 
-- `BaseTimeseries` → `Timeseries` + `LazyTimeseries`
-- `BaseMatrix` → `Matrix` + `LazyMatrix`
+- `AbstractTimeseries` → `Timeseries` + `LazyTimeseries`
+- `AbstractScenarioMatrix` → (`ScenarioMatrix` → `ForecastinMatrix`) + (`LazyScenarioMatrix` → `LazyForecastingMatrix`)
