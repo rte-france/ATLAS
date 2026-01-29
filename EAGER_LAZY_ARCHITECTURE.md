@@ -264,10 +264,15 @@ ts.set_value("2024-01-01 12:00:00", 42.0)
 ### Architecture Benefits
 
 ✓ **Shared methods** through ABC
+
 ✓ **Minimal objects**: Only 3 classes
+
 ✓ **No duplication**: Single implementation of shared logic
+
 ✓ **Clear semantics**: Warnings document collection points
+
 ✓ **Consistent API**: Both types have same methods
+
 ✓ **Performance**: Lazy chains stay lazy, explicit collection when needed
 
 ### Applies To
