@@ -20,7 +20,7 @@ Currently, `Timeseries` and `LazyTimeseries` (and their Matrix equivalents) have
 
 ## Architectural Design
 
-### 1. Method Categories (Four Zones)
+### 1. Method Categories
 
 #### Green Zone: Lazy-Preserving Methods
 Work on both eager and lazy **without collecting**:
@@ -51,9 +51,6 @@ Examples:
 2. Perform operation on eager version
 3. Convert back to lazy
 4. Return LazyTimeseries (can continue chaining)
-
-#### Red Zone: Deprecated
-Avoid methods that only exist on one type. Use Orange Zone instead.
 
 ### 2. Design Pattern: Abstract Base Class
 
