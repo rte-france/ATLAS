@@ -441,6 +441,8 @@ class AtlasDataset(BaseModel):
         """
         container_type = cls.model_fields[info.field_name].annotation
 
+        assert isinstance(container_type, type)
+
         if isinstance(v, container_type):
             return v
 
