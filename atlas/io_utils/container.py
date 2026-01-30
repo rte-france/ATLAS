@@ -19,6 +19,8 @@ class Container(Generic[T]):
         self._items: list[T] = list(items) if items else []
 
     def add(self, item: T) -> None:
+        if any(existing.name == item.name for existing in self._items):
+            raise ValueError(f"Item with name '{item.name}' already exists")
         self._items.append(item)
 
     def get(self, name: str) -> T:
