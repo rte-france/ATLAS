@@ -1,100 +1,105 @@
-import API
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from antares.craft.model.study import Study
+from loguru import logger
+from pendulum import duration
+
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.timeseries import Timeseries
+from atlas.models.equipment.wind import Wind
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-def conversion_wind(antares_dataset, atlas_dataset, p):
-    if antares_dataset.GeneralSettings.GetInstanceByName("Settings").RenewableGenerationModelling == "clusters":
-        for instance in antares_dataset.Renewables.GetAllInstances():
-            # Note that WindOffshore is currently merged with WindOnshore due to the lack of data for the forecasting model
-            if instance.Group != "WindOnshore" and instance.Node.Name.lower() not in ["dekf", "dkkf"]:
-                continue
+def convert_solar_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+) -> AtlasDataset:
+    """Convert PV generation data from Antares to Atlas."""
 
-            if not instance.Enabled:
-                continue
+    logger.info("Converting Winds generation data")
+    areas = study.get_areas()
+    winds: list[Wind] = []
 
-            if instance.Node.Name in p.market_areas_list:
-                # FC: Replacing the try except here, correct in theory but which is not working in ATLAS
-                # for some reason (if the try fails, the code crashes without going into the except...)
-                if p.scenario - 1 >= len(instance.RenewablesSelectedScenario):
-                    continue
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
+            continue
+        if study.get_settings().advanced_parameters.renewable_generation_modelling.value == "clusters":
+            renewables = areas[area_name].get_renewables()
+            for res_name in renewables:
+                if renewables[res_name].properties.group == "wind onshore" and renewables[res_name].properties.enabled:
+                    if parameters.scenario - 1 >= len(instance.RenewablesSelectedScenario):  # TODO
+                        continue
 
-                sc_wind = instance.RenewablesSelectedScenario[p.scenario - 1]
+                    sc_wind = instance.RenewablesSelectedScenario[parameters.scenario - 1]
 
-                if str(sc_wind) in instance.Disponibility.Index:
-                    if instance.Disponibility[sc_wind].Abs().Max() > 0:
-                        wind = atlas_dataset.Equipment.Wind.CreateInstance(f"{instance.Node.Name}_wind")
-
-                        if p.consumption_production_separation:
-                            wind.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                                f"generator_{instance.Node.Name}"
+                    if str(sc_wind) in instance.Disponibility.Index:
+                        if instance.Disponibility[sc_wind].Abs().Max() > 0:
+                            solars.append(
+                                Wind(
+                                    name=f"{area_name}_wind",
+                                    node=atlas_dataset.get("node", area_name),
+                                    portfolio=atlas_dataset.get(
+                                        "portfolio",
+                                        f"generator_{area_name}"
+                                        if parameters.consumption_production_separation
+                                        else f"portfolio_{area_name}",
+                                    ),
+                                    maximum_curtailment_ratio=Timeseries.from_index(
+                                        start_date=parameters.start_date,
+                                        frequency="1h",
+                                        end_date=parameters.start_date + duration(years=1),
+                                        default_value=parameters.pv_max_curtailment_ratio,
+                                    ),
+                                    curtailment_cost=Timeseries.from_index(
+                                        start_date=parameters.start_date,
+                                        frequency="1h",
+                                        end_date=parameters.start_date + duration(years=1),
+                                        default_value=parameters.pv_curtailment_cost,
+                                    ),
+                                    installed_capacity=renewables[res_name].properties.nominal_capacity,
+                                )
                             )
-                        else:
-                            wind.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                                f"portfolio_{instance.Node.Name}"
-                            )
 
-                        wind.Node = atlas_dataset.Network.Node.GetInstanceByName(instance.Node.Name)
-                        wind.MaximumCurtailmentRatio = API.TimeSeries.NewTimeSeries(
-                            "MaximumCurtailmentRatio",
-                            API.TimeSeries.Constant,
-                            p.start_date.ToString(),
-                            "1Y",
-                            2,
-                            p.wind_max_curtailment_ratio,
-                            "",
-                        )
-                        wind.CurtailmentCost = API.TimeSeries.NewTimeSeries(
-                            "CurtailmentCost",
-                            API.TimeSeries.Constant,
-                            p.start_date.ToString(),
-                            "1Y",
-                            2,
-                            p.wind_curtailment_cost,
-                            "",
-                        )
-
-                        wind.InstalledCapacity = instance.NominalCapacity
-                        if antares_dataset.Renewables.CheckInstanceExists(
-                            instance.Node.Name + "_wind_offshore"
-                        ) and instance.Node.Name.lower() not in ["dekf", "dkkf"]:
-                            offshore_instance = antares_dataset.Renewables.GetInstanceByName(
+                            if antares_dataset.Renewables.CheckInstanceExists(
                                 instance.Node.Name + "_wind_offshore"
-                            )
+                            ) and instance.Node.Name.lower() not in ["dekf", "dkkf"]:
+                                offshore_instance = antares_dataset.Renewables.GetInstanceByName(
+                                    instance.Node.Name + "_wind_offshore"
+                                )
 
-                            if offshore_instance.Enabled:
-                                wind.InstalledCapacity += offshore_instance.NominalCapacity
+                                if offshore_instance.Enabled:
+                                    wind.InstalledCapacity += offshore_instance.NominalCapacity
+        else:
+            if parameters.scenario - 1 >= len(antares_node.WindSelectedScenario):
+                continue
 
-    else:
-        for antares_node in antares_dataset.Node.GetAllInstances():
-            if antares_node.Name in p.market_areas_list:
-                # FC: Replacing the try except here, correct in theory but which is not working in ATLAS
-                # for some reason (if the try fails, the code crashes without going into the except...)
-                if p.scenario - 1 >= len(antares_node.WindSelectedScenario):
-                    continue
+            sc_wind = antares_node.WindSelectedScenario[parameters.scenario - 1]  # TODO
 
-                sc_wind = antares_node.WindSelectedScenario[p.scenario - 1]
-
-                if str(sc_wind) in antares_node.WindProduction.Index:
-                    if antares_node.WindProduction.Abs().Max() > 0:
-                        wind = atlas_dataset.Equipment.Wind.CreateInstance(f"{antares_node.Name}_w")
-
-                        if p.consumption_production_separation:
-                            wind.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                                f"supplier_{antares_node.Name}"
-                            )
-                        else:
-                            wind.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                                f"portfolio_{antares_node.Name}"
-                            )
-
-                        wind.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
-                        wind.MaximumCurtailmentRatio = API.TimeSeries.NewTimeSeries(
-                            "MaximumCurtailmentRatio",
-                            API.TimeSeries.Constant,
-                            p.start_date.ToString(),
-                            "1Y",
-                            2,
-                            p.wind_max_curtailment_ratio,
-                            "",
+            if str(sc_wind) in antares_node.SolarProduction.Index:
+                if antares_node.SolarProduction.Abs().Max() > 0:
+                    solars.append(
+                        Wind(
+                            name=f"{area_name}_pv",
+                            node=atlas_dataset.get("node", area_name),
+                            portfolio=atlas_dataset.get(
+                                "portfolio",
+                                f"generator_{area_name}"
+                                if parameters.consumption_production_separation
+                                else f"portfolio_{area_name}",
+                            ),
+                            maximum_curtailment_ratio=Timeseries.from_index(
+                                start_date=parameters.start_date,
+                                frequency="1h",
+                                end_date=parameters.start_date + duration(years=1),
+                                default_value=parameters.pv_max_curtailment_ratio,
+                            ),
                         )
+                    )
 
-    return None
+    atlas_dataset.wind = winds
+
+    return atlas_dataset
