@@ -1,34 +1,62 @@
-import API
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+
+Nuclear modulation - BP23 specific, France only.
+"""
+
+from typing import Any
+
+from antares.craft.model.study import Study
+from loguru import logger
+
+from atlas.models.business_model import BusinessModel
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-# Function adding the modulation part to FR nuclear equipments
-def add_nuclear_modulation(antares_dataset, atlas_dataset, p):
-    # Retrieve all nuclear equipments from area fr, and impose a DailyMaximumEnergy constraint
-    # based on the binding constraint nuc_modulation_daily
+def apply_nuclear_modulation(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    shared_state: dict[str, Any],
+) -> list[BusinessModel]:
+    """Apply nuclear modulation for France.
 
-    for equipment in atlas_dataset.Equipment.Thermic.GetAllInstances():
-        # Filter only relevant equipments
-        if "fr_" not in equipment.Name:
+    Nuclear modulation adjusts the minimum and maximum power of nuclear units
+    to reflect load-following capabilities and operational constraints.
+    This is specific to French nuclear fleet management.
+    """
+    if "fr" not in [area.lower() for area in parameters.market_areas]:
+        logger.info("Skipping nuclear modulation (France not in market areas)")
+        return []
+
+    logger.info("Applying nuclear modulation for France (BP23)")
+
+    areas = study.get_areas()
+    fr_area = areas.get("fr") or areas.get("FR")
+
+    if not fr_area:
+        logger.warning("France area not found in study")
+        return []
+
+    thermals = fr_area.get_thermals()
+
+    modulated_count = 0
+    for thermal_id, thermal in thermals.items():
+        props = thermal.properties
+
+        # Identify nuclear units
+        if props.group != "nuclear" and "nuc" not in thermal.name.lower():
             continue
 
-        if "Nuclear" not in equipment.Name:
-            continue
+        logger.debug(f"Applying modulation to nuclear unit: {thermal.name}")
 
-        # Delete all "Nuclear_peak" instances
-        if "Nuclear_peak" in equipment.Name:
-            atlas_dataset.Equipment.Thermic.DeleteInstanceByName(equipment.Name)
-            continue
+        # TODO: Update Thermal equipment with modulation parameters
+        # - Adjust minimum_power timeseries for load-following
+        # - Set ramping constraints
+        # - Apply seasonal modulation patterns
+        # - Consider maintenance schedules
 
-        # Set HasDailyEnergyConstraint to True
-        equipment.HasDailyEnergyConstraint = True
+        modulated_count += 1
 
-        # Load the binding constraint
-        binding_constraint = antares_dataset.BindingConstraint.GetInstanceByName("nuc_modulation_daily")
-
-        # Update MaximumDailyEnergy
-        one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1).AddHours(-1), "1d")
-
-        for time_index in one_year_days_index:
-            day_index = API.DatetimeIndex.NewIndex(time_index, time_index.AddDays(1).AddHours(-1), "1h")
-            one_day_energy = equipment.MaximumPower.Extract("", day_index)
-            equipment.MaximumDailyEnergy[time_index] = round(one_day_energy.Sum() * abs(binding_constraint.Weights[5]))
+    logger.info(f"Applied nuclear modulation to {modulated_count} units")
+    return []

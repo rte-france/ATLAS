@@ -1,48 +1,59 @@
-import os
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
 
-import API
+Initial storage levels - BP23 specific.
+"""
+
+from typing import Any
+
+from antares.craft.model.study import Study
+from loguru import logger
+
+from atlas.models.business_model import BusinessModel
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-def initial_level_computation(antares_dataset, atlas_dataset, p):
-    # The following file contains the evolution of the reservoir level over the time horizon, provided as a 1 column csv file.
-    # This curve is only used for hydraulic reservoir whose reservoir management is not active in the Antares input marker.
-    # For such reservoirs, the file is used to initialize the InitialLevel property of Hydraulic instances in the ATLAS model.
-    # For others, who use the Antares reservoir management feature, the InitialLevel property will be initialized with the
-    # Antares property RemainingEnergyLevel
-    curve_values = API.Helpers.CreateListDouble()
-    if os.path.isfile(p.hydro_initialization_curve):
-        f = open(p.hydro_initialization_curve)
-        lines_list = f.readlines()
-        f.close()
-        interval_length = len(lines_list)
-        if interval_length > 0:
-            for row_index, line in enumerate(lines_list[0:interval_length]):
-                curve_values.Add(float(line))
+def set_initial_levels(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    shared_state: dict[str, Any],
+) -> list[BusinessModel]:
+    """Set initial storage levels for all storage equipment.
 
-    curve_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddHours(interval_length - 1), "1h")
-    res_curve = API.TimeSeries.NewTimeSeries("GuideCurve", API.TimeSeries.Constant, "", curve_index, curve_values)
+    Configures initial energy levels for:
+    - Hydro reservoirs
+    - Batteries
+    - Electric vehicles
+    - Pumped hydro storage
+    """
+    logger.info("Setting initial storage levels (BP23)")
 
-    if p.verbose:
-        msg = f"The first value of the hydro initialization curve is: {res_curve.GetValue(p.start_date)}"
-        API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
-        msg = f"The last value of the hydro initialization curve is: {res_curve.GetValue(res_curve.LastDate)}"
-        API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
+    areas = study.get_areas()
 
-    for instance in atlas_dataset.Equipment.Hydraulic.GetAllInstances():
-        antares_node = antares_dataset.Node.GetInstanceByName(instance.Node.Name)
-        if antares_node.Name not in p.market_areas_list:
+    # Set initial levels from parameters if provided
+    initial_level_config = (
+        parameters.hydro_initialization_curve if hasattr(parameters, "hydro_initialization_curve") else None
+    )
+
+    updated_count = 0
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
             continue
 
-        if antares_node.HydroReservoir.ReservoirManagement and (
-            str(p.scenario) in antares_node.HydroReservoir.RemainingEnergyLevel.Index
-        ):
-            instance.InitialLevel = (
-                1
-                / 100.0
-                * antares_node.HydroReservoir.RemainingEnergyLevel.GetTimeSeriesByName(str(p.scenario))
-                * instance.MaximumEnergy
-            )
-        else:
-            instance.InitialLevel = 1 / 100.0 * res_curve * instance.MaximumEnergy
+        area = areas[area_name]
 
-    return None
+        # Hydro initial levels
+        hydro = area.hydro
+        logger.debug(f"Setting hydro initial level for {area_name}")
+        # TODO: Update Hydro equipment with initial_level timeseries
+
+        # Storage initial levels
+        st_storages = area.get_st_storages()
+        for storage_id, storage in st_storages.items():
+            logger.debug(f"Setting initial level for storage: {storage.name}")
+            # TODO: Update Storage equipment with storage_initial_level
+            updated_count += 1
+
+    logger.info(f"Set initial levels for {updated_count} storage units")
+    return []

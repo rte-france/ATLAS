@@ -1,98 +1,59 @@
-import API
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from typing import Any
+
+from antares.craft.model.study import Study
+from loguru import logger
+
+from atlas.models.equipment.solar import Solar
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-def conversion_pv(antares_dataset, atlas_dataset, p):
-    if antares_dataset.GeneralSettings.GetInstanceByName("Settings").RenewableGenerationModelling == "clusters":
-        for instance in antares_dataset.Renewables.GetAllInstances():
-            # Note that SolarThermal and SolarRooftop group are currently merged with SolarPV due to the lack of data for the forecasting model
-            if instance.Group != "SolarPV":
+def convert_pv_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    shared_state: dict[str, Any],
+) -> list[Solar]:
+    """Convert PV generation data from Antares to Atlas."""
+    logger.info("Converting PV generation data")
+
+    areas_dict = shared_state.get("areas", study.get_areas())
+    nodes_dict = shared_state.get("nodes_dict", {})
+    portfolios_dict = shared_state.get("portfolios_dict", {})
+
+    pv_units = []
+    for area_name in parameters.market_areas:
+        if area_name not in areas_dict:
+            continue
+
+        area = areas_dict[area_name]
+        renewables = area.get_renewables()
+
+        for renewable_id, renewable in renewables.items():
+            if "solar" not in renewable.name.lower() and "pv" not in renewable.name.lower():
                 continue
 
-            if not instance.Enabled:
-                continue
+            props = renewable.properties
+            logger.debug(f"Processing PV: {renewable.name}")
 
-            if instance.Node.Name in p.market_areas_list:
-                # FC: Replacing the try except here, correct in theory but which is not working in ATLAS
-                # for some reason (if the try fails, the code crashes without going into the except...)
-                if p.scenario - 1 >= len(instance.RenewablesSelectedScenario):
-                    continue
+            equipment = Solar(
+                name=renewable.name,
+                node=nodes_dict.get(area_name),
+                portfolio=portfolios_dict.get(
+                    f"generator_{area_name}"
+                    if parameters.consumption_production_separation
+                    else f"portfolio_{area_name}"
+                ),
+                installed_capacity=props.nominal_capacity,
+                # TODO: curtailment parameters
+                # maximum_curtailment_ratio=...,
+                # curtailment_cost=...,
+            )
 
-                sc_solar = instance.RenewablesSelectedScenario[p.scenario - 1]
+            pv_units.append(equipment)
 
-                if str(sc_solar) in instance.Disponibility.Index:
-                    if instance.Disponibility[sc_solar].Abs().Max() > 0:
-                        pv = atlas_dataset.Equipment.Photovoltaic.CreateInstance(f"{instance.Node.Name}_pv")
-
-                        if p.consumption_production_separation:
-                            pv.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                                f"generator_{instance.Node.Name}"
-                            )
-                        else:
-                            pv.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                                f"portfolio_{instance.Node.Name}"
-                            )
-
-                        pv.Node = atlas_dataset.Network.Node.GetInstanceByName(instance.Node.Name)
-                        pv.MaximumCurtailmentRatio = API.TimeSeries.NewTimeSeries(
-                            "MaximumCurtailmentRatio",
-                            API.TimeSeries.Constant,
-                            p.start_date.ToString(),
-                            "1Y",
-                            2,
-                            p.pv_max_curtailment_ratio,
-                            "",
-                        )
-                        pv.CurtailmentCost = API.TimeSeries.NewTimeSeries(
-                            "CurtailmentCost",
-                            API.TimeSeries.Constant,
-                            p.start_date.ToString(),
-                            "1Y",
-                            2,
-                            p.pv_curtailment_cost,
-                            "",
-                        )
-
-                        pv.InstalledCapacity = instance.NominalCapacity
-                        if antares_dataset.Renewables.CheckInstanceExists(instance.Node.Name + "_solar_thermo"):
-                            thermo_instance = antares_dataset.Renewables.GetInstanceByName(
-                                instance.Node.Name + "_solar_thermo"
-                            )
-
-                            if thermo_instance.Enabled:
-                                pv.InstalledCapacity += thermo_instance.NominalCapacity
-
-    else:
-        for antares_node in antares_dataset.Node.GetAllInstances():
-            if antares_node.Name in p.market_areas_list:
-                # FC: Replacing the try except here, correct in theory but which is not working in ATLAS
-                # for some reason (if the try fails, the code crashes without going into the except...)
-                if p.scenario - 1 >= len(antares_node.SolarSelectedScenario):
-                    continue
-
-                sc_solar = antares_node.SolarSelectedScenario[p.scenario - 1]
-
-                if str(sc_solar) in antares_node.SolarProduction.Index:
-                    if antares_node.SolarProduction.Abs().Max() > 0:
-                        pv = atlas_dataset.Equipment.Photovoltaic.CreateInstance(f"{antares_node.Name}_pv")
-
-                        if p.consumption_production_separation:
-                            pv.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                                f"supplier_{antares_node.Name}"
-                            )
-                        else:
-                            pv.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                                f"portfolio_{antares_node.Name}"
-                            )
-
-                        pv.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
-                        pv.MaximumCurtailmentRatio = API.TimeSeries.NewTimeSeries(
-                            "MaximumCurtailmentRatio",
-                            API.TimeSeries.Constant,
-                            p.start_date.ToString(),
-                            "1Y",
-                            2,
-                            p.pv_max_curtailment_ratio,
-                            "",
-                        )
-
-    return None
+    logger.info(f"Converted {len(pv_units)} PV units")
+    return pv_units

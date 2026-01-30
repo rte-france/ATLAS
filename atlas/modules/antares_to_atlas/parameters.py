@@ -10,19 +10,49 @@ from pathlib import Path
 from pydantic import Field, field_validator, model_validator
 from typing_extensions import Self
 
-from atlas.io_utils.parameters import ParametersParser
+from atlas.io_utils.parameters import Parameters, ParametersParser
 
 
-class AntaresToAtlasParameters(ParametersParser):
+class AntaresToAtlasParameters(Parameters):
     """Parameters for Antares to Atlas data conversion.
 
     This class defines all configuration needed to convert Antares simulation data
     to Atlas format, including version-specific and hypothesis-specific settings.
     """
 
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> "AntaresToAtlasParameters":
+        """Load parameters from a YAML or JSON file.
+
+        :param file_path: Path to the parameters file
+        :type file_path: str or Path
+        :return: AntaresToAtlasParameters instance
+        :rtype: AntaresToAtlasParameters
+        """
+        import json
+
+        import yaml
+
+        file_path = Path(file_path)
+        file_extension = file_path.suffix
+
+        if file_extension in (".yaml", ".yml"):
+            with open(file_path) as f:
+                params_dict = yaml.safe_load(f)
+        elif file_extension == ".json":
+            with open(file_path) as f:
+                params_dict = json.load(f)
+        else:
+            raise ValueError(f"Unsupported file extension: {file_extension}")
+
+        return cls(**params_dict)
+
     # Version and hypothesis
     antares_version: str = Field(description="Antares version (e.g., '8.2', '8.6')")
     hypothesis: str = Field(description="Hypothesis identifier (e.g., 'BP23', 'BP24')")
+
+    # Study path
+    study_path: Path = Field(description="Path to Antares study directory")
 
     # Data selection
     market_areas: list[str] = Field(description="List of market areas to convert")
@@ -90,6 +120,12 @@ class AntaresToAtlasParameters(ParametersParser):
     @model_validator(mode="after")
     def validate_file_paths(self) -> Self:
         """Validate that referenced files exist if provided."""
+        # Validate study path
+        if not self.study_path.exists():
+            raise ValueError(f"study_path: Directory not found at {self.study_path}")
+        if not self.study_path.is_dir():
+            raise ValueError(f"study_path: Path {self.study_path} is not a directory")
+
         file_fields = [
             "hydro_initialization_curve",
             "hydro_reservoirs_file",

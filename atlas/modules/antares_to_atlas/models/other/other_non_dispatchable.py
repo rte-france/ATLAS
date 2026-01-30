@@ -1,45 +1,57 @@
-def conversion_non_dispatchable(antares_dataset, atlas_dataset, p):
-    for antares_node in antares_dataset.Node.GetAllInstances():
-        if antares_node.Name in p.market_areas_list:
-            # define the indices used to access the desired MC scenario in the Antares marker
-            try:
-                sc_hydro = antares_node.HydroReservoir.HydroSelectedScenario[p.scenario - 1]
-            except SystemError:
-                msg = f"Error with scenario {p.scenario} for unit {antares_node.Name}_hydro, potentially out of bounds"
-                raise SystemError(msg)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
 
-            if antares_node.HydroReservoir.ROR.Count > sc_hydro - 1:
-                ror = antares_node.HydroReservoir.ROR.TimeSeries[sc_hydro - 1]
-                if ror.Abs().Max() > 0:
-                    non_dispatch = atlas_dataset.Equipment.OtherNonDispatchable.CreateInstance(
-                        f"{antares_node.Name}_ror"
-                    )
-                    non_dispatch.MaximumPowerForecast.AddTimeSeries(p.execution_date, ror)
-                    if p.consumption_production_separation:
-                        non_dispatch.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                            f"generator_{antares_node.Name}"
-                        )
-                    else:
-                        non_dispatch.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                            f"portfolio_{antares_node.Name}"
-                        )
-                    non_dispatch.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
+from typing import Any
 
-            for source in antares_node.MiscGenProduction.Index:
-                prod = antares_node.MiscGenProduction[source]
-                if prod.Abs().Max() > 0:
-                    non_dispatch = atlas_dataset.Equipment.OtherNonDispatchable.CreateInstance(
-                        antares_node.Name + "_" + str(source)
-                    )
-                    non_dispatch.MaximumPowerForecast.AddTimeSeries(p.execution_date, prod)
-                    if p.consumption_production_separation:
-                        non_dispatch.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                            f"generator_{antares_node.Name}"
-                        )
-                    else:
-                        non_dispatch.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                            f"portfolio_{antares_node.Name}"
-                        )
-                    non_dispatch.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
+from antares.craft.model.study import Study
+from loguru import logger
 
-    return None
+from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+
+
+def convert_other_non_dispatchable_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    shared_state: dict[str, Any],
+) -> list[OtherNonDispatchable]:
+    """Convert other non-dispatchable generation units from Antares to Atlas."""
+    logger.info("Converting non-dispatchable generation units")
+
+    areas_dict = shared_state.get("areas", study.get_areas())
+    nodes_dict = shared_state.get("nodes_dict", {})
+    portfolios_dict = shared_state.get("portfolios_dict", {})
+
+    non_disp_units = []
+    for area_name in parameters.market_areas:
+        if area_name not in areas_dict:
+            continue
+
+        area = areas_dict[area_name]
+        renewables = area.get_renewables()
+
+        for renewable_id, renewable in renewables.items():
+            name_lower = renewable.name.lower()
+            if any(keyword in name_lower for keyword in ["wind", "vent", "solar", "pv"]):
+                continue
+
+            props = renewable.properties
+            logger.debug(f"Processing non-dispatchable: {renewable.name}")
+
+            equipment = OtherNonDispatchable(
+                name=renewable.name,
+                node=nodes_dict.get(area_name),
+                portfolio=portfolios_dict.get(
+                    f"generator_{area_name}"
+                    if parameters.consumption_production_separation
+                    else f"portfolio_{area_name}"
+                ),
+                installed_capacity=props.nominal_capacity,
+            )
+
+            non_disp_units.append(equipment)
+
+    logger.info(f"Converted {len(non_disp_units)} non-dispatchable units")
+    return non_disp_units

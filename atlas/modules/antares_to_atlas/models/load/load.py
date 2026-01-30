@@ -1,25 +1,47 @@
-def conversion_load(antares_dataset, atlas_dataset, p):
-    for antares_node in antares_dataset.Node.GetAllInstances():
-        if antares_node.Name in p.market_areas_list:
-            # define the indices used to access the desired MC scenario in the Antares marker
-            try:
-                sc_load = antares_node.LoadSelectedScenario[p.scenario - 1]
-            except SystemError:
-                msg = f"Error with scenario {p.scenario} for unit {antares_node.Name}_l, potentially out of bounds"
-                raise SystemError(msg)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
 
-            if str(sc_load) in antares_node.Load.Index:
-                if antares_node.Load[str(sc_load)].Abs().Max() > 0:
-                    load = atlas_dataset.Equipment.Load.CreateInstance(f"{antares_node.Name}_l")
-                    if p.consumption_production_separation:
-                        load.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                            f"supplier_{antares_node.Name}"
-                        )
-                    else:
-                        load.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                            f"portfolio_{antares_node.Name}"
-                        )
-                    load.LoadType = "Baseload"
-                    load.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
+from typing import Any
 
-    return None
+from antares.craft.model.study import Study
+from loguru import logger
+
+from atlas.models.equipment.load import Load
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+
+
+def convert_load_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    shared_state: dict[str, Any],
+) -> list[Load]:
+    """Convert load data from Antares to Atlas."""
+    logger.info("Converting load data")
+
+    areas_dict = shared_state.get("areas", study.get_areas())
+    nodes_dict = shared_state.get("nodes_dict", {})
+    portfolios_dict = shared_state.get("portfolios_dict", {})
+
+    loads = []
+    for area_name in parameters.market_areas:
+        if area_name not in areas_dict:
+            continue
+
+        logger.debug(f"Processing load for area {area_name}")
+
+        equipment = Load(
+            name=f"{area_name}_load",
+            node=nodes_dict.get(area_name),
+            portfolio=portfolios_dict.get(
+                f"supplier_{area_name}" if parameters.consumption_production_separation else f"portfolio_{area_name}"
+            ),
+            # TODO: Extract load timeseries from area
+            # Load data should be available from area object
+        )
+
+        loads.append(equipment)
+
+    logger.info(f"Converted {len(loads)} load units")
+    return loads

@@ -13,19 +13,19 @@ from atlas.models.equipment.storage import Storage
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-def convert_batteries(
+def convert_phs(
     study: Study,
     parameters: AntaresToAtlasParameters,
     shared_state: dict[str, Any],
 ) -> list[Storage]:
-    """Convert battery storage from Antares to Atlas."""
-    logger.info("Converting battery storage (BP23)")
+    """Convert pumped hydro storage from Antares to Atlas."""
+    logger.info("Converting pumped hydro storage (BP23)")
 
     areas = study.get_areas()
     nodes_dict = shared_state.get("nodes_dict", {})
     portfolios_dict = shared_state.get("portfolios_dict", {})
 
-    batteries = []
+    phs_units = []
     for area_name in parameters.market_areas:
         if area_name not in areas:
             continue
@@ -34,14 +34,14 @@ def convert_batteries(
         st_storages = area.get_st_storages()
 
         for storage_id, storage in st_storages.items():
-            # Filter for batteries (by name or properties)
-            if "batt" not in storage.name.lower():
+            # Filter for PHS (by name)
+            if "phs" not in storage.name.lower() and "step" not in storage.name.lower():
                 continue
 
             props = storage.properties
-            logger.debug(f"Processing battery: {storage.name}")
+            logger.debug(f"Processing PHS: {storage.name}")
 
-            battery = Storage(
+            phs = Storage(
                 name=storage.name,
                 node=nodes_dict.get(area_name),
                 portfolio=portfolios_dict.get(
@@ -49,16 +49,13 @@ def convert_batteries(
                     if parameters.consumption_production_separation
                     else f"portfolio_{area_name}"
                 ),
-                storage_type=StorageType.BATTERY,
-                charge_efficiency=props.efficiency if hasattr(props, "efficiency") else 0.9,
+                storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
+                charge_efficiency=props.efficiency if hasattr(props, "efficiency") else 0.75,
                 discharge_efficiency=props.efficiency if hasattr(props, "efficiency") else 0.9,
-                # TODO: Extract from antares storage properties
-                # maximum_energy=...,
-                # maximum_power=...,
-                # storage_initial_level=...,
+                # TODO: Extract properties
             )
 
-            batteries.append(battery)
+            phs_units.append(phs)
 
-    logger.info(f"Converted {len(batteries)} batteries")
-    return batteries
+    logger.info(f"Converted {len(phs_units)} PHS units")
+    return phs_units

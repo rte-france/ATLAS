@@ -7,6 +7,7 @@ Converter registry for managing and executing converters.
 
 from typing import Any
 
+from antares.craft.model.study import Study
 from loguru import logger
 
 from atlas.modules.antares_to_atlas.converters.base import Converter
@@ -37,7 +38,7 @@ class ConverterRegistry:
 
     def execute_all(
         self,
-        antares_dataset: Any,
+        study: Study,
         parameters: AntaresToAtlasParameters,
         shared_state: dict[str, Any],
     ) -> dict[str, dict]:
@@ -45,8 +46,8 @@ class ConverterRegistry:
 
         Results from each converter are stored in the shared_state dictionary.
 
-        :param antares_dataset: Antares input data marker
-        :type antares_dataset: Any
+        :param study: Antares study object
+        :type study: Study
         :param parameters: Conversion parameters
         :type parameters: AntaresToAtlasParameters
         :param shared_state: dict[str, Any]
@@ -62,7 +63,7 @@ class ConverterRegistry:
 
         for converter_class in self._converters:
             converter = converter_class()
-            result = converter.run(antares_dataset, parameters, shared_state)
+            result = converter.run(study, parameters, shared_state)
             if result:
                 results[converter.name] = result
 

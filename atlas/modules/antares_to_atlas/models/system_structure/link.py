@@ -1,25 +1,42 @@
-# Construct the MarketBorder objects based on the Link objects of the input marker
-# Select only the Link between areas defined in the parameter MarketAreas
-def conversion_link(antares_dataset, atlas_dataset, p):
-    for links in antares_dataset.Link.GetAllInstances():
-        if not (links.UphillNode.Name in p.market_areas_list and links.DownhillNode.Name in p.market_areas_list):
-            continue
-        if (
-            links.DirectTransferCapacity.TimeSeries[0].Abs().Max() == 0.0
-            and links.IndirectTransferCapacity.TimeSeries[0].Abs().Max() == 0.0
-        ):
-            continue
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
 
-        mkt_border = atlas_dataset.Market.MarketBorder.CreateInstance(links.Name)
-        node_1 = atlas_dataset.Market.MarketArea.GetInstanceByName(links.UphillNode.Name)
-        node_2 = atlas_dataset.Market.MarketArea.GetInstanceByName(links.DownhillNode.Name)
-        ctrl_block_1 = atlas_dataset.NetworkOperator.ControlBlock.GetInstanceByName(links.UphillNode.Name)
-        ctrl_block_2 = atlas_dataset.NetworkOperator.ControlBlock.GetInstanceByName(links.DownhillNode.Name)
-        mkt_border.UphillMarketArea = node_1
-        mkt_border.DownhillMarketArea = node_2
-        mkt_border.UphillControlBlock = ctrl_block_1
-        mkt_border.DownhillControlBlock = ctrl_block_2
-        mkt_border.MinimumFlow = -1.0 * links.IndirectTransferCapacity.TimeSeries[0]
-        mkt_border.MaximumFlow = links.DirectTransferCapacity.TimeSeries[0]
+from typing import Any
 
-    return None
+from antares.craft.model.study import Study
+from loguru import logger
+
+from atlas.models.business_model import BusinessModel
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+
+
+def convert_links(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    shared_state: dict[str, Any],
+) -> list[BusinessModel]:
+    """Convert inter-area transmission links from Antares to Atlas."""
+    logger.info("Converting inter-area links")
+
+    links = study.get_links()
+    nodes_dict = shared_state.get("nodes_dict", {})
+
+    links_created = []
+    for link_id, link in links.items():
+        logger.debug(f"Processing link: {link_id}")
+
+        # TODO: Create Atlas Link object
+        # Need to check atlas/models for Link class
+        # atlas_link = Link(
+        #     name=link_id,
+        #     from_node=nodes_dict.get(area_from),
+        #     to_node=nodes_dict.get(area_to),
+        #     # Extract properties from link object
+        # )
+
+        # links_created.append(atlas_link)
+
+    logger.info(f"Processed {len(links_created)} links")
+    return links_created
