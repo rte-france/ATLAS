@@ -148,7 +148,7 @@ class AntaresToAtlas:
         for converter in bp23_converters:
             registry.register(converter)
 
-    def convert(self) -> dict[str, dict]:
+    def convert(self) -> AtlasDataset:
         """Execute the conversion process.
 
         Loads the Antares study from the configured path and converts it to Atlas format.
@@ -156,9 +156,7 @@ class AntaresToAtlas:
         :return: Dictionary of conversion results from each converter
         :rtype: dict[str, dict]
         """
-        logger.info("=" * 70)
         logger.info("Starting Antares to Atlas conversion")
-        logger.info("=" * 70)
         logger.info(f"Study Path: {self.parameters.study_path}")
         logger.info(f"Antares Version: {self.parameters.antares_version}")
         logger.info(f"Hypothesis: {self.parameters.hypothesis}")
@@ -170,15 +168,11 @@ class AntaresToAtlas:
         study = read_study_local(self.parameters.study_path)
         logger.info(f"Study loaded: {study.name}")
 
-        # Create shared state for data sharing between converters
         dataset: AtlasDataset = AtlasDataset()
 
-        # Execute all converters
         results = self.registry.execute_all(study, self.parameters, dataset)
 
-        logger.info("=" * 70)
         logger.info("Conversion completed successfully")
-        logger.info("=" * 70)
 
         return results
 
