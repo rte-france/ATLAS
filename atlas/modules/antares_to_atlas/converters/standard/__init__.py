@@ -10,7 +10,7 @@ from atlas.modules.antares_to_atlas.converters.standard.link_converter import Li
 from atlas.modules.antares_to_atlas.converters.standard.load_converter import LoadConverter
 from atlas.modules.antares_to_atlas.converters.standard.node_converter import NodeConverter
 from atlas.modules.antares_to_atlas.converters.standard.non_dispatchable_converter import NonDispatchableConverter
-from atlas.modules.antares_to_atlas.converters.standard.solar_converter import PVConverter
+from atlas.modules.antares_to_atlas.converters.standard.solar_converter import SolarConverter
 from atlas.modules.antares_to_atlas.converters.standard.thermal_converter import ThermalConverter
 from atlas.modules.antares_to_atlas.converters.standard.wind_converter import WindConverter
 
@@ -18,7 +18,7 @@ __all__ = [
     "NodeConverter",
     "LoadConverter",
     "WindConverter",
-    "PVConverter",
+    "SolarConverter",
     "HydroConverter",
     "LinkConverter",
     "ThermalConverter",

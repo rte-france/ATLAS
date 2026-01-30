@@ -33,7 +33,7 @@ from atlas.modules.antares_to_atlas.converters.standard import (
     LoadConverter,
     NodeConverter,
     NonDispatchableConverter,
-    PVConverter,
+    SolarConverter,
     ThermalConverter,
     WindConverter,
 )
@@ -108,7 +108,7 @@ class AntaresToAtlas:
             NodeConverter,
             LoadConverter,
             WindConverter,
-            PVConverter,
+            SolarConverter,
             HydroConverter,
             LinkConverter,
             ThermalConverter,

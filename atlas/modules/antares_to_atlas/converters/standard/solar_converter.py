@@ -13,14 +13,14 @@ from atlas.modules.antares_to_atlas.models.res.solar import convert_solar_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-class PVConverter(Converter):
+class SolarConverter(Converter):
     @property
     def name(self) -> str:
-        return "pv"
+        return "solar"
 
     @property
     def description(self) -> str:
-        return "PV Conversion"
+        return "Solar Conversion"
 
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]

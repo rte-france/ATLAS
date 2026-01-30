@@ -18,7 +18,7 @@ def convert_solar_units(
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
 ) -> AtlasDataset:
-    """Convert PV generation data from Antares to Atlas."""
+    """Convert Solar generation data from Antares to Atlas."""
 
     logger.info("Converting Winds generation data")
     areas = study.get_areas()
