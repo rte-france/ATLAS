@@ -5,15 +5,14 @@ This file is part of the ATLAS project.
 BP23 (Bilan Prévisionnel 2023) specific converters.
 """
 
-from typing import Any
-
 from antares.craft.model.study import Study
 
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.models.hydro import compute_water_values, set_initial_levels
-from atlas.modules.antares_to_atlas.models.load import convert_dsr
-from atlas.modules.antares_to_atlas.models.p2g import convert_p2g
+from atlas.modules.antares_to_atlas.models.load.dsr import convert_dsr_units
+from atlas.modules.antares_to_atlas.models.p2g.p2g import convert_p2g_units
 from atlas.modules.antares_to_atlas.models.storage import convert_batteries, convert_electric_vehicles, convert_phs
 from atlas.modules.antares_to_atlas.models.thermal import (
     apply_multi_energy_costs,
@@ -34,9 +33,9 @@ class BatteryConverterBP23(Converter):
         return "Battery Storage Conversion"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_batteries(study, parameters, shared_state)
+        return convert_batteries(study, parameters, atlas_dataset)
 
 
 class ElectricVehicleConverterBP23(Converter):
@@ -49,9 +48,9 @@ class ElectricVehicleConverterBP23(Converter):
         return "Electric Vehicle Conversion"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_electric_vehicles(study, parameters, shared_state)
+        return convert_electric_vehicles(study, parameters, atlas_dataset)
 
 
 class PHSConverterBP23(Converter):
@@ -64,9 +63,9 @@ class PHSConverterBP23(Converter):
         return "Pumped Hydro Storage Conversion"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_phs(study, parameters, shared_state)
+        return convert_phs(study, parameters, atlas_dataset)
 
 
 class MixedFuelConverterBP23(Converter):
@@ -79,9 +78,9 @@ class MixedFuelConverterBP23(Converter):
         return "Mixed Fuel Conversion"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_mixed_fuel(study, parameters, shared_state)
+        return convert_mixed_fuel(study, parameters, atlas_dataset)
 
 
 class ParticularMidPeakConverterBP23(Converter):
@@ -94,9 +93,9 @@ class ParticularMidPeakConverterBP23(Converter):
         return "Specific Gas Units Conversion"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_particular_mid_peak(study, parameters, shared_state)
+        return convert_particular_mid_peak(study, parameters, atlas_dataset)
 
 
 class P2GConverterBP23(Converter):
@@ -109,9 +108,9 @@ class P2GConverterBP23(Converter):
         return "Power To Gas Conversion"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_p2g(study, parameters, shared_state)
+        return convert_p2g_units(study, parameters, atlas_dataset)
 
 
 class MultiEnergyConverterBP23(Converter):
@@ -124,9 +123,9 @@ class MultiEnergyConverterBP23(Converter):
         return "Multi-Energy Variable Cost Update"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return apply_multi_energy_costs(study, parameters, shared_state)
+        return apply_multi_energy_costs(study, parameters, atlas_dataset)
 
 
 class DSRConverterBP23(Converter):
@@ -139,9 +138,9 @@ class DSRConverterBP23(Converter):
         return "Demand-Side Response Conversion"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_dsr(study, parameters, shared_state)
+        return convert_dsr_units(study, parameters, atlas_dataset)
 
 
 class WaterValueConverterBP23(Converter):
@@ -154,9 +153,9 @@ class WaterValueConverterBP23(Converter):
         return "Water Value Computation"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return compute_water_values(study, parameters, shared_state)
+        return compute_water_values(study, parameters, atlas_dataset)
 
 
 class InitialLevelConverterBP23(Converter):
@@ -169,9 +168,9 @@ class InitialLevelConverterBP23(Converter):
         return "Initial Storage Level Configuration"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return set_initial_levels(study, parameters, shared_state)
+        return set_initial_levels(study, parameters, atlas_dataset)
 
 
 class NuclearModulationConverterBP23(Converter):
@@ -184,6 +183,6 @@ class NuclearModulationConverterBP23(Converter):
         return "Nuclear Modulation (France)"
 
     def convert(
-        self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return apply_nuclear_modulation(study, parameters, shared_state)
+        return apply_nuclear_modulation(study, parameters, atlas_dataset)

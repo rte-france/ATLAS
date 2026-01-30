@@ -9,7 +9,7 @@ from antares.craft.model.study import Study
 
 from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
-from atlas.modules.antares_to_atlas.models.res import convert_wind_units
+from atlas.modules.antares_to_atlas.models.res.wind import convert_wind_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 

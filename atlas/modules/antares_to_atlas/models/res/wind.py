@@ -13,7 +13,7 @@ from atlas.models.equipment.wind import Wind
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-def convert_solar_units(
+def convert_wind_units(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
