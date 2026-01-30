@@ -43,8 +43,6 @@ class ConverterRegistry:
     ) -> dict[str, dict]:
         """Execute all registered converters in order.
 
-        Results from each converter are stored in the shared_state dictionary.
-
         :param study: Antares study object from antares_craft
         :type study: Study
         :param parameters: Conversion parameters

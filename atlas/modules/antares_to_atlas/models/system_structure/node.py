@@ -36,8 +36,8 @@ def convert_system_structure(
     :type study: Study
     :param parameters: Conversion parameters
     :type parameters: AntaresToAtlasParameters
-    :param shared_state: Shared state dictionary
-    :type shared_state: dict[str, Any]
+    :param atlas_dataset: Atlas dataset
+    :type atlas_dataset: AtlasDataset
     :return: Tuple of (nodes, market_areas, portfolios, control_blocks)
     :rtype: tuple[list[Node], list[MarketArea], list[Portfolio], list[ControlBlock]]
     """

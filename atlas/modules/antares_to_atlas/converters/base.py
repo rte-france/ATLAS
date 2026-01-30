@@ -61,7 +61,7 @@ class Converter(ABC):
         :param parameters: Conversion parameters
         :type parameters: AntaresToAtlasParameters
         :param shared_state: Dictionary for sharing data between conversion steps
-        :type shared_state: dict[str, Any]
+        :type atlas_dataset: AtlasDataset
         :return: list of BusinessModel objects created during conversion
         """
 
@@ -101,8 +101,8 @@ class Converter(ABC):
         :type study: Study
         :param parameters: Conversion parameters
         :type parameters: AntaresToAtlasParameters
-        :param shared_state: Shared state dictionary
-        :type shared_state: dict[str, Any]
+        :param atlas_dataset: Atlas dataset
+        :type atlas_dataset: AtlasDataset
         :return: Conversion results
         :rtype: list[BusinessModel]
         """

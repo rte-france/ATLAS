@@ -5,10 +5,9 @@ This file is part of the ATLAS project.
 Thermal generation units converter.
 """
 
-from typing import Any
-
 from antares.craft.model.study import Study
 
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.models.thermal import convert_thermal_units
@@ -31,10 +30,7 @@ class ThermalConverter(Converter):
         return "Thermic Conversion"
 
     def convert(
-        self,
-        study: Study,
-        parameters: AntaresToAtlasParameters,
-        shared_state: dict[str, Any],
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
         """Convert thermal generation units.
 
@@ -42,11 +38,11 @@ class ThermalConverter(Converter):
         :type study: Study
         :param parameters: Conversion parameters
         :type parameters: AntaresToAtlasParameters
-        :param shared_state: Shared state dictionary
-        :type shared_state: dict[str, Any]
+        :param atlas_dataset: Atlas dataset
+        :type atlas_dataset: AtlasDataset
         :return: List of created Thermal equipment
         :rtype: list[BusinessModel]
         """
         # Call the business logic in the models module
-        thermal_units = convert_thermal_units(study, parameters, shared_state)
+        thermal_units = convert_thermal_units(study, parameters, atlas_dataset)
         return thermal_units

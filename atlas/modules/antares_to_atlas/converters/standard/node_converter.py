@@ -5,8 +5,6 @@ This file is part of the ATLAS project.
 Node, MarketArea, Portfolio and ControlBlock converter.
 """
 
-from typing import Any
-
 from antares.craft.model.study import Study
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -42,7 +40,7 @@ class NodeConverter(Converter):
         self,
         study: Study,
         parameters: AntaresToAtlasParameters,
-        shared_state: dict[str, Any],
+        atlas_dataset: AtlasDataset,
     ) -> AtlasDataset:
         """Convert node and related structures.
 
@@ -50,10 +48,10 @@ class NodeConverter(Converter):
         :type study: Study
         :param parameters: Conversion parameters
         :type parameters: AntaresToAtlasParameters
-        :param shared_state: Shared state dictionary
-        :type shared_state: dict[str, Any]
+        :param atlas_dataset: Atlas dataset
+        :type atlas_dataset: AtlasDataset
         :return: List of all created business models
         :rtype: list[BusinessModel]
         """
 
-        return convert_system_structure(study, parameters, shared_state)
+        return convert_system_structure(study, parameters, atlas_dataset)
