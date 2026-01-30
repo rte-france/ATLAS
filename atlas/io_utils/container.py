@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from __future__ import annotations
+
 from collections.abc import Iterable
 from typing import Generic, TypeVar
 
@@ -52,3 +54,11 @@ class Container(Generic[T]):
     def __bool__(self) -> bool:
         """Return True if the container has any items."""
         return len(self._items) > 0
+
+    def extend(self, items: list[T] | Container[T]) -> None:
+        if isinstance(items, list):
+            self._items.extend(items)
+        elif isinstance(items, Container):
+            self._items.extend(items.all())
+        else:
+            raise TypeError("Impossible to extend")
