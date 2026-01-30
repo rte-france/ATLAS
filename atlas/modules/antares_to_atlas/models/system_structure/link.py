@@ -1,25 +1,57 @@
-# Construct the MarketBorder objects based on the Link objects of the input marker
-# Select only the Link between areas defined in the parameter MarketAreas
-def conversion_link(antares_dataset, atlas_dataset, p):
-    for links in antares_dataset.Link.GetAllInstances():
-        if not (links.UphillNode.Name in p.market_areas_list and links.DownhillNode.Name in p.market_areas_list):
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+import polars as pl
+from antares.craft.model.study import Study
+from loguru import logger
+
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.timeseries import Timeseries
+from atlas.models.market.market_border import MarketBorder
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+
+
+def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
+    """Convert inter-area transmission links from Antares to Atlas."""
+    logger.info("Converting inter-area links")
+
+    links = study.get_links()
+    market_borders = []
+
+    for link_name, link in links.items():
+        logger.debug(f"Processing link: {link_name}")
+
+        if not (link.UphillNode.Name in parameters.market_areas and link.DownhillNode.Name in parameters.market_areas):
             continue
         if (
-            links.DirectTransferCapacity.TimeSeries[0].Abs().Max() == 0.0
-            and links.IndirectTransferCapacity.TimeSeries[0].Abs().Max() == 0.0
+            pl.from_pandas(link.get_capacity_direct()).with_columns(pl.all().abs()).max().item() == 0
+            and pl.from_pandas(link.get_capacity_indirect()).with_columns(pl.all().abs()).max().item() == 0.0
         ):
             continue
 
-        mkt_border = atlas_dataset.Market.MarketBorder.CreateInstance(links.Name)
-        node_1 = atlas_dataset.Market.MarketArea.GetInstanceByName(links.UphillNode.Name)
-        node_2 = atlas_dataset.Market.MarketArea.GetInstanceByName(links.DownhillNode.Name)
-        ctrl_block_1 = atlas_dataset.NetworkOperator.ControlBlock.GetInstanceByName(links.UphillNode.Name)
-        ctrl_block_2 = atlas_dataset.NetworkOperator.ControlBlock.GetInstanceByName(links.DownhillNode.Name)
-        mkt_border.UphillMarketArea = node_1
-        mkt_border.DownhillMarketArea = node_2
-        mkt_border.UphillControlBlock = ctrl_block_1
-        mkt_border.DownhillControlBlock = ctrl_block_2
-        mkt_border.MinimumFlow = -1.0 * links.IndirectTransferCapacity.TimeSeries[0]
-        mkt_border.MaximumFlow = links.DirectTransferCapacity.TimeSeries[0]
+        node_1 = atlas_dataset.get("node", link.UphillNode.Name)
+        node_2 = atlas_dataset.get("node", link.DownhillNode.Name)
+        ctrl_block_1 = atlas_dataset.get("control_block", link.UphillNode.Name)
+        ctrl_block_2 = atlas_dataset.get("control_block", link.DownhillNode.Name)
 
-    return None
+        market_borders.append(
+            MarketBorder(
+                name=link_name,
+                uphill_market_area=node_1,
+                downhill_market_area=node_2,
+                uphill_control_block=ctrl_block_1,
+                downhill_control_block=ctrl_block_2,
+                maximum_flow=Timeseries.from_values(
+                    parameters.start_date, frequency="1h", values=link.get_capacity_direct()[0].to_list()
+                ),
+                minimum_flow=Timeseries.from_values(
+                    parameters.start_date, frequency="1h", values=link.get_capacity_indirect()[0].to_list()
+                )
+                * (-1),
+            )
+        )
+    atlas_dataset.market_border = market_borders
+
+    return atlas_dataset

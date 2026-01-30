@@ -6,11 +6,11 @@ Base converter classes for Antares to Atlas conversion.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 
+from antares.craft.model.study import Study
 from loguru import logger
 
-from atlas.models.business_model import BusinessModel
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
@@ -50,14 +50,14 @@ class Converter(ABC):
     @abstractmethod
     def convert(
         self,
-        antares_dataset: Any,
+        study: Study,
         parameters: AntaresToAtlasParameters,
-        shared_state: dict[str, Any],
-    ) -> list[BusinessModel]:
+        atlas_dataset: AtlasDataset,
+    ) -> AtlasDataset:
         """Execute the conversion.
 
-        :param antares_dataset: Antares input data marker (API object)
-        :type antares_dataset: Any
+        :param study: Antares study object from antares_craft
+        :type study: Study
         :param parameters: Conversion parameters
         :type parameters: AntaresToAtlasParameters
         :param shared_state: Dictionary for sharing data between conversion steps
@@ -91,14 +91,14 @@ class Converter(ABC):
 
     def run(
         self,
-        antares_dataset: Any,
+        study: Study,
         parameters: AntaresToAtlasParameters,
-        shared_state: dict[str, Any],
-    ) -> list[BusinessModel]:
+        atlas_dataset: AtlasDataset,
+    ) -> AtlasDataset:
         """Run the converter with logging.
 
-        :param antares_dataset: Antares input data marker
-        :type antares_dataset: Any
+        :param study: Antares study object
+        :type study: Study
         :param parameters: Conversion parameters
         :type parameters: AntaresToAtlasParameters
         :param shared_state: Shared state dictionary
@@ -110,10 +110,4 @@ class Converter(ABC):
             logger.info(f"Skipping {self.name} (not in requested conversion_steps)")
             return []
 
-        result = self.convert(antares_dataset, parameters, shared_state)
-
-        # Store result in shared state if converter returns data
-        if result:
-            shared_state[self.name] = result
-
-        return result
+        return self.convert(study, parameters, atlas_dataset)

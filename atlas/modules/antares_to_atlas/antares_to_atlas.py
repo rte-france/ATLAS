@@ -12,6 +12,7 @@ from typing import Any
 from antares.craft import read_study_local
 from loguru import logger
 
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.registry import ConverterRegistry
 from atlas.modules.antares_to_atlas.converters.specific import (
     BatteryConverterBP23,
@@ -170,10 +171,10 @@ class AntaresToAtlas:
         logger.info(f"Study loaded: {study.name}")
 
         # Create shared state for data sharing between converters
-        shared_state: dict[str, Any] = {}
+        dataset: AtlasDataset = AtlasDataset()
 
         # Execute all converters
-        results = self.registry.execute_all(study, self.parameters, shared_state)
+        results = self.registry.execute_all(study, self.parameters, dataset)
 
         logger.info("=" * 70)
         logger.info("Conversion completed successfully")

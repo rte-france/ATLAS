@@ -9,9 +9,9 @@ from typing import Any
 
 from antares.craft.model.study import Study
 
-from atlas.models.business_model import BusinessModel
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
-from atlas.modules.antares_to_atlas.models.system_structure import convert_nodes
+from atlas.modules.antares_to_atlas.models.system_structure.node import convert_system_structure
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
@@ -43,7 +43,7 @@ class NodeConverter(Converter):
         study: Study,
         parameters: AntaresToAtlasParameters,
         shared_state: dict[str, Any],
-    ) -> list[BusinessModel]:
+    ) -> AtlasDataset:
         """Convert node and related structures.
 
         :param study: Antares study object
@@ -55,8 +55,5 @@ class NodeConverter(Converter):
         :return: List of all created business models
         :rtype: list[BusinessModel]
         """
-        # Call the business logic in the models module
-        nodes, market_areas, portfolios, control_blocks = convert_nodes(study, parameters, shared_state)
 
-        # Return all created objects
-        return nodes + market_areas + portfolios + control_blocks
+        return convert_system_structure(study, parameters, shared_state)
