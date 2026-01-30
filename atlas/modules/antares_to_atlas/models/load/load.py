@@ -23,7 +23,7 @@ def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas
             continue
 
         logger.debug(f"Processing load for area {area_name}")
-        load_scenario = antares_node.LoadSelectedScenario[p.scenario - 1]
+        load_scenario = antares_node.LoadSelectedScenario[p.scenario - 1]  # TODO
 
         if str(load_scenario) in antares_node.Load.Index:
             load = Load(

@@ -9,7 +9,7 @@ from antares.craft.model.study import Study
 
 from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
-from atlas.modules.antares_to_atlas.models.res import convert_pv_units
+from atlas.modules.antares_to_atlas.models.res.solar import convert_solar_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
@@ -25,4 +25,4 @@ class PVConverter(Converter):
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, shared_state: dict[str, Any]
     ) -> list[BusinessModel]:
-        return convert_pv_units(study, parameters, shared_state)
+        return convert_solar_units(study, parameters, shared_state)

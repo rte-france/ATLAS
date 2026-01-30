@@ -45,10 +45,10 @@ def convert_system_structure(
 
     areas = study.get_areas()
 
-    nodes = []
-    market_areas = []
-    portfolios = []
-    control_blocks = []
+    nodes: list[Node] = []
+    market_areas: list[MarketArea] = []
+    portfolios: list[Portfolio] = []
+    control_blocks: list[ControlBlock] = []
 
     for area_name in parameters.market_areas:
         if area_name not in areas:

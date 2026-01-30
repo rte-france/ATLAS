@@ -17,7 +17,7 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
     logger.info("Converting inter-area links")
 
     links = study.get_links()
-    market_borders = []
+    market_borders: list[MarketBorder] = []
 
     for link_name, link in links.items():
         logger.debug(f"Processing link: {link_name}")
