@@ -3,7 +3,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import polars as pl
 from antares.craft.model.study import Study
 from loguru import logger
 
@@ -26,8 +25,8 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
         if not (link.UphillNode.Name in parameters.market_areas and link.DownhillNode.Name in parameters.market_areas):
             continue
         if (
-            pl.from_pandas(link.get_capacity_direct()).with_columns(pl.all().abs()).max().item() == 0
-            and pl.from_pandas(link.get_capacity_indirect()).with_columns(pl.all().abs()).max().item() == 0.0
+            link.get_capacity_direct().abs().max().item() == 0
+            and link.get_capacity_indirect().abs().max().item() == 0.0
         ):
             continue
 

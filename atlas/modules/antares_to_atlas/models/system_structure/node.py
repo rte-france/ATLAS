@@ -67,8 +67,8 @@ def convert_system_structure(
                 name=area_name,
                 control_block=ctrl_block,
                 price_forecast_medium=ForecastingMatrix().add(
-                    parameters.execution_date,
-                    area.CalculatedMarginalPrice.GetTimeSeriesByName(str(parameters.scenario)),
+                    index=parameters.execution_date,
+                    timeseries=area.CalculatedMarginalPrice.GetTimeSeriesByName(str(parameters.scenario)),  # TODO
                 ),
                 minimum_price=Timeseries.from_index(
                     parameters.start_date,
