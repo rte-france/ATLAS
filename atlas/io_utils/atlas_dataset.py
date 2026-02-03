@@ -309,11 +309,7 @@ class AtlasDataset(BaseModel):
         :return: The Container object if found, raise an error otherwise
         :rtype: Container
         """
-        if issubclass(object_type, BusinessModel):
-            object_type = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
-        container = getattr(self, object_type, None)
-        if container is None:
-            raise ValueError(f"No container found for type {object_type}")
+        container = self.get_container_by_type(object_type)
         return container.all()
 
     def get_container_by_type(self, object_type: str | type[BusinessModel]) -> Container:
@@ -325,9 +321,13 @@ class AtlasDataset(BaseModel):
         :return: The Container object if found, raise an error otherwise
         :rtype: Container
         """
-        if issubclass(object_type, BusinessModel):
-            object_type = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
-        container = getattr(self, object_type, None)
+        if isinstance(object_type, type) and issubclass(object_type, BusinessModel):
+            object_type_str = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
+        elif isinstance(object_type, str):
+            object_type_str = BusinessModelName(object_type)
+        else:
+            raise TypeError(f"Invalid type for object_type: {object_type!r}")
+        container = getattr(self, object_type_str, None)
         if container is None:
             raise ValueError(f"No container found for type {object_type_str}")
         return container
