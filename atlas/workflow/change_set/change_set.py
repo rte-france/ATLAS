@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Type
+from typing import Any
 
 from atlas import BusinessModel
 
@@ -13,7 +13,7 @@ class ChangeSet(ABC):
 
 # TODO : name must be present !
 class AddObject(ChangeSet):
-    def __init__(self, data: dict[str, Any], model_type: Type[BusinessModel]):
+    def __init__(self, data: dict[str, Any], model_type: type[BusinessModel]):
         self.data = data
         self.model_type = model_type  # type inferred from obj
 
@@ -26,7 +26,7 @@ class AddObject(ChangeSet):
 
 
 class UpdateObject(ChangeSet):
-    def __init__(self, data: dict[str, Any], model_type: Type[BusinessModel]):
+    def __init__(self, data: dict[str, Any], model_type: type[BusinessModel]):
         self.data = data
         self.model_type = model_type
 
@@ -39,7 +39,7 @@ class UpdateObject(ChangeSet):
 
 
 class DeleteObject(ChangeSet):
-    def __init__(self, name: str, model_type: Type[BusinessModel]):
+    def __init__(self, name: str, model_type: type[BusinessModel]):
         self.name = name
         self.model_type = model_type
 
