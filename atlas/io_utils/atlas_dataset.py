@@ -470,6 +470,9 @@ class AtlasDataset(BaseModel):
         container_type = cls.model_fields[info.field_name].annotation
         origin_type = get_origin(container_type) or container_type  # unwrap Container[Node] -> Container
 
+        if not isinstance(origin_type, type):
+            raise TypeError(f"Cannot determine container type for field {info.field_name}")
+
         if isinstance(v, origin_type):
             return v
 
