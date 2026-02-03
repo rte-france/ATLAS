@@ -344,14 +344,14 @@ class Matrix:
         if not path_str.lower().endswith(file_format_lower):
             raise ValueError("Format and file extension don't match.")
 
-        df_to_write = self.matrix.insert_column(1, pl.lit(attribute).alias("attribute"))
+        df_to_write = self.matrix.clone().insert_column(1, pl.lit(attribute).alias("attribute"))
 
         if concatenate:
             path_obj = Path(path_str)
             if path_obj.exists() and file_format_lower != "pickle":
                 try:
                     if file_format_lower == "csv":
-                        existing_df = pl.read_csv(path_str, separator=separator)
+                        existing_df = pl.read_csv(path_str, separator=separator, try_parse_dates=True)
                     elif file_format_lower == "parquet":
                         existing_df = pl.read_parquet(path_str)
 

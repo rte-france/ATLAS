@@ -8,8 +8,8 @@ This file is part of the ATLAS project.
 from loguru import logger
 from pendulum import Duration
 
-from atlas import BusinessModel
 from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
@@ -39,7 +39,7 @@ class PortfolioOptimisationModule(
 
     def import_data(
         self,
-        raw_data: dict[str, list[BusinessModel]],
+        raw_data: AtlasDataset,
         parameters: PortfolioOptimisationParameters,
     ) -> PortfolioOptimisationInputDataset:
         """
