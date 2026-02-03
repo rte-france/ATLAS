@@ -5,7 +5,6 @@ This file is part of the ATLAS project.
 """
 
 from atlas.enum import BusinessModelName
-from atlas.io_utils.container import Container
 from atlas.logging import Logger
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock

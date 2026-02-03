@@ -175,7 +175,7 @@ class AtlasDataset(BaseModel):
         :return: An AtlasDataset instance
         :rtype: AtlasDataset
         """
-        return cls(**data)
+        return cls(**data)  # type: ignore[arg-type]
 
     def to_directory(
         self,
