@@ -9,20 +9,20 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.wind import Wind
+from atlas.models.equipment.solar import Solar
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-def convert_wind_units(
+def convert_solar_units(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
 ) -> AtlasDataset:
     """Convert Solar generation data from Antares to Atlas."""
 
-    logger.info("Converting Winds generation data")
+    logger.info("Converting Solar generation data")
     areas = study.get_areas()
-    winds: list[Wind] = []
+    solars: list[Solar] = []
 
     for area_name in parameters.market_areas:
         if area_name not in areas:
@@ -30,17 +30,17 @@ def convert_wind_units(
         if study.get_settings().advanced_parameters.renewable_generation_modelling.value == "clusters":
             renewables = areas[area_name].get_renewables()
             for res_name in renewables:
-                if renewables[res_name].properties.group == "wind onshore" and renewables[res_name].properties.enabled:
+                if renewables[res_name].properties.group == "solar pv" and renewables[res_name].properties.enabled:
                     if parameters.scenario - 1 >= len(instance.RenewablesSelectedScenario):  # TODO
                         continue
 
-                    sc_wind = instance.RenewablesSelectedScenario[parameters.scenario - 1]
+                    sc_solar = instance.RenewablesSelectedScenario[parameters.scenario - 1]
 
-                    if str(sc_wind) in instance.Disponibility.Index:
-                        if instance.Disponibility[sc_wind].Abs().Max() > 0:
+                    if str(sc_solar) in instance.Disponibility.Index:
+                        if instance.Disponibility[sc_solar].Abs().Max() > 0:
                             solars.append(
-                                Wind(
-                                    name=f"{area_name}_wind",
+                                Solar(
+                                    name=f"{area_name}_pv",
                                     node=atlas_dataset.get("node", area_name),
                                     portfolio=atlas_dataset.get(
                                         "portfolio",
@@ -64,25 +64,24 @@ def convert_wind_units(
                                 )
                             )
 
-                            if antares_dataset.Renewables.CheckInstanceExists(
-                                instance.Node.Name + "_wind_offshore"
-                            ) and instance.Node.Name.lower() not in ["dekf", "dkkf"]:
-                                offshore_instance = antares_dataset.Renewables.GetInstanceByName(
-                                    instance.Node.Name + "_wind_offshore"
+                            if antares_dataset.Renewables.CheckInstanceExists(instance.Node.Name + "_solar_thermo"):
+                                thermo_instance = antares_dataset.Renewables.GetInstanceByName(
+                                    instance.Node.Name + "_solar_thermo"
                                 )
 
-                                if offshore_instance.Enabled:
-                                    wind.InstalledCapacity += offshore_instance.NominalCapacity
+                                if thermo_instance.Enabled:
+                                    pv.InstalledCapacity += thermo_instance.NominalCapacity
+
         else:
-            if parameters.scenario - 1 >= len(antares_node.WindSelectedScenario):
+            if parameters.scenario - 1 >= len(antares_node.SolarSelectedScenario):
                 continue
 
-            sc_wind = antares_node.WindSelectedScenario[parameters.scenario - 1]  # TODO
+            sc_solar = antares_node.SolarSelectedScenario[parameters.scenario - 1]  # TODO
 
-            if str(sc_wind) in antares_node.SolarProduction.Index:
+            if str(sc_solar) in antares_node.SolarProduction.Index:
                 if antares_node.SolarProduction.Abs().Max() > 0:
                     solars.append(
-                        Wind(
+                        Solar(
                             name=f"{area_name}_pv",
                             node=atlas_dataset.get("node", area_name),
                             portfolio=atlas_dataset.get(
@@ -100,6 +99,6 @@ def convert_wind_units(
                         )
                     )
 
-    atlas_dataset.wind = winds
+    atlas_dataset.solar = solars
 
     return atlas_dataset

@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from antares.craft import read_study_local
 from loguru import logger
 
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.registry import ConverterRegistry
 from atlas.modules.antares_to_atlas.converters.specific import (
     BatteryConverterBP23,
@@ -31,7 +33,7 @@ from atlas.modules.antares_to_atlas.converters.standard import (
     LoadConverter,
     NodeConverter,
     NonDispatchableConverter,
-    PVConverter,
+    SolarConverter,
     ThermalConverter,
     WindConverter,
 )
@@ -106,7 +108,7 @@ class AntaresToAtlas:
             NodeConverter,
             LoadConverter,
             WindConverter,
-            PVConverter,
+            SolarConverter,
             HydroConverter,
             LinkConverter,
             ThermalConverter,
@@ -146,28 +148,31 @@ class AntaresToAtlas:
         for converter in bp23_converters:
             registry.register(converter)
 
-    def convert(self, antares_input_marker: Any) -> dict[str, dict]:
+    def convert(self) -> AtlasDataset:
         """Execute the conversion process.
 
-        :param antares_input_marker: Antares input data marker (API object)
-        :type antares_input_marker: Any
+        Loads the Antares study from the configured path and converts it to Atlas format.
+
         :return: Dictionary of conversion results from each converter
         :rtype: dict[str, dict]
         """
+        logger.info("Starting Antares to Atlas conversion")
+        logger.info(f"Study Path: {self.parameters.study_path}")
         logger.info(f"Antares Version: {self.parameters.antares_version}")
         logger.info(f"Hypothesis: {self.parameters.hypothesis}")
         logger.info(f"Market Areas: {', '.join(self.parameters.market_areas)}")
         logger.info(f"Scenario: {self.parameters.scenario}")
 
-        # Create shared state for data sharing between converters
-        shared_state: dict[str, Any] = {}
+        # Load Antares study using antares_craft
+        logger.info("Loading Antares study...")
+        study = read_study_local(self.parameters.study_path)
+        logger.info(f"Study loaded: {study.name}")
 
-        # Execute all converters
-        results = self.registry.execute_all(antares_input_marker, self.parameters, shared_state)
+        dataset: AtlasDataset = AtlasDataset()
 
-        logger.info("=" * 70)
+        results = self.registry.execute_all(study, self.parameters, dataset)
+
         logger.info("Conversion completed successfully")
-        logger.info("=" * 70)
 
         return results
 

@@ -39,7 +39,7 @@ class Load(Equipment):
 
     additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=0),
-        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
+        description="Default optimization period in hours for Solar, Wind, and Load. Overwritten by specific equipment.",
     )
 
     @field_validator("additional_hours", mode="before")

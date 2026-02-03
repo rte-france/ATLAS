@@ -8,20 +8,20 @@ from antares.craft.model.study import Study
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
-from atlas.modules.antares_to_atlas.models.res.wind import convert_wind_units
+from atlas.modules.antares_to_atlas.models.res.solar import convert_solar_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-class WindConverter(Converter):
+class SolarConverter(Converter):
     @property
     def name(self) -> str:
-        return "wind"
+        return "solar"
 
     @property
     def description(self) -> str:
-        return "Wind Conversion"
+        return "Solar Conversion"
 
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_wind_units(study, parameters, atlas_dataset)
+        return convert_solar_units(study, parameters, atlas_dataset)

@@ -35,9 +35,9 @@ class AntaresToAtlasParameters(ParametersParser):
 
     # RES curtailment
     wind_max_curtailment_ratio: float = Field(default=1.0, ge=0.0, le=1.0, description="Max wind curtailment ratio")
-    pv_max_curtailment_ratio: float = Field(default=1.0, ge=0.0, le=1.0, description="Max PV curtailment ratio")
+    pv_max_curtailment_ratio: float = Field(default=1.0, ge=0.0, le=1.0, description="Max Solar curtailment ratio")
     wind_curtailment_cost: float = Field(default=0.01, description="Wind curtailment cost (€/MWh)")
-    pv_curtailment_cost: float = Field(default=0.01, description="PV curtailment cost (€/MWh)")
+    pv_curtailment_cost: float = Field(default=0.01, description="Solar curtailment cost (€/MWh)")
 
     # Hydro management
     use_hydro_heuristic: bool = Field(default=True, description="Use hydro heuristic")

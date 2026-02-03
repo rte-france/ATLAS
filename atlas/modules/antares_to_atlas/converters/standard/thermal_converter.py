@@ -1,23 +1,25 @@
 """Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
+
+Thermal generation units converter.
 """
 
-from typing import Any
+from antares.craft.model.study import Study
 
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
+from atlas.modules.antares_to_atlas.models.thermal import convert_thermal_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-
-try:
-    from atlas.modules.antares_to_atlas.models.thermal import thermal as legacy_thermal
-
-    HAS_LEGACY = True
-except ImportError:
-    HAS_LEGACY = False
 
 
 class ThermalConverter(Converter):
-    """Converter for thermal generation units."""
+    """Converter for thermal generation units.
+
+    This converter orchestrates the conversion by calling the business logic
+    in the models.thermal module.
+    """
 
     @property
     def name(self) -> str:
@@ -28,13 +30,19 @@ class ThermalConverter(Converter):
         return "Thermic Conversion"
 
     def convert(
-        self,
-        antares_dataset: Any,
-        parameters: AntaresToAtlasParameters,
-        shared_state: dict[str, Any],
-    ) -> dict[str, Any]:
-        if HAS_LEGACY:
-            thermic_param, thermic_props = legacy_thermal.conversion_thermal(antares_dataset, parameters)
-            return {"thermic_parameter": thermic_param, "thermic_properties": thermic_props}
-        else:
-            raise NotImplementedError("Thermal conversion not yet implemented")
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
+    ) -> list[BusinessModel]:
+        """Convert thermal generation units.
+
+        :param study: Antares study object
+        :type study: Study
+        :param parameters: Conversion parameters
+        :type parameters: AntaresToAtlasParameters
+        :param atlas_dataset: Atlas dataset
+        :type atlas_dataset: AtlasDataset
+        :return: List of created Thermal equipment
+        :rtype: list[BusinessModel]
+        """
+        # Call the business logic in the models module
+        thermal_units = convert_thermal_units(study, parameters, atlas_dataset)
+        return thermal_units

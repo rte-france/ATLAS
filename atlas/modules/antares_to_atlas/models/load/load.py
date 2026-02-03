@@ -1,25 +1,44 @@
-def conversion_load(antares_dataset, atlas_dataset, p):
-    for antares_node in antares_dataset.Node.GetAllInstances():
-        if antares_node.Name in p.market_areas_list:
-            # define the indices used to access the desired MC scenario in the Antares marker
-            try:
-                sc_load = antares_node.LoadSelectedScenario[p.scenario - 1]
-            except SystemError:
-                msg = f"Error with scenario {p.scenario} for unit {antares_node.Name}_l, potentially out of bounds"
-                raise SystemError(msg)
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
 
-            if str(sc_load) in antares_node.Load.Index:
-                if antares_node.Load[str(sc_load)].Abs().Max() > 0:
-                    load = atlas_dataset.Equipment.Load.CreateInstance(f"{antares_node.Name}_l")
-                    if p.consumption_production_separation:
-                        load.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                            f"supplier_{antares_node.Name}"
-                        )
-                    else:
-                        load.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                            f"portfolio_{antares_node.Name}"
-                        )
-                    load.LoadType = "Baseload"
-                    load.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
+from antares.craft.model.study import Study
+from loguru import logger
 
-    return None
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.models.equipment.load import Load
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+
+
+def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
+    """Convert load data from Antares to Atlas."""
+
+    logger.info("Converting load data")
+    areas = study.get_areas()
+    loads = []
+
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
+            continue
+
+        logger.debug(f"Processing load for area {area_name}")
+        load_scenario = antares_node.LoadSelectedScenario[p.scenario - 1]  # TODO
+
+        if str(load_scenario) in antares_node.Load.Index:
+            load = Load(
+                name=f"{area_name}_load",
+                node=atlas_dataset.get("node", area_name),
+                portfolio=atlas_dataset.get(
+                    "portfolio",
+                    f"supplier_{area_name}"
+                    if parameters.consumption_production_separation
+                    else f"portfolio_{area_name}",
+                ),
+            )
+
+        loads.append(load)
+
+    atlas_dataset.load = loads
+
+    return atlas_dataset

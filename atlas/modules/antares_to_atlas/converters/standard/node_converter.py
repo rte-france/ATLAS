@@ -5,20 +5,12 @@ This file is part of the ATLAS project.
 Node, MarketArea, Portfolio and ControlBlock converter.
 """
 
-from typing import Any
+from antares.craft.model.study import Study
 
-from atlas.models.business_model import BusinessModel
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.antares_to_atlas.converters.base import Converter
+from atlas.modules.antares_to_atlas.models.system_structure.node import convert_system_structure
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
-
-# Import legacy conversion function
-# This allows gradual migration from legacy code
-try:
-    from atlas.modules.antares_to_atlas.models.system_structure import node as legacy_node
-
-    HAS_LEGACY = True
-except ImportError:
-    HAS_LEGACY = False
 
 
 class NodeConverter(Converter):
@@ -26,9 +18,12 @@ class NodeConverter(Converter):
 
     This converter creates the basic system structure including:
     - Nodes (geographical locations)
-    - Market Areas
+    - Market Areas (economic zones)
     - Portfolios (producer/consumer/both)
-    - Control Blocks
+    - Control Blocks (operational zones)
+
+    The converter orchestrates the conversion by calling the business logic
+    in the models.system_structure module.
     """
 
     @property
@@ -43,28 +38,20 @@ class NodeConverter(Converter):
 
     def convert(
         self,
-        antares_dataset: Any,
+        study: Study,
         parameters: AntaresToAtlasParameters,
-        shared_state: dict[str, Any],
-    ) -> dict[str, list[BusinessModel]]:
+        atlas_dataset: AtlasDataset,
+    ) -> AtlasDataset:
         """Convert node and related structures.
 
-        :param antares_dataset: Antares input data marker
-        :type antares_dataset: Any
-        :param atlas_dataset: Atlas output data marker
-        :type atlas_dataset: Any
+        :param study: Antares study object
+        :type study: Study
         :param parameters: Conversion parameters
         :type parameters: AntaresToAtlasParameters
-        :param shared_state: Shared state dictionary
-        :type shared_state: dict[str, Any]
-        :return: Empty dict (no data to share)
-        :rtype: dict[str, Any]
+        :param atlas_dataset: Atlas dataset
+        :type atlas_dataset: AtlasDataset
+        :return: List of all created business models
+        :rtype: list[BusinessModel]
         """
-        if HAS_LEGACY:
-            # Use legacy conversion for now
-            legacy_node.conversion_node(antares_dataset, parameters)
-        else:
-            # TODO: Implement new conversion logic here
-            raise NotImplementedError("Node conversion not yet implemented without legacy code")
 
-        return {}
+        return convert_system_structure(study, parameters, atlas_dataset)
