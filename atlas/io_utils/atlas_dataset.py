@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pickle
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -465,16 +465,15 @@ class AtlasDataset(BaseModel):
     @classmethod
     def _container_validator(cls, v: Any, info):
         """
-        Ensure that container fields are either already a container or a list of BusinessModel objects.
+        Ensure that container fields are either already a Container or a list of BusinessModel objects.
         """
         container_type = cls.model_fields[info.field_name].annotation
+        origin_type = get_origin(container_type) or container_type  # unwrap Container[Node] -> Container
 
-        assert isinstance(container_type, type)
-
-        if isinstance(v, container_type):
+        if isinstance(v, origin_type):
             return v
 
         if isinstance(v, list):
-            return container_type(v)
+            return origin_type(v)  # wrap list in Container
 
-        raise TypeError(f"{info.field_name} must be a {container_type.__name__} or a list")
+        raise TypeError(f"{info.field_name} must be a {origin_type.__name__} or a list")

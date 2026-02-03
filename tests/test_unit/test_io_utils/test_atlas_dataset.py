@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 Test suite for AtlasDataset
 """
 
-import pickle
 from datetime import datetime
 
 import polars as pl
@@ -15,16 +14,8 @@ from pendulum import DateTime, Duration, Timezone
 
 from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, ThermalStrategy
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.specific_container import (
-    NodeContainer,
-    ControlBlockContainer,
-    HydroContainer,
-    ThermalContainer,
-    MarketAreaContainer,
-    PortfolioContainer,
-    OrderContainer,
-    OrderCouplingContainer,
-)
+from atlas.io_utils.container import Container
+
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
@@ -46,7 +37,7 @@ class TestAtlasDatasetBasic:
         assert "any_object_name" not in dataset
 
     def test_dataset_with_objects(self):
-        nodes = NodeContainer([Node(name="node1"), Node(name="node2")])
+        nodes = Container([Node(name="node1"), Node(name="node2")])
         dataset = AtlasDataset(node=nodes)
 
         assert len(dataset) == 2
@@ -56,8 +47,8 @@ class TestAtlasDatasetBasic:
         assert "node1" in dataset
 
     def test_attribute_access(self):
-        control_blocks = ControlBlockContainer([ControlBlock(name="cb1")])
-        nodes = NodeContainer([Node(name="node1")])
+        control_blocks = Container([ControlBlock(name="cb1")])
+        nodes = Container([Node(name="node1")])
 
         dataset = AtlasDataset(control_block=control_blocks, node=nodes)
 
@@ -66,8 +57,8 @@ class TestAtlasDatasetBasic:
         assert dataset.thermal.is_empty()
 
     def test_contains_operator(self):
-        control_blocks = ControlBlockContainer([ControlBlock(name="cb1")])
-        nodes = NodeContainer([Node(name="node1"), Node(name="node2")])
+        control_blocks = Container([ControlBlock(name="cb1")])
+        nodes = Container([Node(name="node1"), Node(name="node2")])
         dataset = AtlasDataset(node=nodes, control_block=control_blocks)
 
         assert "node1" in dataset
@@ -87,21 +78,21 @@ class TestAtlasDatasetBasic:
 
     def test_len_operator(self):
         dataset = AtlasDataset(
-            node=NodeContainer([Node(name="node1"), Node(name="node2")]),
-            control_block=ControlBlockContainer([ControlBlock(name="cb1")]),
+            node=Container([Node(name="node1"), Node(name="node2")]),
+            control_block=Container([ControlBlock(name="cb1")]),
         )
         assert len(dataset) == 3
 
     def test_repr_and_str(self):
-        dataset = AtlasDataset(node=NodeContainer([Node(name="node1")]))
+        dataset = AtlasDataset(node=Container([Node(name="node1")]))
         assert "AtlasDataset" in repr(dataset)
         assert "node=1" in repr(dataset)
         assert str(dataset) == repr(dataset)
 
     def test_iter_operator(self):
         dataset = AtlasDataset(
-            node=NodeContainer([Node(name="node1"), Node(name="node2")]),
-            control_block=ControlBlockContainer([ControlBlock(name="cb1")]),
+            node=Container([Node(name="node1"), Node(name="node2")]),
+            control_block=Container([ControlBlock(name="cb1")]),
         )
 
         objects = list(dataset)
@@ -112,23 +103,23 @@ class TestAtlasDatasetBasic:
         assert list(AtlasDataset()) == []
 
     def test_iter_operator_multiple_times(self):
-        dataset = AtlasDataset(node=NodeContainer([Node(name="node1"), Node(name="node2")]))
+        dataset = AtlasDataset(node=Container([Node(name="node1"), Node(name="node2")]))
         assert sum(1 for _ in dataset) == 2
         assert sum(1 for _ in dataset) == 2
 
 
 class TestAtlasDatasetLookup:
     def test_get_nonexistent_name(self):
-        dataset = AtlasDataset(node=NodeContainer([Node(name="node1")]))
+        dataset = AtlasDataset(node=Container([Node(name="node1")]))
         assert dataset.get("node", "nope") is None
 
     def test_get_nonexistent_type(self):
-        dataset = AtlasDataset(node=NodeContainer([Node(name="node1")]))
+        dataset = AtlasDataset(node=Container([Node(name="node1")]))
         assert dataset.get("thermal", "x") is None
 
     def test_iter_by_types(self):
-        nodes = NodeContainer([Node(name="n1"), Node(name="n2")])
-        control_blocks = ControlBlockContainer([ControlBlock(name="cb1")])
+        nodes = Container([Node(name="n1"), Node(name="n2")])
+        control_blocks = Container([ControlBlock(name="cb1")])
 
         dataset = AtlasDataset(node=nodes, control_block=control_blocks)
 
@@ -142,13 +133,13 @@ class TestAtlasDatasetLookup:
 
     def test_duplicate_names_validation(self):
         with pytest.raises(ValueError):
-            AtlasDataset(node=NodeContainer([Node(name="dup"), Node(name="dup")]))
+            AtlasDataset(node=Container([Node(name="dup"), Node(name="dup")]))
 
 
 class TestAtlasDatasetConversion:
     def test_to_dict(self):
-        nodes = NodeContainer([Node(name="node1")])
-        control_blocks = ControlBlockContainer([ControlBlock(name="cb1")])
+        nodes = Container([Node(name="node1")])
+        control_blocks = Container([ControlBlock(name="cb1")])
 
         dataset = AtlasDataset(node=nodes, control_block=control_blocks)
         result = dataset.to_dict()
@@ -161,13 +152,13 @@ class TestAtlasDatasetConversion:
         nodes = [Node(name="node1")]
         dataset = AtlasDataset.from_dict({"node": nodes})
 
-        assert isinstance(dataset.node, NodeContainer)
+        assert isinstance(dataset.node, Container)
         assert list(dataset.node) == nodes
 
     def test_roundtrip_dict(self):
         dataset1 = AtlasDataset(
-            node=NodeContainer([Node(name="node1")]),
-            control_block=ControlBlockContainer([ControlBlock(name="cb1")]),
+            node=Container([Node(name="node1")]),
+            control_block=Container([ControlBlock(name="cb1")]),
         )
 
         dataset2 = AtlasDataset.from_dict(dataset1.to_dict())
@@ -188,7 +179,7 @@ class TestAtlasDatasetIO:
         assert dataset.node.get("node1")
 
     def test_to_directory(self, tmp_path):
-        dataset = AtlasDataset(node=NodeContainer([Node(name="node1")]))
+        dataset = AtlasDataset(node=Container([Node(name="node1")]))
         dataset.to_directory(tmp_path)
 
         df = pl.read_csv(tmp_path / "objects" / "node.csv", separator=";")
@@ -198,8 +189,8 @@ class TestAtlasDatasetIO:
 class TestAtlasDatasetPickling:
     def test_pickle_roundtrip(self, tmp_path):
         dataset = AtlasDataset(
-            node=NodeContainer([Node(name="node1"), Node(name="node2")]),
-            control_block=ControlBlockContainer([ControlBlock(name="cb1")]),
+            node=Container([Node(name="node1"), Node(name="node2")]),
+            control_block=Container([ControlBlock(name="cb1")]),
         )
 
         path = tmp_path / "dataset.pkl"
@@ -281,14 +272,14 @@ class TestAtlasDatasetComplexRoundtrip:
         )
 
         dataset = AtlasDataset(
-            control_block=ControlBlockContainer([cb]),
-            market_area=MarketAreaContainer([ma]),
-            node=NodeContainer([node]),
-            portfolio=PortfolioContainer([portfolio]),
-            hydro=HydroContainer([hydro]),
-            thermal=ThermalContainer([thermal]),
-            order=OrderContainer([order]),
-            order_coupling=OrderCouplingContainer([coupling]),
+            control_block=Container([cb]),
+            market_area=Container([ma]),
+            node=Container([node]),
+            portfolio=Container([portfolio]),
+            hydro=Container([hydro]),
+            thermal=Container([thermal]),
+            order=Container([order]),
+            order_coupling=Container([coupling]),
         )
 
         dataset.to_directory(tmp_path)
@@ -300,7 +291,7 @@ class TestAtlasDatasetComplexRoundtrip:
 
 class TestAtlasDatasetContainerValidator:
     def test_container_validator_accepts_container(self):
-        nodes = NodeContainer([Node(name="node1")])
+        nodes = Container([Node(name="node1")])
 
         dataset = AtlasDataset(node=nodes)
 
@@ -312,11 +303,11 @@ class TestAtlasDatasetContainerValidator:
 
         dataset = AtlasDataset(node=nodes)  # type: ignore[arg-type]
 
-        assert isinstance(dataset.node, NodeContainer)
+        assert isinstance(dataset.node, Container)
         assert len(dataset.node) == 2
         assert dataset.node.get("node1")
         assert dataset.node.get("node2")
 
     def test_container_validator_rejects_invalid_type(self):
-        with pytest.raises(TypeError, match="node must be a NodeContainer or a list"):
+        with pytest.raises(TypeError, match="node must be a Container or a list"):
             AtlasDataset(node="not a container")  # type: ignore[arg-type]
