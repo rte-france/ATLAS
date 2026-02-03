@@ -19,26 +19,24 @@ from atlas.enum import BusinessModelName
 from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
-from atlas.io_utils.specific_container import (
-    ControlBlockContainer,
-    CriticalBranchContainer,
-    HydroContainer,
-    LoadContainer,
-    MarketAreaContainer,
-    MarketAreaPtdfContainer,
-    MarketBorderContainer,
-    NodeContainer,
-    NodePtdfContainer,
-    OrderContainer,
-    OrderCouplingContainer,
-    OtherNonDispatchableContainer,
-    PortfolioContainer,
-    SolarContainer,
-    StorageContainer,
-    ThermalContainer,
-    WindContainer,
-)
 from atlas.models.business_model import BusinessModel
+from atlas.models.control_block import ControlBlock
+from atlas.models.equipment.hydro import Hydro
+from atlas.models.equipment.load import Load
+from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.models.equipment.solar import Solar
+from atlas.models.equipment.storage import Storage
+from atlas.models.equipment.thermal import Thermal
+from atlas.models.equipment.wind import Wind
+from atlas.models.market.critical_branch import CriticalBranch
+from atlas.models.market.market_area import MarketArea
+from atlas.models.market.market_area_ptdf import MarketAreaPtdf
+from atlas.models.market.market_border import MarketBorder
+from atlas.models.market.node_ptdf import NodePtdf
+from atlas.models.market.order import Order
+from atlas.models.market.order_coupling import OrderCoupling
+from atlas.models.node import Node
+from atlas.models.portfolio import Portfolio
 
 
 class AtlasDataset(BaseModel):
@@ -63,23 +61,25 @@ class AtlasDataset(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
-    control_block: ControlBlockContainer = Field(default_factory=ControlBlockContainer)
-    critical_branch: CriticalBranchContainer = Field(default_factory=CriticalBranchContainer)
-    hydro: HydroContainer = Field(default_factory=HydroContainer)
-    load: LoadContainer = Field(default_factory=LoadContainer)
-    market_area: MarketAreaContainer = Field(default_factory=MarketAreaContainer)
-    market_area_ptdf: MarketAreaPtdfContainer = Field(default_factory=MarketAreaPtdfContainer)
-    market_border: MarketBorderContainer = Field(default_factory=MarketBorderContainer)
-    node: NodeContainer = Field(default_factory=NodeContainer)
-    node_ptdf: NodePtdfContainer = Field(default_factory=NodePtdfContainer)
-    order: OrderContainer = Field(default_factory=OrderContainer)
-    order_coupling: OrderCouplingContainer = Field(default_factory=OrderCouplingContainer)
-    other_non_dispatchable: OtherNonDispatchableContainer = Field(default_factory=OtherNonDispatchableContainer)
-    solar: SolarContainer = Field(default_factory=SolarContainer)
-    portfolio: PortfolioContainer = Field(default_factory=PortfolioContainer)
-    storage: StorageContainer = Field(default_factory=StorageContainer)
-    thermal: ThermalContainer = Field(default_factory=ThermalContainer)
-    wind: WindContainer = Field(default_factory=WindContainer)
+    control_block: Container[ControlBlock] = Field(default_factory=lambda: Container[ControlBlock]())
+    critical_branch: Container[CriticalBranch] = Field(default_factory=lambda: Container[CriticalBranch]())
+    hydro: Container[Hydro] = Field(default_factory=lambda: Container[Hydro]())
+    load: Container[Load] = Field(default_factory=lambda: Container[Load]())
+    market_area: Container[MarketArea] = Field(default_factory=lambda: Container[MarketArea]())
+    market_area_ptdf: Container[MarketAreaPtdf] = Field(default_factory=lambda: Container[MarketAreaPtdf]())
+    market_border: Container[MarketBorder] = Field(default_factory=lambda: Container[MarketBorder]())
+    node: Container[Node] = Field(default_factory=lambda: Container[Node]())
+    node_ptdf: Container[NodePtdf] = Field(default_factory=lambda: Container[NodePtdf]())
+    order: Container[Order] = Field(default_factory=lambda: Container[Order]())
+    order_coupling: Container[OrderCoupling] = Field(default_factory=lambda: Container[OrderCoupling]())
+    other_non_dispatchable: Container[OtherNonDispatchable] = Field(
+        default_factory=lambda: Container[OtherNonDispatchable]()
+    )
+    solar: Container[Solar] = Field(default_factory=lambda: Container[Solar]())
+    portfolio: Container[Portfolio] = Field(default_factory=lambda: Container[Portfolio]())
+    storage: Container[Storage] = Field(default_factory=lambda: Container[Storage]())
+    thermal: Container[Thermal] = Field(default_factory=lambda: Container[Thermal]())
+    wind: Container[Wind] = Field(default_factory=lambda: Container[Wind]())
 
     _indices: dict[str, dict[str, BusinessModel]] = {}
 
