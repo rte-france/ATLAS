@@ -296,3 +296,27 @@ class TestAtlasDatasetComplexRoundtrip:
 
         assert restored.hydro.get("hydro1").stored_energy == matrix
         assert restored.order_coupling.get("c1").orders[0].name == "order1"
+
+
+class TestAtlasDatasetContainerValidator:
+    def test_container_validator_accepts_container(self):
+        nodes = NodeContainer([Node(name="node1")])
+
+        dataset = AtlasDataset(node=nodes)
+
+        assert dataset.node is nodes
+        assert dataset.node.get("node1")
+
+    def test_container_validator_wraps_list_into_container(self):
+        nodes = [Node(name="node1"), Node(name="node2")]
+
+        dataset = AtlasDataset(node=nodes)  # type: ignore[arg-type]
+
+        assert isinstance(dataset.node, NodeContainer)
+        assert len(dataset.node) == 2
+        assert dataset.node.get("node1")
+        assert dataset.node.get("node2")
+
+    def test_container_validator_rejects_invalid_type(self):
+        with pytest.raises(TypeError, match="node must be a NodeContainer or a list"):
+            AtlasDataset(node="not a container")  # type: ignore[arg-type]

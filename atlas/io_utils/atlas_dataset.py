@@ -12,7 +12,7 @@ import pickle
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 import atlas.config as cfg
 from atlas.enum import BusinessModelName
@@ -413,3 +413,40 @@ class AtlasDataset(BaseModel):
         self.__dict__.update(state)
         # Rebuild indices (the validator will be called automatically by Pydantic)
         self._build_indices()
+
+    @field_validator(
+        "control_block",
+        "critical_branch",
+        "hydro",
+        "load",
+        "market_area",
+        "market_area_ptdf",
+        "market_border",
+        "node",
+        "node_ptdf",
+        "order",
+        "order_coupling",
+        "other_non_dispatchable",
+        "solar",
+        "portfolio",
+        "storage",
+        "thermal",
+        "wind",
+        mode="before",
+    )
+    @classmethod
+    def _container_validator(cls, v: Any, info):
+        """
+        Ensure that container fields are either already a container or a list of BusinessModel objects.
+        """
+        container_type = cls.model_fields[info.field_name].annotation
+
+        assert isinstance(container_type, type)
+
+        if isinstance(v, container_type):
+            return v
+
+        if isinstance(v, list):
+            return container_type(v)
+
+        raise TypeError(f"{info.field_name} must be a {container_type.__name__} or a list")
