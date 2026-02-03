@@ -10,19 +10,21 @@ This module provides LazyTimeseries.
 from __future__ import annotations
 
 from collections.abc import Generator
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Any
 
+import pandas as pd
 import pendulum
 import polars as pl
 
-from atlas.io_utils.utils import scan_data_file
+from atlas.io_utils.utils import get_metadata_from_frame, scan_data_file
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.timing import build_datetime, check_timezone
+from atlas.timing import build_datetime, check_timezone, generate_datetimes, infer_frequency
 
 
-class LazyTimeseries:
+class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
     """
     A lazy-evaluated time series class using a Polars LazyFrame backend.
 
@@ -33,7 +35,7 @@ class LazyTimeseries:
 
     def __init__(
         self,
-        timeseries: pl.LazyFrame | LazyTimeseries | Timeseries | None = None,
+        timeseries: pl.LazyFrame | LazyTimeseries | Any | None = None,
         timezone: str = "UTC",
     ) -> None:
         """
@@ -42,6 +44,8 @@ class LazyTimeseries:
         :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
         :type timezone: str, optional
         """
+        from atlas.math.timeseries import Timeseries
+
         check_timezone(timezone)
         self.timezone: str = timezone
 
@@ -78,9 +82,23 @@ class LazyTimeseries:
         else:
             raise ValueError("LazyTimeseries requires a LazyFrame or another Timeseries object")
 
+    def _get_data(self) -> pl.LazyFrame:
+        """Return the underlying LazyFrame."""
+        return self.timeseries
+
+    def _get_shape(self) -> tuple[int, int]:
+        """Return (rows, columns) of the underlying LazyFrame (requires collection)."""
+        collected = self.timeseries.select(pl.len()).collect()
+        return (collected.item(), len(self.timeseries.collect_schema()))
+
     def __repr__(self):
-        """String representation of the ScenarioMatrix"""
+        """String representation of the LazyTimeseries"""
         return f"LazyTimeseries with schema : {self.timeseries.collect_schema()}"
+
+    @property
+    def dataframe(self) -> pl.LazyFrame:
+        """Returns the underlying LazyFrame."""
+        return self.timeseries
 
     @property
     def lazyframe(self) -> pl.LazyFrame:
@@ -105,6 +123,34 @@ class LazyTimeseries:
         """
         return self.timeseries.select("time").collect().to_series().to_list()
 
+    @property
+    def values(self) -> list[float]:
+        """Returns the LazyTimeseries values.
+
+        Warning: This property materializes the entire value column into memory.
+        Use with caution on large datasets.
+
+        :return: List of values
+        :rtype: list[float]
+        """
+        return self.timeseries.select("value").collect().to_series().to_list()
+
+    @property
+    def timestep(self) -> pendulum.Duration | None:
+        """Return the frequency of the timeseries index.
+
+        Warning: This property requires collecting the data to infer frequency.
+        """
+        return infer_frequency(self.timeseries.collect())
+
+    @property
+    def metadata(self) -> dict:
+        """Return the metadata of the timeseries.
+
+        Warning: This property requires collecting the data.
+        """
+        return self.describe()
+
     @classmethod
     def from_file(
         cls,
@@ -124,24 +170,174 @@ class LazyTimeseries:
 
         return cls(scan_data_file(file_path, filters, separator), timezone)
 
+    @classmethod
+    def from_values(
+        cls,
+        start_date: str | datetime | pendulum.DateTime,
+        frequency: str | timedelta | pendulum.Duration,
+        values: list[float],
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        timezone: str = "UTC",
+    ) -> LazyTimeseries:
+        """
+        Create a LazyTimeseries from start date, frequency and a list of values.
+
+        :param start_date: Start date of the timeseries
+        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
+        :param values: List of values corresponding to the time intervals
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param timezone: Timezone string, defaults to "UTC"
+        :return: A LazyTimeseries object with the specified parameters
+        :rtype: LazyTimeseries
+        """
+        from atlas.timing import generate_datetimes, get_duration
+
+        if len(values) < 2:
+            raise ValueError("Timeseries must contains at least 2 values")
+
+        start = build_datetime(start_date, date_format).in_tz(timezone)
+        end = build_datetime(start + (len(values) - 1) * get_duration(frequency)).in_tz(timezone)
+
+        datetimes = generate_datetimes(start, end, frequency, timezone)
+
+        df = pl.DataFrame(
+            {"time": datetimes, "value": values},
+            schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
+        )
+
+        return cls(df.lazy(), timezone)
+
+    @classmethod
+    def from_index(
+        cls,
+        start_date: str | datetime | pendulum.DateTime,
+        frequency: str | timedelta | pendulum.Duration,
+        end_date: str | datetime | pendulum.DateTime,
+        default_value: list[float] | float = 0,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        timezone: str = "UTC",
+    ) -> LazyTimeseries:
+        """
+        Create a LazyTimeseries from a time range and a default value or list of values.
+
+        :param start_date: Start date of the timeseries
+        :param frequency: Frequency of the timeseries (e.g., "1h", "15m")
+        :param end_date: End date of the timeseries
+        :param default_value: A scalar value or a list of values to fill the timeseries
+        :param date_format: Format to interpret date strings, defaults to "YYYY-MM-DD HH:mm:ss"
+        :param timezone: Timezone string, defaults to "UTC"
+        :return: A LazyTimeseries object with the specified index and values
+        :rtype: LazyTimeseries
+        """
+
+        start = build_datetime(start_date, date_format).in_tz(timezone)
+        end = build_datetime(end_date, date_format).in_tz(timezone)
+
+        datetimes = generate_datetimes(start, end, frequency, timezone)
+
+        if isinstance(default_value, list):
+            if len(default_value) != len(datetimes):
+                raise ValueError(
+                    f"Values  passed is of size {len(default_value)} when datetimes generated is of size {len(datetimes)}"
+                )
+            else:
+                df = pl.DataFrame(
+                    {"time": datetimes, "value": default_value},
+                    schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
+                )
+        elif isinstance(default_value, float | int):
+            df = pl.DataFrame(
+                {"time": datetimes, "value": [default_value] * len(datetimes)},
+                schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
+            )
+
+        return cls(df.lazy(), timezone)
+
+    @classmethod
+    def from_timeseries(cls, timeseries: Any, default_value: float | None = None) -> LazyTimeseries:
+        """Create a LazyTimeseries from another timeseries, using its structure.
+
+        :param timeseries: The input timeseries object
+        :param default_value: default value to pass to all timestamp values, defaults to None
+        :type default_value: float | None, optional
+        :return: The LazyTimeseries object instantiated
+        :rtype: LazyTimeseries
+        """
+
+        # Accept both Timeseries and LazyTimeseries
+        if isinstance(timeseries, LazyTimeseries):
+            if default_value is not None:
+                lf = timeseries.to_frame().with_columns(pl.lit(default_value).alias("value"))
+                return cls(lf, timezone=timeseries.timezone)
+            else:
+                return cls(timeseries)
+        elif isinstance(timeseries, Timeseries):
+            if default_value is not None:
+                lf = timeseries.to_lazy().with_columns(pl.lit(default_value).alias("value"))
+                return cls(lf, timezone=timeseries.timezone)
+            else:
+                return cls(timeseries.to_lazy(), timezone=timeseries.timezone)
+        else:
+            raise TypeError("Input has to be a timeseries object, if using a dataframe, use 'from_dataframe' ")
+
+    @classmethod
+    def from_dataframe(
+        cls,
+        dataframe: pl.DataFrame | pd.DataFrame | pl.LazyFrame,
+        timezone: str = "UTC",
+    ) -> LazyTimeseries:
+        """Create a LazyTimeseries object from a dataframe-like object.
+
+        :param dataframe: The input dataframe
+        :type dataframe: pl.DataFrame | pd.DataFrame | pl.LazyFrame
+        :param timezone: The timezone of the LazyTimeseries, defaults to "UTC"
+        :type timezone: str, optional
+        :return: The LazyTimeseries instantiated from the dataframe-like object
+        :rtype: LazyTimeseries
+        """
+        if isinstance(dataframe, pl.LazyFrame):
+            return cls(dataframe, timezone)
+        elif isinstance(dataframe, pl.DataFrame):
+            return cls(dataframe.lazy(), timezone)
+        elif isinstance(dataframe, pd.DataFrame):
+            return cls(pl.from_pandas(dataframe).lazy(), timezone)
+        else:
+            raise TypeError("Input has to be a dataframe-like object.")
+
     def to_frame(
         self,
+        engine: str = "polars",
     ) -> pl.LazyFrame:
         """
         Return the internal Polars LazyFrame.
 
+        :param engine: Engine to use (only 'polars' supported for LazyTimeseries)
+        :type engine: str
         :return: The internal lazy time series data
-        :rtype: pl.LazyFrame or pd.DataFrame
+        :rtype: pl.LazyFrame
+        """
+        if engine != "polars":
+            raise ValueError("LazyTimeseries only supports engine='polars'")
+        return self.timeseries
+
+    def to_lazy(self) -> pl.LazyFrame:
+        """
+        Return the internal LazyFrame.
+
+        :return: The internal lazy time series data
+        :rtype: pl.LazyFrame
         """
         return self.timeseries
 
-    def collect(self) -> Timeseries:
+    def collect(self):
         """
         Collect the lazy dataframe and return as a regular Timeseries.
 
         :return: A regular Timeseries object with the collected data
         :rtype: Timeseries
         """
+        from atlas.math.timeseries import Timeseries
+
         return Timeseries(
             self.timeseries.collect(),
             timezone=self.timezone,
@@ -177,73 +373,6 @@ class LazyTimeseries:
             return result.item()
         else:
             raise KeyError(f"Value for {dt.to_datetime_string()} not found in the Timeseries.")
-
-    def filter(
-        self,
-        item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
-        date_format: str = "YYYY-MM-DD HH:mm:ss",
-        inplace: bool = True,
-    ) -> LazyTimeseries:
-        """
-        Filter the LazyTimeseries based on a list of datetime.
-
-        :param item: Datetime to filter the LazyTimeseries
-        :type item: list[datetime] or datetime or pendulum.DateTime or str
-        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
-        :type date_format: str, optional
-        :param inplace: Whether to modify the current instance, defaults to True
-        :type inplace: bool, optional
-        :raises NotImplementedError: If the times to filter type is unsupported
-        :return: Filtered LazyTimeseries
-        :rtype: LazyTimeseries
-        """
-
-        if isinstance(item, list):
-            item = [build_datetime(i, date_format=date_format).in_tz(self.timezone) for i in item]
-            lf = self.timeseries.filter(pl.col("time").is_in(item))
-        else:
-            date = build_datetime(item, date_format=date_format).in_tz(self.timezone)
-            lf = self.timeseries.filter(pl.col("time") == date)
-
-        return self._return_inplace(lf, inplace)
-
-    def slice(
-        self,
-        start_bound: datetime | pendulum.DateTime | str,
-        end_bound: datetime | pendulum.DateTime | str,
-        closed: Literal["left", "right", "both", "none"] = "both",
-        inplace: bool = True,
-    ) -> LazyTimeseries:
-        """Get a slice of the Timeseries
-
-        :param start_bound: Datetime to filter the Timeseries
-        :param end_bound: Datetime to filter the Timeseries
-        :param closed : {'both', 'left', 'right', 'none'}
-            Define which sides of the interval are closed (inclusive).
-        :param inplace: Whether to modify the current instance, defaults to True
-        :return: The Timeseries object
-        """
-        date_start = build_datetime(start_bound).in_tz(self.timezone)
-        date_end = build_datetime(end_bound).in_tz(self.timezone)
-        lf = self.timeseries.filter(pl.col("time").is_between(date_start, date_end, closed))
-
-        return self._return_inplace(lf, inplace)
-
-    def slice_with_offset(
-        self,
-        offset: int,
-        length: int | None = None,
-        inplace: bool = True,
-    ) -> LazyTimeseries:
-        """Get a slice of the Timeseries
-
-        :param offset: Start index. Negative indexing is supported.
-        :param length: Length of the slice. If set to `None`, all rows starting at the offset will be selected.
-        :param inplace: Whether to modify the current instance, defaults to True
-        :return: The Timeseries object
-        """
-        lf = self.timeseries.slice(offset, length)
-        return self._return_inplace(lf, inplace)
 
     def max(self) -> float:
         """Return the max value column.
@@ -313,6 +442,8 @@ class LazyTimeseries:
         """
         Change the frequency (timestep) of the lazy time series.
 
+        ⚠️ WARNING: This method materializes all data into memory.
+
         :param frequency: The desired frequency. Can be a string (e.g., '1d', '15m') or a `pendulum.Duration`.
         :type frequency: str or pendulum.Duration
         :param inplace: If True, modifies the object in place. If False, returns a new modified object.
@@ -322,19 +453,7 @@ class LazyTimeseries:
         """
         resampled_ts = self.collect().set_frequency(frequency, inplace=False)
         lf = resampled_ts.to_lazy()
-        return self._return_inplace(lf, inplace)
-
-    def abs(self, inplace: bool = True) -> LazyTimeseries:
-        """
-        Compute the absolute value of each value in the time series.
-
-        :param inplace: If True, modifies the object in place. If False, returns a new modified object.
-        :type inplace: bool
-        :return: The LazyTimeseries with absolute values, either modified in place or as a new object.
-        :rtype: LazyTimeseries
-        """
-        lf = self.timeseries.with_columns(pl.col("value").abs())
-        return self._return_inplace(lf, inplace)
+        return self._return(lf, inplace)
 
     def first_date(self) -> pendulum.DateTime | None:
         """
@@ -376,7 +495,7 @@ class LazyTimeseries:
         for row in self.timeseries.collect().iter_rows(named=True):
             yield (row["time"], row["value"])
 
-    def _return_inplace(self, lf: pl.LazyFrame, inplace: bool) -> LazyTimeseries:
+    def _return(self, lf: pl.LazyFrame, inplace: bool) -> LazyTimeseries:
         """
         Return the LazyTimeseries object itself or create a new one.
 
@@ -394,22 +513,447 @@ class LazyTimeseries:
             return self
         return LazyTimeseries(lf.sort("time"), timezone=self.timezone)
 
-    def round(
+    # ========================================
+    # Orange Zone: Collection-required methods
+    # ========================================
+
+    def upsample(
         self,
-        rounding_precision: int = 0,
-        mode: Literal["half_to_even", "half_away_from_zero"] = "half_to_even",
+        frequency: str | pendulum.Duration,
+        interpolation_method: str = "constant",
         inplace: bool = True,
     ) -> LazyTimeseries:
         """
-        Returns a copy of the timeseries with all the numerical values rounded.
-        :param rounding_precision: Number of decimals used to round numerical values.
-        :type rounding_precision: int
-        :param mode: Rounding strategy.
-        :type mode: str
+        Upsample the LazyTimeseries to a higher frequency.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param frequency: Frequency string (e.g., "15m", "1h")
+        :type frequency: str | pendulum.Duration
+        :param interpolation_method: Method to fill missing values
+        :type interpolation_method: str, optional
         :param inplace: Whether to modify the current instance, defaults to True
         :type inplace: bool, optional
-        :return: Rounded LazyTimeseries
+        :return: Upsampled LazyTimeseries
         :rtype: LazyTimeseries
         """
-        df = self.timeseries.with_columns(pl.col("value").round(rounding_precision, mode))
-        return self._return_inplace(df, inplace)
+        upsampled_ts = self.collect().upsample(frequency, interpolation_method, inplace=False)
+        lf = upsampled_ts.to_lazy()
+        return self._return(lf, inplace)
+
+    def groupby(
+        self,
+        frequency: str | pendulum.Duration,
+        agg: str = "mean",
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Group the LazyTimeseries dynamically by time intervals.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param frequency: Grouping interval (e.g., "1h", "1d")
+        :type frequency: str or pendulum.Duration
+        :param agg: Aggregation method, defaults to "mean"
+        :type agg: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Grouped LazyTimeseries
+        :rtype: LazyTimeseries
+        """
+        grouped_ts = self.collect().groupby(frequency, agg, inplace=False)
+        lf = grouped_ts.to_lazy()
+        return self._return(lf, inplace)
+
+    def set_value(
+        self,
+        time: datetime | str,
+        value: float | None,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Update a value at a specific datetime.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param time: Datetime to set
+        :type time: datetime or str
+        :param value: Value to set
+        :type value: float or int
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: LazyTimeseries with the set value
+        :rtype: LazyTimeseries
+        """
+        updated_ts = self.collect().set_value(time, value, date_format, inplace=False)
+        lf = updated_ts.to_lazy()
+        return self._return(lf, inplace)
+
+    def set_values(
+        self,
+        other: LazyTimeseries | Timeseries | pl.DataFrame | pl.LazyFrame,
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Set or update values. If the datetime exists, it is overwritten.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param other: other timeseries with values to updated self
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: LazyTimeseries with the new values
+        :rtype: LazyTimeseries
+        """
+        if isinstance(other, LazyTimeseries):
+            other = other.collect()
+        updated_ts = self.collect().set_values(other, inplace=False)
+        lf = updated_ts.to_lazy()
+        return self._return(lf, inplace)
+
+    def add_index(
+        self,
+        time: datetime | str,
+        value: float,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Add index to the LazyTimeseries based on an index and a value.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param time: Datetime to add
+        :type time: datetime or str
+        :param value: Value to add
+        :type value: float
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: LazyTimeseries with the added index
+        :rtype: LazyTimeseries
+        """
+        updated_ts = self.collect().add_index(time, value, date_format, inplace=False)
+        lf = updated_ts.to_lazy()
+        return self._return(lf, inplace)
+
+    def add_indexes(
+        self,
+        other: LazyTimeseries | Timeseries | pl.DataFrame | pl.LazyFrame,
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Add indexes to the LazyTimeseries based on another timeseries.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param other: Other timeseries with indexes / values to add
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: LazyTimeseries with the added indexes
+        :rtype: LazyTimeseries
+        """
+        if isinstance(other, LazyTimeseries):
+            other = other.collect()
+        updated_ts = self.collect().add_indexes(other, inplace=False)
+        lf = updated_ts.to_lazy()
+        return self._return(lf, inplace)
+
+    def sum_value_at(
+        self,
+        time: datetime | str,
+        value: float,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Add to an existing value at a specific datetime.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param time: Datetime to add to the value
+        :type time: datetime or str
+        :param value: Value to add to the precedent value
+        :type value: float
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: LazyTimeseries with the value added
+        :rtype: LazyTimeseries
+        """
+        updated_ts = self.collect().sum_value_at(time, value, date_format, inplace=False)
+        lf = updated_ts.to_lazy()
+        return self._return(lf, inplace)
+
+    def mul_value_at(
+        self,
+        time: datetime | str,
+        value: float,
+        date_format: str = "YYYY-MM-DD HH:mm:ss",
+        inplace: bool = True,
+    ) -> LazyTimeseries:
+        """
+        Multiply to an existing value at a specific datetime.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param time: Datetime to multiply by the value
+        :type time: datetime or str
+        :param value: Value to multiply to the precedent value
+        :type value: float
+        :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
+        :type date_format: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: LazyTimeseries with the value multiplied
+        :rtype: LazyTimeseries
+        """
+        updated_ts = self.collect().mul_value_at(time, value, date_format, inplace=False)
+        lf = updated_ts.to_lazy()
+        return self._return(lf, inplace)
+
+    def interpolate(self, interpolation_method: str = "constant", inplace: bool = True) -> LazyTimeseries:
+        """
+        Interpolate the LazyTimeseries to fill in missing values.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param interpolation_method: Interpolation method, defaults to "constant"
+        :type interpolation_method: str, optional
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Interpolated LazyTimeseries
+        :rtype: LazyTimeseries
+        """
+        interpolated_ts = self.collect().interpolate(interpolation_method, inplace=False)
+        lf = interpolated_ts.to_lazy()
+        return self._return(lf, inplace)
+
+    def to_file(
+        self,
+        path: str | Path,
+        file_format: str = "csv",
+        separator: str = ";",
+    ) -> None:
+        """
+        Export the LazyTimeseries to a file.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param path: Destination file path
+        :type path: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: str, optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
+        """
+        self.collect().to_file(path, file_format, separator)
+
+    def to_file_with_attribute(
+        self,
+        path: str | Path,
+        attribute: str,
+        file_format: str = "csv",
+        separator: str = ";",
+        concatenate: bool = True,
+    ) -> None:
+        """
+        Export the LazyTimeseries to a file with an attribute column.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param path: Destination file path
+        :type path: str or Path
+        :param attribute: Attribute name to add as a column
+        :type attribute: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: str, optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
+        :param concatenate: If True, concatenate with existing file data, defaults to True
+        :type concatenate: bool, optional
+        """
+        self.collect().to_file_with_attribute(path, attribute, file_format, separator, concatenate)
+
+    # ========================================
+    # Additional required methods
+    # ========================================
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Implement the equality between two LazyTimeseries.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param other: The LazyTimeseries to compare with
+        :type other: LazyTimeseries
+        :return: True if equal, False otherwise
+        :rtype: bool
+        """
+        if isinstance(other, LazyTimeseries):
+            return self.timeseries.collect().equals(other.timeseries.collect())
+        raise TypeError("Comparison with non-LazyTimeseries objects is not supported")
+
+    def __mul__(self, other: float | LazyTimeseries | Timeseries) -> LazyTimeseries:
+        """
+        Multiply all numeric columns by a scalar or another timeseries.
+
+        ⚠️ WARNING: Operations with other timeseries materialize data into memory.
+
+        :param other: Other timeseries or scalar
+        :type other: float | LazyTimeseries | Timeseries
+        :return: Multiplied LazyTimeseries
+        :rtype: LazyTimeseries
+        """
+        if isinstance(other, int | float):
+            lf = self.timeseries.with_columns(pl.col("value").mul(other))
+            return LazyTimeseries(lf, self.timezone)
+        else:
+            # For timeseries operations, collect and compute
+            if isinstance(other, LazyTimeseries):
+                other = other.collect()
+            result = self.collect() * other
+            return LazyTimeseries(result.to_lazy(), self.timezone)
+
+    def __add__(self, other: float | LazyTimeseries | Timeseries) -> LazyTimeseries:
+        """
+        Add all numeric columns by a scalar or timeseries.
+
+        ⚠️ WARNING: Operations with other timeseries materialize data into memory.
+
+        :param other: Other timeseries or scalar
+        :type other: float | LazyTimeseries | Timeseries
+        :return: Added LazyTimeseries
+        :rtype: LazyTimeseries
+        """
+        if isinstance(other, int | float):
+            lf = self.timeseries.with_columns(pl.col("value").add(other))
+            return LazyTimeseries(lf, self.timezone)
+        else:
+            if isinstance(other, LazyTimeseries):
+                other = other.collect()
+            result = self.collect() + other
+            return LazyTimeseries(result.to_lazy(), self.timezone)
+
+    def __sub__(self, other: float | LazyTimeseries | Timeseries) -> LazyTimeseries:
+        """
+        Subtract all numeric columns by a scalar or timeseries.
+
+        ⚠️ WARNING: Operations with other timeseries materialize data into memory.
+
+        :param other: Other timeseries or scalar
+        :type other: float | LazyTimeseries | Timeseries
+        :return: Subtracted LazyTimeseries
+        :rtype: LazyTimeseries
+        """
+        if isinstance(other, int | float):
+            lf = self.timeseries.with_columns(pl.col("value").sub(other))
+            return LazyTimeseries(lf, self.timezone)
+        else:
+            if isinstance(other, LazyTimeseries):
+                other = other.collect()
+            result = self.collect() - other
+            return LazyTimeseries(result.to_lazy(), self.timezone)
+
+    def __truediv__(self, other: float | LazyTimeseries | Timeseries) -> LazyTimeseries:
+        """
+        Divide all numeric columns by a scalar or timeseries.
+
+        ⚠️ WARNING: Operations with other timeseries materialize data into memory.
+
+        :param other: Other timeseries or scalar
+        :type other: float | LazyTimeseries | Timeseries
+        :return: Divided LazyTimeseries
+        :rtype: LazyTimeseries
+        """
+        if isinstance(other, int | float):
+            if other == 0:
+                raise ZeroDivisionError("Division by zero is not allowed")
+            lf = self.timeseries.with_columns(pl.col("value").truediv(other))
+            return LazyTimeseries(lf, self.timezone)
+        else:
+            if isinstance(other, LazyTimeseries):
+                other = other.collect()
+            result = self.collect() / other
+            return LazyTimeseries(result.to_lazy(), self.timezone)
+
+    def __getitem__(self, column_name: str) -> list[float | datetime]:
+        """
+        Get column values by name.
+
+        ⚠️ WARNING: This method materializes the column into memory.
+
+        :param column_name: Column name ('time' or 'value')
+        :type column_name: str
+        :return: List of column values
+        :rtype: list[float | datetime]
+        """
+        if column_name not in ("time", "value"):
+            raise KeyError("Column name has to be either time or value")
+        return self.timeseries.select(column_name).collect().to_series().to_list()
+
+    def sort(self, inplace: bool = True) -> LazyTimeseries:
+        """
+        Sort the LazyTimeseries by time.
+
+        :param inplace: Whether to modify the current instance, defaults to True
+        :type inplace: bool, optional
+        :return: Sorted LazyTimeseries
+        :rtype: LazyTimeseries
+        """
+        return self._return(self.timeseries, inplace)
+
+    def set_timezone(self, timezone: str) -> None:
+        """
+        Convert the datetime column to a new timezone.
+
+        :param timezone: Timezone string
+        :type timezone: str
+        """
+        check_timezone(timezone)
+        self.timezone = timezone
+        self.timeseries = self.timeseries.with_columns(
+            pl.col("time").dt.convert_time_zone(timezone),
+        )
+
+    def plot(
+        self,
+        title: str = "Time Series Plot",
+        height: int = 500,
+        width: int = 800,
+        show_grid: bool = True,
+        line_color: str = "#1f77b4",
+        line_shape: str = "hv",
+        template: str = "plotly_white",
+    ):
+        """
+        Generate a Plotly figure for the LazyTimeseries data.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :param title: Plot title
+        :param height: Plot height in pixels
+        :param width: Plot width in pixels
+        :param show_grid: Whether to show grid lines
+        :param line_color: Color of the line plot
+        :param line_shape: Shape of the plot
+        :param template: Plotly template to use
+        :return: Plotly figure object
+        """
+        return self.collect().plot(title, height, width, show_grid, line_color, line_shape, template)
+
+    def describe(self) -> dict:
+        """
+        Get metadata about the timeseries.
+
+        ⚠️ WARNING: This method materializes all data into memory.
+
+        :return: A dictionary containing timeseries metadata
+        :rtype: dict
+        """
+        return get_metadata_from_frame(self.timeseries.collect())
