@@ -1,6 +1,6 @@
 from importlib.metadata import version
 
-from atlas.io_utils.input_loader import InputLoader
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import Parameters, ParametersParser
 from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
 from atlas.logging import Logger
@@ -37,6 +37,7 @@ from atlas.workflow.workflow_parameters_parser import WorkflowParameters, Workfl
 from atlas.workflow.workflow_step import WorkflowStep
 
 __all__ = [
+    "AtlasDataset",
     "Parameters",
     "ParametersParser",
     "Workflow",

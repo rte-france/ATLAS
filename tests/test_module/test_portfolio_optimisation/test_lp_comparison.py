@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from atlas.io_utils.input_loader import InputLoader
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.solver.solver_helper import SolverHelper
 
@@ -69,7 +69,7 @@ class TestThermalCombinationLPComparison:
             params_dict["export_lp_path"] = tmpdir
             params_dict["solver_name"] = "SCIP"
 
-            input_data = InputLoader.from_directory(combination_dir)
+            input_data = AtlasDataset.from_directory(combination_dir)
 
             po_module = PortfolioOptimisationModule()
 
