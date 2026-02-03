@@ -2068,14 +2068,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../io/input_loader/" class="md-nav__link">
+      <a href="../../io/atlas_dataset/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Input Loader
+    AtlasDataset
   
 
     
@@ -9700,14 +9700,14 @@ appended to the existing data.</p>
 </span><span id="__span-0-977"><a id="__codelineno-0-977" name="__codelineno-0-977"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">path_str</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">file_format_lower</span><span class="p">):</span>
 </span><span id="__span-0-978"><a id="__codelineno-0-978" name="__codelineno-0-978"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Format and file extension don&#39;t match.&quot;</span><span class="p">)</span>
 </span><span id="__span-0-979"><a id="__codelineno-0-979" name="__codelineno-0-979"></a>
-</span><span id="__span-0-980"><a id="__codelineno-0-980" name="__codelineno-0-980"></a>    <span class="n">df_to_write</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeseries</span><span class="o">.</span><span class="n">insert_column</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">pl</span><span class="o">.</span><span class="n">lit</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;attribute&quot;</span><span class="p">))</span>
+</span><span id="__span-0-980"><a id="__codelineno-0-980" name="__codelineno-0-980"></a>    <span class="n">df_to_write</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeseries</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">insert_column</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">pl</span><span class="o">.</span><span class="n">lit</span><span class="p">(</span><span class="n">attribute</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;attribute&quot;</span><span class="p">))</span>
 </span><span id="__span-0-981"><a id="__codelineno-0-981" name="__codelineno-0-981"></a>
 </span><span id="__span-0-982"><a id="__codelineno-0-982" name="__codelineno-0-982"></a>    <span class="k">if</span> <span class="n">concatenate</span><span class="p">:</span>
 </span><span id="__span-0-983"><a id="__codelineno-0-983" name="__codelineno-0-983"></a>        <span class="n">path_obj</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path_str</span><span class="p">)</span>
 </span><span id="__span-0-984"><a id="__codelineno-0-984" name="__codelineno-0-984"></a>        <span class="k">if</span> <span class="n">path_obj</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">file_format_lower</span> <span class="o">!=</span> <span class="s2">&quot;pickle&quot;</span><span class="p">:</span>
 </span><span id="__span-0-985"><a id="__codelineno-0-985" name="__codelineno-0-985"></a>            <span class="k">try</span><span class="p">:</span>
 </span><span id="__span-0-986"><a id="__codelineno-0-986" name="__codelineno-0-986"></a>                <span class="k">if</span> <span class="n">file_format_lower</span> <span class="o">==</span> <span class="s2">&quot;csv&quot;</span><span class="p">:</span>
-</span><span id="__span-0-987"><a id="__codelineno-0-987" name="__codelineno-0-987"></a>                    <span class="n">existing_df</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path_str</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="n">separator</span><span class="p">)</span>
+</span><span id="__span-0-987"><a id="__codelineno-0-987" name="__codelineno-0-987"></a>                    <span class="n">existing_df</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path_str</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="n">separator</span><span class="p">,</span> <span class="n">try_parse_dates</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-0-988"><a id="__codelineno-0-988" name="__codelineno-0-988"></a>                <span class="k">elif</span> <span class="n">file_format_lower</span> <span class="o">==</span> <span class="s2">&quot;parquet&quot;</span><span class="p">:</span>
 </span><span id="__span-0-989"><a id="__codelineno-0-989" name="__codelineno-0-989"></a>                    <span class="n">existing_df</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">path_str</span><span class="p">)</span>
 </span><span id="__span-0-990"><a id="__codelineno-0-990" name="__codelineno-0-990"></a>
