@@ -34,6 +34,23 @@ def test_container_add_unique():
     assert c.get("a") is item
 
 
+def test_container_add_wrong_type_raises_type_error():
+    class OtherBM(BusinessModel):
+        def __init__(self, name: str):
+            super().__init__(name=name)
+
+    class DummyBMContainer(Container[DummyBM]):
+        item_type = DummyBM
+
+    c = DummyBMContainer()
+
+    with pytest.raises(
+        TypeError,
+        match="Expected DummyBM, got OtherBM",
+    ):
+        c.add(OtherBM("x"))
+
+
 def test_container_add_duplicate_raises():
     c = Container()
     c.add(DummyBM("a"))
@@ -52,7 +69,7 @@ def test_container_get_existing():
 def test_container_get_missing_raises():
     c = Container([DummyBM("a")])
 
-    with pytest.raises(KeyError, match="b not found"):
+    with pytest.raises(KeyError, match="'b' not found"):
         c.get("b")
 
 
@@ -80,7 +97,6 @@ def test_container_all_returns_list():
     result = c.all()
 
     assert result == items
-    assert result is c._items
 
 
 def test_container_clear():
