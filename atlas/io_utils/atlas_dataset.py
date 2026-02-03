@@ -175,12 +175,7 @@ class AtlasDataset(BaseModel):
         :return: An AtlasDataset instance
         :rtype: AtlasDataset
         """
-        # Initialize with empty lists for all fields, then update with provided data
-        kwargs: dict[str, Any] = {}
-        for bm_type, bm_list in data.items():
-            kwargs[bm_type] = cfg.MODEL_CONTAINER_MAPPING_NAME[BusinessModelName(bm_type)](bm_list)
-
-        return cls(**kwargs)
+        return cls(**data)
 
     def to_directory(
         self,
@@ -334,7 +329,7 @@ class AtlasDataset(BaseModel):
             object_type = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
         container = getattr(self, object_type, None)
         if container is None:
-            raise ValueError(f"No container found for type {object_type}")
+            raise ValueError(f"No container found for type {object_type_str}")
         return container
 
     def iter_by_types(self, *object_types: str):
