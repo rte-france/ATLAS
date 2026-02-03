@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 import atlas.config as cfg
 from atlas.enum import BusinessModelName
+from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
 from atlas.io_utils.specific_container import (
@@ -303,6 +304,38 @@ class AtlasDataset(BaseModel):
         if object_type not in self._indices:
             return None
         return self._indices[object_type].get(name)
+
+    def get_items_by_type(self, object_type: str | type[BusinessModel]) -> list[BusinessModel]:
+        """
+        Get a Container object by type with O(1) lookup.
+
+        :param object_type: The type of object (e.g., "hydro", "node")
+        :type object_type: str | type[BusinessModel]
+        :return: The Container object if found, raise an error otherwise
+        :rtype: Container
+        """
+        if issubclass(object_type, BusinessModel):
+            object_type = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
+        container = getattr(self, object_type, None)
+        if container is None:
+            raise ValueError(f"No container found for type {object_type}")
+        return container.all()
+
+    def get_container_by_type(self, object_type: str | type[BusinessModel]) -> Container:
+        """
+        Get a Container object by type with O(1) lookup.
+
+        :param object_type: The type of object (e.g., "hydro", "node")
+        :type object_type: str | type[BusinessModel]
+        :return: The Container object if found, raise an error otherwise
+        :rtype: Container
+        """
+        if issubclass(object_type, BusinessModel):
+            object_type = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
+        container = getattr(self, object_type, None)
+        if container is None:
+            raise ValueError(f"No container found for type {object_type}")
+        return container
 
     def iter_by_types(self, *object_types: str):
         """
