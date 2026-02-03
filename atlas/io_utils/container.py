@@ -30,13 +30,10 @@ class Container(Generic[T]):
         try:
             return self._items[name]
         except KeyError:
-            raise KeyError(f"{name} not found") from None
+            raise KeyError(f"'{name}' not found") from None
 
     def remove(self, name: str) -> None:
-        try:
-            del self._items[name]
-        except KeyError:
-            raise KeyError(f"{name} not found") from None
+        self._items.pop(name, None)
 
     def all(self) -> list[T]:
         return list(self._items.values())
