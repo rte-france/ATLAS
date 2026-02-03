@@ -60,3 +60,15 @@ class Container(Generic[T]):
     def __bool__(self) -> bool:
         """Return True if the container has any items."""
         return bool(self._items)
+
+    def __contains__(self, item: object) -> bool:
+        """
+        Support 'in' operator:
+        - If item is str → check if key exists
+        - If item is BusinessModel → check if item.name exists
+        """
+        if isinstance(item, str):
+            return item in self._items
+        elif isinstance(item, BusinessModel):
+            return item.name in self._items
+        return False
