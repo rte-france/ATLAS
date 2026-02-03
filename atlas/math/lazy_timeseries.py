@@ -79,7 +79,7 @@ class LazyTimeseries:
             raise ValueError("LazyTimeseries requires a LazyFrame or another Timeseries object")
 
     def __repr__(self):
-        """String representation of the Matrix"""
+        """String representation of the ScenarioMatrix"""
         return f"LazyTimeseries with schema : {self.timeseries.collect_schema()}"
 
     @property

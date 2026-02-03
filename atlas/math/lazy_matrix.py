@@ -4,7 +4,7 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements LazyMatrix
+Module that implements LazyScenarioMatrix
 """
 
 from __future__ import annotations
@@ -16,34 +16,35 @@ from typing import Self
 import pandas as pd
 import pendulum
 import polars as pl
+from pydantic_core import core_schema
 
 from atlas.io_utils.utils import scan_data_file
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import Matrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone
 from atlas.typing import TimeseriesDict
 
 
-class LazyMatrix:
+class LazyScenarioMatrix:
     """Base class for lazily storing Timeseries-like data indexed by scenario keys or datetimes."""
 
-    def __init__(self, matrix: pl.LazyFrame | LazyMatrix | Matrix, timezone: str = "UTC") -> None:
+    def __init__(self, matrix: pl.LazyFrame | LazyScenarioMatrix | ScenarioMatrix, timezone: str = "UTC") -> None:
         """
-        Initialize the LazyMatrix.
+        Initialize the LazyScenarioMatrix.
 
-        :param matrix: LazyFrame, Matrix, or LazyMatrix object.
-        :type matrix: pl.LazyFrame | LazyMatrix | Matrix
+        :param matrix: LazyFrame, ScenarioMatrix, or LazyScenarioMatrix object.
+        :type matrix: pl.LazyFrame | LazyScenarioMatrix | ScenarioMatrix
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
         check_timezone(timezone)
         self.timezone = timezone
 
-        if isinstance(matrix, LazyMatrix):
+        if isinstance(matrix, LazyScenarioMatrix):
             self.matrix = matrix.get_matrix()
             self.timezone = matrix.timezone
-        elif isinstance(matrix, Matrix):
+        elif isinstance(matrix, ScenarioMatrix):
             self.matrix = matrix.to_lazy()
             self.timezone = matrix.timezone
         elif isinstance(matrix, pl.LazyFrame):
@@ -53,10 +54,10 @@ class LazyMatrix:
             value_columns = [name for name, dtype in schema.items() if dtype.is_numeric()]
 
             if len(time_columns) != 1:
-                raise ValueError("LazyMatrix must have exactly one datetime column")
+                raise ValueError("LazyScenarioMatrix must have exactly one datetime column")
 
             if len(time_columns) + len(value_columns) != len(schema):
-                raise ValueError("LazyMatrix must have N columns one for datetime and N-1 for numerical values")
+                raise ValueError("LazyScenarioMatrix must have N columns one for datetime and N-1 for numerical values")
 
             self.matrix = (
                 matrix.rename({time_columns[0]: "time"})
@@ -64,23 +65,23 @@ class LazyMatrix:
                 .sort("time")
             )
         else:
-            raise TypeError("LazyMatrix requires a LazyFrame, Matrix, or LazyMatrix")
+            raise TypeError("LazyScenarioMatrix requires a LazyFrame, ScenarioMatrix, or LazyScenarioMatrix")
 
         self.indexes = self._get_indexes()
 
     @property
     def lazyframe(self) -> pl.LazyFrame:
-        """Returns the Matrix DataFrame"""
+        """Returns the ScenarioMatrix DataFrame"""
         return self.matrix
 
     @property
     def index(self) -> list[str]:
-        """Returns the Matrix indexes (e.g columns names)"""
+        """Returns the ScenarioMatrix indexes (e.g columns names)"""
         return self._get_indexes()
 
     def __repr__(self):
-        """String representation of the Matrix"""
-        return f"LazyMatrix with schema : {self.matrix.collect_schema()}"
+        """String representation of the ScenarioMatrix"""
+        return f"LazyScenarioMatrix with schema : {self.matrix.collect_schema()}"
 
     @classmethod
     def from_file(
@@ -89,14 +90,14 @@ class LazyMatrix:
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
-    ) -> LazyMatrix:
+    ) -> LazyScenarioMatrix:
         """
-        Load a LazyMatrix from a file.
+        Load a LazyScenarioMatrix from a file.
 
         :param file_path: Path to the file
         :param separator: CSV separator (if applicable)
         :param timezone: Timezone to apply
-        :return: LazyMatrix instance
+        :return: LazyScenarioMatrix instance
         """
 
         return cls(scan_data_file(file_path, filters, separator), timezone)
@@ -105,9 +106,9 @@ class LazyMatrix:
         """Return internal lazy frame."""
         return self.matrix
 
-    def collect(self) -> Matrix:
-        """Collect the lazy frame and return a regular Matrix object."""
-        return Matrix(self.matrix.collect(), timezone=self.timezone)
+    def collect(self) -> ScenarioMatrix:
+        """Collect the lazy frame and return a regular ScenarioMatrix object."""
+        return ScenarioMatrix(self.matrix.collect(), timezone=self.timezone)
 
     def _get_indexes(self) -> list[str]:
         """Identify index columns by excluding the time column."""
@@ -222,3 +223,12 @@ class LazyMatrix:
             return self
         else:
             return self.__class__(resampled_sm.to_lazy(), timezone=self.timezone)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: "scenario_matrix", when_used="json"
+            ),
+        )

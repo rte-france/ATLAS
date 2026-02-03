@@ -4,7 +4,7 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements Matrix
+Module that implements ScenarioMatrix
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import pandas as pd
 import pendulum
 import plotly.graph_objects as go
 import polars as pl
+from pydantic_core import core_schema
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.timeseries import Timeseries
@@ -25,16 +26,18 @@ from atlas.timing import check_timezone, get_duration, infer_frequency
 from atlas.typing import TimeseriesDict
 
 
-class Matrix:
+class ScenarioMatrix:
     """A container for time-indexed `Timeseries` data, supporting both eager and lazy operations.
 
     This class abstracts over Polars and Pandas DataFrames to provide a uniform way
     to manage multiple time series, each associated with a unique index or scenario key."""
 
-    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix | None = None, timezone: str = "UTC") -> None:
+    def __init__(
+        self, matrix: pd.DataFrame | pl.DataFrame | ScenarioMatrix | None = None, timezone: str = "UTC"
+    ) -> None:
         """
         :param matrix: DataFrame containing the matrix data.
-        :type matrix: pd.DataFrame | pl.DataFrame | Matrix
+        :type matrix: pd.DataFrame | pl.DataFrame | ScenarioMatrix
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
@@ -45,12 +48,12 @@ class Matrix:
         self.indexes: list[str] = self._get_indexes()
 
     def __repr__(self):
-        """Provide a string representation of the Matrix object."""
-        return f"Matrix : {self.matrix}"
+        """Provide a string representation of the ScenarioMatrix object."""
+        return f"ScenarioMatrix : {self.matrix}"
 
     def describe(self) -> dict[str, Any]:
         """
-        Get metadata about the Matrix.
+        Get metadata about the ScenarioMatrix.
 
         :return: A dictionnary containing matrix metadata
         :rtype: dict[str, Any]
@@ -64,19 +67,19 @@ class Matrix:
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
-    ) -> Matrix:
+    ) -> ScenarioMatrix:
         """
-        Load a Matrix from a file.
+        Load a ScenarioMatrix from a file.
 
         :param file_path: Path to the file (CSV or Parquet).
         :type file_path: str | Path
-        :return: A Matrix object.
-        :rtype: Matrix
+        :return: A ScenarioMatrix object.
+        :rtype: ScenarioMatrix
         """
 
         return cls(read_data_file(file_path, filters, separator), timezone)
 
-    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix | None, timezone: str) -> None:
+    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | ScenarioMatrix | None, timezone: str) -> None:
         """Set matrix attribute"""
         if matrix is None:
             self.matrix: pl.DataFrame = pl.DataFrame(
@@ -86,7 +89,7 @@ class Matrix:
             )
             self.timezone: str = timezone
             return
-        if isinstance(matrix, Matrix):
+        if isinstance(matrix, ScenarioMatrix):
             self.matrix: pl.DataFrame = matrix.matrix  # type: ignore[no-redef]
             self.timezone: str = matrix.timezone  # type: ignore[no-redef]
         else:
@@ -102,25 +105,25 @@ class Matrix:
             self.timezone: str = timezone  # type: ignore[no-redef]
 
     @staticmethod
-    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | Matrix | None) -> None:
+    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | ScenarioMatrix | None) -> None:
         """Check matrix data structure"""
         if matrix is None:
             return
-        if isinstance(matrix, Matrix):
+        if isinstance(matrix, ScenarioMatrix):
             return
         df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
 
         time_columns = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
         if len(time_columns) != 1:
-            raise ValueError("Matrix must have exactly one time column")
+            raise ValueError("ScenarioMatrix must have exactly one time column")
 
         value_columns = df.select(pl.selectors.numeric()).columns
 
         if len(value_columns) < 1:
-            raise ValueError("Matrix must have at least one numeric column")
+            raise ValueError("ScenarioMatrix must have at least one numeric column")
 
         if len(time_columns) + len(value_columns) != len(df.columns):
-            raise ValueError("Matrix must have N columns one for datetime and N-1 for numerical values")
+            raise ValueError("ScenarioMatrix must have N columns one for datetime and N-1 for numerical values")
 
     def _get_indexes(self) -> list[str]:
         """
@@ -183,12 +186,12 @@ class Matrix:
 
         :param other: Another matrix instance.
         :type other: object
-        :raises TypeError: If the object to compare is not a Matrix
+        :raises TypeError: If the object to compare is not a ScenarioMatrix
         :return: True if equal, False otherwise.
         :rtype: bool
         """
-        if not isinstance(other, Matrix):
-            raise TypeError("Cannot compare with non-Matrix object")
+        if not isinstance(other, ScenarioMatrix):
+            raise TypeError("Cannot compare with non-ScenarioMatrix object")
 
         return self.matrix.equals(other.matrix)
 
@@ -316,7 +319,7 @@ class Matrix:
         concatenate: bool = True,
     ) -> None:
         """
-        Export the Matrix to a file with an attribute column.
+        Export the ScenarioMatrix to a file with an attribute column.
 
         If the file already exists and concatenate is True, the new data will be
         appended to the existing data.
@@ -371,17 +374,17 @@ class Matrix:
 
     @property
     def dataframe(self) -> pl.DataFrame:
-        """Returns the Matrix DataFrame"""
+        """Returns the ScenarioMatrix DataFrame"""
         return self.matrix
 
     @property
     def shape(self) -> tuple[int, int]:
-        """Returns the Matrix shape"""
+        """Returns the ScenarioMatrix shape"""
         return self._get_shape()
 
     @property
     def index(self) -> list[str]:
-        """Returns the Matrix indexes (e.g columns names)"""
+        """Returns the ScenarioMatrix indexes (e.g columns names)"""
         return self._get_indexes()
 
     @property
@@ -395,7 +398,7 @@ class Matrix:
 
     def plot(
         self,
-        title: str = "Matrix Timeseries Plot",
+        title: str = "ScenarioMatrix Timeseries Plot",
         height: int = 500,
         width: int = 800,
         show_grid: bool = True,
@@ -403,7 +406,7 @@ class Matrix:
         template: str = "plotly_white",
     ) -> go.Figure:
         """
-        Generate an interactive Plotly figure for the Matrix data with a slider to select indexes.
+        Generate an interactive Plotly figure for the ScenarioMatrix data with a slider to select indexes.
 
         :param title: Plot title
         :param height: Plot height in pixels
@@ -560,3 +563,12 @@ class Matrix:
             return self
         else:
             return self.__class__(df, self.timezone)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: "scenario_matrix", when_used="json"
+            ),
+        )

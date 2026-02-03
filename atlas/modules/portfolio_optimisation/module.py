@@ -11,8 +11,9 @@ from pendulum import Duration
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset

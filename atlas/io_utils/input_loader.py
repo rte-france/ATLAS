@@ -22,10 +22,9 @@ from atlas.enum import BusinessModelName
 from atlas.io_utils.models import InputLoaderConfig
 from atlas.io_utils.utils import read_data_file
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import Matrix
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.typing import get_type_attribute
@@ -323,7 +322,7 @@ def _load_matrix(
     attribute_name: str,
     matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
     config: InputLoaderConfig,
-) -> Matrix | LazyMatrix:
+) -> ScenarioMatrix | LazyScenarioMatrix:
     """Load a ForecastingMatrix or ScenarioMatrix (lazy or not) from a file with enhanced error handling."""
     if matrix_type not in ("scenario_matrix", "forecasting_matrix"):
         raise ValueError(f"Invalid matrix type '{matrix_type}'. Must be 'scenario_matrix' or 'forecasting_matrix'")
@@ -340,7 +339,7 @@ def _load_matrix(
 
     if not object_type_dir.exists():
         raise DirectoryStructureError(
-            f"Matrix directory does not contain subdirectory for object type '{object_type}': {matrix_dir}. "
+            f"ScenarioMatrix directory does not contain subdirectory for object type '{object_type}': {matrix_dir}. "
             f"Expected: {object_type_dir}"
         )
 
@@ -348,7 +347,7 @@ def _load_matrix(
         # List available files for better error message
         available_files = [f.name for f in object_type_dir.iterdir() if f.is_file()]
         raise FileNotFoundError(
-            f"Matrix file not found: {matrix_file_path}. Available files in {object_type_dir}: {available_files}"
+            f"ScenarioMatrix file not found: {matrix_file_path}. Available files in {object_type_dir}: {available_files}"
         )
 
     cfg.logger.debug(f"Loading {matrix_type} from file: {matrix_file_path}")

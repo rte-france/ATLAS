@@ -350,7 +350,7 @@ class PrometheusToAtlasDataParser:
             file_path: Path to the CSV file
 
         Returns:
-            Matrix type string or None if not recognized
+            ScenarioMatrix type string or None if not recognized
         """
         if "forecast_matrix" in file_path:
             return "forecasting_matrix"

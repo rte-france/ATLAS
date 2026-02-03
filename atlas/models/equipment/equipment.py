@@ -7,8 +7,9 @@ This file is part of the ATLAS project.
 from pydantic import Field, field_serializer
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.node import Node

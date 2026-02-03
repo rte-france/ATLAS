@@ -8,7 +8,7 @@ import pytest
 
 from atlas.io_utils.output_writer import save_to_directory
 from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.node import Node

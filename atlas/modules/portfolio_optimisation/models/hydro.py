@@ -11,8 +11,9 @@ from typing import cast
 from pendulum import DateTime, Duration
 
 import atlas.config as cfg
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO

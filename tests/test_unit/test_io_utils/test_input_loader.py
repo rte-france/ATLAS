@@ -12,8 +12,9 @@ from atlas.io_utils import input_loader
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.models import InputLoaderConfig
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.equipment.equipment import Equipment
