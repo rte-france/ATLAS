@@ -36,10 +36,6 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
     Provides shared interface and implementation for both eager (Timeseries)
     and lazy (LazyTimeseries) time series classes.
 
-    Methods are organized into three zones:
-    - Green Zone: Lazy-preserving methods (filter, slice, abs, round, arithmetic)
-    - Yellow Zone: Collection methods returning scalars (max, min, sum, len)
-    - Orange Zone: Collection-required methods (set_frequency, upsample, groupby, I/O)
     """
 
     timezone: str
@@ -288,10 +284,6 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         """Return value at the given datetime."""
         ...
 
-    # ========================================
-    # Green Zone: Lazy-preserving methods
-    # ========================================
-
     def filter(
         self,
         item: list[datetime] | list[pendulum.DateTime] | list[str] | datetime | pendulum.DateTime | str,
@@ -393,11 +385,6 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         backend = self._get_data()
         result = backend.with_columns(pl.col("value").round(rounding_precision, mode))
         return self._return(result, inplace)
-
-    # ========================================
-    # Orange Zone: Collection-required methods
-    # (Abstract - different implementations for eager vs lazy)
-    # ========================================
 
     @abstractmethod
     def set_frequency(self, frequency: str | pendulum.Duration, inplace: bool = True) -> Self:
