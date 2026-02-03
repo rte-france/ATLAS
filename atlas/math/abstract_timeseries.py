@@ -120,7 +120,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
             schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
         )
 
-        return cls(df, timezone)
+        return cls(df, timezone)  # type: ignore [call-arg]
 
     @classmethod
     def from_index(
@@ -172,7 +172,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
                 schema={"time": pl.Datetime("us", time_zone=timezone), "value": pl.Float64()},
             )
 
-        return cls(df, timezone)
+        return cls(df, timezone)  # type: ignore [call-arg]
 
     @classmethod
     @abstractmethod
@@ -677,9 +677,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         ...
 
     @abstractmethod
-    def to_frame(
-        self, engine: Literal["polars", "pandas"] | str = "polars"
-    ) -> pl.DataFrame | pd.DataFrame | pl.LazyFrame:
+    def to_frame(self, engine: Literal["polars", "pandas"] = "polars") -> pl.DataFrame | pd.DataFrame | pl.LazyFrame:
         """Return the internal time series as a data frame."""
         ...
 
