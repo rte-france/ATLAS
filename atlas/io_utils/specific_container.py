@@ -5,11 +5,16 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from collections.abc import Iterable
-
 from atlas.io_utils.container import Container
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
+from atlas.models.equipment.hydro import Hydro
+from atlas.models.equipment.load import Load
+from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.models.equipment.solar import Solar
+from atlas.models.equipment.storage import Storage
+from atlas.models.equipment.thermal import Thermal
+from atlas.models.equipment.wind import Wind
 from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.market_area_ptdf import MarketAreaPtdf
@@ -22,90 +27,72 @@ from atlas.models.portfolio import Portfolio
 
 
 class ControlBlockContainer(Container[ControlBlock]):
-    def __init__(self, items: Iterable[ControlBlock] | None = None):
-        super().__init__(items)
+    item_type = ControlBlock
 
 
 class CriticalBranchContainer(Container[CriticalBranch]):
-    def __init__(self, items: Iterable[CriticalBranch] | None = None):
-        super().__init__(items)
+    item_type = CriticalBranch
 
 
 class EquipmentContainer(Container[Equipment]):
-    def __init__(self, items: Iterable[Equipment] | None = None):
-        super().__init__(items)
+    item_type = Equipment
 
 
-class HydroContainer(EquipmentContainer):
-    def __init__(self, items: Iterable[Equipment] | None = None):
-        super().__init__(items)
+class HydroContainer(Container[Hydro]):
+    item_type = Hydro
 
 
-class LoadContainer(EquipmentContainer):
-    def __init__(self, items: Iterable[Equipment] | None = None):
-        super().__init__(items)
+class LoadContainer(Container[Load]):
+    item_type = Load
 
 
 class MarketAreaContainer(Container[MarketArea]):
-    def __init__(self, items: Iterable[MarketArea] | None = None):
-        super().__init__(items)
+    item_type = MarketArea
 
 
 class MarketAreaPtdfContainer(Container[MarketAreaPtdf]):
-    def __init__(self, items: Iterable[MarketAreaPtdf] | None = None):
-        super().__init__(items)
+    item_type = MarketAreaPtdf
 
 
 class MarketBorderContainer(Container[MarketBorder]):
-    def __init__(self, items: Iterable[MarketBorder] | None = None):
-        super().__init__(items)
+    item_type = MarketBorder
 
 
 class NodeContainer(Container[Node]):
-    def __init__(self, items: Iterable[Node] | None = None):
-        super().__init__(items)
+    item_type = Node
 
 
 class NodePtdfContainer(Container[NodePtdf]):
-    def __init__(self, items: Iterable[NodePtdf] | None = None):
-        super().__init__(items)
+    item_type = NodePtdf
 
 
 class OrderContainer(Container[Order]):
-    def __init__(self, items: Iterable[Order] | None = None):
-        super().__init__(items)
+    item_type = Order
 
 
 class OrderCouplingContainer(Container[OrderCoupling]):
-    def __init__(self, items: Iterable[OrderCoupling] | None = None):
-        super().__init__(items)
+    item_type = OrderCoupling
 
 
-class OtherNonDispatchableContainer(EquipmentContainer):
-    def __init__(self, items: Iterable[Equipment] | None = None):
-        super().__init__(items)
+class OtherNonDispatchableContainer(Container[OtherNonDispatchable]):
+    item_type = OtherNonDispatchable
 
 
-class SolarContainer(EquipmentContainer):
-    def __init__(self, items: Iterable[Equipment] | None = None):
-        super().__init__(items)
+class SolarContainer(Container[Solar]):
+    item_type = Solar
 
 
 class PortfolioContainer(Container[Portfolio]):
-    def __init__(self, items: Iterable[Portfolio] | None = None):
-        super().__init__(items)
+    item_type = Portfolio
 
 
-class StorageContainer(EquipmentContainer):
-    def __init__(self, items: Iterable[Equipment] | None = None):
-        super().__init__(items)
+class StorageContainer(Container[Storage]):
+    item_type = Storage
 
 
-class ThermalContainer(EquipmentContainer):
-    def __init__(self, items: Iterable[Equipment] | None = None):
-        super().__init__(items)
+class ThermalContainer(Container[Thermal]):
+    item_type = Thermal
 
 
-class WindContainer(EquipmentContainer):
-    def __init__(self, items: Iterable[Equipment] | None = None):
-        super().__init__(items)
+class WindContainer(Container[Wind]):
+    item_type = Wind

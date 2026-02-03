@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from collections.abc import Iterable, Iterator
-from typing import Generic, TypeVar
+from typing import ClassVar, Generic, TypeVar
 
 from atlas.models.business_model import BusinessModel
 
@@ -14,6 +14,8 @@ T = TypeVar("T", bound=BusinessModel)
 
 
 class Container(Generic[T]):
+    item_type: ClassVar[type[BusinessModel]] = BusinessModel
+
     def __init__(self, items: Iterable[T] | None = None):
         self._items: dict[str, T] = {}
 
@@ -22,6 +24,8 @@ class Container(Generic[T]):
                 self.add(item)
 
     def add(self, item: T) -> None:
+        if not isinstance(item, self.item_type):
+            raise TypeError(f"Expected {self.item_type.__name__}, got {type(item).__name__}")
         if item.name in self._items:
             raise ValueError(f"Item with name '{item.name}' already exists")
         self._items[item.name] = item
