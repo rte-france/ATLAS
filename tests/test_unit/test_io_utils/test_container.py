@@ -125,3 +125,36 @@ def test_container_iter():
     names = [item.name for item in c]
 
     assert names == ["a", "b"]
+
+
+def test_contains_string_key_present():
+    a = DummyBM("a")
+    c = Container([a])
+    assert "a" in c
+
+
+def test_contains_string_key_missing():
+    a = DummyBM("a")
+    c = Container([a])
+    assert "b" not in c
+
+
+def test_contains_object_present():
+    a = DummyBM("a")
+    c = Container([a])
+    assert a in c
+
+
+def test_contains_object_missing():
+    a = DummyBM("a")
+    b = DummyBM("b")
+    c = Container([a])
+    assert b not in c
+
+
+def test_contains_unrelated_type():
+    a = DummyBM("a")
+    c = Container([a])
+    assert 123 not in c
+    assert None not in c
+    assert [] not in c
