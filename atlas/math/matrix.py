@@ -21,12 +21,13 @@ import polars as pl
 from pydantic_core import core_schema
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone, get_duration, infer_frequency
 from atlas.typing import TimeseriesDict
 
 
-class ScenarioMatrix:
+class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
     """A container for time-indexed `Timeseries` data, supporting both eager and lazy operations.
 
     This class abstracts over Polars and Pandas DataFrames to provide a uniform way
@@ -125,6 +126,17 @@ class ScenarioMatrix:
         if len(time_columns) + len(value_columns) != len(df.columns):
             raise ValueError("ScenarioMatrix must have N columns one for datetime and N-1 for numerical values")
 
+    def _get_data(self) -> pl.DataFrame:
+        """Return the underlying DataFrame."""
+        return self.matrix
+
+    def _return(self, data: pl.DataFrame, inplace: bool) -> ScenarioMatrix:
+        """Wrap data into ScenarioMatrix type."""
+        if inplace:
+            self.matrix = data
+            return self
+        return self.__class__(data, timezone=self.timezone)
+
     def _get_indexes(self) -> list[str]:
         """
         Get the indexes of the matrix.
@@ -203,15 +215,6 @@ class ScenarioMatrix:
         :rtype: pl.LazyFrame
         """
         return self.matrix.lazy()
-
-    def abs(self, inplace: bool = True) -> Self:
-        df = self.matrix.select([pl.col(c).abs().alias(c) for c in self.index])
-
-        if inplace:
-            self.matrix = df
-            return self
-        else:
-            return self.__class__(df, timezone=self.timezone)
 
     def add(
         self,
