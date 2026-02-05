@@ -19,7 +19,11 @@ from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.hydro import Hydro
+from atlas.models.equipment.load import Load
+from atlas.models.equipment.solar import Solar
+from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.thermal import Thermal
+from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
@@ -422,10 +426,6 @@ class TestAtlasDatasetComplexRoundtrip:
 
     def test_directory_roundtrip_with_multiple_equipment_types(self, tmp_path):
         """Test directory roundtrip with multiple equipment types and verify all are preserved."""
-        from atlas.models.equipment.load import Load
-        from atlas.models.equipment.solar import Solar
-        from atlas.models.equipment.storage import Storage
-        from atlas.models.equipment.wind import Wind
 
         cb = ControlBlock(name="cb1")
         ma = MarketArea(name="ma1", control_block=cb)
