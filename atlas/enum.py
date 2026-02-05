@@ -136,7 +136,7 @@ class Product(str, Enum):
     :cvar Intraday: Intraday market product.
     :cvar DayAhead: Day-ahead market product.
     :cvar AFRRUpProcurement: Upward aFRR reserve procurement.
-    :cvar FRRDownProcurement: Downward FRR reserve procurement.
+    :cvar AFRRDownProcurement: Downward aFRR reserve procurement.
     :cvar MFRRUpProcurement: Upward mFRR reserve procurement.
     :cvar MFRRDownProcurement: Downward mFRR reserve procurement.
     :cvar RRUpProcurement: Upward replacement reserve procurement.
@@ -152,7 +152,7 @@ class Product(str, Enum):
     Intraday = "Intraday"
     DayAhead = "DayAhead"
     AFRRUpProcurement = "AFRRUpProcurement"
-    FRRDownProcurement = "FRRDownProcurement"
+    AFRRDownProcurement = "AFRRDownProcurement"
     MFRRUpProcurement = "MFRRUpProcurement"
     MFRRDownProcurement = "MFRRDownProcurement"
     RRUpProcurement = "RRUpProcurement"

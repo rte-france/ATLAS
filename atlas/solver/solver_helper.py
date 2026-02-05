@@ -8,6 +8,7 @@ This file is part of the ATLAS project.
 import re
 from collections import OrderedDict
 from pathlib import Path
+from typing import Any
 
 from ortools.linear_solver import pywraplp
 
@@ -481,7 +482,7 @@ class SolverHelper:
                     continue
 
                     # raise ValueError("Constraint line must contain >=, <=, or = sign")
-                line = line.split(" ")
+                line = line.strip().split(" ")
 
                 if not SolverHelper.isfloat(line[0]) and line[0] not in ("+", "-"):
                     line.insert(0, "+")
@@ -1156,7 +1157,8 @@ class SolverHelper:
                 elif item_type == "variables":
                     lb1, ub1 = dict1[item]
                     lb2, ub2 = dict2[item]
-                    if abs(lb1 - lb2) <= tolerance and abs(ub1 - ub2) <= tolerance:
+                    # lb1 == lb2 and ub1 == ub2 resolve case of -inf/inf lower/upper bound
+                    if (lb1 == lb2 or abs(lb1 - lb2) <= tolerance) and (ub1 == ub2 or abs(ub1 - ub2) <= tolerance):
                         identical += 1
                     else:
                         modified += 1
@@ -1393,3 +1395,16 @@ class SolverHelper:
             new_line = pattern_underscore.sub(r"\3_\2_\1_\4_\5_\6_00_00", new_line)
             lines.append(new_line + "\n")
         return lines
+
+    @staticmethod
+    def deactivate_constraint(constraint: Any):
+        """
+        Deactivate a constraint by setting its bounds to (-inf, +inf)
+
+        :param constraint: OrTools Constraint. The constraint  to deactivate
+        :return: The deactivated constraint
+        """
+        if constraint is None:
+            return
+        constraint.SetBounds(float("-inf"), float("inf"))
+        return constraint
