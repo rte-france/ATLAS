@@ -17,6 +17,7 @@ from typing import Any, Generic, Literal, Self, TypeVar
 import pendulum
 import plotly.graph_objects as go
 import polars as pl
+from pydantic_core import core_schema
 
 TBackend = TypeVar("TBackend", pl.DataFrame, pl.LazyFrame)
 
@@ -191,3 +192,12 @@ class AbstractScenarioMatrix(ABC, Generic[TBackend]):
     def describe(self) -> dict[str, Any]:
         """Get metadata about the matrix."""
         ...
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: "scenario_matrix", when_used="json"
+            ),
+        )

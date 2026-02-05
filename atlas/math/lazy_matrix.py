@@ -16,7 +16,6 @@ from typing import Self
 import pandas as pd
 import pendulum
 import polars as pl
-from pydantic_core import core_schema
 
 from atlas.io_utils.utils import get_metadata_from_frame, scan_data_file
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
@@ -309,12 +308,3 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         """Get metadata about the matrix."""
 
         return get_metadata_from_frame(self.matrix.collect())
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler):
-        return core_schema.is_instance_schema(
-            cls,
-            serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda x: "scenario_matrix", when_used="json"
-            ),
-        )

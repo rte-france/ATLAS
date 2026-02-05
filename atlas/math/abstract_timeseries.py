@@ -13,18 +13,16 @@ from abc import ABC, abstractmethod
 from collections.abc import Generator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, Self, TypeVar
+from typing import Any, Generic, Literal, Self, TypeVar
 
 import pandas as pd
 import pendulum
 import plotly
 import plotly.graph_objects
 import polars as pl
+from pydantic_core import core_schema
 
 from atlas.timing import build_datetime, generate_datetimes, get_duration
-
-if TYPE_CHECKING:
-    pass
 
 TBackend = TypeVar("TBackend", pl.DataFrame, pl.LazyFrame)
 
@@ -709,3 +707,10 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
     def describe(self) -> dict[str, Any]:
         """Get metadata about the timeseries."""
         ...
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(lambda x: "timeseries", when_used="json"),
+        )

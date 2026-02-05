@@ -21,7 +21,6 @@ import plotly
 import plotly.express as px
 import plotly.graph_objects
 import polars as pl
-from pydantic_core import core_schema
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -55,13 +54,6 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
 
         self._check_timeseries(timeseries)
         self._set_timeseries(timeseries, timezone)
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler):
-        return core_schema.is_instance_schema(
-            cls,
-            serialization=core_schema.plain_serializer_function_ser_schema(lambda x: "timeseries", when_used="json"),
-        )
 
     @classmethod
     def from_file(

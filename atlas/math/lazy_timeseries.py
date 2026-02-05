@@ -21,7 +21,7 @@ import polars as pl
 from atlas.io_utils.utils import get_metadata_from_frame, scan_data_file
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.timing import build_datetime, check_timezone, generate_datetimes, infer_frequency
+from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
 
 
 class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
@@ -44,7 +44,6 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         :param timezone: Timezone string used to convert datetime values, defaults to "UTC"
         :type timezone: str, optional
         """
-        from atlas.math.timeseries import Timeseries
 
         check_timezone(timezone)
         self.timezone: str = timezone
@@ -190,7 +189,6 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         :return: A LazyTimeseries object with the specified parameters
         :rtype: LazyTimeseries
         """
-        from atlas.timing import generate_datetimes, get_duration
 
         if len(values) < 2:
             raise ValueError("Timeseries must contains at least 2 values")
@@ -336,7 +334,6 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         :return: A regular Timeseries object with the collected data
         :rtype: Timeseries
         """
-        from atlas.math.timeseries import Timeseries
 
         return Timeseries(
             self.timeseries.collect(),
