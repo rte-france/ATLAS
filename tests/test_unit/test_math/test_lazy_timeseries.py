@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pandas as pd
 import pendulum
 import polars as pl
 import pytest
@@ -559,9 +560,6 @@ def test_contains_empty_lazy_timeseries():
     assert dt not in lt
 
 
-# Tests for aggregation methods (max, min, sum)
-
-
 def test_max_with_values(sample_df_extended):
     """Test max() returns the maximum value."""
     lt = LazyTimeseries(sample_df_extended.lazy())
@@ -852,3 +850,216 @@ def test_round():
     assert ts.get_value(datetime(2025, 12, 15, 2, 0, 0)) == 4
     assert ts.get_value(datetime(2025, 12, 15, 3, 0, 0)) == 4
     assert ts.get_value(datetime(2025, 12, 15, 4, 0, 0)) == 5.29
+
+
+@pytest.fixture
+def sample_lazy_ts():
+    df = pd.DataFrame(
+        {
+            "time": pd.date_range(start="2023-01-01", periods=5, freq="h", tz="UTC"),
+            "value": [10.0, 15.0, 20.0, 25.0, 30.0],
+        }
+    )
+    return LazyTimeseries(pl.from_pandas(df).lazy())
+
+
+@pytest.fixture
+def another_lazy_ts():
+    df = pd.DataFrame(
+        {
+            "time": pd.date_range(start="2023-01-01", periods=5, freq="h", tz="UTC"),
+            "value": [2.0, 3.0, 4.0, 5.0, 6.0],
+        }
+    )
+    return LazyTimeseries(pl.from_pandas(df).lazy())
+
+
+class TestLazyTimeseriesProperties:
+    """Test LazyTimeseries properties that require collection."""
+
+    def test_dataframe_property(self, sample_lazy_ts):
+        """Test that .dataframe property returns LazyFrame."""
+        df = sample_lazy_ts.dataframe
+        assert isinstance(df, pl.LazyFrame)
+        # Collect to verify it's the same data
+        collected = df.collect()
+        assert "time" in collected.columns
+        assert "value" in collected.columns
+
+    def test_lazyframe_property(self, sample_lazy_ts):
+        """Test that .lazyframe property returns LazyFrame."""
+        lf = sample_lazy_ts.lazyframe
+        assert isinstance(lf, pl.LazyFrame)
+        collected = lf.collect()
+        assert collected.shape[0] == 5
+
+    def test_index_property(self, sample_lazy_ts):
+        """Test that .index property returns list of datetimes."""
+        index = sample_lazy_ts.index
+        assert isinstance(index, list)
+        assert len(index) == 5
+        assert all(isinstance(dt, datetime) for dt in index)
+
+    def test_values_property(self, sample_lazy_ts):
+        """Test that .values property returns list of floats."""
+        values = sample_lazy_ts.values
+        assert isinstance(values, list)
+        assert len(values) == 5
+        assert values == [10.0, 15.0, 20.0, 25.0, 30.0]
+
+    def test_timestep_property(self, sample_lazy_ts):
+        """Test that .timestep property returns Duration."""
+        timestep = sample_lazy_ts.timestep
+        assert isinstance(timestep, pendulum.Duration)
+        assert timestep == pendulum.duration(hours=1)
+
+    def test_metadata_property(self, sample_lazy_ts):
+        """Test that .metadata property returns dict."""
+        metadata = sample_lazy_ts.metadata
+        assert isinstance(metadata, dict)
+        # metadata comes from describe() which returns different keys
+        assert "shape" in metadata
+        assert "datetime" in metadata or "numerical" in metadata
+
+
+class TestLazyTimeseriesArithmetic:
+    """Test arithmetic operations on LazyTimeseries."""
+
+    def test_mul_with_scalar(self, sample_lazy_ts):
+        """Test multiplication with scalar value."""
+        result = sample_lazy_ts * 2.0
+        collected = result.collect()
+        assert collected.timeseries["value"].to_list() == [20.0, 30.0, 40.0, 50.0, 60.0]
+
+    def test_mul_with_timeseries(self, sample_lazy_ts, another_lazy_ts):
+        """Test multiplication with another LazyTimeseries."""
+        result = sample_lazy_ts * another_lazy_ts
+        collected = result.collect()
+        expected = [10.0 * 2.0, 15.0 * 3.0, 20.0 * 4.0, 25.0 * 5.0, 30.0 * 6.0]
+        assert collected.timeseries["value"].to_list() == expected
+
+    def test_add_with_scalar(self, sample_lazy_ts):
+        """Test addition with scalar value."""
+        result = sample_lazy_ts + 5.0
+        collected = result.collect()
+        assert collected.timeseries["value"].to_list() == [15.0, 20.0, 25.0, 30.0, 35.0]
+
+    def test_add_with_timeseries(self, sample_lazy_ts, another_lazy_ts):
+        """Test addition with another LazyTimeseries."""
+        result = sample_lazy_ts + another_lazy_ts
+        collected = result.collect()
+        expected = [10.0 + 2.0, 15.0 + 3.0, 20.0 + 4.0, 25.0 + 5.0, 30.0 + 6.0]
+        assert collected.timeseries["value"].to_list() == expected
+
+    def test_sub_with_scalar(self, sample_lazy_ts):
+        """Test subtraction with scalar value."""
+        result = sample_lazy_ts - 5.0
+        collected = result.collect()
+        assert collected.timeseries["value"].to_list() == [5.0, 10.0, 15.0, 20.0, 25.0]
+
+    def test_sub_with_timeseries(self, sample_lazy_ts, another_lazy_ts):
+        """Test subtraction with another LazyTimeseries."""
+        result = sample_lazy_ts - another_lazy_ts
+        collected = result.collect()
+        expected = [10.0 - 2.0, 15.0 - 3.0, 20.0 - 4.0, 25.0 - 5.0, 30.0 - 6.0]
+        assert collected.timeseries["value"].to_list() == expected
+
+    def test_div_with_scalar(self, sample_lazy_ts):
+        """Test division with scalar value."""
+        result = sample_lazy_ts / 2.0
+        collected = result.collect()
+        assert collected.timeseries["value"].to_list() == [5.0, 7.5, 10.0, 12.5, 15.0]
+
+    def test_div_with_timeseries(self, sample_lazy_ts, another_lazy_ts):
+        """Test division with another LazyTimeseries."""
+        result = sample_lazy_ts / another_lazy_ts
+        collected = result.collect()
+        expected = [10.0 / 2.0, 15.0 / 3.0, 20.0 / 4.0, 25.0 / 5.0, 30.0 / 6.0]
+        assert collected.timeseries["value"].to_list() == expected
+
+
+class TestLazyTimeseriesModification:
+    """Test modification methods that delegate to eager version."""
+
+    def test_set_value(self, sample_lazy_ts):
+        """Test set_value method."""
+        first_time = sample_lazy_ts.index[0]
+        result = sample_lazy_ts.set_value(first_time, 999.0, inplace=False)
+        collected = result.collect()
+        assert collected.timeseries["value"][0] == 999.0
+
+    def test_mul_value_at(self, sample_lazy_ts):
+        """Test mul_value_at method."""
+        first_time = sample_lazy_ts.index[0]
+        result = sample_lazy_ts.mul_value_at(first_time, 2.0, inplace=False)
+        collected = result.collect()
+        assert collected.timeseries["value"][0] == 20.0  # 10.0 * 2.0
+
+
+class TestLazyTimeseriesAdvanced:
+    """Test advanced methods like groupby."""
+
+    def test_groupby(self, sample_lazy_ts):
+        """Test groupby method."""
+        result = sample_lazy_ts.groupby("1d", agg="sum", inplace=False)
+        collected = result.collect()
+        # Should aggregate all hourly values into one daily value
+        assert collected.timeseries.shape[0] == 1
+
+
+class TestLazyTimeseriesIO:
+    """Test I/O methods."""
+
+    def test_to_file_csv(self, sample_lazy_ts, tmp_path):
+        """Test to_file method with CSV."""
+        file_path = tmp_path / "test_lazy.csv"
+        sample_lazy_ts.to_file(file_path, file_format="csv")
+        assert file_path.exists()
+
+        # Load and verify
+        loaded = LazyTimeseries.from_file(file_path, timezone="UTC")
+        collected_original = sample_lazy_ts.collect()
+        collected_loaded = loaded.collect()
+        assert collected_original.timeseries.shape == collected_loaded.timeseries.shape
+
+    def test_to_file_parquet(self, sample_lazy_ts, tmp_path):
+        """Test to_file method with Parquet."""
+        file_path = tmp_path / "test_lazy.parquet"
+        sample_lazy_ts.to_file(file_path, file_format="parquet")
+        assert file_path.exists()
+
+
+class TestLazyTimeseriesVisualization:
+    """Test visualization methods."""
+
+    def test_plot(self, sample_lazy_ts):
+        """Test plot method returns a plotly figure."""
+        fig = sample_lazy_ts.plot(title="Test Plot")
+        # Check that it returns a plotly figure
+        assert hasattr(fig, "data")
+        assert hasattr(fig, "layout")
+        assert fig.layout.title.text == "Test Plot"
+
+
+class TestLazyTimeseriesSlicing:
+    """Test slicing operations."""
+
+    def test_slice_with_datetimes(self, sample_lazy_ts):
+        """Test slice method with datetime range."""
+        index = sample_lazy_ts.index
+        # slice takes start_bound and end_bound as arguments
+        result = sample_lazy_ts.slice(index[1], index[3], inplace=False)
+        collected = result.collect()
+        assert collected.timeseries.shape[0] == 3  # Includes start and end
+
+
+class TestLazyTimeseriesDescribe:
+    """Test describe method."""
+
+    def test_describe(self, sample_lazy_ts):
+        """Test describe method returns metadata."""
+        description = sample_lazy_ts.describe()
+        assert isinstance(description, dict)
+        # describe() returns shape, datetime info, numerical info
+        assert "shape" in description
+        assert description["shape"] == (5, 2)
