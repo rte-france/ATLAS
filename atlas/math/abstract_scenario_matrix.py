@@ -52,10 +52,6 @@ class AbstractScenarioMatrix(ABC, Generic[TBackend]):
         """Get the indexes of the matrix."""
         ...
 
-    # ========================================
-    # Constructor class methods
-    # ========================================
-
     @classmethod
     @abstractmethod
     def from_file(
@@ -67,10 +63,6 @@ class AbstractScenarioMatrix(ABC, Generic[TBackend]):
     ) -> Self:
         """Load a ScenarioMatrix from a file."""
         ...
-
-    # ========================================
-    # Abstract properties
-    # ========================================
 
     @property
     @abstractmethod
@@ -94,10 +86,6 @@ class AbstractScenarioMatrix(ABC, Generic[TBackend]):
         """Return the metadata of the matrix."""
         ...
 
-    # ========================================
-    # Yellow Zone: Collection methods
-    # ========================================
-
     @abstractmethod
     def __len__(self) -> int:
         """Number of timeseries in the matrix."""
@@ -108,19 +96,11 @@ class AbstractScenarioMatrix(ABC, Generic[TBackend]):
         """Check if an index exists in the matrix."""
         ...
 
-    # ========================================
-    # Green Zone: Lazy-preserving methods
-    # ========================================
-
     def abs(self, inplace: bool = True) -> Self:
         """Compute absolute value of all numeric columns."""
         backend = self._get_data()
         result = backend.select(["time"] + [pl.col(c).abs().alias(c) for c in self.index])
         return self._return(result, inplace)
-
-    # ========================================
-    # Orange Zone: Collection-required methods
-    # ========================================
 
     @abstractmethod
     def set_frequency(self, frequency: str | timedelta | pendulum.Duration, inplace: bool = True) -> Self:
@@ -148,10 +128,6 @@ class AbstractScenarioMatrix(ABC, Generic[TBackend]):
     ) -> None:
         """Export the matrix to a file with an attribute column."""
         ...
-
-    # ========================================
-    # Additional abstract methods
-    # ========================================
 
     @abstractmethod
     def __repr__(self) -> str:
