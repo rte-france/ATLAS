@@ -3,7 +3,7 @@ import pickle
 
 import pytest
 
-from atlas import InputLoader
+from atlas import AtlasDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.phases.market_clearing_results import MarketClearingResults
 
@@ -30,7 +30,7 @@ def test_compare_lp(dataset_name):
             raw_data = pickle.load(f)
     else:
         print("Chargement long des données...")
-        raw_data = InputLoader.from_directory(dataset_path)
+        raw_data = AtlasDataset.from_directory(dataset_path)
         print("Création d'un pickle...")
         with open(pkl_path, "wb") as f:
             pickle.dump(raw_data, f)

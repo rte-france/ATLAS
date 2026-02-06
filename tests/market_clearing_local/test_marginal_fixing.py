@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from atlas.io_utils.input_loader import InputLoader
+from atlas import AtlasDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.phases.marginal_fixing import MarginalFixing
 
@@ -28,7 +28,7 @@ def test_if_marginal_fixing_generated_lp_matches_reference(dataset_name):
     marginal_fixing_accepted_powers_path = dataset_path / "expected_results" / "marginal_fixing_accepted_powers.json"
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        raw_data = InputLoader.from_directory(dataset_data_path)
+        raw_data = AtlasDataset.from_directory(dataset_data_path)
 
         try:
             mc_module = MarketClearingModule()

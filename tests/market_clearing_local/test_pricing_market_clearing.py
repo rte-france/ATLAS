@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from atlas import InputLoader
+from atlas import AtlasDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.phases.pricing import Pricing
 from atlas.solver.solver_helper import SolverHelper

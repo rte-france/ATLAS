@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from atlas import InputLoader
+from atlas import AtlasDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.phases.exchanges_fixing import ExchangesFixing
 from atlas.solver.solver_helper import SolverHelper
@@ -34,7 +34,7 @@ def test_if_exchange_fixing_generated_lp_matches_reference(dataset_name):
     expected_exchange_fixing_path = dataset_path / "expected_results" / "exchanges_fixing_model.lp"
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        raw_data = InputLoader.from_directory(dataset_data_path)
+        raw_data = AtlasDataset.from_directory(dataset_data_path)
 
         try:
             mc_module = MarketClearingModule()

@@ -6,7 +6,7 @@ import pytest
 import polars as pl
 
 import atlas.config as cfg
-from atlas import InputLoader
+from atlas import AtlasDataset
 from atlas.config import EQUIPMENT_MODELS
 from atlas.io_utils.utils import to_snake_case
 from atlas.models.portfolio import Portfolio
@@ -101,7 +101,7 @@ def test_market_clearing_output(dataset_name):
             raw_data = pickle.load(f)
     else:
         print("Chargement long des données...")
-        raw_data = InputLoader.from_directory(dataset_path)
+        raw_data = AtlasDataset.from_directory(dataset_path)
         print("Création d'un pickle...")
         with open(pkl_path, "wb") as f:
             pickle.dump(raw_data, f)
@@ -116,7 +116,7 @@ def test_market_clearing_output(dataset_name):
             expected_raw_data = pickle.load(f)
     else:
         print("Chargement long des données...")
-        expected_raw_data = InputLoader.from_directory(expected_dataset_path)
+        expected_raw_data = AtlasDataset.from_directory(expected_dataset_path)
         print("Création d'un pickle...")
         with open(expected_pkl_path, "wb") as f:
             pickle.dump(expected_raw_data, f)

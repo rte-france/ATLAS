@@ -16,7 +16,7 @@ import pandas as pd
 import pendulum
 import pytest
 
-from atlas import InputLoader
+from atlas import AtlasDataset
 from atlas.io_utils.utils import to_snake_case
 from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.module import MarketClearingModule
