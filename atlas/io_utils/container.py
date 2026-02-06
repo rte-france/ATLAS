@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Generic, TypeVar
 
 from atlas.models.business_model import BusinessModel
@@ -15,23 +15,28 @@ T = TypeVar("T", bound=BusinessModel)
 
 class Container(Generic[T]):
     def __init__(self, items: Iterable[T] | None = None):
-        # Dict is not used in case of set on name
-        self._items: list[T] = list(items) if items else []
+        self._items: dict[str, T] = {}
+
+        if items:
+            for item in items:
+                self.add(item)
 
     def add(self, item: T) -> None:
-        self._items.append(item)
+        if item.name in self._items:
+            raise ValueError(f"Item with name '{item.name}' already exists")
+        self._items[item.name] = item
 
     def get(self, name: str) -> T:
-        for item in self._items:
-            if item.name == name:
-                return item
-        raise KeyError(f"{name} not found")
+        try:
+            return self._items[name]
+        except KeyError:
+            raise KeyError(f"'{name}' not found") from None
 
     def remove(self, name: str) -> None:
-        self._items = [i for i in self._items if i.name != name]
+        self._items.pop(name, None)
 
     def all(self) -> list[T]:
-        return self._items
+        return list(self._items.values())
 
     def clear(self) -> None:
         """Remove all items from the container."""
@@ -39,14 +44,27 @@ class Container(Generic[T]):
 
     def is_empty(self) -> bool:
         """Return True if the container has no items."""
-        return len(self._items) == 0
+        return not self._items
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Return The size of the container."""
         return len(self._items)
 
-    def __iter__(self):
-        return iter(self._items)
+    def __iter__(self) -> Iterator[T]:
+        return iter(self._items.values())
 
     def __bool__(self) -> bool:
         """Return True if the container has any items."""
-        return len(self._items) > 0
+        return bool(self._items)
+
+    def __contains__(self, item: object) -> bool:
+        """
+        Support 'in' operator:
+        - If item is str → check if key exists
+        - If item is BusinessModel → check if item.name exists
+        """
+        if isinstance(item, str):
+            return item in self._items
+        elif isinstance(item, BusinessModel):
+            return item.name in self._items
+        return False
