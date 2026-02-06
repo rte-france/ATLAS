@@ -767,3 +767,12 @@ def find_hdf5_files(directory: Path) -> list[Path]:
             continue
 
     return valid_hdf5_files
+
+
+if __name__ == "__main__":
+    path = "C:/Users/aboutet/Documents/atlas 2/ATLAS/data/market_clearing_prometheus/MarketClearing input v1.3 ATC_1"
+    PrometheusToAtlasDataParser(
+        timeseries_path=os.path.join(path, "timeseries"),
+        hdf5_path=os.path.join(path, "hdf5.hdf5"),
+        output_dir=os.path.join(path, "atlas-dataset-test-hdf5"),
+    ).process()
