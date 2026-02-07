@@ -8,7 +8,7 @@ import pendulum
 from pendulum import Duration
 
 from atlas import ControlBlock
-from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.market.market_area import MarketArea
 from atlas.modules.market_clearing.models.order import OrderMC
@@ -27,21 +27,21 @@ class MarketAreaMC(MarketArea):
     times: list[pendulum.DateTime]
 
     @property
-    def ref_balance(self) -> Timeseries | LazyTimeseries:
+    def ref_balance(self) -> AbstractTimeseries:
         if self.reference_balance:
             return self.reference_balance.set_frequency(self.timestep, False).filter(self.times)
         else:
             return Timeseries.from_index(self.times[0], self.timestep, self.times[-1], 0.0)
 
     @property
-    def max_price(self) -> Timeseries | LazyTimeseries:
+    def max_price(self) -> AbstractTimeseries:
         if self.maximum_price:
             return self.maximum_price.set_frequency(self.timestep, False).filter(self.times)
         else:
             return Timeseries.from_index(self.times[0], self.timestep, self.times[-1], INITIAL_MAX_PRICE)
 
     @property
-    def min_price(self) -> Timeseries | LazyTimeseries:
+    def min_price(self) -> AbstractTimeseries:
         if self.minimum_price:
             return self.minimum_price.set_frequency(self.timestep, False).filter(self.times)
         else:

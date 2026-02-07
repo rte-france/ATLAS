@@ -7,7 +7,8 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import Duration
 
-from atlas import LazyTimeseries, MarketAreaPtdf, Timeseries
+from atlas import MarketAreaPtdf
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.models.market.critical_branch import CriticalBranch
 
 
@@ -19,21 +20,21 @@ class CriticalBranchMC(CriticalBranch):
     times: list[pendulum.DateTime]
 
     @property
-    def flow_margin(self) -> Timeseries | LazyTimeseries | None:
+    def flow_margin(self) -> AbstractTimeseries | None:
         if self.flow_reliability_margin:
             return self.flow_reliability_margin.set_frequency(self.timestep, False).filter(self.times)
         else:
             return None
 
     @property
-    def ref_flow(self) -> Timeseries | LazyTimeseries | None:
+    def ref_flow(self) -> AbstractTimeseries | None:
         if self.reference_flow:
             return self.reference_flow.set_frequency(self.timestep, False).filter(self.times)
         else:
             return None
 
     @property
-    def max_flow(self) -> Timeseries | LazyTimeseries | None:
+    def max_flow(self) -> AbstractTimeseries | None:
         if self.maximum_flow:
             max_flow = self.maximum_flow.set_frequency(self.timestep, False).filter(self.times)
             if self.flow_margin is not None:

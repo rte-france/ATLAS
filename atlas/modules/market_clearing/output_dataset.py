@@ -8,6 +8,7 @@ import atlas.config as cfg
 from atlas import ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enum import Product
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.market.critical_branch import CriticalBranch
@@ -486,12 +487,12 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                         "This should be corrected in future versions"
                     )
 
-    def add_indexes(self, ts_obj: Timeseries | LazyTimeseries | None, other: Timeseries) -> Timeseries:
+    def add_indexes(self, ts_obj: AbstractTimeseries | None, other: AbstractTimeseries) -> Timeseries:
         if ts_obj is None:
             return other
         if isinstance(ts_obj, LazyTimeseries):
             ts_obj = ts_obj.collect()
-        if ts_obj.timeseries.shape[0] < 2:
+        if ts_obj.dataframe.shape[0] < 2:
             return other
         if ts_obj.frequency > other.frequency:
             ts_obj.upsample(other.frequency)
@@ -499,7 +500,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
             other.upsample(ts_obj.frequency)
         return ts_obj.add_indexes(other, inplace=False)
 
-    def add_indexes_or_sum(self, ts_obj: Timeseries | LazyTimeseries | None, other: Timeseries) -> Timeseries:
+    def add_indexes_or_sum(self, ts_obj: AbstractTimeseries | None, other: Timeseries) -> Timeseries:
         if ts_obj is None:
             return other
         if isinstance(ts_obj, LazyTimeseries):
