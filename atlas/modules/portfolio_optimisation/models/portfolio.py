@@ -11,9 +11,8 @@ from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.enum import MarketType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
 from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
@@ -481,7 +480,7 @@ class PortfolioPO(Portfolio):
             )
 
         if market == MarketType.dayahead:
-            return cast(Timeseries | LazyTimeseries, self.market_area.da_price).get_value(time)
+            return cast(AbstractTimeseries, self.market_area.da_price).get_value(time)
 
         if market == MarketType.intraday:
             return (
@@ -491,10 +490,10 @@ class PortfolioPO(Portfolio):
             )
 
         if market == MarketType.rr_activation:
-            return cast(Timeseries | LazyTimeseries, self.market_area.rr_activation_price).get_value(time)
+            return cast(AbstractTimeseries, self.market_area.rr_activation_price).get_value(time)
 
         if market == MarketType.mfrr_activation:
-            return cast(Timeseries | LazyTimeseries, self.market_area.mfrr_activation_price).get_value(time)
+            return cast(AbstractTimeseries, self.market_area.mfrr_activation_price).get_value(time)
 
         return None
 

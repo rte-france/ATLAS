@@ -37,6 +37,8 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
     """
 
     timezone: str
+    frequency: pendulum.Duration
+    timeseries: TBackend
 
     @abstractmethod
     def _get_data(self) -> TBackend:

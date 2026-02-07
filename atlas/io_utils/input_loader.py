@@ -21,6 +21,8 @@ from atlas.custom_errors import (
 from atlas.enum import BusinessModelName
 from atlas.io_utils.models import InputLoaderConfig
 from atlas.io_utils.utils import read_data_file
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -231,7 +233,7 @@ def _process_single_object_math(
             try:
                 attribute_type = get_type_attribute(object_type, key)
 
-                if value == "timeseries" and attribute_type in (Timeseries, LazyTimeseries):
+                if value == "timeseries" and attribute_type is AbstractTimeseries:
                     object_instantiated[key] = _load_timeseries(
                         object_type=object_type,
                         name=object_name,
@@ -242,8 +244,7 @@ def _process_single_object_math(
                 elif value in ["forecasting_matrix", "scenario_matrix"] and attribute_type in (
                     ForecastingMatrix,
                     LazyForecastingMatrix,
-                    ScenarioMatrix,
-                    LazyScenarioMatrix,
+                    AbstractScenarioMatrix,
                 ):
                     object_instantiated[key] = _load_matrix(
                         name=object_name,
@@ -273,7 +274,7 @@ def _load_timeseries(
     name: str,
     attribute_name: str,
     config: InputLoaderConfig,
-) -> Timeseries | LazyTimeseries:
+) -> AbstractTimeseries:
     """Load a Timeseries or LazyTimeseries from a file with enhanced error handling."""
     timeseries_dir = config.directory_path / "timeseries"
     object_type_dir = timeseries_dir / object_type
@@ -322,7 +323,7 @@ def _load_matrix(
     attribute_name: str,
     matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
     config: InputLoaderConfig,
-) -> ScenarioMatrix | LazyScenarioMatrix:
+) -> AbstractScenarioMatrix:
     """Load a ForecastingMatrix or ScenarioMatrix (lazy or not) from a file with enhanced error handling."""
     if matrix_type not in ("scenario_matrix", "forecasting_matrix"):
         raise ValueError(f"Invalid matrix type '{matrix_type}'. Must be 'scenario_matrix' or 'forecasting_matrix'")

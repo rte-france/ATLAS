@@ -7,9 +7,8 @@ This file is part of the ATLAS project.
 from pydantic import field_serializer
 
 from atlas.enum import CouplingType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.market.market_area import MarketArea
@@ -85,16 +84,16 @@ class MarketBorder(BusinessModel):
     mfrr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     rr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     rr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
-    afrr_activated: Timeseries | LazyTimeseries | None = None
-    da_flow: Timeseries | LazyTimeseries | None = None
-    da_shadow_price: Timeseries | LazyTimeseries | None = None
-    fcr_activated: Timeseries | LazyTimeseries | None = None
-    maximum_flow: Timeseries | LazyTimeseries | None = None
-    mfrr_activated: Timeseries | LazyTimeseries | None = None
-    minimum_flow: Timeseries | LazyTimeseries | None = None
-    reference_flow: Timeseries | LazyTimeseries | None = None
-    rr_activated: Timeseries | LazyTimeseries | None = None
-    total_id_flow: Timeseries | LazyTimeseries | None = None
+    afrr_activated: AbstractTimeseries | None = None
+    da_flow: AbstractTimeseries | None = None
+    da_shadow_price: AbstractTimeseries | None = None
+    fcr_activated: AbstractTimeseries | None = None
+    maximum_flow: AbstractTimeseries | None = None
+    mfrr_activated: AbstractTimeseries | None = None
+    minimum_flow: AbstractTimeseries | None = None
+    reference_flow: AbstractTimeseries | None = None
+    rr_activated: AbstractTimeseries | None = None
+    total_id_flow: AbstractTimeseries | None = None
 
     @field_serializer(
         "downhill_control_block", "uphill_control_block", "downhill_market_area", "uphill_market_area", mode="plain"

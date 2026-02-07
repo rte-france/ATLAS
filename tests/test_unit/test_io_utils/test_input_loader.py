@@ -11,6 +11,8 @@ import atlas.config as cfg
 from atlas.io_utils import input_loader
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.models import InputLoaderConfig
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -26,8 +28,8 @@ def mock_model_mapping():
         model_config = ConfigDict(arbitrary_types_allowed=True)
 
         name: str | None = None
-        energy: Timeseries | None = None
-        scenario: ScenarioMatrix | None = None
+        energy: AbstractTimeseries | None = None
+        scenario: AbstractScenarioMatrix | None = None
         forecast: ForecastingMatrix | None = None
         start_date: DateTime | None = None
 

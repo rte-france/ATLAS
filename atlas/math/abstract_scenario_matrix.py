@@ -32,6 +32,7 @@ class AbstractScenarioMatrix(ABC, Generic[TBackend]):
 
     timezone: str
     indexes: list[str]
+    matrix: TBackend
 
     @abstractmethod
     def _get_data(self) -> TBackend:

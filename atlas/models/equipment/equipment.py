@@ -6,11 +6,9 @@ This file is part of the ATLAS project.
 
 from pydantic import Field, field_serializer
 
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_matrix import LazyScenarioMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import ScenarioMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
@@ -91,9 +89,9 @@ class Equipment(BusinessModel):
     :param rr_submitted_volume: To be modified, in this state this property does not describe anything properly
     :type rr_submitted_volume: Timeseries
     :param da_cleared_quantity: Sum of accepted power by day-ahead market
-    :type da_cleared_quantity: Timeseries | LazyTimeseries
+    :type da_cleared_quantity: AbstractTimeseries
     :param maximum_daily_energy: Maximum daily quantity of energy that can be produced
-    :type maximum_daily_energy: Timeseries | LazyTimeseries
+    :type maximum_daily_energy: AbstractTimeseries
     :param minimum_daily_energy: Minimum daily quantity of energy that can be produced
     :type minimum_daily_energy: Timeseries
     :param startup_cost: Startup cost. Currently only used for thermic equipment class. If the equipment represents
@@ -106,7 +104,7 @@ class Equipment(BusinessModel):
     :param total_id_sell_submitted_volume: Cumulative sum of sell offers from all Intraday markets
     :type total_id_sell_submitted_volume: Timeseries
     :param variable_cost: Variable cost
-    :type variable_cost: Timeseries | LazyTimeseries
+    :type variable_cost: AbstractTimeseries
     """
 
     node: Node | None = Field(None, description="Class Business model Node")
@@ -133,23 +131,23 @@ class Equipment(BusinessModel):
     rr_down_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     rr_up_procured: ForecastingMatrix | LazyForecastingMatrix | None = None
     specific_activated_power: ForecastingMatrix | LazyForecastingMatrix | None = None
-    storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix | None = None
-    afrr_activated: Timeseries | LazyTimeseries | None = None
-    afrr_submitted_volume: Timeseries | LazyTimeseries | None = None
-    mfrr_activated: Timeseries | LazyTimeseries | None = None
-    mfrr_submitted_volume: Timeseries | LazyTimeseries | None = None
-    fcr_activated: Timeseries | LazyTimeseries | None = None
-    fcr_submitted_volume: Timeseries | LazyTimeseries | None = None
-    rr_activated: Timeseries | LazyTimeseries | None = None
-    rr_submitted_volume: Timeseries | LazyTimeseries | None = None
-    da_cleared_quantity: Timeseries | LazyTimeseries | None = None
-    maximum_daily_energy: Timeseries | LazyTimeseries | None = None
-    minimum_daily_energy: Timeseries | LazyTimeseries | None = None
-    startup_cost: Timeseries | LazyTimeseries | None = None
-    total_id_buy_submitted_volume: Timeseries | LazyTimeseries | None = None
-    total_id_cleared_quantity: Timeseries | LazyTimeseries | None = None
-    total_id_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
-    variable_cost: Timeseries | LazyTimeseries | None = None
+    storage_marginal_value: AbstractScenarioMatrix | None = None
+    afrr_activated: AbstractTimeseries | None = None
+    afrr_submitted_volume: AbstractTimeseries | None = None
+    mfrr_activated: AbstractTimeseries | None = None
+    mfrr_submitted_volume: AbstractTimeseries | None = None
+    fcr_activated: AbstractTimeseries | None = None
+    fcr_submitted_volume: AbstractTimeseries | None = None
+    rr_activated: AbstractTimeseries | None = None
+    rr_submitted_volume: AbstractTimeseries | None = None
+    da_cleared_quantity: AbstractTimeseries | None = None
+    maximum_daily_energy: AbstractTimeseries | None = None
+    minimum_daily_energy: AbstractTimeseries | None = None
+    startup_cost: AbstractTimeseries | None = None
+    total_id_buy_submitted_volume: AbstractTimeseries | None = None
+    total_id_cleared_quantity: AbstractTimeseries | None = None
+    total_id_sell_submitted_volume: AbstractTimeseries | None = None
+    variable_cost: AbstractTimeseries | None = None
 
     @field_serializer("node", "portfolio", mode="plain")
     def serializer_bmo(self, value: BusinessModel | None) -> str | None:

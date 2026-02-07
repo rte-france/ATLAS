@@ -11,9 +11,8 @@ from typing import cast
 from pendulum import DateTime, Duration
 
 import atlas.config as cfg
-from atlas.math.lazy_matrix import LazyScenarioMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import ScenarioMatrix
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
@@ -24,14 +23,14 @@ from atlas.solver.solver_interface import OptimisationModel
 
 
 class HydroPO(BaseEquipmentPO, Hydro):
-    maximum_energy: Timeseries | LazyTimeseries
-    minimum_energy: Timeseries | LazyTimeseries
+    maximum_energy: AbstractTimeseries
+    minimum_energy: AbstractTimeseries
     maximum_fcr: float
     maximum_afrr: float
-    minimum_power: Timeseries | LazyTimeseries
-    maximum_power: Timeseries | LazyTimeseries
-    initial_level: Timeseries | LazyTimeseries
-    storage_marginal_value: ScenarioMatrix | LazyScenarioMatrix
+    minimum_power: AbstractTimeseries
+    maximum_power: AbstractTimeseries
+    initial_level: AbstractTimeseries
+    storage_marginal_value: AbstractScenarioMatrix
 
     optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None
@@ -282,14 +281,14 @@ class HydroPO(BaseEquipmentPO, Hydro):
         # Apply marginal value adjustments based on available bounds
         if not marginal_weights["has_min"] and marginal_weights["has_max"]:
             # Only upper bound available
-            marginal_adjustment = cast(Timeseries | LazyTimeseries, marginal_weights["level_sup"]).get_value(time)
+            marginal_adjustment = cast(AbstractTimeseries, marginal_weights["level_sup"]).get_value(time)
         elif marginal_weights["has_min"] and not marginal_weights["has_max"]:
             # Only lower bound available
-            marginal_adjustment = cast(Timeseries | LazyTimeseries, marginal_weights["level_inf"]).get_value(time)
+            marginal_adjustment = cast(AbstractTimeseries, marginal_weights["level_inf"]).get_value(time)
         elif marginal_weights["has_min"] and marginal_weights["has_max"]:
             # Both bounds available - interpolate
-            p_min = cast(Timeseries | LazyTimeseries, marginal_weights["level_inf"]).get_value(time)
-            p_max = cast(Timeseries | LazyTimeseries, marginal_weights["level_sup"]).get_value(time)
+            p_min = cast(AbstractTimeseries, marginal_weights["level_inf"]).get_value(time)
+            p_max = cast(AbstractTimeseries, marginal_weights["level_sup"]).get_value(time)
             marginal_adjustment = marginal_weights["weight_inf"] * p_min + marginal_weights["weight_sup"] * p_max
         else:
             # No bounds available
