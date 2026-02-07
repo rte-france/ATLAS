@@ -487,30 +487,30 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                         "This should be corrected in future versions"
                     )
 
-    def add_indexes(self, ts_obj: AbstractTimeseries | None, other: AbstractTimeseries) -> Timeseries:
+    def add_indexes(self, ts_obj: AbstractTimeseries | None, other: AbstractTimeseries) -> AbstractTimeseries:
         if ts_obj is None:
             return other
         if isinstance(ts_obj, LazyTimeseries):
             ts_obj = ts_obj.collect()
-        if ts_obj.dataframe.shape[0] < 2:
+        if ts_obj.shape[0] < 2:
             return other
-        if ts_obj.frequency > other.frequency:
-            ts_obj.upsample(other.frequency)
-        elif other.frequency > ts_obj.frequency:
-            other.upsample(ts_obj.frequency)
+        if ts_obj.timestep > other.timestep:
+            ts_obj.upsample(other.timestep)
+        elif other.timestep > ts_obj.timestep:
+            other.upsample(ts_obj.timestep)
         return ts_obj.add_indexes(other, inplace=False)
 
-    def add_indexes_or_sum(self, ts_obj: AbstractTimeseries | None, other: Timeseries) -> Timeseries:
+    def add_indexes_or_sum(self, ts_obj: AbstractTimeseries | None, other: Timeseries) -> AbstractTimeseries:
         if ts_obj is None:
             return other
         if isinstance(ts_obj, LazyTimeseries):
             ts_obj = ts_obj.collect()
         if ts_obj.timeseries.shape[0] < 2:
             return other
-        if ts_obj.frequency > other.frequency:
-            ts_obj.upsample(other.frequency)
-        elif other.frequency > ts_obj.frequency:
-            other.upsample(ts_obj.frequency)
+        if ts_obj.timestep > other.timestep:
+            ts_obj.upsample(other.timestep)
+        elif other.timestep > ts_obj.timestep:
+            other.upsample(ts_obj.timestep)
         if other.index[0] not in ts_obj:
             null_ts = Timeseries.from_index(
                 self.input_dataset.times[0], self.input_dataset.parameters.timestep, self.input_dataset.times[-1], 0.0

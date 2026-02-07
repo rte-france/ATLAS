@@ -135,7 +135,7 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         return self.timeseries.select("value").collect().to_series().to_list()
 
     @property
-    def timestep(self) -> pendulum.Duration | None:
+    def timestep(self) -> pendulum.Duration:
         """Return the frequency of the timeseries index.
 
         Warning: This property requires collecting the data to infer frequency.
@@ -509,10 +509,6 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
             self.timeseries = lf.sort("time")
             return self
         return LazyTimeseries(lf.sort("time"), timezone=self.timezone)
-
-    # ========================================
-    # Orange Zone: Collection-required methods
-    # ========================================
 
     def upsample(
         self,

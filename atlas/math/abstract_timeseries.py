@@ -230,7 +230,7 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
 
     @property
     @abstractmethod
-    def timestep(self) -> pendulum.Duration | None:
+    def timestep(self) -> pendulum.Duration:
         """Return the frequency of the timeseries index."""
         ...
 

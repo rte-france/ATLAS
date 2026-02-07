@@ -492,7 +492,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         return self.timeseries.select("value").to_series().to_list()
 
     @property
-    def timestep(self) -> pendulum.Duration | None:
+    def timestep(self) -> pendulum.Duration:
         """Return the frequency string of the timeseries index."""
         return self.frequency
 
