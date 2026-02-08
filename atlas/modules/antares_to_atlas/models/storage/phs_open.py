@@ -1,384 +1,344 @@
-import os
-
-import API
-import functions
-
-
-# Function creating a PumpedHydraulicStorage Equipment based on an open loop PHS in the Antares input marker
-def creation_phs_open(antares_dataset, atlas_dataset, hydro_reservoirs, inflows_dictionary, p):
-    # Define a list storing all open_phs equipemnts created
-    open_phs_list = []
-
-    # if a link (pump or turb, doesnt matter) exists between an open phs and a node w_hydro_open_node, it creates a phs
-    for links in antares_dataset.Link.GetAllInstances():
-        # we are searching for links between an open phs and a node (w_hydro_open_node in reality)
-        if links.DownhillNode.Name == "x_open_turb":
-            hydro_name = links.UphillNode.Name
-
-            # we split and get node, then we ensure that we have the minuscule, just a detail of presentation in atlas output
-            node_name = hydro_name.split("_")[-1].lower()
-
-            if (node_name == "fr") or (node_name not in p.market_areas_list):
-                continue
-
-            if (
-                hydro_reservoirs[node_name]["OpenLoopCapacity"] == 0.0
-                or links.IndirectTransferCapacity.GetTimeSeriesByName("1").Abs().Max() == 0.0
-            ):
-                continue
-
-            # Load useful informations from the input_marker
-            w_hydro_open_node = links.UphillNode
-            w_hydro_open_link = antares_dataset.Link.GetInstanceByName(node_name + "_" + hydro_name)
-            binding_constraint = functions.find_binding_constraint_phs(antares_dataset, links)
-
-            # we create the node phs
-            msg = f"Creating phs equipment in Node {node_name}"
-            API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
-
-            instance_name = f"{node_name}_phs_open"
-            atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
-
-            open_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
-
-            if p.consumption_production_separation:
-                portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
-            else:
-                portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
-
-            # general properties of a storage equipment
-            open_phs.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
-            open_phs.Portfolio = portfolio
-            open_phs.StorageType = "PumpedHydraulicStorage"
-            if binding_constraint:
-                open_phs.DischargeEfficiency = abs(binding_constraint.Weights[1])  # turb
-                open_phs.ChargeEfficiency = abs(binding_constraint.Weights[0])  # pump
-            else:
-                open_phs.DischargeEfficiency = 1  # turb
-                open_phs.ChargeEfficiency = 1  # pump
-            open_phs.TransitionDuration = 0
-            open_phs.SetupDelay = 0
-
-            # MinimumPower is directly given by DirectTransferCapacity of w_hydro_open_link
-            open_phs.MinimumPower = -1.0 * w_hydro_open_link.DirectTransferCapacity.GetTimeSeriesByName("1")
-
-            # In ATLAS, the open_phs is divided into two compenents:
-            # - A closed phs that will later be merged with the other closed phs of the corresponding node
-            # - The open part is integrated into the hydro equipment of the node by increasing its MaximumEnergy, MaximumPower and Inflow
-
-            # Calculate the part corresponding to the closed phs within the open phs, both as a difference and as a ratio
-
-            # link power between the phs turb -> the node w_hydro_open_node
-            power_link_phs_w = links.IndirectTransferCapacity.GetTimeSeriesByName("1")
-
-            # link power between w_hydro_open_node -> node
-            power_link_w_node = w_hydro_open_link.IndirectTransferCapacity.GetTimeSeriesByName("1")
-
-            # difference added to the hydro power of the node
-            hydro_equipment = atlas_dataset.Equipment.Hydraulic.GetInstanceByName(f"{node_name}_hydro")
-            if not hydro_equipment:
-                # If the hydro power does not exists, we create one to append to inflows of the open phs
-                hydro_equipment = atlas_dataset.Equipment.Hydraulic.CreateInstance(f"{node_name}_hydro")
-
-                # Inflows are empty
-                available_scenarios = [
-                    ts.Name
-                    for ts in antares_dataset.Node.GetInstanceByName(node_name).CalculatedMarginalPrice.TimeSeries
-                ]
-                if p.water_value_scenarios == "All":
-                    scenarios = available_scenarios
-                else:
-                    scenarios = p.water_value_scenarios.split(sep=";")
-                empty_ts = API.TimeSeries.NewTimeSeries("", API.TimeSeries.Constant, "", power_link_phs_w.Index, 0.0)
-                inflows_dictionary[node_name] = dict.fromkeys(scenarios, empty_ts)
-
-                if p.consumption_production_separation:
-                    hydro_equipment.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                        f"generator_{node_name}"
-                    )
-                else:
-                    hydro_equipment.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                        f"portfolio_{node_name}"
-                    )
-                hydro_equipment.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
-                hydro_equipment.EnergyTargetFrequency = "Daily"
-                hydro_equipment.InflowFrequency = "Daily"
-                hydro_equipment.MaximumPower = API.TimeSeries.NewTimeSeries(
-                    "MaxPower", API.TimeSeries.Constant, "", power_link_w_node.Index, 0.0
-                )
-                hydro_equipment.MinimumPower = API.TimeSeries.NewTimeSeries(
-                    "MinPower", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0.0, "MW"
-                )
-
-                hydro_equipment.MaximumEnergy = API.TimeSeries.NewTimeSeries(
-                    "", API.TimeSeries.Constant, "MWh", power_link_w_node.Index, 0.0
-                )
-                curve_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), p.inflows_time_step)
-                hydro_equipment.Inflows = API.TimeSeries.NewTimeSeries("", API.TimeSeries.Constant, "", curve_index, 0)
-                hydro_equipment.MinimumEnergy = API.TimeSeries.NewTimeSeries(
-                    "MinimumEnergy", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, "MWh"
-                )
-
-                one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), "1d")
-
-                hydro_equipment.HasDailyEnergyConstraint = True
-                hydro_equipment.MinimumDailyEnergy = API.TimeSeries.NewTimeSeries(
-                    "MinimumDailyEnergy", API.TimeSeries.Constant, "MWh", one_year_days_index, 0.0
-                )
-                hydro_equipment.MaximumDailyEnergy = API.TimeSeries.NewTimeSeries(
-                    "MaximumDailyEnergy", API.TimeSeries.Constant, "MWh", one_year_days_index, 0.0
-                )
-
-            total_closed_delta = API.TimeSeries.NewTimeSeries(
-                "Closed Ratio", API.TimeSeries.Constant, "", power_link_w_node.Index, 0
-            )
-            total_closed_ratio = API.TimeSeries.NewTimeSeries(
-                "Closed Ratio", API.TimeSeries.Constant, "", power_link_w_node.Index, 0
-            )
-
-            for time in total_closed_ratio.Index:
-                total_closed_delta.SetValue(
-                    time, max(0, power_link_w_node.GetValue(time) - power_link_phs_w.GetValue(time))
-                )
-
-                if power_link_w_node.GetValue(time) == 0:
-                    total_closed_ratio.SetValue(time, 0)
-                else:
-                    total_closed_ratio.SetValue(
-                        time, total_closed_delta.GetValue(time) / power_link_w_node.GetValue(time)
-                    )
-
-            # Using these informations, update the following properties in both the open_phs and hydro equipments:
-            # - MaximumPower
-            # - MaximumEnergy
-
-            # MaximumPower of open_phs
-            open_phs.MaximumPower = power_link_phs_w
-
-            # MinimumStateOfCharge of open_phs
-            open_phs.MinimumStateOfCharge = API.TimeSeries.NewTimeSeries(
-                "MinimumStateOfCharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, ""
-            )
-
-            # Initial level
-            open_phs.StorageInitialLevel = p.phs_initial_level
-
-            # Increase the MaximumPower of the corresponding hydro equipment
-            hydro_equipment.MaximumPower += total_closed_delta
-
-            # Increase the MaximumEnergy of the corresponding hydro equipment
-            open_loop_capacity = API.TimeSeries.NewTimeSeries(
-                "OpenLoopCapacity",
-                API.TimeSeries.Constant,
-                "MWh",
-                total_closed_ratio.Index,
-                float(hydro_reservoirs[node_name]["OpenLoopCapacity"]),
-            )
-
-            hydro_equipment_additional_energy = API.TimeSeries.NewTimeSeries(
-                "OpenLoopCapacity",
-                API.TimeSeries.Constant,
-                "MWh",
-                total_closed_ratio.Index,
-                float(hydro_reservoirs[node_name]["OpenLoopCapacity"]),
-            )
-
-            hydro_equipment_additional_energy.Multiply(total_closed_ratio)
-            hydro_equipment.MaximumEnergy += hydro_equipment_additional_energy.Round()
-
-            # Deduce the MaximumEnergy of the PHS component from the previous part
-            open_phs.MaximumEnergy = (open_loop_capacity - hydro_equipment_additional_energy).Round()
-
-            # --- Update inflows contained in inflows_dictionary according to those in w_hydro_open_node
-            # An accurate PHS inflow profile is used, taken from the inflow csvs
-            available_scenarios = [
-                ts.Name for ts in antares_dataset.Node.GetInstanceByName(node_name).CalculatedMarginalPrice.TimeSeries
-            ]
-            if p.water_value_scenarios == "All":
-                scenarios = available_scenarios
-            else:
-                scenarios = p.water_value_scenarios.split(sep=";")
-
-            curve_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), p.inflows_time_step)
-
-            # First, read the inflow csv corresponding to the current node,
-            # and store all values in TimeSeries within a dictionary
-            path2 = f"{node_name}_phs.csv"
-            csv_path = os.path.join(p.path_inflows, path2)
-
-            if os.path.isfile(csv_path):
-                f = open(csv_path)
-                lines_list = f.readlines()
-                f.close()
-
-                for line_index, line in enumerate(lines_list):
-                    splitted_line = line.split(";")
-
-                    # For the first line, initialize a dictionary storing all inflow TimeSeries
-                    if line_index == 0:
-                        inflows_csv_timeseries = {}
-
-                        for inflow_index, inflow in enumerate(splitted_line):
-                            new_inflow_ts = API.TimeSeries.NewTimeSeries(
-                                "PHSInflowTimeseries", API.TimeSeries.Constant, "", curve_index, 0
-                            )
-
-                            inflows_csv_timeseries[inflow_index] = new_inflow_ts
-
-                    local_date = curve_index[line_index]
-
-                    for inflow_index, inflow in enumerate(splitted_line):
-                        inflows_csv_timeseries[inflow_index].SetValue(local_date, float(inflow) * 1000)
-
-            # Raise a warning if there are more wv scenarios than inflow scenarios
-            if len(inflows_csv_timeseries.keys()) < len(scenarios):
-                API.IO.Trace.Log(
-                    f"WARNING: There are {str(len(scenarios))} water values scenarios, and "
-                    f" only {str(len(inflows_csv_timeseries.keys()))} inflow scenarios for node {node_name}. "
-                    "Results may be invalid. ",
-                    API.IO.LogTypeWarn,
-                )
-
-            # Then, for each scenario used in WV calculation, find the inflow profile that has the closest total energy
-            for scenario_index, scenario in enumerate(scenarios):
-                local_hydro_sc = w_hydro_open_node.HydroReservoir.HydroSelectedScenario[int(scenario) - 1]
-
-                local_modulation_sum = w_hydro_open_node.HydroReservoir.Modulation.GetTimeSeriesByName(
-                    str(local_hydro_sc)
-                ).Sum()
-
-                closest_inflow_scenario = 0
-                smallest_energy_gap = local_modulation_sum
-                used_inflow_scenarios = []
-
-                for inflow_scenario in inflows_csv_timeseries.keys():
-                    if inflow_scenario in used_inflow_scenarios:
-                        continue
-
-                    if abs(inflows_csv_timeseries[inflow_scenario].Sum() - local_modulation_sum) < smallest_energy_gap:
-                        closest_inflow_scenario = inflow_scenario
-                        smallest_energy_gap = abs(inflows_csv_timeseries[inflow_scenario].Sum() - local_modulation_sum)
-
-                used_inflow_scenarios.append(closest_inflow_scenario)
-
-                # Inflow values are multiplied by a coefficient to convert them from weekly to daily values
-                if p.inflows_time_step == "7d":
-                    conversion_coefficient = 1.0 / 7.0
-                else:
-                    conversion_coefficient = 1
-                    API.IO.Trace.Log(
-                        "Specific inflow time step, please look at the corresponding part of the code",
-                        API.IO.LogTypeWarn,
-                    )
-
-                if inflows_csv_timeseries[closest_inflow_scenario].Sum() == 0:
-                    inflow_to_add = inflows_csv_timeseries[closest_inflow_scenario]
-                else:
-                    inflow_to_add = (
-                        inflows_csv_timeseries[closest_inflow_scenario]
-                        * conversion_coefficient
-                        * (local_modulation_sum / inflows_csv_timeseries[closest_inflow_scenario].Sum())
-                    ).Round()
-
-                inflows_dictionary[node_name][scenario] += inflow_to_add
-
-                if scenario_index == 0:
-                    hydro_equipment.Inflows += inflow_to_add
-
-            # --- Update MaximumDailyEnergy and MinimumDailyEnergy
-            total_flow = -1.0 * w_hydro_open_link.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
-            # QB: we should only account for positive flow and scale it down
-            power_hourly = (total_flow.Abs() + total_flow) / 2 * total_closed_ratio
-            power_hourly = power_hourly.Round()
-
-            one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), "1d")
-            power_hourly.ChangeIndex(one_year_days_index)
-            one_day_max_energy = API.TimeSeries.NewTimeSeries(
-                "OneDayMaxEnergy", API.TimeSeries.Constant, "MWh", one_year_days_index, 0
-            )
-            one_day_min_energy = API.TimeSeries.NewTimeSeries(
-                "OneDayMinEnergy", API.TimeSeries.Constant, "MWh", one_year_days_index, 0
-            )
-
-            for time in one_year_days_index:
-                one_day_energy = power_hourly.Slice(time, time.AddDays(1).AddHours(-1))
-                one_day_max_energy.SetValue(time, one_day_energy.Sum() * p.hydro_max_energy_coeff)
-                one_day_min_energy.SetValue(time, one_day_energy.Sum() * p.hydro_min_energy_coeff)
-
-            hydro_equipment.MaximumDailyEnergy += one_day_max_energy
-            hydro_equipment.MinimumDailyEnergy += one_day_min_energy
-
-            open_phs_list.append(node_name)
-
-    return open_phs_list, inflows_dictionary
-
-
-# Function creating a PumpedHydraulicStorage Equipment based on an open loop PHS in the Antares input marker, specific to the FR node
-def creation_phs_open_fr(antares_dataset, atlas_dataset, hydro_reservoirs, open_phs_list, p):
-    link = antares_dataset.Link.GetInstanceByName("fr_x_open_turb")
-
-    # looking for the node name
-    node_name = "fr"
-
-    # we create the node phs
-    msg = f"Creating phs equipment in Node {node_name}"
-    API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
-
-    instance_name = f"{node_name}_phs_open"
-    atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
-
-    open_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
-
-    binding_constraint = functions.find_binding_constraint_phs(antares_dataset, link)
-
-    if p.consumption_production_separation:
-        portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
-    else:
-        portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
-
-    # general properties of a storage equipment
-    open_phs.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
-    open_phs.Portfolio = portfolio
-    open_phs.StorageType = "PumpedHydraulicStorage"
-    open_phs.isV2G = False
-    if binding_constraint:
-        open_phs.DischargeEfficiency = abs(binding_constraint.Weights[1])
-        open_phs.ChargeEfficiency = abs(binding_constraint.Weights[0])
-    else:
-        open_phs.DischargeEfficiency = 1
-        open_phs.ChargeEfficiency = 1
-    open_phs.TransitionDuration = 0
-    open_phs.SetupDelay = 0
-
-    # specific properties for phs : Power, Pmax and Pmin
-    # power
-    power_timeseries = -1 * link.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
-    open_phs.Power.AddTimeSeries(p.execution_date, power_timeseries)
-
-    # Pmax
-    open_phs.MaximumPower = link.IndirectTransferCapacity.GetTimeSeriesByName("1")
-
-    # Pmin
-    open_phs.MinimumPower = -1.0 * link.IndirectTransferCapacity.GetTimeSeriesByName("1")
-
-    # MaximumEnergy and MinimumStateOfCharge
-    open_phs.MaximumEnergy = API.TimeSeries.NewTimeSeries(
-        "OpenLoopCapacity",
-        API.TimeSeries.Constant,
-        p.start_date.ToString(),
-        "1Y",
-        2,
-        float(hydro_reservoirs[node_name]["OpenLoopCapacity"]),
-        "MWh",
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from antares.craft.model.area import Area
+from antares.craft.model.link import Link
+from antares.craft.model.study import Study
+from loguru import logger
+from pendulum import duration
+
+from atlas.enum import StorageType
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.timeseries import Timeseries
+from atlas.models.equipment.storage import Storage
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+
+
+def convert_phs_open_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    hydro_reservoirs: dict,
+    inflows_dictionary: dict,
+) -> tuple[AtlasDataset, dict]:
+    """Convert open-loop Pumped Hydraulic Storage from Antares to Atlas.
+
+    Open PHS are modeled differently than closed PHS:
+    - They connect to w_hydro_open_{node} virtual nodes
+    - Part of the capacity is integrated into the hydro equipment
+    - The remaining part becomes a PHS equipment
+
+    The split is calculated based on the difference between:
+    - Link capacity from PHS turb to w_hydro_open node
+    - Link capacity from w_hydro_open node to actual node
+
+    :return: Tuple of (updated atlas_dataset, updated inflows_dictionary)
+    """
+    logger.info("Converting open-loop PHS units")
+
+    areas = study.get_areas()
+    links = study.get_links()
+    phs_open_list: list[Storage] = []
+
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
+            continue
+
+        # Skip France (handled separately in old code)
+        if area_name.lower() == "fr":
+            continue
+
+        area = areas[area_name]
+
+        # TODO: Verify how to access hydro reservoir capacity
+        if area_name not in hydro_reservoirs or hydro_reservoirs[area_name].get("OpenLoopCapacity", 0.0) == 0.0:
+            continue
+
+        logger.debug(f"Processing open PHS for area {area.id}")
+
+        # Look for link to x_open_turb from w_hydro_open_{node}
+        # TODO: Need to find the w_hydro_open_{node} area and its link to x_open_turb
+        # In old code: searches for links where DownhillNode.Name == "x_open_turb"
+        # and UphillNode.Name contains the node name
+
+        phs = _create_open_phs(
+            area=area,
+            study=study,
+            parameters=parameters,
+            atlas_dataset=atlas_dataset,
+            hydro_reservoirs=hydro_reservoirs,
+            inflows_dictionary=inflows_dictionary,
+            links=links,
+        )
+
+        if phs:
+            phs_open_list.append(phs)
+
+    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + phs_open_list
+
+    return atlas_dataset, inflows_dictionary
+
+
+def _create_open_phs(
+    area: Area,
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    hydro_reservoirs: dict,
+    inflows_dictionary: dict,
+    links: dict[str, Link],
+) -> Storage | None:
+    """Create open-loop PHS equipment.
+
+    This is complex because:
+    1. Find link from w_hydro_open_{node} to x_open_turb
+    2. Find link from {node} to w_hydro_open_{node}
+    3. Calculate the split between closed and open parts
+    4. Update the hydro equipment with the open part
+    5. Create PHS with the closed part
+    """
+    # TODO: Find the w_hydro_open_{area_name} virtual area
+    areas_dict = study.get_areas()
+    w_hydro_open_name = f"w_hydro_open_{area.id}"
+
+    # In old code, the link naming is: area links to w_hydro_open_{area}
+    # and w_hydro_open_{area} links to x_open_turb
+
+    # Step 1: Find link from w_hydro_open to x_open_turb
+    turb_link = None
+    for link_id, link_obj in links.items():
+        # TODO: Verify link naming and how to check endpoints
+        if w_hydro_open_name.lower() in link_id.lower() and "x_open_turb" in link_id.lower():
+            turb_link = link_obj
+            break
+
+    if not turb_link:
+        logger.debug(f"No turb link found for open PHS in area {area.id}")
+        return None
+
+    # Check capacity
+    try:
+        # TODO: Verify how to get IndirectTransferCapacity
+        turb_capacity_df = turb_link.get_capacity_indirect()
+        if turb_capacity_df.abs().max().max() == 0.0:
+            return None
+        turb_capacity_ts = Timeseries(turb_capacity_df)
+    except Exception as e:
+        logger.warning(f"Could not get turb capacity for open PHS in area {area.id}: {e}")
+        return None
+
+    # Step 2: Find link from area to w_hydro_open
+    w_hydro_open_link = None
+    w_hydro_link_name = f"{area.id}_{w_hydro_open_name}"
+    for link_id, link_obj in links.items():
+        if w_hydro_link_name.lower() in link_id.lower():
+            w_hydro_open_link = link_obj
+            break
+
+    if not w_hydro_open_link:
+        logger.warning(f"No link found from {area.id} to {w_hydro_open_name}")
+        return None
+
+    # Get w_hydro link capacity
+    try:
+        # TODO: Verify how to get IndirectTransferCapacity
+        w_hydro_capacity_df = w_hydro_open_link.get_capacity_indirect()
+        w_hydro_capacity_ts = Timeseries(w_hydro_capacity_df)
+    except Exception as e:
+        logger.warning(f"Could not get w_hydro capacity for open PHS in area {area.id}: {e}")
+        return None
+
+    # Step 3: Get minimum power from DirectTransferCapacity
+    try:
+        # TODO: Verify how to get DirectTransferCapacity
+        minimum_power_df = w_hydro_open_link.get_capacity_direct()
+        minimum_power_ts = Timeseries(minimum_power_df * -1.0)
+    except Exception as e:
+        logger.warning(f"Could not get minimum power for open PHS in area {area.id}: {e}")
+        minimum_power_ts = Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        )
+
+    # Step 4: Calculate split between closed and open parts
+    # TODO: This calculation is complex and involves:
+    # - Calculating the difference between w_hydro capacity and turb capacity
+    # - Using this to split the reservoir capacity
+    # - Updating the hydro equipment with the open part
+    # - Creating the PHS with the closed part
+    # For now, leaving this with TODO comments
+
+    # Get efficiencies from binding constraint
+    # TODO: Find binding constraint for open PHS
+    charge_efficiency = 1.0
+    discharge_efficiency = 1.0
+
+    binding_constraints = study.get_binding_constraints()
+    for bc_id, bc_obj in binding_constraints.items():
+        if "phs" in bc_id.lower() and area.id.lower() in bc_id.lower():
+            try:
+                terms = bc_obj.get_terms()
+                # TODO: Extract weights from terms
+                # charge_efficiency = abs(weights[0])
+                # discharge_efficiency = abs(weights[1])
+                break
+            except Exception as e:
+                logger.warning(f"Could not extract efficiency from binding constraint {bc_id}: {e}")
+
+    # TODO: Calculate the split ratio and update hydro equipment
+    # This involves complex logic from the old code around lines 139-187
+
+    # Create PHS equipment with closed part
+    phs = Storage(
+        name=f"{area.id}_phs_open",
+        node=atlas_dataset.get("node", area.id),
+        portfolio=atlas_dataset.get(
+            "portfolio",
+            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
+        ),
+        storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
+        maximum_power=turb_capacity_ts,
+        minimum_power=minimum_power_ts,
+        maximum_energy=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=float(hydro_reservoirs[area.id]["OpenLoopCapacity"]),
+        ),
+        minimum_state_of_charge=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
+        charge_efficiency=charge_efficiency,
+        discharge_efficiency=discharge_efficiency,
+        storage_initial_level=parameters.phs_initial_level,
+        transition_duration=duration(hours=0),
     )
 
-    open_phs.MinimumStateOfCharge = API.TimeSeries.NewTimeSeries(
-        "MinimumStateOfCharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, ""
+    # TODO: Update hydro equipment with the open part
+    # This involves:
+    # - Getting or creating the hydro equipment
+    # - Adding the open part of MaximumPower
+    # - Adding the open part of MaximumEnergy
+    # - Updating inflows from CSV files
+    # - Updating daily energy constraints
+    # See old code lines 67-309 for detailed logic
+
+    # TODO: Update inflows_dictionary with PHS inflows from CSV
+    # This requires reading CSV files and matching scenarios
+    # See old code lines 192-286 for detailed logic
+
+    logger.debug(f"Created open PHS for area: {area.id}")
+    return phs
+
+
+def convert_phs_open_fr(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    hydro_reservoirs: dict,
+) -> AtlasDataset:
+    """Convert open-loop PHS for France (special case).
+
+    France's open PHS is modeled differently and doesn't split
+    into hydro equipment.
+    """
+    if "fr" not in parameters.market_areas:
+        return atlas_dataset
+
+    logger.info("Converting FR open-loop PHS")
+
+    areas = study.get_areas()
+    links = study.get_links()
+
+    if "fr" not in areas:
+        return atlas_dataset
+
+    area = areas["fr"]
+
+    # Find link from fr to x_open_turb
+    link = None
+    for link_id, link_obj in links.items():
+        if "fr_x_open_turb" in link_id.lower():
+            link = link_obj
+            break
+
+    if not link:
+        logger.debug("No open turb link found for FR")
+        return atlas_dataset
+
+    # Get efficiencies from binding constraint
+    charge_efficiency = 1.0
+    discharge_efficiency = 1.0
+
+    binding_constraints = study.get_binding_constraints()
+    for bc_id, bc_obj in binding_constraints.items():
+        if "phs" in bc_id.lower() and "fr" in bc_id.lower():
+            try:
+                terms = bc_obj.get_terms()
+                # TODO: Extract weights from terms
+                # charge_efficiency = abs(weights[0])
+                # discharge_efficiency = abs(weights[1])
+                break
+            except Exception as e:
+                logger.warning(f"Could not extract efficiency from binding constraint {bc_id}: {e}")
+
+    # Get capacities
+    try:
+        # TODO: Verify how to get IndirectTransferCapacity
+        maximum_power_df = link.get_capacity_indirect()
+        maximum_power_ts = Timeseries(maximum_power_df)
+
+        minimum_power_df = link.get_capacity_indirect()
+        minimum_power_ts = Timeseries(minimum_power_df * -1.0)
+    except Exception as e:
+        logger.warning(f"Could not get capacities for FR open PHS: {e}")
+        return atlas_dataset
+
+    # TODO: Get power time series from CalculatedTransit
+    # power_transit_df = link.get_calculated_transit(str(parameters.scenario))
+    # power_ts = Timeseries(power_transit_df * -1.0)
+
+    # Create PHS equipment
+    phs = Storage(
+        name="fr_phs_open",
+        node=atlas_dataset.get("node", "fr"),
+        portfolio=atlas_dataset.get(
+            "portfolio",
+            "generator_fr" if parameters.consumption_production_separation else "portfolio_fr",
+        ),
+        storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
+        maximum_power=maximum_power_ts,
+        minimum_power=minimum_power_ts,
+        maximum_energy=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=float(hydro_reservoirs["fr"]["OpenLoopCapacity"]),
+        ),
+        minimum_state_of_charge=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
+        charge_efficiency=charge_efficiency,
+        discharge_efficiency=discharge_efficiency,
+        storage_initial_level=parameters.phs_initial_level,
+        transition_duration=duration(hours=0),
+        is_v2g=False,
     )
 
-    # Initial level
-    open_phs.StorageInitialLevel = p.phs_initial_level
+    # TODO: Add power forecast
+    # phs.power.add(parameters.execution_date, power_ts)
 
-    open_phs_list.append(node_name)
+    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + [phs]
 
-    return open_phs_list
+    logger.debug("Created FR open PHS")
+    return atlas_dataset

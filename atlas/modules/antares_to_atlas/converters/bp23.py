@@ -13,7 +13,9 @@ from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.models.hydro import compute_water_values, set_initial_levels
 from atlas.modules.antares_to_atlas.models.load.dsr import convert_dsr_units
 from atlas.modules.antares_to_atlas.models.p2g.p2g import convert_p2g_units
-from atlas.modules.antares_to_atlas.models.storage import convert_batteries, convert_electric_vehicles, convert_phs
+from atlas.modules.antares_to_atlas.models.storage.battery import convert_battery_units
+from atlas.modules.antares_to_atlas.models.storage.electric_vehicle import convert_electric_vehicle_units
+from atlas.modules.antares_to_atlas.models.storage.phs_closed import convert_phs_closed_units
 from atlas.modules.antares_to_atlas.models.thermal import (
     apply_multi_energy_costs,
     apply_nuclear_modulation,
@@ -35,7 +37,7 @@ class BatteryConverterBP23(Converter):
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_batteries(study, parameters, atlas_dataset)
+        return convert_battery_units(study, parameters, atlas_dataset)
 
 
 class ElectricVehicleConverterBP23(Converter):
@@ -50,10 +52,10 @@ class ElectricVehicleConverterBP23(Converter):
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_electric_vehicles(study, parameters, atlas_dataset)
+        return convert_electric_vehicle_units(study, parameters, atlas_dataset)
 
 
-class PHSConverterBP23(Converter):
+class PHSClosedConverterBP23(Converter):
     @property
     def name(self) -> str:
         return "phs"
@@ -65,7 +67,7 @@ class PHSConverterBP23(Converter):
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_phs(study, parameters, atlas_dataset)
+        return convert_phs_closed_units(study, parameters, atlas_dataset)
 
 
 class MixedFuelConverterBP23(Converter):

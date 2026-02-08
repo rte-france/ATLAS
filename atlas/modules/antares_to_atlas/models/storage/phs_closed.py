@@ -1,171 +1,327 @@
-import API
-import functions
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from antares.craft.model.area import Area
+from antares.craft.model.link import Link
+from antares.craft.model.study import Study
+from loguru import logger
+from pendulum import duration
+
+from atlas.enum import StorageType
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.timeseries import Timeseries
+from atlas.models.equipment.storage import Storage
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-# Function creating a PumpedHydraulicStorage Equipment based on an open PHS in the Antares input marker
-def creation_phs_closed(antares_dataset, atlas_dataset, hydro_reservoirs, p):
-    # Define a list storing all closed_phs equipemnts created
-    closed_phs_list = []
+def convert_phs_closed_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    hydro_reservoirs: dict,
+) -> AtlasDataset:
+    """Convert closed-loop Pumped Hydraulic Storage from Antares to Atlas.
 
-    # First, find links pointing to turb virtual nodes and create the corresponding phs equipments
-    for links in antares_dataset.Link.GetAllInstances():
-        if links.DownhillNode.Name == "x_closed_turb":
-            # looking for the node name, and filter it according to market_areas_list
-            node_name = links.UphillNode.Name
+    Closed PHS are created from links to virtual nodes:
+    - x_closed_turb: turbining capacity
+    - x_closed_pump: pumping capacity
 
-            if node_name not in p.market_areas_list:
-                continue
+    The function processes both links and creates/updates a single PHS equipment.
+    """
+    logger.info("Converting closed-loop PHS units")
 
-            if (
-                hydro_reservoirs[node_name]["ClosedLoopCapacity"] == 0.0
-                or links.IndirectTransferCapacity.GetTimeSeriesByName("1").Abs().Max() == 0.0
-            ):
-                continue
+    areas = study.get_areas()
+    links = study.get_links()
+    phs_closed_list: list[Storage] = []
 
-            # we create the phs equipment in ATLAS
-            msg = f"Creating phs equipment in Node {node_name}"
-            API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
+    # First pass: create PHS from turb links
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
+            continue
 
-            instance_name = f"{node_name}_phs"
-            atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
+        area = areas[area_name]
 
-            closed_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
+        # TODO: Verify how to access hydro reservoir capacity
+        # In old code: hydro_reservoirs[node_name]["ClosedLoopCapacity"]
+        if area_name not in hydro_reservoirs or hydro_reservoirs[area_name].get("ClosedLoopCapacity", 0.0) == 0.0:
+            continue
 
-            binding_constraint = functions.find_binding_constraint_phs(antares_dataset, links)
+        logger.debug(f"Processing closed PHS for area {area.id}")
 
-            if p.consumption_production_separation:
-                portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
-            else:
-                portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
-
-            # general properties of a storage equipment
-            closed_phs.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
-            closed_phs.Portfolio = portfolio
-            closed_phs.StorageType = "PumpedHydraulicStorage"
-            if binding_constraint:
-                closed_phs.DischargeEfficiency = abs(binding_constraint.Weights[1])  # turb
-                closed_phs.ChargeEfficiency = abs(binding_constraint.Weights[0])  # pump
-            else:
-                closed_phs.DischargeEfficiency = 1  # turb
-                closed_phs.ChargeEfficiency = 1  # pump
-            closed_phs.TransitionDuration = 0
-            closed_phs.SetupDelay = 0
-
-            # MaximumEnergy and MinimumStateOfCharge
-            closed_phs.MaximumEnergy = API.TimeSeries.NewTimeSeries(
-                "MaximumEnergy",
-                API.TimeSeries.Constant,
-                p.start_date.ToString(),
-                "1Y",
-                2,
-                float(hydro_reservoirs[node_name]["ClosedLoopCapacity"]),
-                "MWh",
+        # Look for turb link
+        turb_link = _find_link_to_virtual_node(links, area.id, "x_closed_turb")
+        if turb_link:
+            phs = _create_phs_from_turb_link(
+                area=area,
+                link=turb_link,
+                study=study,
+                parameters=parameters,
+                atlas_dataset=atlas_dataset,
+                hydro_reservoirs=hydro_reservoirs,
             )
+            if phs:
+                phs_closed_list.append(phs)
 
-            closed_phs.MinimumStateOfCharge = API.TimeSeries.NewTimeSeries(
-                "MinimumStateOfCharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, ""
-            )
+    # Second pass: update PHS with pump links
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
+            continue
 
-            # Initial level
-            closed_phs.StorageInitialLevel = p.phs_initial_level
+        area = areas[area_name]
 
-            # specific properties for phs : Power, Pmax and Pmin
-            # power
-            power_timeseries = -1 * links.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
-            closed_phs.Power.AddTimeSeries(p.execution_date, power_timeseries)
+        if area_name not in hydro_reservoirs or hydro_reservoirs[area_name].get("ClosedLoopCapacity", 0.0) == 0.0:
+            continue
 
-            # Pmax
-            closed_phs.MaximumPower = links.IndirectTransferCapacity.GetTimeSeriesByName("1")
+        # Look for pump link
+        pump_link = _find_link_to_virtual_node(links, area.id, "x_closed_pump")
+        if pump_link:
+            # Find existing PHS or create new one
+            existing_phs = None
+            for phs in phs_closed_list:
+                if phs.name == f"{area.id}_phs":
+                    existing_phs = phs
+                    break
 
-            # Add closed_phs equipment to closed_phs_list
-            closed_phs_list.append(node_name)
-
-    # Then, find links pointing to pump virtual nodes and update the corresponding phs ATLAS equipments
-    for links in antares_dataset.Link.GetAllInstances():
-        if links.DownhillNode.Name == "x_closed_pump":
-            # looking for the node name, and filter it according to market_areas_list
-            node_name = links.UphillNode.Name
-
-            if node_name not in p.market_areas_list:
-                continue
-
-            if (
-                hydro_reservoirs[node_name]["ClosedLoopCapacity"] == 0.0
-                or links.DirectTransferCapacity.GetTimeSeriesByName("1").Abs().Max() == 0.0
-            ):
-                continue
-
-            # Find the closed_phs equipment in the output marker, if it has been created before
-            closed_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(f"{node_name}_phs")
-
-            if not closed_phs:
-                API.IO.Trace.Log(
-                    "WARNING: No closed_phs was created with turb node for {}".format(node_name + "_phs"),
-                    API.IO.LogTypeWarn,
+            if existing_phs:
+                _update_phs_with_pump_link(
+                    phs=existing_phs,
+                    link=pump_link,
+                    parameters=parameters,
                 )
-
-                msg = f"Creating phs equipment in Node {node_name}"
-                API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
-
-                instance_name = f"{node_name}_phs"
-                atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
-
-                closed_phs = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
-
-                binding_constraint = functions.find_binding_constraint_phs(antares_dataset, links)
-
-                if p.consumption_production_separation:
-                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
-                else:
-                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
-
-                # general properties of a storage equipment
-                closed_phs.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
-                closed_phs.Portfolio = portfolio
-                closed_phs.StorageType = "PumpedHydraulicStorage"
-                if binding_constraint:
-                    closed_phs.DischargeEfficiency = abs(binding_constraint.Weights[1])  # turb
-                    closed_phs.ChargeEfficiency = abs(binding_constraint.Weights[0])  # pump
-                else:
-                    closed_phs.DischargeEfficiency = 1  # turb
-                    closed_phs.ChargeEfficiency = 1  # pump
-                closed_phs.TransitionDuration = 0
-                closed_phs.SetupDelay = 0
-
-                # MaximumEnergy and MinimumStateOfCharge
-                closed_phs.MaximumEnergy = API.TimeSeries.NewTimeSeries(
-                    "MaximumEnergy",
-                    API.TimeSeries.Constant,
-                    p.start_date.ToString(),
-                    "1Y",
-                    2,
-                    float(hydro_reservoirs[node_name]["ClosedLoopCapacity"]),
-                    "MWh",
-                )
-
-                closed_phs.MinimumStateOfCharge = API.TimeSeries.NewTimeSeries(
-                    "MinimumStateOfCharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, ""
-                )
-
-                # Initial level
-                closed_phs.StorageInitialLevel = p.phs_initial_level
-
-                # Add closed_phs equipment to closed_phs_list
-                closed_phs_list.append(node_name)
-
-            # Pmin
-            closed_phs.MinimumPower = -1.0 * links.DirectTransferCapacity.GetTimeSeriesByName("1")
-
-            # power
-            power_timeseries = -1.0 * links.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
-
-            old_power = closed_phs.Power[str(p.execution_date)]
-
-            if old_power:
-                closed_phs.Power.DeleteTimeSeries(p.execution_date)
-                closed_phs.Power.AddTimeSeries(p.execution_date, old_power + power_timeseries)
-
             else:
-                closed_phs.Power.AddTimeSeries(p.execution_date, power_timeseries)
+                # Create PHS from pump link if turb link didn't exist
+                logger.warning(f"No turb link found for closed PHS in area {area.id}, creating from pump link")
+                phs = _create_phs_from_pump_link(
+                    area=area,
+                    link=pump_link,
+                    study=study,
+                    parameters=parameters,
+                    atlas_dataset=atlas_dataset,
+                    hydro_reservoirs=hydro_reservoirs,
+                )
+                if phs:
+                    phs_closed_list.append(phs)
 
-    return closed_phs_list
+    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + phs_closed_list
+
+    return atlas_dataset
+
+
+def _find_link_to_virtual_node(links: dict[str, Link], area_id: str, virtual_node: str) -> Link | None:
+    """Find link connecting an area to a virtual node."""
+    link_name = f"{area_id}_{virtual_node}"
+
+    # TODO: Verify if links are indexed by name or by ID
+    # May need to check link.area_from and link.area_to
+    for link_id, link_obj in links.items():
+        if link_name.lower() in link_id.lower():
+            return link_obj
+    return None
+
+
+def _get_binding_constraint_for_phs(study: Study, link: Link, area_id: str) -> tuple[float, float]:
+    """Get charge and discharge efficiency from binding constraint.
+
+    Returns:
+        tuple: (charge_efficiency, discharge_efficiency)
+    """
+    binding_constraints = study.get_binding_constraints()
+
+    # TODO: Verify how to find the correct binding constraint for PHS
+    # In old code: find_binding_constraint_phs(antares_dataset, link)
+    # This searches for constraints that reference the link
+    charge_efficiency = 1.0
+    discharge_efficiency = 1.0
+
+    for bc_id, bc_obj in binding_constraints.items():
+        # TODO: Verify how to check if a binding constraint references a link
+        # and how to extract weights from it
+        # In old code: binding_constraint.Weights[0] (pump) and Weights[1] (turb)
+        if "phs" in bc_id.lower() and area_id.lower() in bc_id.lower():
+            try:
+                terms = bc_obj.get_terms()
+                # TODO: Extract weights from terms
+                # charge_efficiency = abs(weights[0])  # pump
+                # discharge_efficiency = abs(weights[1])  # turb
+                break
+            except Exception as e:
+                logger.warning(f"Could not extract efficiency from binding constraint {bc_id}: {e}")
+
+    return charge_efficiency, discharge_efficiency
+
+
+def _create_phs_from_turb_link(
+    area: Area,
+    link: Link,
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    hydro_reservoirs: dict,
+) -> Storage | None:
+    """Create PHS equipment from turbining link."""
+    # Check if capacity is non-zero
+    try:
+        # TODO: Verify how to get IndirectTransferCapacity
+        # In old code: link.IndirectTransferCapacity.GetTimeSeriesByName("1")
+        capacity_df = link.get_capacity_indirect()
+        if capacity_df.abs().max().max() == 0.0:
+            return None
+
+        maximum_power_ts = Timeseries(capacity_df)
+    except Exception as e:
+        logger.warning(f"Could not get turb capacity for PHS in area {area.id}: {e}")
+        return None
+
+    # Get efficiencies from binding constraint
+    charge_efficiency, discharge_efficiency = _get_binding_constraint_for_phs(study, link, area.id)
+
+    # Get power time series
+    try:
+        # TODO: Verify how to get CalculatedTransit time series
+        # In old code: link.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
+        transit_df = link.get_capacity_direct()  # TODO: Get correct transit data
+        power_ts = Timeseries(transit_df * -1.0)
+    except Exception as e:
+        logger.warning(f"Could not get transit data for turb link in area {area.id}: {e}")
+        power_ts = Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        )
+
+    # Create PHS equipment
+    phs = Storage(
+        name=f"{area.id}_phs",
+        node=atlas_dataset.get("node", area.id),
+        portfolio=atlas_dataset.get(
+            "portfolio",
+            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
+        ),
+        storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
+        maximum_power=maximum_power_ts,
+        maximum_energy=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=float(hydro_reservoirs[area.id]["ClosedLoopCapacity"]),
+        ),
+        minimum_state_of_charge=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
+        charge_efficiency=charge_efficiency,
+        discharge_efficiency=discharge_efficiency,
+        storage_initial_level=parameters.phs_initial_level,
+        transition_duration=duration(hours=0),
+        # setup_delay=duration(hours=0),  # TODO: Verify if this field exists in new model
+    )
+
+    # TODO: Add power forecast
+    # phs.power.add(parameters.execution_date, power_ts)
+
+    logger.debug(f"Created closed PHS from turb link for area: {area.id}")
+    return phs
+
+
+def _create_phs_from_pump_link(
+    area: Area,
+    link: Link,
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    hydro_reservoirs: dict,
+) -> Storage | None:
+    """Create PHS equipment from pumping link (fallback when turb link doesn't exist)."""
+    # Check if capacity is non-zero
+    try:
+        # TODO: Verify how to get DirectTransferCapacity
+        # In old code: link.DirectTransferCapacity.GetTimeSeriesByName("1")
+        capacity_df = link.get_capacity_direct()
+        if capacity_df.abs().max().max() == 0.0:
+            return None
+
+        minimum_power_ts = Timeseries(capacity_df * -1.0)
+    except Exception as e:
+        logger.warning(f"Could not get pump capacity for PHS in area {area.id}: {e}")
+        return None
+
+    # Get efficiencies from binding constraint
+    charge_efficiency, discharge_efficiency = _get_binding_constraint_for_phs(study, link, area.id)
+
+    # Get power time series
+    try:
+        # TODO: Verify how to get CalculatedTransit time series
+        transit_df = link.get_capacity_direct()  # TODO: Get correct transit data
+        power_ts = Timeseries(transit_df * -1.0)
+    except Exception as e:
+        logger.warning(f"Could not get transit data for pump link in area {area.id}: {e}")
+        power_ts = Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        )
+
+    # Create PHS equipment
+    phs = Storage(
+        name=f"{area.id}_phs",
+        node=atlas_dataset.get("node", area.id),
+        portfolio=atlas_dataset.get(
+            "portfolio",
+            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
+        ),
+        storage_type=StorageType.PUMPED_HYDRAULIC_STORAGE,
+        minimum_power=minimum_power_ts,
+        maximum_energy=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=float(hydro_reservoirs[area.id]["ClosedLoopCapacity"]),
+        ),
+        minimum_state_of_charge=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
+        charge_efficiency=charge_efficiency,
+        discharge_efficiency=discharge_efficiency,
+        storage_initial_level=parameters.phs_initial_level,
+        transition_duration=duration(hours=0),
+    )
+
+    # TODO: Add power forecast
+    # phs.power.add(parameters.execution_date, power_ts)
+
+    logger.debug(f"Created closed PHS from pump link for area: {area.id}")
+    return phs
+
+
+def _update_phs_with_pump_link(
+    phs: Storage,
+    link: Link,
+    parameters: AntaresToAtlasParameters,
+) -> None:
+    """Update existing PHS equipment with pumping capacity."""
+    try:
+        # TODO: Verify how to get DirectTransferCapacity
+        capacity_df = link.get_capacity_direct()
+        if capacity_df.abs().max().max() == 0.0:
+            return
+
+        minimum_power_ts = Timeseries(capacity_df * -1.0)
+        phs.minimum_power = minimum_power_ts
+
+        # TODO: Add pump power to existing power forecast
+        # Get transit data and add to power
+        # transit_df = link.get_calculated_transit(str(parameters.scenario))
+        # power_pump_ts = Timeseries(transit_df * -1.0)
+        # Merge with existing power time series
+
+    except Exception as e:
+        logger.warning(f"Could not update PHS with pump link: {e}")

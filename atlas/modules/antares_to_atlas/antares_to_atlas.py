@@ -13,8 +13,7 @@ from antares.craft import read_study_local
 from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.modules.antares_to_atlas.converters.registry import ConverterRegistry
-from atlas.modules.antares_to_atlas.converters.specific import (
+from atlas.modules.antares_to_atlas.converters.bp23 import (
     BatteryConverterBP23,
     DSRConverterBP23,
     ElectricVehicleConverterBP23,
@@ -24,9 +23,10 @@ from atlas.modules.antares_to_atlas.converters.specific import (
     NuclearModulationConverterBP23,
     P2GConverterBP23,
     ParticularMidPeakConverterBP23,
-    PHSConverterBP23,
+    PHSClosedConverterBP23,
     WaterValueConverterBP23,
 )
+from atlas.modules.antares_to_atlas.converters.registry import ConverterRegistry
 from atlas.modules.antares_to_atlas.converters.standard import (
     HydroConverter,
     LinkConverter,
@@ -140,7 +140,7 @@ class AntaresToAtlas:
             P2GConverterBP23,
             MultiEnergyConverterBP23,  # Must run after all thermic units
             DSRConverterBP23,
-            PHSConverterBP23,  # Depends on hydro converter
+            PHSClosedConverterBP23,  # Depends on hydro converter
             WaterValueConverterBP23,  # Depends on PHS (for updated inflows)
             InitialLevelConverterBP23,
             NuclearModulationConverterBP23,  # France-specific

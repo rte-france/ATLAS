@@ -1,266 +1,307 @@
-import API
-import functions
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from antares.craft.model.area import Area
+from antares.craft.model.link import Link
+from antares.craft.model.study import Study
+from loguru import logger
+from pendulum import duration
+
+from atlas.enum import StorageType
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.timeseries import Timeseries
+from atlas.models.equipment.storage import Storage
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-# Convert battery technologies of the Antares input marker into ATLAS Storage Equipments
-def creation_battery(antares_dataset, atlas_dataset, p):
-    ### NORMAL
-    for links in antares_dataset.Link.GetAllInstances():
-        if links.DownhillNode.Name == "z_batteries":
-            # looking for the node name, and filtering nodes that should not be considered
+def convert_battery_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+) -> AtlasDataset:
+    """Convert Battery technologies from Antares to Atlas Storage equipment.
 
-            node_name = links.UphillNode.Name
+    Batteries are modeled as Storage equipment with two variants:
+    - Normal batteries (linked to z_batteries virtual node)
+    - PCOMP batteries (linked to z_batteries_pcomp virtual node)
 
-            if node_name not in p.market_areas_list:
-                continue
+    When both exist for the same node, they are merged into a single battery.
+    """
+    logger.info("Converting Battery units")
 
-            ### NORMAL battery
-            binding_constraint = antares_dataset.BindingConstraint.GetInstanceByName(f"batteries_{node_name}")
-            if not binding_constraint:
-                API.IO.Trace.Log(
-                    "WARNING for techno {}, binding constraint not found".format(f"batteries_{node_name}"),
-                    API.IO.LogTypeWarn,
-                )
+    areas = study.get_areas()
+    links = study.get_links()
+    batteries: list[Storage] = []
 
-            # Create the Storage Equipment only if the corresponding BindingConstraint exists
-            if binding_constraint:
-                power_discharge, maximum_power = get_batteries_inj_data(antares_dataset, node_name, p, False)
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
+            continue
 
-                if not maximum_power or maximum_power.Abs().Max() == 0:
-                    continue
+        area = areas[area_name]
+        logger.debug(f"Processing battery units for area {area.id}")
 
-                # MaximumEnergy (ie: reservoir capacity). Convention : stock_1 is in MWh and not in MW so ok
-                try:  # for nodes that do not have thermaltechnology
-                    stock_1 = antares_dataset.ThermalTechnology.GetInstanceByName(
-                        "z_batteries_batteries_" + functions.node_special_format(node_name) + "_1"
-                    ).Disponibility[str(p.scenario)]
-                except:  # If Stock 1 is empty, MaximumEnergy is 0 so no battery instance is created
-                    continue
-
-                msg = f"Creating battery equipment in Node {node_name}"
-                API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
-
-                instance_name = f"{node_name}_battery"
-                atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
-
-                battery = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
-
-                battery.MaximumPower = maximum_power
-                battery.MaximumEnergy = stock_1
-
-                if p.consumption_production_separation:
-                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
-                else:
-                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
-
-                # general properties of a storage equipment
-                battery.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
-                battery.Portfolio = portfolio
-                battery.StorageType = "Battery"
-                try:
-                    if binding_constraint.Weights[1] != 0:
-                        battery.DischargeEfficiency = abs(1 / binding_constraint.Weights[1])
-                    else:
-                        battery.DischargeEfficiency = 1
-                    battery.ChargeEfficiency = abs(binding_constraint.Weights[0])
-                except:
-                    battery.DischargeEfficiency = 1
-                    battery.ChargeEfficiency = 1
-
-                battery.SetupDelay = 0  # look at description !! ??
-
-                # POWER
-                # time series of the discharge of the battery
-                # signe : + (because give power to electric system)
-                if not power_discharge:
-                    power_discharge = API.TimeSeries.NewTimeSeries(
-                        "Power_discharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, "MW"
-                    )
-
-                # time series of the charge of the battery
-                # signe : - (because loss of energy view from electric system)
-                power_charge = -links.CalculatedTransit[str(p.scenario)]
-
-                # power time series
-                power_timeseries = power_discharge + power_charge
-                battery.Power.AddTimeSeries(p.execution_date, power_timeseries)
-
-                # Pmin
-                # =capacity of the link
-                minimum_power = -links.DirectTransferCapacity.GetTimeSeriesByName("1")
-                battery.MinimumPower = API.TimeSeries.NewTimeSeries(
-                    "MinimumPower",
-                    API.TimeSeries.Constant,
-                    p.start_date.ToString(),
-                    "1Y",
-                    2,
-                    minimum_power[p.start_date],
-                    "MW",
-                )
-
-                # Minimum State of Charge  = 0 for batteries
-                battery.MinimumStateOfCharge = API.TimeSeries.NewTimeSeries(
-                    "MinimumStateOfCharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, "MW"
-                )
-                # Initial level
-                battery.StorageInitialLevel = p.battery_initial_level
-
-                # TODO: to be refined later, when battery unit counts are indicated in Antares
-                battery.UnitCount = 1
-
-            elif p.verbose:
-                API.IO.Trace.Log(
-                    f"No BindingConstraint found for batteries of node {node_name}, no Storage equipment created",
-                    API.IO.LogTypeInfo,
-                )
-
-    ### PCOMP battery
-    for links in antares_dataset.Link.GetAllInstances():
-        if links.DownhillNode.Name == "z_batteries_pcomp":
-            node_name = links.UphillNode.Name
-
-            binding_constraint = antares_dataset.BindingConstraint.GetInstanceByName(f"batteries_pcomp_{node_name}")
-
-            # Create the Storage Equipment only if the corresponding BindingConstraint exists
-            if binding_constraint:
-                power_discharge, maximum_power = get_batteries_inj_data(antares_dataset, node_name, p, True)
-
-                if not maximum_power or maximum_power.Abs().Max() == 0:
-                    continue
-
-                # MaximumEnergy (ie: reservoir capacity). Convention : stock_1 is in MWh and not in MW so ok
-                try:  # for nodes that do not have thermaltechnology
-                    stock_1 = antares_dataset.ThermalTechnology.GetInstanceByName(
-                        "z_batteries_pcomp_" + functions.node_special_format(node_name) + "_1"
-                    ).Disponibility[str(p.scenario)]
-                except:  # If Stock 1 is empty, MaximumEnergy is 0 so no battery instance is created
-                    continue
-
-                msg = f"Creating battery_pcomp equipment in Node {node_name}"
-                API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
-
-                normal_battery = atlas_dataset.Equipment.Storage.GetInstanceByName(f"{node_name}_battery")
-                if not normal_battery:
-                    instance_name = f"{node_name}_battery"
-                else:
-                    instance_name = f"{node_name}_battery_pcomp"
-                atlas_dataset.Equipment.Storage.CreateInstance(instance_name)
-
-                battery = atlas_dataset.Equipment.Storage.GetInstanceByName(instance_name)
-
-                battery.MaximumPower = maximum_power
-                battery.MaximumEnergy = stock_1
-
-                if p.consumption_production_separation:
-                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{node_name}")
-                else:
-                    portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{node_name}")
-
-                # general properties of a storage equipment
-                battery.Node = atlas_dataset.Network.Node.GetInstanceByName(node_name)
-                battery.Portfolio = portfolio
-                battery.StorageType = "Battery"
-                try:
-                    if binding_constraint.Weights[1] != 0:
-                        battery.DischargeEfficiency = abs(1 / binding_constraint.Weights[1])
-                    else:
-                        battery.DischargeEfficiency = 1
-                    battery.ChargeEfficiency = abs(binding_constraint.Weights[0])
-                except:
-                    battery.DischargeEfficiency = 1
-                    battery.ChargeEfficiency = 1
-
-                battery.SetupDelay = 0  # look at description !! ??
-
-                # POWER
-                # time series of the discharge of the battery
-                # signe : + (because give power to electric system)
-                if not power_discharge:
-                    power_discharge = API.TimeSeries.NewTimeSeries(
-                        "Power_discharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, "MW"
-                    )
-
-                # time series of the charge of the battery
-                # signe : - (because loss of energy view from electric system)
-                power_charge = -links.CalculatedTransit[str(p.scenario)]
-
-                # power time series
-                power_timeseries = power_discharge + power_charge
-                battery.Power.AddTimeSeries(p.execution_date, power_timeseries)
-
-                # Pmin
-                # =capacity of the link
-                minimum_power = -links.DirectTransferCapacity.GetTimeSeriesByName("1")
-                battery.MinimumPower = API.TimeSeries.NewTimeSeries(
-                    "MinimumPower",
-                    API.TimeSeries.Constant,
-                    p.start_date.ToString(),
-                    "1Y",
-                    2,
-                    minimum_power[p.start_date],
-                    "MW",
-                )
-
-                # Minimum State of Charge  = 0 for batteries
-                battery.MinimumStateOfCharge = API.TimeSeries.NewTimeSeries(
-                    "MinimumStateOfCharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, "MW"
-                )
-
-                # Initial level
-                battery.StorageInitialLevel = p.battery_initial_level
-
-                # TODO: to be refined later, when battery unit counts are indicated in Antares
-                battery.UnitCount = 1
-
-            elif p.verbose:
-                API.IO.Trace.Log(
-                    f"No BindingConstraint found for batteries_pcomp of node {node_name}, no Storage equipment created",
-                    API.IO.LogTypeInfo,
-                )
-
-    # MERGE
-    normal_instance = atlas_dataset.Equipment.Storage.GetInstanceByName(f"{node_name}_battery")
-    pcomp_instance = atlas_dataset.Equipment.Storage.GetInstanceByName(f"{node_name}_battery_pcomp")
-    if normal_instance and pcomp_instance:
-        normal_instance.MaximumPower += pcomp_instance.MaximumPower
-        normal_instance.MinimumPower += pcomp_instance.MinimumPower
-        normal_instance.MaximumEnergy += pcomp_instance.MaximumEnergy
-
-        # Moyenne pondérée par le MaximumPower/MinimumPower
-        max_power_1 = normal_instance.MaximumPower.FirstValue
-        max_power_2 = pcomp_instance.MaximumPower.FirstValue
-        min_power_1 = normal_instance.MinimumPower.FirstValue
-        min_power_2 = pcomp_instance.MinimumPower.FirstValue
-        discharge_1 = normal_instance.DischargeEfficiency
-        discharge_2 = pcomp_instance.DischargeEfficiency
-        charge_1 = normal_instance.ChargeEfficiency
-        charge_2 = pcomp_instance.ChargeEfficiency
-        normal_instance.DischargeEfficiency = (discharge_1 * max_power_1 + discharge_2 * max_power_2) / (
-            max_power_1 + max_power_2
+        # Process normal battery
+        normal_battery = _convert_normal_battery(
+            area=area,
+            study=study,
+            parameters=parameters,
+            atlas_dataset=atlas_dataset,
+            links=links,
         )
-        normal_instance.ChargeEfficiency = (charge_1 * min_power_1 + charge_2 * min_power_2) / (
-            min_power_1 + min_power_2
+        if normal_battery:
+            batteries.append(normal_battery)
+
+        # Process PCOMP battery
+        pcomp_battery = _convert_pcomp_battery(
+            area=area,
+            study=study,
+            parameters=parameters,
+            atlas_dataset=atlas_dataset,
+            links=links,
+        )
+        if pcomp_battery:
+            batteries.append(pcomp_battery)
+
+        # Merge if both exist
+        if normal_battery and pcomp_battery:
+            logger.debug(f"Merging normal and pcomp batteries for area {area.id}")
+            _merge_batteries(normal_battery, pcomp_battery, parameters)
+            batteries.remove(pcomp_battery)
+
+    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + batteries
+
+    return atlas_dataset
+
+
+def _convert_normal_battery(
+    area: Area,
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    links: dict[str, Link],
+) -> Storage | None:
+    """Convert normal battery unit."""
+    link_name = f"{area.id}_z_batteries"
+
+    # TODO: Verify if links are indexed by name or by ID
+    # May need to search through links to find matching area_from and area_to
+    link = None
+    for link_id, link_obj in links.items():
+        if link_name.lower() in link_id.lower():
+            link = link_obj
+            break
+
+    if not link:
+        return None
+
+    # Get binding constraint for efficiency values
+    binding_constraints = study.get_binding_constraints()
+    binding_constraint_name = f"batteries_{area.id}"
+    binding_constraint = None
+    for bc_id, bc_obj in binding_constraints.items():
+        if binding_constraint_name.lower() in bc_id.lower():
+            binding_constraint = bc_obj
+            break
+
+    if not binding_constraint:
+        logger.warning(f"Binding constraint {binding_constraint_name} not found for battery in area {area.id}")
+
+    # Get maximum power and power discharge data
+    # TODO: Verify how to access thermal cluster data for batteries_inj
+    # In old code: ThermalTechnology.GetInstanceByName(f"{area.id}_{node_special_format}_batteries_inj")
+    try:
+        # TODO: Need to access thermal clusters to get batteries_inj data
+        # This requires accessing the area's thermal clusters
+        thermals = area.get_thermals()
+        batteries_inj_thermal = None
+        for thermal_key, thermal_obj in thermals.items():
+            if "batteries_inj" in thermal_key.lower():
+                batteries_inj_thermal = thermal_obj
+                break
+
+        if not batteries_inj_thermal:
+            return None
+
+        # TODO: Verify how to get Disponibility and CalculatedPower time series
+        # In old code: thermal.Disponibility[str(p.scenario)] and thermal.CalculatedPower[str(p.scenario)]
+        maximum_power_df = batteries_inj_thermal.series  # TODO: Get correct time series
+        power_discharge_df = batteries_inj_thermal.series  # TODO: Get correct time series
+
+        if maximum_power_df.abs().max().max() == 0:
+            return None
+
+        maximum_power_ts = Timeseries(maximum_power_df)
+        power_discharge_ts = Timeseries(power_discharge_df) if power_discharge_df is not None else None
+
+    except Exception as e:
+        logger.warning(f"Could not get thermal data for batteries_inj in area {area.id}: {e}")
+        return None
+
+    # Get MaximumEnergy from stock thermal technology
+    # TODO: Verify how to access thermal cluster for stock_1
+    # In old code: ThermalTechnology.GetInstanceByName(f"z_batteries_batteries_{node_special_format}_1")
+    try:
+        # TODO: Need to access z_batteries area thermal clusters
+        areas_dict = study.get_areas()
+        if "z_batteries" not in areas_dict:
+            return None
+
+        z_batteries_thermals = areas_dict["z_batteries"].get_thermals()
+        stock_thermal = None
+        for thermal_key, thermal_obj in z_batteries_thermals.items():
+            if area.id.lower() in thermal_key.lower() and "_1" in thermal_key:
+                stock_thermal = thermal_obj
+                break
+
+        if not stock_thermal:
+            return None
+
+        # TODO: Verify how to get Disponibility time series
+        maximum_energy_df = stock_thermal.series  # TODO: Get correct time series
+        maximum_energy_ts = Timeseries(maximum_energy_df)
+
+    except Exception as e:
+        logger.warning(f"Could not get stock data for battery in area {area.id}: {e}")
+        return None
+
+    # Get efficiencies from binding constraint
+    charge_efficiency = 1.0
+    discharge_efficiency = 1.0
+    if binding_constraint:
+        # TODO: Verify how to access Weights from binding constraint
+        # In old code: binding_constraint.Weights[0] and binding_constraint.Weights[1]
+        try:
+            terms = binding_constraint.get_terms()
+            # TODO: The weights structure might be different in new API
+            # May need to extract weights from terms
+            charge_efficiency = 1.0  # TODO: Extract from binding constraint
+            discharge_efficiency = 1.0  # TODO: Extract from binding constraint
+        except Exception as e:
+            logger.warning(f"Could not get efficiency values from binding constraint: {e}")
+
+    # Get transit data for power calculation
+    try:
+        # TODO: Verify how to get CalculatedTransit time series
+        # In old code: link.CalculatedTransit[str(p.scenario)]
+        power_charge_df = link.get_capacity_direct()  # TODO: Get correct transit data
+        power_charge_ts = Timeseries(power_charge_df * -1.0)
+
+        if power_discharge_ts is None:
+            power_discharge_ts = Timeseries.from_index(
+                start_date=parameters.start_date,
+                frequency="1h",
+                end_date=parameters.start_date + duration(years=1),
+                default_value=0.0,
+            )
+
+        power_ts = power_discharge_ts + power_charge_ts
+
+    except Exception as e:
+        logger.warning(f"Could not calculate power for battery in area {area.id}: {e}")
+        return None
+
+    # Get minimum power from link capacity
+    try:
+        # TODO: Verify how to get DirectTransferCapacity time series
+        minimum_power_df = link.get_capacity_direct()
+        minimum_power_value = float(minimum_power_df.abs().max().max())
+        minimum_power_ts = Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=-minimum_power_value,
+        )
+    except Exception as e:
+        logger.warning(f"Could not get minimum power for battery in area {area.id}: {e}")
+        minimum_power_ts = Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
         )
 
-        power_timeseries = normal_instance.Power.TimeSeries[0] + pcomp_instance.Power.TimeSeries[0]
-        normal_instance.Power.DeleteTimeSeries(p.execution_date)
-        normal_instance.Power.AddTimeSeries(p.execution_date, power_timeseries)
+    # Create battery equipment
+    battery = Storage(
+        name=f"{area.id}_battery",
+        node=atlas_dataset.get("node", area.id),
+        portfolio=atlas_dataset.get(
+            "portfolio",
+            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
+        ),
+        storage_type=StorageType.BATTERY,
+        maximum_power=maximum_power_ts,
+        minimum_power=minimum_power_ts,
+        maximum_energy=maximum_energy_ts,
+        minimum_state_of_charge=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
+        charge_efficiency=charge_efficiency,
+        discharge_efficiency=discharge_efficiency,
+        storage_initial_level=parameters.battery_initial_level,
+        # TODO: unit_count=1,  # To be refined when battery unit counts are indicated in Antares
+    )
 
-        atlas_dataset.Equipment.Storage.DeleteInstanceByName(f"{node_name}_battery_pcomp")
+    # Add power forecast
+    # TODO: Verify if power should be added as a forecast matrix
+    # battery.power.add(parameters.execution_date, power_ts)
 
-    return 0
+    logger.debug(f"Created normal battery for area: {area.id}")
+    return battery
 
 
-# Retrieve the correct Disponibility TimeSeries of the "batteries_inj" thermal technology
-def get_batteries_inj_data(antares_dataset, node, p, is_pcomp):
-    # we want to have the time series of the thermal technology "batteries_inj" of the node
-    node_special_format = functions.node_special_format(node)
-    if is_pcomp:
-        node_batteries_inj = f"{node}_{node_special_format}_batteries_pcomp_inj"
-    else:
-        node_batteries_inj = f"{node}_{node_special_format}_batteries_inj"
-    thermal = antares_dataset.ThermalTechnology.GetInstanceByName(node_batteries_inj)
-    time_series_pmax = thermal.Disponibility[str(p.scenario)]
-    time_series_power = thermal.CalculatedPower[str(p.scenario)]
+def _convert_pcomp_battery(
+    area: Area,
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    links: dict[str, Link],
+) -> Storage | None:
+    """Convert PCOMP battery unit."""
+    link_name = f"{area.id}_z_batteries_pcomp"
 
-    return time_series_power, time_series_pmax
+    # TODO: Verify if links are indexed by name or by ID
+    link = None
+    for link_id, link_obj in links.items():
+        if link_name.lower() in link_id.lower():
+            link = link_obj
+            break
+
+    if not link:
+        return None
+
+    # Get binding constraint
+    binding_constraints = study.get_binding_constraints()
+    binding_constraint_name = f"batteries_pcomp_{area.id}"
+    binding_constraint = None
+    for bc_id, bc_obj in binding_constraints.items():
+        if binding_constraint_name.lower() in bc_id.lower():
+            binding_constraint = bc_obj
+            break
+
+    if not binding_constraint:
+        logger.warning(f"Binding constraint {binding_constraint_name} not found for PCOMP battery in area {area.id}")
+
+    # TODO: Similar implementation as normal battery
+    # This would follow the same pattern as _convert_normal_battery
+    # with different link and thermal technology names
+    logger.debug(f"TODO: Implement PCOMP battery conversion for area {area.id}")
+    return None
+
+
+def _merge_batteries(normal_battery: Storage, pcomp_battery: Storage, parameters: AntaresToAtlasParameters) -> None:
+    """Merge normal and PCOMP batteries into a single battery.
+
+    Merges capacities and calculates weighted average efficiencies.
+    """
+    # TODO: Implement battery merging logic
+    # - Add maximum_power, minimum_power, maximum_energy
+    # - Calculate weighted average for charge_efficiency and discharge_efficiency
+    # - Merge power time series
+    logger.debug("TODO: Implement battery merging logic")
+    pass

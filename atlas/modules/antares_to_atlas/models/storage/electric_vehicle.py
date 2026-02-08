@@ -1,357 +1,366 @@
-import os
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
 
-import API
-import functions
+from antares.craft.model.area import Area
+from antares.craft.model.link import Link
+from antares.craft.model.study import Study
+from loguru import logger
+from pendulum import duration
+
+from atlas.enum import LoadType, StorageType
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.timeseries import Timeseries
+from atlas.models.equipment.load import Load
+from atlas.models.equipment.storage import Storage
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-# Core
-def convert_electric_vehicle(antares_dataset, atlas_dataset, p):
-    # Load file parameters, and convert csv into dictionaries or timeseries
-    # ==============
-    # Baseline DisplacementEnergy
-    if os.path.isfile(p.baseline_displacement_energy):
-        f = open(p.baseline_displacement_energy)
-        lines_list = f.readlines()
-        f.close()
-        csv_length = len(lines_list)
+def convert_electric_vehicle_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+) -> AtlasDataset:
+    """Convert Electric Vehicle technologies from Antares to Atlas Storage equipment.
 
-        disp_energy_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), csv_length)
-        baseline_displacement_energy_ts = API.TimeSeries.NewTimeSeries(
-            "Baseline Displacement Energy", API.TimeSeries.Constant, "MW", disp_energy_index, 0
+    EV units are modeled as Storage equipment with V2G capabilities:
+    - Standard EVs for most areas
+    - Special handling for France with two EV types (night-only and regular)
+    - France also includes heavy vehicles as Load equipment
+
+    Requires displacement energy and node-specific parameters from CSV files.
+    """
+    logger.info("Converting Electric Vehicle units")
+
+    # TODO: Load displacement energy baseline from CSV
+    # In old code: reads from p.baseline_displacement_energy CSV file
+    # and creates a timeseries with it
+    baseline_displacement_energy_ts = _load_baseline_displacement_energy(parameters)
+
+    # TODO: Load node-specific parameters from CSV
+    # In old code: reads from p.disp_energy_node_parameters CSV file
+    # Contains shift and scale factors per node
+    specific_node_parameters = _load_specific_node_parameters(parameters)
+
+    # Convert standard EVs
+    ev_units = _convert_standard_evs(
+        study=study,
+        parameters=parameters,
+        atlas_dataset=atlas_dataset,
+        baseline_displacement_energy_ts=baseline_displacement_energy_ts,
+        specific_node_parameters=specific_node_parameters,
+    )
+
+    # Convert France EVs (special case)
+    if "fr" in parameters.market_areas:
+        ev_units += _convert_france_evs(
+            study=study,
+            parameters=parameters,
+            atlas_dataset=atlas_dataset,
+            baseline_displacement_energy_ts=baseline_displacement_energy_ts,
+            specific_node_parameters=specific_node_parameters,
         )
 
-        for row_index, line in enumerate(lines_list[0:csv_length]):
-            if row_index > 0:
-                splitted_line = line.split(";")
-                baseline_displacement_energy_ts.SetValue(
-                    disp_energy_index[row_index - 1], round(float(splitted_line[0]))
-                )
-
-    else:
-        API.IO.Trace.Log("WARNING, BaselineDisplacementEnergy parameter is empty", API.IO.LogTypeError)
-
-    # Specific node parameters
-    specific_node_parameters = {}
-
-    if os.path.isfile(p.disp_energy_node_parameters):
-        f = open(p.disp_energy_node_parameters)
-        lines_list = f.readlines()
-        f.close()
-        csv_length = len(lines_list)
-
-        for row_index, line in enumerate(lines_list[0:csv_length]):
-            if row_index > 0:
-                splitted_line = line.split(";")
-                specific_node_parameters[splitted_line[0].lower()] = [splitted_line[1], splitted_line[2]]
-
-    else:
-        API.IO.Trace.Log("WARNING, DispEnergyNodeParameters parameter is empty", API.IO.LogTypeError)
-
-    # Standard nodes
-    # ==============
-    API.IO.Trace.Log("*** Converting standard EV ***")
-
-    for antares_node in antares_dataset.Node.GetAllInstances():
-        if antares_node.Name not in p.market_areas_list:
-            continue
-
-        # FR EV is treated separately, as it is modeled in a specific way in Antares
-        # QB: je ne comprend pas bien pourquoi pl est ignoré, je commente pour le moment
-        # if antares_node.Name in ["fr", "pl"]:
-        if antares_node.Name in ["fr"]:
-            continue
-
-        API.IO.Trace.Log(f"Node {antares_node.Name}")
-
-        # Get all useful data and instances
-        if p.consumption_production_separation:
-            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{antares_node.Name}")
-        else:
-            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{antares_node.Name}")
-        atlas_node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
-
-        ev_inj = antares_dataset.ThermalTechnology.GetInstanceByName(
-            f"{antares_node.Name}_{functions.node_special_format(antares_node.Name)}_VE_inj"
+        # Convert France heavy vehicles
+        hv_units = _convert_france_heavy_vehicles(
+            study=study,
+            parameters=parameters,
+            atlas_dataset=atlas_dataset,
         )
+        atlas_dataset.load = getattr(atlas_dataset, "load", []) + hv_units
 
-        # Check if ev_inj instance exists, if not skip this node
-        if not ev_inj:
+    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + ev_units
+
+    return atlas_dataset
+
+
+def _load_baseline_displacement_energy(parameters: AntaresToAtlasParameters) -> Timeseries | None:
+    """Load baseline displacement energy from CSV file.
+
+    TODO: Implement CSV reading logic
+    In old code: reads from p.baseline_displacement_energy file
+    """
+    # TODO: Check if file exists and read it
+    # if os.path.isfile(parameters.baseline_displacement_energy):
+    #     Read CSV and create timeseries
+    # For now, return None with a TODO
+    logger.debug("TODO: Load baseline displacement energy from CSV")
+    return None
+
+
+def _load_specific_node_parameters(parameters: AntaresToAtlasParameters) -> dict:
+    """Load node-specific EV parameters from CSV file.
+
+    Returns dict with node names as keys and [shift, scale] as values.
+
+    TODO: Implement CSV reading logic
+    In old code: reads from p.disp_energy_node_parameters file
+    """
+    # TODO: Check if file exists and read it
+    # if os.path.isfile(parameters.disp_energy_node_parameters):
+    #     Read CSV and create dictionary
+    logger.debug("TODO: Load node-specific parameters from CSV")
+    return {}
+
+
+def _convert_standard_evs(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    baseline_displacement_energy_ts: Timeseries | None,
+    specific_node_parameters: dict,
+) -> list[Storage]:
+    """Convert standard EV units for all areas (except France)."""
+    logger.info("Converting standard EV units")
+
+    areas = study.get_areas()
+    links = study.get_links()
+    binding_constraints = study.get_binding_constraints()
+    ev_units: list[Storage] = []
+
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
             continue
 
-        dispo_scenario = ev_inj.ThermalSelectedScenario[p.scenario - 1]
+        # France is handled separately
+        if area_name.lower() == "fr":
+            continue
 
-        ev_link = antares_dataset.Link.GetInstanceByName(f"{antares_node.Name}_ve_eu")
-        ev_stock_bc = antares_dataset.BindingConstraint.GetInstanceByName(f"ve_stock_{antares_node.Name}")
+        area = areas[area_name]
+        logger.debug(f"Processing EV for area {area.id}")
 
-        ev_stor = antares_dataset.ThermalTechnology.GetInstanceByName(
-            f"ve_vhr_storage_VE_VHR_storage_VE_{functions.node_special_format(antares_node.Name)}_1"
-        )
+        # TODO: Get thermal cluster for EV_inj
+        # In old code: ThermalTechnology.GetInstanceByName(f"{area.id}_{node_special_format}_VE_inj")
+        ev_inj_thermal = None
+        try:
+            thermals = area.get_thermals()
+            for thermal_key, thermal_obj in thermals.items():
+                if "ve_inj" in thermal_key.lower():
+                    ev_inj_thermal = thermal_obj
+                    break
+        except Exception as e:
+            logger.warning(f"Could not access thermals for area {area.id}: {e}")
 
-        if ev_stock_bc:
-            # Create an ATLAS Storage instance and fill its properties
-            if (
-                ev_inj.Disponibility.GetTimeSeriesByName(str(dispo_scenario)).Abs().Max() == 0.0
-                or ev_stor.Disponibility.GetTimeSeriesByName(str(dispo_scenario)).Abs().Max() == 0.0
-            ):
+        if not ev_inj_thermal:
+            continue
+
+        # TODO: Get link to ve_eu virtual node
+        # In old code: Link.GetInstanceByName(f"{area.id}_ve_eu")
+        ev_link = None
+        for link_id, link_obj in links.items():
+            if f"{area.id}_ve_eu" in link_id.lower():
+                ev_link = link_obj
+                break
+
+        if not ev_link:
+            logger.debug(f"No EV link found for area {area.id}")
+            continue
+
+        # TODO: Get binding constraint for efficiency
+        # In old code: BindingConstraint.GetInstanceByName(f"ve_stock_{area.id}")
+        ev_stock_bc = None
+        for bc_id, bc_obj in binding_constraints.items():
+            if f"ve_stock_{area.id}".lower() in bc_id.lower():
+                ev_stock_bc = bc_obj
+                break
+
+        if not ev_stock_bc:
+            logger.debug(f"No binding constraint found for EV in area {area.id}")
+            continue
+
+        # TODO: Get storage thermal cluster
+        # In old code: ThermalTechnology.GetInstanceByName(f"ve_vhr_storage_VE_VHR_storage_VE_{node_special_format}_1")
+        ev_stor_thermal = None
+        try:
+            # Need to access ve_vhr_storage area
+            if "ve_vhr_storage" in study.get_areas():
+                ve_storage_thermals = study.get_areas()["ve_vhr_storage"].get_thermals()
+                for thermal_key, thermal_obj in ve_storage_thermals.items():
+                    if area.id.lower() in thermal_key.lower() and "_1" in thermal_key:
+                        ev_stor_thermal = thermal_obj
+                        break
+        except Exception as e:
+            logger.warning(f"Could not get storage thermal for EV in area {area.id}: {e}")
+
+        if not ev_stor_thermal:
+            continue
+
+        # TODO: Get time series data
+        # - Maximum power from ev_inj.Disponibility[scenario]
+        # - Minimum power from ev_link.DirectTransferCapacity["1"]
+        # - Maximum energy from ev_stor.Disponibility[scenario]
+        # - Efficiencies from binding constraint weights
+        try:
+            # TODO: Get correct time series from thermals and links
+            maximum_power_ts = Timeseries.from_index(
+                start_date=parameters.start_date,
+                frequency="1h",
+                end_date=parameters.start_date + duration(years=1),
+                default_value=0.0,
+            )
+            minimum_power_ts = Timeseries.from_index(
+                start_date=parameters.start_date,
+                frequency="1h",
+                end_date=parameters.start_date + duration(years=1),
+                default_value=0.0,
+            )
+            maximum_energy_ts = Timeseries.from_index(
+                start_date=parameters.start_date,
+                frequency="1h",
+                end_date=parameters.start_date + duration(years=1),
+                default_value=0.0,
+            )
+
+            # Check if non-zero
+            if maximum_power_ts.max() == 0.0 or maximum_energy_ts.max() == 0.0:
                 continue
-            ev_instance = atlas_dataset.Equipment.Storage.CreateInstance(antares_node.Name + "_ev")
-            ev_instance.Portfolio = atlas_portfolio
-            ev_instance.Node = atlas_node
-            ev_instance.isV2G = True
-            ev_instance.StorageType = "ElectricVehicle"
 
-            ev_instance.MaximumPower = ev_inj.Disponibility.GetTimeSeriesByName(str(dispo_scenario))
-            ev_instance.MinimumPower = -1 * ev_link.DirectTransferCapacity.GetTimeSeriesByName("1")
-            ev_instance.ChargeEfficiency = abs(ev_stock_bc.Weights[0])
-            if ev_stock_bc.Weights[1] != 0:
-                ev_instance.DischargeEfficiency = abs(1 / ev_stock_bc.Weights[1])
-            else:
-                ev_instance.DischargeEfficiency = 1
+        except Exception as e:
+            logger.warning(f"Could not get time series for EV in area {area.id}: {e}")
+            continue
 
-            ev_instance.MaximumEnergy = ev_stor.Disponibility.GetTimeSeriesByName(str(dispo_scenario))
-            ev_instance.MinimumStateOfCharge = API.TimeSeries.NewTimeSeries(
-                "MinimumStateOfCharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0.3, ""
-            )
+        # TODO: Get efficiencies from binding constraint
+        # In old code: ev_stock_bc.Weights[0] (charge) and 1/Weights[1] (discharge)
+        charge_efficiency = 1.0
+        discharge_efficiency = 1.0
 
-            # Initial level
-            ev_instance.StorageInitialLevel = p.ev_initial_level
+        # TODO: Calculate displacement energy
+        # Uses baseline_displacement_energy_ts * scale factor, then shifted by time offset
+        # Both from specific_node_parameters[area.id]
+        displacement_energy_ts = None
+        if baseline_displacement_energy_ts and area.id in specific_node_parameters:
+            # TODO: Apply scale and shift from specific_node_parameters
+            pass
 
-            # DisplacementEnergy
-            local_specific_node_parameters = specific_node_parameters[antares_node.Name]
-
-            unshifted_disp_energy = (float(local_specific_node_parameters[1]) * baseline_displacement_energy_ts).Round()
-
-            new_index = API.DatetimeIndex.Shift(disp_energy_index, str((-1) * local_specific_node_parameters[0]) + "h")
-
-            # ev_instance.DisplacementEnergy = unshifted_disp_energy.ChangeIndex(new_index)
-            ev_instance.DisplacementEnergy = API.TimeSeries.NewTimeSeries(
-                "DisplacementEnergy", API.TimeSeries.Constant, "MWh", new_index, unshifted_disp_energy.Values
-            )
-
-        else:
-            API.IO.Trace.Log(f"No binding constraint found for node {antares_node.Name}, no EV instance created")
-
-    API.IO.Trace.Log("*** Standard EV conversion done ***")
-
-    # FR EV
-    # =====
-    if "fr" in p.market_areas_list:
-        API.IO.Trace.Log("*** Converting FR EV ***")
-
-        # --- Night only EV ---
-
-        # Compute the ratio between the minimum load at night, and the minimum load per day
-        # This ratio will be used to allocate the following properties to the night only EV:
-        # - MaximumPower
-        # - MinimumPower
-        # - MaximumEnergy
-        # - DisplacementEnergy
-
-        # Retrieve useful data from the Antares input marker
-        antares_node = antares_dataset.Node.GetInstanceByName("fr")
-        ve_fr_total_node = antares_dataset.Node.GetInstanceByName("ve_fr_load_total")
-
-        ev_link_total = antares_dataset.Link.GetInstanceByName(antares_node.Name + "_ve_fr_load_total")
-        ev_inj = antares_dataset.ThermalTechnology.GetInstanceByName("fr_FR_VE_inj")
-        ev_stor = antares_dataset.ThermalTechnology.GetInstanceByName("ve_vhr_storage_VE_VHR_storage_VE_FR_1")
-
-        ve_fr_load_min = antares_dataset.BindingConstraint.GetInstanceByName("ve_fr_load_min")
-        ve_fr_night_load_min = antares_dataset.BindingConstraint.GetInstanceByName("ve_fr_night_load_min")
-        ve_stock_fr = antares_dataset.BindingConstraint.GetInstanceByName("ve_stock_fr")
-
-        # Create a timeseries of 1 and 0 indicating when night EV are connected
-        night_connection_capacity = ev_link_total.DirectTransferCapacity.GetTimeSeriesByName("1")
-        if night_connection_capacity.Max() != 0:
-            night_connection_hours = (1 / night_connection_capacity.Max()) * night_connection_capacity
-        else:
-            API.IO.Trace.Log(
-                "WARNING: Possible error on the DirectTransferCapacity of ve_fr_load_total", API.IO.LogTypeWarn
-            )
-            night_connection_hours = night_connection_capacity
-
-        one_year_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), "1h")
-
-        # Compute the ratio of night only EV, based on the average of the entire year
-        night_only_ev_ratio_raw = API.TimeSeries.NewTimeSeries(
-            "Raw Night EV Ratio", API.TimeSeries.Constant, "", one_year_index, 0
+        # Create EV equipment
+        ev = Storage(
+            name=f"{area.id}_ev",
+            node=atlas_dataset.get("node", area.id),
+            portfolio=atlas_dataset.get(
+                "portfolio",
+                f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
+            ),
+            storage_type=StorageType.ELECTRIC_VEHICLE,
+            is_v2g=True,
+            maximum_power=maximum_power_ts,
+            minimum_power=minimum_power_ts,
+            maximum_energy=maximum_energy_ts,
+            minimum_state_of_charge=Timeseries.from_index(
+                start_date=parameters.start_date,
+                frequency="1h",
+                end_date=parameters.start_date + duration(years=1),
+                default_value=0.3,
+            ),
+            charge_efficiency=charge_efficiency,
+            discharge_efficiency=discharge_efficiency,
+            storage_initial_level=parameters.ev_initial_level,
+            displacement_energy=displacement_energy_ts,
         )
 
-        for local_time in night_only_ev_ratio_raw.Index:
-            if ve_fr_load_min.GreaterThan.GetValue(local_time) != 0:
-                night_only_ev_ratio_raw.SetValue(
-                    local_time,
-                    (
-                        ve_fr_night_load_min.GreaterThan.GetValue(local_time)
-                        / ve_fr_load_min.GreaterThan.GetValue(local_time)
-                    ),
-                )
+        ev_units.append(ev)
+        logger.debug(f"Created EV for area: {area.id}")
 
-        night_only_ev_ratio = night_only_ev_ratio_raw.Average()
+    logger.info("Standard EV conversion done")
+    return ev_units
 
-        # Store it in two different timeseries, used later on
-        night_only_ev_ratio_complete = API.TimeSeries.NewTimeSeries(
-            "Night EV Ratio Complete", API.TimeSeries.Constant, "", one_year_index, night_only_ev_ratio
-        )
 
-        # The following loop may seems unefficient but is actually required
-        night_only_ev_ratio_ts = API.TimeSeries.NewTimeSeries(
-            "Night EV Ratio", API.TimeSeries.Constant, "", one_year_index, 0
-        )
-        for local_time in night_only_ev_ratio_ts.Index:
-            if ve_fr_load_min.GreaterThan.GetValue(local_time) != 0:
-                night_only_ev_ratio_ts.SetValue(
-                    local_time, (night_connection_hours.GetValue(local_time) * night_only_ev_ratio)
-                )
+def _convert_france_evs(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    baseline_displacement_energy_ts: Timeseries | None,
+    specific_node_parameters: dict,
+) -> list[Storage]:
+    """Convert France EV units (night-only and regular).
 
-        # Create an ATLAS Storage instance and fill its properties
-        if p.consumption_production_separation:
-            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"generator_{antares_node.Name}")
-        else:
-            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{antares_node.Name}")
-        atlas_node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
+    France has special EV modeling with:
+    - Night-only EVs: connected only during night hours
+    - Regular EVs: connected during day and night
+    The split is calculated from binding constraints.
+    """
+    logger.info("Converting FR EV units")
 
-        ev_instance = atlas_dataset.Equipment.Storage.CreateInstance(f"{antares_node.Name}_ev_night")
-        ev_instance.Portfolio = atlas_portfolio
-        ev_instance.Node = atlas_node
-        ev_instance.isV2G = True
-        ev_instance.StorageType = "ElectricVehicle"
+    areas = study.get_areas()
+    links = study.get_links()
+    binding_constraints = study.get_binding_constraints()
+    ev_units: list[Storage] = []
 
-        # MaximumPower and MinimumPower
-        night_maximum_power = API.TimeSeries.NewTimeSeries(
-            "Night EV Maximum Power",
-            API.TimeSeries.Constant,
-            "MW",
-            night_only_ev_ratio_ts.Index,
-            night_only_ev_ratio_ts.Values,
-        )
-        night_maximum_power.Multiply(ev_inj.Disponibility.GetTimeSeriesByName(str(dispo_scenario)))
-        ev_instance.MaximumPower = night_maximum_power.Round()
+    if "fr" not in areas:
+        return ev_units
 
-        night_minimum_power = API.TimeSeries.NewTimeSeries(
-            "Night EV Minimum Power",
-            API.TimeSeries.Constant,
-            "MW",
-            night_only_ev_ratio_ts.Index,
-            night_only_ev_ratio_ts.Values,
-        )
-        night_minimum_power.Multiply(ve_fr_total_node.MiscGenProduction.GetTimeSeriesByName("ROWBalance"))
-        ev_instance.MinimumPower = night_minimum_power.Round()
+    area = areas["fr"]
 
-        ev_instance.ChargeEfficiency = abs(ve_stock_fr.Weights[0])
-        if ve_stock_fr.Weights[2] != 0:
-            ev_instance.DischargeEfficiency = abs(1 / ve_stock_fr.Weights[2])
-        else:
-            ev_instance.DischargeEfficiency = 1
+    # TODO: This is complex and requires:
+    # 1. Getting thermal clusters for FR_VE_inj and VE_VHR_storage_VE_FR_1
+    # 2. Getting links to ve_fr_load_total
+    # 3. Getting multiple binding constraints:
+    #    - ve_fr_load_min
+    #    - ve_fr_night_load_min
+    #    - ve_stock_fr
+    # 4. Calculating night-only ratio from binding constraints
+    # 5. Creating two EV instances with split capacities
 
-        night_maximum_energy = API.TimeSeries.NewTimeSeries(
-            "Night EV Maximum Energy",
-            API.TimeSeries.Constant,
-            "MWh",
-            night_only_ev_ratio_ts.Index,
-            night_only_ev_ratio_ts.Values,
-        )
-        night_maximum_energy.Multiply(ev_stor.Disponibility.GetTimeSeriesByName(str(dispo_scenario)))
-        ev_instance.MaximumEnergy = night_maximum_energy.Round()
-        # Quick Fix for MaximumEnergy being set to 0 during day in Antares ; in ATLAS we want it to remain constant, and the instance is already disabled during the day through its MaximumPower
-        for t in ev_instance.MaximumEnergy.Index:
-            if ev_instance.MaximumEnergy.GetValue(t) == 0.0:
-                ev_instance.MaximumEnergy.SetValue(t, ev_instance.MaximumEnergy.GetValue(t.AddMinutes(-60)))
+    # For now, leaving detailed TODOs
+    logger.debug("TODO: Implement France EV conversion with night-only and regular EVs")
+    logger.debug("TODO: Calculate night-only ratio from ve_fr_load_min and ve_fr_night_load_min binding constraints")
+    logger.debug("TODO: Create fr_ev_night with capacities multiplied by night ratio")
+    logger.debug("TODO: Create fr_ev_regular with remaining capacities")
 
-        ev_instance.MinimumStateOfCharge = API.TimeSeries.NewTimeSeries(
-            "MinimumStateOfCharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0.3, ""
-        )
+    logger.info("FR EV conversion done (TODO)")
+    return ev_units
 
-        # Initial level
-        ev_instance.StorageInitialLevel = p.ev_initial_level
 
-        # DisplacementEnergy
-        # For night EV, the corresponding DisplacementEnergy is calculated over the whole day (and not only night hours)
-        # Then, this total value is divided on night hours only.
+def _convert_france_heavy_vehicles(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+) -> list[Load]:
+    """Convert France heavy vehicles (mobilite lourde) as Load equipment."""
+    logger.info("Converting FR heavy vehicles")
 
-        local_specific_node_parameters = specific_node_parameters["fr"]
-        unshifted_disp_energy = (float(local_specific_node_parameters[1]) * baseline_displacement_energy_ts).Round()
-        new_index = API.DatetimeIndex.Shift(disp_energy_index, str((-1) * local_specific_node_parameters[0]) + "h")
+    areas = study.get_areas()
+    links = study.get_links()
 
-        night_displacement_energy = API.TimeSeries.NewTimeSeries(
-            "RawDisplacementEnergy", API.TimeSeries.Constant, "MWh", new_index, unshifted_disp_energy.Values
-        )
-        night_displacement_energy.Multiply(night_only_ev_ratio_complete)
+    if "fr" not in areas:
+        return []
 
-        ev_instance.DisplacementEnergy = night_displacement_energy.Round()
+    area = areas["fr"]
 
-        # --- Regular EV ---
-        ev_link_total = antares_dataset.Link.GetInstanceByName(f"{antares_node.Name}_ve_fr_load_total")
+    # TODO: Get link to ve_fr_mobilite_lourde
+    # In old code: Link.GetInstanceByName("fr_ve_fr_mobilite_lourde")
+    hv_link = None
+    for link_id, link_obj in links.items():
+        if "fr_ve_fr_mobilite_lourde" in link_id.lower():
+            hv_link = link_obj
+            break
 
-        # Create an ATLAS Storage instance and fill its properties
-        ev_instance = atlas_dataset.Equipment.Storage.CreateInstance(f"{antares_node.Name}_ev_regular")
-        ev_instance.Portfolio = atlas_portfolio
-        ev_instance.Node = atlas_node
-        ev_instance.isV2G = True
-        ev_instance.StorageType = "ElectricVehicle"
+    if not hv_link:
+        logger.debug("No heavy vehicle link found for FR")
+        return []
 
-        ev_instance.ChargeEfficiency = abs(ve_stock_fr.Weights[0])
-        if ve_stock_fr.Weights[2] != 0:
-            ev_instance.DischargeEfficiency = abs(1 / ve_stock_fr.Weights[2])
-        else:
-            ev_instance.DischargeEfficiency = 1
+    # TODO: Get CalculatedTransit time series from link
+    # In old code: HV_link.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
+    try:
+        # TODO: Get correct transit data
+        transit_df = hv_link.get_capacity_direct()  # TODO: Get correct method
+        maximum_power_ts = Timeseries(transit_df * -1.0)
+    except Exception as e:
+        logger.warning(f"Could not get transit data for FR heavy vehicles: {e}")
+        return []
 
-        # MaximumPower, MinimumPower, MaximumEnergy and DisplacementEnergy are recomputed
-        # by susbtracting the part associated with the night only EV.
+    # Create Load equipment
+    hv = Load(
+        name="fr_heavy_vehicles",
+        node=atlas_dataset.get("node", "fr"),
+        portfolio=atlas_dataset.get(
+            "portfolio",
+            "supplier_fr" if parameters.consumption_production_separation else "portfolio_fr",
+        ),
+        load_type=LoadType.OTHER_NON_DISPATCHABLE_LOAD,
+        # TODO: Add maximum_power_forecast
+        # maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, maximum_power_ts),
+    )
 
-        ev_instance.MaximumPower = (
-            ev_inj.Disponibility.GetTimeSeriesByName(str(dispo_scenario)) - night_maximum_power
-        ).Round()
-        ev_instance.MinimumPower = (
-            ve_fr_total_node.MiscGenProduction.GetTimeSeriesByName("ROWBalance") - night_minimum_power
-        ).Round()
-
-        ev_instance.MaximumEnergy = (
-            ev_stor.Disponibility.GetTimeSeriesByName(str(dispo_scenario)) - night_maximum_energy
-        )
-        ev_instance.MinimumStateOfCharge = API.TimeSeries.NewTimeSeries(
-            "MinimumStateOfCharge", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0.3, ""
-        )
-
-        # Initial level
-        ev_instance.StorageInitialLevel = p.ev_initial_level
-
-        shifted_disp_energy = API.TimeSeries.NewTimeSeries(
-            "DisplacementEnergy", API.TimeSeries.Constant, "MWh", new_index, unshifted_disp_energy.Values
-        )
-        ev_instance.DisplacementEnergy = (shifted_disp_energy - night_displacement_energy).Round()
-
-        # QB: For multi-energy only ?
-        """#Maximum V2G constraint is stored in the fr_ev_regular instance but applies to the sum of both fr ev instances
-        ve_fr_p2g_max_daily = antares_dataset.BindingConstraint.GetInstanceByName("VE_P2G_limit")
-        one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1).AddHours(-1), "1d")
-        ev_instance.MaximumDailyEnergy = ve_fr_p2g_max_daily.LessThan.Extract("", one_year_days_index) * ve_fr_p2g_max_daily.Weights[0]"""
-
-        API.IO.Trace.Log("*** FR EV conversion done ***")
-
-        # FR Mobilite lourde
-        # =====
-        API.IO.Trace.Log("*** Converting FR Mobilite lourde ***")
-
-        # Retrieve useful informations
-        antares_node = antares_dataset.Node.GetInstanceByName("fr")
-        HV_link = antares_dataset.Link.GetInstanceByName("fr_ve_fr_mobilite_lourde")
-
-        # Create a Load equipment in the Atlas output marker
-        if p.consumption_production_separation:
-            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"supplier_{antares_node.Name}")
-        else:
-            atlas_portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(f"portfolio_{antares_node.Name}")
-        atlas_node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
-
-        hv_instance = atlas_dataset.Equipment.Load.CreateInstance("fr_heavy_vehicles")
-        hv_instance.Portfolio = atlas_portfolio
-        hv_instance.Node = atlas_node
-
-        # For now, we only consider a fix load given by the calculated flow on the link between the node and the Mobilite Lourde node.
-        if str(p.scenario) in HV_link.CalculatedTransit.Index:
-            hv_instance.MaximumPowerForecast.AddTimeSeries(
-                p.execution_date, -1.0 * HV_link.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
-            )
-        hv_instance.LoadType = "OtherNonDispatchableLoad"
-
-        API.IO.Trace.Log("*** FR Mobilite lourde conversion done ***")
+    logger.info("FR heavy vehicles conversion done")
+    return [hv]
