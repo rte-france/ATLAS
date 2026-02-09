@@ -1,197 +1,249 @@
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
 import os
 
-import API
-import inflows
+from antares.craft.model.area import Area
+from antares.craft.model.study import Study
+from loguru import logger
+from pendulum import duration
+
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.timeseries import Timeseries
+from atlas.models.equipment.hydro import Hydro
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-def conversion_hydraulic(antares_dataset, atlas_dataset, p):
-    # Hydraulic reservoir file
-    hydro_reservoirs = {}
-    hydro_index = {}
+def convert_hydraulic_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+) -> tuple[AtlasDataset, dict, dict]:
+    """Convert Hydraulic reservoir units from Antares to Atlas.
+
+    Hydraulic units are complex equipment with:
+    - Reservoir capacity management
+    - Inflow profiles
+    - Daily energy constraints
+    - Water value calculation
+    - Fragment prices and volumes
+
+    :return: Tuple of (atlas_dataset, inflows_dictionary, hydro_reservoirs)
+    """
+    logger.info("Converting Hydraulic units")
+
+    # Load hydraulic reservoirs data from CSV
+    hydro_reservoirs = _load_hydro_reservoirs(parameters)
     inflows_dictionary = {}
 
-    if os.path.isfile(p.hydro_reservoirs_file):
-        f = open(p.hydro_reservoirs_file)
-        lines_list = f.readlines()
-        f.close()
-        interval_length = len(lines_list)
+    areas = study.get_areas()
+    hydro_units: list[Hydro] = []
 
-        for row_index, line in enumerate(lines_list[0:interval_length]):
+    for area_name in parameters.market_areas:
+        if area_name not in areas:
+            continue
+
+        area = areas[area_name]
+        logger.debug(f"Processing hydraulic unit for area {area.id}")
+
+        # TODO: Verify how to access HydroReservoir from area
+        # In old code: antares_node.HydroReservoir
+        try:
+            # TODO: Get hydro reservoir data from area
+            # hydro_reservoir = area.get_hydro_reservoir()
+            # sc_hydro = hydro_reservoir.hydro_selected_scenario[parameters.scenario - 1]
+            pass
+        except Exception as e:
+            logger.warning(f"Could not access hydro reservoir for area {area.id}: {e}")
+            continue
+
+        # TODO: Check if hydraulic equipment should be created
+        # In old code: checks CalculatedStorageProduction, GeneratingMaxPower, ReservoirCapacity
+        # if not _should_create_hydro(area, parameters, hydro_reservoirs):
+        #     continue
+
+        hydro = _create_hydraulic_equipment(
+            area=area,
+            study=study,
+            parameters=parameters,
+            atlas_dataset=atlas_dataset,
+            hydro_reservoirs=hydro_reservoirs,
+            inflows_dictionary=inflows_dictionary,
+        )
+
+        if hydro:
+            hydro_units.append(hydro)
+
+    atlas_dataset.hydro = hydro_units
+
+    return atlas_dataset, inflows_dictionary, hydro_reservoirs
+
+
+def _load_hydro_reservoirs(parameters: AntaresToAtlasParameters) -> dict:
+    """Load hydraulic reservoirs data from CSV file.
+
+    Returns dict with node names as keys and reservoir properties as values:
+    - ReservoirCapacity
+    - OpenLoopCapacity
+    - ClosedLoopCapacity
+    """
+    hydro_reservoirs = {}
+
+    if not os.path.isfile(parameters.hydro_reservoirs_file):
+        logger.warning(f"Hydro reservoirs file not found: {parameters.hydro_reservoirs_file}")
+        return hydro_reservoirs
+
+    logger.debug(f"Loading hydro reservoirs from: {parameters.hydro_reservoirs_file}")
+
+    try:
+        with open(parameters.hydro_reservoirs_file) as f:
+            lines_list = f.readlines()
+
+        hydro_index = {}
+        headers = []
+
+        for row_index, line in enumerate(lines_list):
             if row_index == 0:
+                # Parse headers
                 headers = line.split(";")
-                for i in range(len(headers)):
-                    if i == 0:
-                        continue
-                    hydro_reservoirs[headers[i].strip()] = {}
-                    hydro_index[headers[i].strip()] = i
-
-            if row_index > 0:
+                for i in range(1, len(headers)):
+                    node_name = headers[i].strip()
+                    hydro_reservoirs[node_name] = {}
+                    hydro_index[node_name] = i
+            else:
+                # Parse data rows
                 splitted_line = line.split(";")
-                if not len(splitted_line) == len(headers):
+                if len(splitted_line) != len(headers):
                     msg = (
-                        f"The number of columns is invalid on line {str(row_index + 1)}. "
-                        "Please modify the HydraulicReservoirs file before proceeding again."
+                        f"Invalid number of columns on line {row_index + 1}. "
+                        "Please modify the HydraulicReservoirs file."
                     )
                     raise ValueError(msg)
 
-                for key, value in hydro_index.items():
-                    hydro_reservoirs[key][splitted_line[0]] = float(splitted_line[value])
+                property_name = splitted_line[0]
+                for node_name, column_index in hydro_index.items():
+                    hydro_reservoirs[node_name][property_name] = float(splitted_line[column_index])
 
-    for antares_node in antares_dataset.Node.GetAllInstances():
-        if antares_node.Name in p.market_areas_list:
-            # define the indices used to access the desired MC scenario in the Antares marker
-            try:
-                sc_hydro = antares_node.HydroReservoir.HydroSelectedScenario[p.scenario - 1]
-            except SystemError:
-                msg = f"Error with scenario {p.scenario} for unit {antares_node.Name}_hydro, potentially out of bounds"
-                raise SystemError(msg)
+        logger.debug(f"Loaded hydro reservoirs for {len(hydro_reservoirs)} nodes")
 
-            if str(p.scenario) in antares_node.HydroReservoir.CalculatedStorageProduction.Index:
-                if antares_node.HydroReservoir.GeneratingMaxPower.Abs().Max() == 0.0:
-                    continue
-                if (
-                    antares_node.Name in hydro_reservoirs.keys()
-                    and hydro_reservoirs[antares_node.Name]["ReservoirCapacity"] == 0
-                ):
-                    continue
-                hydro = atlas_dataset.Equipment.Hydraulic.CreateInstance(f"{antares_node.Name}_hydro")
-                if p.consumption_production_separation:
-                    hydro.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                        f"generator_{antares_node.Name}"
-                    )
-                else:
-                    hydro.Portfolio = atlas_dataset.MarketAgent.Portfolio.GetInstanceByName(
-                        f"portfolio_{antares_node.Name}"
-                    )
-                hydro.Node = atlas_dataset.Network.Node.GetInstanceByName(antares_node.Name)
-                hydro.EnergyTargetFrequency = "Daily"
-                hydro.InflowFrequency = "Daily"
-                hydro.MaximumPower = antares_node.HydroReservoir.GeneratingMaxPower
-                hydro.MinimumPower = API.TimeSeries.NewTimeSeries(
-                    "MinPower", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0.0, "MW"
-                )
+    except Exception as e:
+        logger.error(f"Error loading hydro reservoirs file: {e}")
+        return {}
 
-                # Retrieve the Hydraulic Reservoir Capacity from the Antares marker
-                # If it is missing, retrieve it from the HydraulicReservoirs csv
-                if (antares_node.HydroReservoir.ReservoirCapacity > 0) or (
-                    antares_node.Name not in hydro_reservoirs.keys()
-                ):
-                    hydro.MaximumEnergy = API.TimeSeries.NewTimeSeries(
-                        "MaximumEnergy",
-                        API.TimeSeries.Constant,
-                        p.start_date.ToString(),
-                        "1Y",
-                        2,
-                        antares_node.HydroReservoir.ReservoirCapacity,
-                        "MWh",
-                    )
+    return hydro_reservoirs
 
-                    if antares_node.HydroReservoir.ReservoirCapacity == 0:
-                        API.IO.Trace.Log(
-                            f"Warning, Reservoir Capacity of Equipment {hydro.Name} is set to 0. "
-                            "Water values won't be calculated for this Equipment"
-                        )
 
-                else:
-                    hydro.MaximumEnergy = API.TimeSeries.NewTimeSeries(
-                        "MaximumEnergy",
-                        API.TimeSeries.Constant,
-                        p.start_date.ToString(),
-                        "1Y",
-                        2,
-                        hydro_reservoirs[antares_node.Name]["ReservoirCapacity"],
-                        "MWh",
-                    )
+def _create_hydraulic_equipment(
+    area: Area,
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+    hydro_reservoirs: dict,
+    inflows_dictionary: dict,
+) -> Hydro | None:
+    """Create a Hydraulic equipment for an area."""
+    # TODO: Get hydro reservoir from area
+    # In old code: area.HydroReservoir
+    try:
+        # TODO: Verify how to access hydro reservoir properties
+        # - GeneratingMaxPower
+        # - ReservoirCapacity
+        # - CalculatedStorageProduction
+        # - Modulation (inflows)
+        # - ReservoirManagement
+        # - HydroSelectedScenario
+        pass
+    except Exception as e:
+        logger.warning(f"Could not create hydro equipment for area {area.id}: {e}")
+        return None
 
-                    if hydro_reservoirs[antares_node.Name] == 0:
-                        API.IO.Trace.Log(
-                            f"Warning, Reservoir Capacity of Equipment {hydro.Name} is set to 0. "
-                            "Water values won't be calculated for this Equipment"
-                        )
+    # TODO: Check if we should create the equipment
+    # if generating_max_power.abs().max() == 0.0:
+    #     return None
+    # if area.id in hydro_reservoirs and hydro_reservoirs[area.id].get("ReservoirCapacity", 0) == 0:
+    #     return None
 
-                # Retrieve or recompute Inflows and generate water values, based on the following logic:
-                # _ For a given Antares node, if ReservoirManagement is OFF, then Inflow timeseries (stored in 'Modulation')
-                #   give the actual inflows of the node, and can be directly utilized as such.
-                # _ However, if ReservoirManagement is ON, the hydro equipment is allowed to postpone or advance its usage of
-                #   the energy brought by inflows. Consequently, the information contained in Modulation does not directly
-                #   give inflows, but instead the energy produced over a given period (which can integrate advance or postponment of inflows).
-                #   In that case, generic historical inflow profiles are used for each node. These profiles should be given by the user
-                #   in its data folder on Prometheus, at the path indicated by the parameter PathInflows
-                # FC: this should be reworked, to point to the SAMBA folder instead
+    # Get reservoir capacity
+    # TODO: Verify how to get ReservoirCapacity from hydro reservoir
+    reservoir_capacity = 0.0
+    if area.id in hydro_reservoirs:
+        reservoir_capacity = hydro_reservoirs[area.id].get("ReservoirCapacity", 0.0)
+    # else:
+    #     reservoir_capacity = hydro_reservoir.reservoir_capacity
 
-                if (p.use_hydro_heuristic or antares_node.HydroReservoir.ReservoirManagement) and p.use_water_value:
-                    # Inflows
-                    if antares_node.HydroReservoir.Modulation.Count > sc_hydro - 1:
-                        if antares_node.HydroReservoir.ReservoirManagement:
-                            hydro.Inflows = antares_node.HydroReservoir.Modulation.GetTimeSeriesByName(str(sc_hydro))
-                            node_inflows_dictionary = {}
+    if reservoir_capacity == 0:
+        logger.warning(
+            f"Reservoir capacity of {area.id}_hydro is 0. Water values won't be calculated for this equipment"
+        )
 
-                            # Store the inflows that will be used during water values computation in node_inflows_dictionary
-                            available_scenarios = [ts.Name for ts in antares_node.CalculatedMarginalPrice.TimeSeries]
-                            if p.water_value_scenarios == "All":
-                                scenarios = available_scenarios
-                            else:
-                                scenarios = p.water_value_scenarios.split(sep=";")
+    # TODO: Get maximum power from hydro reservoir
+    # In old code: antares_node.HydroReservoir.GeneratingMaxPower
+    maximum_power_ts = Timeseries.from_index(
+        start_date=parameters.start_date,
+        frequency="1h",
+        end_date=parameters.start_date + duration(years=1),
+        default_value=0.0,
+    )
 
-                            for scenario_index, scenario in enumerate(scenarios):
-                                local_hydro_sc = antares_node.HydroReservoir.HydroSelectedScenario[int(scenario) - 1]
+    # Create Hydro equipment
+    hydro = Hydro(
+        name=f"{area.id}_hydro",
+        node=atlas_dataset.get("node", area.id),
+        portfolio=atlas_dataset.get(
+            "portfolio",
+            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
+        ),
+        maximum_power=maximum_power_ts,
+        minimum_power=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
+        maximum_energy=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=reservoir_capacity,
+        ),
+        minimum_energy=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
+        # energy_target_frequency="Daily",  # TODO: Verify field name
+        # inflow_frequency="Daily",  # TODO: Verify field name
+    )
 
-                                node_inflows_dictionary[scenario] = (
-                                    antares_node.HydroReservoir.Modulation.GetTimeSeriesByName(str(local_hydro_sc))
-                                )
-                        else:
-                            node_inflows_dictionary = inflows.AddInflows(
-                                antares_node, hydro, antares_node.HydroReservoir.Modulation, sc_hydro, p
-                            )
+    # TODO: Set inflows or energy target
+    # Logic depends on use_hydro_heuristic, ReservoirManagement, and use_water_value
+    # if (parameters.use_hydro_heuristic or reservoir_management) and parameters.use_water_value:
+    #     # Use inflows
+    #     if reservoir_management:
+    #         hydro.inflows = modulation_ts
+    #         node_inflows_dictionary = _prepare_inflows_for_water_values(area, parameters)
+    #     else:
+    #         node_inflows_dictionary = _add_inflows_from_csv(area, hydro, modulation_ts, parameters)
+    #     inflows_dictionary[area.id] = node_inflows_dictionary
+    # else:
+    #     # Use energy target
+    #     hydro.energy_target = modulation_ts
 
-                        inflows_dictionary[antares_node.Name] = node_inflows_dictionary
+    # TODO: Set daily energy constraints
+    # In old code: uses CalculatedStorageProduction to calculate daily min/max energy
+    # hydro.has_daily_energy_constraint = True
+    # hydro.minimum_daily_energy = ...
+    # hydro.maximum_daily_energy = ...
+    # See old code lines 157-180
 
-                else:
-                    if str(sc_hydro) in antares_node.HydroReservoir.Modulation.Index:
-                        hydro.EnergyTarget = antares_node.HydroReservoir.Modulation.GetTimeSeriesByName(str(sc_hydro))
+    # TODO: Set fragment prices and volumes
+    # In old code: from parameters.fragment_prices and parameters.fragment_volumes
+    # hydro.fragment_prices.add(...)
+    # hydro.fragment_volumes.add(...)
+    # See old code lines 182-195
 
-                hydro.MinimumEnergy = API.TimeSeries.NewTimeSeries(
-                    "MinimumEnergy", API.TimeSeries.Constant, p.start_date.ToString(), "1Y", 2, 0, "MWh"
-                )
-
-                one_year_days_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), "1d")
-                one_year_hours_index = API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), "1h")
-
-                hydro.HasDailyEnergyConstraint = True
-                hydro.MinimumDailyEnergy = API.TimeSeries.NewTimeSeries(
-                    "MinimumDailyEnergy", API.TimeSeries.Constant, "MWh", one_year_days_index, 0.0
-                )
-                hydro.MaximumDailyEnergy = API.TimeSeries.NewTimeSeries(
-                    "MaximumDailyEnergy", API.TimeSeries.Constant, "MWh", one_year_days_index, 0.0
-                )
-                power_hourly = antares_node.HydroReservoir.CalculatedStorageProduction.GetTimeSeriesByName(
-                    str(p.scenario)
-                )
-                power_hourly.ChangeIndex(one_year_hours_index)
-                for time_step in range(len(one_year_days_index) - 1):
-                    one_day_energy = power_hourly.Slice(
-                        one_year_days_index[time_step], one_year_days_index[time_step].AddDays(1).AddHours(-1)
-                    )
-                    hydro.MinimumDailyEnergy[one_year_days_index[time_step]] = (
-                        one_day_energy.Sum() * p.hydro_min_energy_coeff
-                    )
-                    hydro.MaximumDailyEnergy[one_year_days_index[time_step]] = (
-                        one_day_energy.Sum() * p.hydro_max_energy_coeff
-                    )
-
-                # Fill FragmentVolumes and FragmentPrices attributes
-                if antares_node.Name in p.fragment_prices.keys():
-                    local_prices = p.fragment_prices[antares_node.Name]
-                else:
-                    local_prices = p.fragment_prices["Generic"]
-                for price in local_prices:
-                    hydro.FragmentPrices.Add(price)
-
-                if antares_node.Name in p.fragment_volumes.keys():
-                    local_volumes = p.fragment_volumes[antares_node.Name]
-                else:
-                    local_volumes = p.fragment_volumes["Generic"]
-                for volume in local_volumes:
-                    hydro.FragmentVolumes.Add(volume)
-
-    return inflows_dictionary, hydro_reservoirs
+    logger.debug(f"Created hydraulic equipment for area: {area.id}")
+    return hydro
