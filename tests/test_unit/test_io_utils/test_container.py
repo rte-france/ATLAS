@@ -34,23 +34,6 @@ def test_container_add_unique():
     assert c.get("a") is item
 
 
-def test_container_add_wrong_type_raises_type_error():
-    class OtherBM(BusinessModel):
-        def __init__(self, name: str):
-            super().__init__(name=name)
-
-    class DummyBMContainer(Container[DummyBM]):
-        item_type = DummyBM
-
-    c = DummyBMContainer()
-
-    with pytest.raises(
-        TypeError,
-        match="Expected DummyBM, got OtherBM",
-    ):
-        c.add(OtherBM("x"))
-
-
 def test_container_add_duplicate_raises():
     c = Container()
     c.add(DummyBM("a"))

@@ -10,34 +10,33 @@ from __future__ import annotations
 
 import pickle
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 import atlas.config as cfg
 from atlas.enum import BusinessModelName
+from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
-from atlas.io_utils.specific_container import (
-    ControlBlockContainer,
-    CriticalBranchContainer,
-    HydroContainer,
-    LoadContainer,
-    MarketAreaContainer,
-    MarketAreaPtdfContainer,
-    MarketBorderContainer,
-    NodeContainer,
-    NodePtdfContainer,
-    OrderContainer,
-    OrderCouplingContainer,
-    OtherNonDispatchableContainer,
-    PortfolioContainer,
-    SolarContainer,
-    StorageContainer,
-    ThermalContainer,
-    WindContainer,
-)
 from atlas.models.business_model import BusinessModel
+from atlas.models.control_block import ControlBlock
+from atlas.models.equipment.hydro import Hydro
+from atlas.models.equipment.load import Load
+from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.models.equipment.solar import Solar
+from atlas.models.equipment.storage import Storage
+from atlas.models.equipment.thermal import Thermal
+from atlas.models.equipment.wind import Wind
+from atlas.models.market.critical_branch import CriticalBranch
+from atlas.models.market.market_area import MarketArea
+from atlas.models.market.market_area_ptdf import MarketAreaPtdf
+from atlas.models.market.market_border import MarketBorder
+from atlas.models.market.node_ptdf import NodePtdf
+from atlas.models.market.order import Order
+from atlas.models.market.order_coupling import OrderCoupling
+from atlas.models.node import Node
+from atlas.models.portfolio import Portfolio
 
 
 class AtlasDataset(BaseModel):
@@ -62,23 +61,23 @@ class AtlasDataset(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
-    control_block: ControlBlockContainer = Field(default_factory=ControlBlockContainer)
-    critical_branch: CriticalBranchContainer = Field(default_factory=CriticalBranchContainer)
-    hydro: HydroContainer = Field(default_factory=HydroContainer)
-    load: LoadContainer = Field(default_factory=LoadContainer)
-    market_area: MarketAreaContainer = Field(default_factory=MarketAreaContainer)
-    market_area_ptdf: MarketAreaPtdfContainer = Field(default_factory=MarketAreaPtdfContainer)
-    market_border: MarketBorderContainer = Field(default_factory=MarketBorderContainer)
-    node: NodeContainer = Field(default_factory=NodeContainer)
-    node_ptdf: NodePtdfContainer = Field(default_factory=NodePtdfContainer)
-    order: OrderContainer = Field(default_factory=OrderContainer)
-    order_coupling: OrderCouplingContainer = Field(default_factory=OrderCouplingContainer)
-    other_non_dispatchable: OtherNonDispatchableContainer = Field(default_factory=OtherNonDispatchableContainer)
-    solar: SolarContainer = Field(default_factory=SolarContainer)
-    portfolio: PortfolioContainer = Field(default_factory=PortfolioContainer)
-    storage: StorageContainer = Field(default_factory=StorageContainer)
-    thermal: ThermalContainer = Field(default_factory=ThermalContainer)
-    wind: WindContainer = Field(default_factory=WindContainer)
+    control_block: Container[ControlBlock] = Field(default_factory=lambda: Container())
+    critical_branch: Container[CriticalBranch] = Field(default_factory=lambda: Container())
+    hydro: Container[Hydro] = Field(default_factory=lambda: Container())
+    load: Container[Load] = Field(default_factory=lambda: Container())
+    market_area: Container[MarketArea] = Field(default_factory=lambda: Container())
+    market_area_ptdf: Container[MarketAreaPtdf] = Field(default_factory=lambda: Container())
+    market_border: Container[MarketBorder] = Field(default_factory=lambda: Container())
+    node: Container[Node] = Field(default_factory=lambda: Container())
+    node_ptdf: Container[NodePtdf] = Field(default_factory=lambda: Container())
+    order: Container[Order] = Field(default_factory=lambda: Container())
+    order_coupling: Container[OrderCoupling] = Field(default_factory=lambda: Container())
+    other_non_dispatchable: Container[OtherNonDispatchable] = Field(default_factory=lambda: Container())
+    solar: Container[Solar] = Field(default_factory=lambda: Container())
+    portfolio: Container[Portfolio] = Field(default_factory=lambda: Container())
+    storage: Container[Storage] = Field(default_factory=lambda: Container())
+    thermal: Container[Thermal] = Field(default_factory=lambda: Container())
+    wind: Container[Wind] = Field(default_factory=lambda: Container())
 
     _indices: dict[str, dict[str, BusinessModel]] = {}
 
@@ -174,12 +173,7 @@ class AtlasDataset(BaseModel):
         :return: An AtlasDataset instance
         :rtype: AtlasDataset
         """
-        # Initialize with empty lists for all fields, then update with provided data
-        kwargs: dict[str, Any] = {}
-        for bm_type, bm_list in data.items():
-            kwargs[bm_type] = cfg.MODEL_CONTAINER_MAPPING_NAME[BusinessModelName(bm_type)](bm_list)
-
-        return cls(**kwargs)
+        return cls(**data)  # type: ignore[arg-type]
 
     def to_directory(
         self,
@@ -303,6 +297,38 @@ class AtlasDataset(BaseModel):
         if object_type not in self._indices:
             return None
         return self._indices[object_type].get(name)
+
+    def get_items_by_type(self, object_type: str | type[BusinessModel]) -> list[BusinessModel]:
+        """
+        Get a Container object by type with O(1) lookup.
+
+        :param object_type: The type of object (e.g., "hydro", "node")
+        :type object_type: str | type[BusinessModel]
+        :return: The Container object if found, raise an error otherwise
+        :rtype: Container
+        """
+        container = self.get_container_by_type(object_type)
+        return container.all()
+
+    def get_container_by_type(self, object_type: str | type[BusinessModel]) -> Container:
+        """
+        Get a Container object by type with O(1) lookup.
+
+        :param object_type: The type of object (e.g., "hydro", "node")
+        :type object_type: str | type[BusinessModel]
+        :return: The Container object if found, raise an error otherwise
+        :rtype: Container
+        """
+        if isinstance(object_type, type) and issubclass(object_type, BusinessModel):
+            object_type_str = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
+        elif isinstance(object_type, str):
+            object_type_str = BusinessModelName(object_type)
+        else:
+            raise TypeError(f"Invalid type for object_type: {object_type!r}")
+        container = getattr(self, object_type_str, None)
+        if container is None:
+            raise ValueError(f"No container found for type {object_type_str}")
+        return container
 
     def iter_by_types(self, *object_types: str):
         """
@@ -437,16 +463,18 @@ class AtlasDataset(BaseModel):
     @classmethod
     def _container_validator(cls, v: Any, info):
         """
-        Ensure that container fields are either already a container or a list of BusinessModel objects.
+        Ensure that container fields are either already a Container or a list of BusinessModel objects.
         """
         container_type = cls.model_fields[info.field_name].annotation
+        origin_type = get_origin(container_type) or container_type  # unwrap Container[Node] -> Container
 
-        assert isinstance(container_type, type)
+        if not isinstance(origin_type, type):
+            raise TypeError(f"Cannot determine container type for field {info.field_name}")
 
-        if isinstance(v, container_type):
+        if isinstance(v, origin_type):
             return v
 
         if isinstance(v, list):
-            return container_type(v)
+            return origin_type(v)  # wrap list in Container
 
-        raise TypeError(f"{info.field_name} must be a {container_type.__name__} or a list")
+        raise TypeError(f"{info.field_name} must be a {origin_type.__name__} or a list")

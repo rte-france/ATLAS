@@ -5,27 +5,6 @@ This file is part of the ATLAS project.
 """
 
 from atlas.enum import BusinessModelName
-from atlas.io_utils.container import Container
-from atlas.io_utils.specific_container import (
-    ControlBlockContainer,
-    CriticalBranchContainer,
-    EquipmentContainer,
-    HydroContainer,
-    LoadContainer,
-    MarketAreaContainer,
-    MarketAreaPtdfContainer,
-    MarketBorderContainer,
-    NodeContainer,
-    NodePtdfContainer,
-    OrderContainer,
-    OrderCouplingContainer,
-    OtherNonDispatchableContainer,
-    PortfolioContainer,
-    SolarContainer,
-    StorageContainer,
-    ThermalContainer,
-    WindContainer,
-)
 from atlas.logging import Logger
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
@@ -69,27 +48,6 @@ MODEL_MAPPING_NAME: dict[BusinessModelName, type[BusinessModel]] = {
     BusinessModelName.STORAGE: Storage,
     BusinessModelName.THERMAL: Thermal,
     BusinessModelName.WIND: Wind,
-}
-
-MODEL_CONTAINER_MAPPING_NAME: dict[BusinessModelName, type[Container]] = {
-    BusinessModelName.CONTROL_BLOCK: ControlBlockContainer,
-    BusinessModelName.CRITICAL_BRANCH: CriticalBranchContainer,
-    BusinessModelName.EQUIPMENT: EquipmentContainer,
-    BusinessModelName.HYDRO: HydroContainer,
-    BusinessModelName.LOAD: LoadContainer,
-    BusinessModelName.MARKET_AREA: MarketAreaContainer,
-    BusinessModelName.MARKET_AREA_PTDF: MarketAreaPtdfContainer,
-    BusinessModelName.MARKET_BORDER: MarketBorderContainer,
-    BusinessModelName.NODE: NodeContainer,
-    BusinessModelName.NODE_PTDF: NodePtdfContainer,
-    BusinessModelName.ORDER: OrderContainer,
-    BusinessModelName.ORDER_COUPLING: OrderCouplingContainer,
-    BusinessModelName.OTHER_NON_DISPATCHABLE: OtherNonDispatchableContainer,
-    BusinessModelName.SOLAR: SolarContainer,
-    BusinessModelName.PORTFOLIO: PortfolioContainer,
-    BusinessModelName.STORAGE: StorageContainer,
-    BusinessModelName.THERMAL: ThermalContainer,
-    BusinessModelName.WIND: WindContainer,
 }
 
 
