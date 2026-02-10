@@ -23,4 +23,6 @@ class CISHandler:
         order_index = {name: idx for idx, name in enumerate(cfg.MODEL_ORDER_INSTANTIATION)}
 
         # Sort using the index; items with no match go last
-        return sorted(change_sets, key=lambda cs: order_index.get(cfg.INVERSE_MODEL_MAPPING_NAME[cs], len(order_index)))
+        return sorted(
+            change_sets, key=lambda cs: order_index.get(cfg.INVERSE_MODEL_MAPPING_NAME[cs.model_type], len(order_index))
+        )
