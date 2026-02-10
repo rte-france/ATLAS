@@ -1,7 +1,8 @@
-from types import UnionType
-from typing import Union, get_args, get_origin
+from typing import Any
 
+import atlas.config as cfg
 from atlas.models.business_model import BusinessModel
+from atlas.typing import get_type_attribute
 from atlas.workflow.change_set.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
 from atlas.workflow.current_input_state import CurrentInputState
 
@@ -29,37 +30,11 @@ class ChangeSetHandler:
         Find the BusinessModel of the attribute in the other cis container
         """
         data = change_set.data.copy()  # avoid mutating original
+        obj = change_set.model_type.model_validate({"name": data["name"]})
 
-        # Resolve any BusinessModel references
-        for key, value in data.items():
-            if isinstance(value, BusinessModel):
-                # Already an instance, see if it exists in CIS
-                existing = cis.data.get_container_by_type(type(value)).get(value.name)
-                if existing:
-                    data[key] = existing
-                else:
-                    raise ValueError(
-                        f"Trying to add a '{change_set.model_type}' but '{key}' of value '{value.name}' is not present"
-                    )
-            elif isinstance(value, str):
-                # Sometimes the data may just contain a name for a reference
-                # Try to find a BusinessModel container matching the type annotation
-                attr_type = getattr(change_set.model_type, "__annotations__", {}).get(key)
-                attr_type = ChangeSetHandler.resolve_type(attr_type)
-                if attr_type and isinstance(attr_type, type) and issubclass(attr_type, BusinessModel):
-                    try:
-                        existing = cis.data.get_container_by_type(attr_type).get(value)
-                        data[key] = existing
-                    except KeyError:
-                        raise ValueError(
-                            f"Trying to add a '{change_set.model_type}' but '{key}' of value '{value}' "
-                            f"can't be retrieve"
-                        )
+        ChangeSetHandler._resolve_reference(obj, data, cis)
+        ChangeSetHandler._fill_object(obj, data)
 
-        # Instantiate the object from the data
-        obj: BusinessModel = change_set.model_type(**data)
-
-        # Map model type to dataset attribute
         container = cis.data.get_container_by_type(change_set.model_type)
 
         # Add the object to the container
@@ -73,8 +48,6 @@ class ChangeSetHandler:
         Find the BusinessModel of the attribute in the other cis container
         """
         data = change_set.data.copy()  # avoid mutating original
-
-        # First, get the container corresponding to the model type
         container = cis.data.get_container_by_type(change_set.model_type)
 
         # Get the existing object by name
@@ -82,8 +55,15 @@ class ChangeSetHandler:
         try:
             obj: BusinessModel = container.get(obj_name)
         except KeyError:
-            raise ValueError(f"Object '{obj_name}' not found in container for type {change_set.model_type.__name__}")
+            raise ValueError(
+                f"Object '{obj_name}' not found in container for type {change_set.model_type.__name__}"
+            ) from None
 
+        ChangeSetHandler._resolve_reference(obj, data, cis)
+        ChangeSetHandler._fill_object(obj, data)
+
+    @staticmethod
+    def _resolve_reference(obj: BusinessModel, data: dict[str, Any], cis: CurrentInputState):
         # Resolve BusinessModel references in data
         for key, value in data.items():
             if key == "name":
@@ -92,13 +72,17 @@ class ChangeSetHandler:
             if isinstance(value, BusinessModel):
                 # Already an instance, see if it exists in CIS
                 ref_container = cis.data.get_container_by_type(type(value))
-                existing = ref_container.get(value.name)
-                data[key] = existing
+                try:
+                    existing = ref_container.get(value.name)
+                    data[key] = existing
+                except KeyError:
+                    raise ValueError(
+                        f"Trying to update '{obj.__class__}' attribute '{key}' "
+                        f"with '{value.name}' but it is not present in CurrentInputState"
+                    ) from None
 
             elif isinstance(value, str):
-                # Maybe a name referring to another BusinessModel
-                attr_type = getattr(change_set.model_type, "__annotations__", {}).get(key)
-                attr_type = ChangeSetHandler.resolve_type(attr_type)
+                attr_type = get_type_attribute(cfg.INVERSE_MODEL_MAPPING_NAME[obj.__class__], key)
                 if attr_type and isinstance(attr_type, type) and issubclass(attr_type, BusinessModel):
                     ref_container = cis.data.get_container_by_type(attr_type)
                     try:
@@ -106,24 +90,23 @@ class ChangeSetHandler:
                         data[key] = existing
                     except KeyError:
                         raise ValueError(
-                            f"Trying to update '{change_set.model_type.__name__}' attribute '{key}' "
+                            f"Trying to update '{obj.__class__}' attribute '{key}' "
                             f"with '{value}' but it is not present in CurrentInputState"
-                        )
+                        ) from None
 
-        # Apply updates to the object
+    @staticmethod
+    def _fill_object(obj: BusinessModel, data: dict[str, Any]):
         for key, value in data.items():
-            if key != "name":
-                setattr(obj, key, value)
+            if key == "name":
+                continue  # do not update the name
+            setattr(obj, key, value)
 
     @staticmethod
     def _remove(change_set: DeleteObject, cis: CurrentInputState):
-        cis.data.order.remove(change_set.name)
-
-    @staticmethod
-    def resolve_type(attr_type):
-        origin = get_origin(attr_type)
-        if origin is Union or origin is UnionType:
-            args = [a for a in get_args(attr_type) if a is not type(None)]
-            if args:
-                return args[0]
-        return attr_type
+        container = cis.data.get_container_by_type(change_set.model_type)
+        if change_set.name not in container:
+            raise ValueError(
+                f"Trying to remove '{change_set.model_type}' object '{change_set.name}' "
+                f"but it is not present in CurrentInputState"
+            )
+        container.remove(change_set.name)
