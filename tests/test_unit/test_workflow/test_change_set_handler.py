@@ -1,9 +1,10 @@
 import pytest
+from pydantic_core._pydantic_core import ValidationError
 
 from atlas import MarketArea
 from atlas.models.market.order import Order
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.workflow.change_set.change_set import AddObject
+from atlas.workflow.change_set.change_set import AddObject, UpdateObject, DeleteObject
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.changet_set_handler import ChangeSetHandler
 
@@ -23,106 +24,154 @@ def cis(dataset):
     return CurrentInputState(dataset)
 
 
-class TestSimpleAddChangeSetHandler:
-    def test_add_simple_order(self, cis):
-        data = {
-            "name": "order_1",
-        }
-
-        add_order = AddObject.from_obj(Order(**data))
-
-        ChangeSetHandler.apply(add_order, cis)
-
-        assert "order_1" in cis.data.order
-
-    def test_add_order_already_present(self, cis):
-        data = {
-            "name": "order_1",
-        }
-
-        # model_type is automatically inferred in AddObject
-        add_order = AddObject.from_obj(Order(**data))
-
-        ChangeSetHandler.apply(add_order, cis)
-        with pytest.raises(ValueError, match="Item with name 'order_1' already exists"):
-            ChangeSetHandler.apply(add_order, cis)
-
-        assert "order_1" in cis.data.order
-
-    def test_add_order_with_market_area_present_as_str(self, cis):
-        market_area_1 = MarketArea(name="market_area_1")
-        cis.data.market_area.add(market_area_1)
-
-        data = {"name": "order_1", "market_area": "market_area_1"}
-
-        # model_type is automatically inferred in AddObject
-        add_order = AddObject(data, model_type=Order)
-
-        ChangeSetHandler.apply(add_order, cis)
-
-        assert "order_1" in cis.data.order
-        assert cis.data.order.get("order_1").market_area.name == "market_area_1"
-        assert cis.data.order.get("order_1").market_area == market_area_1
-
-    def test_add_order_with_market_area_present_as_obj(self, cis):
-        market_area_1 = MarketArea(name="market_area_1")
-        cis.data.market_area.add(market_area_1)
-
-        data = {"name": "order_1", "market_area": MarketArea(name="market_area_1")}
-
-        # model_type is automatically inferred in AddObject
-        add_order = AddObject(data, model_type=Order)
-
-        ChangeSetHandler.apply(add_order, cis)
-
-        assert "order_1" in cis.data.order
-        assert cis.data.order.get("order_1").market_area.name == "market_area_1"
-        assert cis.data.order.get("order_1").market_area == market_area_1
-
-    def test_add_order_with_non_businessmodel_reference(self, cis):
-        data = {
-            "name": "order_1",
-            "price": 42.0,  # simple float attribute
-        }
-        add_order = AddObject(data, model_type=Order)
-
-        ChangeSetHandler._add(add_order, cis)
-
-        assert cis.data.order.get("order_1").price == 42.0
+@pytest.fixture
+def cis_with_order(cis):
+    order = Order(name="order_1", price=10.0)
+    cis.data.order.add(order)
+    return cis
 
 
-class TestAddObjectHandlerEdgeCases:
-    def test_add_order_with_missing_reference_str_raises(self, cis):
-        # MarketArea "unknown" does not exist in CIS
-        data = {"name": "order_1", "market_area": "unknown"}
-        add_order = AddObject(data, model_type=Order)
+class TestChangeSetSharedBehavior:
+    def test_resolve_reference_str(self, cis):
+        ma = MarketArea(name="ma1")
+        cis.data.market_area.add(ma)
 
-        with pytest.raises(ValueError, match="can't be retrieve"):
-            ChangeSetHandler._add(add_order, cis)
+        order = Order.model_validate({"name": "o1"})
+        data = {"market_area": "ma1"}
 
-    def test_add_order_with_missing_reference_obj_raises(self, cis):
-        # MarketArea instance not yet in CIS
-        missing_ma = MarketArea(name="missing")
-        data = {"name": "order_1", "market_area": missing_ma}
-        add_order = AddObject(data, model_type=Order)
+        ChangeSetHandler._resolve_reference(order, data, cis)
 
-        with pytest.raises(ValueError, match="is not present"):
-            ChangeSetHandler._add(add_order, cis)
+        assert data["market_area"] is ma
 
-    def test_add_order_with_optional_reference_none(self, cis):
-        # Optional attribute with None should work
-        data = {"name": "order_1", "market_area": None}
-        add_order = AddObject(data, model_type=Order)
+    def test_resolve_reference_obj(self, cis):
+        ma = MarketArea(name="ma1")
+        cis.data.market_area.add(ma)
 
-        ChangeSetHandler._add(add_order, cis)
+        order = Order.model_validate({"name": "o1"})
+        data = {"market_area": MarketArea(name="ma1")}
 
-        order = cis.data.order.get("order_1")
-        assert order.market_area is None
+        ChangeSetHandler._resolve_reference(order, data, cis)
 
-    def test_add_order_with_unrelated_attribute(self, cis):
-        # Extra attribute not in Order should raise TypeError
-        data = {"name": "order_1", "foo": "bar"}
-        add_order = AddObject(data, model_type=Order)
+        assert data["market_area"] is ma
 
-        with pytest.raises(TypeError):
-            ChangeSetHandler._add(add_order, cis)
+    def test_resolve_reference_missing_raises(self, cis):
+        order = Order.model_validate({"name": "o1"})
+        data = {"market_area": "missing"}
+
+        with pytest.raises(ValueError):
+            ChangeSetHandler._resolve_reference(order, data, cis)
+
+    def test_fill_object_valid(self):
+        order = Order(name="o1", price=10.0)
+
+        ChangeSetHandler._fill_object(order, {"price": 20.0})
+
+        assert order.price == 20.0
+
+    def test_fill_object_invalid_type_raises(self):
+        order = Order(name="o1", price=10.0)
+
+        with pytest.raises(ValidationError):
+            ChangeSetHandler._fill_object(order, {"price": "invalid"})
+
+
+class TestAddChangeSetHandler:
+    def test_add_creates_object(self, cis):
+        add = AddObject({"name": "o1"}, model_type=Order)
+        ChangeSetHandler.apply(add, cis)
+
+        assert "o1" in cis.data.order
+
+    def test_add_duplicate_raises(self, cis):
+        add = AddObject({"name": "o1"}, model_type=Order)
+        ChangeSetHandler.apply(add, cis)
+
+        with pytest.raises(ValueError):
+            ChangeSetHandler.apply(add, cis)
+
+    def test_add_failure_does_not_pollute_container(self, cis):
+        add = AddObject({"name": "o1", "foo": "bar"}, model_type=Order)
+
+        with pytest.raises(ValidationError):
+            ChangeSetHandler.apply(add, cis)
+
+        assert "o1" not in cis.data.order
+
+
+class TestUpdateChangeSetHandler:
+    def test_update_mutates_existing_object(self, cis_with_order):
+        update = UpdateObject({"name": "order_1", "price": 42.0}, Order)
+        ChangeSetHandler.apply(update, cis_with_order)
+
+        assert cis_with_order.data.order.get("order_1").price == 42.0
+
+    def test_update_preserves_identity(self, cis_with_order):
+        obj = cis_with_order.data.order.get("order_1")
+
+        update = UpdateObject({"name": "order_1", "price": 99.0}, Order)
+        ChangeSetHandler.apply(update, cis_with_order)
+
+        assert cis_with_order.data.order.get("order_1") is obj
+
+    def test_update_missing_object_raises(self, cis):
+        update = UpdateObject({"name": "missing", "price": 10.0}, Order)
+
+        with pytest.raises(ValueError):
+            ChangeSetHandler.apply(update, cis)
+
+
+class TestDeleteChangeSetHandler:
+    def test_remove_existing_object(self, cis_with_order):
+        assert "order_1" in cis_with_order.data.order
+
+        remove = DeleteObject(
+            "order_1",
+            model_type=Order,
+        )
+
+        ChangeSetHandler.apply(remove, cis_with_order)
+
+        assert "order_1" not in cis_with_order.data.order
+
+    def test_remove_preserves_other_objects(self, cis):
+        order1 = Order(name="order_1", price=10.0)
+        order2 = Order(name="order_2", price=20.0)
+
+        cis.data.order.add(order1)
+        cis.data.order.add(order2)
+
+        remove = DeleteObject(
+            "order_1",
+            model_type=Order,
+        )
+
+        ChangeSetHandler.apply(remove, cis)
+
+        assert "order_1" not in cis.data.order
+        assert "order_2" in cis.data.order
+
+    def test_remove_non_existing_object_raises(self, cis):
+        remove = DeleteObject(
+            "unknown",
+            model_type=Order,
+        )
+
+        with pytest.raises(ValueError):
+            ChangeSetHandler.apply(remove, cis)
+
+    def test_remove_does_not_touch_other_collections(self, cis):
+        ma = MarketArea(name="ma1")
+        cis.data.market_area.add(ma)
+
+        order = Order(name="order_1", price=10.0)
+        cis.data.order.add(order)
+
+        remove = DeleteObject(
+            "order_1",
+            model_type=Order,
+        )
+
+        ChangeSetHandler.apply(remove, cis)
+
+        assert "order_1" not in cis.data.order
+        assert "ma1" in cis.data.market_area
