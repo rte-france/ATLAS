@@ -12,6 +12,7 @@ from atlas.workflow.handler.changet_set_handler import ChangeSetHandler
 
 
 class CISHandler:
+    # TODO : What to do if a change set failed ?
     @staticmethod
     def apply(change_sets: list[ChangeSet], cis: CurrentInputState):
         for change_set in CISHandler._ordering_change_sets(change_sets):
