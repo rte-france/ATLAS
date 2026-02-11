@@ -114,7 +114,7 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Number of orders that can be formulated at one time-step for the optimization problem related to "
         "the Storage instances with the type PumpedHydraulicStorage.",
     )
-    solver_time_out: Duration = Field(
+    solver_timeout: Duration = Field(
         default_factory=lambda: duration(minutes=4), description="Timeout (in seconds) of the optimization."
     )
     timestep: Duration = Field(
@@ -142,7 +142,7 @@ class DayAheadOrdersParameters(AbstractParameters):
         "battery_additional_hours",
         "thermic_additional_hours",
         "timestep",
-        "solver_time_out",
+        "solver_timeout",
         mode="before",
     )
     @classmethod

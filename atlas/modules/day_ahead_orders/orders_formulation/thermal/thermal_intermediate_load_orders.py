@@ -358,7 +358,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         solver_options = SolverOptions(
             presolve=self.parameters.use_presolve,
             duality_gap=self.parameters.solver_duality_gap,
-            time_limit=self.parameters.solver_time_out,
+            time_limit=self.parameters.solver_timeout,
         )
 
         for unit in equipments_list:
