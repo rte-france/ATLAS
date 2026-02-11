@@ -12,7 +12,9 @@ from atlas.io_utils.utils import to_snake_case
 from atlas.models.portfolio import Portfolio
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
-from tests.market_clearing_local.test_market_data_market_clearing import read_expected_data
+from tests.test_module.test_market_clearing.test_market_clearing_local.test_market_data_market_clearing import (
+    read_expected_data,
+)
 
 
 def retrieve_accepted_powers_from_json(
@@ -82,11 +84,11 @@ def retrieve_orders_mapping(market_area) -> dict[tuple[str, str], str]:
 @pytest.mark.parametrize(
     "dataset_name",
     [
-        "MarketClearing input v1.3 ATC_1",
+        "atc-1",
     ],
 )
 def test_market_clearing_output(dataset_name):
-    path = os.path.join("data", "market_clearing_prometheus", dataset_name)
+    path = os.path.join("data", "market_clearing_prometheus", "datasets-market-clearing", dataset_name)
     parameters_path = os.path.join(path, "parameters.yml")
     dataset_path = os.path.join(path, "atlas-dataset")
     pkl_path = os.path.join(path, "raw_data.pkl")

@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pydantic import field_serializer
 
-from atlas.enum import CouplingType
+from atlas.enums import CouplingType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries

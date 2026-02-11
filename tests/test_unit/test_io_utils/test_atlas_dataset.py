@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 from pendulum import DateTime, Duration, Timezone
 
-from atlas.enum import ComplementDirection, CouplingType, OrderType, Product, ThermalStrategy
+from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, ThermalStrategy
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pendulum
 import pytest
 
-from atlas.enum import MarketType, SolverStatus
+from atlas.enums import MarketType, SolverStatus
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO

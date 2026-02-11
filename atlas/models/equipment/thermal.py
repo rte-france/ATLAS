@@ -9,7 +9,7 @@ from __future__ import annotations
 from pendulum import Duration
 from pydantic import Field, field_validator
 
-from atlas.enum import ThermalStrategy
+from atlas.enums import ThermalStrategy
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
 from atlas.math.timeseries import Timeseries

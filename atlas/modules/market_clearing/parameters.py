@@ -10,7 +10,7 @@ from pendulum import Duration, duration
 from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enum import Enum, Product, SolverEnum
+from atlas.enums import Enum, Product, SolverEnum
 from atlas.validators import convert_to_duration
 
 

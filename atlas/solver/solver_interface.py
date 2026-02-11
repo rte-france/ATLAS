@@ -13,7 +13,7 @@ from typing import Any, Literal
 from ortools.linear_solver import pywraplp
 
 from atlas.config import logger
-from atlas.enum import SolverEnum, SolverStatus
+from atlas.enums import SolverEnum, SolverStatus
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions
 from atlas.solver.solver_parameters import (
     GenericParameterBuilder,

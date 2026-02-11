@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import logger
-from atlas.enum import CouplingType
+from atlas.enums import CouplingType
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.market.critical_branch import CriticalBranch

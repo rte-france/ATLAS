@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import polars as pl
 
 from atlas import LazyForecastingMatrix
-from atlas.enum import OrderType, Product
+from atlas.enums import OrderType, Product
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 

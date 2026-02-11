@@ -9,7 +9,7 @@ import json
 import atlas.modules.market_clearing.constants as constants
 from atlas import SolverOptions
 from atlas.config import logger
-from atlas.enum import ComplementDirection, CouplingType, OrderType
+from atlas.enums import ComplementDirection, CouplingType, OrderType
 from atlas.models.control_block import ControlBlock
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.models.market_area import MarketAreaMC
