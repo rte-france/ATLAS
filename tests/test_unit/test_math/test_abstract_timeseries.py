@@ -42,7 +42,7 @@ class TestAbstractTimeseries:
 
         assert result is ts  # inplace should return self
         assert all(ts.timeseries["value"] >= 0)
-        assert ts.timeseries["value"].to_list() == [1.0, 2.0, 3.0, 4.0, 5.0]
+        assert ts.values == [1.0, 2.0, 3.0, 4.0, 5.0]
 
     def test_abs_method_not_inplace(self, sample_timeseries):
         """Test that abs() method works with inplace=False."""
@@ -57,9 +57,9 @@ class TestAbstractTimeseries:
 
         assert result is not ts  # not inplace should return new instance
         # Original should be unchanged
-        assert ts.timeseries["value"].to_list() == [-1.0, 2.0, -3.0, 4.0, -5.0]
+        assert ts.values == [-1.0, 2.0, -3.0, 4.0, -5.0]
         # Result should have absolute values
-        assert result.timeseries["value"].to_list() == [1.0, 2.0, 3.0, 4.0, 5.0]
+        assert result.values == [1.0, 2.0, 3.0, 4.0, 5.0]
 
     def test_round_method_inplace(self, sample_timeseries):
         """Test that round() method works with inplace=True."""
@@ -73,7 +73,7 @@ class TestAbstractTimeseries:
         result = ts.round(rounding_precision=1, inplace=True)
 
         assert result is ts
-        assert ts.timeseries["value"].to_list() == [1.2, 2.6, 3.9, 4.1, 5.8]
+        assert ts.values == [1.2, 2.6, 3.9, 4.1, 5.8]
 
     def test_round_method_not_inplace(self, sample_timeseries):
         """Test that round() method works with inplace=False."""
@@ -88,9 +88,9 @@ class TestAbstractTimeseries:
 
         assert result is not ts
         # Original unchanged
-        assert ts.timeseries["value"].to_list() == [1.234, 2.567, 3.891, 4.123, 5.789]
+        assert ts.values == [1.234, 2.567, 3.891, 4.123, 5.789]
         # Result rounded
-        assert result.timeseries["value"].to_list() == [1.2, 2.6, 3.9, 4.1, 5.8]
+        assert result.values == [1.2, 2.6, 3.9, 4.1, 5.8]
 
     def test_lazy_abs_method(self, sample_lazy_timeseries):
         """Test that abs() method works on LazyTimeseries."""
@@ -106,7 +106,7 @@ class TestAbstractTimeseries:
         # Collect to check values
         collected = result.collect()
         assert all(collected.timeseries["value"] >= 0)
-        assert collected.timeseries["value"].to_list() == [1.0, 2.0, 3.0, 4.0, 5.0]
+        assert collected.values == [1.0, 2.0, 3.0, 4.0, 5.0]
 
     def test_lazy_round_method(self, sample_lazy_timeseries):
         """Test that round() method works on LazyTimeseries."""
@@ -121,4 +121,4 @@ class TestAbstractTimeseries:
 
         # Collect to check values
         collected = result.collect()
-        assert collected.timeseries["value"].to_list() == [1.2, 2.6, 3.9, 4.1, 5.8]
+        assert collected.values == [1.2, 2.6, 3.9, 4.1, 5.8]

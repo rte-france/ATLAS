@@ -773,10 +773,6 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         """
         self.collect().to_file_with_attribute(path, attribute, file_format, separator, concatenate)
 
-    # ========================================
-    # Additional required methods
-    # ========================================
-
     def __eq__(self, other: object) -> bool:
         """
         Implement the equality between two LazyTimeseries.

@@ -204,7 +204,7 @@ def test_filter_single_datetime(sample_df_extended):
     assert filtered_lt is lt  # Should return same instance
     collected = filtered_lt.collect()
     assert collected.timeseries.shape == (1, 2)
-    assert collected.timeseries["value"].to_list() == [25.0]
+    assert collected.values == [25.0]
 
 
 def test_filter_single_datetime_not_inplace(sample_df_extended):
@@ -216,7 +216,7 @@ def test_filter_single_datetime_not_inplace(sample_df_extended):
     assert filtered_lt is not lt  # Should return new instance
     collected = filtered_lt.collect()
     assert collected.timeseries.shape == (1, 2)
-    assert collected.timeseries["value"].to_list() == [35.0]
+    assert collected.values == [35.0]
 
     # Original should be unchanged
     original_collected = lt.collect()
@@ -230,7 +230,7 @@ def test_filter_single_string(sample_df_extended):
     filtered_lt = lt.filter(target_date_str, inplace=False)
     collected = filtered_lt.collect()
     assert collected.timeseries.shape == (1, 2)
-    assert collected.timeseries["value"].to_list() == [45.0]
+    assert collected.values == [45.0]
 
 
 def test_filter_single_pendulum_datetime(sample_df_extended):
@@ -240,7 +240,7 @@ def test_filter_single_pendulum_datetime(sample_df_extended):
     filtered_lt = lt.filter(target_date, inplace=False)
     collected = filtered_lt.collect()
     assert collected.timeseries.shape == (1, 2)
-    assert collected.timeseries["value"].to_list() == [55.0]
+    assert collected.values == [55.0]
 
 
 def test_filter_list_of_datetimes(sample_df_extended):
@@ -250,7 +250,7 @@ def test_filter_list_of_datetimes(sample_df_extended):
     filtered_lt = lt.filter(target_dates, inplace=False)
     collected = filtered_lt.collect()
     assert collected.timeseries.shape == (3, 2)
-    assert sorted(collected.timeseries["value"].to_list()) == [20.0, 40.0, 60.0]
+    assert sorted(collected.values) == [20.0, 40.0, 60.0]
 
 
 def test_filter_custom_date_format(sample_df_extended):
@@ -261,7 +261,7 @@ def test_filter_custom_date_format(sample_df_extended):
     filtered_lt = lt.filter(target_date_str, date_format=date_format, inplace=False)
     collected = filtered_lt.collect()
     assert collected.timeseries.shape == (1, 2)
-    assert collected.timeseries["value"].to_list() == [65.0]
+    assert collected.values == [65.0]
 
 
 def test_filter_no_matches(sample_df_extended):
@@ -317,7 +317,7 @@ def test_set_frequency_inplace():
 
     collected = result.collect()
     assert collected.timeseries.shape[0] == 5  # 5 hourly points from 0h to 4h
-    assert collected.timeseries["value"].to_list() == [10.0, 10.0, 20.0, 20.0, 30.0]
+    assert collected.values == [10.0, 10.0, 20.0, 20.0, 30.0]
 
 
 def test_set_frequency_not_inplace():
@@ -390,7 +390,7 @@ def test_set_frequency_same_frequency():
     result_collected = result.collect()
 
     assert result_collected.timeseries.shape == original_collected.timeseries.shape
-    assert result_collected.timeseries["value"].to_list() == original_collected.timeseries["value"].to_list()
+    assert result_collected.values == original_collected.values
 
 
 def test_set_frequency_timezone_preservation():
@@ -429,7 +429,7 @@ def test_abs_inplace():
     assert result is lt
 
     collected = result.collect()
-    assert collected.timeseries["value"].to_list() == [10.0, 15.0, 20.0, 25.0]
+    assert collected.values == [10.0, 15.0, 20.0, 25.0]
 
 
 def test_abs_not_inplace():
@@ -453,11 +453,11 @@ def test_abs_not_inplace():
     assert isinstance(result, LazyTimeseries)
 
     result_collected = result.collect()
-    assert result_collected.timeseries["value"].to_list() == [5.0, 10.0, 15.0]
+    assert result_collected.values == [5.0, 10.0, 15.0]
 
     # Original should be unchanged
     current_collected = lt.collect()
-    assert current_collected.timeseries["value"].to_list() == original_collected.timeseries["value"].to_list()
+    assert current_collected.values == original_collected.values
 
 
 def test_abs_timezone_preservation():
@@ -474,7 +474,7 @@ def test_abs_timezone_preservation():
     assert result.timezone == "America/New_York"
     collected = result.collect()
     assert collected.timezone == "America/New_York"
-    assert collected.timeseries["value"].to_list() == [42.0, 13.7]
+    assert collected.values == [42.0, 13.7]
 
 
 def test_abs_empty_series():
@@ -929,53 +929,53 @@ class TestLazyTimeseriesArithmetic:
         """Test multiplication with scalar value."""
         result = sample_lazy_ts * 2.0
         collected = result.collect()
-        assert collected.timeseries["value"].to_list() == [20.0, 30.0, 40.0, 50.0, 60.0]
+        assert collected.values == [20.0, 30.0, 40.0, 50.0, 60.0]
 
     def test_mul_with_timeseries(self, sample_lazy_ts, another_lazy_ts):
         """Test multiplication with another LazyTimeseries."""
         result = sample_lazy_ts * another_lazy_ts
         collected = result.collect()
         expected = [10.0 * 2.0, 15.0 * 3.0, 20.0 * 4.0, 25.0 * 5.0, 30.0 * 6.0]
-        assert collected.timeseries["value"].to_list() == expected
+        assert collected.values == expected
 
     def test_add_with_scalar(self, sample_lazy_ts):
         """Test addition with scalar value."""
         result = sample_lazy_ts + 5.0
         collected = result.collect()
-        assert collected.timeseries["value"].to_list() == [15.0, 20.0, 25.0, 30.0, 35.0]
+        assert collected.values == [15.0, 20.0, 25.0, 30.0, 35.0]
 
     def test_add_with_timeseries(self, sample_lazy_ts, another_lazy_ts):
         """Test addition with another LazyTimeseries."""
         result = sample_lazy_ts + another_lazy_ts
         collected = result.collect()
         expected = [10.0 + 2.0, 15.0 + 3.0, 20.0 + 4.0, 25.0 + 5.0, 30.0 + 6.0]
-        assert collected.timeseries["value"].to_list() == expected
+        assert collected.values == expected
 
     def test_sub_with_scalar(self, sample_lazy_ts):
         """Test subtraction with scalar value."""
         result = sample_lazy_ts - 5.0
         collected = result.collect()
-        assert collected.timeseries["value"].to_list() == [5.0, 10.0, 15.0, 20.0, 25.0]
+        assert collected.values == [5.0, 10.0, 15.0, 20.0, 25.0]
 
     def test_sub_with_timeseries(self, sample_lazy_ts, another_lazy_ts):
         """Test subtraction with another LazyTimeseries."""
         result = sample_lazy_ts - another_lazy_ts
         collected = result.collect()
         expected = [10.0 - 2.0, 15.0 - 3.0, 20.0 - 4.0, 25.0 - 5.0, 30.0 - 6.0]
-        assert collected.timeseries["value"].to_list() == expected
+        assert collected.values == expected
 
     def test_div_with_scalar(self, sample_lazy_ts):
         """Test division with scalar value."""
         result = sample_lazy_ts / 2.0
         collected = result.collect()
-        assert collected.timeseries["value"].to_list() == [5.0, 7.5, 10.0, 12.5, 15.0]
+        assert collected.values == [5.0, 7.5, 10.0, 12.5, 15.0]
 
     def test_div_with_timeseries(self, sample_lazy_ts, another_lazy_ts):
         """Test division with another LazyTimeseries."""
         result = sample_lazy_ts / another_lazy_ts
         collected = result.collect()
         expected = [10.0 / 2.0, 15.0 / 3.0, 20.0 / 4.0, 25.0 / 5.0, 30.0 / 6.0]
-        assert collected.timeseries["value"].to_list() == expected
+        assert collected.values == expected
 
 
 class TestLazyTimeseriesModification:
@@ -1063,3 +1063,431 @@ class TestLazyTimeseriesDescribe:
         # describe() returns shape, datetime info, numerical info
         assert "shape" in description
         assert description["shape"] == (5, 2)
+
+
+class TestFromValues:
+    """Tests for LazyTimeseries.from_values classmethod."""
+
+    def test_from_values_basic(self):
+        """Create a LazyTimeseries from start date, frequency and values list."""
+        lt = LazyTimeseries.from_values(
+            start_date="2023-01-01 00:00:00",
+            frequency="1h",
+            values=[10.0, 20.0, 30.0],
+        )
+        assert isinstance(lt, LazyTimeseries)
+        assert len(lt) == 3
+        assert lt.values == [10.0, 20.0, 30.0]
+
+    def test_from_values_timezone(self):
+        """from_values respects the given timezone."""
+        lt = LazyTimeseries.from_values(
+            start_date="2023-01-01 00:00:00",
+            frequency="1h",
+            values=[1.0, 2.0],
+            timezone="Europe/Paris",
+        )
+        assert lt.timezone == "Europe/Paris"
+
+    def test_from_values_pendulum_start(self):
+        """from_values accepts a pendulum.DateTime as start_date."""
+        start = pendulum.datetime(2023, 6, 1, 12, 0, tz="UTC")
+        lt = LazyTimeseries.from_values(
+            start_date=start,
+            frequency="30m",
+            values=[5.0, 10.0, 15.0],
+        )
+        assert len(lt) == 3
+        assert lt.first_date() == start
+
+    def test_from_values_too_few_values(self):
+        """from_values raises ValueError when fewer than 2 values are provided."""
+        with pytest.raises(ValueError, match="at least 2 values"):
+            LazyTimeseries.from_values(
+                start_date="2023-01-01 00:00:00",
+                frequency="1h",
+                values=[42.0],
+            )
+
+    def test_from_values_correct_timestamps(self):
+        """from_values generates the correct timestamps based on frequency."""
+        lt = LazyTimeseries.from_values(
+            start_date="2023-01-01 00:00:00",
+            frequency="1h",
+            values=[1.0, 2.0, 3.0, 4.0],
+        )
+        index = lt.index
+        assert len(index) == 4
+        # Check step is 1 hour
+        assert lt.timestep == pendulum.duration(hours=1)
+
+
+class TestFromIndex:
+    """Tests for LazyTimeseries.from_index classmethod."""
+
+    def test_from_index_scalar_default(self):
+        """from_index with scalar default_value fills every timestamp with that value."""
+        lt = LazyTimeseries.from_index(
+            start_date="2023-01-01 00:00:00",
+            frequency="1h",
+            end_date="2023-01-01 03:00:00",
+            default_value=0.0,
+        )
+        assert isinstance(lt, LazyTimeseries)
+        assert len(lt) == 4
+        assert all(v == 0.0 for v in lt.values)
+
+    def test_from_index_list_default(self):
+        """from_index with a list default_value uses the provided values."""
+        values = [1.0, 2.0, 3.0, 4.0]
+        lt = LazyTimeseries.from_index(
+            start_date="2023-01-01 00:00:00",
+            frequency="1h",
+            end_date="2023-01-01 03:00:00",
+            default_value=values,
+        )
+        assert lt.values == values
+
+    def test_from_index_list_wrong_size(self):
+        """from_index raises ValueError when list size doesn't match generated timestamps."""
+        with pytest.raises(ValueError, match="size"):
+            LazyTimeseries.from_index(
+                start_date="2023-01-01 00:00:00",
+                frequency="1h",
+                end_date="2023-01-01 03:00:00",
+                default_value=[1.0, 2.0],  # only 2 values but 4 timestamps
+            )
+
+    def test_from_index_timezone(self):
+        """from_index respects the given timezone."""
+        lt = LazyTimeseries.from_index(
+            start_date="2023-01-01 00:00:00",
+            frequency="1h",
+            end_date="2023-01-01 02:00:00",
+            timezone="America/New_York",
+        )
+        assert lt.timezone == "America/New_York"
+
+    def test_from_index_integer_default(self):
+        """from_index accepts an int as default_value."""
+        lt = LazyTimeseries.from_index(
+            start_date="2023-01-01 00:00:00",
+            frequency="1h",
+            end_date="2023-01-01 01:00:00",
+            default_value=7,
+        )
+        assert lt.values == [7.0, 7.0]
+
+    def test_from_index_correct_bounds(self):
+        """from_index generates timestamps from start to end inclusive."""
+        lt = LazyTimeseries.from_index(
+            start_date="2023-03-01 00:00:00",
+            frequency="1d",
+            end_date="2023-03-05 00:00:00",
+        )
+        assert len(lt) == 5
+        assert lt.first_date().date() == pendulum.date(2023, 3, 1)
+        assert lt.last_date().date() == pendulum.date(2023, 3, 5)
+
+
+class TestFromTimeseries:
+    """Tests for LazyTimeseries.from_timeseries classmethod."""
+
+    def test_from_lazy_timeseries(self, sample_lazy_ts):
+        """from_timeseries with a LazyTimeseries copies the data."""
+        lt = LazyTimeseries.from_timeseries(sample_lazy_ts)
+        assert isinstance(lt, LazyTimeseries)
+        assert lt.values == sample_lazy_ts.values
+
+    def test_from_lazy_timeseries_with_default_value(self, sample_lazy_ts):
+        """from_timeseries with default_value overrides all values."""
+        lt = LazyTimeseries.from_timeseries(sample_lazy_ts, default_value=99.0)
+        assert all(v == 99.0 for v in lt.values)
+        # Structure (index) is preserved
+        assert lt.index == sample_lazy_ts.index
+
+    def test_from_timeseries_eager(self, sample_ts):
+        """from_timeseries with an eager Timeseries wraps it lazily."""
+        lt = LazyTimeseries.from_timeseries(sample_ts)
+        assert isinstance(lt, LazyTimeseries)
+        assert lt.values == sample_ts.values
+
+    def test_from_timeseries_eager_with_default_value(self, sample_ts):
+        """from_timeseries with Timeseries and default_value overrides values."""
+        lt = LazyTimeseries.from_timeseries(sample_ts, default_value=0.0)
+        assert all(v == 0.0 for v in lt.values)
+
+    def test_from_timeseries_invalid_type(self):
+        """from_timeseries raises TypeError for non-timeseries input."""
+        with pytest.raises(TypeError, match="timeseries"):
+            LazyTimeseries.from_timeseries({"not": "a timeseries"})
+
+    def test_from_timeseries_preserves_timezone(self):
+        """from_timeseries preserves the timezone of the source timeseries."""
+        df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 1, 0)],
+                "value": [1.0, 2.0],
+            }
+        )
+        source = LazyTimeseries(df.lazy(), timezone="Europe/Paris")
+        lt = LazyTimeseries.from_timeseries(source)
+        assert lt.timezone == "Europe/Paris"
+
+
+class TestFromDataframe:
+    """Tests for LazyTimeseries.from_dataframe classmethod."""
+
+    def test_from_polars_dataframe(self, sample_df):
+        """from_dataframe wraps a pl.DataFrame."""
+        lt = LazyTimeseries.from_dataframe(sample_df)
+        assert isinstance(lt, LazyTimeseries)
+        assert len(lt) == 2
+
+    def test_from_polars_lazyframe(self, sample_df):
+        """from_dataframe wraps a pl.LazyFrame."""
+        lt = LazyTimeseries.from_dataframe(sample_df.lazy())
+        assert isinstance(lt, LazyTimeseries)
+        assert len(lt) == 2
+
+    def test_from_pandas_dataframe(self):
+        """from_dataframe wraps a pd.DataFrame."""
+        df = pd.DataFrame(
+            {
+                "time": pd.date_range("2023-01-01", periods=3, freq="h"),
+                "value": [1.0, 2.0, 3.0],
+            }
+        )
+        lt = LazyTimeseries.from_dataframe(df, timezone="UTC")
+        assert isinstance(lt, LazyTimeseries)
+        assert len(lt) == 3
+        assert lt.values == [1.0, 2.0, 3.0]
+
+    def test_from_dataframe_timezone(self, sample_df):
+        """from_dataframe respects the given timezone."""
+        lt = LazyTimeseries.from_dataframe(sample_df, timezone="Europe/London")
+        assert lt.timezone == "Europe/London"
+
+    def test_from_dataframe_invalid_type(self):
+        """from_dataframe raises TypeError for unsupported input."""
+        with pytest.raises(TypeError, match="dataframe"):
+            LazyTimeseries.from_dataframe([1, 2, 3])
+
+
+class TestGetShape:
+    """Tests for LazyTimeseries._get_shape (exposed via .shape property)."""
+
+    def test_shape_non_empty(self, sample_lazy_ts):
+        """shape returns (n_rows, n_cols) for a non-empty LazyTimeseries."""
+        shape = sample_lazy_ts.shape
+        assert shape == (5, 2)
+
+    def test_shape_empty(self):
+        """shape returns (0, 2) for an empty LazyTimeseries."""
+        lt = LazyTimeseries()
+        assert lt.shape == (0, 2)
+
+    def test_shape_after_filter(self, sample_df_extended):
+        """shape reflects the row count after filtering."""
+        lt = LazyTimeseries(sample_df_extended.lazy())
+        filtered = lt.filter(
+            [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 1, 0)],
+            inplace=False,
+        )
+        assert filtered.shape == (2, 2)
+
+    def test_shape_columns(self, sample_lazy_ts):
+        """shape always reports 2 columns (time + value)."""
+        assert sample_lazy_ts.shape[1] == 2
+
+
+class TestAddIndex:
+    """Tests for LazyTimeseries.add_index method."""
+
+    def test_add_index_inplace(self, sample_lazy_ts):
+        """add_index with inplace=True appends a new (time, value) row."""
+        # sample_lazy_ts has hourly data from 00:00 to 04:00 UTC on 2023-01-01
+        # append the next consecutive hour so the series stays regular
+        original_len = len(sample_lazy_ts)
+        new_time = datetime(2023, 1, 1, 5, 0)
+        result = sample_lazy_ts.add_index(new_time, 99.0)
+        assert result is sample_lazy_ts
+        assert len(result) == original_len + 1
+        assert result.get_value(new_time) == 99.0
+
+    def test_add_index_not_inplace(self, sample_lazy_ts):
+        """add_index with inplace=False returns a new LazyTimeseries."""
+        # sample_lazy_ts has hourly data from 00:00 to 04:00 UTC on 2023-01-01
+        original_len = len(sample_lazy_ts)
+        new_time = datetime(2023, 1, 1, 5, 0)
+        result = sample_lazy_ts.add_index(new_time, 42.0, inplace=False)
+        assert result is not sample_lazy_ts
+        assert isinstance(result, LazyTimeseries)
+        assert len(result) == original_len + 1
+        # Original is unchanged
+        assert len(sample_lazy_ts) == original_len
+
+    def test_add_index_string_datetime(self, sample_lazy_ts):
+        """add_index accepts a string datetime."""
+        # sample_lazy_ts has hourly data from 00:00 to 04:00 UTC on 2023-01-01
+        original_len = len(sample_lazy_ts)
+        result = sample_lazy_ts.add_index("2023-01-01 05:00:00", 77.0, inplace=False)
+        assert len(result) == original_len + 1
+
+    def test_add_index_value_correct(self):
+        """add_index stores the correct value at the new timestamp."""
+        df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 1, 0)],
+                "value": [10.0, 20.0],
+            }
+        )
+        lt = LazyTimeseries(df.lazy())
+        new_time = datetime(2023, 1, 1, 2, 0)
+        lt.add_index(new_time, 30.0)
+        assert lt.get_value(new_time) == 30.0
+
+
+class TestAddIndexes:
+    """Tests for LazyTimeseries.add_indexes method."""
+
+    def test_add_indexes_from_lazy_timeseries(self):
+        """add_indexes appends rows from another LazyTimeseries."""
+        base_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 1, 0)],
+                "value": [1.0, 2.0],
+            }
+        )
+        extra_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 2, 0), datetime(2023, 1, 1, 3, 0)],
+                "value": [3.0, 4.0],
+            }
+        )
+        base = LazyTimeseries(base_df.lazy())
+        extra = LazyTimeseries(extra_df.lazy())
+        result = base.add_indexes(extra, inplace=False)
+        assert len(result) == 4
+        assert result.values == [1.0, 2.0, 3.0, 4.0]
+
+    def test_add_indexes_from_timeseries(self, sample_ts):
+        """add_indexes accepts an eager Timeseries as input."""
+        base_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 3), datetime(2023, 1, 4)],
+                "value": [99.0, 100.0],
+            }
+        )
+        base = LazyTimeseries(base_df.lazy())
+        result = base.add_indexes(sample_ts, inplace=False)
+        # sample_ts has 2 rows, base has 2 rows → combined 4 rows
+        assert len(result) == 4
+
+    def test_add_indexes_inplace(self):
+        """add_indexes with inplace=True modifies the object in place."""
+        base_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 0, 0)],
+                "value": [1.0],
+            }
+        )
+        extra_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 1, 0)],
+                "value": [2.0],
+            }
+        )
+        base = LazyTimeseries(base_df.lazy())
+        extra = LazyTimeseries(extra_df.lazy())
+        result = base.add_indexes(extra)
+        assert result is base
+        assert len(base) == 2
+
+    def test_add_indexes_not_inplace_original_unchanged(self):
+        """add_indexes with inplace=False leaves the original intact."""
+        base_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 0, 0)],
+                "value": [1.0],
+            }
+        )
+        extra_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 1, 0)],
+                "value": [2.0],
+            }
+        )
+        base = LazyTimeseries(base_df.lazy())
+        extra = LazyTimeseries(extra_df.lazy())
+        base.add_indexes(extra, inplace=False)
+        assert len(base) == 1
+
+
+class TestSetValues:
+    """Tests for LazyTimeseries.set_values method."""
+
+    def test_set_values_overwrites_existing(self, sample_lazy_ts):
+        """set_values with an overlapping LazyTimeseries overwrites existing values."""
+        override_df = pl.DataFrame(
+            {
+                "time": pd.date_range("2023-01-01", periods=5, freq="h", tz="UTC").to_list(),
+                "value": [100.0, 200.0, 300.0, 400.0, 500.0],
+            }
+        )
+        override = LazyTimeseries(override_df.lazy())
+        result = sample_lazy_ts.set_values(override, inplace=False)
+        assert result.values == [100.0, 200.0, 300.0, 400.0, 500.0]
+
+    def test_set_values_inplace(self, sample_lazy_ts):
+        """set_values with inplace=True modifies the object and returns self."""
+        override_df = pl.DataFrame(
+            {
+                "time": pd.date_range("2023-01-01", periods=5, freq="h", tz="UTC").to_list(),
+                "value": [0.0, 0.0, 0.0, 0.0, 0.0],
+            }
+        )
+        override = LazyTimeseries(override_df.lazy())
+        result = sample_lazy_ts.set_values(override)
+        assert result is sample_lazy_ts
+        assert all(v == 0.0 for v in sample_lazy_ts.values)
+
+    def test_set_values_not_inplace_original_unchanged(self):
+        """set_values with inplace=False leaves the original unchanged."""
+        base_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 1, 0)],
+                "value": [1.0, 2.0],
+            }
+        )
+        override_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1, 0, 0), datetime(2023, 1, 1, 1, 0)],
+                "value": [99.0, 88.0],
+            }
+        )
+        base = LazyTimeseries(base_df.lazy())
+        override = LazyTimeseries(override_df.lazy())
+        base.set_values(override, inplace=False)
+        assert base.values == [1.0, 2.0]
+
+    def test_set_values_from_eager_timeseries(self, sample_ts):
+        """set_values accepts an eager Timeseries as input."""
+        # sample_ts has values [1.0, 2.0] at 2023-01-01 and 2023-01-02
+        base_df = pl.DataFrame(
+            {
+                "time": [datetime(2023, 1, 1), datetime(2023, 1, 2)],
+                "value": [10.0, 20.0],
+            }
+        )
+        base = LazyTimeseries(base_df.lazy())
+        override = Timeseries(
+            pl.DataFrame(
+                {
+                    "time": [datetime(2023, 1, 1), datetime(2023, 1, 2)],
+                    "value": [55.0, 66.0],
+                }
+            )
+        )
+        result = base.set_values(override, inplace=False)
+        assert result.values == [55.0, 66.0]
