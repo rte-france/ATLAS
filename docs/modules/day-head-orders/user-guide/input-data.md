@@ -22,7 +22,7 @@ These parameters are inherited from `AbstractParameters`:
 
 ### Solver configuration
 
-- **`timestep`** (Duration, default: 1 hour): Time step of the market`
+- **`timestep`** (Duration, default: 1 hour): Discretization step of the simulated time interval
 
 - **`solver_name`** (SolverEnum, default: `XPRESS`): Optimization solver to use
     * Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`
@@ -53,7 +53,7 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`battery_smoothing_factor`** (float, default: 0.1): Coefficient used to determine the extra cost of each power fragment in the optimization problem related to the Storage instances with the type Battery.
 
-- **`battery_additional_hours`** (Duration, default: 48 hours): Number of extra hours after EndDate for the optimization programs applied to Storage instances with the type Battery.
+- **`battery_additional_hours`** (Duration, default: 48 hours): Number of extra hours after end date for the optimization programs applied to Storage instances with the type Battery.
 
 ### Pumped Hydraulic Storage
 
@@ -63,7 +63,7 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`hydraulic_minimal_fragment_size`** (int, default: 100): Minimal amount of power for an offer to be formulated. If for one particular time-step, the quantity Qmax of an offer is less than this threshold, the associated fragment is removed. Then the Qmax values of the other fragments are renormalized.
 
-- **`phs_additional_hours`** (Duration, default: 144 hours): Number of extra hours after EndDate for the optimization programs applied to Storage instances with the type PumpedHydraulicStorage.
+- **`phs_additional_hours`** (Duration, default: 144 hours): Number of extra hours after end date for the optimization programs applied to Storage instances with the type PumpedHydraulicStorage.
 
 ### Electric Vehicle
 
@@ -73,7 +73,7 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`ev_energy_coef`** (float, default: 1.5): Coefficient multiplied to the delta of DisplacementEnergy to compensate for over the entire EV optimization time frame, used to generate enough Buy offers.
 
-- **`ev_additional_hours`** (Duration, default: 144 hours): Number of extra hours after EndDate for the optimization programs applied to Storage instances with the type ElectricVehicle.
+- **`ev_additional_hours`** (Duration, default: 144 hours): Number of extra hours after end date for the optimization programs applied to Storage instances with the type ElectricVehicle.
 
 ### Load
 

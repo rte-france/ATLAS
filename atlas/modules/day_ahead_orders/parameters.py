@@ -115,12 +115,10 @@ class DayAheadOrdersParameters(AbstractParameters):
         "the Storage instances with the type PumpedHydraulicStorage.",
     )
     solver_timeout: Duration = Field(
-        default_factory=lambda: duration(minutes=4), description="Timeout (in seconds) of the optimization."
+        default_factory=lambda: duration(minutes=4), description="Timeout of the optimization."
     )
     timestep: Duration = Field(
-        default_factory=lambda: duration(minutes=60),
-        description="Discretization step of the simulated time interval, expressed as a string giving an integer "
-        "number of minutes",
+        default_factory=lambda: duration(minutes=60), description="Discretization step of the simulated time interval"
     )
     price_forecasts_types: list[str] = Field(
         ["Medium", "High", "Low"],
