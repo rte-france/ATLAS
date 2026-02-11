@@ -2090,17 +2090,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#atlas.Hydro.build_fragment_data" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;build_fragment_data
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#atlas.Hydro.parse_duration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2891,17 +2880,6 @@
   
     <nav class="md-nav" aria-label=" Hydro">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#atlas.Hydro.build_fragment_data" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;build_fragment_data
-      
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#atlas.Hydro.parse_duration" class="md-nav__link">
@@ -3933,7 +3911,7 @@
                 <code>load_type</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            atlas.enum.LoadType" href="../../enum/#atlas.enum.LoadType">LoadType</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            atlas.enums.LoadType" href="../../enum/#atlas.enums.LoadType">LoadType</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4483,7 +4461,7 @@
                 <code>inflow_frequency</code>
             </td>
             <td>
-                  <code><span title="atlas.enum.InflowFrequency">InflowFrequency</span></code>
+                  <code><span title="atlas.enums.InflowFrequency">InflowFrequency</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4499,7 +4477,7 @@
                 <code>energy_target_frequency</code>
             </td>
             <td>
-                  <code><span title="atlas.enum.InflowFrequency">InflowFrequency</span></code>
+                  <code><span title="atlas.enums.InflowFrequency">InflowFrequency</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4537,53 +4515,6 @@
 <div class="doc doc-object doc-function">
 
 
-<h3 id="atlas.Hydro.build_fragment_data" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">build_fragment_data</span>
-
-
-<a href="#atlas.Hydro.build_fragment_data" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build_fragment_data</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            atlas.Hydro (atlas.models.equipment.hydro.Hydro)" href="#atlas.Hydro">Hydro</a></span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Build fragment data at instantiation and cache it.</p>
-
-
-            <details class="mkdocstrings-source">
-              <summary>Source code in <code>atlas/models/equipment/hydro.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-104">104</a></span>
-<span class="normal"><a href="#__codelineno-0-105">105</a></span>
-<span class="normal"><a href="#__codelineno-0-106">106</a></span>
-<span class="normal"><a href="#__codelineno-0-107">107</a></span>
-<span class="normal"><a href="#__codelineno-0-108">108</a></span>
-<span class="normal"><a href="#__codelineno-0-109">109</a></span>
-<span class="normal"><a href="#__codelineno-0-110">110</a></span>
-<span class="normal"><a href="#__codelineno-0-111">111</a></span>
-<span class="normal"><a href="#__codelineno-0-112">112</a></span>
-<span class="normal"><a href="#__codelineno-0-113">113</a></span>
-<span class="normal"><a href="#__codelineno-0-114">114</a></span>
-<span class="normal"><a href="#__codelineno-0-115">115</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-104"><a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;after&quot;</span><span class="p">)</span>
-</span><span id="__span-0-105"><a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="k">def</span><span class="w"> </span><span class="nf">build_fragment_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Hydro&quot;</span><span class="p">:</span>
-</span><span id="__span-0-106"><a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build fragment data at instantiation and cache it.&quot;&quot;&quot;</span>
-</span><span id="__span-0-107"><a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment_prices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment_volumes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-108"><a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fragment_volumes</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fragment_prices</span><span class="p">):</span>
-</span><span id="__span-0-109"><a id="__codelineno-0-109" name="__codelineno-0-109"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Fragment volumes and prices must have the same length&quot;</span><span class="p">)</span>
-</span><span id="__span-0-110"><a id="__codelineno-0-110" name="__codelineno-0-110"></a>
-</span><span id="__span-0-111"><a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">fragment_data</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="__span-0-112"><a id="__codelineno-0-112" name="__codelineno-0-112"></a>            <span class="n">category</span><span class="p">:</span> <span class="n">FragmentData</span><span class="p">(</span><span class="n">volume</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fragment_volumes</span><span class="p">[</span><span class="n">category</span><span class="p">],</span> <span class="n">price</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fragment_prices</span><span class="p">[</span><span class="n">category</span><span class="p">])</span>
-</span><span id="__span-0-113"><a id="__codelineno-0-113" name="__codelineno-0-113"></a>            <span class="k">for</span> <span class="n">category</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fragment_volumes</span><span class="p">))</span>
-</span><span id="__span-0-114"><a id="__codelineno-0-114" name="__codelineno-0-114"></a>        <span class="p">}</span>
-</span><span id="__span-0-115"><a id="__codelineno-0-115" name="__codelineno-0-115"></a>    <span class="k">return</span> <span class="bp">self</span>
-</span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
 <h3 id="atlas.Hydro.parse_duration" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">parse_duration</span>
 
@@ -4603,15 +4534,15 @@
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>atlas/models/equipment/hydro.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-88">88</a></span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
 <span class="normal"><a href="#__codelineno-0-89">89</a></span>
-<span class="normal"><a href="#__codelineno-0-90">90</a></span>
-<span class="normal"><a href="#__codelineno-0-91">91</a></span>
-<span class="normal"><a href="#__codelineno-0-92">92</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;additional_hours&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
-</span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="nd">@classmethod</span>
-</span><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_duration</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
-</span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert various duration formats to Duration objects.&quot;&quot;&quot;</span>
-</span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a>    <span class="k">return</span> <span class="n">convert_to_duration</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;additional_hours&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="nd">@classmethod</span>
+</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_duration</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+</span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert various duration formats to Duration objects.&quot;&quot;&quot;</span>
+</span><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a>    <span class="k">return</span> <span class="n">convert_to_duration</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4638,13 +4569,13 @@
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>atlas/models/equipment/hydro.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#__codelineno-0-100">100</a></span>
-<span class="normal"><a href="#__codelineno-0-101">101</a></span>
-<span class="normal"><a href="#__codelineno-0-102">102</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="nd">@field_serializer</span><span class="p">(</span><span class="s2">&quot;fragment_prices&quot;</span><span class="p">,</span> <span class="s2">&quot;fragment_volumes&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;plain&quot;</span><span class="p">)</span>
-</span><span id="__span-0-100"><a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="k">def</span><span class="w"> </span><span class="nf">serialize_fragment_prices_and_volumes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-101"><a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize fragment prices and volumes to a string.&quot;&quot;&quot;</span>
-</span><span id="__span-0-102"><a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="k">return</span> <span class="n">serializer_list_float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
+<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-97"><a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="nd">@field_serializer</span><span class="p">(</span><span class="s2">&quot;fragment_prices&quot;</span><span class="p">,</span> <span class="s2">&quot;fragment_volumes&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;plain&quot;</span><span class="p">)</span>
+</span><span id="__span-0-98"><a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="k">def</span><span class="w"> </span><span class="nf">serialize_fragment_prices_and_volumes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize fragment prices and volumes to a string.&quot;&quot;&quot;</span>
+</span><span id="__span-0-100"><a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="k">return</span> <span class="n">serializer_list_float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -5243,7 +5174,7 @@
                 <code>storage_type</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            atlas.enum.StorageType" href="../../enum/#atlas.enum.StorageType">StorageType</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            atlas.enums.StorageType" href="../../enum/#atlas.enums.StorageType">StorageType</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5742,7 +5673,7 @@
                 <code>strategy</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            atlas.enum.ThermalStrategy" href="../../enum/#atlas.enum.ThermalStrategy">ThermalStrategy</a></code>
+                  <code><a class="autorefs autorefs-internal" title="            atlas.enums.ThermalStrategy" href="../../enum/#atlas.enums.ThermalStrategy">ThermalStrategy</a></code>
             </td>
             <td>
               <div class="doc-md-description">
