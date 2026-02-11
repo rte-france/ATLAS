@@ -18,7 +18,7 @@ from atlas.custom_errors import (
     InputLoaderError,
     ObjectInstantiationError,
 )
-from atlas.enum import BusinessModelName
+from atlas.enums import BusinessModelName
 from atlas.io_utils.models import InputLoaderConfig
 from atlas.io_utils.utils import read_data_file
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix

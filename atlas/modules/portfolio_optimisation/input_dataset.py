@@ -11,7 +11,7 @@ from pendulum import DateTime
 
 from atlas import BusinessModel, Portfolio
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.enum import LoadType
+from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.hydro import Hydro

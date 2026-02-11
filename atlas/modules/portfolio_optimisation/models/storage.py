@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enum import StorageType
+from atlas.enums import StorageType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.storage import Storage

@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pendulum import duration
 
-from atlas.enum import SolverStatus
+from atlas.enums import SolverStatus
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
 

@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 """
 
 from atlas import Order
-from atlas.enum import ComplementDirection, CouplingType
+from atlas.enums import ComplementDirection, CouplingType
 from atlas.models.market.order_coupling import OrderCoupling
 
 
