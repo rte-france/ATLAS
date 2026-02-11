@@ -12,7 +12,9 @@ from atlas.io_utils.utils import to_snake_case
 from atlas.models.portfolio import Portfolio
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
-from tests.market_clearing_local.test_market_data_market_clearing import read_expected_data
+from tests.test_module.test_market_clearing.test_market_clearing_local.test_market_data_market_clearing import (
+    read_expected_data,
+)
 
 
 def retrieve_accepted_powers_from_json(
