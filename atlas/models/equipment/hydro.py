@@ -99,7 +99,6 @@ class Hydro(Equipment):
         """Serialize fragment prices and volumes to a string."""
         return serializer_list_float(value)
 
-    @computed_field
     @property
     def fragment_data(self) -> dict[int, FragmentData]:
         if not self.fragment_prices or not self.fragment_volumes:
