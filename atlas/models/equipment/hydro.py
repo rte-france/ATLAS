@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 from typing import Any
 
 from pendulum import Duration, duration
-from pydantic import BaseModel, Field, computed_field, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from atlas.enums import InflowFrequency
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
