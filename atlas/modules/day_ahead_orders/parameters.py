@@ -23,7 +23,7 @@ class DayAheadOrdersParameters(AbstractParameters):
     )
     verbose: bool = Field(
         True,
-        description="A boolean indicating whether or not the program shall return detailed logs.",
+        description="A boolean indicating whether the program shall return detailed logs.",
     )
     export_lp: bool = Field(False, description="Boolean indicating if the LP model should be exported to a file.")
     proportional_reserves_penalty: bool = Field(
@@ -60,7 +60,7 @@ class DayAheadOrdersParameters(AbstractParameters):
     )
     hydraulic_minimal_fragment_size: float = Field(
         100,
-        description="Minimal amount of power for an offer to be formulated. If for one particular time-step, the "
+        description="Minimal amount of power for an offer to be formulated. If for one particular timestep, the "
         "quantity Qmax of an offer is less than this threshold, the associated fragment is removed. Then "
         "the Qmax values of the other fragments are renormalized.",
     )
@@ -79,39 +79,39 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Coefficient used to determine the extra cost of each power fragment in the optimization problem "
         "related to the Storage instances with the type PumpedHydraulicStorage.",
     )
-    solver_duality_gap: float = Field(0.0001, description="DualityGap used for the optimization.")
-    thermic_additional_hours: Duration = Field(
+    solver_duality_gap: float = Field(0.0001, description="duality gap used for the optimization.")
+    thermal_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=12),
-        description="Number of extra hours after EndDate for the optimization programs applied to Thermic instances.",
+        description="Number of extra hours after end date for the optimization programs applied to Thermic instances.",
     )
     battery_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=48),
-        description="Number of extra hours after EndDate for the optimization programs applied to Storage instances "
+        description="Number of extra hours after end date for the optimization programs applied to Storage instances "
         "with the type Battery.",
     )
     battery_nb_fragments: int = Field(
         3,
-        description="Number of orders that can be formulated at one time-step for the optimization problem related to "
+        description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type Battery.",
     )
     ev_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=144),
-        description="Number of extra hours after EndDate for the optimization programs applied to Storage instances "
+        description="Number of extra hours after end date for the optimization programs applied to Storage instances "
         "with the type ElectricVehicle.",
     )
     ev_nb_fragments: int = Field(
         3,
-        description="Number of orders that can be formulated at one time-step for the optimization problem related to "
+        description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type ElectricVehicle.",
     )
     phs_additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=144),
-        description="Number of extra hours after EndDate for the optimization programs applied to Storage instances "
+        description="Number of extra hours after end date for the optimization programs applied to Storage instances "
         "with the type PumpedHydraulicStorage.",
     )
     phs_nb_fragments: int = Field(
         3,
-        description="Number of orders that can be formulated at one time-step for the optimization problem related to "
+        description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type PumpedHydraulicStorage.",
     )
     solver_timeout: Duration = Field(
@@ -134,13 +134,13 @@ class DayAheadOrdersParameters(AbstractParameters):
 
     @cached_property
     def end_optimization_date(self) -> DateTime:
-        return self.end_date + self.thermic_additional_hours
+        return self.end_date + self.thermal_additional_hours
 
     @field_validator(
         "phs_additional_hours",
         "ev_additional_hours",
         "battery_additional_hours",
-        "thermic_additional_hours",
+        "thermal_additional_hours",
         "timestep",
         "solver_timeout",
         mode="before",

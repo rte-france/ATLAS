@@ -286,7 +286,7 @@ class ThermalOptimizationModel(OptimisationModel):
         if self.parameters.start_date > self.parameters.end_optimization_date:
             cfg.logger.error(
                 "The end_optimization_date is earlier than or identical to the start_date. \n"
-                "The time frame cannot be defined. Please check the values of start_date, EndDate and AdditionalHours"
+                "The time frame cannot be defined. Please check the values of start_date, end date and AdditionalHours"
             )
             raise ValueError("Improper dates")
 

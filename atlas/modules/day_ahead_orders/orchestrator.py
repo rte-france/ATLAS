@@ -41,8 +41,8 @@ class DayAheadOrdersOrchestrator:
 
         cfg.logger.info("Initialization of the Day-Ahead Orders module...")
 
-        # Create the sequence of orders times. In particular, this sequence is such that the endDate of the last order will be before
-        # the endDate of the overall time frame.
+        # Create the sequence of orders times. In particular, this sequence is such that the end date of the last order will be before
+        # the end date of the overall time frame.
         orders_time = generate_datetimes(
             self.parameters.start_date, self.parameters.penultimate_date, self.parameters.timestep
         )

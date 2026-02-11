@@ -220,7 +220,7 @@ class StorageStep:
             cfg.logger.info(f"Objective function value: {model._objective}")
 
         # Assign the values to the output variables
-        # Note that the time domain of the output variables is [StartDate, EndDate]
+        # Note that the time domain of the output variables is [start date, end date]
         Qvv: dict[DateTime, float] = {}
         Qaa: dict[DateTime, float] = {}
         for t in model.time_frame:
@@ -286,7 +286,7 @@ class StorageStep:
             cfg.logger.info(f"Objective function value: {model._objective}")
 
         # Assign the values to the output variables
-        # Note that the time domain of the output variables is [StartDate, EndDate]
+        # Note that the time domain of the output variables is [start date, end date]
         Qvv: dict[DateTime, float] = {}
         Qaa: dict[DateTime, float] = {}
         for t in model.time_frame:
@@ -313,7 +313,7 @@ class StorageStep:
         """
         P_a_max = 0.0
         P_v_min = 0.0
-        # Get the price forecast from the dataset: estimations are at ActionHour, from StartDate to EndDate
+        # Get the price forecast from the dataset: estimations are at ActionHour, from start date to end date
         # The price forecast is relative to the equipment's market area
         # it is the estimation the actor has of the energy prices at the given date
         price_forecast = storage.portfolio.market_area.price_forecast_medium.get_forecast(
