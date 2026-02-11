@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 import pendulum
 import pytest
 
-from atlas.enum import LoadType, MarketType
+from atlas.enums import LoadType, MarketType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries

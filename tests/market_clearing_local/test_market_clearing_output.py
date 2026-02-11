@@ -78,7 +78,7 @@ def retrieve_orders_mapping(market_area) -> dict[tuple[str, str], str]:
     return order_mapping
 
 
-# @pytest.mark.skip(reason="No data available")
+@pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
