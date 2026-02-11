@@ -9,9 +9,10 @@ import atlas.config as cfg
 from atlas import AtlasDataset
 from atlas.config import EQUIPMENT_MODELS
 from atlas.io_utils.utils import to_snake_case
-from atlas.models.portfolio import Portfolio
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
+from atlas.workflow.current_input_state import CurrentInputState
+from atlas.workflow.handler.cis_handler import CISHandler
 from tests.test_module.test_market_clearing.test_market_clearing_local.test_market_data_market_clearing import (
     read_expected_data,
 )
@@ -100,7 +101,8 @@ def test_market_clearing_output(dataset_name):
     optim_variables_path = os.path.join(path, "optimization_data", "marginal_fixing", "optim_variables.json")
 
     raw_data = AtlasDataset.from_directory(dataset_path)
-
+    cis = CurrentInputState(raw_data)
+    raw_data = cis.filter_dataset(cfg.MODEL_MAPPING_NAME.keys())
     mc_module = MarketClearingModule()
     parameters = mc_module.import_parameters(parameters_path)
     input_dataset = mc_module.import_data(raw_data, parameters)
@@ -117,9 +119,15 @@ def test_market_clearing_output(dataset_name):
     border_exchanges = retrieve_border_exchanges_from_json(optim_variables_path, market_borders_mapping)
     market_prices = retrieve_market_prices_from_json(optim_variables_path, market_areas_mapping)
 
-    market_clearing_output_dataset = MarketClearingOutputDataset(input_dataset)
-    market_clearing_output_dataset.run(accepted_powers, local_balances, border_exchanges, market_prices)
+    market_clearing_output_dataset = MarketClearingOutputDataset(
+        input_dataset, accepted_powers, local_balances, border_exchanges, market_prices
+    )
+    market_clearing_output_dataset.run()
 
+    CISHandler.apply(market_clearing_output_dataset.change_sets, cis)
+
+    raw_data = cis.data
+    cis.data.to_directory(expected_dataset_path)
     expected_raw_data = AtlasDataset.from_directory(expected_dataset_path)
 
     expected_equipments = {}
@@ -134,8 +142,10 @@ def test_market_clearing_output(dataset_name):
 
     # Test on equipments
     for equipment_type in EQUIPMENT_MODELS:
-        for output_equipment in getattr(market_clearing_output_dataset.raw_data, equipment_type):
+        for output_equipment in getattr(raw_data, equipment_type):
             expected_equipment = expected_equipments[equipment_type][output_equipment.name]
+            print(output_equipment.da_cleared_quantity)
+            print(expected_equipment.da_cleared_quantity)
             if output_equipment.da_cleared_quantity is None:
                 if expected_equipment.da_cleared_quantity is not None:
                     assert False
@@ -159,7 +169,7 @@ def test_market_clearing_output(dataset_name):
                     print(output_df)
 
     # Test on portfolios
-    for output_portfolio in market_clearing_output_dataset.raw_data.portfolio:
+    for output_portfolio in raw_data.portfolio:
         expected_portfolio = expected_portfolios[output_portfolio.name]
         if output_portfolio.da_cleared_quantity is None:
             if expected_portfolio.da_cleared_quantity is not None:
