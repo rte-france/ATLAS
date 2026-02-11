@@ -109,7 +109,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
 
     def __init__(self, input_dataset: MarketClearingInputDataset):
         self.input_dataset = input_dataset
-        self.raw_data: AtlasDataset = AtlasDataset()
+        self.raw_data: AtlasDataset = input_dataset.raw_data.model_copy(deep=True)
 
     def run(
         self,
@@ -126,22 +126,22 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
         """Update raw_data with business model object that have not changed"""
         # Create not modified MarketArea
         for market_area in self.input_dataset.raw_data.market_area:
-            if market_area.name not in self.input_dataset.mc_market_areas:
-                self.raw_data.market_area.add(market_area)
+            if market_area.name in self.input_dataset.mc_market_areas:
+                self.raw_data.market_area.remove(market_area.name)
         # Create not modified MarketBorder
         for market_border in self.input_dataset.raw_data.market_border:
-            if market_border.name not in self.input_dataset.mc_market_borders:
-                self.raw_data.market_border.add(market_border)
+            if market_border.name in self.input_dataset.mc_market_borders:
+                self.raw_data.market_border.remove(market_border.name)
         # Create not modified CriticalBranch
         # If there is no critical branch (we may be in ATC
         if not self.input_dataset.raw_data.critical_branch.is_empty():
             for critical_branch in self.input_dataset.raw_data.critical_branch:
-                if critical_branch.name not in self.input_dataset.mc_critical_branches:
-                    self.raw_data.critical_branch.add(critical_branch)
+                if critical_branch.name in self.input_dataset.mc_critical_branches:
+                    self.raw_data.critical_branch.remove(critical_branch.name)
         # Create not modified Order
         for order in self.input_dataset.raw_data.order:
-            if order.name not in self.input_dataset.mc_orders:
-                self.raw_data.order.add(order)
+            if order.name in self.input_dataset.mc_orders:
+                self.raw_data.order.remove(order.name)
 
     def update_raw_data_with_modified_business_model_object(self):
         """Update raw_data with business model object that have changed
