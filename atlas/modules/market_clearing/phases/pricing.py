@@ -1344,7 +1344,7 @@ class Pricing(OptimisationModel):
                 if mc_order.full_pc_id is None:
                     mc_order.full_pc_id = index_pc
                 if mc_order.child_id is None:
-                    mc_order.child_id = id_child
+                    mc_order.child_id = str(id_child)
                     id_child += 1
 
         logger.debug(f"Final linked bids dict : {self.dict_linked_orders}")
