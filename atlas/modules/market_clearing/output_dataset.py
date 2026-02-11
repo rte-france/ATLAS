@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas import ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
+from atlas import AtlasDataset, ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enums import Product
 from atlas.models.business_model import BusinessModel
@@ -109,7 +109,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
 
     def __init__(self, input_dataset: MarketClearingInputDataset):
         self.input_dataset = input_dataset
-        self.raw_data: dict[str, list[type[BusinessModel]]] = {}
+        self.raw_data: AtlasDataset = AtlasDataset()
 
     def run(
         self,
@@ -125,31 +125,23 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
     def update_raw_data_with_not_modified_business_model_object(self):
         """Update raw_data with business model object that have not changed"""
         # Create not modified MarketArea
-        market_area_business_object_str = cfg.INVERSE_MODEL_MAPPING_NAME[MarketArea]
-        self.raw_data[market_area_business_object_str] = []
-        for market_area in self.input_dataset.raw_data[market_area_business_object_str]:
+        for market_area in self.input_dataset.raw_data.market_area:
             if market_area.name not in self.input_dataset.mc_market_areas:
-                self.raw_data[market_area_business_object_str].append(market_area)
+                self.raw_data.market_area.add(market_area)
         # Create not modified MarketBorder
-        market_border_business_object_str = cfg.INVERSE_MODEL_MAPPING_NAME[MarketBorder]
-        self.raw_data[market_border_business_object_str] = []
-        for market_border in self.input_dataset.raw_data[market_border_business_object_str]:
+        for market_border in self.input_dataset.raw_data.market_border:
             if market_border.name not in self.input_dataset.mc_market_borders:
-                self.raw_data[market_border_business_object_str].append(market_border)
+                self.raw_data.market_border.add(market_border)
         # Create not modified CriticalBranch
-        critical_branch_business_object_str = cfg.INVERSE_MODEL_MAPPING_NAME[CriticalBranch]
         # If there is no critical branch (we may be in ATC
-        if critical_branch_business_object_str in self.input_dataset.raw_data:
-            self.raw_data[critical_branch_business_object_str] = []
-            for critical_branch in self.input_dataset.raw_data[critical_branch_business_object_str]:
+        if not self.input_dataset.raw_data.critical_branch.is_empty():
+            for critical_branch in self.input_dataset.raw_data.critical_branch:
                 if critical_branch.name not in self.input_dataset.mc_critical_branches:
-                    self.raw_data[critical_branch_business_object_str].append(critical_branch)
+                    self.raw_data.critical_branch.add(critical_branch)
         # Create not modified Order
-        order_business_object_str = cfg.INVERSE_MODEL_MAPPING_NAME[Order]
-        self.raw_data[order_business_object_str] = []
-        for order in self.input_dataset.raw_data[order_business_object_str]:
+        for order in self.input_dataset.raw_data.order:
             if order.name not in self.input_dataset.mc_orders:
-                self.raw_data[order_business_object_str].append(order)
+                self.raw_data.order.add(order)
 
     def update_raw_data_with_modified_business_model_object(self):
         """Update raw_data with business model object that have changed
@@ -158,22 +150,22 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
         for mc_market_area in self.input_dataset.mc_market_areas.values():
             mc_market_area_dump = MarketClearingInputDataset.shallow_dump(mc_market_area)
             market_area = MarketArea.model_validate(mc_market_area_dump)
-            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[MarketArea]].append(market_area)
+            self.raw_data.market_area.add(market_area)
         # Create modified MarketBorder
         for mc_market_border in self.input_dataset.mc_market_borders.values():
             mc_market_border_dump = MarketClearingInputDataset.shallow_dump(mc_market_border)
             market_border = MarketBorder.model_validate(mc_market_border_dump)
-            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[MarketBorder]].append(market_border)
+            self.raw_data.market_border.add(market_border)
         # Create modified CriticalBranch
         for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
             mc_critical_branch_dump = MarketClearingInputDataset.shallow_dump(mc_critical_branch)
             critical_branch = CriticalBranch.model_validate(mc_critical_branch_dump)
-            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[CriticalBranch]].append(critical_branch)
+            self.raw_data.critical_branch.add(critical_branch)
         # Create modified Order
         for mc_order in self.input_dataset.mc_orders.values():
             mc_order_dump = MarketClearingInputDataset.shallow_dump(mc_order)
             order = Order.model_validate(mc_order_dump)
-            self.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[Order]].append(order)
+            self.raw_data.order.add(order)
 
     def update_business_model_object(
         self,
