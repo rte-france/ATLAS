@@ -20,7 +20,7 @@ from pydantic_extra_types.pendulum_dt import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
-from atlas.enum import BusinessModelName
+from atlas.enums import BusinessModelName
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.typing import get_class_inheritance_chain, get_type_attribute
@@ -767,3 +767,12 @@ def find_hdf5_files(directory: Path) -> list[Path]:
             continue
 
     return valid_hdf5_files
+
+
+if __name__ == "__main__":
+    path = "C:/Users/aboutet/Documents/atlas 2/ATLAS/data/market_clearing_prometheus/MarketClearing input v1.3 ATC_1"
+    PrometheusToAtlasDataParser(
+        timeseries_path=os.path.join(path, "timeseries"),
+        hdf5_path=os.path.join(path, "hdf5.hdf5"),
+        output_dir=os.path.join(path, "atlas-dataset-test-hdf5"),
+    ).process()

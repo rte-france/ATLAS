@@ -10,7 +10,7 @@ from typing import cast
 from pendulum import DateTime, Duration
 
 import atlas.config as cfg
-from atlas.enum import MarketType
+from atlas.enums import MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries

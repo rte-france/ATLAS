@@ -7,9 +7,9 @@ This file is part of the ATLAS project.
 from typing import Any
 
 from pendulum import Duration, duration
-from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
-from atlas.enum import InflowFrequency
+from atlas.enums import InflowFrequency
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
@@ -62,8 +62,6 @@ class Hydro(Equipment):
     )
     fragment_volumes: list[float] | None = Field(None, description="List of positive volumes")
 
-    fragment_data: dict[int, FragmentData] = Field(default_factory=dict, exclude=True)
-
     stored_energy: ForecastingMatrix | LazyForecastingMatrix | None = None
 
     da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
@@ -101,15 +99,15 @@ class Hydro(Equipment):
         """Serialize fragment prices and volumes to a string."""
         return serializer_list_float(value)
 
-    @model_validator(mode="after")
-    def build_fragment_data(self) -> "Hydro":
-        """Build fragment data at instantiation and cache it."""
-        if self.fragment_prices is not None and self.fragment_volumes is not None:
-            if len(self.fragment_volumes) != len(self.fragment_prices):
-                raise ValueError("Fragment volumes and prices must have the same length")
+    @property
+    def fragment_data(self) -> dict[int, FragmentData]:
+        if not self.fragment_prices or not self.fragment_volumes:
+            return {}
 
-            self.fragment_data = {
-                category: FragmentData(volume=self.fragment_volumes[category], price=self.fragment_prices[category])
-                for category in range(len(self.fragment_volumes))
-            }
-        return self
+        if len(self.fragment_volumes) != len(self.fragment_prices):
+            raise ValueError("Fragment volumes and prices must have the same length")
+
+        return {
+            i: FragmentData(volume=v, price=p)
+            for i, (v, p) in enumerate(zip(self.fragment_volumes, self.fragment_prices, strict=True))
+        }

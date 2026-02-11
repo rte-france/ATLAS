@@ -61,7 +61,6 @@ __all__ = [
     "MarketBorder",
     "OptimisationModel",
     "Node",
-    "InputLoader",
     "Logger",
     "Parameters",
     "ParametersParser",
