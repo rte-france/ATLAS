@@ -24,7 +24,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
 
     export_lp: bool = Field(False, description="Boolean indicating if the LP model should be exported to a file.")
     export_lp_path: Path = Field(
-        lambda: Path(getcwd()),  # type: ignore[assignment]
+        default_factory=lambda: Path(getcwd()),  # type: ignore[assignment]
         description="Directory path where LP files will be exported if export_lp is True.",
     )
     is_portfolio_bidding: bool = Field(
