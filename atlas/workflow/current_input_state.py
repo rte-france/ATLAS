@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from collections.abc import Callable, Iterable
 
 from atlas import BusinessModel
-from atlas.enum import BusinessModelName
+from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 
