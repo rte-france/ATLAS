@@ -99,15 +99,16 @@ class Hydro(Equipment):
         """Serialize fragment prices and volumes to a string."""
         return serializer_list_float(value)
 
-    @model_validator(mode="after")
-    def build_fragment_data(self) -> "Hydro":
-        """Build fragment data at instantiation and cache it."""
-        if self.fragment_prices is not None and self.fragment_volumes is not None:
-            if len(self.fragment_volumes) != len(self.fragment_prices):
-                raise ValueError("Fragment volumes and prices must have the same length")
+    @computed_field
+    @property
+    def fragment_data(self) -> dict[int, FragmentData]:
+        if not self.fragment_prices or not self.fragment_volumes:
+            return {}
 
-            self.fragment_data = {
-                category: FragmentData(volume=self.fragment_volumes[category], price=self.fragment_prices[category])
-                for category in range(len(self.fragment_volumes))
-            }
-        return self
+        if len(self.fragment_volumes) != len(self.fragment_prices):
+            raise ValueError("Fragment volumes and prices must have the same length")
+
+        return {
+            i: FragmentData(volume=v, price=p)
+            for i, (v, p) in enumerate(zip(self.fragment_volumes, self.fragment_prices, strict=True))
+        }
