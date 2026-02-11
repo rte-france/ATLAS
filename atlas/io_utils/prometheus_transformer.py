@@ -20,7 +20,7 @@ from pydantic_extra_types.pendulum_dt import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.config import DEFAULT_VALUE_IO, logger
-from atlas.enum import BusinessModelName
+from atlas.enums import BusinessModelName
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.typing import get_class_inheritance_chain, get_type_attribute

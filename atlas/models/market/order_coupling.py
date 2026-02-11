@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pydantic import field_serializer
 
-from atlas.enum import ComplementDirection, CouplingType
+from atlas.enums import ComplementDirection, CouplingType
 from atlas.models.business_model import BusinessModel
 from atlas.models.market.order import Order
 from atlas.validators import serializer_list_business_model

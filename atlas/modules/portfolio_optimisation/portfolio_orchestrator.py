@@ -13,7 +13,7 @@ from pathlib import Path
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enum import SolverStatus
+from atlas.enums import SolverStatus
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments

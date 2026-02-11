@@ -226,7 +226,7 @@ def compare_timeseries_to_dict(timeseries: Timeseries, _dict: dict[str, float]):
     ],
 )
 def test_input(dataset_name):
-    path = Path("C:/Users/aboutet/Documents/atlas 2/ATLAS/data/market_clearing_prometheus/") / dataset_name
+    path = Path("/data/market_clearing_prometheus/") / dataset_name
     parameters_path = path / "parameters.yml"
     dataset_path = path / "atlas-dataset"
     pkl_path = path / "raw_data.pkl"

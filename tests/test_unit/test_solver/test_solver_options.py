@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 from pendulum import duration
 
-from atlas.enum import SolverEnum
+from atlas.enums import SolverEnum
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 from tests.conftest import requires_xpress

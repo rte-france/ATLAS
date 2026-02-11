@@ -9,7 +9,7 @@ from typing import cast
 
 from pendulum import DateTime
 
-from atlas.enum import MarketType, StorageType, ThermalStrategy
+from atlas.enums import MarketType, StorageType, ThermalStrategy
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
