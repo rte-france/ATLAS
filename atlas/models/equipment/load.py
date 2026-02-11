@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 from pendulum import Duration, duration
 from pydantic import Field, field_validator
 
-from atlas.enum import LoadType
+from atlas.enums import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries

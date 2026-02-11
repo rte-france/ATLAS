@@ -78,15 +78,15 @@ def retrieve_orders_mapping(market_area) -> dict[tuple[str, str], str]:
     return order_mapping
 
 
-@pytest.mark.skip(reason="No data available")
+# @pytest.mark.skip(reason="No data available")
 @pytest.mark.parametrize(
     "dataset_name",
     [
-        "MarketClearing input v1.3 ATC_1",
+        "atc-1",
     ],
 )
 def test_market_clearing_output(dataset_name):
-    path = os.path.join("data", "market_clearing_prometheus", dataset_name)
+    path = os.path.join("data", "market_clearing_prometheus", "datasets-market-clearing", dataset_name)
     parameters_path = os.path.join(path, "parameters.yml")
     dataset_path = os.path.join(path, "atlas-dataset")
     pkl_path = os.path.join(path, "raw_data.pkl")

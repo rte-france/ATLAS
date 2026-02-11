@@ -7,9 +7,9 @@ This file is part of the ATLAS project.
 from typing import Any
 
 from pendulum import Duration, duration
-from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
+from pydantic import BaseModel, Field, computed_field, field_serializer, field_validator
 
-from atlas.enum import InflowFrequency
+from atlas.enums import InflowFrequency
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
@@ -61,8 +61,6 @@ class Hydro(Equipment):
         description="List of positive prices",
     )
     fragment_volumes: list[float] | None = Field(None, description="List of positive volumes")
-
-    fragment_data: dict[int, FragmentData] = Field(default_factory=dict, exclude=True)
 
     stored_energy: ForecastingMatrix | LazyForecastingMatrix | None = None
 

@@ -10,7 +10,7 @@ from collections.abc import Generator
 
 import pendulum
 
-from atlas.enum import OrderType
+from atlas.enums import OrderType
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.models.order import OrderMC
 from atlas.modules.market_clearing.parameters import MarketClearingParameters

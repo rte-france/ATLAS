@@ -8,7 +8,7 @@ import pytest
 from pendulum import DateTime, Duration
 from pydantic import ValidationError
 
-from atlas.enum import Product
+from atlas.enums import Product
 from atlas.modules.market_clearing.parameters import (
     ExchangeConstraintsType,
     MarketClearingParameters,

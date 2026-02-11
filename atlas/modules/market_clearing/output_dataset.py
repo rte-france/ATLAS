@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import atlas.config as cfg
 from atlas import ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.enum import Product
+from atlas.enums import Product
 from atlas.models.business_model import BusinessModel
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.market.critical_branch import CriticalBranch

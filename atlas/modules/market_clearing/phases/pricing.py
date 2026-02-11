@@ -11,7 +11,7 @@ import pendulum
 import atlas.modules.market_clearing.constants as constants
 from atlas import OptimisationModel, Order, SolverOptions
 from atlas.config import logger
-from atlas.enum import ComplementDirection, CouplingType, SolverStatus
+from atlas.enums import ComplementDirection, CouplingType, SolverStatus
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.models.market_area import MarketAreaMC
 from atlas.modules.market_clearing.models.market_border import MarketBorderMC

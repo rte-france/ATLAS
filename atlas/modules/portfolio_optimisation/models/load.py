@@ -9,7 +9,7 @@ from __future__ import annotations
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enum import LoadType
+from atlas.enums import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.load import Load

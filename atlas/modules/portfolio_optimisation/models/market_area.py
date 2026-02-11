@@ -8,7 +8,7 @@ from typing import Self
 
 from pydantic import ValidationInfo, model_validator
 
-from atlas.enum import MarketType
+from atlas.enums import MarketType
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.models.market.market_area import MarketArea
 

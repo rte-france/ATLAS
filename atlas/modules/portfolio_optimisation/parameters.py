@@ -14,7 +14,7 @@ from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enum import MarketType, StorageType, ThermalStrategy
+from atlas.enums import MarketType, StorageType, ThermalStrategy
 from atlas.timing import generate_datetimes
 from atlas.validators import convert_to_duration
 

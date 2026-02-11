@@ -15,7 +15,7 @@ from typing import Any, Literal, get_origin
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 import atlas.config as cfg
-from atlas.enum import BusinessModelName
+from atlas.enums import BusinessModelName
 from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory

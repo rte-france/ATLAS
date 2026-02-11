@@ -9,7 +9,7 @@ from __future__ import annotations
 import pendulum
 from pendulum import duration
 
-from atlas.enum import StorageType, ThermalStrategy
+from atlas.enums import StorageType, ThermalStrategy
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 
 
