@@ -516,7 +516,7 @@ def _resolve_single_object_reference(
     object_name: str = object_dict[attribute]
     # Do not search for reference when attribute is None
     if not object_name:
-        return
+        return None
     object_type_key: str = cfg.INVERSE_MODEL_MAPPING_NAME[attribute_type]
 
     type_index = object_indices.get(object_type_key)
