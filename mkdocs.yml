@@ -112,6 +112,14 @@ nav:
         - Examples: modules/portfolio-optimisation/user-guide/examples.md
       - Developer:
         - Architecture: modules/portfolio-optimisation/developer/architecture.md
+    - Day-Ahead Orders:
+        - Overview: modules/day-head-orders/index.md
+        - User Guide:
+            - Overview: modules/day-head-orders/user-guide/overview.md
+            - Parameters: modules/day-head-orders/user-guide/input-data.md
+            - Running: modules/day-head-orders/user-guide/running.md
+        - Developer:
+            - Architecture: modules/day-head-orders/developer/architecture.md
   - API Reference:
     - Math Objects:
       - Timeseries: api/math/timeseries.md

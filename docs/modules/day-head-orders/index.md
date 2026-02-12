@@ -12,8 +12,6 @@ How to use the module:
 - [Overview](user-guide/overview.md): Introduction and basic usage
 - [Parameters](user-guide/input-data.md): Configuration reference
 - [Running](user-guide/running.md): Execution details
-- [Results](user-guide/results.md): Accessing outputs
-- [Examples](user-guide/examples.md): Usage examples
 
 ### [Developer Reference](developer/architecture.md)
 Technical documentation for contributors:
