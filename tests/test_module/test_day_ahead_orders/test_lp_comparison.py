@@ -51,7 +51,7 @@ def base_parameters_dict():
         "solver_timeout": "240s",
         "timestep": "1h",
         "price_forecasts_types": ["Medium"],
-        "verbose": True,
+        "verbose": False,
     }
 
 
