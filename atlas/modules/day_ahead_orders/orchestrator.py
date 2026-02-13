@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pathlib import Path
+
 import atlas.config as cfg
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.orders_formulation.hydraulic_step import HydraulicStep
@@ -46,6 +48,12 @@ class DayAheadOrdersOrchestrator:
         orders_time = generate_datetimes(
             self.parameters.start_date, self.parameters.penultimate_date, self.parameters.timestep
         )
+
+        # ensure output folder exists
+        if self.parameters.output_folder:
+            path = Path(self.parameters.output_folder)
+            path.mkdir(parents=True, exist_ok=True)
+
         if len(orders_time) > 0:
             cfg.logger.info("Extraction completed, now starting the formulation of orders...")
 
