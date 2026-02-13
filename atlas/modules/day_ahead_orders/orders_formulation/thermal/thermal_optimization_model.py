@@ -706,6 +706,7 @@ class ThermalOptimizationModel(OptimisationModel):
             lp_file_name = self.parameters.output_folder / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
             self.export_model(str(lp_file_name))
 
+        cfg.logger.info(f"Optimisation model '{self.name}' with price type '{self.price_type}'")
         self.solve()
 
         status = self.solution_info.status if self.solution_info else None
