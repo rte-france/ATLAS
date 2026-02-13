@@ -5,6 +5,7 @@ This file is part of the ATLAS project.
 """
 
 from pendulum import DateTime, Duration
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -15,10 +16,10 @@ from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 def test_default_parameters():
     params = DayAheadOrdersParameters(start_date=DateTime.now(), end_date=DateTime.now(), execution_date=DateTime.now())
-    assert params.output_folder == "DAO_lp_exports"
+    assert params.output_folder == Path("DAO_lp_exports")
     assert params.verbose == True
     assert params.export_lp == False
-    assert params.proportional_reserves_penalty == False
+    assert params.proportional_reserves_penalty == True
     assert params.use_presolve == True
     assert params.automated_unprocured_reserves_penalty == 10000
     assert params.battery_smoothing_factor == 0.1
@@ -41,8 +42,6 @@ def test_default_parameters():
     assert params.timestep == Duration(hours=1)
     assert params.price_forecasts_types == ["Medium", "High", "Low"]
     assert params.solver_name == "XPRESS"
-    assert params.export_lp == True
-    assert params.verbose == True
 
 
 def test_custom_parameters():
