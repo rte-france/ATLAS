@@ -59,8 +59,10 @@ class MarketClearingModule(
         marginal_fixing = MarginalFixing(input_dataset, parameters)
         marginal_fixing.run(accepted_powers, market_prices)
 
-        market_clearing_output_dataset = MarketClearingOutputDataset(input_dataset)
-        market_clearing_output_dataset.run(accepted_powers, local_balances, border_exchanges, market_prices)
+        market_clearing_output_dataset = MarketClearingOutputDataset(
+            input_dataset, accepted_powers, local_balances, border_exchanges, market_prices
+        )
+        market_clearing_output_dataset.run()
 
         return market_clearing_output_dataset
 
