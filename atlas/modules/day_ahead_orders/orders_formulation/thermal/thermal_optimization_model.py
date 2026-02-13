@@ -704,12 +704,6 @@ class ThermalOptimizationModel(OptimisationModel):
                     (i.e. [start_date, end_optimization_date]).
         :rtype: dict[str, Timeseries]
         """
-        if self.solver_name != SolverEnum.XPRESS:
-            # If another solver is being used, consider setting the NoOverlap parameter to False as it previously raised errors otherwise with GLPK
-            cfg.logger.warning(
-                "Please use XPRESS, as other solvers either are deprecated or provide non-optimal solutions"
-            )
-
         if self.parameters.export_lp:
             lp_file_name = self.parameters.output_folder / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
             self.export_model(str(lp_file_name))
