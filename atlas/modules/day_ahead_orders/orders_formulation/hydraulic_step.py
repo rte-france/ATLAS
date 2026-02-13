@@ -69,8 +69,7 @@ class HydraulicStep:
                 .max()
             )
             if local_max_energy <= 0:
-                if parameters.verbose:
-                    cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
+                cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
                 continue
 
             # Assumption for the identification of the "initial" level, see the storage formulation for more details

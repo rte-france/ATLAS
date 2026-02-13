@@ -58,8 +58,7 @@ class StorageStep:
                 .max()
             )
             if local_max_energy <= 0:
-                if self.parameters.verbose:
-                    cfg.logger.debug(f"Equipment {str(storage.name)} avoided, as its maximum_energy is 0")
+                cfg.logger.debug(f"Equipment {str(storage.name)} avoided, as its maximum_energy is 0")
                 continue
 
             cfg.logger.debug(f"Equipment {str(storage.name)}")
@@ -214,10 +213,9 @@ class StorageStep:
 
         model.solve()
 
-        if self.parameters.verbose:
-            status = model.solution_info.status if model.solution_info else None
-            cfg.logger.info(f"Solver status: {status}")
-            cfg.logger.info(f"Objective function value: {model._objective}")
+        status = model.solution_info.status if model.solution_info else None
+        cfg.logger.debug(f"Solver status: {status}")
+        cfg.logger.debug(f"Objective function value: {model._objective}")
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [start date, end date]
@@ -280,10 +278,9 @@ class StorageStep:
 
         model.solve()
 
-        if self.parameters.verbose:
-            status = model.solution_info.status if model.solution_info else None
-            cfg.logger.info(f"Solver status: {status}")
-            cfg.logger.info(f"Objective function value: {model._objective}")
+        status = model.solution_info.status if model.solution_info else None
+        cfg.logger.debug(f"Solver status: {status}")
+        cfg.logger.debug(f"Objective function value: {model._objective}")
 
         # Assign the values to the output variables
         # Note that the time domain of the output variables is [start date, end date]

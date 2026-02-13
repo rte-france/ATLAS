@@ -17,7 +17,6 @@ from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 def test_default_parameters():
     params = DayAheadOrdersParameters(start_date=DateTime.now(), end_date=DateTime.now(), execution_date=DateTime.now())
     assert params.output_folder == Path("DAO_lp_exports")
-    assert params.verbose == True
     assert params.export_lp == False
     assert params.proportional_reserves_penalty == True
     assert params.use_presolve == True

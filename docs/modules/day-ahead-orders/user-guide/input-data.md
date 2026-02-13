@@ -16,8 +16,6 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`output_folder`** (str, default: ""): Path where the lp exports outputs are exported.
 
-- **`verbose`** (bool, default: True): A boolean indicating whether the program shall return detailed logs.
-
 ## Optimization Parameters
 
 ### Solver configuration
@@ -118,7 +116,6 @@ timestep: 1h
 price_forecasts_types: ["Medium"]
 solver_name: "SCIP"
 export_lp: True
-verbose: False
 ```
 
 ## Next Steps

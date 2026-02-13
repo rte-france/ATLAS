@@ -68,9 +68,8 @@ class ThermalUnitOrders:
 
         # If the unit is offline, no orders are formulated.
         if offline:
-            if self.parameters.verbose:
-                """TODO : add the sequence to make message more explicit"""
-                cfg.logger.info(f"Unit {unit.name} is offline. No orders have been formulated for this unit")
+            """TODO : add the sequence to make message more explicit"""
+            cfg.logger.debug(f"Unit {unit.name} is offline. No orders have been formulated for this unit")
             return None
 
         # If not offline, start the configuration of variables necessary for order formulation
@@ -260,11 +259,10 @@ class ThermalUnitOrders:
 
             # We only formulate the order if its maximal power is positive
             if q_max <= 0.0:
-                if self.parameters.verbose:
-                    cfg.logger.warning(
-                        f"Negative or null amount of energy in the flexible order to be offered by unit {unit.name} at time {str(t)}. "
-                        "The order will therefore not be created."
-                    )
+                cfg.logger.warning(
+                    f"Negative or null amount of energy in the flexible order to be offered by unit {unit.name} at time {str(t)}. "
+                    "The order will therefore not be created."
+                )
             else:
                 # Flexible part of the order
                 flexible_part = OrderDAO(

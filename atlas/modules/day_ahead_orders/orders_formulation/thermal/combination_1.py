@@ -25,8 +25,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
     if day_zero:
         # Remind the user how the program has been initialized
-        if model.parameters.verbose:
-            cfg.logger.info(f"Initial conditions of unit {model.thermal_unit.name} have been set as in equation (47).")
+        cfg.logger.debug(f"Initial conditions of unit {model.thermal_unit.name} have been set as in equation (47).")
 
         for t in model.previous_time_frame:
             # Initial conditions on the power output

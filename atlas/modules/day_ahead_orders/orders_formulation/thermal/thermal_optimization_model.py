@@ -13,7 +13,6 @@ from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas import OptimisationModel, SolverOptions, Thermal, generate_datetimes
-from atlas.enum import SolverEnum
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
@@ -488,8 +487,7 @@ class ThermalOptimizationModel(OptimisationModel):
                 + max(fcr_down_procured.get_value(t) - self.thermal_unit.maximum_fcr, 0)
             )
 
-        if self.parameters.verbose:
-            cfg.logger.info(f"automated unsupplied reserves : {self.automated_unsupplied_reserves}")
+        cfg.logger.debug(f"automated unsupplied reserves : {self.automated_unsupplied_reserves}")
 
         # Set-up the power gradients
         self.delta_q = self.thermal_unit.maximum_gradient * self.parameters.timestep.total_minutes()
@@ -710,10 +708,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
         self.solve()
 
-        if self.parameters.verbose:
-            status = self.solution_info.status if self.solution_info else None
-            cfg.logger.info(f"Solver status: {status}")
-            cfg.logger.info(f"Objective function value: {self._objective}")
+        status = self.solution_info.status if self.solution_info else None
+        cfg.logger.debug(f"Solver status: {status}")
+        cfg.logger.debug(f"Objective function value: {self._objective}")
 
         """STEP 5 : Return the results"""
 
@@ -731,15 +728,14 @@ class ThermalOptimizationModel(OptimisationModel):
         for t in self.time_frame:
             q_star.set_or_add_value(t, self.q.get_model_var(t).solution_value())
 
-        # If verbose is activated, inform the user if the optimal program is such that the unit
+        # inform the user if the optimal program is such that the unit
         # provides no output
-        if self.parameters.verbose:
-            if abs(q_star.min() - 0.0) <= 1e-6 and abs(q_star.max() - 0.0) <= 1e-6:
-                zero_output_message = f"""*** Info ***
-                The optimal solution for the unit {self.thermal_unit.name} is such that the unit remains offline and
-                delivers no power output.
-                """
-                cfg.logger.info(zero_output_message)
+        if abs(q_star.min() - 0.0) <= 1e-6 and abs(q_star.max() - 0.0) <= 1e-6:
+            zero_output_message = f"""*** Info ***
+            The optimal solution for the unit {self.thermal_unit.name} is such that the unit remains offline and
+            delivers no power output.
+            """
+            cfg.logger.debug(zero_output_message)
 
         # contractedDifference.
         # This variable is returned as together with the procuredReserves it allows to know the exact amount
@@ -1006,17 +1002,15 @@ class ThermalOptimizationModel(OptimisationModel):
         """
         if len(self.last_power) == 0:
             # Initialization of the program as DayZero and warn the user
-            if self.parameters.verbose:
-                cfg.logger.warning("The program is initialized for the first time.")
+            cfg.logger.info("The program is initialized for the first time.")
             day_zero = True  # Boolean to keep track of the status
         elif self.last_date != self.parameters.start_date - self.parameters.timestep:
             # last_date doesn't match start_date - time_step (i.e. t_{-1}, so we will initialize as DayZero and send a warning message
-            if self.parameters.verbose:
-                cfg.logger.warning(
-                    f"The last_date found in Power of equipement {self.thermal_unit.name} "
-                    "does not match the start_date of the current program. \n "
-                    "The program will be initialized as DayZero."
-                )
+            cfg.logger.warning(
+                f"The last_date found in Power of equipement {self.thermal_unit.name} "
+                "does not match the start_date of the current program. \n "
+                "The program will be initialized as DayZero."
+            )
             day_zero = True
         else:
             day_zero = False

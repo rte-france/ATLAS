@@ -21,10 +21,6 @@ class DayAheadOrdersParameters(AbstractParameters):
         Path("DAO_lp_exports"),
         description="Optional parameter to choose an output folder in the folder where the LPs will be exported.",
     )
-    verbose: bool = Field(
-        True,
-        description="A boolean indicating whether the program shall return detailed logs.",
-    )
     export_lp: bool = Field(False, description="Boolean indicating if the LP model should be exported to a file.")
     proportional_reserves_penalty: bool = Field(
         True,
