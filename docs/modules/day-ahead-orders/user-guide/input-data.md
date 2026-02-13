@@ -116,9 +116,9 @@ phs_nb_fragments: 3
 solver_timeout: 240s
 timestep: 1h
 price_forecasts_types: ["Medium"]
-solver_name: "XPRESS"
+solver_name: "SCIP"
 export_lp: True
-verbose: True
+verbose: False
 ```
 
 ## Next Steps
