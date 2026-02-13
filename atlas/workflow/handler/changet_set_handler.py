@@ -30,7 +30,7 @@ class ChangeSetHandler:
         Find the BusinessModel of the attribute in the other cis container
         """
         data = change_set.data.copy()  # avoid mutating original
-        obj = change_set.model_type.model_validate({"name": data["name"]})
+        obj = cfg.MODEL_MAPPING_NAME[change_set.model_type].model_validate({"name": data["name"]})
 
         ChangeSetHandler._resolve_reference(obj, data, cis)
         ChangeSetHandler._fill_object(obj, data)
@@ -53,11 +53,9 @@ class ChangeSetHandler:
         # Get the existing object by name
         obj_name = data.get("name")
         try:
-            obj: BusinessModel = container.get(obj_name)
+            obj: BusinessModel = container.get(str(obj_name))
         except KeyError:
-            raise ValueError(
-                f"Object '{obj_name}' not found in container for type {change_set.model_type.__name__}"
-            ) from None
+            raise ValueError(f"Object '{obj_name}' not found in container for type {change_set.model_type}") from None
 
         ChangeSetHandler._resolve_reference(obj, data, cis)
         ChangeSetHandler._fill_object(obj, data)

@@ -310,7 +310,7 @@ class AtlasDataset(BaseModel):
         container = self.get_container_by_type(object_type)
         return container.all()
 
-    def get_container_by_type(self, object_type: str | type[BusinessModel]) -> Container:
+    def get_container_by_type(self, object_type: BusinessModelName | str | type[BusinessModel]) -> Container:
         """
         Get a Container object by type with O(1) lookup.
 
@@ -323,6 +323,8 @@ class AtlasDataset(BaseModel):
             object_type_str = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
         elif isinstance(object_type, str):
             object_type_str = BusinessModelName(object_type)
+        elif isinstance(object_type, BusinessModelName):
+            object_type_str = object_type
         else:
             raise TypeError(f"Invalid type for object_type: {object_type!r}")
         container = getattr(self, object_type_str, None)

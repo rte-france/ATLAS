@@ -5,8 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import BusinessModel
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.scenario_matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -19,19 +18,17 @@ from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisatio
 from atlas.modules.portfolio_optimisation.portfolio_orchestrator import PortfolioOptimisationResult
 
 
-class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationParameters]):
+class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisationParameters]):
     def __init__(
         self,
         parameters: PortfolioOptimisationParameters,
         optimisation_results: dict[str, PortfolioOptimisationResult],
         input_dataset: PortfolioOptimisationInputDataset,
     ):
+        super().__init__()
         self.optimisation_results = optimisation_results
         self.parameters = parameters
         self.input_dataset = input_dataset
-
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        return []
 
     def build(self):
         for model in self.optimisation_results.values():

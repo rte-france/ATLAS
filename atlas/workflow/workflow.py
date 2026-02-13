@@ -5,8 +5,22 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import copy
+from pathlib import Path
+from typing import Any
+
+import yaml
+
 from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.logging import Logger
+from atlas.workflow.current_input_state import CurrentInputState
+from atlas.workflow.handler.cis_handler import CISHandler
+from atlas.workflow.workflow_helper import WorkflowHelper
+from atlas.workflow.workflow_parameters_parser import Step, WorkflowParameters
 from atlas.workflow.workflow_step import WorkflowStep
+
+logger = Logger().get_logger()
 
 
 class Workflow:
@@ -14,19 +28,38 @@ class Workflow:
 
     Each step processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, name: str, dataset: AbstractDataset, steps: list[WorkflowStep] | None):
+    def __init__(self, workflow_parameters: WorkflowParameters):
         """Initialize a Workflow instance.
 
-        :param name: Name of the workflow.
-        :type name: str
-        :param dataset: The initial input dataset for the workflow.
-        :type dataset: AbstractDataset
-        :param steps: Optional list of workflow steps to execute.
-        :type steps: list[WorkflowStep] | None
+        :param workflow_parameters: Name of the workflow.
+        :type workflow_parameters: WorkflowParameters
         """
-        self.name = name
-        self.dataset = dataset
-        self._steps: list[WorkflowStep] = steps if steps is not None else []
+        self.workflow_parameters = workflow_parameters
+        self.generic_module_parameters: dict[str, Any] = {}
+        self._steps: list[WorkflowStep] = []
+
+    def build_generic_module_parameters(self):
+        if self.workflow_parameters.generic_module_parameters_path:
+            with open(Path(self.workflow_parameters.generic_module_parameters_path)) as file:
+                self.generic_module_parameters = yaml.safe_load(file)
+
+    def build_steps(self):
+        for name, step in self.workflow_parameters.steps.items():
+            self.build_step(name, step)
+
+    def build_step(self, name: str, step: Step):
+        try:
+            module = WorkflowHelper.MODULE_REGISTRY[step.name]
+        except KeyError:
+            raise ValueError(f"Unknown module: '{step.name}' for 'name'. Check 'MODULE_REGISTRY'") from None
+
+        parameters = copy.deepcopy(self.generic_module_parameters)
+        with open(Path(step.parameters_path)) as file:
+            custom_parameters = yaml.safe_load(file)
+        parameters.update(custom_parameters)
+
+        workflow_step = WorkflowStep(name, module, parameters)
+        self.add_step(workflow_step)
 
     @property
     def steps(self) -> list[WorkflowStep]:
@@ -60,8 +93,20 @@ class Workflow:
         Each step receives as input the output of the previous step.
         The first step receives the workflow's initial dataset.
         """
-        output_dataset: AbstractDataset | None = None
-        for i, step in enumerate(self.steps):
-            step.input_dataset = self.dataset if i == 0 else output_dataset
-            step.execute()
+        str_name = f" : '{self.workflow_parameters.name}'" if self.workflow_parameters.name else ""
+        logger.debug(f"Launching workflow{str_name}")
+        atlas_dataset = AtlasDataset.from_directory(self.workflow_parameters.dataset_path)
+        cis = CurrentInputState(atlas_dataset)
+
+        for step in self.steps:
+            logger.debug(f"Launching step :'{step.name}'")
+            input_dataset = cis.filter_dataset(step.module.get_business_model_class_used(), step.module.get_filters())
+            step.run(input_dataset)
             output_dataset = step.output_dataset
+            change_sets = output_dataset.change_sets
+
+            logger.debug("Applying list of change set")
+            CISHandler.apply(change_sets, cis)
+            logger.debug(f"Finishing step :'{step.name}'")
+
+        cis.data.to_directory(self.workflow_parameters.output_dataset_path)

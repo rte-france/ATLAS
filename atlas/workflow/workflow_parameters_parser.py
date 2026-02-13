@@ -11,12 +11,6 @@ import yaml
 from pydantic import BaseModel
 
 
-class Parameters(BaseModel):
-    """Parameters for the workflow."""
-
-    dataset_path: str
-
-
 class Step(BaseModel):
     """Definition of a single step in the workflow.
 
@@ -27,19 +21,24 @@ class Step(BaseModel):
     """
 
     name: str
-    parameters_path: str
+    parameters_path: Path
 
 
 class WorkflowParameters(BaseModel):
     """Parameters for the workflow.
-    :param parameters: Parameters for the workflow.
-    :type parameters: Parameters
+    :param name: Name of the workflow
+    :type name: str
+    :param dataset_path: Path of the Dataset to use in the workflow
+    :type dataset_path: str
     :param steps: List of steps in the workflow.
     :type steps: list[Step]
     """
 
-    parameters: Parameters
+    dataset_path: Path
     steps: dict[str, Step]
+    output_dataset_path: Path
+    name: str | None = None
+    generic_module_parameters_path: str | None = None
 
 
 class WorkflowParametersParser:

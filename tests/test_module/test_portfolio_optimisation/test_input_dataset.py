@@ -486,21 +486,6 @@ class TestPortfolioOptimisationInputDataset:
         assert len(dataset.portfolios[0].equipments.wind) == 1
         assert len(dataset.portfolios_manual_activation[0].equipments.solar) == 1
 
-    def test_get_business_model_class_used(self, mock_parameters):
-        """Test that get_business_model_class_used returns expected business model classes."""
-        input_data = AtlasDataset()
-        dataset = PortfolioOptimisationInputDataset(input_data, mock_parameters)
-
-        result = dataset.get_business_model_class_used()
-
-        assert Thermal in result
-        assert Load in result
-        assert Hydro in result
-        assert Storage in result
-        assert Wind in result
-        assert Solar in result
-        assert OtherNonDispatchable in result
-
     @patch("atlas.modules.portfolio_optimisation.input_dataset.should_manually_activate")
     @patch("atlas.modules.portfolio_optimisation.input_dataset.is_excluded_market_area")
     @patch("atlas.modules.portfolio_optimisation.input_dataset.WindPO")

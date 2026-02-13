@@ -6,10 +6,8 @@ This file is part of the ATLAS project.
 
 import atlas.config as cfg
 from atlas import AtlasDataset, ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.enums import Product
-from atlas.models.business_model import BusinessModel
-from atlas.models.equipment.equipment import Equipment
 from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.market_border import MarketBorder
@@ -18,10 +16,10 @@ from atlas.models.portfolio import Portfolio
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.timing import generate_datetimes
-from atlas.workflow.change_set import ChangeSet, UpdateObject
+from atlas.workflow.change_set import UpdateObject
 
 
-class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
+class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]):
     """Output dataset for Market Clearing module
     What to we need from MarketClearing result :
       - accepted_powers
@@ -116,8 +114,8 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
         border_exchanges: dict[tuple[str, int], float],
         market_prices: dict[tuple[str, int], float],
     ):
+        super().__init__()
         self.input_dataset = input_dataset
-        self.change_sets: list[ChangeSet] = []
         self.accepted_powers = accepted_powers
         self.local_balances = local_balances
         self.border_exchanges = border_exchanges
@@ -503,10 +501,3 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 forecast_obj = forecast_obj.collect()
             forecast_obj.add(other, self.input_dataset.parameters.execution_date)
             return forecast_obj
-
-    @staticmethod
-    def get_custom_business_model_object_modified() -> list[type[BusinessModel]]:
-        return [MarketArea, MarketBorder, CriticalBranch, Order]
-
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        return [MarketArea, MarketBorder, CriticalBranch, Order, Equipment, Portfolio]

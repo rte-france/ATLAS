@@ -13,7 +13,6 @@ from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import logger
 from atlas.enums import CouplingType
-from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
@@ -244,6 +243,3 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         for name, value in model.__dict__.items():
             result[name] = value
         return result
-
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        return []

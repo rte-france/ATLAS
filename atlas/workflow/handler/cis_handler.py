@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas.enums import BusinessModelName
 from atlas.workflow.change_set import ChangeSet
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.changet_set_handler import ChangeSetHandler
@@ -28,9 +27,7 @@ class CISHandler:
         return sorted(
             change_sets,
             key=lambda cs: order_index.get(
-                cs.model_type
-                if isinstance(cs.model_type, BusinessModelName | str)
-                else cfg.INVERSE_MODEL_MAPPING_NAME[cs.model_type],
+                cs.model_type,
                 len(order_index),
             ),
         )

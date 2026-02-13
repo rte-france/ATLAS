@@ -6,19 +6,22 @@ This file is part of the ATLAS project.
 Module that implements AbstractDataset
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Generic, TypeVar
 
-from atlas import BusinessModel
 from atlas.abstract_class.abstract_parameters import module_parameters_type_var
+from atlas.workflow.change_set import ChangeSet
 
 
 class AbstractDataset(ABC, Generic[module_parameters_type_var]):
     """Placeholder abstract class for input datasets."""
 
-    @abstractmethod
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        """Get the list of Business model class present in this Dataset"""
+    pass
+
+
+class AbstractModuleOutput(AbstractDataset[module_parameters_type_var]):
+    def __init__(self):
+        self.change_sets: list[ChangeSet] = []
 
 
 input_dataset_type_var = TypeVar("input_dataset_type_var", bound=AbstractDataset)

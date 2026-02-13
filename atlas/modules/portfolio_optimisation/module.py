@@ -5,10 +5,13 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from collections.abc import Iterable
+
 from loguru import logger
 from pendulum import Duration
 
 from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -364,3 +367,19 @@ class PortfolioOptimisationModule(
                 pass
 
         return None
+
+    @staticmethod
+    def get_business_model_class_used() -> Iterable[BusinessModelName]:
+        """Return list of business model classes used in this dataset."""
+        return [
+            BusinessModelName.THERMAL,
+            BusinessModelName.LOAD,
+            BusinessModelName.HYDRO,
+            BusinessModelName.STORAGE,
+            BusinessModelName.WIND,
+            BusinessModelName.SOLAR,
+            BusinessModelName.PORTFOLIO,
+            BusinessModelName.MARKET_AREA,
+            BusinessModelName.CONTROL_BLOCK,
+            BusinessModelName.OTHER_NON_DISPATCHABLE,
+        ]

@@ -8,11 +8,14 @@ Module that implements AbstractModule
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Generic
 
+import atlas.config as cfg
 from atlas.abstract_class.abstract_dataset import input_dataset_type_var, output_dataset_type_var
 from atlas.abstract_class.abstract_parameters import module_parameters_type_var
+from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 
 
@@ -74,7 +77,7 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
     ) -> None:
         """Exports results."""
 
-    def run(self, input_data: AtlasDataset, raw_params: dict[str, Any] | str | Path) -> None:
+    def run(self, input_data: AtlasDataset, raw_params: dict[str, Any] | str | Path) -> output_dataset_type_var:
         """Orchestrates the preparation and execution of the module.
         Should not be overridden in subclass
         """
@@ -92,3 +95,12 @@ class AbstractModule(ABC, Generic[module_parameters_type_var, input_dataset_type
             raise AssertionError("Results validation has not passed")
         if parameters.export_result:
             self.export_results(parameters, input_dataset, output_dataset)
+        return output_dataset
+
+    @staticmethod
+    def get_business_model_class_used() -> Iterable[BusinessModelName]:
+        return cfg.MODEL_MAPPING_NAME.keys()
+
+    @staticmethod
+    def get_filters():
+        return None
