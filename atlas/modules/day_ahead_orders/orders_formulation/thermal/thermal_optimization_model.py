@@ -716,6 +716,11 @@ class ThermalOptimizationModel(OptimisationModel):
 
         self.solve()
 
+        if self.parameters.verbose:
+            status = self.solution_info.status if self.solution_info else None
+            cfg.logger.info(f"Solver status: {status}")
+            cfg.logger.info(f"Objective function value: {self._objective}")
+
         """STEP 5 : Return the results"""
 
         # Export the results
