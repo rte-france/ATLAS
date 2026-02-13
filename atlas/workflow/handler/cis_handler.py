@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 import atlas.config as cfg
 from atlas.enums import BusinessModelName
-from atlas.workflow.change_set.change_set import ChangeSet
+from atlas.workflow.change_set import ChangeSet
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.changet_set_handler import ChangeSetHandler
 
