@@ -1,4 +1,3 @@
-# test_abstract_classes.py
 """
 Tests for AbstractScenarioMatrix and AbstractTimeseries base classes.
 These tests ensure that the abstract class properties and methods are properly covered.
