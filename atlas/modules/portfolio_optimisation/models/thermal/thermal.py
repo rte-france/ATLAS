@@ -14,7 +14,7 @@ from pendulum import DateTime, Duration
 from pydantic import model_validator
 
 import atlas.config as cfg
-from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
 from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
@@ -45,8 +45,8 @@ class ThermalPO(BaseEquipmentPO, Thermal):
 
     maximum_fcr: float
     maximum_afrr: float
-    maximum_power: Timeseries | LazyTimeseries
-    variable_cost: Timeseries | LazyTimeseries
+    maximum_power: AbstractTimeseries
+    variable_cost: AbstractTimeseries
     maximum_gradient: float = 0.0
     has_daily_energy_constraint: bool = False
 

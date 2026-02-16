@@ -18,9 +18,9 @@ import polars as pl
 from pydantic_core import core_schema
 
 from atlas.io_utils.utils import read_data_file
-from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import Matrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import (
     build_datetime,
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
 
-class ForecastingMatrix(Matrix):
+class ForecastingMatrix(ScenarioMatrix):
     """
     A matrix structure for managing collections of forecast time series, indexed by forecast generation time.
 
@@ -46,7 +46,7 @@ class ForecastingMatrix(Matrix):
 
     def __init__(
         self,
-        matrix: pl.DataFrame | pd.DataFrame | Matrix | None = None,
+        matrix: pl.DataFrame | pd.DataFrame | ScenarioMatrix | None = None,
         timezone: str = "UTC",
         date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> None:
@@ -75,8 +75,8 @@ class ForecastingMatrix(Matrix):
         )
 
     def __repr__(self):
-        """Provide a string representation of the Matrix object."""
-        return f"Forecasting Matrix : {self.matrix}"
+        """Provide a string representation of the ScenarioMatrix object."""
+        return f"Forecasting ScenarioMatrix : {self.matrix}"
 
     @property
     def date_format(self) -> str:
@@ -410,12 +410,12 @@ class ForecastingMatrix(Matrix):
         self._date_format = date_format
 
 
-class LazyForecastingMatrix(LazyMatrix):
+class LazyForecastingMatrix(LazyScenarioMatrix):
     """Stores Timeseries objects lazily by scenario name, with access and deletion by name."""
 
     def __init__(
         self,
-        matrix: LazyMatrix | pl.LazyFrame | Matrix,
+        matrix: LazyScenarioMatrix | pl.LazyFrame | ScenarioMatrix,
         timezone: str = "UTC",
         date_format: str = "YYYY-MM-DD HH:mm:ss",
     ) -> None:
@@ -552,4 +552,13 @@ class LazyForecastingMatrix(LazyMatrix):
             end_date=end_date,
             timestep=timestep,
             default_value=default_value,
+        )
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.is_instance_schema(
+            cls,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: "forecasting_matrix", when_used="json"
+            ),
         )

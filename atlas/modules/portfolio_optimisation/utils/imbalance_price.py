@@ -9,9 +9,8 @@ from typing import cast
 from pendulum import DateTime
 
 from atlas.enums import MarketType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
@@ -94,7 +93,7 @@ def _get_actual_price(
     :rtype: float
     """
     if parameters.market == MarketType.dayahead:
-        return cast(Timeseries | LazyTimeseries, market_area.da_price).get_value(time)
+        return cast(AbstractTimeseries, market_area.da_price).get_value(time)
     elif parameters.market == MarketType.intraday:
         return (
             cast(ForecastingMatrix | LazyForecastingMatrix, market_area.id_price)
@@ -102,9 +101,9 @@ def _get_actual_price(
             .get_value(time)
         )
     elif parameters.market == MarketType.rr_activation:
-        return cast(Timeseries | LazyTimeseries, market_area.rr_activation_price).get_value(time)
+        return cast(AbstractTimeseries, market_area.rr_activation_price).get_value(time)
     elif parameters.market == MarketType.mfrr_activation:
-        return cast(Timeseries | LazyTimeseries, market_area.mfrr_activation_price).get_value(time)
+        return cast(AbstractTimeseries, market_area.mfrr_activation_price).get_value(time)
 
     else:
         raise KeyError("Market type unkown.")
