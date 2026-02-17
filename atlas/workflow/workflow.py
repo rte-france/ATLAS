@@ -53,13 +53,18 @@ class Workflow:
         except KeyError:
             raise ValueError(f"Unknown module: '{step.name}' for 'name'. Check 'MODULE_REGISTRY'") from None
 
-        parameters = copy.deepcopy(self.generic_module_parameters)
-        with open(Path(step.parameters_path)) as file:
-            custom_parameters = yaml.safe_load(file)
-        parameters.update(custom_parameters)
+        parameters = Workflow.build_module_parameters(self.generic_module_parameters, step.parameters_path)
 
         workflow_step = WorkflowStep(name, module, parameters)
         self.add_step(workflow_step)
+
+    @staticmethod
+    def build_module_parameters(workflow_parameters: dict[str:Any], parameters_path: Path):
+        parameters = copy.deepcopy(workflow_parameters)
+        with open(parameters_path) as file:
+            custom_parameters = yaml.safe_load(file)
+        parameters.update(custom_parameters)
+        return parameters
 
     @property
     def steps(self) -> list[WorkflowStep]:
@@ -101,7 +106,9 @@ class Workflow:
         for step in self.steps:
             logger.debug(f"Launching step :'{step.name}'")
             input_dataset = cis.filter_dataset(step.module.get_business_model_class_used(), step.module.get_filters())
+            # Before hook
             step.run(input_dataset)
+            # After hook
             output_dataset = step.output_dataset
             change_sets = output_dataset.change_sets
 
