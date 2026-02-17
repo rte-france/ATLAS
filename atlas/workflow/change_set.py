@@ -19,7 +19,7 @@ class ChangeSet(ABC):
         """Serialize the ChangeSet"""
 
     @classmethod
-    def from_obj(cls, obj: BusinessModel) -> ChangeSet:
+    def from_object(cls, obj: BusinessModel) -> ChangeSet:
         """Factory method to build a ChangeSet from a BusinessModel."""
         model_type = type(obj)
         return cls._build_from_obj(obj, model_type)
