@@ -42,6 +42,34 @@ def test_container_add_duplicate_raises():
         c.add(DummyBM("a"))
 
 
+def test_container_add_list():
+    c = Container()
+    items = [DummyBM("a"), DummyBM("b"), DummyBM("c")]
+
+    c.add(items)
+
+    assert len(c) == 3
+    assert c.get("a").name == "a"
+    assert c.get("b").name == "b"
+    assert c.get("c").name == "c"
+
+
+def test_container_add_empty_list():
+    c = Container()
+
+    c.add([])
+
+    assert len(c) == 0
+
+
+def test_container_add_list_with_duplicate_raises():
+    c = Container()
+    c.add(DummyBM("a"))
+
+    with pytest.raises(ValueError, match="Item with name 'a' already exists"):
+        c.add([DummyBM("b"), DummyBM("a")])
+
+
 def test_container_get_existing():
     item = DummyBM("a")
     c = Container([item])
