@@ -1,7 +1,7 @@
 from importlib.metadata import version
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.parameters import Parameters, ParametersParser
+from atlas.io_utils.parameters import Parameters
 from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
 from atlas.logging import Logger
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
@@ -30,6 +30,7 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
+from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas, AntaresToAtlasParameters
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
@@ -39,6 +40,8 @@ from atlas.workflow.workflow_parameters_parser import WorkflowParameters, Workfl
 from atlas.workflow.workflow_step import WorkflowStep
 
 __all__ = [
+    "AntaresToAtlas",
+    "AntaresToAtlasParameters",
     "AbstractScenarioMatrix",
     "AbstractTimeseries",
     "AtlasDataset",
@@ -67,7 +70,6 @@ __all__ = [
     "Node",
     "Logger",
     "Parameters",
-    "ParametersParser",
     "get_metadata_from_file",
     "get_metadata_from_frame",
     "NodePtdf",

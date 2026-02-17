@@ -4,6 +4,8 @@ This file is part of the ATLAS project.
 Module that implements Parameters
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 
@@ -12,10 +14,6 @@ from pydantic import BaseModel
 
 
 class Parameters(BaseModel):
-    """A class to represent parameters."""
-
-
-class ParametersParser:
     """A class to parse parameters from a YAML or JSON file."""
 
     @classmethod

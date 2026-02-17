@@ -11,11 +11,11 @@ from pendulum import Duration
 from pydantic import Field, field_validator, model_validator
 from typing_extensions import Self
 
-from atlas.io_utils.parameters import ParametersParser
+from atlas.io_utils.parameters import Parameters
 from atlas.validators import convert_to_duration
 
 
-class AntaresToAtlasParameters(ParametersParser):
+class AntaresToAtlasParameters(Parameters):
     """Parameters for Antares to Atlas data conversion.
 
     This class defines all configuration needed to convert Antares simulation data
