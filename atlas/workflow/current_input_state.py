@@ -33,10 +33,8 @@ class CurrentInputState:
                     container: Container[BusinessModel] = dataset_copy.get_container_by_type(object_type_str)
                     filtered_data[object_type_str] = list(container)
                 except ValueError:
-                    # skip unknown types
                     continue
 
-        # Apply filters
         if filters:
             for object_type, filter_fn in filters.items():
                 object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
