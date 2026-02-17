@@ -36,7 +36,7 @@ class WorkflowParameters(Parameters):
     """
 
     dataset_path: Path
-    steps: dict[str, Step]
+    steps: list[Step]
     output_dataset_path: Path
     name: str | None = None
     generic_module_parameters_path: Path | None = None

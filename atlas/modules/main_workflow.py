@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import argparse
 
 from atlas.workflow.workflow import Workflow
-from atlas.workflow.workflow_parameters_parser import WorkflowParametersParser
+from atlas.workflow.workflow_parameters import WorkflowParametersParser
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

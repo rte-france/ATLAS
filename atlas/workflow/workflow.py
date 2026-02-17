@@ -6,21 +6,37 @@ This file is part of the ATLAS project.
 """
 
 import copy
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.config import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.logging import Logger
+from atlas.modules.market_clearing.module import MarketClearingModule
+from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
-from atlas.workflow.workflow_helper import WorkflowHelper
 from atlas.workflow.workflow_parameters import Step, WorkflowParameters
 from atlas.workflow.workflow_step import WorkflowStep
 
-logger = Logger().get_logger()
+
+class ModuleRegistry(Enum):
+    """Registry mapping module names to their implementation classes."""
+
+    MarketClearing = MarketClearingModule
+    PortfolioOptimisation = PortfolioOptimisationModule
+
+    @classmethod
+    def get(cls, name: str) -> type[AbstractModule]:
+        try:
+            return cls[name].value
+        except KeyError:
+            valid = [m.name for m in cls]
+            raise ValueError(f"Unknown module: '{name}'. Valid modules are: {valid}") from None
 
 
 class Workflow:
@@ -40,7 +56,7 @@ class Workflow:
 
     def build_generic_module_parameters(self):
         if self.workflow_parameters.generic_module_parameters_path:
-            with open(Path(self.workflow_parameters.generic_module_parameters_path)) as file:
+            with open(self.workflow_parameters.generic_module_parameters_path) as file:
                 self.generic_module_parameters = yaml.safe_load(file)
 
     def build_steps(self):
@@ -48,11 +64,7 @@ class Workflow:
             self.build_step(name, step)
 
     def build_step(self, name: str, step: Step):
-        try:
-            module = WorkflowHelper.MODULE_REGISTRY[step.name]
-        except KeyError:
-            raise ValueError(f"Unknown module: '{step.name}' for 'name'. Check 'MODULE_REGISTRY'") from None
-
+        module = ModuleRegistry.get(step.name)
         parameters = Workflow.build_module_parameters(self.generic_module_parameters, step.parameters_path)
 
         workflow_step = WorkflowStep(name, module, parameters)

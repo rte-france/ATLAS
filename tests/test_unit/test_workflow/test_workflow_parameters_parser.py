@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from atlas.workflow.workflow_parameters_parser import WorkflowParametersParser, WorkflowParameters, Step
+from atlas.workflow.workflow_parameters import WorkflowParametersParser, WorkflowParameters, Step
 
 
 def test_parse_yaml_returns_dict(tmp_path):
