@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from __future__ import annotations
+
 import copy
 from enum import Enum
 from pathlib import Path
@@ -44,23 +46,31 @@ class Workflow:
 
     Each step processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, workflow_parameters: WorkflowParameters):
+    def __init__(self, parameters: WorkflowParameters):
         """Initialize a Workflow instance.
 
-        :param workflow_parameters: Name of the workflow.
-        :type workflow_parameters: WorkflowParameters
+        :param parameters: Name of the workflow.
+        :type parameters: WorkflowParameters
         """
-        self.workflow_parameters = workflow_parameters
+        self.parameters = parameters
         self.generic_module_parameters: dict[str, Any] = {}
         self._steps: list[WorkflowStep] = []
 
+        self.build_generic_module_parameters()
+        self.build_steps()
+
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> Workflow:
+        parameters = WorkflowParameters.from_file(file_path=file_path)
+        return cls(parameters=parameters)
+
     def build_generic_module_parameters(self):
-        if self.workflow_parameters.generic_module_parameters_path:
-            with open(self.workflow_parameters.generic_module_parameters_path) as file:
+        if self.parameters.generic_module_parameters_path:
+            with open(self.parameters.generic_module_parameters_path) as file:
                 self.generic_module_parameters = yaml.safe_load(file)
 
     def build_steps(self):
-        for step in self.workflow_parameters.steps:
+        for step in self.parameters.steps:
             self.build_step(step)
 
     def build_step(self, step: Step):
@@ -71,8 +81,8 @@ class Workflow:
         self.add_step(workflow_step)
 
     @staticmethod
-    def build_module_parameters(workflow_parameters: dict[str, Any], parameters_path: Path):
-        parameters = copy.deepcopy(workflow_parameters)
+    def build_module_parameters(parameters: dict[str, Any], parameters_path: Path):
+        parameters = copy.deepcopy(parameters)
         with open(parameters_path) as file:
             custom_parameters = yaml.safe_load(file)
         parameters.update(custom_parameters)
@@ -110,9 +120,9 @@ class Workflow:
         Each step receives as input the output of the previous step.
         The first step receives the workflow's initial dataset.
         """
-        str_name = f" : '{self.workflow_parameters.name}'" if self.workflow_parameters.name else ""
+        str_name = f" : '{self.parameters.name}'" if self.parameters.name else ""
         logger.debug(f"Launching workflow{str_name}")
-        atlas_dataset = AtlasDataset.from_directory(self.workflow_parameters.dataset_path)
+        atlas_dataset = AtlasDataset.from_directory(self.parameters.dataset_path)
         cis = CurrentInputState(atlas_dataset)
 
         for step in self.steps:
@@ -129,4 +139,4 @@ class Workflow:
             CISHandler.apply(change_sets, cis)
             logger.debug(f"Finishing step :'{step.name}'")
 
-        cis.data.to_directory(self.workflow_parameters.output_dataset_path)
+        cis.data.to_directory(self.parameters.output_dataset_path)

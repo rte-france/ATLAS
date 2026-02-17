@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, ClassVar
 
 import atlas.config as cfg
 from atlas import BusinessModel
@@ -9,9 +9,9 @@ from atlas.enums import BusinessModelName
 
 
 class ChangeSet(ABC):
-    type: str
+    kind: ClassVar[str]
 
-    def __init__(self, model_type: type[BusinessModel] | BusinessModelName):
+    def __init__(self, model_type: type[BusinessModel] | BusinessModelName | str):
         self.model_type = self.get_model_type(model_type)
 
     @abstractmethod
@@ -60,7 +60,7 @@ class ChangeSet(ABC):
 
 
 class AddObject(ChangeSet):
-    type = "add"
+    kind = "add"
 
     def __init__(self, data: dict[str, Any], model_type):
         super().__init__(model_type)
@@ -68,7 +68,7 @@ class AddObject(ChangeSet):
         self.data = data
 
     def to_dict(self) -> dict[str, Any]:
-        return {"type": self.type, "data": self.data}
+        return {"type": self.kind, "data": self.data}
 
     @classmethod
     def _build_from_obj(cls, obj: BusinessModel, model_type):
@@ -81,7 +81,7 @@ class AddObject(ChangeSet):
 
 
 class UpdateObject(ChangeSet):
-    type = "update"
+    kind = "update"
 
     def __init__(self, data: dict[str, Any], model_type):
         super().__init__(model_type)
@@ -89,7 +89,7 @@ class UpdateObject(ChangeSet):
         self.data = data
 
     def to_dict(self) -> dict[str, Any]:
-        return {"type": self.type, "data": self.data}
+        return {"type": self.kind, "data": self.data}
 
     @classmethod
     def _build_from_obj(cls, obj: BusinessModel, model_type):
@@ -102,14 +102,14 @@ class UpdateObject(ChangeSet):
 
 
 class DeleteObject(ChangeSet):
-    type = "delete"
+    kind = "delete"
 
     def __init__(self, name: str, model_type):
         super().__init__(model_type)
         self.name = name
 
     def to_dict(self) -> dict[str, Any]:
-        return {"type": self.type, "name": self.name}
+        return {"type": self.kind, "name": self.name}
 
     @classmethod
     def _build_from_obj(cls, obj: BusinessModel, model_type):
