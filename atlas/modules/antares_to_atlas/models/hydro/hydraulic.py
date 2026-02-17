@@ -16,7 +16,7 @@ from atlas.models.equipment.hydro import Hydro
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-def convert_hydraulic_units(
+def convert_hydro_units(
     study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,

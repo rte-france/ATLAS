@@ -52,7 +52,7 @@ class AntaresToAtlas:
         converter = AntaresToAtlas.from_file("parameters.yaml")
 
         # Execute conversion
-        converter.convert(antares_dataset, altas_dataset)
+        converter.convert()
         ```
 
     :param parameters: Conversion parameters
@@ -103,7 +103,6 @@ class AntaresToAtlas:
         """
         registry = ConverterRegistry()
 
-        # Register standard converters
         standard_converters = [
             NodeConverter,
             LoadConverter,
@@ -117,12 +116,8 @@ class AntaresToAtlas:
         for converter in standard_converters:
             registry.register(converter)
 
-        # Register hypothesis-specific converters
         if self.parameters.hypothesis == "BP23":
             self._register_bp23_converters(registry)
-        # Add more hypotheses here as needed
-        # elif self.parameters.hypothesis == "BP24":
-        #     self._register_bp24_converters(registry)
 
         return registry
 
