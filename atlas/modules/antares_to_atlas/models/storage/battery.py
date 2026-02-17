@@ -9,7 +9,7 @@ from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
 
-from atlas.enum import StorageType
+from atlas.enums import StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.storage import Storage
@@ -53,12 +53,9 @@ def convert_battery_units(
         if normal_battery:
             batteries.append(normal_battery)
 
-        # Process PCOMP battery
         pcomp_battery = _convert_pcomp_battery(
             area=area,
             study=study,
-            parameters=parameters,
-            atlas_dataset=atlas_dataset,
             links=links,
         )
         if pcomp_battery:
@@ -85,8 +82,6 @@ def _convert_normal_battery(
     """Convert normal battery unit."""
     link_name = f"{area.id}_z_batteries"
 
-    # TODO: Verify if links are indexed by name or by ID
-    # May need to search through links to find matching area_from and area_to
     link = None
     for link_id, link_obj in links.items():
         if link_name.lower() in link_id.lower():
@@ -257,8 +252,6 @@ def _convert_normal_battery(
 def _convert_pcomp_battery(
     area: Area,
     study: Study,
-    parameters: AntaresToAtlasParameters,
-    atlas_dataset: AtlasDataset,
     links: dict[str, Link],
 ) -> Storage | None:
     """Convert PCOMP battery unit."""

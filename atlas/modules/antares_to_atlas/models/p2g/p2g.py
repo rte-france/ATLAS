@@ -9,7 +9,7 @@ from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
 
-from atlas.enum import LoadType
+from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries

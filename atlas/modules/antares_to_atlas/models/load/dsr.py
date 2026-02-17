@@ -9,7 +9,7 @@ from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
 
-from atlas.enum import ThermalStrategy
+from atlas.enums import ThermalStrategy
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
