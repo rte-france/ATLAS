@@ -35,11 +35,28 @@ class ChangeSet(ABC):
 
     @staticmethod
     def get_model_type(
-        model_type: type[BusinessModel] | BusinessModelName,
+        model_type: type[BusinessModel] | BusinessModelName | str,
     ) -> BusinessModelName:
-        if isinstance(model_type, type) and issubclass(model_type, BusinessModel):
-            return cfg.INVERSE_MODEL_MAPPING_NAME[model_type]
-        return model_type
+        if isinstance(model_type, BusinessModelName):
+            return model_type
+
+        if isinstance(model_type, type):
+            if not issubclass(model_type, BusinessModel):
+                raise TypeError(f"{model_type} is not a subclass of BusinessModel")
+
+            try:
+                return cfg.INVERSE_MODEL_MAPPING_NAME[model_type]
+            except KeyError as e:
+                raise ValueError(
+                    f"Model class {model_type.__name__} is not registered in INVERSE_MODEL_MAPPING_NAME"
+                ) from e
+
+        if isinstance(model_type, str):
+            return BusinessModelName(model_type.lower())
+
+        raise TypeError(
+            f"Invalid model_type: {model_type!r}. Expected BusinessModel subclass, BusinessModelName, or string."
+        )
 
 
 class AddObject(ChangeSet):
