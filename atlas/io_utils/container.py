@@ -21,7 +21,11 @@ class Container(Generic[T]):
             for item in items:
                 self.add(item)
 
-    def add(self, item: T) -> None:
+    def add(self, item: T | list[T]) -> None:
+        if isinstance(item, list):
+            for i in item:
+                self.add(i)
+            return
         if item.name in self._items:
             raise ValueError(f"Item with name '{item.name}' already exists")
         self._items[item.name] = item
