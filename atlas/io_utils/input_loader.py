@@ -21,11 +21,12 @@ from atlas.custom_errors import (
 from atlas.enums import BusinessModelName
 from atlas.io_utils.models import InputLoaderConfig
 from atlas.io_utils.utils import read_data_file
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import Matrix
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.typing import get_type_attribute
@@ -232,7 +233,7 @@ def _process_single_object_math(
             try:
                 attribute_type = get_type_attribute(object_type, key)
 
-                if value == "timeseries" and attribute_type in (Timeseries, LazyTimeseries):
+                if value == "timeseries" and attribute_type is AbstractTimeseries:
                     object_instantiated[key] = _load_timeseries(
                         object_type=object_type,
                         name=object_name,
@@ -243,8 +244,7 @@ def _process_single_object_math(
                 elif value in ["forecasting_matrix", "scenario_matrix"] and attribute_type in (
                     ForecastingMatrix,
                     LazyForecastingMatrix,
-                    ScenarioMatrix,
-                    LazyScenarioMatrix,
+                    AbstractScenarioMatrix,
                 ):
                     object_instantiated[key] = _load_matrix(
                         name=object_name,
@@ -274,7 +274,7 @@ def _load_timeseries(
     name: str,
     attribute_name: str,
     config: InputLoaderConfig,
-) -> Timeseries | LazyTimeseries:
+) -> AbstractTimeseries:
     """Load a Timeseries or LazyTimeseries from a file with enhanced error handling."""
     timeseries_dir = config.directory_path / "timeseries"
     object_type_dir = timeseries_dir / object_type
@@ -323,7 +323,7 @@ def _load_matrix(
     attribute_name: str,
     matrix_type: Literal["scenario_matrix", "forecasting_matrix"],
     config: InputLoaderConfig,
-) -> Matrix | LazyMatrix:
+) -> AbstractScenarioMatrix:
     """Load a ForecastingMatrix or ScenarioMatrix (lazy or not) from a file with enhanced error handling."""
     if matrix_type not in ("scenario_matrix", "forecasting_matrix"):
         raise ValueError(f"Invalid matrix type '{matrix_type}'. Must be 'scenario_matrix' or 'forecasting_matrix'")
@@ -340,7 +340,7 @@ def _load_matrix(
 
     if not object_type_dir.exists():
         raise DirectoryStructureError(
-            f"Matrix directory does not contain subdirectory for object type '{object_type}': {matrix_dir}. "
+            f"ScenarioMatrix directory does not contain subdirectory for object type '{object_type}': {matrix_dir}. "
             f"Expected: {object_type_dir}"
         )
 
@@ -348,7 +348,7 @@ def _load_matrix(
         # List available files for better error message
         available_files = [f.name for f in object_type_dir.iterdir() if f.is_file()]
         raise FileNotFoundError(
-            f"Matrix file not found: {matrix_file_path}. Available files in {object_type_dir}: {available_files}"
+            f"ScenarioMatrix file not found: {matrix_file_path}. Available files in {object_type_dir}: {available_files}"
         )
 
     cfg.logger.debug(f"Loading {matrix_type} from file: {matrix_file_path}")

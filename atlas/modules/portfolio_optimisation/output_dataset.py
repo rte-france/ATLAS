@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
