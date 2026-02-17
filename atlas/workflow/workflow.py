@@ -112,9 +112,7 @@ class Workflow:
     def execute(self) -> None:
         """
         Execute the workflow
-        :return:
-        """
-        """
+
         Execute all workflow steps sequentially.
 
         Each step receives as input the output of the previous step.
@@ -128,13 +126,14 @@ class Workflow:
         for step in self.steps:
             logger.debug(f"Launching step :'{step.name}'")
             input_dataset = cis.filter_dataset(step.module.get_business_model_class_used(), step.module.get_filters())
-            # Before hook
-            step.run(input_dataset)
-            # After hook
-            output_dataset = step.output_dataset
-            assert output_dataset is not None, f"Step {step.name} did not produce output_dataset"
-            change_sets = output_dataset.change_sets
 
+            step.run(input_dataset)
+            output_dataset = step.output_dataset
+
+            if not output_dataset:
+                raise RuntimeError(f"Step {step.name} did not produce output_dataset")
+
+            change_sets = output_dataset.change_sets
             logger.debug("Applying list of change set")
             CISHandler.apply(change_sets, cis)
             logger.debug(f"Finishing step :'{step.name}'")

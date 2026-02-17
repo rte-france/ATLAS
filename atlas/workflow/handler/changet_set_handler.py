@@ -30,7 +30,7 @@ class ChangeSetHandler:
         Find the BusinessModel of the attribute in the other cis container
         """
         data = change_set.data.copy()  # avoid mutating original
-        obj = cfg.MODEL_MAPPING_NAME[change_set.model_type].model_validate({"name": data["name"]})
+        obj = cfg.MODEL_MAPPING_NAME[change_set.model_type.value].model_validate({"name": data["name"]})
 
         ChangeSetHandler._resolve_reference(obj, data, cis)
         ChangeSetHandler._fill_object(obj, data)
