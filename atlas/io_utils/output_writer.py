@@ -14,7 +14,7 @@ import atlas.config as cfg
 from atlas.custom_errors import InputLoaderError
 from atlas.io_utils.models import OutputGeneratorConfig
 from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 

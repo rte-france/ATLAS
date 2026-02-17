@@ -7,8 +7,8 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.wind import Wind
 from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
@@ -22,7 +22,7 @@ class WindPO(BaseEquipmentPO, Wind):
     maximum_fcr: float
     maximum_afrr: float
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
-    maximum_curtailment_ratio: Timeseries | LazyTimeseries
+    maximum_curtailment_ratio: AbstractTimeseries
 
     optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None

@@ -4,10 +4,12 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import Parameters, ParametersParser
 from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
 from atlas.logging import Logger
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
@@ -37,6 +39,8 @@ from atlas.workflow.workflow_parameters_parser import WorkflowParameters, Workfl
 from atlas.workflow.workflow_step import WorkflowStep
 
 __all__ = [
+    "AbstractScenarioMatrix",
+    "AbstractTimeseries",
     "AtlasDataset",
     "Parameters",
     "ParametersParser",
@@ -57,7 +61,7 @@ __all__ = [
     "Load",
     "MarketArea",
     "MarketAreaPtdf",
-    "LazyMatrix",
+    "LazyScenarioMatrix",
     "MarketBorder",
     "OptimisationModel",
     "Node",

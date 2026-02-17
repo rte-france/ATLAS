@@ -10,8 +10,8 @@ from typing import cast
 from pendulum import DateTime
 
 from atlas.enums import MarketType, StorageType, ThermalStrategy
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
@@ -154,16 +154,16 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
     :rtype: Timeseries
     """
     if parameters.market == MarketType.dayahead:
-        filtered = cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(
+        filtered = cast(AbstractTimeseries, equipment.da_cleared_quantity).filter(
             parameters.target_times, inplace=False
         )
         return cast(Timeseries, filtered)
 
     elif parameters.market == MarketType.intraday:
-        da_power = cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(
+        da_power = cast(AbstractTimeseries, equipment.da_cleared_quantity).filter(
             parameters.target_times, inplace=False
         )
-        id_power = cast(Timeseries | LazyTimeseries, equipment.total_id_cleared_quantity).filter(
+        id_power = cast(AbstractTimeseries, equipment.total_id_cleared_quantity).filter(
             parameters.target_times, inplace=False
         )
         result = da_power + id_power
@@ -184,9 +184,7 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
     :rtype: Timeseries
     """
     if parameters.market == MarketType.dayahead:
-        return cast(Timeseries | LazyTimeseries, equipment.da_cleared_quantity).filter(
-            parameters.target_times, inplace=False
-        )
+        return cast(AbstractTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times, inplace=False)
 
     elif parameters.market == MarketType.intraday:
         return (
@@ -242,7 +240,7 @@ def _apply_power_constraints(
     :rtype: None
     """
     # Preload maximum power forecast for certain equipment types
-    max_power_forecast: Timeseries | LazyTimeseries | None = None
+    max_power_forecast: AbstractTimeseries | None = None
     if isinstance(equipment, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
         max_power_forecast = equipment.maximum_power_forecast.get_forecast(
             parameters.execution_date, parameters.start_date, parameters.end_date
@@ -266,7 +264,7 @@ def _apply_power_constraints(
 
 
 def _get_max_power(
-    equipment: EquipmentPO, time: DateTime | datetime, max_power_forecast: Timeseries | LazyTimeseries | None
+    equipment: EquipmentPO, time: DateTime | datetime, max_power_forecast: AbstractTimeseries | None
 ) -> float:
     """
     Get maximum power limit for equipment at given time.
@@ -276,7 +274,7 @@ def _get_max_power(
     :param time: Current time
     :type time: DateTime
     :param max_power_forecast: Maximum power forecast timeseries
-    :type max_power_forecast: Timeseries | LazyTimeseries | None
+    :type max_power_forecast: AbstractTimeseries | None
     :return: Maximum power limit
     :rtype: float
     """
@@ -295,7 +293,7 @@ def _get_max_power(
 def _get_min_power(
     equipment: EquipmentPO,
     time: DateTime | datetime,
-    max_power_forecast: Timeseries | LazyTimeseries | None,
+    max_power_forecast: AbstractTimeseries | None,
     max_power: float,
 ) -> float:
     """
@@ -306,7 +304,7 @@ def _get_min_power(
     :param time: Current time
     :type time: DateTime
     :param max_power_forecast: Maximum power forecast timeseries
-    :type max_power_forecast: Timeseries | LazyTimeseries | None
+    :type max_power_forecast: AbstractTimeseries | None
     :param max_power: Maximum power value
     :type max_power: float
     :return: Minimum power limit
@@ -359,7 +357,7 @@ def _update_stored_energy(
     :param equipment: Hydro or storage equipment instance
     :type equipment: HydroPO | StoragePO
     :param new_power: New power timeseries
-    :type new_power: Timeseries | LazyTimeseries
+    :type new_power: AbstractTimeseries
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
     :return: None
@@ -441,7 +439,7 @@ def _calculate_new_energy_value(
     equipment: StoragePO | HydroPO,
     time: DateTime,
     previous_energy: float,
-    new_power: Timeseries | LazyTimeseries,
+    new_power: AbstractTimeseries,
     parameters: PortfolioOptimisationParameters,
 ) -> float:
     """
@@ -453,7 +451,7 @@ def _calculate_new_energy_value(
     :type time: DateTime
     :param previous_energy: Previous energy level
     :param new_power: New power timeseries
-    :type new_power: Timeseries | LazyTimeseries
+    :type new_power: AbstractTimeseries
     :param parameters: Optimization parameters
     :type parameters: PortfolioOptimisationParameters
     :return: New energy value

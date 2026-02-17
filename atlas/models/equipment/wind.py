@@ -7,9 +7,8 @@ This file is part of the ATLAS project.
 from pendulum import Duration, duration
 from pydantic import Field, field_validator
 
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 from atlas.validators import convert_to_duration
 
@@ -38,9 +37,9 @@ class Wind(Equipment):
     )
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
     curtailed_power: ForecastingMatrix | LazyForecastingMatrix | None = None
-    curtailment_cost: Timeseries | LazyTimeseries | None = None
-    da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
-    maximum_curtailment_ratio: Timeseries | LazyTimeseries | None = None
+    curtailment_cost: AbstractTimeseries | None = None
+    da_sell_submitted_volume: AbstractTimeseries | None = None
+    maximum_curtailment_ratio: AbstractTimeseries | None = None
 
     additional_hours: Duration = Field(
         default_factory=lambda: duration(hours=0),

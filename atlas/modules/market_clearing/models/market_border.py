@@ -7,8 +7,9 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import Duration
 
-from atlas import LazyTimeseries, MarketArea, Timeseries
+from atlas import MarketArea, Timeseries
 from atlas.config import logger
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.models.market.market_border import MarketBorder
 
 # Static definition of default bounds on exchanges (can be changed at will):
@@ -25,7 +26,7 @@ class MarketBorderMC(MarketBorder):
     times: list[pendulum.DateTime]
 
     @property
-    def max_flow(self) -> Timeseries | LazyTimeseries:
+    def max_flow(self) -> AbstractTimeseries:
         if self.maximum_flow:
             max_flow = self.maximum_flow.set_frequency(self.timestep, False).filter(self.times)
         else:
@@ -35,7 +36,7 @@ class MarketBorderMC(MarketBorder):
         return max_flow
 
     @property
-    def min_flow(self) -> Timeseries | LazyTimeseries:
+    def min_flow(self) -> AbstractTimeseries:
         if self.minimum_flow:
             min_flow = self.minimum_flow.set_frequency(self.timestep, False).filter(self.times)
         else:
@@ -45,7 +46,7 @@ class MarketBorderMC(MarketBorder):
         return min_flow
 
     @property
-    def ref_flow(self) -> Timeseries | LazyTimeseries | None:
+    def ref_flow(self) -> AbstractTimeseries | None:
         if self.reference_flow:
             return self.reference_flow.set_frequency(self.timestep, False).filter(self.times)
         return None
