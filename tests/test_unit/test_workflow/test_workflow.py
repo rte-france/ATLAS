@@ -1,8 +1,9 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from atlas.workflow.workflow import Workflow, WorkflowStep
-from atlas.workflow.workflow_parameters_parser import WorkflowParameters, Step
+from atlas.workflow.workflow_parameters import Step, WorkflowParameters
 
 
 class DummyModule:
@@ -11,9 +12,6 @@ class DummyModule:
         self.output_dataset = MagicMock()
 
 
-# ==========================================================
-# Fixtures
-# ==========================================================
 @pytest.fixture
 def tmp_paths(tmp_path):
     input_path = tmp_path / "input"

@@ -35,7 +35,7 @@ from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, S
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 from atlas.workflow.workflow import Workflow
-from atlas.workflow.workflow_parameters_parser import WorkflowParameters
+from atlas.workflow.workflow_parameters import WorkflowParameters
 from atlas.workflow.workflow_step import WorkflowStep
 
 __all__ = [
@@ -47,7 +47,6 @@ __all__ = [
     "Workflow",
     "WorkflowStep",
     "WorkflowParameters",
-    "WorkflowParametersParser",
     "BusinessModel",
     "ControlBlock",
     "CriticalBranch",

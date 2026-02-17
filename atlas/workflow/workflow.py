@@ -17,7 +17,7 @@ from atlas.logging import Logger
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
 from atlas.workflow.workflow_helper import WorkflowHelper
-from atlas.workflow.workflow_parameters_parser import Step, WorkflowParameters
+from atlas.workflow.workflow_parameters import Step, WorkflowParameters
 from atlas.workflow.workflow_step import WorkflowStep
 
 logger = Logger().get_logger()
