@@ -6,9 +6,78 @@ import typer
 from rich import print as rprint
 
 import atlas
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
+from atlas.workflow.workflow import ModuleRegistry, Workflow
 
 app = typer.Typer()
+
+
+@app.command()
+def run(
+    config_path: Path = typer.Argument(help="Workflow config YAML (--workflow) or module parameters YAML (default)"),
+    workflow: bool = typer.Option(False, "--workflow", "-w", help="Run a workflow instead of a single module"),
+    module_name: str | None = typer.Option(None, "--module", "-m", help="Module name (e.g. PortfolioOptimisation)"),
+    dataset_path: Path | None = typer.Option(None, "--dataset", "-d", help="Path to the Atlas input dataset directory"),
+) -> None:
+    """Run an Atlas module or workflow.
+
+    \b
+    Module mode (default):
+      atlas run parameters.yaml --module PortfolioOptimisation --dataset ./data/
+
+    \b
+    Workflow mode:
+      atlas run workflow.yaml --workflow
+    """
+    if workflow:
+        if not config_path.exists():
+            rprint(f"[bold red]Error:[/bold red] Workflow configuration file not found: {config_path}")
+            raise typer.Exit(code=1)
+
+        rprint(f"[bold cyan]Running workflow:[/bold cyan] {config_path}")
+        try:
+            wf = Workflow.from_file(config_path)
+            wf.execute()
+            rprint("[bold green]✓[/bold green] Workflow completed successfully.")
+        except Exception as e:
+            rprint(f"[bold red]✗[/bold red] Workflow failed: {e}")
+            raise typer.Exit(code=1) from e
+
+    else:
+        if module_name is None:
+            rprint("[bold red]Error:[/bold red] --module is required in module mode.")
+            raise typer.Exit(code=1)
+
+        if dataset_path is None:
+            rprint("[bold red]Error:[/bold red] --dataset is required in module mode.")
+            raise typer.Exit(code=1)
+
+        if not dataset_path.exists() or not dataset_path.is_dir():
+            rprint(f"[bold red]Error:[/bold red] Dataset directory not found: {dataset_path}")
+            raise typer.Exit(code=1)
+
+        if not config_path.exists():
+            rprint(f"[bold red]Error:[/bold red] Parameters file not found: {config_path}")
+            raise typer.Exit(code=1)
+
+        try:
+            module_class = ModuleRegistry.get(module_name)
+        except ValueError as e:
+            rprint(f"[bold red]Error:[/bold red] {e}")
+            raise typer.Exit(code=1) from e
+
+        rprint(f"[bold cyan]Running module:[/bold cyan] {module_name}")
+        rprint(f"  Dataset   : {dataset_path}")
+        rprint(f"  Parameters: {config_path}")
+
+        try:
+            input_data = AtlasDataset.from_directory(dataset_path)
+            module_class().run(input_data, config_path)
+            rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")
+        except Exception as e:
+            rprint(f"[bold red]✗[/bold red] Module '{module_name}' failed: {e}")
+            raise typer.Exit(code=1) from e
 
 
 @app.command()
