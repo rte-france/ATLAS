@@ -60,14 +60,14 @@ class Workflow:
                 self.generic_module_parameters = yaml.safe_load(file)
 
     def build_steps(self):
-        for name, step in self.workflow_parameters.steps.items():
-            self.build_step(name, step)
+        for step in self.workflow_parameters.steps:
+            self.build_step(step)
 
-    def build_step(self, name: str, step: Step):
+    def build_step(self, step: Step):
         module = ModuleRegistry.get(step.name)
         parameters = Workflow.build_module_parameters(self.generic_module_parameters, step.parameters_path)
 
-        workflow_step = WorkflowStep(name, module, parameters)
+        workflow_step = WorkflowStep(step.name, module, parameters)
         self.add_step(workflow_step)
 
     @staticmethod
