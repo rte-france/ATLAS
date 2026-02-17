@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from typing import Any
 
 from atlas import AtlasDataset
-from atlas.abstract_class.abstract_dataset import AbstractDataset, AbstractModuleOutput
+from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.abstract_class.abstract_module import AbstractModule
 
 
@@ -32,7 +32,7 @@ class WorkflowStep:
         self.name: str = name
         self.module = module()
         self.parameters = parameters
-        self._output_dataset: AbstractDataset | None = None
+        self._output_dataset: AbstractModuleOutput | None = None
 
     @property
     def output_dataset(self) -> AbstractModuleOutput | None:

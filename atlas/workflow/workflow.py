@@ -59,7 +59,7 @@ class Workflow:
         self.add_step(workflow_step)
 
     @staticmethod
-    def build_module_parameters(workflow_parameters: dict[str:Any], parameters_path: Path):
+    def build_module_parameters(workflow_parameters: dict[str, Any], parameters_path: Path):
         parameters = copy.deepcopy(workflow_parameters)
         with open(parameters_path) as file:
             custom_parameters = yaml.safe_load(file)
@@ -110,6 +110,7 @@ class Workflow:
             step.run(input_dataset)
             # After hook
             output_dataset = step.output_dataset
+            assert output_dataset is not None, f"Step {step.name} did not produce output_dataset"
             change_sets = output_dataset.change_sets
 
             logger.debug("Applying list of change set")
