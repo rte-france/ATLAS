@@ -22,7 +22,7 @@ from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
-from atlas.workflow.workflow_parameters import Step, WorkflowParameters
+from atlas.workflow.workflow_parameters import WorkflowParameters
 from atlas.workflow.workflow_step import WorkflowStep
 
 
@@ -71,14 +71,11 @@ class Workflow:
 
     def build_steps(self):
         for step in self.parameters.steps:
-            self.build_step(step)
+            module = ModuleRegistry.get(step.name)
+            parameters = Workflow.build_module_parameters(self.generic_module_parameters, step.parameters_path)
 
-    def build_step(self, step: Step):
-        module = ModuleRegistry.get(step.name)
-        parameters = Workflow.build_module_parameters(self.generic_module_parameters, step.parameters_path)
-
-        workflow_step = WorkflowStep(step.name, module, parameters)
-        self.add_step(workflow_step)
+            workflow_step = WorkflowStep(step.name, module, parameters)
+            self.add_step(workflow_step)
 
     @staticmethod
     def build_module_parameters(parameters: dict[str, Any], parameters_path: Path):
@@ -118,8 +115,7 @@ class Workflow:
         Each step receives as input the output of the previous step.
         The first step receives the workflow's initial dataset.
         """
-        str_name = f" : '{self.parameters.name}'" if self.parameters.name else ""
-        logger.debug(f"Launching workflow{str_name}")
+        logger.info(f"Launching workflow : {self.parameters.name}")
         atlas_dataset = AtlasDataset.from_directory(self.parameters.dataset_path)
         cis = CurrentInputState(atlas_dataset)
 
@@ -136,6 +132,6 @@ class Workflow:
             change_sets = output_dataset.change_sets
             logger.debug("Applying list of change set")
             CISHandler.apply(change_sets, cis)
-            logger.debug(f"Finishing step :'{step.name}'")
+            logger.info(f"Finishing step :'{step.name}'")
 
         cis.data.to_directory(self.parameters.output_dataset_path)
