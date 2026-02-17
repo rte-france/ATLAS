@@ -65,7 +65,7 @@ def convert_dsr_units(
         if dsr_unit:
             dsr_units.append(dsr_unit)
 
-    atlas_dataset.thermal = atlas_dataset.thermal.extend(dsr_units)
+    atlas_dataset.thermal.add(dsr_units)
 
     return atlas_dataset
 

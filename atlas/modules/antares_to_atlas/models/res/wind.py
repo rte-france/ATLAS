@@ -100,6 +100,6 @@ def convert_wind_units(
                         )
                     )
 
-    atlas_dataset.wind = winds
+    atlas_dataset.wind.add(winds)
 
     return atlas_dataset

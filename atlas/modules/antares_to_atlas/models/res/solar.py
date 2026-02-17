@@ -99,6 +99,6 @@ def convert_solar_units(
                         )
                     )
 
-    atlas_dataset.solar = solars
+    atlas_dataset.solar.add(solars)
 
     return atlas_dataset

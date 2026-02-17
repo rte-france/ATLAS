@@ -3,8 +3,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from antares.craft.model.area import Area
-from antares.craft.model.link import Link
 from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
@@ -68,9 +66,9 @@ def convert_electric_vehicle_units(
             parameters=parameters,
             atlas_dataset=atlas_dataset,
         )
-        atlas_dataset.load = getattr(atlas_dataset, "load", []) + hv_units
+        atlas_dataset.load.add(hv_units)
 
-    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + ev_units
+    atlas_dataset.storage.add(ev_units)
 
     return atlas_dataset
 

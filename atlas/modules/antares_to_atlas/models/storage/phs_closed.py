@@ -104,7 +104,7 @@ def convert_phs_closed_units(
                 if phs:
                     phs_closed_list.append(phs)
 
-    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + phs_closed_list
+    atlas_dataset.storage.add(phs_closed_list)
 
     return atlas_dataset
 

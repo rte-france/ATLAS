@@ -103,8 +103,8 @@ def convert_mixed_fuel_units(
             if thermal_unit:
                 new_thermal_units.append(thermal_unit)
 
-    atlas_dataset.thermal = getattr(atlas_dataset, "thermal", []) + new_thermal_units
-    atlas_dataset.load = getattr(atlas_dataset, "load", []) + new_load_units
+    atlas_dataset.thermal.add(new_thermal_units)
+    atlas_dataset.load.add(new_load_units)
 
     logger.info(f"Converted {len(new_thermal_units)} mixed fuel thermal units and {len(new_load_units)} waste units")
     return atlas_dataset

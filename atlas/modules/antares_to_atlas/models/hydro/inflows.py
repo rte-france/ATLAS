@@ -57,10 +57,6 @@ def add_inflows_from_csv(
     # Load inflow profiles from CSV
     csv_path = parameters.path_inflows / f"{area.id}.csv"
 
-    if not csv_path.is_file():
-        logger.warning(f"Inflow CSV file not found: {csv_path}")
-        return inflows_dictionary
-
     logger.debug(f"Loading inflows from: {csv_path}")
 
     # TODO: Create curve index for inflows
@@ -126,7 +122,7 @@ def _load_inflows_from_csv(csv_path: str, parameters: AntaresToAtlasParameters) 
                     # For now, creating placeholder
                     inflows_csv_timeseries[inflow_index] = Timeseries.from_index(
                         start_date=start_date,
-                        frequency=parameters.inflows_time_step if hasattr(parameters, "inflows_time_step") else "7d",
+                        frequency=parameters.inflows_time_step if parameters.inflows_time_step else "7d",
                         end_date=end_date,
                         default_value=0.0,
                     )

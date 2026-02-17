@@ -39,6 +39,6 @@ def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas
 
         loads.append(load)
 
-    atlas_dataset.load = loads
+    atlas_dataset.load.add(loads)
 
     return atlas_dataset

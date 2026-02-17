@@ -69,6 +69,6 @@ def convert_other_non_dispatchable_units(
                 )
             )  # TODO : prod is not a timeseries-like dataframe + i don't know where to get
 
-    atlas_dataset.other_non_dispatchable = non_disp_units
+    atlas_dataset.other_non_dispatchable.add(non_disp_units)
 
     return atlas_dataset

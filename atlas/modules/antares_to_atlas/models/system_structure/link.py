@@ -51,6 +51,6 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
                 * (-1),
             )
         )
-    atlas_dataset.market_border = market_borders
+    atlas_dataset.market_border.add(market_borders)
 
     return atlas_dataset

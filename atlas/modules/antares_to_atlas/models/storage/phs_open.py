@@ -76,7 +76,7 @@ def convert_phs_open_units(
         if phs:
             phs_open_list.append(phs)
 
-    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + phs_open_list
+    atlas_dataset.storage.add(phs_open_list)
 
     return atlas_dataset, inflows_dictionary
 
@@ -338,7 +338,7 @@ def convert_phs_open_fr(
     # TODO: Add power forecast
     # phs.power.add(parameters.execution_date, power_ts)
 
-    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + [phs]
+    atlas_dataset.storage.add(phs)
 
     logger.debug("Created FR open PHS")
     return atlas_dataset

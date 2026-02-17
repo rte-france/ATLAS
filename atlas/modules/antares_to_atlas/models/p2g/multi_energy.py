@@ -1,67 +1,145 @@
-import API
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from antares.craft.model.study import Study
+from loguru import logger
+
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.timeseries import Timeseries
+from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
-# Function adding prices of h2 and ch4 to the VariableCost of thermic groups that use these gases as fuel
-def update_variable_cost_unit_using_gas(antares_dataset, atlas_dataset, p):
-    # for group using gas (h2 or ch4) we add prices of h2 and ch4 (calculated with yields) to thermic groups
+def update_variable_cost_for_gas_units(
+    study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
+) -> AtlasDataset:
+    """Update variable costs for thermal units that use H2 or CH4 as fuel.
 
-    # marginal price of nodes v_me_CH4 and v_me_H2
-    marginal_price_h2 = antares_dataset.Node.GetInstanceByName("v_me_h2").CalculatedMarginalPrice[str(p.scenario)]
-    marginal_price_ch4 = antares_dataset.Node.GetInstanceByName("v_me_ch4").CalculatedMarginalPrice[str(p.scenario)]
+    In a multi-energy system, some thermal units consume H2 or CH4 whose price
+    is computed endogenously by Antares (via virtual nodes v_me_h2 and v_me_ch4).
+    Their variable cost must be overridden with:
+        variable_cost = marginal_price_of_gas * yield_factor
 
-    # yield of electrolysis and methanation found in binding constraint
-    bc_h2 = antares_dataset.BindingConstraint.GetInstanceByName("me_prod_h2")
-    if not bc_h2:
-        API.IO.Trace.Log(
-            "WARNING during multi energy conversion, binding constraint me_prod_h2 not found", API.IO.LogTypeWarn
-        )
+    The yield factor (already inversed, i.e. > 1) comes from binding constraints:
+    - "me_prod_ch4": lists CH4-consuming thermals and their yield weights
+    - "me_prod_h2":  lists H2-consuming thermals and their yield weights
 
-    bc_ch4 = antares_dataset.BindingConstraint.GetInstanceByName("me_prod_ch4")
-    if not bc_ch4:
-        API.IO.Trace.Log(
-            "WARNING during multi energy conversion, binding constraint me_prod_ch4 not found", API.IO.LogTypeWarn
-        )
+    Note: P2G unit variable costs are also updated here (TODO).
+    """
+    logger.info("Updating variable costs for gas-consuming thermal units")
 
-    list_clusterlist_h2 = [cluster.Name for cluster in bc_h2.ClusterList]
-    list_clusterlist_ch4 = [cluster.Name for cluster in bc_ch4.ClusterList]
+    if not atlas_dataset.thermal:
+        logger.debug("No thermal equipment found, skipping multi-energy variable cost update")
+        return atlas_dataset
 
-    # ch4
-    for thermal in list_clusterlist_ch4:
-        # if in clusterlist_ch4 means that the thermic group use ch4
+    # Get marginal prices from virtual nodes v_me_h2 and v_me_ch4
+    marginal_price_h2 = _get_marginal_price(study, "v_me_h2", parameters)
+    marginal_price_ch4 = _get_marginal_price(study, "v_me_ch4", parameters)
 
-        if atlas_dataset.Equipment.Thermic.GetInstanceByName(thermal):
-            # some thermal in bc are not in the marker areas chosen for example
+    # Get CH4 and H2 thermal cluster lists with their yield weights from binding constraints
+    ch4_yields = _get_yields_from_binding_constraint(study, "me_prod_ch4")
+    h2_yields = _get_yields_from_binding_constraint(study, "me_prod_h2")
 
-            msg = f"Adding variable cost CH4 to thermal : {thermal}"
-            API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
+    # Update CH4 thermal units
+    if marginal_price_ch4 is not None:
+        for thermal_name in ch4_yields:
+            equipment = next((t for t in atlas_dataset.thermal if t.name == thermal_name), None)
+            if equipment is None:
+                # Unit not in selected market areas — skip silently
+                continue
 
-            # yield is already inversed (>1)
-            yield_ch4 = bc_ch4.Weights[list_clusterlist_ch4.index(thermal)]
+            logger.info(f"Adding CH4 variable cost to thermal: {thermal_name}")
+            # TODO: Verify multiplication of Timeseries by scalar
+            # In old code: marginal_price_ch4 * yield_ch4 (Timeseries * float)
+            # equipment.variable_cost = marginal_price_ch4 * ch4_yields[thermal_name]
 
-            # variable cost of thermal has to be modified with 1/yield * marginal price of ch4
-            atlas_dataset.Equipment.Thermic.GetInstanceByName(thermal).VariableCost = marginal_price_ch4 * yield_ch4
+    # Update H2 thermal units
+    if marginal_price_h2 is not None:
+        for thermal_name in h2_yields:
+            equipment = next((t for t in atlas_dataset.thermal if t.name == thermal_name), None)
+            if equipment is None:
+                continue
 
-    # h2
-    for thermal in list_clusterlist_h2:
-        if atlas_dataset.Equipment.Thermic.GetInstanceByName(thermal):
-            # some thermal in bc are not in the marker areas chosen for example
+            logger.info(f"Adding H2 variable cost to thermal: {thermal_name}")
+            # TODO: Verify multiplication of Timeseries by scalar
+            # In old code: marginal_price_h2 * yield_h2 (Timeseries * float)
+            # equipment.variable_cost = marginal_price_h2 * h2_yields[thermal_name]
 
-            msg = f"Adding variable cost H2 to thermal : {thermal}"
-            API.IO.Trace.Log(msg, API.IO.LogTypeInfo)
+    # TODO: Update variable cost for P2G units
+    # For p2g_marg units:
+    #   yield = get_yield_electrolysers(study, area_name)  (from p2g.py)
+    #   p2g_marg.variable_cost = marginal_price_h2 * yield
+    # For p2g_methanation units:
+    #   yield = get_yield_methanation(study, area_name)    (from p2g.py)
+    #   p2g_methanation.variable_cost = marginal_price_ch4 * yield
+    # See old code comment lines 58-65 and p2g_main.py
 
-            # yield is already inversed (>1)
-            yield_h2 = bc_h2.Weights[list_clusterlist_h2.index(thermal)]
+    logger.info("Variable cost update for gas units done")
+    return atlas_dataset
 
-            # variable cost of thermal has to be modified with 1/yield * marginal price of h2
-            atlas_dataset.Equipment.Thermic.GetInstanceByName(thermal).VariableCost = marginal_price_h2 * yield_h2
 
-    # TODO: Update VariableCost for P2G units in multi-energy
-    # For p2g_marg :
-    # H2Price = antares_dataset.Node.GetInstanceByName("v_me_h2").CalculatedMarginalPrice[str(p.scenario)]
-    # p2g_instance.VariableCost = H2Price * yield_electrolysers_node(antares_dataset, antares_node.Name)
-    # For p2g_meth
-    # CH4Price = antares_dataset.Node.GetInstanceByName("v_me_ch4").CalculatedMarginalPrice[str(p.scenario)]
-    # p2g_instance.VariableCost = CH4Price * yield_methanation_node(antares_dataset, antares_node.Name)
-    # See p2g_main.py for the yield functions
+def _get_marginal_price(
+    study: Study,
+    node_name: str,
+    parameters: AntaresToAtlasParameters,
+) -> Timeseries | None:
+    """Get the calculated marginal price time series for a virtual node.
 
-    return 0
+    :param node_name: Virtual node name (e.g. "v_me_h2", "v_me_ch4")
+    :param parameters: Conversion parameters (used to select the scenario)
+    :return: Marginal price Timeseries, or None if not found
+    """
+    areas = study.get_areas()
+
+    if node_name not in areas:
+        logger.warning(f"Virtual node {node_name} not found in study")
+        return None
+
+    try:
+        # TODO: Verify how to get CalculatedMarginalPrice from an area
+        # In old code: antares_dataset.Node.GetInstanceByName(node_name).CalculatedMarginalPrice[str(p.scenario)]
+        # May need: areas[node_name].get_calculated_marginal_price(str(parameters.scenario))
+        logger.debug(f"TODO: Get CalculatedMarginalPrice for {node_name}, scenario {parameters.scenario}")
+        return None  # TODO
+
+    except Exception as e:
+        logger.warning(f"Could not get marginal price for node {node_name}: {e}")
+        return None
+
+
+def _get_yields_from_binding_constraint(study: Study, bc_name: str) -> dict[str, float]:
+    """Get thermal cluster names and their yield weights from a binding constraint.
+
+    Returns dict[thermal_cluster_name, yield_weight].
+
+    :param bc_name: Binding constraint name (e.g. "me_prod_ch4", "me_prod_h2")
+    """
+    binding_constraints = study.get_binding_constraints()
+
+    # TODO: Verify if binding constraints are indexed by name or ID
+    bc = None
+    for bc_id, bc_obj in binding_constraints.items():
+        if bc_name.lower() in bc_id.lower():
+            bc = bc_obj
+            break
+
+    if bc is None:
+        logger.warning(f"Binding constraint {bc_name} not found")
+        return {}
+
+    try:
+        # TODO: Extract cluster names and weights from binding constraint terms
+        # In old code:
+        #   list_clusterlist = [cluster.Name for cluster in bc.ClusterList]
+        #   yield = bc.Weights[list_clusterlist.index(thermal_name)]
+        # May need to use bc.get_terms() and look for cluster-type terms
+        # terms = bc.get_terms()
+        logger.debug(f"TODO: Extract cluster list and weights from binding constraint {bc_name}")
+        return {}  # TODO
+
+    except Exception as e:
+        logger.warning(f"Could not get yields from binding constraint {bc_name}: {e}")
+        return {}

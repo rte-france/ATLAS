@@ -89,7 +89,7 @@ def _load_thermic_config(parameters: AntaresToAtlasParameters) -> dict:
     """
     thermic_parameter: dict = {}
 
-    if parameters.thermic_config_file and parameters.thermic_config_file.is_file():
+    if parameters.thermic_config_file:
         logger.debug("No thermic config file found, using defaults")
         return thermic_parameter
 

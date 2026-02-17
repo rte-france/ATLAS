@@ -77,7 +77,7 @@ def convert_p2g_units(
         if p2g_methanation:
             p2g_units.append(p2g_methanation)
 
-    atlas_dataset.load = getattr(atlas_dataset, "load", []) + p2g_units
+    atlas_dataset.load.add(p2g_units)
 
     return atlas_dataset
 
@@ -257,7 +257,7 @@ def _convert_p2g_methanation(
         for thermal_key, thermal_obj in thermals.items():
             if "p2g_methanation" in thermal_key.lower() or "methanation" in thermal_key.lower():
                 # TODO: Verify how to access MarketBidCost
-                variable_cost_value = getattr(thermal_obj.properties, "market_bid_cost", 0.0)
+                variable_cost_value = thermal_obj.properties.market_bid_cost
                 break
 
     # Create variable cost timeseries

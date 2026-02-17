@@ -314,7 +314,7 @@ def _select_storage_levels(stock_levels: list[int], parameters: AntaresToAtlasPa
     If nb_storage_levels == 0: keep all levels.
     Otherwise: subsample evenly and trim symmetrically to reach the target count.
     """
-    nb_levels = getattr(parameters, "nb_storage_levels", 0)
+    nb_levels = parameters.nb_storage_levels
 
     if nb_levels == 0:
         return list(range(1, len(stock_levels)))

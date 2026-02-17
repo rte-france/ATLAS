@@ -11,7 +11,6 @@ from pendulum import duration
 
 from atlas.enum import StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.storage import Storage
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
@@ -71,7 +70,7 @@ def convert_battery_units(
             _merge_batteries(normal_battery, pcomp_battery, parameters)
             batteries.remove(pcomp_battery)
 
-    atlas_dataset.storage = getattr(atlas_dataset, "storage", []) + batteries
+    atlas_dataset.storage.add(batteries)
 
     return atlas_dataset
 

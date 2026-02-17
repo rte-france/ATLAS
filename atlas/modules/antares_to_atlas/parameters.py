@@ -7,10 +7,12 @@ Parameters for Antares to Atlas conversion module.
 
 from pathlib import Path
 
+from pendulum import Duration
 from pydantic import Field, field_validator, model_validator
 from typing_extensions import Self
 
 from atlas.io_utils.parameters import ParametersParser
+from atlas.validators import convert_to_duration
 
 
 class AntaresToAtlasParameters(ParametersParser):
@@ -50,10 +52,10 @@ class AntaresToAtlasParameters(ParametersParser):
     water_value_nb_years: int = Field(default=2, ge=2, description="Number of years for water value")
     hydro_storage_subdivision: int = Field(default=1, ge=1, description="Storage subdivision for water value")
     beta: float = Field(default=0.0, description="Beta parameter for Bellman computation")
-    water_value_time_step: int = Field(default=168, ge=1, description="Water value time step (hours)")
+    water_value_timestep: Duration = Field(default=168, ge=1, description="Water value time step (hours)")
     use_bellman_interpolation: bool = Field(default=False, description="Use Bellman interpolation")
     nb_storage_levels: int = Field(default=100, ge=1, description="Number of storage levels")
-    inflows_time_step: int = Field(default=168, ge=1, description="Inflows time step (hours)")
+    inflows_timestep: Duration = Field(default=168, ge=1, description="Inflows time step (hours)")
 
     # File paths
     hydro_initialization_curve: Path | None = Field(default=None, description="Hydro initialization curve file")
@@ -113,3 +115,13 @@ class AntaresToAtlasParameters(ParametersParser):
                 raise ValueError(f"path_inflows: Directory not found at {inflows_path}")
 
         return self
+
+    @field_validator(
+        "inflows_timestep",
+        "water_value_timestep",
+        mode="before",
+    )
+    @classmethod
+    def parse_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)
