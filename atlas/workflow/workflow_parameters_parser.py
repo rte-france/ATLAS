@@ -7,8 +7,9 @@ This file is part of the ATLAS project.
 
 from pathlib import Path
 
-import yaml
 from pydantic import BaseModel
+
+from atlas.io_utils.parameters import Parameters
 
 
 class Step(BaseModel):
@@ -24,7 +25,7 @@ class Step(BaseModel):
     parameters_path: Path
 
 
-class WorkflowParameters(BaseModel):
+class WorkflowParameters(Parameters):
     """Parameters for the workflow.
     :param name: Name of the workflow
     :type name: str
@@ -39,38 +40,3 @@ class WorkflowParameters(BaseModel):
     output_dataset_path: Path
     name: str | None = None
     generic_module_parameters_path: Path | None = None
-
-
-class WorkflowParametersParser:
-    """A class used to parse the parameters file of a workflow"""
-
-    @classmethod
-    def from_file(cls, file_path: str | Path) -> WorkflowParameters:
-        """Load parameters from a YAML file.
-
-        :param file_path: Path to the parameters file.
-        :type file_path: str or pathlib.Path
-        :return: A WorkflowParameters object containing the parsed and validated parameters.
-        :rtype: WorkflowParameters
-        :raises ValueError: If the file extension is not supported.
-        """
-        file_extension = Path(file_path).suffix
-
-        if file_extension in (".yaml", ".yml"):
-            parameters = cls._parse_yaml(file_path)
-        else:
-            raise ValueError(f"Unsupported file extension: {file_extension}")
-
-        return WorkflowParameters.model_validate(parameters)
-
-    @staticmethod
-    def _parse_yaml(file_path: str | Path) -> dict:
-        """Parse a YAML file and return its contents as a dictionary.
-
-        :param file_path: Path to the YAML file.
-        :type file_path: str or pathlib.Path
-        :return: Parsed parameters.
-        :rtype: dict
-        """
-        with open(Path(file_path)) as file:
-            return yaml.safe_load(file)
