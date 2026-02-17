@@ -349,14 +349,14 @@ class PortfolioOptimisationModule(
     def get_business_model_class_used() -> Iterable[BusinessModelName]:
         """Return list of business model classes used in this dataset."""
         return [
+            BusinessModelName.MARKET_AREA,
+            BusinessModelName.CONTROL_BLOCK,
+            BusinessModelName.PORTFOLIO,
             BusinessModelName.THERMAL,
             BusinessModelName.LOAD,
             BusinessModelName.HYDRO,
             BusinessModelName.STORAGE,
             BusinessModelName.WIND,
             BusinessModelName.SOLAR,
-            BusinessModelName.PORTFOLIO,
-            BusinessModelName.MARKET_AREA,
-            BusinessModelName.CONTROL_BLOCK,
             BusinessModelName.OTHER_NON_DISPATCHABLE,
         ]
