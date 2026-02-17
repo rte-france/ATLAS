@@ -15,6 +15,7 @@ from atlas.modules.antares_to_atlas.models.res.solar import convert_solar_units
 from atlas.modules.antares_to_atlas.models.res.wind import convert_wind_units
 from atlas.modules.antares_to_atlas.models.system_structure.link import convert_links
 from atlas.modules.antares_to_atlas.models.system_structure.node import convert_system_structure
+from atlas.modules.antares_to_atlas.models.thermal.thermal import convert_thermal_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
@@ -166,7 +167,7 @@ class ThermalConverter(Converter):
         :return: List of created Thermal equipment
         :rtype: list[BusinessModel]
         """
-        # Call the business logic in the models module
+
         thermal_units = convert_thermal_units(study, parameters, atlas_dataset)
         return thermal_units
 

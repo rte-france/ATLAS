@@ -3,8 +3,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import os
-
 from antares.craft.model.area import Area
 from loguru import logger
 from pendulum import duration
@@ -57,9 +55,9 @@ def add_inflows_from_csv(
         return inflows_dictionary
 
     # Load inflow profiles from CSV
-    csv_path = os.path.join(parameters.path_inflows, f"{area.id}.csv")
+    csv_path = parameters.path_inflows / f"{area.id}.csv"
 
-    if not os.path.isfile(csv_path):
+    if not csv_path.is_file():
         logger.warning(f"Inflow CSV file not found: {csv_path}")
         return inflows_dictionary
 

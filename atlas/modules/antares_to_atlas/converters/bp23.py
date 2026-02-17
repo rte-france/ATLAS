@@ -10,18 +10,15 @@ from antares.craft.model.study import Study
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
-from atlas.modules.antares_to_atlas.models.hydro import compute_water_values, set_initial_levels
+from atlas.modules.antares_to_atlas.models.hydro import compute_initial_levels, compute_water_values
 from atlas.modules.antares_to_atlas.models.load.dsr import convert_dsr_units
 from atlas.modules.antares_to_atlas.models.p2g.p2g import convert_p2g_units
-from atlas.modules.antares_to_atlas.models.storage.battery import convert_battery_units
-from atlas.modules.antares_to_atlas.models.storage.electric_vehicle import convert_electric_vehicle_units
-from atlas.modules.antares_to_atlas.models.storage.phs_closed import convert_phs_closed_units
-from atlas.modules.antares_to_atlas.models.thermal import (
-    apply_multi_energy_costs,
-    apply_nuclear_modulation,
-    convert_mixed_fuel,
-    convert_particular_mid_peak,
+from atlas.modules.antares_to_atlas.models.storage import (
+    convert_battery_units,
+    convert_electric_vehicle_units,
+    convert_phs_closed_units,
 )
+from atlas.modules.antares_to_atlas.models.thermal import add_nuclear_modulation, convert_mixed_fuel_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
@@ -82,7 +79,7 @@ class MixedFuelConverterBP23(Converter):
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_mixed_fuel(study, parameters, atlas_dataset)
+        return convert_mixed_fuel_units(study, parameters, atlas_dataset)
 
 
 class ParticularMidPeakConverterBP23(Converter):
@@ -172,7 +169,7 @@ class InitialLevelConverterBP23(Converter):
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return set_initial_levels(study, parameters, atlas_dataset)
+        return compute_initial_levels(study, parameters, atlas_dataset)
 
 
 class NuclearModulationConverterBP23(Converter):
@@ -187,4 +184,4 @@ class NuclearModulationConverterBP23(Converter):
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return apply_nuclear_modulation(study, parameters, atlas_dataset)
+        return add_nuclear_modulation(study, parameters, atlas_dataset)
