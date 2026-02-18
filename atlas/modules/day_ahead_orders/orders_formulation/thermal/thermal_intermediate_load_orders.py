@@ -13,7 +13,7 @@ from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas import ScenarioMatrix, SolverOptions, Thermal
-from atlas.enum import CouplingType, ThermalStrategy
+from atlas.enums import CouplingType, ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO

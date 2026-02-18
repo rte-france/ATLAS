@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enum import OrderType, Product
+from atlas.enums import OrderType, Product
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters

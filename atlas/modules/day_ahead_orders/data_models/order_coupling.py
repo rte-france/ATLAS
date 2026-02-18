@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.enum import CouplingType
+from atlas.enums import CouplingType
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 
