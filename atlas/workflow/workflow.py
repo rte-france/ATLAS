@@ -94,13 +94,16 @@ class Workflow:
         """
         return self._steps
 
-    def add_step(self, step: WorkflowStep) -> None:
-        """Add a single step to the end of the workflow."""
-        self._steps.append(step)
-
-    def add_steps(self, steps: list[WorkflowStep]) -> None:
-        """Add multiple steps to the end of the workflow."""
-        self._steps.extend(steps)
+    def add_step(self, step: WorkflowStep | list[WorkflowStep]) -> None:
+        """Add one or multiple steps to the end of the workflow."""
+        if isinstance(step, list):
+            if not all(isinstance(s, WorkflowStep) for s in step):
+                raise TypeError("All items in the list must be WorkflowStep instances.")
+            self._steps.extend(step)
+        else:
+            if not isinstance(step, WorkflowStep):
+                raise TypeError(f"Expected a WorkflowStep instance, got {type(step).__name__}.")
+            self._steps.append(step)
 
     def get_output_dataset(self) -> AbstractDataset | None:
         """Returns the final dataset of the workflow"""
