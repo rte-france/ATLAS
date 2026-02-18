@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 from atlas import PortfolioOptimisationModule
 from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.market_clearing.module import MarketClearingModule
 
 
@@ -16,4 +17,5 @@ class WorkflowHelper:
     MODULE_REGISTRY: dict[str, type[AbstractModule]] = {
         "MarketClearing": MarketClearingModule,
         "PortfolioOptimisation": PortfolioOptimisationModule,
+        "DayAheadOrders": DayAheadOrdersModule,
     }

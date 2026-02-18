@@ -37,8 +37,9 @@ from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputData
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
-class DayAheadOrdersOutput(AbstractDataset[DayAheadOrdersParameters]):
+class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
     def __init__(self, input_dataset: DayAheadOrdersInputDataset):
+        super().__init__()
         self.parameters: DayAheadOrdersParameters = copy.deepcopy(input_dataset.parameters)
         self.control_block: list[ControlBlock] = copy.deepcopy(input_dataset.control_block)
         self.market_area: list[MarketAreaDAO] = copy.deepcopy(input_dataset.market_area)
