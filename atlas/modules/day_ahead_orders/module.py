@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pendulum import Duration
 
 import atlas.config as cfg
-from atlas import BusinessModel, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries
+from atlas import BusinessModel, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries, AtlasDataset
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.orchestrator import DayAheadOrdersOrchestrator
@@ -23,9 +23,7 @@ class DayAheadOrdersModule(
     def get_parameters_class(self):
         return DayAheadOrdersParameters
 
-    def import_data(
-        self, raw_data: dict[str, list[BusinessModel]], parameters: DayAheadOrdersParameters
-    ) -> DayAheadOrdersInputDataset:
+    def import_data(self, raw_data: AtlasDataset, parameters: DayAheadOrdersParameters) -> DayAheadOrdersInputDataset:
         """Imports data using business objects and parameters."""
         return DayAheadOrdersInputDataset(raw_data, parameters)
 
