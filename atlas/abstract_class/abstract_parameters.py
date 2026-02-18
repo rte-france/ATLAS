@@ -58,4 +58,4 @@ class AbstractParameters(Parameters):
         return self
 
 
-module_parameters_type_var = TypeVar("module_parameters_type_var", bound=AbstractParameters)
+P = TypeVar("P", bound=AbstractParameters)
