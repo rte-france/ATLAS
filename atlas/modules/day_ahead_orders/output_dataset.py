@@ -36,27 +36,27 @@ from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputData
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
-class DayAheadOrdersOutputDataset(AbstractDataset[DayAheadOrdersParameters]):
-    def __init__(self, inputDataset: DayAheadOrdersInputDataset):
-        self.parameters: DayAheadOrdersParameters = copy.deepcopy(inputDataset.parameters)
-        self.control_block: list[ControlBlock] = copy.deepcopy(inputDataset.control_block)
-        self.market_area: list[MarketArea] = copy.deepcopy(inputDataset.market_area)
-        self.market_border: list[MarketBorder] = copy.deepcopy(inputDataset.market_border)
-        self.node: list[Node] = copy.deepcopy(inputDataset.node)
-        self.portfolio: list[Portfolio] = copy.deepcopy(inputDataset.portfolio)
-        self.other_non_dispatchable: list[OtherNonDispatchable] = copy.deepcopy(inputDataset.other_non_dispatchable)
+class DayAheadOrdersOutput(AbstractDataset[DayAheadOrdersParameters]):
+    def __init__(self, input_dataset: DayAheadOrdersInputDataset):
+        self.parameters: DayAheadOrdersParameters = copy.deepcopy(input_dataset.parameters)
+        self.control_block: list[ControlBlock] = copy.deepcopy(input_dataset.control_block)
+        self.market_area: list[MarketArea] = copy.deepcopy(input_dataset.market_area)
+        self.market_border: list[MarketBorder] = copy.deepcopy(input_dataset.market_border)
+        self.node: list[Node] = copy.deepcopy(input_dataset.node)
+        self.portfolio: list[Portfolio] = copy.deepcopy(input_dataset.portfolio)
+        self.other_non_dispatchable: list[OtherNonDispatchable] = copy.deepcopy(input_dataset.other_non_dispatchable)
 
-        input_load: list[Load] = copy.deepcopy(inputDataset.load)
+        input_load: list[Load] = copy.deepcopy(input_dataset.load)
         self.load: list[LoadDAO] = [cast(LoadDAO, obj) for obj in input_load]
-        input_storage: list[Storage] = copy.deepcopy(inputDataset.storage)
+        input_storage: list[Storage] = copy.deepcopy(input_dataset.storage)
         self.storage: list[StorageDAO] = [cast(StorageDAO, obj) for obj in input_storage]
-        input_hydro: list[Hydro] = copy.deepcopy(inputDataset.hydro)
+        input_hydro: list[Hydro] = copy.deepcopy(input_dataset.hydro)
         self.hydro: list[HydroDAO] = [cast(HydroDAO, obj) for obj in input_hydro]
-        input_solar: list[Solar] = copy.deepcopy(inputDataset.solar)
+        input_solar: list[Solar] = copy.deepcopy(input_dataset.solar)
         self.solar: list[SolarDAO] = [cast(SolarDAO, obj) for obj in input_solar]
-        input_thermal: list[Thermal] = copy.deepcopy(inputDataset.thermal)
+        input_thermal: list[Thermal] = copy.deepcopy(input_dataset.thermal)
         self.thermal: list[ThermalDAO] = [cast(ThermalDAO, obj) for obj in input_thermal]
-        input_wind: list[Wind] = copy.deepcopy(inputDataset.wind)
+        input_wind: list[Wind] = copy.deepcopy(input_dataset.wind)
         self.wind: list[WindDAO] = [cast(WindDAO, obj) for obj in input_wind]
 
         self.order: list[OrderDAO] = []
