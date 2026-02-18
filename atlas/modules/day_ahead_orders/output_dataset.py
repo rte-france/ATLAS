@@ -21,7 +21,7 @@ from atlas import (
     Thermal,
     Wind,
 )
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.models.business_model import BusinessModel
 from atlas.modules.day_ahead_orders.data_models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.data_models.load import LoadDAO
@@ -74,3 +74,6 @@ class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
             OrderDAO,
             OrderCouplingDAO,
         ]
+
+    def build_change_sets(self):
+        return super().build_change_sets()

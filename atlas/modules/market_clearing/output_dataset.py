@@ -123,10 +123,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         self.market_prices = market_prices
         self.raw_data: AtlasDataset = input_dataset.raw_data.model_copy(deep=True)
 
-    def run(self):
-        self.create_change_sets()
-
-    def create_change_sets(self):
+    def build_change_sets(self) -> None:
         self.update_orders()
         self.update_market_area()
         self.update_market_border()

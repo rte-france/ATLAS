@@ -23,7 +23,7 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone
-from atlas.typing import TimeseriesDict
+from atlas.type import TimeseriesDict
 
 
 class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):

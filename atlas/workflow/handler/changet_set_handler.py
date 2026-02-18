@@ -2,7 +2,7 @@ from typing import Any
 
 import atlas.config as cfg
 from atlas.models.business_model import BusinessModel
-from atlas.typing import get_type_attribute
+from atlas.type import get_type_attribute
 from atlas.workflow.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
 from atlas.workflow.current_input_state import CurrentInputState
 

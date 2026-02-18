@@ -29,7 +29,7 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
-from atlas.typing import get_type_attribute
+from atlas.type import get_type_attribute
 
 
 def load_from_directory(

@@ -142,7 +142,7 @@ class PortfolioOptimisationModule(
         output_dataset = PortfolioOptimisationOutputDataset(
             parameters=parameters, optimisation_results=optimisation_results, input_dataset=dataset
         )
-        output_dataset.build()
+        output_dataset.build_change_sets()
 
         return output_dataset
 
