@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from atlas.io_utils.input_loader import InputLoader
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.solver.solver_helper import SolverHelper
 
@@ -84,14 +84,11 @@ class TestThermalCombinationLPComparison:
             params_dict["output_folder"] = tmpdir
             params_dict["solver_name"] = "SCIP"
 
-            input_data = InputLoader.from_directory(combination_dir)
+            input_data = AtlasDataset.from_directory(combination_dir)
 
             module = DayAheadOrdersModule()
 
-            try:
-                module.run(input_data, params_dict)
-            except Exception as e:
-                pytest.fail(f"day-ahead orders failed for {combination_name}: {e}")
+            module.run(input_data, params_dict)
 
             lp_files = list(Path(tmpdir).glob("*.lp"))
             assert len(lp_files) > 0, f"No LP files generated for {combination_name}"

@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from atlas.enum import SolverEnum
+from atlas.enums import SolverEnum
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
