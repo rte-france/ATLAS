@@ -72,3 +72,6 @@ class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
             OrderDAO,
             OrderCouplingDAO,
         ]
+
+    def build_change_sets(self):
+        return super().build_change_sets()

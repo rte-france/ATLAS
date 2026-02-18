@@ -3,10 +3,10 @@ from unittest.mock import patch
 import pytest
 
 from atlas import MarketArea
-from atlas.enum import BusinessModelName
-from atlas.models.market.order import Order
+from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.workflow.change_set import AddObject, UpdateObject, DeleteObject
+from atlas.models.market.order import Order
+from atlas.workflow.change_set import AddObject, DeleteObject, UpdateObject
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
 

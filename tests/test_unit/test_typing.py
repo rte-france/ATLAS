@@ -1,6 +1,6 @@
 from typing import get_args, get_origin
 
-import atlas.typing as atlas_typing
+import atlas.type as atlas_typing
 
 
 class DummyReferenced:
@@ -23,8 +23,17 @@ class DummyConfig:
     MODEL_MAPPING_NAME = {"dummy": type("Dummy", (), {"model_fields": DummyModel.model_fields})}
 
 
+_original_model_mapping_name = None
+
+
 def setup_module(module):
+    global _original_model_mapping_name
+    _original_model_mapping_name = atlas_typing.cfg.MODEL_MAPPING_NAME
     atlas_typing.cfg.MODEL_MAPPING_NAME = DummyConfig.MODEL_MAPPING_NAME
+
+
+def teardown_module(module):
+    atlas_typing.cfg.MODEL_MAPPING_NAME = _original_model_mapping_name
 
 
 def test_get_type_attribute_int():

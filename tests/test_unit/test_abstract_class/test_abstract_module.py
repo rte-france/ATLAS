@@ -9,38 +9,34 @@ Test AbstractModule
 from unittest.mock import Mock
 
 from atlas import BusinessModel
-from atlas.abstract_class.abstract_dataset import input_dataset_type_var, output_dataset_type_var
+from atlas.abstract_class.abstract_dataset import ID, OD
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.abstract_class.abstract_parameters import module_parameters_type_var
+from atlas.abstract_class.abstract_parameters import P
 
 
-class ModuleTest(AbstractModule[module_parameters_type_var, input_dataset_type_var, output_dataset_type_var]):
+class ModuleTest(AbstractModule[P, ID, OD]):
     def __init__(self):
         pass
 
-    def get_parameters_class(self) -> type[module_parameters_type_var]:
+    def get_parameters_class(self) -> type[P]:
         return Mock
 
-    def import_data(
-        self, raw_data: dict[str, list[BusinessModel]], parameters: module_parameters_type_var
-    ) -> input_dataset_type_var:
+    def import_data(self, raw_data: dict[str, list[BusinessModel]], parameters: P) -> ID:
         return Mock()
 
-    def validate_data(self, parameters: module_parameters_type_var, input_dataset: input_dataset_type_var) -> bool:
+    def validate_data(self, parameters: P, input_dataset: ID) -> bool:
         if len(input_dataset.loads) > 1:
             return False
         return True
 
-    def execute(
-        self, parameters: module_parameters_type_var, input_dataset: input_dataset_type_var
-    ) -> output_dataset_type_var:
+    def execute(self, parameters: P, input_dataset: ID) -> OD:
         return Mock()
 
     def validates_results(
         self,
-        parameters: module_parameters_type_var,
-        input_dataset: input_dataset_type_var,
-        output_dataset: output_dataset_type_var,
+        parameters: P,
+        input_dataset: ID,
+        output_dataset: OD,
     ) -> bool:
         if parameters.valid_result:
             return True
@@ -48,9 +44,9 @@ class ModuleTest(AbstractModule[module_parameters_type_var, input_dataset_type_v
 
     def export_results(
         self,
-        parameters: module_parameters_type_var,
-        input_dataset: input_dataset_type_var,
-        output_dataset: output_dataset_type_var,
+        parameters: P,
+        input_dataset: ID,
+        output_dataset: OD,
     ) -> None:
         print("Export of results")
 
