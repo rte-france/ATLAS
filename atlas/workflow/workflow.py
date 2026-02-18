@@ -111,9 +111,8 @@ class Workflow:
             if not output_dataset:
                 raise RuntimeError(f"Step {step.name} did not produce output_dataset")
 
-            change_sets = output_dataset.change_sets
             logger.debug("Applying list of change set")
-            CISHandler.apply(change_sets, cis)
+            CISHandler.apply(output_dataset.change_sets, cis)
             logger.info(f"Finishing step :'{step.name}'")
 
         cis.data.to_directory(self.parameters.output_dataset_path)

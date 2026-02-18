@@ -33,6 +33,12 @@ class ChangeSet(ABC):
     ) -> ChangeSet:
         """Subclass-specific object conversion."""
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(model_type={self.model_type.value!r})"
+
+    def __str__(self) -> str:
+        return repr(self)
+
     @staticmethod
     def get_model_type(
         model_type: type[BusinessModel] | BusinessModelName | str,

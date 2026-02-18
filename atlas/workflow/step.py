@@ -38,7 +38,7 @@ class ModuleRegistry(Enum):
 class Step(BaseModel):
     """Definition of a single step in the workflow.
 
-    :param name: Unique name identifying the step. Defaults to the module name if not provided.
+    :param name: Name identifying the step. Defaults to the module name if not provided.
     :type name: str
     :param parameters_path: Path to the parameters file for the step.
     :type parameters_path: str
