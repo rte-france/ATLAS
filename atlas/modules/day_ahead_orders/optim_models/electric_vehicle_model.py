@@ -1,0 +1,192 @@
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from atlas import SolverOptions
+from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
+from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+
+
+class ElectricVehicleModel(StorageModel):
+    def __init__(
+        self,
+        parameters: DayAheadOrdersParameters,
+        solver_name: str,
+        name: str,
+        storage: StorageDAO,
+        solver_options: SolverOptions,
+    ):
+        """
+        :param parameters: the parameters
+        :type parameters: DayAheadOrdersParameters
+        :param solver_name: name of the solver
+        :type solver_name: str
+        :param name: name of the model
+        :type name: str
+        :param storage: storage object
+        :type storage: StorageDAO
+        :param solver_options: solver options
+        :type solver_options: SolverOptions
+        """
+        super().__init__(parameters, solver_name, name, storage, parameters.ev_additional_hours, solver_options)
+
+    def create_constraints(self, initial_stock: float | None) -> None:
+        """
+        Creation of constraints
+        :param initial_stock: initial stock
+        :type initial_stock: float | None
+        :return: None
+        """
+        for t in self.time_frame:
+            for i in range(self.parameters.ev_nb_fragments):
+                self.add_constraint(
+                    self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
+                    * self.parameters.ev_nb_fragments
+                    <= self.storage.maximum_power.get_value(t),
+                    f"Respect_of_sale_power_fragment_{i}_limit_at_{t}",
+                )
+                self.add_constraint(
+                    self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
+                    * self.parameters.ev_nb_fragments
+                    <= abs(self.storage.minimum_power.get_value(t)),
+                    f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
+                )
+
+            # Total bought/sold energy at each tome step is the sum of the fragments at time step
+            self.add_constraint(
+                self.get_variable(StorageModel.sold_at_key(t))
+                == sum(
+                    self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
+                    for i in range(self.parameters.ev_nb_fragments)
+                ),
+                f"Evaluation_of_quantity_sold_at_{t}",
+            )
+            self.add_constraint(
+                self.get_variable(StorageModel.purchased_at_key(t))
+                == sum(
+                    self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
+                    for i in range(self.parameters.ev_nb_fragments)
+                ),
+                f"Evaluation_of_quantity_purchased_at_{t}",
+            )
+
+            # StoredEnergy tracking constraint, evaluates the stock at each time step
+            if t == self.parameters.start_date:
+                self.add_constraint(
+                    self.get_variable(StorageModel.stored_energy_at_key(t))
+                    == (
+                        initial_stock
+                        * (
+                            self.storage.maximum_energy.get_value(t)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.timestep)
+                        )
+                        + self.parameters.timestep.total_hours()
+                        * (
+                            self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
+                            - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
+                        )
+                        + (
+                            self.storage.displacement_energy.get_value(t)
+                            - self.storage.displacement_energy.get_value(t - self.parameters.timestep)
+                        )
+                    ),
+                    f"Stock_tracking_at_{t}",
+                )
+            else:
+                self.add_constraint(
+                    self.get_variable(StorageModel.stored_energy_at_key(t))
+                    == (
+                        self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.timestep))
+                        * (
+                            self.storage.maximum_energy.get_value(t)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.timestep)
+                        )
+                        + self.parameters.timestep.total_hours()
+                        * (
+                            self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
+                            - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
+                        )
+                        + (
+                            self.storage.displacement_energy.get_value(t)
+                            - self.storage.displacement_energy.get_value(t - self.parameters.timestep)
+                        )
+                    ),
+                    f"Stock_tracking_at_{t}",
+                )
+
+            # Respect of system states constraints (isSell and is_v2g)
+            self.add_constraint(
+                self.get_variable(StorageModel.sold_at_key(t))
+                <= self.storage.is_v2g
+                * self.get_variable(StorageModel.is_sell_at_key(t))
+                * self.storage.maximum_power.get_value(t),
+                f"Respect_Pmax_sale_at_{t}",
+            )
+            self.add_constraint(
+                self.get_variable(StorageModel.purchased_at_key(t))
+                <= (1 - self.get_variable(StorageModel.is_sell_at_key(t)) * self.storage.is_v2g)
+                * abs(self.storage.minimum_power.get_value(t)),
+                f"Respect_Pmax_purchase_at_{t}",
+            )
+            self.add_constraint(self.get_variable(StorageModel.sold_at_key(t)) >= 0, f"Respect_Pmin_sale_at_{t}")
+            self.add_constraint(
+                self.get_variable(StorageModel.purchased_at_key(t)) >= 0, f"Respect_Pmin_purchase_at_{t}"
+            )
+
+            # Respect of minimum and maximum stoage level constraints
+            self.add_constraint(
+                self.get_variable(StorageModel.stored_energy_at_key(t))
+                >= self.storage.minimum_state_of_charge.get_value(t) * self.storage.maximum_energy.get_value(t),
+                f"Minimum_storage_level_constraint_at_{t}",
+            )
+            self.add_constraint(
+                self.get_variable(StorageModel.stored_energy_at_key(t)) <= self.storage.maximum_energy.get_value(t),
+                f"Maximum_storage_level_constraint_at_{t}",
+            )
+
+            # Create additional constraints linked with MaximumPower, to represent the fact that a part of the EV fleet
+            # is going to be fully charged / discharged (depending on the ratio between StoredEnergy and MaximumEnergy, and possibly MinimumStateOfCharge),
+            # meaning that it will not be able to purcharse / sell energy.
+            # Explanation note: the ratio that determines the part of the fleet that is fully charged or discharged is evaluated
+            # on the previous time step, since StoredEnergy(t) is unkown prior to the optimization. This is assumed to be a good estimation
+            # of the ratio at t. Every other value is taken at t.
+            # We need to recode this one, the concept is very interesting but solving the optimization
+            # becomes exponentially longer with each additional hour. And currently impossible to solve for 7 days.
+            """
+            if t == p.start_date:
+                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
+                                                                                  (InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step)) -
+                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.time_step))) *
+                                                                                  Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
+                OPPROB += Qa[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.MaximumPower.GetValue(t) *
+                                                                                  (1 - InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step))) /
+                                                                                  Equipment.ChargeEfficiency) , "Adjustment_of_Pmax_purchase_at_{}".format(t)
+            else:
+                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
+                                                                                  (StoredEnergy[t.AddMinutes(-p.time_step)]/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step)) -
+                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.time_step))) *
+                                                                                  Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
+                OPPROB += Qa[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.MaximumPower.GetValue(t) *
+                                                                                  (1 - StoredEnergy[t.AddMinutes(-p.time_step)]/
+                                                                                   Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step))) /
+                                                                                  Equipment.ChargeEfficiency) , "Adjustment_of_Pmax_purchase_at_{}".format(t)
+
+            """
+
+        # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
+        self.add_constraint(
+            sum(self.get_variable(StorageModel.purchased_at_key(t)) for t in self.time_frame)
+            * self.storage.charge_efficiency
+            >= (
+                self.storage.displacement_energy.get_value(
+                    self.parameters.end_date + self.optimization_period - self.parameters.timestep
+                )
+                - self.storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.timestep)
+            )
+            * self.parameters.ev_energy_coef,
+            f"DisplacementEnergy_compensation_for_{str(self.storage.name)}",
+        )
