@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 import argparse
 
-from atlas import InputLoader
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 
 if __name__ == "__main__":
@@ -19,5 +19,5 @@ if __name__ == "__main__":
     raw_params_path = args.parameters
 
     mc_module = DayAheadOrdersModule()
-    raw_data = InputLoader.from_directory(raw_data_path)
+    raw_data = AtlasDataset.from_directory(raw_data_path)
     mc_module.run(raw_data, raw_params_path)  # type:ignore [arg-type]
