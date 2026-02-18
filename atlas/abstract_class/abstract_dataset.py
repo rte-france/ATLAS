@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 Module that implements AbstractDataset
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
 from atlas.abstract_class.abstract_parameters import P
@@ -23,6 +23,10 @@ class AbstractModuleOutput(AbstractDataset[P]):
     def __init__(self):
         self.change_sets: list[ChangeSet] = []
 
+    @abstractmethod
+    def build_change_sets(self) -> None:
+        """Populate self.change_sets with the ChangeSet objects produced by this module."""
+
 
 ID = TypeVar("ID", bound=AbstractDataset)
-OD = TypeVar("OD", bound=AbstractDataset)
+OD = TypeVar("OD", bound=AbstractModuleOutput)

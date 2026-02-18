@@ -19,6 +19,11 @@ class DummyParams(AbstractParameters):
     execution_date: DateTime = Field(default_factory=lambda: DateTime(year=1, month=1, day=1))
 
 
+class DummyOutput(AbstractModuleOutput):
+    def build_change_sets(self) -> None:
+        pass
+
+
 class DummyModule(AbstractModule):
     def get_parameters_class(self):
         return DummyParams
@@ -30,7 +35,7 @@ class DummyModule(AbstractModule):
         return True
 
     def execute(self, parameters, input_dataset):
-        output = AbstractModuleOutput()
+        output = DummyOutput()
         output.mocked = True
         return output
 
