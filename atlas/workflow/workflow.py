@@ -120,7 +120,7 @@ class Workflow:
         cis = CurrentInputState(atlas_dataset)
 
         for step in self.steps:
-            logger.debug(f"Launching step :'{step.name}'")
+            logger.info(f"Launching step :'{step.name}'")
             input_dataset = cis.filter_dataset(step.module.get_business_model_class_used(), step.module.get_filters())
 
             step.run(input_dataset)
