@@ -21,7 +21,7 @@ from atlas import (
     Thermal,
     Wind,
 )
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.models.business_model import BusinessModel
 from atlas.modules.day_ahead_orders.data_models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.data_models.load import LoadDAO
@@ -43,8 +43,6 @@ class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
         self.parameters: DayAheadOrdersParameters = copy.deepcopy(input_dataset.parameters)
         self.control_block: list[ControlBlock] = copy.deepcopy(input_dataset.control_block)
         self.market_area: list[MarketAreaDAO] = copy.deepcopy(input_dataset.market_area)
-        self.market_border: list[MarketBorder] = copy.deepcopy(input_dataset.market_border)
-        self.node: list[Node] = copy.deepcopy(input_dataset.node)
         self.portfolio: list[PortfolioDAO] = copy.deepcopy(input_dataset.portfolio)
         self.other_non_dispatchable: list[OtherNonDispatchable] = copy.deepcopy(input_dataset.other_non_dispatchable)
 
