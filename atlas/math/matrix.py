@@ -23,7 +23,7 @@ from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone, get_duration, infer_frequency
-from atlas.typing import TimeseriesDict
+from atlas.type import TimeseriesDict
 
 
 class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):

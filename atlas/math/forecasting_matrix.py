@@ -30,7 +30,7 @@ from atlas.timing import (
     infer_frequency,
     pendulum_to_datetime,
 )
-from atlas.typing import TimeseriesDict
+from atlas.type import TimeseriesDict
 
 if TYPE_CHECKING:
     import pandas as pd

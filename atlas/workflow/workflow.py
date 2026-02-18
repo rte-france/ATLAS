@@ -8,37 +8,18 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import copy
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.config import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.modules.market_clearing.module import MarketClearingModule
-from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
-from atlas.workflow.workflow_parameters import WorkflowParameters
-from atlas.workflow.workflow_step import WorkflowStep
-
-
-class ModuleRegistry(Enum):
-    """Registry mapping module names to their implementation classes."""
-
-    MarketClearing = MarketClearingModule
-    PortfolioOptimisation = PortfolioOptimisationModule
-
-    @classmethod
-    def get(cls, name: str) -> type[AbstractModule]:
-        try:
-            return cls[name].value
-        except KeyError:
-            valid = [m.name for m in cls]
-            raise ValueError(f"Unknown module: '{name}'. Valid modules are: {valid}") from None
+from atlas.workflow.parameters import WorkflowParameters
+from atlas.workflow.step import WorkflowStep
 
 
 class Workflow:
@@ -71,10 +52,8 @@ class Workflow:
 
     def build_steps(self):
         for step in self.parameters.steps:
-            module = ModuleRegistry.get(step.name)
             parameters = Workflow.build_module_parameters(self.generic_module_parameters, step.parameters_path)
-
-            workflow_step = WorkflowStep(step.name, module, parameters)
+            workflow_step = WorkflowStep(step.name, step.module, parameters)
             self.add_step(workflow_step)
 
     @staticmethod

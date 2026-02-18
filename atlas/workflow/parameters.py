@@ -5,24 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
-from pydantic import BaseModel
-
 from atlas.io_utils.parameters import Parameters
-
-
-class Step(BaseModel):
-    """Definition of a single step in the workflow.
-
-    :param name: Unique name identifying the step.
-    :type name: str
-    :param parameters_path: Path to the parameters file for the step.
-    :type parameters_path: str
-    """
-
-    name: str
-    parameters_path: Path
+from atlas.workflow.step import Step
 
 
 class WorkflowParameters(Parameters):
@@ -35,8 +23,8 @@ class WorkflowParameters(Parameters):
     :type steps: list[Step]
     """
 
+    name: str | None = None
     dataset_path: Path
     steps: list[Step]
     output_dataset_path: Path
-    name: str | None = None
     generic_module_parameters_path: Path | None = None

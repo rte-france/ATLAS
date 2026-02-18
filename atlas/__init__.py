@@ -34,9 +34,9 @@ from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationMod
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
+from atlas.workflow.parameters import WorkflowParameters
+from atlas.workflow.step import WorkflowStep
 from atlas.workflow.workflow import Workflow
-from atlas.workflow.workflow_parameters import WorkflowParameters
-from atlas.workflow.workflow_step import WorkflowStep
 
 __all__ = [
     "AbstractScenarioMatrix",

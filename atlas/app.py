@@ -8,7 +8,8 @@ from rich import print as rprint
 import atlas
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
-from atlas.workflow.workflow import ModuleRegistry, Workflow
+from atlas.workflow.step import ModuleRegistry
+from atlas.workflow.workflow import Workflow
 
 app = typer.Typer()
 

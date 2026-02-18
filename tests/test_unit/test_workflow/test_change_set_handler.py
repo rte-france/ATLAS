@@ -2,9 +2,9 @@ import pytest
 from pydantic_core._pydantic_core import ValidationError
 
 from atlas import MarketArea
-from atlas.models.market.order import Order
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.workflow.change_set import AddObject, UpdateObject, DeleteObject
+from atlas.models.market.order import Order
+from atlas.workflow.change_set import AddObject, DeleteObject, UpdateObject
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.changet_set_handler import ChangeSetHandler
 

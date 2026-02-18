@@ -44,12 +44,19 @@ class ChangeSet(ABC):
             if not issubclass(model_type, BusinessModel):
                 raise TypeError(f"{model_type} is not a subclass of BusinessModel")
 
-            for cls in model_type.__mro__:
-                if cls in cfg.INVERSE_MODEL_MAPPING_NAME:
-                    return cfg.INVERSE_MODEL_MAPPING_NAME[cls]
-            raise ValueError(
-                f"Model class {model_type.__name__} has no registered ancestor in INVERSE_MODEL_MAPPING_NAME"
+            model_name = next(
+                (
+                    cfg.INVERSE_MODEL_MAPPING_NAME.get(cls)
+                    for cls in model_type.__mro__  # type:ignore [attr-defined]
+                    if cls in cfg.INVERSE_MODEL_MAPPING_NAME
+                ),
+                None,
             )
+
+            if model_name is None:
+                raise ValueError(f"Model class {model_type.__name__} ")
+
+            return model_name
 
         if isinstance(model_type, str):
             return BusinessModelName(model_type.lower())

@@ -1,6 +1,6 @@
 from typing import get_args, get_origin
 
-import atlas.typing as atlas_typing
+import atlas.type as atlas_typing
 
 
 class DummyReferenced:
