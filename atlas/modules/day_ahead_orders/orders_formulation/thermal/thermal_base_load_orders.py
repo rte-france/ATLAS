@@ -16,7 +16,7 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
@@ -24,11 +24,11 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
     """Order formulation for each strategy"""
 
     def __init__(
-        self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        self, dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
         """
         :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutputDataset
+        :type dataset: DayAheadOrdersOutput
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
         :param parameters: the parameters

@@ -15,7 +15,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.non_dispatchable_step imp
 from atlas.modules.day_ahead_orders.orders_formulation.storage_step import StorageStep
 from atlas.modules.day_ahead_orders.orders_formulation.thermal_bidding_step import ThermalBiddingStep
 from atlas.modules.day_ahead_orders.orders_formulation.wind_pv_step import WindPVStep
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.timing import generate_datetimes
 
@@ -30,15 +30,15 @@ class DayAheadOrdersOrchestrator:
         """
         self.parameters = parameters
         self.input_dataset = dataset
-        self.output_dataset = DayAheadOrdersOutputDataset(dataset)
+        self.output_dataset = DayAheadOrdersOutput(dataset)
 
-    def execute(self) -> DayAheadOrdersOutputDataset:
+    def execute(self) -> DayAheadOrdersOutput:
         """
         Formulation of bids and orders on the day-ahead market.
         In practice, several functions are run. Each function extract data from the dataset
         and formulates bids or offers in the output dataset. The latter is of class "Offer".
         :return: the output dataset
-        :rtype: DayAheadOrdersOutputDataset
+        :rtype: DayAheadOrdersOutput
         """
 
         cfg.logger.info("Initialization of the Day-Ahead Orders module...")

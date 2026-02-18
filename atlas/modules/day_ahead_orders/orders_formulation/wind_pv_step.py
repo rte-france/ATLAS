@@ -11,14 +11,14 @@ import atlas.config as cfg
 from atlas import Solar, Wind
 from atlas.enums import OrderType, Product
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
 class WindPVStep:
     @staticmethod
     def formulate_wind_and_pv_orders(
-        dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
         This function formulates wind and pv orders. Orders are priced at the variable cost
@@ -29,7 +29,7 @@ class WindPVStep:
         the offer is made. Qmin corresponds to a ratio of Qmax given by the property MaximumCurtailmentRatio.
 
         :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutputDataset
+        :type dataset: DayAheadOrdersOutput
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
         :param parameters: the parameters

@@ -8,18 +8,16 @@ This file is part of the ATLAS project.
 from pendulum import Duration
 
 import atlas.config as cfg
-from atlas import BusinessModel, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries, AtlasDataset
+from atlas import AtlasDataset, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.orchestrator import DayAheadOrdersOrchestrator
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.timing import infer_frequency
 
 
-class DayAheadOrdersModule(
-    AbstractModule[DayAheadOrdersParameters, DayAheadOrdersInputDataset, DayAheadOrdersOutputDataset]
-):
+class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrdersInputDataset, DayAheadOrdersOutput]):
     def get_parameters_class(self):
         return DayAheadOrdersParameters
 
@@ -44,7 +42,7 @@ class DayAheadOrdersModule(
         parameters: DayAheadOrdersParameters,
         input_dataset: DayAheadOrdersInputDataset,
     ) -> None:
-        """Validate that all timeseries data have timesteps consistent with the optimization parameters."""
+        """Validate that all timeseries data have timestamps consistent with the optimization parameters."""
         expected_timestep = parameters.timestep
         cfg.logger.debug(f"Expected timestep: {expected_timestep}")
 
@@ -97,7 +95,8 @@ class DayAheadOrdersModule(
 
         return errors
 
-    def _is_timeseries_type(self, obj) -> bool:
+    @staticmethod
+    def _is_timeseries_type(obj) -> bool:
         """Check if an object is a timeseries-like type that can have frequency adjusted."""
         return isinstance(
             obj,
@@ -138,7 +137,8 @@ class DayAheadOrdersModule(
 
         return result
 
-    def _get_timeseries_timestep(self, timeseries_obj) -> Duration | None:
+    @staticmethod
+    def _get_timeseries_timestep(timeseries_obj) -> Duration | None:
         """Extract the timestep from a timeseries object."""
         if isinstance(timeseries_obj, LazyTimeseries):
             collected_ts = timeseries_obj.collect()
@@ -179,7 +179,7 @@ class DayAheadOrdersModule(
         self,
         parameters: DayAheadOrdersParameters,
         input_dataset: DayAheadOrdersInputDataset,
-        output_dataset: DayAheadOrdersOutputDataset,
+        output_dataset: DayAheadOrdersOutput,
     ) -> bool:
         """Validates results"""
         return True
@@ -188,14 +188,14 @@ class DayAheadOrdersModule(
         self,
         parameters: DayAheadOrdersParameters,
         input_dataset: DayAheadOrdersInputDataset,
-        output_dataset: DayAheadOrdersOutputDataset,
+        output_dataset: DayAheadOrdersOutput,
     ) -> None:
         """Exports results."""
         pass
 
     def execute(
         self, parameters: DayAheadOrdersParameters, dataset: DayAheadOrdersInputDataset
-    ) -> DayAheadOrdersOutputDataset:
+    ) -> DayAheadOrdersOutput:
         """Executes the module's main logic."""
         orchestrator = DayAheadOrdersOrchestrator(parameters, dataset)
         output_dataset = orchestrator.execute()

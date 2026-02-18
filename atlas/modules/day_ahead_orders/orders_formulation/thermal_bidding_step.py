@@ -18,7 +18,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_intermedi
     ThermalIntermediateLoadOrders,
 )
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load_orders import ThermalPeakLoadOrders
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 ##### Etat des lieux au 16.10.2020 ####
@@ -54,11 +54,11 @@ class Coupling:
 
 class ThermalBiddingStep:
     def __init__(
-        self, dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        self, dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ):
         """
         :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutputDataset
+        :type dataset: DayAheadOrdersOutput
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
         :param parameters: the parameters

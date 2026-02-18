@@ -84,7 +84,7 @@ validate_data() → timestep consistency check
   ↓
 execute() → DayAheadOrdersOrchestrator
   ├→ execute the 6 step of orders formulation
-  └→ DayAheadOrdersOutputDataset is filled
+  └→ DayAheadOrdersOutput is filled
   ↓
 validates_results()
   ↓

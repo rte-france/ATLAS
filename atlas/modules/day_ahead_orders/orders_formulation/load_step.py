@@ -11,14 +11,14 @@ import atlas.config as cfg
 from atlas import Timeseries
 from atlas.enums import LoadType, OrderType, Product
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutputDataset
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 
 class LoadStep:
     @staticmethod
     def formulate_load_orders(
-        dataset: DayAheadOrdersOutputDataset, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
+        dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
         Formulates consumption bids on the spot market.
@@ -27,7 +27,7 @@ class LoadStep:
 
         The function takes the following arguments:
         :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutputDataset
+        :type dataset: DayAheadOrdersOutput
         :param orders_time: a list of dates over which orders will be formulated.
         :type orders_time: list[DateTime]
         :param parameters: the parameters
