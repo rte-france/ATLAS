@@ -1,0 +1,533 @@
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+See AUTHORS.txt
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+import atlas.config as cfg
+from atlas import AtlasDataset, ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
+from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.enums import Product
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.models.business_model import BusinessModel
+from atlas.models.equipment.equipment import Equipment
+from atlas.models.market.critical_branch import CriticalBranch
+from atlas.models.market.market_area import MarketArea
+from atlas.models.market.market_border import MarketBorder
+from atlas.models.market.order import Order
+from atlas.models.portfolio import Portfolio
+from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.timing import generate_datetimes
+
+
+class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
+    """Output dataset for Market Clearing module
+    What to we need from MarketClearing result :
+      - accepted_powers
+      - local_balances
+      - border_exchanges
+      - market_prices
+
+    Updated values are :
+    - MarketArea :
+      - DABalance
+      - DAPrice
+      - TotalIDBalance
+      - IDBalance
+      - IDPrice
+      - RRActivationPrice
+      - RRActivationBalance
+      - MFRRActivationPrice
+      - MFRRActivationBalance
+      - AFRRActivationPrice
+      - FCRActivationPrice
+    - MarketBorder :
+      - DAFlow
+      - DAShadowPrice
+      - TotalIDFlow
+      - IDFlow
+      - IDShadowPrice
+      - MFRRUpProcurement
+      - MFRRDownProcurement
+      - AFRRUpProcurement
+      - AFRRDownProcurement
+      - RRUpProcurement
+      - RRDownProcurement
+      - RRActivated
+      - MFRRActivated
+      - AFRRActivated
+      - FCRActivated
+      - ReferenceFlow
+    - CriticalBranch :
+      - DAFlow
+      - DAShadowPrice
+      - TotalIDFlow
+      - IDFlow
+      - IDShadowPrice
+      - MFRRUpProcurement
+      - MFRRDownProcurement
+      - AFRRUpProcurement
+      - AFRRDownProcurement
+      - RRUpProcurement
+      - RRDownProcurement
+      - RRActivated
+      - MFRRActivated
+      - AFRRActivated
+      - FCRActivated
+      - ReferenceFlow
+    - Order :
+      - accepted_power
+      - IndividualSpread
+    - Equipment :
+      - DAClearedQuantity
+      - TotalIDClearedQuantity
+      - IDClearedQuantity
+      - AFRRUpProcured
+      - AFRRDownProcured
+      - MFRRUpProcured
+      - MFRRDownProcured
+      - RRUpProcured
+      - RRDownProcured
+      - RRActivated
+      - MFRRActivated
+      - AFRRActivated
+      - FCRActivated
+    - Portfolio :
+      - DAClearedQuantity
+      - AFRRUpProcured
+      - AFRRDownProcured
+      - MFRRUpProcured
+      - MFRRDownProcured
+      - RRUpProcured
+      - RRDownProcured
+      - RRActivated
+      - MFRRActivated
+      - AFRRActivated
+      - FCRActivated
+
+    """
+
+    def __init__(self, input_dataset: MarketClearingInputDataset):
+        self.input_dataset = input_dataset
+        self.raw_data: AtlasDataset = AtlasDataset()
+
+    def run(
+        self,
+        accepted_powers: dict[tuple[str, str], float],
+        local_balances: dict[tuple[str, int], float],
+        border_exchanges: dict[tuple[str, int], float],
+        market_prices: dict[tuple[str, int], float],
+    ):
+        self.update_raw_data_with_not_modified_business_model_object()
+        self.update_business_model_object(accepted_powers, local_balances, border_exchanges, market_prices)
+        self.update_raw_data_with_modified_business_model_object()
+
+    def update_raw_data_with_not_modified_business_model_object(self):
+        """Update raw_data with business model object that have not changed"""
+        # Create not modified MarketArea
+        for market_area in self.input_dataset.raw_data.market_area:
+            if market_area.name not in self.input_dataset.mc_market_areas:
+                self.raw_data.market_area.add(market_area)
+        # Create not modified MarketBorder
+        for market_border in self.input_dataset.raw_data.market_border:
+            if market_border.name not in self.input_dataset.mc_market_borders:
+                self.raw_data.market_border.add(market_border)
+        # Create not modified CriticalBranch
+        # If there is no critical branch (we may be in ATC
+        if not self.input_dataset.raw_data.critical_branch.is_empty():
+            for critical_branch in self.input_dataset.raw_data.critical_branch:
+                if critical_branch.name not in self.input_dataset.mc_critical_branches:
+                    self.raw_data.critical_branch.add(critical_branch)
+        # Create not modified Order
+        for order in self.input_dataset.raw_data.order:
+            if order.name not in self.input_dataset.mc_orders:
+                self.raw_data.order.add(order)
+
+    def update_raw_data_with_modified_business_model_object(self):
+        """Update raw_data with business model object that have changed
+        [MarketArea, MarketBorder, CriticalBranch, Order, Equipment, Portfolio]"""
+        # Create modified MarketArea
+        for mc_market_area in self.input_dataset.mc_market_areas.values():
+            mc_market_area_dump = MarketClearingInputDataset.shallow_dump(mc_market_area)
+            market_area = MarketArea.model_validate(mc_market_area_dump)
+            self.raw_data.market_area.add(market_area)
+        # Create modified MarketBorder
+        for mc_market_border in self.input_dataset.mc_market_borders.values():
+            mc_market_border_dump = MarketClearingInputDataset.shallow_dump(mc_market_border)
+            market_border = MarketBorder.model_validate(mc_market_border_dump)
+            self.raw_data.market_border.add(market_border)
+        # Create modified CriticalBranch
+        for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
+            mc_critical_branch_dump = MarketClearingInputDataset.shallow_dump(mc_critical_branch)
+            critical_branch = CriticalBranch.model_validate(mc_critical_branch_dump)
+            self.raw_data.critical_branch.add(critical_branch)
+        # Create modified Order
+        for mc_order in self.input_dataset.mc_orders.values():
+            mc_order_dump = MarketClearingInputDataset.shallow_dump(mc_order)
+            order = Order.model_validate(mc_order_dump)
+            self.raw_data.order.add(order)
+
+    def update_business_model_object(
+        self,
+        accepted_powers: dict[tuple[str, str], float],
+        local_balances: dict[tuple[str, int], float],
+        border_exchanges: dict[tuple[str, int], float],
+        market_prices: dict[tuple[str, int], float],
+    ):
+        self.update_orders(accepted_powers, market_prices)
+        self.update_market_area(local_balances, market_prices)
+        self.update_market_border(border_exchanges, market_prices)
+        if self.input_dataset.parameters.exchange_constraints_type == ExchangeConstraintsType.FB:
+            self.update_critical_branches(local_balances)
+
+    def update_orders(self, accepted_powers: dict[tuple[str, str], float], market_prices: dict[tuple[str, int], float]):
+        # If accepted power is too small then change it to 0
+        # Update individual spread price for order
+        for order_name, mc_order in self.input_dataset.mc_orders.items():
+            accepted_power = accepted_powers[mc_order.market_area.name, order_name]
+            # At this point, unaccepted orders can be skipped:
+            if abs(accepted_power) <= self.input_dataset.parameters.allowed_round_off_error:
+                mc_order.accepted_power = 0
+                continue
+            mc_order.accepted_power = accepted_power
+            time_index = mc_order.time_index
+            if time_index is None:
+                continue
+            # The surplus of an order is the gain made by its emitter computed from the present spot price:
+            spot_price = market_prices[mc_order.market_area.name, time_index]
+            if mc_order.is_sale:
+                mc_order.individual_spread = spot_price - mc_order.price
+            else:
+                mc_order.individual_spread = mc_order.price - spot_price
+
+        # Create accepted power TS for equipment and portfolio
+        equipments_ts, portfolios_ts = {}, {}
+        equipments_mapping, portfolios_mapping = {}, {}
+        for order_name, mc_order in self.input_dataset.mc_orders.items():
+            accepted_power = accepted_powers[mc_order.market_area.name, order_name]
+            # At this point, unaccepted orders can be skipped:
+            if abs(accepted_power) <= self.input_dataset.parameters.allowed_round_off_error:
+                continue
+            if not mc_order.is_agent_tso and mc_order.equipment is not None:
+                equipment = mc_order.equipment
+                if equipment is None:
+                    continue
+                portfolio = equipment.portfolio
+                if portfolio is None:
+                    continue
+                if equipment.name not in equipments_ts:
+                    equipments_ts[equipment.name] = Timeseries.from_index(
+                        self.input_dataset.times[0],
+                        self.input_dataset.parameters.timestep,
+                        self.input_dataset.times[-1],
+                        0.0,
+                    )
+                    equipments_mapping[equipment.name] = equipment
+                if portfolio.name not in portfolios_ts:
+                    portfolios_ts[portfolio.name] = Timeseries.from_index(
+                        self.input_dataset.times[0],
+                        self.input_dataset.parameters.timestep,
+                        self.input_dataset.times[-1],
+                        0.0,
+                    )
+                    portfolios_mapping[portfolio.name] = portfolio
+
+                indexes = generate_datetimes(
+                    mc_order.start_date,
+                    mc_order.end_datetime - self.input_dataset.parameters.timestep,
+                    self.input_dataset.parameters.timestep,
+                )
+                values_sold = [mc_order.accepted_power * mc_order.production_sign for _ in range(len(indexes))]
+                if len(values_sold) == 1:
+                    equipments_ts[equipment.name].sum_value_at(mc_order.start_date, values_sold[0])
+                    portfolios_ts[portfolio.name].sum_value_at(mc_order.start_date, values_sold[0])
+                else:
+                    value_sold_ts = Timeseries.from_values(
+                        mc_order.start_date, self.input_dataset.parameters.timestep, values_sold
+                    )
+                    equipments_ts[equipment.name] += value_sold_ts
+                    portfolios_ts[portfolio.name] += value_sold_ts
+
+        for equipment_name, equipment_ts in equipments_ts.items():
+            equipment = equipments_mapping[equipment_name]
+            match self.input_dataset.parameters.market:
+                case Product.DayAhead:
+                    equipment.da_cleared_quantity = self.add_indexes(equipment.da_cleared_quantity, equipment_ts)
+                case Product.AFRRUpProcurement:
+                    equipment.afrr_up_procured = self.add_timeseries_to_forecast(
+                        equipment.afrr_up_procured, equipment_ts
+                    )
+                case Product.AFRRDownProcurement:
+                    equipment.afrr_down_procured = self.add_timeseries_to_forecast(
+                        equipment.afrr_down_procured, equipment_ts
+                    )
+                case Product.MFRRUpProcurement:
+                    equipment.mfrr_up_procured = self.add_timeseries_to_forecast(
+                        equipment.mfrr_up_procured, equipment_ts
+                    )
+                case Product.MFRRDownProcurement:
+                    equipment.mfrr_down_procured = self.add_timeseries_to_forecast(
+                        equipment.mfrr_down_procured, equipment_ts
+                    )
+                case Product.RRUpProcurement:
+                    equipment.rr_up_procured = self.add_timeseries_to_forecast(equipment.rr_up_procured, equipment_ts)
+                case Product.RRDownProcurement:
+                    equipment.rr_down_procured = self.add_timeseries_to_forecast(
+                        equipment.rr_down_procured, equipment_ts
+                    )
+                case Product.AFRRActivation:
+                    equipment.afrr_activated = self.add_indexes(equipment.afrr_activated, equipment_ts)
+                case Product.MFRRActivation:
+                    equipment.mfrr_activated = self.add_indexes(equipment.mfrr_activated, equipment_ts)
+                case Product.RRActivation:
+                    equipment.rr_activated = self.add_indexes(equipment.rr_activated, equipment_ts)
+                case Product.FCRActivation:
+                    equipment.fcr_activated = self.add_indexes(equipment.fcr_activated, equipment_ts)
+                case Product.Intraday:
+                    equipment.total_id_cleared_quantity = self.add_indexes_or_sum(
+                        equipment.total_id_cleared_quantity, equipment_ts
+                    )
+                    equipment.id_cleared_quantity = self.add_timeseries_to_forecast(
+                        equipment.id_cleared_quantity, equipment_ts
+                    )
+
+        for portfolio_name, portfolio_ts in portfolios_ts.items():
+            portfolio = portfolios_mapping[portfolio_name]
+            match self.input_dataset.parameters.market:
+                case Product.DayAhead:
+                    portfolio.da_cleared_quantity = self.add_indexes(portfolio.da_cleared_quantity, portfolio_ts)
+                case Product.AFRRUpProcurement:
+                    portfolio.afrr_up_procured = self.add_indexes(portfolio.afrr_up_procured, portfolio_ts)
+                case Product.AFRRDownProcurement:
+                    portfolio.afrr_down_procured = self.add_indexes(portfolio.afrr_down_procured, portfolio_ts)
+                case Product.MFRRUpProcurement:
+                    portfolio.mfrr_up_procured = self.add_indexes(portfolio.mfrr_up_procured, portfolio_ts)
+                case Product.MFRRDownProcurement:
+                    portfolio.mfrr_down_procured = self.add_indexes(portfolio.mfrr_down_procured, portfolio_ts)
+                case Product.RRUpProcurement:
+                    portfolio.rr_up_procured = self.add_indexes(portfolio.rr_up_procured, portfolio_ts)
+                case Product.RRDownProcurement:
+                    portfolio.rr_down_procured = self.add_indexes(portfolio.rr_down_procured, portfolio_ts)
+                case Product.AFRRActivation:
+                    portfolio.afrr_activated = self.add_indexes(portfolio.afrr_activated, portfolio_ts)
+                case Product.MFRRActivation:
+                    portfolio.mfrr_activated = self.add_indexes(portfolio.mfrr_activated, portfolio_ts)
+                case Product.RRActivation:
+                    portfolio.rr_activated = self.add_indexes(portfolio.rr_activated, portfolio_ts)
+                case Product.FCRActivation:
+                    portfolio.fcr_activated = self.add_indexes(portfolio.fcr_activated, portfolio_ts)
+                case Product.Intraday:
+                    portfolio.total_id_cleared_quantity = self.add_indexes_or_sum(
+                        portfolio.total_id_cleared_quantity, portfolio_ts
+                    )
+                    portfolio.id_cleared_quantity = self.add_timeseries_to_forecast(
+                        portfolio.id_cleared_quantity, portfolio_ts
+                    )
+
+    def update_market_area(
+        self, local_balances: dict[tuple[str, int], float], market_prices: dict[tuple[str, int], float]
+    ):
+        for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
+            balance_values = [
+                local_balances[market_area_name, time_index] for time_index, _ in enumerate(self.input_dataset.times)
+            ]
+            price_values = [
+                market_prices[market_area_name, time_index] for time_index, _ in enumerate(self.input_dataset.times)
+            ]
+
+            values_bal = Timeseries.from_values(
+                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, balance_values
+            )
+            values_price = Timeseries.from_values(
+                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, price_values
+            )
+
+            match self.input_dataset.parameters.market:
+                case Product.DayAhead:
+                    mc_market_area.da_price = self.add_indexes(mc_market_area.da_price, values_price)
+                    mc_market_area.da_balance = self.add_indexes(mc_market_area.da_balance, values_bal)
+                case Product.Intraday:
+                    mc_market_area.total_id_balance = self.add_indexes_or_sum(
+                        mc_market_area.total_id_balance, values_bal
+                    )
+                    mc_market_area.id_price = self.add_timeseries_to_forecast(mc_market_area.id_price, values_price)
+                    mc_market_area.id_balance = self.add_timeseries_to_forecast(mc_market_area.id_balance, values_bal)
+                case Product.RRActivation:
+                    mc_market_area.rr_activation_price = self.add_indexes(
+                        mc_market_area.rr_activation_price, values_price
+                    )
+                    mc_market_area.rr_activation_balance = self.add_indexes(
+                        mc_market_area.rr_activation_balance, values_bal
+                    )
+                case Product.MFRRActivation:
+                    mc_market_area.mfrr_activation_price = self.add_indexes(
+                        mc_market_area.mfrr_activation_price, values_price
+                    )
+                    mc_market_area.mfrr_activation_balance = self.add_indexes(
+                        mc_market_area.mfrr_activation_balance, values_bal
+                    )
+                case Product.AFRRActivation:
+                    mc_market_area.afrr_activation_price = self.add_indexes(
+                        mc_market_area.afrr_activation_price, values_price
+                    )
+                case Product.FCRActivation:
+                    mc_market_area.fcr_activation_price = self.add_indexes(
+                        mc_market_area.fcr_activation_price, values_price
+                    )
+
+    def update_market_border(
+        self, border_exchanges: dict[tuple[str, int], float], market_prices: dict[tuple[str, int], float]
+    ):
+        for market_border_name, mc_market_border in self.input_dataset.mc_market_borders.items():
+            flow_values = [
+                border_exchanges[market_border_name, time_index]
+                for time_index, _ in enumerate(self.input_dataset.times)
+            ]
+            shadow_price_values = [
+                market_prices[mc_market_border.uphill_market_area.name, time_index]
+                - market_prices[mc_market_border.downhill_market_area.name, time_index]
+                for time_index, _ in enumerate(self.input_dataset.times)
+            ]
+
+            flow = Timeseries.from_values(
+                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, flow_values
+            )
+            shadow_price = Timeseries.from_values(
+                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, shadow_price_values
+            )
+            match self.input_dataset.parameters.market:
+                case Product.DayAhead:
+                    mc_market_border.da_flow = self.add_indexes(mc_market_border.da_flow, flow)
+                    mc_market_border.da_shadow_price = self.add_indexes(mc_market_border.da_shadow_price, shadow_price)
+                case Product.Intraday:
+                    mc_market_border.total_id_flow = self.add_indexes(mc_market_border.total_id_flow, flow)
+                    mc_market_border.id_flow = self.add_timeseries_to_forecast(mc_market_border.id_flow, flow)
+                    mc_market_border.id_shadow_price = self.add_timeseries_to_forecast(
+                        mc_market_border.id_shadow_price, shadow_price
+                    )
+                case Product.MFRRUpProcurement:
+                    mc_market_border.mfrr_up_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.mfrr_up_procured, flow
+                    )
+                case Product.MFRRDownProcurement:
+                    mc_market_border.mfrr_down_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.mfrr_down_procured, flow
+                    )
+                case Product.AFRRUpProcurement:
+                    mc_market_border.afrr_up_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.afrr_up_procured, flow
+                    )
+                case Product.AFRRDownProcurement:
+                    mc_market_border.afrr_down_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.afrr_down_procured, flow
+                    )
+                case Product.RRUpProcurement:
+                    mc_market_border.rr_up_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.rr_up_procured, flow
+                    )
+                case Product.RRDownProcurement:
+                    mc_market_border.rr_down_procured = self.add_timeseries_to_forecast(
+                        mc_market_border.rr_down_procured, flow
+                    )
+                case Product.RRActivation:
+                    mc_market_border.rr_activated = self.add_indexes(mc_market_border.rr_activated, flow)
+                case Product.MFRRActivation:
+                    mc_market_border.mfrr_activated = self.add_indexes(mc_market_border.mfrr_activated, flow)
+                case Product.AFRRActivation:
+                    mc_market_border.afrr_activated = self.add_indexes(mc_market_border.afrr_activated, flow)
+                case Product.FCRActivation:
+                    mc_market_border.fcr_activated = self.add_indexes(mc_market_border.fcr_activated, flow)
+
+            # FC: Update ReferenceFlow, otherwise the flow can be out of bounds for future markets
+            mc_market_border.reference_flow = self.add_indexes(mc_market_border.reference_flow, flow)
+
+            # Remark : Flow markets are not yet taken into account.
+
+    def update_critical_branches(self, local_balance: dict[tuple[str, int], float]):
+        relative_balances = {}
+        for market_area_name, mc_market_area in self.input_dataset.mc_market_areas.items():
+            for time_index, time in enumerate(self.input_dataset.times):
+                relative_balances[market_area_name, time_index] = local_balance[
+                    market_area_name, time_index
+                ] - mc_market_area.ref_balance.get_value(time)
+
+        for mc_critical_branch in self.input_dataset.mc_critical_branches.values():
+            flow = Timeseries.from_index(
+                self.input_dataset.times[0],
+                self.input_dataset.parameters.timestep,
+                self.input_dataset.times[-1],
+                0.0,
+            )
+            for mc_market_area_ptdf in mc_critical_branch.market_area_ptdf:
+                if mc_market_area_ptdf.da_ptdf is None:
+                    continue
+                da_ptdf = mc_market_area_ptdf.da_ptdf.set_frequency(
+                    self.input_dataset.parameters.timestep, False
+                ).filter(self.input_dataset.times)  # type: ignore[arg-type]
+                flow += da_ptdf
+
+            match self.input_dataset.parameters.market:
+                case Product.DayAhead:
+                    mc_critical_branch.da_flow = self.add_indexes(mc_critical_branch.da_flow, flow)
+                case Product.Intraday:
+                    mc_critical_branch.total_id_flow = self.add_indexes_or_sum(mc_critical_branch.total_id_flow, flow)
+                    mc_critical_branch.id_flow = self.add_timeseries_to_forecast(mc_critical_branch.id_flow, flow)
+                case _:
+                    cfg.logger.info(
+                        "ATLAS 1.3 does not support exports on critical branches for this market. "
+                        "This should be corrected in future versions"
+                    )
+
+    def add_indexes(self, ts_obj: AbstractTimeseries | None, other: AbstractTimeseries) -> AbstractTimeseries:
+        if ts_obj is None:
+            return other
+        if isinstance(ts_obj, LazyTimeseries):
+            ts_obj = ts_obj.collect()
+        if ts_obj.shape[0] < 2:
+            return other
+        if ts_obj.timestep > other.timestep:
+            ts_obj.upsample(other.timestep)
+        elif other.timestep > ts_obj.timestep:
+            other.upsample(ts_obj.timestep)
+        return ts_obj.add_indexes(other, inplace=False)
+
+    def add_indexes_or_sum(self, ts_obj: AbstractTimeseries | None, other: Timeseries) -> AbstractTimeseries:
+        if ts_obj is None:
+            return other
+        if isinstance(ts_obj, LazyTimeseries):
+            ts_obj = ts_obj.collect()
+        if ts_obj.timeseries.shape[0] < 2:
+            return other
+        if ts_obj.timestep > other.timestep:
+            ts_obj.upsample(other.timestep)
+        elif other.timestep > ts_obj.timestep:
+            other.upsample(ts_obj.timestep)
+        if other.index[0] not in ts_obj:
+            null_ts = Timeseries.from_index(
+                self.input_dataset.times[0], self.input_dataset.parameters.timestep, self.input_dataset.times[-1], 0.0
+            )
+            return self.add_indexes(ts_obj, null_ts)
+        else:
+            ts_obj += other
+            return ts_obj
+
+    def add_timeseries_to_forecast(
+        self, forecast_obj: ForecastingMatrix | LazyForecastingMatrix | None, other: Timeseries
+    ) -> ForecastingMatrix | LazyForecastingMatrix:
+        if forecast_obj is None:
+            new_forecast_obj = ForecastingMatrix()
+            new_forecast_obj.add(other, self.input_dataset.parameters.execution_date)
+            return new_forecast_obj
+        else:
+            if isinstance(forecast_obj, LazyTimeseries):
+                forecast_obj = forecast_obj.collect()
+            forecast_obj.add(other, self.input_dataset.parameters.execution_date)
+            return forecast_obj
+
+    @staticmethod
+    def get_custom_business_model_object_modified() -> list[type[BusinessModel]]:
+        return [MarketArea, MarketBorder, CriticalBranch, Order]
+
+    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
+        return [MarketArea, MarketBorder, CriticalBranch, Order, Equipment, Portfolio]

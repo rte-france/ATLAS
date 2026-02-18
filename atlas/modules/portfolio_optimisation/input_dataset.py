@@ -11,7 +11,8 @@ from pendulum import DateTime
 
 from atlas import BusinessModel, Portfolio
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.enum import LoadType
+from atlas.enums import LoadType
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
@@ -41,22 +42,22 @@ from atlas.modules.portfolio_optimisation.utils.manual_activation import (
 class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationParameters]):
     def __init__(
         self,
-        input_data: dict[str, list[BusinessModel]],
+        input_data: AtlasDataset,
         parameters: PortfolioOptimisationParameters,
     ):
         self.input_data = input_data
         self.parameters = parameters
 
-        loads: list[LoadPO] = [LoadPO(**(dict(load))) for load in self.input_data.get("load", [])]
+        loads: list[LoadPO] = [LoadPO(**(dict(load))) for load in self.input_data.load]
 
         self.equipments = PortfolioEquipments(
-            wind=[WindPO(**dict(wind)) for wind in self.input_data.get("wind", [])],
-            storage=[StoragePO(**dict(storage)) for storage in self.input_data.get("storage", [])],
-            hydro=[HydroPO(**dict(hydro)) for hydro in self.input_data.get("hydro", [])],
-            solar=[SolarPO(**dict(solar)) for solar in self.input_data.get("solar", [])],
-            thermal=[ThermalPO(**dict(thermal)) for thermal in self.input_data.get("thermal", [])],
+            wind=[WindPO(**dict(wind)) for wind in self.input_data.wind],
+            storage=[StoragePO(**dict(storage)) for storage in self.input_data.storage],
+            hydro=[HydroPO(**dict(hydro)) for hydro in self.input_data.hydro],
+            solar=[SolarPO(**dict(solar)) for solar in self.input_data.solar],
+            thermal=[ThermalPO(**dict(thermal)) for thermal in self.input_data.thermal],
             other_non_dispatchable=[
-                OtherNonDispatchablePO(**dict(other)) for other in self.input_data.get("other_non_dispatchable", [])
+                OtherNonDispatchablePO(**dict(other)) for other in self.input_data.other_non_dispatchable
             ],
             dispatchable_load=[load for load in loads if load.load_type == LoadType.POWER_TO_GAS],
             non_dispatchable_load=[load for load in loads if load.load_type != LoadType.POWER_TO_GAS],

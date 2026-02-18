@@ -6,9 +6,8 @@ This file is part of the ATLAS project.
 
 from pydantic import field_serializer
 
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.node import Node
 from atlas.validators import serializer_business_model
@@ -26,7 +25,7 @@ class NodePtdf(BusinessModel):
 
     node: Node | None = None
     id_ptdf: ForecastingMatrix | LazyForecastingMatrix | None = None
-    da_ptdf: Timeseries | LazyTimeseries | None = None
+    da_ptdf: AbstractTimeseries | None = None
 
     @field_serializer("node", mode="plain")
     def serializer_bmo(self, value: BusinessModel | None) -> str | None:

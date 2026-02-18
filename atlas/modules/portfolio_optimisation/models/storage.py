@@ -7,8 +7,8 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enum import StorageType
-from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.enums import StorageType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.storage import Storage
 from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
@@ -22,12 +22,12 @@ class StoragePO(BaseEquipmentPO, Storage):
     storage_type: StorageType
     maximum_fcr: float
     maximum_afrr: float
-    minimum_power: Timeseries | LazyTimeseries
-    maximum_power: Timeseries | LazyTimeseries
-    minimum_state_of_charge: Timeseries | LazyTimeseries
+    minimum_power: AbstractTimeseries
+    maximum_power: AbstractTimeseries
+    minimum_state_of_charge: AbstractTimeseries
     discharge_efficiency: float
     charge_efficiency: float
-    maximum_energy: Timeseries | LazyTimeseries
+    maximum_energy: AbstractTimeseries
 
     optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None

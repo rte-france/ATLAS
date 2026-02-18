@@ -112,6 +112,14 @@ nav:
         - Examples: modules/portfolio-optimisation/user-guide/examples.md
       - Developer:
         - Architecture: modules/portfolio-optimisation/developer/architecture.md
+    - Market Clearing:
+      - Overview: modules/market-clearing/index.md
+      - User Guide:
+        - Overview: modules/market-clearing/user-guide/overview.md
+        - Parameters: modules/market-clearing/user-guide/input-data.md
+        - Running: modules/market-clearing/user-guide/running.md
+      - Developer:
+        - Architecture: modules/market-clearing/developer/architecture.md
     - Day-Ahead Orders:
         - Overview: modules/day-ahead-orders/index.md
         - User Guide:
@@ -128,7 +136,7 @@ nav:
       - LazyTimeseries: api/math/lazy_timeseries.md
       - LazyMatrix: api/math/lazy_matrix.md
     - I/O:
-      - Input Loader: api/io/input_loader.md
+      - AtlasDataset: api/io/atlas_dataset.md
       - Parameters: api/io/parameters.md
     - Models:
       - Equipement: api/models/equipment.md

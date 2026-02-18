@@ -13,7 +13,7 @@ import pytest
 import yaml
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enum import SolverEnum
+from atlas.enums import SolverEnum
 
 
 def test_valid_dates():

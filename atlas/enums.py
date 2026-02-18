@@ -4,7 +4,28 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from enum import Enum
+from enum import Enum, StrEnum
+
+
+class BusinessModelName(StrEnum):
+    CONTROL_BLOCK = "control_block"
+    CRITICAL_BRANCH = "critical_branch"
+    EQUIPMENT = "equipment"
+    HYDRO = "hydro"
+    LOAD = "load"
+    MARKET_AREA = "market_area"
+    MARKET_AREA_PTDF = "market_area_ptdf"
+    MARKET_BORDER = "market_border"
+    NODE = "node"
+    NODE_PTDF = "node_ptdf"
+    ORDER = "order"
+    ORDER_COUPLING = "order_coupling"
+    OTHER_NON_DISPATCHABLE = "other_non_dispatchable"
+    SOLAR = "solar"
+    PORTFOLIO = "portfolio"
+    STORAGE = "storage"
+    THERMAL = "thermal"
+    WIND = "wind"
 
 
 class LoadType(str, Enum):
@@ -115,7 +136,7 @@ class Product(str, Enum):
     :cvar Intraday: Intraday market product.
     :cvar DayAhead: Day-ahead market product.
     :cvar AFRRUpProcurement: Upward aFRR reserve procurement.
-    :cvar FRRDownProcurement: Downward FRR reserve procurement.
+    :cvar AFRRDownProcurement: Downward aFRR reserve procurement.
     :cvar MFRRUpProcurement: Upward mFRR reserve procurement.
     :cvar MFRRDownProcurement: Downward mFRR reserve procurement.
     :cvar RRUpProcurement: Upward replacement reserve procurement.
@@ -131,7 +152,7 @@ class Product(str, Enum):
     Intraday = "Intraday"
     DayAhead = "DayAhead"
     AFRRUpProcurement = "AFRRUpProcurement"
-    FRRDownProcurement = "FRRDownProcurement"
+    AFRRDownProcurement = "AFRRDownProcurement"
     MFRRUpProcurement = "MFRRUpProcurement"
     MFRRDownProcurement = "MFRRDownProcurement"
     RRUpProcurement = "RRUpProcurement"

@@ -11,6 +11,7 @@ from typing import TypedDict, get_args, get_origin
 from pendulum import DateTime
 
 import atlas.config as cfg
+from atlas.enums import BusinessModelName
 from atlas.io_utils.utils import to_snake_case
 from atlas.models.business_model import BusinessModel
 
@@ -20,7 +21,9 @@ class TimeseriesDict(TypedDict):
     value: list[float] | list[int]
 
 
-def get_type_attribute(object_type: str, attribute: str) -> type[BusinessModel] | str | int | float | None:
+def get_type_attribute(
+    object_type: BusinessModelName, attribute: str
+) -> type[BusinessModel] | str | int | float | None:
     """Get type of attribute for a given object type."""
     if object_type not in cfg.MODEL_MAPPING_NAME:
         raise ValueError(f"Object type {object_type} is not valid.")
@@ -39,7 +42,9 @@ def get_type_attribute(object_type: str, attribute: str) -> type[BusinessModel] 
     return model
 
 
-def get_class_inheritance_chain(class_name: str, as_pydantic: bool = False) -> list[str] | list[type[BusinessModel]]:
+def get_class_inheritance_chain(
+    class_name: BusinessModelName, as_pydantic: bool = False
+) -> list[str] | list[type[BusinessModel]]:
     """
     Given the name of a class and a mapping from names to class objects,
     return the class inheritance chain as a list of class names (as strings),
