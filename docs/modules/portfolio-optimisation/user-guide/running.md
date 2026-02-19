@@ -3,29 +3,11 @@
 ## Basic Usage
 
 ```python
-from atlas.modules.portfolio_optimisation import PortfolioOptimisationModule
+from atlas import AtlasDataset, PortfolioOptimisationModule
 
 module = PortfolioOptimisationModule()
-module.run(raw_data, raw_params)
-```
-
-## Input Data Structure
-
-Input data is basically a dictionary of business model objects by type, obtained by a call to `InputLoader.from_directory`:
-
-```python
-raw_data = {
-    "portfolio": [portfolio1, portfolio2, ...],
-    "thermal": [thermal_unit1, ...],
-    "hydro": [hydro_unit1, ...],
-    "storage": [storage1, ...],
-    "solar": [solar1, ...],
-    "wind": [wind1, ...],
-    "load": [load1, ...],
-    "other_non_dispatchable": [...],
-    "market_area": [...],
-    "control_block": [...]
-}
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, "path/to/parameters.yml")
 ```
 
 ## Parameters
@@ -44,7 +26,7 @@ params = {
 }
 
 # Or JSON file
-module.run(raw_data, "config/parameters.json")
+module.run(input_data, "config/parameters.json")
 ```
 
 See [Parameters](input-data.md) for full list.

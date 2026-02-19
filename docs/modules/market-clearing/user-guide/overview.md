@@ -9,23 +9,13 @@ The Market Clearing module is responsible for determining the market equilibrium
 The module follows ATLAS's standard `AbstractModule` pattern:
 
 ```python
-from pathlib import Path
+from atlas import AtlasDataset, MarketClearingModule
 
-from atlas.io_utils.input_loader import InputLoader
-from atlas.modules.market_clearing import MarketClearingModule
-
-raw_data_path = Path("path/to/dataset")
-raw_params_path = Path("path/to/parameters.yml")
-
-mc_module = MarketClearingModule()
-raw_data = InputLoader.from_directory(raw_data_path)
-mc_module.run(raw_data, raw_params_path)
+module = MarketClearingModule()
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, "path/to/parameters.yml")
 ```
 
-Where:
-- `raw_data_path`: Path to the dataset to use
-- `raw_data`: Dictionary of business model objects (portfolios, equipment, market areas)
-- `raw_params_path`: Parameter dictionary or path to JSON/YAML file
 
 ## Module Workflow
 

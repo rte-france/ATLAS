@@ -3,38 +3,11 @@
 ## Basic Usage
 
 ```python
-from pathlib import Path
+from atlas import AtlasDataset, DayAheadOrdersModule
 
-from atlas import InputLoader
-from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
-
-raw_data_path = Path("path/to/dataset")
-raw_params_path = Path("path/to/parameters.yml")
-
-mc_module = DayAheadOrdersModule()
-raw_data = InputLoader.from_directory(raw_data_path)
-mc_module.run(raw_data, raw_params_path)  # type:ignore [arg-type]
-```
-
-## Input Data Structure
-
-Input data is basically a dictionary of business model objects by type, obtained by a call to `InputLoader.from_directory`:
-
-```python
-raw_data = {
-    "portfolio": [portfolio1, portfolio2, ...],
-    "thermal": [thermal_unit1, ...],
-    "hydro": [hydro_unit1, ...],
-    "storage": [storage1, ...],
-    "solar": [solar1, ...],
-    "wind": [wind1, ...],
-    "load": [load1, ...],
-    "node": [...],
-    "other_non_dispatchable": [...],
-    "market_area": [...],
-    "market_border": [...],
-    "control_block": [...]
-}
+module = DayAheadOrdersModule()
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, "path/to/parameters.yml")
 ```
 
 ## Parameters

@@ -3,30 +3,11 @@
 ## Basic Usage
 
 ```python
-from pathlib import Path
+from atlas import AtlasDataset, MarketClearingModule
 
-from atlas.io_utils.input_loader import InputLoader
-from atlas.modules.market_clearing import MarketClearingModule
-
-raw_data_path = Path("path/to/dataset")
-raw_params_path = Path("path/to/parameters.yml")
-
-mc_module = MarketClearingModule()
-raw_data = InputLoader.from_directory(raw_data_path)
-mc_module.run(raw_data, raw_params_path)
-```
-
-## Input Data Structure
-
-Input data is basically a dictionary of business model objects by type, obtained by a call to `InputLoader.from_directory`:
-
-```python
-raw_data = {
-    "market_area": [...],
-    "control_block": [...],
-    "order": [...],
-    "order_coupling": [...],
-}
+module = MarketClearingModule()
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, "path/to/parameters.yml")
 ```
 
 ## Parameters
@@ -45,7 +26,7 @@ params = {
 }
 
 # Or JSON file
-module.run(raw_data, "config/parameters.json")
+module.run(input_data, "config/parameters.json")
 ```
 
 See [Parameters](input-data.md) for full list.

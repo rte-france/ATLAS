@@ -10,24 +10,12 @@ The data used for the calculation is based on a forecast made at ***execution da
 The module follows Atlas standard `AbstractModule` pattern, run it simply by calling `run` method:
 
 ```python
-from pathlib import Path
+from atlas import AtlasDataset, DayAheadOrdersModule
 
-from atlas import InputLoader
-from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
-
-raw_data_path = Path("path/to/dataset")
-raw_params_path = Path("path/to/parameters.yml")
-
-mc_module = DayAheadOrdersModule()
-raw_data = InputLoader.from_directory(raw_data_path)
-mc_module.run(raw_data, raw_params_path)  # type:ignore [arg-type]
+module = DayAheadOrdersModule()
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, "path/to/parameters.yml")
 ```
-
-Where:
-
-- `raw_data_path`: Path to the dataset to use
-- `raw_data`: Dictionary of business model objects (portfolios, equipment, market areas)
-- `raw_params_path`: Parameter dictionary or path to JSON/YAML file
 
 ## Module Workflow
 

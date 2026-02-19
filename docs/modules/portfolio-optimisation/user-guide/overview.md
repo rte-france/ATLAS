@@ -9,14 +9,12 @@ The Portfolio Optimisation module optimizes energy portfolios to determine optim
 The module follows Atla's standard `AbstractModule` pattern, run it simply by calling `run` method:
 
 ```python
+from atlas import AtlasDataset, PortfolioOptimisationModule
+
 module = PortfolioOptimisationModule()
-module.run(input_data: dict[str, list[BusinessModel]], parameters: PortfolioOptimisationParameters)
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, "path/to/parameters.yml")
 ```
-
-Where:
-
-- `raw_data`: Dictionary of business model objects (portfolios, equipment, market areas)
-- `raw_params`: Parameter dictionary or path to JSON/YAML file
 
 ## Module Workflow
 
