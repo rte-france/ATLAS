@@ -176,6 +176,9 @@ cython_debug/
 # VS Code settings
 .vscode/
 
+# Atlas site dir
+public/
+
 # Data files
 data/
 *.pickle

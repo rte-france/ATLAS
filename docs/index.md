@@ -5,7 +5,6 @@
 Atlas uses a **workflow-based architecture** to simulate realistic market dynamics over extended periods.
 
 
-
 ## Quick Links
 
 <div class="grid cards" markdown>

@@ -155,7 +155,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "typer" },
     { name = "typing-extensions" },
-    { name = "zensical" },
 ]
 
 [package.dev-dependencies]
@@ -181,6 +180,7 @@ docs = [
     { name = "mkdocs-material" },
     { name = "mkdocstrings" },
     { name = "mkdocstrings-python" },
+    { name = "zensical" },
 ]
 
 [package.metadata]
@@ -203,7 +203,6 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "typer", specifier = ">=0.15.2" },
     { name = "typing-extensions", specifier = ">=4.13.2" },
-    { name = "zensical", specifier = ">=0.0.23" },
 ]
 
 [package.metadata.requires-dev]
@@ -227,6 +226,7 @@ docs = [
     { name = "mkdocs-material", specifier = ">=9.6.11" },
     { name = "mkdocstrings", specifier = ">=0.29.1" },
     { name = "mkdocstrings-python", specifier = ">=1.16.10" },
+    { name = "zensical", specifier = ">=0.0.23" },
 ]
 
 [[package]]

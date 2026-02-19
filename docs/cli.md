@@ -7,7 +7,6 @@ Atlas provides a command-line interface built with [Typer](https://typer.tiangol
 After installing Atlas, the `atlas` command becomes available:
 
 ```bash
-# Run atlas CLI
 atlas --help
 ```
 
