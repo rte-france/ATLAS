@@ -222,17 +222,6 @@ atlas run parameters.yaml \
 atlas run workflow.yaml --workflow
 ```
 
-### Converting Legacy Data
-
-```bash
-# Convert Prometheus format to Atlas format
-atlas prometheus-to-atlas-recursive \
-  ./legacy-data/ \
-  ./atlas-data/
-```
-
----
-
 ## Shell Completion
 
 Atlas CLI supports shell completion for bash, zsh, and fish.

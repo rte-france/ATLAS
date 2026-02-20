@@ -102,8 +102,8 @@ nav:
     - Quick Start Tutorial: getting_started/quickstart.md
     - Your First Simulation: getting_started/first-simulation.md
   - User Guide:
-    - CLI Reference: cli.md
-    - Running Modules: modules/running-modules.md
+    - With Command lines: cli.md
+    - In Python Usage: modules/running-modules.md
     - Module Pattern: modules/module-pattern.md
     - Common Parameters: modules/common-parameters.md
   - Modules:

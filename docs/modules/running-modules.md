@@ -1,4 +1,4 @@
-# Running ATLAS Modules
+# Running Modules in Python
 
 ## Basic Usage Pattern
 
