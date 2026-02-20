@@ -95,11 +95,44 @@ Contains subdirectories per object type, with Parquet/CSV files storing time-ind
 - Multiple attributes stored using an `attribute` column as a categorical filter
 - Common attributes: generation profiles, availability, costs over time
 
+Example `timeseries/thermal/fr_nuclear.csv`:
+
+| time | attribute | value |
+|------|-----------|-------|
+| 2024-01-01 00:00:00 | availability | 0.95 |
+| 2024-01-01 01:00:00 | availability | 0.95 |
+| 2024-01-01 02:00:00 | availability | 0.93 |
+| 2024-01-01 00:00:00 | marginal_cost | 45.2 |
+| 2024-01-01 01:00:00 | marginal_cost | 45.5 |
+| 2024-01-01 02:00:00 | marginal_cost | 46.1 |
+
+The `attribute` column acts as a filter - filtering by `attribute == "availability"` gives you the availability timeseries.
+
 #### Matrix Directories
 
 **scenario_matrix/**: Multi-scenario stochastic data (e.g., uncertain inflows, demand scenarios)
 
+Example `scenario_matrix/hydro/mountain_hydro.csv`:
+
+| time | attribute | scenario_0 | scenario_1 | scenario_2 |
+|------|-----------|------------|------------|------------|
+| 2024-01-01 00:00:00 | inflows | 125.3 | 98.7 | 156.2 |
+| 2024-01-01 01:00:00 | inflows | 128.1 | 102.4 | 159.8 |
+| 2024-01-01 02:00:00 | inflows | 130.5 | 105.1 | 163.4 |
+
+Each scenario column represents a possible realization of uncertain inflows.
+
 **forecasting_matrix/**: Forecast data with multiple forecast horizons (e.g., price forecasts, demand forecasts)
+
+Example `forecasting_matrix/market_area/fr.csv`:
+
+| time | attribute | 2026-01-01 00:00:00 | 2026-01-01 01:00:00 | 2026-01-01 02:00:00 |
+|------|-----------|-------------|-------------|-------------|
+| 2024-01-01 00:00:00 | price | 52.3 | 51.8 | 50.5 |
+| 2024-01-01 01:00:00 | price | 48.7 | 49.2 | 48.9 |
+| 2024-01-01 02:00:00 | price | 45.2 | 46.1 | 46.8 |
+
+Each forecast column represents predictions at different forecast horizons (h0 = current hour, h1 = next hour, etc.).
 
 #### Supported File Formats
 

@@ -107,6 +107,7 @@ nav:
     - Module Pattern: modules/module-pattern.md
     - Common Parameters: modules/common-parameters.md
   - Modules:
+    - Overview: modules/index.md
     - Portfolio Optimisation:
       - Overview: modules/portfolio-optimisation/index.md
       - User Guide:
