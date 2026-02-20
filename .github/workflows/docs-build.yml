@@ -1,4 +1,4 @@
-name: Test
+name: Build Documentation
 
 on:
   push:
@@ -26,5 +26,5 @@ jobs:
       - name: Install dependencies
         run: uv sync --group docs --no-dev
 
-      - name: Test with pytest and coverage
+      - name: Build documentation website
         run: uv run zensical build
