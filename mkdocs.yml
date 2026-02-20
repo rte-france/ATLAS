@@ -95,18 +95,18 @@ extra_css:
 nav:
   - Home:
     - Welcome to Atlas: index.md
-    - Getting Started: getting_started.md
-    - CLI Reference: cli.md
-    - Contributing: contributing.md
-    - Release Process: release_process.md
     - Changelog: changelog.md
     - Authors: authors.md
-  - Concepts:
-    - Overview: concepts/overview.md
-  - Modules:
+  - Getting Started:
+    - Installation: getting_started/getting_started.md
+    - Quick Start Tutorial: getting_started/quickstart.md
+    - Your First Simulation: getting_started/first-simulation.md
+  - User Guide:
+    - CLI Reference: cli.md
+    - Running Modules: modules/running-modules.md
     - Module Pattern: modules/module-pattern.md
     - Common Parameters: modules/common-parameters.md
-    - Running Modules: modules/running-modules.md
+  - Modules:
     - Portfolio Optimisation:
       - Overview: modules/portfolio-optimisation/index.md
       - User Guide:
@@ -153,13 +153,15 @@ nav:
     - Workflows:
       - Workflow: api/workflow/workflow.md
       - Workflow step: api/workflow/workflow_step.md
-      - Workflow parameters: api/workflow/workflow_parameters.md
     - Optimisation:
       - Solver Interface: api/solver/interface.md
       - Other : api/solver/models.md
     - Others:
       - Enum: api/enum.md
       - Logging: api/logging.md
+  - Development:
+    - Contributing: contributing.md
+    - Release Process: release_process.md
 
 extra:
   version:
