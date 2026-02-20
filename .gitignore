@@ -183,7 +183,6 @@ public/
 data/
 *.pickle
 *.pkl
-*.yml
 *.yaml
 *.txt
 
