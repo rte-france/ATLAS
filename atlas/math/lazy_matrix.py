@@ -140,21 +140,23 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         Remove rows at the beginning and end where all value columns are null.
         This is called after delete operations to clean up the matrix.
         """
-        df = df.collect()
-        if len(df) == 0:
-            return df.lazy()
+        df_collected = df.collect()
+        if len(df_collected) == 0:
+            return df_collected.lazy()
 
         # Get value columns (all except time)
         value_columns = [col for col in df.columns if col != "time"]
 
         if len(value_columns) == 0:
-            return df.lazy()
+            return df_collected.lazy()
 
         # Create boolean mask: True where all value columns are null
-        all_null_mask = df.select(pl.all_horizontal([pl.col(idx).is_null() for idx in value_columns])).to_series()
+        all_null_mask = df_collected.select(
+            pl.all_horizontal([pl.col(idx).is_null() for idx in value_columns])
+        ).to_series()
 
         if len(all_null_mask) == 0:
-            return df.lazy()
+            return df_collected.lazy()
 
         # Find indices where at least one value column is not null
         valid_indices = (~all_null_mask).arg_true()

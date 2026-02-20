@@ -17,7 +17,6 @@ from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.matrix import ScenarioMatrix
-from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 
 
@@ -175,7 +174,7 @@ def _export_object_type(
 def _export_timeseries(
     business_object: BusinessModel,
     field_name: str,
-    field_value: Timeseries,
+    field_value: AbstractTimeseries,
     object_type: str,
     timeseries_dir: Path,
     config: OutputGeneratorConfig,
@@ -196,7 +195,7 @@ def _export_timeseries(
 def _export_forecasting_matrix(
     business_object: BusinessModel,
     field_name: str,
-    field_value: ForecastingMatrix,
+    field_value: ForecastingMatrix | LazyForecastingMatrix,
     object_type: str,
     forecasting_matrix_dir: Path,
     config: OutputGeneratorConfig,
@@ -217,7 +216,7 @@ def _export_forecasting_matrix(
 def _export_scenario_matrix(
     business_object: BusinessModel,
     field_name: str,
-    field_value: ScenarioMatrix,
+    field_value: ScenarioMatrix | LazyScenarioMatrix,
     object_type: str,
     scenario_matrix_dir: Path,
     config: OutputGeneratorConfig,
