@@ -108,7 +108,7 @@ def load_from_directory(
                     objects_instantiated,
                 )
 
-                cfg.logger.info(
+                cfg.logger.debug(
                     f"Instantiated {len(objects_instantiated[object_type])} "
                     f"objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
                 )
@@ -118,7 +118,7 @@ def load_from_directory(
                     f"Failed to instantiate objects of type '{object_type}': {str(e)}"
                 ) from e
 
-        cfg.logger.success("Atlas data loaded successfully.")
+        cfg.logger.info("Atlas data loaded successfully.")
         return objects_instantiated
 
     except (DirectoryStructureError, FileParsingError, ObjectInstantiationError, DataValidationError):

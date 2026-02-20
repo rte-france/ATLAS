@@ -13,7 +13,9 @@ from typing import Literal
 import atlas.config as cfg
 from atlas.custom_errors import InputLoaderError
 from atlas.io_utils.models import OutputGeneratorConfig
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
@@ -71,7 +73,7 @@ def save_to_directory(
                 config=config,
             )
 
-        cfg.logger.success("Atlas data exported successfully.")
+        cfg.logger.info("Atlas data exported successfully.")
 
     except Exception as e:
         raise InputLoaderError(f"Unexpected error during data export: {str(e)}") from e
@@ -126,7 +128,7 @@ def _export_object_type(
                 continue
 
             # Export math objects to files
-            if isinstance(field_value, Timeseries):
+            if isinstance(field_value, AbstractTimeseries):
                 _export_timeseries(
                     business_object=business_object,
                     field_name=field_name,
@@ -136,7 +138,7 @@ def _export_object_type(
                     config=config,
                 )
 
-            elif isinstance(field_value, ForecastingMatrix):
+            elif isinstance(field_value, ForecastingMatrix | LazyForecastingMatrix):
                 _export_forecasting_matrix(
                     business_object=business_object,
                     field_name=field_name,
@@ -146,7 +148,9 @@ def _export_object_type(
                     config=config,
                 )
 
-            elif isinstance(field_value, ScenarioMatrix):
+            elif isinstance(field_value, ScenarioMatrix | LazyScenarioMatrix) and not isinstance(
+                field_value, ForecastingMatrix | LazyForecastingMatrix
+            ):
                 _export_scenario_matrix(
                     business_object=business_object,
                     field_name=field_name,
