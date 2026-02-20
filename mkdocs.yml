@@ -104,6 +104,9 @@ nav:
   - Concepts:
     - Overview: concepts/overview.md
   - Modules:
+    - Module Pattern: modules/module-pattern.md
+    - Common Parameters: modules/common-parameters.md
+    - Running Modules: modules/running-modules.md
     - Portfolio Optimisation:
       - Overview: modules/portfolio-optimisation/index.md
       - User Guide:
