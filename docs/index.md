@@ -9,37 +9,52 @@ Atlas uses a **workflow-based architecture** to simulate realistic market dynami
 
 <div class="grid cards" markdown>
 
--   :material-clock-fast:{ .lg .middle } **Getting started**
+-   :material-rocket-launch:{ .lg .middle } **Getting Started**
 
     ---
 
-    [:octicons-arrow-right-24: Installation](getting_started.md)
+    Install Atlas and run your first electricity market simulation in minutes.
 
-    [:octicons-arrow-right-24: Quick Start](examples/example-1.ipynb) (WIP)
+    [:octicons-arrow-right-24: Installation](getting_started/getting_started.md)
 
--   :material-view-list:{ .lg .middle } **Overview**
+    [:octicons-arrow-right-24: Quick Start Tutorial](getting_started/quickstart.md)
 
-    ---
+    [:octicons-arrow-right-24: Your First Simulation](getting_started/first-simulation.md)
 
-    Let's dig into the market concepts and the altas feature.
-
-    [:octicons-arrow-right-24: Features](features.md) (WIP)
-
-
--   :material-new-box:{ .lg .middle } **Release Notes**
+-   :material-lightning-bolt:{ .lg .middle } **Simulation Modules**
 
     ---
 
-    Check out the latest features, bug fixes and improvements in the release notes.
+    Explore the three core modules for electricity market modeling.
 
-    [:octicons-arrow-right-24: What's new](changelog.md)
+    [:octicons-arrow-right-24: Portfolio Optimisation](modules/portfolio-optimisation/index.md)
 
--   :material-scale-balance:{ .lg .middle } **Open Source, MPL 2.0**
+    [:octicons-arrow-right-24: Market Clearing](modules/market-clearing/index.md)
+
+    [:octicons-arrow-right-24: Day-Ahead Orders](modules/day-ahead-orders/index.md)
+
+-   :material-code-braces:{ .lg .middle } **API Reference**
 
     ---
 
-    Atlas is licensed under MPL 2.0 and available on [GitHub](https://github.com/rte-france/ATLAS).
+    Complete API documentation for models, data structures, and utilities.
 
-    [:octicons-arrow-right-24: License](https://www.mozilla.org/en-US/MPL/2.0/)
+    [:octicons-arrow-right-24: API Overview](api/index.md)
+
+    [:octicons-arrow-right-24: Equipment Models](api/models/equipment.md)
+
+    [:octicons-arrow-right-24: Math Objects](api/math/timeseries.md)
+
+-   :material-book-open-variant:{ .lg .middle } **Examples & Resources**
+
+    ---
+
+    Learn from practical examples and explore detailed guides.
+
+    [:octicons-arrow-right-24: Examples](examples/atlas_dataset.md)
+
+    [:octicons-arrow-right-24: What's New](changelog.md)
+
+    [:octicons-arrow-right-24: Contributing](contributing.md)
 
 </div>

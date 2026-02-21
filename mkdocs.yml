@@ -140,6 +140,7 @@ nav:
     - Matrix: examples/matrix.md
     - OptimisationModel: examples/optimisation_model.md
   - API Reference:
+    - Overview: api/index.md
     - Math Objects:
       - Timeseries: api/math/timeseries.md
       - Scenario Matrix: api/math/scenario_matrix.md
