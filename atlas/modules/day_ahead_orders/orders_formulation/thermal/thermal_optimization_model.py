@@ -447,7 +447,9 @@ class ThermalOptimizationModel(OptimisationModel):
 
         # Set-up the reserve requirements
         # Compute the maximum_automated
-        self.maximum_automated = self.thermal_unit.maximum_afrr + self.thermal_unit.maximum_fcr
+        maximum_afrr = self.thermal_unit.maximum_afrr if self.thermal_unit.maximum_afrr is not None else 0.0
+        maximum_fcr = self.thermal_unit.maximum_fcr if self.thermal_unit.maximum_fcr is not None else 0.0
+        self.maximum_automated = maximum_afrr + maximum_fcr
 
         # Add the manual reserves (referred to as "reserves" in the following)
         # Reserves
@@ -466,8 +468,6 @@ class ThermalOptimizationModel(OptimisationModel):
         )
 
         # Populate the time series and retrieve the infeasible automated reserve procurements.
-        maximum_afrr = self.thermal_unit.maximum_afrr if self.thermal_unit.maximum_afrr is not None else 0.0
-        maximum_fcr = self.thermal_unit.maximum_fcr if self.thermal_unit.maximum_fcr is not None else 0.0
         for t in self.time_frame:
             # retrieve the feasible part in the feasible time series
             self.feasible_automated_reserves_up_procured.set_or_add_value(
@@ -481,10 +481,10 @@ class ThermalOptimizationModel(OptimisationModel):
 
             # retrieve and save the infeasible part
             self.automated_unsupplied_reserves += (
-                max(afrr_up_procured.get_value(t) - self.thermal_unit.maximum_afrr, 0)
-                + max(fcr_up_procured.get_value(t) - self.thermal_unit.maximum_fcr, 0)
-                + max(afrr_down_procured.get_value(t) - self.thermal_unit.maximum_afrr, 0)
-                + max(fcr_down_procured.get_value(t) - self.thermal_unit.maximum_fcr, 0)
+                max(afrr_up_procured.get_value(t) - maximum_afrr, 0)
+                + max(fcr_up_procured.get_value(t) - maximum_fcr, 0)
+                + max(afrr_down_procured.get_value(t) - maximum_afrr, 0)
+                + max(fcr_down_procured.get_value(t) - maximum_fcr, 0)
             )
 
         cfg.logger.debug(f"automated unsupplied reserves : {self.automated_unsupplied_reserves}")
