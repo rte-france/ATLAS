@@ -30,55 +30,50 @@ def convert_solar_units(
         if study.get_settings().advanced_parameters.renewable_generation_modelling.value == "clusters":
             renewables = areas[area_name].get_renewables()
             for res_name in renewables:
-                if renewables[res_name].properties.group == "solar pv" and renewables[res_name].properties.enabled:
-                    if parameters.scenario - 1 >= len(instance.RenewablesSelectedScenario):  # TODO
+                cluster_res = renewables[res_name]
+                if cluster_res.properties.group == "solar pv" and cluster_res.properties.enabled:
+                    if parameters.scenario - 1 >= len(cluster_res.RenewablesSelectedScenario):  # TODO
                         continue
 
                     sc_solar = instance.RenewablesSelectedScenario[parameters.scenario - 1]
 
-                    if str(sc_solar) in instance.Disponibility.Index:
+                    if str(sc_solar) in cluster_res.disponility.index:
                         if instance.Disponibility[sc_solar].Abs().Max() > 0:
-                            solars.append(
-                                Solar(
-                                    name=f"{area_name}_pv",
-                                    node=atlas_dataset.get("node", area_name),
-                                    portfolio=atlas_dataset.get(
-                                        "portfolio",
-                                        f"generator_{area_name}"
-                                        if parameters.consumption_production_separation
-                                        else f"portfolio_{area_name}",
-                                    ),
-                                    maximum_curtailment_ratio=Timeseries.from_index(
-                                        start_date=parameters.start_date,
-                                        frequency="1h",
-                                        end_date=parameters.start_date + duration(years=1),
-                                        default_value=parameters.pv_max_curtailment_ratio,
-                                    ),
-                                    curtailment_cost=Timeseries.from_index(
-                                        start_date=parameters.start_date,
-                                        frequency="1h",
-                                        end_date=parameters.start_date + duration(years=1),
-                                        default_value=parameters.pv_curtailment_cost,
-                                    ),
-                                    installed_capacity=renewables[res_name].properties.nominal_capacity,
-                                )
+                            new_solar = Solar(
+                                name=f"{area_name}_pv",
+                                node=atlas_dataset.get("node", area_name),
+                                portfolio=atlas_dataset.get(
+                                    "portfolio",
+                                    f"generator_{area_name}"
+                                    if parameters.consumption_production_separation
+                                    else f"portfolio_{area_name}",
+                                ),
+                                maximum_curtailment_ratio=Timeseries.from_index(
+                                    start_date=parameters.start_date,
+                                    frequency="1h",
+                                    end_date=parameters.start_date + duration(years=1),
+                                    default_value=parameters.pv_max_curtailment_ratio,
+                                ),
+                                curtailment_cost=Timeseries.from_index(
+                                    start_date=parameters.start_date,
+                                    frequency="1h",
+                                    end_date=parameters.start_date + duration(years=1),
+                                    default_value=parameters.pv_curtailment_cost,
+                                ),
+                                installed_capacity=cluster_res.properties.nominal_capacity,
                             )
 
-                            if antares_dataset.Renewables.CheckInstanceExists(instance.Node.Name + "_solar_thermo"):
-                                thermo_instance = antares_dataset.Renewables.GetInstanceByName(
-                                    instance.Node.Name + "_solar_thermo"
-                                )
-
-                                if thermo_instance.Enabled:
-                                    pv.InstalledCapacity += thermo_instance.NominalCapacity
-
+                            solar_thermal = renewables.get(area_name + "_solar_thermo", None)
+                            if solar_thermal is not None and solar_thermal.properties.enabled:
+                                new_solar.installed_capacity += solar_thermal.properties.nominal_capacity
+                solars.append(new_solar)
         else:
             if parameters.scenario - 1 >= len(antares_node.SolarSelectedScenario):
                 continue
 
             sc_solar = antares_node.SolarSelectedScenario[parameters.scenario - 1]  # TODO
 
-            if str(sc_solar) in antares_node.SolarProduction.Index:
+            if str(sc_solar) in areas[area_name].get_solar_matrix().index:
                 if antares_node.SolarProduction.Abs().Max() > 0:
                     solars.append(
                         Solar(

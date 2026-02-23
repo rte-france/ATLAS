@@ -30,60 +30,56 @@ def convert_wind_units(
         if study.get_settings().advanced_parameters.renewable_generation_modelling.value == "clusters":
             renewables = areas[area_name].get_renewables()
             for res_name in renewables:
-                if renewables[res_name].properties.group == "wind onshore" and renewables[res_name].properties.enabled:
-                    if parameters.scenario - 1 >= len(instance.RenewablesSelectedScenario):  # TODO
+                cluster_res = renewables[res_name]
+                if cluster_res.properties.group == "wind onshore" and cluster_res.properties.enabled:
+                    if parameters.scenario - 1 >= len(cluster_res.RenewablesSelectedScenario):  # TODO
                         continue
 
-                    sc_wind = instance.RenewablesSelectedScenario[parameters.scenario - 1]
+                    sc_wind = cluster_res.RenewablesSelectedScenario[parameters.scenario - 1]
 
-                    if str(sc_wind) in instance.Disponibility.Index:
-                        if instance.Disponibility[sc_wind].Abs().Max() > 0:
-                            solars.append(
-                                Wind(
-                                    name=f"{area_name}_wind",
-                                    node=atlas_dataset.get("node", area_name),
-                                    portfolio=atlas_dataset.get(
-                                        "portfolio",
-                                        f"generator_{area_name}"
-                                        if parameters.consumption_production_separation
-                                        else f"portfolio_{area_name}",
-                                    ),
-                                    maximum_curtailment_ratio=Timeseries.from_index(
-                                        start_date=parameters.start_date,
-                                        frequency="1h",
-                                        end_date=parameters.start_date + duration(years=1),
-                                        default_value=parameters.pv_max_curtailment_ratio,
-                                    ),
-                                    curtailment_cost=Timeseries.from_index(
-                                        start_date=parameters.start_date,
-                                        frequency="1h",
-                                        end_date=parameters.start_date + duration(years=1),
-                                        default_value=parameters.pv_curtailment_cost,
-                                    ),
-                                    installed_capacity=renewables[res_name].properties.nominal_capacity,
-                                )
+                    if str(sc_wind) in cluster_res.Disponibility.Index:
+                        if cluster_res.Disponibility[sc_wind].Abs().Max() > 0:
+                            new_wind = Wind(
+                                name=f"{area_name}_wind",
+                                node=atlas_dataset.get("node", area_name),
+                                portfolio=atlas_dataset.get(
+                                    "portfolio",
+                                    f"generator_{area_name}"
+                                    if parameters.consumption_production_separation
+                                    else f"portfolio_{area_name}",
+                                ),
+                                maximum_curtailment_ratio=Timeseries.from_index(
+                                    start_date=parameters.start_date,
+                                    frequency="1h",
+                                    end_date=parameters.start_date + duration(years=1),
+                                    default_value=parameters.wind_max_curtailment_ratio,
+                                ),
+                                curtailment_cost=Timeseries.from_index(
+                                    start_date=parameters.start_date,
+                                    frequency="1h",
+                                    end_date=parameters.start_date + duration(years=1),
+                                    default_value=parameters.wind_curtailment_cost,
+                                ),
+                                installed_capacity=cluster_res.properties.nominal_capacity,
                             )
+                            offshore_instance = renewables.get(area_name + "_wind_offshore", None)
 
-                            if antares_dataset.Renewables.CheckInstanceExists(
-                                instance.Node.Name + "_wind_offshore"
-                            ) and instance.Node.Name.lower() not in ["dekf", "dkkf"]:
-                                offshore_instance = antares_dataset.Renewables.GetInstanceByName(
-                                    instance.Node.Name + "_wind_offshore"
-                                )
+                            if offshore_instance is not None and area_name not in ["dekf", "dkkf"]:
+                                if offshore_instance.properties.enabled:
+                                    new_wind.installed_capacity += offshore_instance.properties.nominal_capacity
 
-                                if offshore_instance.Enabled:
-                                    wind.InstalledCapacity += offshore_instance.NominalCapacity
+                winds.append(new_wind)
         else:
             if parameters.scenario - 1 >= len(antares_node.WindSelectedScenario):
                 continue
 
             sc_wind = antares_node.WindSelectedScenario[parameters.scenario - 1]  # TODO
 
-            if str(sc_wind) in antares_node.SolarProduction.Index:
-                if antares_node.SolarProduction.Abs().Max() > 0:
-                    solars.append(
+            if str(sc_wind) in areas[area_name].get_wind_matrix().index:
+                if area_name.SolarProduction.Abs().Max() > 0:
+                    winds.append(
                         Wind(
-                            name=f"{area_name}_pv",
+                            name=f"{area_name}_wind",
                             node=atlas_dataset.get("node", area_name),
                             portfolio=atlas_dataset.get(
                                 "portfolio",
