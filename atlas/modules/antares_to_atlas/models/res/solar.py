@@ -25,10 +25,11 @@ def convert_solar_units(
     solars: list[Solar] = []
 
     for area_name in parameters.market_areas:
+        area = areas[area_name]
         if area_name not in areas:
             continue
         if study.get_settings().advanced_parameters.renewable_generation_modelling.value == "clusters":
-            renewables = areas[area_name].get_renewables()
+            renewables = area.get_renewables()
             for res_name in renewables:
                 cluster_res = renewables[res_name]
                 if cluster_res.properties.group == "solar pv" and cluster_res.properties.enabled:
@@ -37,8 +38,8 @@ def convert_solar_units(
 
                     sc_solar = instance.RenewablesSelectedScenario[parameters.scenario - 1]
 
-                    if str(sc_solar) in cluster_res.disponility.index:
-                        if areas[area_name].get_solar_matrix().abs().max().item() > 0:
+                    if str(sc_solar) in area.get_solar_matrix().index:
+                        if area.get_solar_matrix().abs().max().item() > 0:
                             new_solar = Solar(
                                 name=f"{area_name}_pv",
                                 node=atlas_dataset.get("node", area_name),
@@ -73,8 +74,8 @@ def convert_solar_units(
 
             sc_solar = antares_node.SolarSelectedScenario[parameters.scenario - 1]  # TODO
 
-            if str(sc_solar) in areas[area_name].get_solar_matrix().index:
-                if antares_node.SolarProduction.Abs().Max() > 0:
+            if str(sc_solar) in area.get_solar_matrix().index:
+                if area.get_solar_matrix().abs().max().item() > 0:
                     solars.append(
                         Solar(
                             name=f"{area_name}_pv",

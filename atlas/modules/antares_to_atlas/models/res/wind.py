@@ -25,10 +25,11 @@ def convert_wind_units(
     winds: list[Wind] = []
 
     for area_name in parameters.market_areas:
+        area = areas[area_name]
         if area_name not in areas:
             continue
         if study.get_settings().advanced_parameters.renewable_generation_modelling.value == "clusters":
-            renewables = areas[area_name].get_renewables()
+            renewables = area.get_renewables()
             for res_name in renewables:
                 cluster_res = renewables[res_name]
                 if cluster_res.properties.group == "wind onshore" and cluster_res.properties.enabled:
@@ -37,8 +38,8 @@ def convert_wind_units(
 
                     sc_wind = cluster_res.RenewablesSelectedScenario[parameters.scenario - 1]
 
-                    if str(sc_wind) in cluster_res.Disponibility.Index:
-                        if cluster_res.Disponibility[sc_wind].Abs().Max() > 0:
+                    if str(sc_wind) in area.get_wind_matrix().index:
+                        if area.get_wind_matrix().abs().max().item() > 0:
                             new_wind = Wind(
                                 name=f"{area_name}_wind",
                                 node=atlas_dataset.get("node", area_name),
@@ -75,8 +76,8 @@ def convert_wind_units(
 
             sc_wind = antares_node.WindSelectedScenario[parameters.scenario - 1]  # TODO
 
-            if str(sc_wind) in areas[area_name].get_wind_matrix().index:
-                if areas[area_name].get_wind_matrix().abs().max().item() > 0:
+            if str(sc_wind) in area.get_wind_matrix().index:
+                if area.get_wind_matrix().abs().max().item() > 0:
                     winds.append(
                         Wind(
                             name=f"{area_name}_wind",
