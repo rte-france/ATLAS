@@ -27,4 +27,4 @@ class WorkflowParameters(Parameters):
     dataset_path: Path
     steps: list[Step]
     output_dataset_path: Path
-    generic_module_parameters_path: Path | None = None
+    parameters_path: Path | None = None

@@ -46,8 +46,8 @@ class Workflow:
         return cls(parameters=parameters)
 
     def build_generic_module_parameters(self):
-        if self.parameters.generic_module_parameters_path:
-            with open(self.parameters.generic_module_parameters_path) as file:
+        if self.parameters.parameters_path:
+            with open(self.parameters.parameters_path) as file:
                 self.generic_module_parameters = yaml.safe_load(file)
 
     def build_steps(self):
