@@ -76,7 +76,7 @@ def convert_wind_units(
             sc_wind = antares_node.WindSelectedScenario[parameters.scenario - 1]  # TODO
 
             if str(sc_wind) in areas[area_name].get_wind_matrix().index:
-                if area_name.SolarProduction.Abs().Max() > 0:
+                if areas[area_name].get_wind_matrix().abs().max().item() > 0:
                     winds.append(
                         Wind(
                             name=f"{area_name}_wind",

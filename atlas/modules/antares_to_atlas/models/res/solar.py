@@ -38,7 +38,7 @@ def convert_solar_units(
                     sc_solar = instance.RenewablesSelectedScenario[parameters.scenario - 1]
 
                     if str(sc_solar) in cluster_res.disponility.index:
-                        if instance.Disponibility[sc_solar].Abs().Max() > 0:
+                        if areas[area_name].get_solar_matrix().abs().max().item() > 0:
                             new_solar = Solar(
                                 name=f"{area_name}_pv",
                                 node=atlas_dataset.get("node", area_name),
