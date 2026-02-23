@@ -24,7 +24,7 @@ class AntaresToAtlasParameters(Parameters):
 
     # Version and hypothesis
     antares_version: str = Field(description="Antares version (e.g., '8.2', '8.6')")
-    hypothesis: str = Field(description="Hypothesis identifier (e.g., 'BP23', 'BP24')")
+    hypothesis: str | None = Field(description="Hypothesis identifier (e.g., 'BP23', 'BP24')")
 
     # Data selection
     market_areas: list[str] = Field(description="List of market areas to convert")

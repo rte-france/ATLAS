@@ -28,7 +28,7 @@ wheels = [
 
 [[package]]
 name = "antares-craft"
-version = "0.9.5"
+version = "0.10.4"
 source = { registry = "https://pypi.org/simple/" }
 dependencies = [
     { name = "antares-study-version" },
@@ -42,9 +42,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/ac/80a95d09d5808919d96f3a9f1230e7fcb02b13f06dc9ce75f1b6cc010369/antares_craft-0.9.5.tar.gz", hash = "sha256:d80f6b8768820d0bb66ccbe0b1e076cb8d21c5bd420e02379d570f1766e8a7bb", size = 144514, upload-time = "2026-01-13T18:42:16.557Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ab/55/5dcc384201defa46f77791f0a1b53fab7f77e2618d4f474f8839c8e8cc38/antares_craft-0.10.4.tar.gz", hash = "sha256:24de5b553b6f7f22c74db5d9b681d5816432bda31aa8d2a245b7f8d121dfafc0", size = 145221, upload-time = "2026-02-23T17:00:54.36Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2e/15/93d6bf32a5572da0a15d73bcbaca36665510ca2e9fca34f60dd7e606451e/antares_craft-0.9.5-py3-none-any.whl", hash = "sha256:b9dda322f8d5917720d9bf3690abb41645d5522cff29a06d8e28950ddf7ef8df", size = 219348, upload-time = "2026-01-13T18:42:15.177Z" },
+    { url = "https://files.pythonhosted.org/packages/57/e1/184cd237f4e7044662601fc5f399af7e614984199662ab33c9d3cfe13e00/antares_craft-0.10.4-py3-none-any.whl", hash = "sha256:1a8cbc99a13ed4b15e3f052b3df3203e1406926740ff8daffdb6f49ea2bf27a5", size = 220063, upload-time = "2026-02-23T17:00:52.543Z" },
 ]
 
 [[package]]
@@ -234,7 +234,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "antares-craft", specifier = ">=0.9.5" },
+    { name = "antares-craft", specifier = ">=0.10.4" },
     { name = "dictdiffer", specifier = ">=0.9.0" },
     { name = "fastparquet", specifier = ">=2024.11.0" },
     { name = "h5py", specifier = ">=3.13.0" },

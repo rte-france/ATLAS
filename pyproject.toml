@@ -23,7 +23,7 @@ dependencies = [
     "typer>=0.15.2",
     "typing-extensions>=4.13.2",
     "dictdiffer>=0.9.0",
-    "antares-craft>=0.9.5",
+    "antares-craft>=0.10.4",
 ]
 
 [project.scripts]
