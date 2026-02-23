@@ -21,8 +21,10 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
 
     for link_name, link in links.items():
         logger.debug(f"Processing link: {link_name}")
+        uphill_node = link.area_from_id
+        downhill_node = link.area_to_id
 
-        if not (link.UphillNode.Name in parameters.market_areas and link.DownhillNode.Name in parameters.market_areas):
+        if not (uphill_node in parameters.market_areas and downhill_node in parameters.market_areas):
             continue
         if (
             link.get_capacity_direct().abs().max().item() == 0
@@ -30,10 +32,10 @@ def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_data
         ):
             continue
 
-        node_1 = atlas_dataset.get("node", link.UphillNode.Name)
-        node_2 = atlas_dataset.get("node", link.DownhillNode.Name)
-        ctrl_block_1 = atlas_dataset.get("control_block", link.UphillNode.Name)
-        ctrl_block_2 = atlas_dataset.get("control_block", link.DownhillNode.Name)
+        node_1 = atlas_dataset.get("node", uphill_node)
+        node_2 = atlas_dataset.get("node", downhill_node)
+        ctrl_block_1 = atlas_dataset.get("control_block", uphill_node)
+        ctrl_block_2 = atlas_dataset.get("control_block", downhill_node)
 
         market_borders.append(
             MarketBorder(
