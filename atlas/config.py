@@ -93,7 +93,7 @@ DEFAULT_VALUE_IO = {
         "maximum_gradient": 0,
     },
     BusinessModelName.STORAGE: {
-        "transition_duration": 0,
+        "transition_duration": "P0D",
     },
     BusinessModelName.MARKET_BORDER: {
         "coupling_type": "ATC",
