@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Self
 
 import yaml
 from pydantic import BaseModel, ConfigDict
@@ -19,7 +20,7 @@ class Parameters(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Parameters:
+    def from_file(cls, file_path: str | Path) -> Self:
         """Load parameters from a YAML or JSON file.
         :param file_path: Path to the parameters file.
         :type file_path: str or pathlib.Path
@@ -36,7 +37,7 @@ class Parameters(BaseModel):
         else:
             raise ValueError(f"Unsupported file extension: {file_extension}")
 
-        return Parameters(**parameters)
+        return cls(**parameters)
 
     @staticmethod
     def _parse_yaml(file_path: str | Path) -> dict:

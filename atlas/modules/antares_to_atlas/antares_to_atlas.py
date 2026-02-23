@@ -7,6 +7,7 @@ Main Antares to Atlas converter orchestrator.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from antares.craft import read_study_local
@@ -143,7 +144,7 @@ class AntaresToAtlas:
         for converter in bp23_converters:
             registry.register(converter)
 
-    def convert(self) -> AtlasDataset:
+    def convert(self, study_path: str | Path) -> AtlasDataset:
         """Execute the conversion process.
 
         Loads the Antares study from the configured path and converts it to Atlas format.
@@ -152,15 +153,11 @@ class AntaresToAtlas:
         :rtype: AtlasDataset
         """
         logger.info("Starting Antares to Atlas conversion")
-        logger.info(f"Study Path: {self.parameters.study_path}")
-        logger.info(f"Antares Version: {self.parameters.antares_version}")
+        logger.info(f"Study Path: {study_path}")
         logger.info(f"Hypothesis: {self.parameters.hypothesis}")
-        logger.info(f"Market Areas: {', '.join(self.parameters.market_areas)}")
         logger.info(f"Scenario: {self.parameters.scenario}")
 
-        # Load Antares study using antares_craft
-        logger.info("Loading Antares study...")
-        study = read_study_local(self.parameters.study_path)
+        study = read_study_local(study_path)
         logger.info(f"Study loaded: {study.name}")
 
         results = self.registry.execute_all(study, self.parameters, AtlasDataset())
