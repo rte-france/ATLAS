@@ -12,7 +12,12 @@ from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.models.hydro import compute_initial_levels, compute_water_values
 from atlas.modules.antares_to_atlas.models.load.dsr import convert_dsr_units
+from atlas.modules.antares_to_atlas.models.p2g.multi_energy import update_variable_cost_for_gas_units
 from atlas.modules.antares_to_atlas.models.p2g.p2g import convert_p2g_units
+from atlas.modules.antares_to_atlas.models.p2g.particular_mid_peak import (
+    convert_pcomp_mid_units,
+    convert_pcomp_peak_units,
+)
 from atlas.modules.antares_to_atlas.models.storage import (
     convert_battery_units,
     convert_electric_vehicle_units,
@@ -82,10 +87,10 @@ class MixedFuelConverterBP23(Converter):
         return convert_mixed_fuel_units(study, parameters, atlas_dataset)
 
 
-class ParticularMidPeakConverterBP23(Converter):
+class ParticularMidConverterBP23(Converter):
     @property
     def name(self) -> str:
-        return "particular_mid_peak"
+        return "particular_mid_units"
 
     @property
     def description(self) -> str:
@@ -94,7 +99,22 @@ class ParticularMidPeakConverterBP23(Converter):
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return convert_particular_mid_peak(study, parameters, atlas_dataset)
+        return convert_pcomp_mid_units(study, parameters, atlas_dataset)
+
+
+class ParticularPeakConverterBP23(Converter):
+    @property
+    def name(self) -> str:
+        return "particular_peak_units"
+
+    @property
+    def description(self) -> str:
+        return "Specific Gas Units Conversion"
+
+    def convert(
+        self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
+    ) -> list[BusinessModel]:
+        return convert_pcomp_peak_units(study, parameters, atlas_dataset)
 
 
 class P2GConverterBP23(Converter):
@@ -124,7 +144,7 @@ class MultiEnergyConverterBP23(Converter):
     def convert(
         self, study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
     ) -> list[BusinessModel]:
-        return apply_multi_energy_costs(study, parameters, atlas_dataset)
+        return update_variable_cost_for_gas_units(study, parameters, atlas_dataset)
 
 
 class DSRConverterBP23(Converter):

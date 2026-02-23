@@ -23,7 +23,8 @@ from atlas.modules.antares_to_atlas.converters.bp23 import (
     MultiEnergyConverterBP23,
     NuclearModulationConverterBP23,
     P2GConverterBP23,
-    ParticularMidPeakConverterBP23,
+    ParticularMidConverterBP23,
+    ParticularPeakConverterBP23,
     PHSClosedConverterBP23,
     WaterValueConverterBP23,
 )
@@ -132,7 +133,8 @@ class AntaresToAtlas:
             MixedFuelConverterBP23,  # Depends on thermal converter
             ElectricVehicleConverterBP23,
             BatteryConverterBP23,
-            ParticularMidPeakConverterBP23,
+            ParticularMidConverterBP23,
+            ParticularPeakConverterBP23,
             P2GConverterBP23,
             MultiEnergyConverterBP23,  # Must run after all thermic units
             DSRConverterBP23,
