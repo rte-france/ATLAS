@@ -50,6 +50,11 @@ class Container(Generic[T]):
         """Return True if the container has no items."""
         return not self._items
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Container):
+            return NotImplemented
+        return self._items == other._items
+
     def __len__(self) -> int:
         """Return The size of the container."""
         return len(self._items)
