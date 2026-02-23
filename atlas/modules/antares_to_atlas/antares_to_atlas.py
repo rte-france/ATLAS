@@ -148,8 +148,8 @@ class AntaresToAtlas:
 
         Loads the Antares study from the configured path and converts it to Atlas format.
 
-        :return: Dictionary of conversion results from each converter
-        :rtype: dict[str, dict]
+        :return: Converted AtlasDataset containing all business models
+        :rtype: AtlasDataset
         """
         logger.info("Starting Antares to Atlas conversion")
         logger.info(f"Study Path: {self.parameters.study_path}")
@@ -163,9 +163,7 @@ class AntaresToAtlas:
         study = read_study_local(self.parameters.study_path)
         logger.info(f"Study loaded: {study.name}")
 
-        dataset: AtlasDataset = AtlasDataset()
-
-        results = self.registry.execute_all(study, self.parameters, dataset)
+        results = self.registry.execute_all(study, self.parameters, AtlasDataset())
 
         logger.info("Conversion completed successfully")
 

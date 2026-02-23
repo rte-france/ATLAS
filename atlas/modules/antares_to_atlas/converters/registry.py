@@ -40,15 +40,15 @@ class ConverterRegistry:
         study: Study,
         parameters: AntaresToAtlasParameters,
         atlas_dataset: AtlasDataset,
-    ) -> dict[str, dict]:
+    ) -> AtlasDataset:
         """Execute all registered converters in order.
 
         :param study: Antares study object from antares_craft
         :type study: Study
         :param parameters: Conversion parameters
         :type parameters: AntaresToAtlasParameters
-        :return: Dictionary mapping converter names to their results
-        :rtype: dict[str, dict]
+        :return: Updated AtlasDataset after all converters have been executed
+        :rtype: AtlasDataset
         """
 
         logger.info("Executing Converters")

@@ -103,21 +103,13 @@ def _convert_dsr_fr(
     ]
 
     for dsr_config in dsr_types:
-        # Get maximum daily energy from binding constraint (if applicable)
         maximum_daily_energy = None
-        if dsr_config["bc_name"]:
-            bc_name = dsr_config["bc_name"]
-            # TODO: Verify the correct way to access binding constraint by name
-            # The binding_constraints dict might use IDs instead of names
-            if bc_name in binding_constraints:
-                bc = binding_constraints[bc_name]
-                # TODO: Verify that get_less_term_matrix() is the correct method
-                # to get the MaximumDailyEnergy time series
-                maximum_daily_energy_df = bc.get_less_term_matrix()
-                # TODO: Convert DataFrame to Timeseries - need to verify the correct approach
-                maximum_daily_energy = Timeseries(maximum_daily_energy_df)
+        bc_name = dsr_config.get("bc_name", None)
+        if bc_name:
+            bc = binding_constraints.get(bc_name, None)
+            if bc is not None:
+                maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
 
-        # Get thermal cluster data
         thermal_name = dsr_config["thermal_name"]
         if thermal_name not in thermals:
             logger.warning(f"DSR cluster name {thermal_name} not found in thermals clusters, skipping")
@@ -125,18 +117,7 @@ def _convert_dsr_fr(
 
         cluster = thermals[thermal_name]
 
-        # TODO: Verify how to get availability time series for a specific scenario
-        # In the old code: dsr_instance_antares.Disponibility[str(p.scenario)]
-        # Need to find equivalent in new API
-        try:
-            # TODO: This is a placeholder - need to verify correct way to get scenario-specific availability
-            maximum_power_df = cluster.get_prepro_modulation_matrix()
-            # TODO: Extract the specific scenario column
-            # maximum_power = Timeseries(maximum_power_df[parameters.scenario - 1])
-            maximum_power = None  # Placeholder until TODO is resolved
-        except Exception as e:
-            logger.warning(f"Could not get availability for {thermal_name}: {e}")
-            maximum_power = None
+        disponibility = cluster.get_series_matrix()[parameters.scenario - 1]
 
         # Create variable cost timeseries
         variable_cost = Timeseries.from_index(
@@ -155,7 +136,7 @@ def _convert_dsr_fr(
             ),
             has_daily_energy_constraint=dsr_config["has_daily_constraint"],
             maximum_daily_energy=maximum_daily_energy,
-            maximum_power=maximum_power,
+            maximum_power=disponibility,
             variable_cost=variable_cost,
             strategy=ThermalStrategy.PEAK,
         )
@@ -178,19 +159,10 @@ def _convert_dsr_other_country(
     # Look for binding constraint matching pattern: "dsr_{area_name}_stock"
     bc_name = f"dsr_{area.id}_stock"
 
-    # TODO: Verify if binding constraints are indexed by name or by ID
-    # May need to use transform_name_to_id(bc_name) to get the ID
-    if bc_name not in binding_constraints:
-        # No DSR binding constraint for this area
-        return None
+    bc = binding_constraints.get(bc_name, None)
 
-    bc = binding_constraints[bc_name]
-
-    # Get maximum daily energy from binding constraint
-    # TODO: Verify that get_less_term_matrix() returns the correct time series
-    maximum_daily_energy_df = bc.get_less_term_matrix()
-    # TODO: Convert DataFrame to Timeseries
-    maximum_daily_energy = Timeseries(maximum_daily_energy_df)
+    if bc is not None:
+        maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
 
     # Get thermal cluster name - uses special formatting
     # TODO: Verify the node_special_format function is available or needed
@@ -206,32 +178,20 @@ def _convert_dsr_other_country(
 
     cluster = thermals[thermal_name]
 
-    # TODO: Verify how to get availability time series for specific scenario
     try:
-        # TODO: This is a placeholder - need to verify correct way to get scenario-specific availability
-        maximum_power_df = cluster.get_prepro_modulation_matrix()
-        # TODO: Extract the specific scenario and check if it's non-zero
-        # In old code, we skip if Abs().Max() == 0.0
-        # maximum_power = Timeseries(maximum_power_df[parameters.scenario - 1])
-        maximum_power = None  # Placeholder until TODO is resolved
-
-        # TODO: Check if maximum power is zero before creating equipment
-        # if maximum_power.abs().max() == 0.0:
-        #     return None
+        maximum_power_df = cluster.get_series_matrix()[parameters.scenario - 1]
+        if maximum_power_df.abs().max() == 0:
+            return None
+        maximum_power = Timeseries(maximum_power_df)
     except Exception as e:
         logger.warning(f"Could not get availability for {thermal_name}: {e}")
         return None
 
-    # Get marginal cost
-    # TODO: Verify how to access marginal_cost from thermal cluster properties
-    marginal_cost = cluster.properties.marginal_cost if hasattr(cluster.properties, "marginal_cost") else 0.0
-
-    # Create variable cost timeseries
     variable_cost = Timeseries.from_index(
         start_date=parameters.start_date,
         frequency="1h",
         end_date=parameters.start_date + duration(years=1),
-        default_value=marginal_cost,
+        default_value=cluster.properties.marginal_cost,
     )
 
     # Create DSR equipment
