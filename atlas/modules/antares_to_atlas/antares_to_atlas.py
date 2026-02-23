@@ -31,9 +31,9 @@ from atlas.modules.antares_to_atlas.converters.standard import (
     HydroConverter,
     LinkConverter,
     LoadConverter,
-    NodeConverter,
     NonDispatchableConverter,
     SolarConverter,
+    SystemStructureConverter,
     ThermalConverter,
     WindConverter,
 )
@@ -104,7 +104,7 @@ class AntaresToAtlas:
         registry = ConverterRegistry()
 
         standard_converters = [
-            NodeConverter,
+            SystemStructureConverter,
             LoadConverter,
             WindConverter,
             SolarConverter,

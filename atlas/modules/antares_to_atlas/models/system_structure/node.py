@@ -20,9 +20,7 @@ from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
 
 
 def convert_system_structure(
-    study: Study,
-    parameters: AntaresToAtlasParameters,
-    atlas_dataset: AtlasDataset,
+    study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset
 ) -> AtlasDataset:
     """Convert nodes and related structures from Antares to Atlas.
 
@@ -36,10 +34,8 @@ def convert_system_structure(
     :type study: Study
     :param parameters: Conversion parameters
     :type parameters: AntaresToAtlasParameters
-    :param atlas_dataset: Atlas dataset
-    :type atlas_dataset: AtlasDataset
-    :return: Tuple of (nodes, market_areas, portfolios, control_blocks)
-    :rtype: tuple[list[Node], list[MarketArea], list[Portfolio], list[ControlBlock]]
+    :return: atlas_dataset with converted nodes, market areas, portfolios, and control blocks
+    :rtype: AtlasDataset
     """
     logger.info(f"Converting nodes for areas: {', '.join(parameters.market_areas)}")
 
@@ -123,4 +119,9 @@ def convert_system_structure(
 
     logger.info(f"Converted {len(nodes)} nodes, {len(market_areas)} market areas, {len(portfolios)} portfolios")
 
-    return AtlasDataset(control_block=control_blocks, node=nodes, portfolio=portfolios, market_area=market_areas)
+    atlas_dataset.control_block.add(control_blocks)
+    atlas_dataset.node.add(nodes)
+    atlas_dataset.portfolio.add(portfolios)
+    atlas_dataset.market_area.add(market_areas)
+
+    return atlas_dataset

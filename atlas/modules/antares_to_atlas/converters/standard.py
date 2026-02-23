@@ -64,7 +64,7 @@ class LoadConverter(Converter):
         return convert_load_units(study, parameters, atlas_dataset)
 
 
-class NodeConverter(Converter):
+class SystemStructureConverter(Converter):
     """Converter for Node, MarketArea, Portfolio and ControlBlock creation.
 
     This converter creates the basic system structure including:
