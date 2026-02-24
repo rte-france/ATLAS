@@ -148,7 +148,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
     def _trim_null_extremities(self, df: pl.DataFrame) -> pl.DataFrame:
         """
         Remove rows at the beginning and end where all value columns are null.
-        This is called after delete operations to clean up the matrix edges.
+        This is called after delete and select operations to clean up the matrix edges.
         """
         if len(df) == 0:
             return df

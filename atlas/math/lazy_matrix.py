@@ -137,8 +137,8 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
 
     def _trim_null_extremities(self, df: pl.LazyFrame) -> pl.LazyFrame:
         """
-        Remove rows at the beginning and end where all value columns are null.
-        This is called after delete operations to clean up the matrix.
+        Remove rows at the beginning and end where all value columns are null.*
+        This is called after delete and select operations to clean up the matrix edges.
         """
         df_collected = df.collect()
         if len(df_collected) == 0:
