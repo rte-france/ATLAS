@@ -6,9 +6,10 @@ Parameters for Antares to Atlas conversion module.
 """
 
 from pathlib import Path
+from typing import Literal
 
 from pendulum import Duration
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, computed_field, field_validator, model_validator
 from typing_extensions import Self
 
 from atlas.io_utils.parameters import Parameters
@@ -47,7 +48,9 @@ class AntaresToAtlasParameters(Parameters):
 
     # Water value
     use_water_value: bool = Field(default=False, description="Enable water value computation")
-    water_value_scenarios: int = Field(default=1, ge=1, description="Number of water value scenarios")
+    water_value_scenarios: list[str] | Literal["all"] = Field(
+        default=1, ge=1, description="Number of water value scenarios"
+    )
     water_value_nb_years: int = Field(default=2, ge=2, description="Number of years for water value")
     hydro_storage_subdivision: int = Field(default=1, ge=1, description="Storage subdivision for water value")
     beta: float = Field(default=0.0, description="Beta parameter for Bellman computation")
@@ -124,3 +127,9 @@ class AntaresToAtlasParameters(Parameters):
     def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""
         return convert_to_duration(v)
+
+    @computed_field
+    @property
+    def fragment_prices(self) -> dict[str, float]:
+        pass
+        # TODO Parse fragment_prices file
