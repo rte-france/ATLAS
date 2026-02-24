@@ -78,6 +78,7 @@ dev = [
     "pre-commit>=4.2.0",
     "plotly-stubs>=0.0.5",
     "ortools-stubs>=8.0.0",
+    "types-pytz>=2025.2.0.20251108",
 ]
 docs = [
     "mike>=2.1.3",
