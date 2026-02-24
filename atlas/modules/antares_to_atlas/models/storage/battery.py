@@ -87,9 +87,7 @@ def _convert_normal_battery(
     if not link:
         return None
 
-    # Get binding constraint for efficiency values
     binding_constraints = study.get_binding_constraints()
-
     binding_constraint = binding_constraints.get(f"batteries_{area.id}", None)
 
     if binding_constraint:
@@ -179,29 +177,18 @@ def _convert_pcomp_battery(
     links: dict[str, Link],
 ) -> Storage | None:
     """Convert PCOMP battery unit."""
-    link_name = f"{area.id}_z_batteries_pcomp"
 
-    # TODO: Verify if links are indexed by name or by ID
-    link = None
-    for link_id, link_obj in links.items():
-        if link_name.lower() in link_id.lower():
-            link = link_obj
-            break
+    link = links.get(f"{area.id}_z_batteries_pcomp", None)
 
     if not link:
         return None
 
     # Get binding constraint
     binding_constraints = study.get_binding_constraints()
-    binding_constraint_name = f"batteries_pcomp_{area.id}"
-    binding_constraint = None
-    for bc_id, bc_obj in binding_constraints.items():
-        if binding_constraint_name.lower() in bc_id.lower():
-            binding_constraint = bc_obj
-            break
+    binding_constraint = binding_constraints.get(f"batteries_pcomp_{area.id}", None)
 
     if not binding_constraint:
-        logger.warning(f"Binding constraint {binding_constraint_name} not found for PCOMP battery in area {area.id}")
+        logger.warning(f"Binding constraint batteries_pcomp_{area.id} not found for PCOMP battery in area {area.id}")
 
     # TODO: Similar implementation as normal battery
     # This would follow the same pattern as _convert_normal_battery
