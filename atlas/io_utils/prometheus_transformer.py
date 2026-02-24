@@ -27,8 +27,7 @@ from pydantic_extra_types.pendulum_dt import DateTime, Duration
 import atlas.config as cfg
 from atlas import AtlasDataset
 from atlas.config import DEFAULT_VALUE_IO, logger
-from atlas.enums import BusinessModelName
-from atlas.io_utils.update_dataset import UpdateDataset
+from atlas.enums import BusinessModelName, StorageType
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.typing import get_class_inheritance_chain, get_type_attribute
@@ -129,10 +128,43 @@ class PrometheusToAtlasDataParser:
 
         dataset = AtlasDataset.from_directory(self.tmp_dir)
         if self.default_value:
-            UpdateDataset(dataset).standard_update()
+            self.add_default_value(dataset)
         shutil.rmtree(self.tmp_dir)
         dataset.to_directory(self.output_dir)
         logger.success(f"Export done to Atlas dataset - {self.output_dir}!")
+
+    @staticmethod
+    def add_default_value(dataset: AtlasDataset):
+        for equipment_name in cfg.EQUIPMENT_MODELS:
+            for equipment in dataset.get_container_by_type(equipment_name):
+                equipment.maximum_afrr = 0 if equipment.maximum_afrr is None else equipment.maximum_afrr
+                equipment.maximum_fcr = 0 if equipment.maximum_fcr is None else equipment.maximum_fcr
+                equipment.setup_delay = 0 if equipment.setup_delay is None else equipment.setup_delay
+                equipment.unit_count = 1 if equipment.unit_count is None else equipment.unit_count
+                equipment.maximum_gradient = 0 if equipment.maximum_gradient is None else equipment.maximum_gradient
+
+        for storage in dataset.storage:
+            storage.transition_duration = (
+                pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration
+            )
+
+            if storage.additional_hours_ is None:
+                if storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
+                    storage.additional_hours_ = Duration(hours=144)
+                elif storage.storage_type == StorageType.BATTERY:
+                    storage.additional_hours_ = Duration(hours=48)
+                elif storage.storage_type == StorageType.ELECTRIC_VEHICLE:
+                    storage.additional_hours_ = Duration(hours=24)
+                else:
+                    storage.additional_hours_ = Duration(hours=48)
+
+        for market_border in dataset.market_border:
+            market_border.coupling_type = (
+                "ATC" if market_border.coupling_type is None else market_border.coupling_type
+            )
+            market_border.time_resolution = (
+                0.0 if market_border.time_resolution is None else market_border.time_resolution
+            )
 
     def _process_object_type(
         self,
