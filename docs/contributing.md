@@ -56,6 +56,15 @@ We also use `mypy` for typing analysis :
 uv run mypy atlas
 ```
 
+## Build the documentation website
+
+We use `zensical` to build our documentation wesbite, run the command below and visit [http://localhost:8000](http://localhost:8000) :
+
+```bash
+uv sync --all-groups
+uv run zensical serve
+```
+
 ## Making a Pull Request
 
 Before contributing code, make sure you've:
