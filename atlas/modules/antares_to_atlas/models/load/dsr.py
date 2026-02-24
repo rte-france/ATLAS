@@ -55,7 +55,6 @@ def convert_dsr_units(
             continue
 
         dsr_unit = _convert_dsr_other_country(
-            study=study,
             parameters=parameters,
             atlas_dataset=atlas_dataset,
             area=areas[area_name],
@@ -71,7 +70,6 @@ def convert_dsr_units(
 
 
 def _convert_dsr_fr(
-    study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     area: Area,
@@ -108,7 +106,7 @@ def _convert_dsr_fr(
         if bc_name:
             bc = binding_constraints.get(bc_name, None)
             if bc is not None:
-                maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
+                maximum_daily_energy = Timeseries(bc.get_less_term_matrix())  # TODO
 
         thermal_name = dsr_config["thermal_name"]
         if thermal_name not in thermals:
@@ -117,7 +115,7 @@ def _convert_dsr_fr(
 
         cluster = thermals[thermal_name]
 
-        disponibility = cluster.get_series_matrix()[parameters.scenario - 1]
+        disponibility = cluster.get_series_matrix()[parameters.scenario - 1]  # TODO
 
         # Create variable cost timeseries
         variable_cost = Timeseries.from_index(
@@ -148,7 +146,6 @@ def _convert_dsr_fr(
 
 
 def _convert_dsr_other_country(
-    study: Study,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
     area: Area,
@@ -164,10 +161,6 @@ def _convert_dsr_other_country(
     if bc is not None:
         maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
 
-    # Get thermal cluster name - uses special formatting
-    # TODO: Verify the node_special_format function is available or needed
-    # In old code: f"{node.Name}_{functions.node_special_format(node.Name)}_DSR_0"
-    # For now, trying simplified pattern
     thermal_name = f"{area.id}_{area.upper()}_DSR_0"
 
     thermals = area.get_thermals()
@@ -179,7 +172,7 @@ def _convert_dsr_other_country(
     cluster = thermals[thermal_name]
 
     try:
-        maximum_power_df = cluster.get_series_matrix()[parameters.scenario - 1]
+        maximum_power_df = cluster.get_series_matrix()[parameters.scenario - 1]  # TODO
         if maximum_power_df.abs().max() == 0:
             return None
         maximum_power = Timeseries(maximum_power_df)

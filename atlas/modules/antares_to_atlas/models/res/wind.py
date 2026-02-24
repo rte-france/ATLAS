@@ -71,10 +71,10 @@ def convert_wind_units(
 
                 winds.append(new_wind)
         else:
-            if parameters.scenario - 1 >= len(antares_node.WindSelectedScenario):
+            if parameters.scenario - 1 >= len(area.WindSelectedScenario):
                 continue
 
-            sc_wind = antares_node.WindSelectedScenario[parameters.scenario - 1]  # TODO
+            sc_wind = area.WindSelectedScenario[parameters.scenario - 1]  # TODO
 
             if str(sc_wind) in area.get_wind_matrix().index:
                 if area.get_wind_matrix().abs().max().item() > 0:

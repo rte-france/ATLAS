@@ -36,7 +36,7 @@ def convert_solar_units(
                     if parameters.scenario - 1 >= len(cluster_res.RenewablesSelectedScenario):  # TODO
                         continue
 
-                    sc_solar = instance.RenewablesSelectedScenario[parameters.scenario - 1]
+                    sc_solar = cluster_res.RenewablesSelectedScenario[parameters.scenario - 1]
 
                     if str(sc_solar) in area.get_solar_matrix().index:
                         if area.get_solar_matrix().abs().max().item() > 0:
@@ -69,10 +69,10 @@ def convert_solar_units(
                                 new_solar.installed_capacity += solar_thermal.properties.nominal_capacity
                 solars.append(new_solar)
         else:
-            if parameters.scenario - 1 >= len(antares_node.SolarSelectedScenario):
+            if parameters.scenario - 1 >= len(area.SolarSelectedScenario):
                 continue
 
-            sc_solar = antares_node.SolarSelectedScenario[parameters.scenario - 1]  # TODO
+            sc_solar = area.SolarSelectedScenario[parameters.scenario - 1]  # TODO
 
             if str(sc_solar) in area.get_solar_matrix().index:
                 if area.get_solar_matrix().abs().max().item() > 0:

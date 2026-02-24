@@ -32,7 +32,7 @@ def compute_initial_levels(
     """
     logger.info("Computing initial levels for hydraulic equipment")
 
-    if not hasattr(atlas_dataset, "hydro") or not atlas_dataset.hydro:
+    if len(atlas_dataset.hydro) == 0:
         logger.debug("No hydraulic equipment found, skipping initial level computation")
         return atlas_dataset
 
