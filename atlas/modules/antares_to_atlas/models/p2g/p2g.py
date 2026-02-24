@@ -251,12 +251,10 @@ def _convert_p2g_methanation(
     thermal_name = "z_p2g_methanation_z_P2G_methanation_methanation"
     variable_cost_value = 0.0
 
-    # TODO: Need to access thermal cluster from the z_p2g_methanation area
     if "z_p2g_methanation" in areas:
         thermals = areas["z_p2g_methanation"].get_thermals()
         for thermal_key, thermal_obj in thermals.items():
             if "p2g_methanation" in thermal_key.lower() or "methanation" in thermal_key.lower():
-                # TODO: Verify how to access MarketBidCost
                 variable_cost_value = thermal_obj.properties.market_bid_cost
                 break
 

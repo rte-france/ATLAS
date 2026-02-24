@@ -11,6 +11,7 @@ from pendulum import duration
 
 from atlas.enums import StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.storage import Storage
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
@@ -80,107 +81,47 @@ def _convert_normal_battery(
     links: dict[str, Link],
 ) -> Storage | None:
     """Convert normal battery unit."""
-    link_name = f"{area.id}_z_batteries"
 
-    link = None
-    for link_id, link_obj in links.items():
-        if link_name.lower() in link_id.lower():
-            link = link_obj
-            break
+    link = links.get(f"{area.id}_z_batteries", None)
 
     if not link:
         return None
 
     # Get binding constraint for efficiency values
     binding_constraints = study.get_binding_constraints()
-    binding_constraint_name = f"batteries_{area.id}"
-    binding_constraint = None
-    for bc_id, bc_obj in binding_constraints.items():
-        if binding_constraint_name.lower() in bc_id.lower():
-            binding_constraint = bc_obj
-            break
 
-    if not binding_constraint:
-        logger.warning(f"Binding constraint {binding_constraint_name} not found for battery in area {area.id}")
+    binding_constraint = binding_constraints.get(f"batteries_{area.id}", None)
 
-    # Get maximum power and power discharge data
-    # TODO: Verify how to access thermal cluster data for batteries_inj
-    # In old code: ThermalTechnology.GetInstanceByName(f"{area.id}_{node_special_format}_batteries_inj")
-    try:
-        # TODO: Need to access thermal clusters to get batteries_inj data
-        # This requires accessing the area's thermal clusters
+    if binding_constraint:
         thermals = area.get_thermals()
-        batteries_inj_thermal = None
-        for thermal_key, thermal_obj in thermals.items():
-            if "batteries_inj" in thermal_key.lower():
-                batteries_inj_thermal = thermal_obj
-                break
+        areas = study.get_areas()
+        batteries_inj_thermal = thermals.get("batteries_inj", None)
 
         if not batteries_inj_thermal:
             return None
 
-        # TODO: Verify how to get Disponibility and CalculatedPower time series
-        # In old code: thermal.Disponibility[str(p.scenario)] and thermal.CalculatedPower[str(p.scenario)]
-        maximum_power_df = batteries_inj_thermal.series  # TODO: Get correct time series
-        power_discharge_df = batteries_inj_thermal.series  # TODO: Get correct time series
+        maximum_power_df = batteries_inj_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get dispo
+        power_discharge_df = batteries_inj_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get dispo
 
         if maximum_power_df.abs().max().max() == 0:
             return None
 
         maximum_power_ts = Timeseries(maximum_power_df)
-        power_discharge_ts = Timeseries(power_discharge_df) if power_discharge_df is not None else None
+        power_discharge_ts = Timeseries(power_discharge_df)
 
-    except Exception as e:
-        logger.warning(f"Could not get thermal data for batteries_inj in area {area.id}: {e}")
-        return None
-
-    # Get MaximumEnergy from stock thermal technology
-    # TODO: Verify how to access thermal cluster for stock_1
-    # In old code: ThermalTechnology.GetInstanceByName(f"z_batteries_batteries_{node_special_format}_1")
-    try:
-        # TODO: Need to access z_batteries area thermal clusters
-        areas_dict = study.get_areas()
-        if "z_batteries" not in areas_dict:
-            return None
-
-        z_batteries_thermals = areas_dict["z_batteries"].get_thermals()
-        stock_thermal = None
-        for thermal_key, thermal_obj in z_batteries_thermals.items():
-            if area.id.lower() in thermal_key.lower() and "_1" in thermal_key:
-                stock_thermal = thermal_obj
-                break
-
-        if not stock_thermal:
-            return None
-
-        # TODO: Verify how to get Disponibility time series
-        maximum_energy_df = stock_thermal.series  # TODO: Get correct time series
+        z_batteries_thermals = areas["z_batteries"].get_thermals()
+        stock_thermal = z_batteries_thermals.get(f"z_batteries_batteries_{area.id}_1", None)
+        maximum_energy_df = stock_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get Disponibility
         maximum_energy_ts = Timeseries(maximum_energy_df)
 
-    except Exception as e:
-        logger.warning(f"Could not get stock data for battery in area {area.id}: {e}")
-        return None
-
-    # Get efficiencies from binding constraint
-    charge_efficiency = 1.0
-    discharge_efficiency = 1.0
-    if binding_constraint:
-        # TODO: Verify how to access Weights from binding constraint
         # In old code: binding_constraint.Weights[0] and binding_constraint.Weights[1]
-        try:
-            terms = binding_constraint.get_terms()
-            # TODO: The weights structure might be different in new API
-            # May need to extract weights from terms
-            charge_efficiency = 1.0  # TODO: Extract from binding constraint
-            discharge_efficiency = 1.0  # TODO: Extract from binding constraint
-        except Exception as e:
-            logger.warning(f"Could not get efficiency values from binding constraint: {e}")
 
-    # Get transit data for power calculation
-    try:
-        # TODO: Verify how to get CalculatedTransit time series
+        terms = binding_constraint.get_terms()
+        charge_efficiency = 1.0  # TODO: Extract from binding constraint
+        discharge_efficiency = 1.0  # TODO: Extract from binding constraint
+
         # In old code: link.CalculatedTransit[str(p.scenario)]
-        power_charge_df = link.get_capacity_direct()  # TODO: Get correct transit data
+        power_charge_df = link.get_capacity_direct()[parameters.scenario]  # TODO: Get correct transit data
         power_charge_ts = Timeseries(power_charge_df * -1.0)
 
         if power_discharge_ts is None:
@@ -193,28 +134,14 @@ def _convert_normal_battery(
 
         power_ts = power_discharge_ts + power_charge_ts
 
-    except Exception as e:
-        logger.warning(f"Could not calculate power for battery in area {area.id}: {e}")
-        return None
-
-    # Get minimum power from link capacity
-    try:
         # TODO: Verify how to get DirectTransferCapacity time series
-        minimum_power_df = link.get_capacity_direct()
+        minimum_power_df = link.get_capacity_direct()[parameters.scenario]
         minimum_power_value = float(minimum_power_df.abs().max().max())
         minimum_power_ts = Timeseries.from_index(
             start_date=parameters.start_date,
             frequency="1h",
             end_date=parameters.start_date + duration(years=1),
             default_value=-minimum_power_value,
-        )
-    except Exception as e:
-        logger.warning(f"Could not get minimum power for battery in area {area.id}: {e}")
-        minimum_power_ts = Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=0.0,
         )
 
     # Create battery equipment
@@ -238,12 +165,9 @@ def _convert_normal_battery(
         charge_efficiency=charge_efficiency,
         discharge_efficiency=discharge_efficiency,
         storage_initial_level=parameters.battery_initial_level,
-        # TODO: unit_count=1,  # To be refined when battery unit counts are indicated in Antares
+        unit_count=1,
+        power=ForecastingMatrix().add(power_ts, parameters.execution_date),
     )
-
-    # Add power forecast
-    # TODO: Verify if power should be added as a forecast matrix
-    # battery.power.add(parameters.execution_date, power_ts)
 
     logger.debug(f"Created normal battery for area: {area.id}")
     return battery
