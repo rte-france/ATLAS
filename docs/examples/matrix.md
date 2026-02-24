@@ -335,5 +335,6 @@ timezone = matrix.timezone      # Timezone string
 ```
 
 For more information, see the API references:
+
 - [ScenarioMatrix API](../api/math/scenario_matrix.md)
 - [ForecastingMatrix API](../api/math/forecasting_matrix.md)

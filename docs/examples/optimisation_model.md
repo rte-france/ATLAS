@@ -339,4 +339,4 @@ except ValueError as e:
     print(f"Duplicate variable: {e}")
 ```
 
-For more information, see the [API Reference](../api/solver/optimisation_model.md).
+For more information, see the [API Reference](../api/solver/interface.md).

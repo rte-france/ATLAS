@@ -95,15 +95,19 @@ extra_css:
 nav:
   - Home:
     - Welcome to Atlas: index.md
-    - Getting Started: getting_started.md
-    - CLI Reference: cli.md
-    - Contributing: contributing.md
-    - Release Process: release_process.md
     - Changelog: changelog.md
     - Authors: authors.md
-  - Concepts:
-    - Overview: concepts/overview.md
+  - Getting Started:
+    - Installation: getting_started/getting_started.md
+    - Quick Start Tutorial: getting_started/quickstart.md
+    - Your First Simulation: getting_started/first-simulation.md
+  - User Guide:
+    - With Command lines: cli.md
+    - In Python Usage: modules/running-modules.md
+    - Module Pattern: modules/module-pattern.md
+    - Common Parameters: modules/common-parameters.md
   - Modules:
+    - Overview: modules/index.md
     - Portfolio Optimisation:
       - Overview: modules/portfolio-optimisation/index.md
       - User Guide:
@@ -136,6 +140,7 @@ nav:
     - Matrix: examples/matrix.md
     - OptimisationModel: examples/optimisation_model.md
   - API Reference:
+    - Overview: api/index.md
     - Math Objects:
       - Timeseries: api/math/timeseries.md
       - Scenario Matrix: api/math/scenario_matrix.md
@@ -150,13 +155,15 @@ nav:
     - Workflows:
       - Workflow: api/workflow/workflow.md
       - Workflow step: api/workflow/workflow_step.md
-      - Workflow parameters: api/workflow/workflow_parameters.md
     - Optimisation:
       - Solver Interface: api/solver/interface.md
       - Other : api/solver/models.md
     - Others:
       - Enum: api/enum.md
       - Logging: api/logging.md
+  - Development:
+    - Contributing: contributing.md
+    - Release Process: release_process.md
 
 extra:
   version:
