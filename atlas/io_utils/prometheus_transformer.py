@@ -1,4 +1,9 @@
-"""Prometheus HDF5 data transformer for Atlas datasets.
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+
+Prometheus HDF5 data transformer for Atlas datasets.
 
 This module handles the conversion of Prometheus HDF5 data files into Atlas-compatible
 datasets, including objects, timeseries, scenario matrices, and forecasting matrices.
@@ -6,6 +11,7 @@ datasets, including objects, timeseries, scenario matrices, and forecasting matr
 
 import os
 import shutil
+import tempfile
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -19,8 +25,10 @@ import polars as pl
 from pydantic_extra_types.pendulum_dt import DateTime, Duration
 
 import atlas.config as cfg
+from atlas import AtlasDataset
 from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.enums import BusinessModelName
+from atlas.io_utils.update_dataset import UpdateDataset
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.typing import get_class_inheritance_chain, get_type_attribute
@@ -70,6 +78,7 @@ class PrometheusToAtlasDataParser:
         date_format_forecasting: str = DEFAULT_DATE_FORMAT_FORECASTING,
         date_format_input_files: str = DEFAULT_DATE_FORMAT_INPUT,
         date_format_timestep: str = DEFAULT_DATE_FORMAT_TIMESTEP,
+        default_value: bool = True,
     ) -> None:
         self.hdf5_path = Path(hdf5_path)
         self.output_dir = Path(output_dir)
@@ -77,6 +86,10 @@ class PrometheusToAtlasDataParser:
         self.date_format_forecasting = date_format_forecasting
         self.date_format_input_files = date_format_input_files
         self.date_format_timestep = date_format_timestep
+        self.default_value = default_value
+
+        tmp_dir = tempfile.mkdtemp()
+        self.tmp_dir = Path(tmp_dir)
 
         logger.info(f"Initialized parser with HDF5 path: {self.hdf5_path} and output root: {self.output_dir}")
 
@@ -108,12 +121,17 @@ class PrometheusToAtlasDataParser:
             object_types = list(hdf5_file.keys())
             logger.info(f"Found object types: {object_types}")
 
-            objects_dir = self.output_dir / "objects"
+            objects_dir = self.tmp_dir / "objects"
             _ensure_directory(objects_dir)
 
             for object_type in object_types:
                 self._process_object_type(hdf5_file, object_type, objects_dir, use_multiprocessing, n_workers)
 
+        dataset = AtlasDataset.from_directory(self.tmp_dir)
+        if self.default_value:
+            UpdateDataset(dataset).standard_update()
+        shutil.rmtree(self.tmp_dir)
+        dataset.to_directory(self.output_dir)
         logger.success(f"Export done to Atlas dataset - {self.output_dir}!")
 
     def _process_object_type(
@@ -159,7 +177,7 @@ class PrometheusToAtlasDataParser:
 
         # Create matrix directories
         for matrix_type in MATRIX_TYPES:
-            _ensure_directory(self.output_dir / matrix_type / object_type_snake)
+            _ensure_directory(self.tmp_dir / matrix_type / object_type_snake)
 
         # Process instances in parallel or sequentially
         if use_multiprocessing and len(instances) > 1:
@@ -480,7 +498,7 @@ class PrometheusToAtlasDataParser:
             attrs[attr_name_snake] = None
             return
 
-        parquet_path = self.output_dir / matrix_type / object_type_snake / f"{instance_snake}.parquet"
+        parquet_path = self.tmp_dir / matrix_type / object_type_snake / f"{instance_snake}.parquet"
 
         if parquet_path.exists():
             # Concatenate with existing data
