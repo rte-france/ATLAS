@@ -58,7 +58,7 @@ uv run mypy atlas
 
 ## Build the documentation website
 
-We use `zensical` to build our documentation wesbite, run the command below and visit [http://localhost:8000](http://localhost:8000) :
+We use `zensical` to build our documentation website, run the command below and visit [http://localhost:8000](http://localhost:8000) :
 
 ```bash
 uv sync --all-groups
