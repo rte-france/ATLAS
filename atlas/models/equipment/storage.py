@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field, computed_field, field_validator
+from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enums import StorageType
@@ -83,34 +83,17 @@ class Storage(Equipment):
     minimum_power: AbstractTimeseries | None = None
     minimum_state_of_charge: AbstractTimeseries | None = None
 
-    additional_hours_: Duration | None = Field(
+    additional_hours: Duration | None = Field(
         None,
         description="Optimization period in hours for hydraulic group.",
-        alias="additional_hours",
     )
 
     @field_validator(
         "transition_duration",
-        "additional_hours_",
+        "additional_hours",
         mode="before",
     )
     @classmethod
     def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""
         return convert_to_duration(v)
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def additional_hours(self) -> Duration:
-        """Get additional hours for optimization period."""
-        if self.additional_hours_ is None:
-            if self.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-                return Duration(hours=144)
-            elif self.storage_type == StorageType.BATTERY:
-                return Duration(hours=48)
-            elif self.storage_type == StorageType.ELECTRIC_VEHICLE:
-                return Duration(hours=24)
-            else:
-                return Duration(hours=48)
-        else:
-            return self.additional_hours_
