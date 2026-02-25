@@ -3,8 +3,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import os
-
 from antares.craft.model.study import Study
 from loguru import logger
 from pendulum import duration
@@ -65,7 +63,7 @@ def compute_initial_levels(
             # TODO: Compute initial_level from remaining_energy_level_ts and hydro.maximum_energy
             # In old code:
             #   instance.InitialLevel = 1/100.0 * remaining_energy_level_ts * instance.MaximumEnergy
-            hydro.initial_level = None  # TODO: Implement
+            hydro.initial_level = None
 
         elif res_curve is not None and hydro.maximum_energy is not None:
             # ReservoirManagement OFF: use guide curve from CSV (in %)
@@ -75,7 +73,7 @@ def compute_initial_levels(
             # TODO: Compute initial_level from res_curve and hydro.maximum_energy
             # In old code:
             #   instance.InitialLevel = 1/100.0 * res_curve * instance.MaximumEnergy
-            hydro.initial_level = None  # TODO: Implement
+            hydro.initial_level = None
 
         else:
             logger.warning(f"Could not set initial level for {hydro.name}: no guide curve or RemainingEnergyLevel")
@@ -92,11 +90,8 @@ def _load_initialization_curve(parameters: AntaresToAtlasParameters) -> Timeseri
 
     :return: Timeseries of reservoir fill percentages, or None if file not found
     """
-    if not hasattr(parameters, "hydro_initialization_curve"):
-        logger.debug("No hydro_initialization_curve parameter defined")
-        return None
 
-    if not os.path.isfile(parameters.hydro_initialization_curve):
+    if parameters.hydro_initialization_curve.is_file():
         logger.warning(f"Hydro initialization curve file not found: {parameters.hydro_initialization_curve}")
         return None
 

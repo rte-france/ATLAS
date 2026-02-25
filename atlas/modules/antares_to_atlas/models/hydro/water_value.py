@@ -3,14 +3,17 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+import numpy as np
 from antares.craft.model.area import Area
 from antares.craft.model.study import Study
 from loguru import logger
+from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.hydro import Hydro
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.timing import generate_datetimes
 
 # Maximum water value (€/MWh) - water values are capped at this value
 _MAX_WATER_VALUE = 26000.0
@@ -41,10 +44,6 @@ def compute_water_values(
     :return: Updated atlas_dataset with water values computed
     """
     logger.info("Computing water values for hydraulic equipment")
-
-    if not hasattr(atlas_dataset, "hydro") or not atlas_dataset.hydro:
-        logger.debug("No hydraulic equipment found, skipping water value computation")
-        return atlas_dataset
 
     areas = study.get_areas()
 
@@ -93,19 +92,12 @@ def _compute_node_water_values(
     # Determine scenarios for water value computation
     # TODO: Verify how to get available scenarios from area
     # In old code: [int(ts.Name) for ts in antares_node.CalculatedMarginalPrice.TimeSeries]
-    available_scenarios: list[int] = []  # TODO: Get from area
+    available_scenarios: list[str] = []
 
-    if parameters.water_value_scenarios == "All":
+    if parameters.water_value_scenarios == "all":
         scenarios = available_scenarios
     else:
-        scenarios = [int(s) for s in parameters.water_value_scenarios.split(";")]
-        for s in scenarios:
-            if s not in available_scenarios:
-                raise ValueError(
-                    f"Cannot compute water values for {hydro.name}: scenario '{s}' not found "
-                    f"in CalculatedMarginalPrice of area {area.id}. "
-                    f"Available scenarios: {available_scenarios}"
-                )
+        scenarios = parameters.water_value_scenarios
 
     logger.info(f"Water value scenarios for {area.id}: {scenarios}")
 
@@ -113,57 +105,33 @@ def _compute_node_water_values(
         logger.warning(f"No scenarios found for water value computation of {area.id}")
         return
 
-    # Build hourly time index for one year
-    # TODO: Verify how to create a time index with water_value_time_step
-    # In old code: API.DatetimeIndex.NewIndex(p.start_date, p.start_date.AddYears(1), str(p.water_value_time_step) + "m")
-    n_time_steps = None  # TODO: len(one_year_hours_index)
-    total_time_steps = None  # TODO: n_time_steps * parameters.water_value_nb_years
+    n_time_steps = generate_datetimes(
+        start_date=parameters.start_date,
+        end_date=parameters.start_date + duration(years=1),
+        frequency=f"{parameters.water_value_timestep}m",
+    )
+    total_time_steps = n_time_steps * parameters.water_value_nb_years
 
     # Prepare hourly inflows for each scenario (daily inflows / 24)
     inflows_per_scenario: list[Timeseries] = []
     for scenario in scenarios:
-        scenario_key = str(scenario)
-        if scenario_key not in inflows_dictionary:
+        if scenario not in inflows_dictionary:
             logger.warning(f"No inflows for scenario {scenario} in area {area.id}")
             continue
 
-        # Convert daily inflows to hourly by dividing by 24
-        # TODO: Verify division operation on Timeseries
-        # In old code: hourly_inflow = input_inflow / 24.0
-        inflows_per_scenario.append(inflows_dictionary[scenario_key])
+        inflows_per_scenario.append(inflows_dictionary[scenario] / 24)
 
-    # Compute capacity discretization
-    # TODO: Verify how to get average maximum power and first maximum energy value
-    # In old code: hydro.MaximumPower.Average() and hydro.MaximumEnergy.FirstValue
-    power_average = 0.0  # TODO: hydro.maximum_power.mean()
-    capacity = 0.0  # TODO: hydro.maximum_energy first value
+    power_average = np.mean(hydro.maximum_power.values)
+    capacity = hydro.maximum_energy.first_value()
 
     if power_average == 0.0 or capacity == 0.0:
         logger.warning(f"Cannot compute water values for {area.id}: zero power or capacity")
         return
 
     capacity_step = int(power_average / parameters.hydro_storage_subdivision)
-    if capacity_step == 0:
-        logger.warning(f"Capacity step is 0 for {area.id}, skipping water value computation")
-        return
 
     stock_levels = list(range(0, int(capacity), capacity_step))
     logger.info(f"Capacity: {capacity}, step: {capacity_step}, levels: {len(stock_levels)}")
-
-    # TODO: Run Bellman value iteration
-    # This is the core dynamic programming algorithm - see old code lines 72-172
-    # The algorithm:
-    # - Initialize WV[level][t] = 0 for all levels and time steps
-    # - Loop over scenarios
-    #   - Loop backwards over time (from total_time_steps to 0)
-    #     - Get MaxPower, Price, Inflows at time t
-    #     - Loop over stock levels
-    #       - Compute Bellman value BV[t][level]
-    #       - For first year, store WV_sc[t][level]
-    #   - Accumulate WV += WV_sc
-    # - Average WV / n_scenarios
-    # - Cap at _MAX_WATER_VALUE
-    # - Store as StorageMarginalValue on hydro
 
     water_values = _run_bellman_iteration(
         area=area,
@@ -177,7 +145,6 @@ def _compute_node_water_values(
         total_time_steps=total_time_steps,
     )
 
-    # Store water values on the hydro equipment
     _store_water_values(hydro, water_values, stock_levels, parameters, n_time_steps)
 
 
@@ -281,16 +248,16 @@ def _store_water_values(
 
     Optionally subsamples levels using nb_storage_levels parameter.
     Water values are capped at _MAX_WATER_VALUE and averaged across scenarios.
-
-    TODO: In the new Atlas model, water values are stored as fragment_prices/fragment_volumes
-    rather than as a StorageMarginalValue matrix. Verify the correct mapping.
-    In old code: hydro.StorageMarginalValue.AddTimeSeries(str(stock_level), timeseries)
     """
+    # TODO: In the new Atlas model, water values are stored as fragment_prices/fragment_volumes
+    # rather than as a StorageMarginalValue matrix. Verify the correct mapping.
+    # In old code: hydro.StorageMarginalValue.AddTimeSeries(str(stock_level), timeseries)
+
     if not water_values or n_time_steps is None:
         logger.debug(f"TODO: Store water values on {hydro.name}")
         return
 
-    n_scenarios = len(parameters.water_value_scenarios.split(";")) if parameters.water_value_scenarios != "All" else 1
+    n_scenarios = len(parameters.water_value_scenarios) if parameters.water_value_scenarios != "all" else 1
 
     # Determine which levels to store (subsample if nb_storage_levels is set)
     levels_to_store = _select_storage_levels(stock_levels, parameters)
@@ -314,17 +281,16 @@ def _select_storage_levels(stock_levels: list[int], parameters: AntaresToAtlasPa
     If nb_storage_levels == 0: keep all levels.
     Otherwise: subsample evenly and trim symmetrically to reach the target count.
     """
-    nb_levels = parameters.nb_storage_levels
 
-    if nb_levels == 0:
+    if parameters.nb_storage_levels == 0:
         return list(range(1, len(stock_levels)))
 
-    step = int(len(stock_levels) / nb_levels)
+    step = int(len(stock_levels) / parameters.nb_storage_levels)
     if step == 0:
         return list(range(1, len(stock_levels)))
 
     candidate_levels = [level for level in range(1, len(stock_levels)) if (level - 1) % step == 0]
-    delta = len(candidate_levels) - nb_levels
+    delta = len(candidate_levels) - parameters.nb_storage_levels
 
     if delta <= 0:
         return candidate_levels
