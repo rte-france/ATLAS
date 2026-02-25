@@ -2,21 +2,37 @@
 
 ## Overview
 
-Day-Ahead Orders formulation, including load, non-dispatchable, storage, hydraulic, wind, solar and thermic orders.
+Computes all market orders based on equipment in the input dataset, including load, non-dispatchable, storage, hydraulic, wind, solar, and thermal orders.
+
+## Quick Start
+
+```python
+from atlas import AtlasDataset, DayAheadOrdersModule
+
+module = DayAheadOrdersModule()
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, "path/to/parameters.yml")
+```
+
+See [Running Modules](../../concepts/running-modules.md) for execution details.
+
+## Key Features
+
+- **Multi-asset support**: Generates orders for all equipment types
+- **Forecast-based**: Uses forecasts made at execution date
+- **Flexible configuration**: Configurable order types and constraints
 
 ## Documentation
 
-### [User Guide](user-guide/overview.md)
-How to use the module:
-
-- [Overview](user-guide/overview.md): Introduction and basic usage
-- [Parameters](user-guide/input-data.md): Configuration reference
+### User Guide
+- [Overview](user-guide/overview.md): Module-specific introduction
+- [Parameters](user-guide/input-data.md): Module-specific parameters
 - [Running](user-guide/running.md): Execution details
 
-### [Developer Reference](developer/architecture.md)
-Technical documentation for contributors:
+### Common Documentation
+- [Module Pattern](../../concepts/module-pattern.md): ATLAS module architecture
+- [Common Parameters](../../concepts/common-parameters.md): Shared configuration options
+- [Running Modules](../../concepts/running-modules.md): General execution guide
 
-- [Architecture](developer/architecture.md): Module design
-- [API Reference](developer/api-reference.md): Class and function documentation
-- [Contributing](developer/contributing.md): Development guidelines
-- [Examples](developer/examples.md): Development examples
+### Developer Reference
+- [Architecture](developer/architecture.md): Module design and structure

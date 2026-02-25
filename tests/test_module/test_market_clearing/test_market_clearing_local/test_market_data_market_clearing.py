@@ -10,7 +10,6 @@ import os
 import pickle
 import re
 from pathlib import Path
-from collections import OrderedDict
 
 import pandas as pd
 import pendulum
@@ -239,7 +238,7 @@ def test_input(dataset_name):
             raw_data = pickle.load(f)
     else:
         print("Chargement long des données...")
-        raw_data = InputLoader.from_directory(dataset_path)
+        raw_data = AtlasDataset.from_directory(dataset_path)
         print("Création d'un pickle...")
         with open(pkl_path, "wb") as f:
             pickle.dump(raw_data, f)

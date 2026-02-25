@@ -10,9 +10,12 @@ from typing import Literal
 from pendulum import DateTime
 from pendulum.duration import Duration
 
-from atlas import OptimisationModel, SolverOptions, Timeseries, generate_datetimes
+from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.solver.models import SolverOptions
+from atlas.solver.solver_interface import OptimisationModel
+from atlas.timing import generate_datetimes
 
 
 class StorageModel(OptimisationModel):

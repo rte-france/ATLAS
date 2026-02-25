@@ -7,10 +7,10 @@ This file is part of the ATLAS project.
 import json
 
 import atlas.modules.market_clearing.constants as constants
-from atlas import SolverOptions
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.models.market_border import DEFAULT_MAX_FLOW, DEFAULT_MIN_FLOW
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
 

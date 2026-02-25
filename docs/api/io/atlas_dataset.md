@@ -1,3 +1,3 @@
-# Input Loader
+# Atlas Dataset
 
 ::: atlas.AtlasDataset

@@ -145,6 +145,37 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         """
         return self.matrix.select(pl.selectors.numeric()).columns
 
+    def _trim_null_extremities(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        Remove rows at the beginning and end where all value columns are null.
+        This is called after delete and select operations to clean up the matrix edges.
+        """
+        if len(df) == 0:
+            return df
+
+        # Get value columns (all except time)
+        value_columns = [col for col in df.columns if col != "time"]
+
+        if len(value_columns) == 0:
+            return df
+
+        # Create boolean mask: True where all value columns are null
+        all_null_mask = df.select(pl.all_horizontal([pl.col(idx).is_null() for idx in value_columns])).to_series()
+
+        # Find indices where at least one value column is not null
+        valid_indices = (~all_null_mask).arg_true()
+
+        if len(valid_indices) == 0:
+            # All rows are null, keep only time column with no data
+            return df
+
+        # Get first and last valid indices
+        first_valid_idx = valid_indices[0]
+        last_valid_idx = valid_indices[-1]
+
+        # Trim the matrix
+        return df.slice(first_valid_idx, last_valid_idx - first_valid_idx + 1)
+
     def __len__(self) -> int:
         """
         Number of timeseries in the matrix.
@@ -177,7 +208,8 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         """
         if index not in self.indexes:
             raise KeyError(f"No timeseries found for index: {index}")
-        return Timeseries(self.matrix.select("time", index))
+        df = self._trim_null_extremities(self.matrix.select(["time", index]))
+        return Timeseries(df)
 
     def select(self, index: str) -> Timeseries:
         """
@@ -237,7 +269,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
             on="time",
             how="full",
             coalesce=True,
-        )
+        ).sort("time")
         self.indexes = self._get_indexes()
 
     def delete(self, index: str) -> None:
@@ -251,8 +283,10 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         if index not in self.indexes:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
-        self.matrix = self.matrix.drop(index)
+        self.matrix = self.matrix.drop(index).sort("time")
         self.indexes = self._get_indexes()
+
+        self.matrix = self._trim_null_extremities(self.matrix)
 
     def replace(
         self,

@@ -41,7 +41,7 @@ def test_if_pricing_generated_lp_matches_reference(dataset_name):
     expected_pricing_3_path = dataset_path / "expected_results" / "pricing_3_model.lp"
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        raw_data = InputLoader.from_directory(dataset_data_path)
+        raw_data = AtlasDataset.from_directory(dataset_data_path)
 
         try:
             mc_module = MarketClearingModule()
@@ -49,19 +49,19 @@ def test_if_pricing_generated_lp_matches_reference(dataset_name):
             parameters.output_path = Path(tmpdir)
             input_dataset = mc_module.import_data(raw_data, parameters)
 
-            with open(saturated_critical_branches_path, "r") as f:
+            with open(saturated_critical_branches_path) as f:
                 saturated_critical_branches = {}
                 for cb, time_index, val in json.load(f):
                     saturated_critical_branches[cb, time_index] = val
-            with open(exchanges_fixing_border_exchanges_path, "r") as f:
+            with open(exchanges_fixing_border_exchanges_path) as f:
                 exchanges_fixing_border_exchanges = {}
                 for b, time_index, val in json.load(f):
                     exchanges_fixing_border_exchanges[b, time_index] = val
-            with open(clearing_local_balances_path, "r") as f:
+            with open(clearing_local_balances_path) as f:
                 clearing_local_balances = {}
                 for ma, t, val in json.load(f):
                     clearing_local_balances[ma, t] = val
-            with open(clearing_accepted_powers_path, "r") as f:
+            with open(clearing_accepted_powers_path) as f:
                 clearing_accepted_powers = {}
                 for ma, o, val in json.load(f):
                     clearing_accepted_powers[ma, o] = val

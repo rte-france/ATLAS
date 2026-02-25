@@ -135,6 +135,43 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
 
         return [col for col in schema.names() if col != time_column]
 
+    def _trim_null_extremities(self, df: pl.LazyFrame) -> pl.LazyFrame:
+        """
+        Remove rows at the beginning and end where all value columns are null.*
+        This is called after delete and select operations to clean up the matrix edges.
+        """
+        df_collected = df.collect()
+        if len(df_collected) == 0:
+            return df_collected.lazy()
+
+        # Get value columns (all except time)
+        value_columns = [col for col in df_collected.columns if col != "time"]
+
+        if len(value_columns) == 0:
+            return df_collected.lazy()
+
+        # Create boolean mask: True where all value columns are null
+        all_null_mask = df_collected.select(
+            pl.all_horizontal([pl.col(idx).is_null() for idx in value_columns])
+        ).to_series()
+
+        if len(all_null_mask) == 0:
+            return df_collected.lazy()
+
+        # Find indices where at least one value column is not null
+        valid_indices = (~all_null_mask).arg_true()
+
+        if len(valid_indices) == 0:
+            # All rows are null, keep only time column with no data
+            return df_collected.lazy()
+
+        # Get first and last valid indices
+        first_valid_idx = valid_indices[0]
+        last_valid_idx = valid_indices[-1]
+
+        # Trim the matrix and return as LazyFrame
+        return df.slice(first_valid_idx, last_valid_idx - first_valid_idx + 1).lazy()
+
     def add(
         self,
         timeseries: LazyTimeseries | pl.LazyFrame | Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
@@ -181,8 +218,7 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         if index not in self.indexes:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
-        self.matrix = self.matrix.drop(index)
-
+        self.matrix = self._trim_null_extremities(self.matrix.drop(index))
         self.indexes = self._get_indexes()
 
     def replace(
@@ -215,9 +251,11 @@ class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
         """
         if index not in self.indexes:
             raise KeyError(f"Index {index} not found in the matrix.")
-
-        # Select time and the specified column, rename to 'value'
-        lazy_ts = self.matrix.select(["time", index]).rename({index: "value"})
+        lazy_ts = (
+            self._trim_null_extremities(self.matrix.select(["time", index]))
+            .select(["time", index])
+            .rename({index: "value"})
+        )
         return LazyTimeseries(lazy_ts, timezone=self.timezone)
 
     def set_frequency(self, frequency: str | timedelta | pendulum.Duration, inplace: bool = True) -> Self:
