@@ -1,5 +1,6 @@
 site_name: Atlas
 site_description: Altas documentation website
+site_dir: public
 theme:
   name: material
   features:
@@ -35,7 +36,7 @@ plugins:
   - search
   - autorefs
   - mkdocs-jupyter:
-      execute: true
+      execute: false
       allow_errors: false
   - mkdocstrings:
       default_handler: python
@@ -94,14 +95,19 @@ extra_css:
 nav:
   - Home:
     - Welcome to Atlas: index.md
-    - Getting Started: getting_started.md
-    - Contributing: contributing.md
-    - Release Process: release_process.md
     - Changelog: changelog.md
     - Authors: authors.md
-  - Concepts:
-    - Overview: concepts/overview.md
+  - Getting Started:
+    - Installation: getting_started/getting_started.md
+    - Quick Start Tutorial: getting_started/quickstart.md
+    - Your First Simulation: getting_started/first-simulation.md
+  - User Guide:
+    - With Command lines: cli.md
+    - In Python Usage: modules/running-modules.md
+    - Module Pattern: modules/module-pattern.md
+    - Common Parameters: modules/common-parameters.md
   - Modules:
+    - Overview: modules/index.md
     - Portfolio Optimisation:
       - Overview: modules/portfolio-optimisation/index.md
       - User Guide:
@@ -128,29 +134,36 @@ nav:
             - Running: modules/day-ahead-orders/user-guide/running.md
         - Developer:
             - Architecture: modules/day-ahead-orders/developer/architecture.md
+  - Examples:
+    - AtlasDataset: examples/atlas_dataset.md
+    - Timeseries: examples/timeseries.md
+    - Matrix: examples/matrix.md
+    - OptimisationModel: examples/optimisation_model.md
   - API Reference:
+    - Overview: api/index.md
     - Math Objects:
       - Timeseries: api/math/timeseries.md
       - Scenario Matrix: api/math/scenario_matrix.md
       - Forecasting Matrix: api/math/forecasting_matrix.md
       - LazyTimeseries: api/math/lazy_timeseries.md
-      - LazyMatrix: api/math/lazy_matrix.md
+      - LazyMatrix: api/math/lazy_scenario_matrix.md
     - I/O:
       - AtlasDataset: api/io/atlas_dataset.md
-      - Parameters: api/io/parameters.md
     - Models:
       - Equipement: api/models/equipment.md
       - Market: api/models/market.md
     - Workflows:
       - Workflow: api/workflow/workflow.md
       - Workflow step: api/workflow/workflow_step.md
-      - Workflow parameters: api/workflow/workflow_parameters.md
     - Optimisation:
       - Solver Interface: api/solver/interface.md
       - Other : api/solver/models.md
     - Others:
       - Enum: api/enum.md
       - Logging: api/logging.md
+  - Development:
+    - Contributing: contributing.md
+    - Release Process: release_process.md
 
 extra:
   version:

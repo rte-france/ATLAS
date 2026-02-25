@@ -1,7 +1,8 @@
 from pendulum import Duration
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from atlas.enums import SolverStatus
+from atlas.validators import convert_to_duration
 
 
 class SolverOptions(BaseModel):
@@ -23,6 +24,15 @@ class SolverOptions(BaseModel):
         default=None, ge=0.0, le=1.0, description="Relative MIP gap tolerance (e.g., 0.01 for 1%)"
     )
     time_limit: Duration | None = Field(default=None, description="Time limit in seconds for the solver")
+
+    @field_validator(
+        "time_limit",
+        mode="before",
+    )
+    @classmethod
+    def parse_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)
 
 
 class ConstraintBounds(BaseModel):

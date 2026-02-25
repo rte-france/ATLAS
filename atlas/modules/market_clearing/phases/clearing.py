@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 import json
 
 import atlas.modules.market_clearing.constants as constants
-from atlas import SolverOptions
 from atlas.config import logger
 from atlas.enums import ComplementDirection, CouplingType, OrderType
 from atlas.models.control_block import ControlBlock
@@ -16,6 +15,7 @@ from atlas.modules.market_clearing.models.market_area import MarketAreaMC
 from atlas.modules.market_clearing.models.order import OrderMC
 from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
 # Static definition of default bounds on exchanges (can be changed at will):

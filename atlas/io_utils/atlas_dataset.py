@@ -298,12 +298,12 @@ class AtlasDataset(BaseModel):
             return None
         return self._indices[object_type].get(name)
 
-    def get_items_by_type(self, object_type: str | type[BusinessModel]) -> list[BusinessModel]:
+    def get_items_by_type(self, object_type: str | type[BusinessModel] | BusinessModelName) -> list[BusinessModel]:
         """
         Get a Container object by type with O(1) lookup.
 
         :param object_type: The type of object (e.g., "hydro", "node")
-        :type object_type: str | type[BusinessModel]
+        :type object_type: str | type[BusinessModel] | BusinessModelName
         :return: The Container object if found, raise an error otherwise
         :rtype: Container
         """
@@ -315,7 +315,7 @@ class AtlasDataset(BaseModel):
         Get a Container object by type with O(1) lookup.
 
         :param object_type: The type of object (e.g., "hydro", "node")
-        :type object_type: str | type[BusinessModel]
+        :type object_type: str | type[BusinessModel] | BusinessModelName
         :return: The Container object if found, raise an error otherwise
         :rtype: Container
         """

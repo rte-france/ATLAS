@@ -30,6 +30,8 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
+from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
+from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
@@ -81,6 +83,8 @@ __all__ = [
     "Timeseries",
     "Wind",
     "PortfolioOptimisationModule",
+    "DayAheadOrdersModule",
+    "MarketClearingModule",
 ]
 
 __version__ = version("atlas")

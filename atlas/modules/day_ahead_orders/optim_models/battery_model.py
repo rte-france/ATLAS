@@ -7,10 +7,10 @@ This file is part of the ATLAS project.
 
 from pendulum.duration import Duration
 
-from atlas import SolverOptions
 from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.solver.models import SolverOptions
 
 
 class BatteryModel(StorageModel):

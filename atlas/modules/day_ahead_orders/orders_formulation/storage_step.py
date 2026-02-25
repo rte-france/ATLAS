@@ -8,8 +8,8 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import SolverOptions, Timeseries
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, StorageType
+from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
@@ -19,6 +19,7 @@ from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import E
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.solver.models import SolverOptions
 from atlas.timing import generate_datetimes
 
 
