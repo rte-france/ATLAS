@@ -4,14 +4,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration
-from pydantic import Field, field_validator
 
 from atlas.enums import LoadType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import convert_to_duration
 
 
 class Load(Equipment):

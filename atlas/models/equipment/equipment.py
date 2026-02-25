@@ -4,9 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field, field_serializer, field_validator
-
 from pendulum import Duration
+from pydantic import Field, field_serializer, field_validator
 
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -14,8 +13,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.models.business_model import BusinessModel
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
-from atlas.validators import serializer_business_model
-from atlas.validators import convert_to_duration
+from atlas.validators import convert_to_duration, serializer_business_model
 
 
 class Equipment(BusinessModel):

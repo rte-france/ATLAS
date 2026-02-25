@@ -6,14 +6,13 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
-from pendulum import Duration
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from atlas.enums import InflowFrequency
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import convert_to_duration, parse_list_float, serializer_list_float
+from atlas.validators import parse_list_float, serializer_list_float
 
 
 class FragmentData(BaseModel):
