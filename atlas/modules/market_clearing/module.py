@@ -62,7 +62,6 @@ class MarketClearingModule(
         market_clearing_output_dataset = MarketClearingOutputDataset(
             input_dataset, accepted_powers, local_balances, border_exchanges, market_prices
         )
-        market_clearing_output_dataset.build_change_sets()
 
         return market_clearing_output_dataset
 
