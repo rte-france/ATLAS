@@ -16,10 +16,13 @@ from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.models.storage import StorageDAO
-from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
-from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
-from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
-from atlas.modules.day_ahead_orders.orders_formulation.storage_worker import optimize_single_storage
+from atlas.modules.day_ahead_orders.orders_formulation.storage_worker import (
+    _initiate_stock,
+    _optimize_battery,
+    _optimize_ev,
+    _price_calculation,
+    optimize_single_storage,
+)
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.solver.models import SolverOptions
@@ -133,7 +136,7 @@ class StorageStep:
             )
 
             # if the stock of the equipment at start date is not defined, initiate it
-            initial_stock = self.initiate_stock(storage)
+            initial_stock = _initiate_stock(storage, self.parameters)
 
             # Determine offers times and quantities through an optimisation algorithm under a price forecast
             solver_options = SolverOptions(
@@ -142,12 +145,12 @@ class StorageStep:
                 time_limit=self.parameters.solver_timeout,
             )
             if storage.storage_type == StorageType.ELECTRIC_VEHICLE:
-                Qv, Qa = self.optimize_ev(storage, initial_stock, solver_options)
+                Qv, Qa = _optimize_ev(storage, initial_stock, solver_options, self.parameters)
             else:
-                Qv, Qa = self.optimize_battery(storage, initial_stock, solver_options)
+                Qv, Qa = _optimize_battery(storage, initial_stock, solver_options, self.parameters)
 
             # Determine sale and purchase prices
-            Psale, Ppurchase = self.price_calculation(storage, Qv, Qa)
+            Psale, Ppurchase = _price_calculation(storage, Qv, Qa, self.parameters)
 
             # Store Ppurchase as price reference in variable_cost, in the dataset.
             # Psale can then be deduced from Ppurchase, Charge and and Discharge efficiency
@@ -234,196 +237,6 @@ class StorageStep:
             else:
                 storage.da_sell_submitted_volume += sell_submitted_volumes
 
-    def optimize_ev(
-        self,
-        storage: StorageDAO,
-        initial_stock: float | None,
-        solvers_options: SolverOptions,
-    ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
-        """
-        Optimization function for ElectricVehicle units
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :param initial_stock: the initial stock
-        :type initial_stock: float | None
-        :param solvers_options: solvers options
-        :type solvers_options: SolverOptions
-        :return: output variables
-        :rtype: tuple[dict[DateTime, float], dict[DateTime, float]]
-        """
-        # Creation of optimization problem
-        model = ElectricVehicleModel(
-            self.parameters,
-            self.parameters.solver_name,
-            "Optimization of the storage unit " + storage.name,
-            storage,
-            solvers_options,
-        )
-        model.create_decision_variables(self.parameters.ev_nb_fragments)
-        model.create_objective_function(
-            self.parameters.ev_nb_fragments, self.parameters.ev_smoothing_factor, "maximize"
-        )
-        model.create_constraints(initial_stock)
-
-        if self.parameters.export_lp:
-            lp_file_name = self.parameters.output_folder / f"storage_{model.storage.name}.lp"
-            model.export_model(str(lp_file_name))
-
-        model.solve()
-
-        status = model.solution_info.status if model.solution_info else None
-        cfg.logger.debug(f"Solver status: {status}")
-        cfg.logger.debug(f"Objective function value: {model._objective}")
-
-        # Assign the values to the output variables
-        # Note that the time domain of the output variables is [start date, end date]
-        Qvv: dict[DateTime, float] = {}
-        Qaa: dict[DateTime, float] = {}
-        for t in model.time_frame:
-            if t >= self.parameters.end_date:
-                break
-            Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-            Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
-
-        return Qvv, Qaa
-
-    def optimize_battery(
-        self,
-        storage: StorageDAO,
-        initial_stock: float | None,
-        solvers_options: SolverOptions,
-    ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
-        """
-        Optimization function for Battery and PHS units
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :param initial_stock: the initial stock
-        :type initial_stock: float | None
-        :param solvers_options: solvers options
-        :type solvers_options: SolverOptions
-        :return: output variables
-        :rtype: tuple[dict[DateTime, float], dict[DateTime, float]]
-        """
-        optimization_period = storage.additional_hours
-        if storage.storage_type == StorageType.BATTERY:
-            smoothing_factor = self.parameters.battery_smoothing_factor
-            power_fragments = self.parameters.battery_nb_fragments
-        elif storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-            smoothing_factor = self.parameters.phs_smoothing_factor
-            power_fragments = self.parameters.phs_nb_fragments
-        else:
-            cfg.logger.error(
-                f"equipment {storage.name} isn't {StorageType.BATTERY} nor {StorageType.PUMPED_HYDRAULIC_STORAGE}"
-            )
-
-        # Creation of optimization problem
-        model = BatteryModel(
-            self.parameters,
-            self.parameters.solver_name,
-            "Optimization of the storage unit " + storage.name,
-            storage,
-            optimization_period,
-            solvers_options,
-        )
-        model.create_decision_variables(power_fragments)
-        model.create_objective_function(power_fragments, smoothing_factor, "maximize")
-        model.create_constraints(initial_stock, power_fragments)
-
-        if self.parameters.export_lp:
-            lp_file_name = self.parameters.output_folder / f"storage_{model.storage.name}.lp"
-            model.export_model(str(lp_file_name))
-
-        model.solve()
-
-        status = model.solution_info.status if model.solution_info else None
-        cfg.logger.debug(f"Solver status: {status}")
-        cfg.logger.debug(f"Objective function value: {model._objective}")
-
-        # Assign the values to the output variables
-        # Note that the time domain of the output variables is [start date, end date]
-        Qvv: dict[DateTime, float] = {}
-        Qaa: dict[DateTime, float] = {}
-        for t in model.time_frame:
-            if t >= self.parameters.end_date:
-                break
-            Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-            Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
-
-        return Qvv, Qaa
-
-    def price_calculation(
-        self, storage: StorageDAO, Qv: dict[DateTime, float], Qa: dict[DateTime, float]
-    ) -> tuple[float, float]:
-        """
-        Price computation
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :param Qv: the Qv
-        :type Qv: dict[DateTime, float]
-        :param Qa: the Qa
-        :type Qa: dict[DateTime, float]
-        :return: Psale, Ppurchase
-        :rtype: tuple[float, float]
-        """
-        P_a_max = 0.0
-        P_v_min = 0.0
-        # Get the price forecast from the dataset: estimations are at ActionHour, from start date to end date
-        # The price forecast is relative to the equipment's market area
-        # it is the estimation the actor has of the energy prices at the given date
-        price_forecast = storage.portfolio.market_area.price_forecast_medium.get_forecast(
-            self.parameters.execution_date,
-            self.parameters.start_date,
-            self.parameters.end_date,
-            self.parameters.timestep,
-        )
-
-        # Check if either Qv or Qa is empty (i.e. contains only 0)
-        Qv_empty = True
-        for qv_value in Qv.values():
-            if qv_value != 0:
-                Qv_empty = False
-
-        Qa_empty = True
-        for qa_value in Qa.values():
-            if qa_value != 0:
-                Qa_empty = False
-
-        # Evaluate the minimum of sale prices
-        if [i for i, e in Qv.items() if e != 0]:
-            P_v_min = min([price_forecast.get_value(t) for t in [i for i, e in Qv.items() if e != 0]])
-        # Evaluate the maximum of purchase prices
-        if [i for i, e in Qa.items() if e != 0]:
-            P_a_max = max([price_forecast.get_value(t) for t in [i for i, e in Qa.items() if e != 0]])
-
-        if (storage.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]) or (storage.is_v2g):
-            # if negative prices, Psale and Ppurchase are set to zero
-            # Else they are evaluated in a manner that makes profit = 0
-            if P_a_max <= 0:
-                P_a_max = 0.0
-            if P_v_min <= 0:
-                P_v_min = 0.0
-
-            if Qa_empty:
-                Psale = P_v_min
-                Ppurchase = 0.0
-            elif Qv_empty:
-                Psale = 0.0
-                Ppurchase = P_a_max
-            elif P_a_max == 0 and P_v_min == 0:
-                Psale = 0.0
-                Ppurchase = 0.0
-            else:
-                a = (storage.discharge_efficiency * storage.charge_efficiency * P_v_min - P_a_max) / (
-                    storage.discharge_efficiency * storage.charge_efficiency * P_v_min + P_a_max
-                )
-                Psale = P_v_min * (1 - a)
-                Ppurchase = P_a_max * (1 + a)
-        else:
-            Psale = 0.0
-            Ppurchase = P_a_max
-
-        return Psale, Ppurchase
-
     def add_spot_order_with_coupling(
         self,
         order_type: OrderType,
@@ -465,32 +278,3 @@ class StorageStep:
         )
         self.dataset.order.append(order)
         coupling_instance.orders.append(order)
-
-    def initiate_stock(self, storage: StorageDAO) -> float | None:
-        """
-        The first step is to evaluate if the equipment is in an "Initial" situation or not
-        This is indicated by StoredEnergy, but one should be careful here
-        The idea is to verify that there is a value in StoredEnergy "not too long" before start_date,
-        and we arbitrarily choose to look as far as two days before to verify this. Assumption could be discussed.
-
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :return: the initial stock
-        :rtype: float | None
-        """
-        if storage.stored_energy is None:
-            initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(self.parameters.start_date)
-        else:
-            energy_forecast = storage.stored_energy.get_forecast(
-                self.parameters.execution_date,
-                self.parameters.start_date.subtract(days=2),
-                self.parameters.start_date - self.parameters.timestep,
-                self.parameters.timestep,
-            )
-            if len(energy_forecast) == 0:
-                initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(
-                    self.parameters.start_date
-                )
-            else:
-                initial_stock = energy_forecast.get_value(self.parameters.start_date - self.parameters.timestep)
-        return initial_stock

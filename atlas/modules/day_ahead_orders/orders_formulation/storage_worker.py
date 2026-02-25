@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import StorageType
+from atlas.enums import ComplementDirection, CouplingType, OrderType, StorageType
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
@@ -24,7 +24,7 @@ from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import E
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.solver.models import SolverOptions
-from atlas.timing import generate_datetimes
+from atlas.timing import bmo_name_datetime_to_str, generate_datetimes
 
 if TYPE_CHECKING:
     from atlas.enums import OrderType
@@ -332,8 +332,6 @@ def _create_orders_with_couplings(
     parameters: DayAheadOrdersParameters,
 ) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
     """Create orders and order couplings for the storage unit."""
-    from atlas.enums import ComplementDirection, CouplingType, OrderType
-    from atlas.timing import bmo_name_datetime_to_str
 
     orders: list[OrderDAO] = []
     order_couplings: list[OrderCouplingDAO] = []
