@@ -16,6 +16,7 @@ import yaml
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.timing import timer
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
 from atlas.workflow.parameters import WorkflowParameters
@@ -53,7 +54,7 @@ class Workflow:
     def build_steps(self):
         for step in self.parameters.steps:
             parameters = Workflow.build_module_parameters(self.generic_module_parameters, step.parameters_path)
-            workflow_step = WorkflowStep(step.name, step.module, parameters)
+            workflow_step = WorkflowStep(step.name, step.module.value, parameters)
             self.add_step(workflow_step)
 
     @staticmethod
@@ -105,7 +106,10 @@ class Workflow:
             logger.info(f"Launching step :'{step.name}'")
             input_dataset = cis.filter_dataset(step.module.get_business_model_class_used(), step.module.get_filters())
 
-            step.run(input_dataset)
+            with timer() as t:
+                step.run(input_dataset)
+            logger.info(f"Step '{step.name}' completed in {t()} seconds")
+
             output_dataset = step.output_dataset
 
             if not output_dataset:
