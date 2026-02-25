@@ -38,7 +38,7 @@ def run(
             logger.info(f"Error: Workflow configuration file not found: {config_path}")
             raise typer.Exit(code=1)
 
-        logger.info(f"Running workflow:{config_path}")
+        logger.info(f"Running workflow: {config_path}")
         try:
             with timer() as t:
                 wf = Workflow.from_file(config_path)
@@ -72,7 +72,7 @@ def run(
             logger.info(f"Error: {e}")
             raise typer.Exit(code=1) from e
 
-        logger.info(f"Running module:{module_name}")
+        logger.info(f"Running module: {module_name}")
         logger.info(f"  Dataset   : {dataset_path}")
         logger.info(f"  Parameters: {config_path}")
 

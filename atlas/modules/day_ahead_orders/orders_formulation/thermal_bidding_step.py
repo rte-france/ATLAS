@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -18,6 +20,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_intermedi
     ThermalIntermediateLoadOrders,
 )
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load_orders import ThermalPeakLoadOrders
+from atlas.modules.day_ahead_orders.orders_formulation.thermal_worker import optimize_single_thermal_unit
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
@@ -71,9 +74,53 @@ class ThermalBiddingStep:
     def formulate_thermal_orders(self) -> None:
         """
         This wrapper function formulates orders for all thermic units.
+        Supports both sequential and parallel processing based on use_multiprocessing parameter.
         :return: None
         """
+        if self.parameters.use_multiprocessing:
+            self._formulate_thermal_orders_parallel()
+        else:
+            self._formulate_thermal_orders_sequential()
 
+        # This is done last and not during the bidding process because of mutually exclusive programs, and to simplify debug
+        cfg.logger.info("Computing maximum sell volumes...")
+        self.computeDASellSubmittedVolumes()
+        cfg.logger.info("End of computation.")
+
+    def _formulate_thermal_orders_parallel(self) -> None:
+        """
+        Formulate thermal orders using multiprocessing for parallel execution at the unit level.
+        """
+        cfg.logger.info(f"Starting parallel thermal optimization for {len(self.dataset.thermal)} units")
+
+        with ProcessPoolExecutor(max_workers=self.parameters.max_workers) as executor:
+            future_to_thermal = {
+                executor.submit(optimize_single_thermal_unit, thermal, self.orders_time, self.parameters): thermal.name
+                for thermal in self.dataset.thermal
+            }
+
+            for future in as_completed(future_to_thermal):
+                thermal_name = future_to_thermal[future]
+                try:
+                    result = future.result()
+
+                    if result.success:
+                        # Add orders and couplings to the dataset
+                        self.dataset.order.extend(result.orders)
+                        self.dataset.order_coupling.extend(result.order_couplings)
+                        cfg.logger.info(
+                            f"Completed order formulation for thermal unit: {thermal_name} ({result.strategy})"
+                        )
+                    else:
+                        cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal_name}")
+
+                except Exception as e:
+                    cfg.logger.error(f"Error processing thermal unit {thermal_name}: {e}")
+
+    def _formulate_thermal_orders_sequential(self) -> None:
+        """
+        Formulate thermal orders using sequential processing (original implementation).
+        """
         # Formulate baseload orders
         cfg.logger.info("Formulation of the thermic baseload orders...")
         thermal_base_load_orders = ThermalBaseLoadOrders(self.dataset, self.orders_time, self.parameters)
@@ -96,11 +143,6 @@ class ThermalBiddingStep:
         thermal_peak_load_orders = ThermalPeakLoadOrders(self.dataset, self.orders_time, self.parameters)
         thermal_peak_load_orders.formulate_thermal_peak_load_orders()
         cfg.logger.info("Peak load orders formulation completed.")
-
-        # This is done last and not during the bidding process because of mutually exclusive programs, and to simplify debug
-        cfg.logger.info("Computing maximum sell volumes...")
-        self.computeDASellSubmittedVolumes()
-        cfg.logger.info("End of computation.")
 
     def computeDASellSubmittedVolumes(self) -> None:
         """

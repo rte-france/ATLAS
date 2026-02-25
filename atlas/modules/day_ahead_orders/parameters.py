@@ -31,6 +31,14 @@ class DayAheadOrdersParameters(AbstractParameters):
         True,
         description="Boolean indicating if a presolve step is desired or not before solving the optimization program.",
     )
+    use_multiprocessing: bool = Field(
+        False,
+        description="If True, use multiprocessing for parallel storage and thermal optimization. If False, use sequential for loop.",
+    )
+    max_workers: int | None = Field(
+        None,
+        description="Maximum number of parallel processes for equipment optimization. None defaults to CPU count. Only used if use_multiprocessing is True.",
+    )
     automated_unprocured_reserves_penalty: float = Field(
         10000,
         description="A penalty expressed in euros/MW per hour corresponding to the price of not providing the "
