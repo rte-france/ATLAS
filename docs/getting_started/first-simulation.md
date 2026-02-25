@@ -138,7 +138,6 @@ Each forecast column represents predictions at different forecast horizons (h0 =
 
 - **Parquet** (recommended): Efficient binary format for large datasets
 - **CSV**: Human-readable, semicolon-separated
-- **Pickle**: Python binary format
 
 Learn more in the [AtlasDataset documentation](../api/io/atlas_dataset.md) and [examples](../examples/atlas_dataset.md).
 
