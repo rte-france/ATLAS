@@ -24,6 +24,7 @@ from atlas import (
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
 from atlas.models.business_model import BusinessModel
+from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.models.load import LoadDAO
 from atlas.modules.day_ahead_orders.models.market_area import MarketAreaDAO
@@ -34,7 +35,6 @@ from atlas.modules.day_ahead_orders.models.solar import SolarDAO
 from atlas.modules.day_ahead_orders.models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.models.wind import WindDAO
-from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.workflow.change_set import AddObject, UpdateObject
 
