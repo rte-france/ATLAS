@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration, duration
+from pendulum import Duration
 from pydantic import Field, field_validator
 
 from atlas.enums import LoadType
@@ -36,8 +36,8 @@ class Load(Equipment):
     power_forecast_high: AbstractTimeseries | None = None
     power_forecast_low: AbstractTimeseries | None = None
 
-    additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=0),
+    additional_hours: Duration | None = Field(
+        None,
         description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
     )
 

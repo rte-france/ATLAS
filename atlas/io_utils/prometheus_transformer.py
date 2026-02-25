@@ -143,6 +143,30 @@ class PrometheusToAtlasDataParser:
                 equipment.unit_count = 1 if equipment.unit_count is None else equipment.unit_count
                 equipment.maximum_gradient = 0 if equipment.maximum_gradient is None else equipment.maximum_gradient
 
+        for load in dataset.load:
+            load.additional_hours = Duration(hours=0) if load.additional_hours is None else load.additional_hours
+
+        for other_non_dispatchable in dataset.other_non_dispatchable:
+            other_non_dispatchable.additional_hours = (
+                Duration(hours=0)
+                if other_non_dispatchable.additional_hours is None
+                else other_non_dispatchable.additional_hours
+            )
+
+        for solar in dataset.solar:
+            solar.additional_hours = Duration(hours=0) if solar.additional_hours is None else solar.additional_hours
+
+        for wind in dataset.wind:
+            wind.additional_hours = Duration(hours=0) if wind.additional_hours is None else wind.additional_hours
+
+        for hydro in dataset.hydro:
+            hydro.additional_hours = Duration(hours=12) if hydro.additional_hours is None else hydro.additional_hours
+
+        for thermal in dataset.thermal:
+            thermal.additional_hours = (
+                Duration(hours=12) if thermal.additional_hours is None else thermal.additional_hours
+            )
+
         for storage in dataset.storage:
             storage.transition_duration = (
                 pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration  # type: ignore

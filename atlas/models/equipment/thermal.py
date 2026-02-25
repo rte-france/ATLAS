@@ -90,10 +90,7 @@ class Thermal(Equipment):
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
 
-    additional_hours: Duration = Field(
-        default_factory=lambda: Duration(hours=12),
-        description="Default optimization period in hours for thermal equipment",
-    )
+    additional_hours: Duration | None = None
 
     @field_validator(
         "minimum_stable_power_duration",

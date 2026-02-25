@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration, duration
+from pendulum import Duration
 from pydantic import Field, field_validator
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -41,8 +41,8 @@ class Solar(Equipment):
     da_sell_submitted_volume: AbstractTimeseries | None = None
     maximum_curtailment_ratio: AbstractTimeseries | None = None
 
-    additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=0),
+    additional_hours: Duration | None = Field(
+        None,
         description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
     )
 

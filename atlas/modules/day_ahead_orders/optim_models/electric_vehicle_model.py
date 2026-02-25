@@ -32,7 +32,7 @@ class ElectricVehicleModel(StorageModel):
         :param solver_options: solver options
         :type solver_options: SolverOptions
         """
-        super().__init__(parameters, solver_name, name, storage, parameters.ev_additional_hours, solver_options)
+        super().__init__(parameters, solver_name, name, storage, storage.additional_hours, solver_options)
 
     def create_constraints(self, initial_stock: float | None) -> None:
         """

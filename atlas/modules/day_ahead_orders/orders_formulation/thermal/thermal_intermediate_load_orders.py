@@ -375,7 +375,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     prices_low = unit.portfolio.market_area.price_forecast_low.get_forecast(
                         self.parameters.execution_date,
                         self.parameters.start_date,
-                        self.parameters.end_optimization_date,
+                        self.parameters.end_date + unit.additional_hours,
                     )
                     prices.append(prices_low)
 
@@ -383,7 +383,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     prices_medium = unit.portfolio.market_area.price_forecast_medium.get_forecast(
                         self.parameters.execution_date,
                         self.parameters.start_date,
-                        self.parameters.end_optimization_date,
+                        self.parameters.end_date + unit.additional_hours,
                     )
                     prices.append(prices_medium)
 
@@ -391,7 +391,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     prices_high = unit.portfolio.market_area.price_forecast_high.get_forecast(
                         self.parameters.execution_date,
                         self.parameters.start_date,
-                        self.parameters.end_optimization_date,
+                        self.parameters.end_date + unit.additional_hours,
                     )
                     prices.append(prices_high)
 

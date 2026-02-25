@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
-from pendulum import Duration, duration
+from pendulum import Duration
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from atlas.enums import InflowFrequency
@@ -77,8 +77,8 @@ class Hydro(Equipment):
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
 
-    additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=12),
+    additional_hours: Duration | None = Field(
+        None,
         description="Optimization period in hours for hydraulic group.",
     )
 

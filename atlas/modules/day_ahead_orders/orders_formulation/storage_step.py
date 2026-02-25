@@ -244,11 +244,11 @@ class StorageStep:
         :rtype: tuple[dict[DateTime, float], dict[DateTime, float]]
         """
         if storage.storage_type == StorageType.BATTERY:
-            optimization_period = self.parameters.battery_additional_hours
+            optimization_period = storage.additional_hours
             smoothing_factor = self.parameters.battery_smoothing_factor
             power_fragments = self.parameters.battery_nb_fragments
         elif storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-            optimization_period = self.parameters.phs_additional_hours
+            optimization_period = storage.additional_hours
             smoothing_factor = self.parameters.phs_smoothing_factor
             power_fragments = self.parameters.phs_nb_fragments
         else:

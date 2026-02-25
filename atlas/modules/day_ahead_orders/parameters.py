@@ -76,34 +76,15 @@ class DayAheadOrdersParameters(AbstractParameters):
         "related to the Storage instances with the type PumpedHydraulicStorage.",
     )
     solver_duality_gap: float = Field(0.0001, description="duality gap used for the optimization.")
-    thermal_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=12),
-        description="Number of extra hours after end date for the optimization programs applied to Thermic instances.",
-    )
-    battery_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=48),
-        description="Number of extra hours after end date for the optimization programs applied to Storage instances "
-        "with the type Battery.",
-    )
     battery_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type Battery.",
     )
-    ev_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=144),
-        description="Number of extra hours after end date for the optimization programs applied to Storage instances "
-        "with the type ElectricVehicle.",
-    )
     ev_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type ElectricVehicle.",
-    )
-    phs_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=144),
-        description="Number of extra hours after end date for the optimization programs applied to Storage instances "
-        "with the type PumpedHydraulicStorage.",
     )
     phs_nb_fragments: int = Field(
         3,
@@ -126,15 +107,7 @@ class DayAheadOrdersParameters(AbstractParameters):
     def penultimate_date(self) -> DateTime:
         return self.end_date - self.timestep
 
-    @cached_property
-    def end_optimization_date(self) -> DateTime:
-        return self.end_date + self.thermal_additional_hours
-
     @field_validator(
-        "phs_additional_hours",
-        "ev_additional_hours",
-        "battery_additional_hours",
-        "thermal_additional_hours",
         "timestep",
         "solver_timeout",
         mode="before",

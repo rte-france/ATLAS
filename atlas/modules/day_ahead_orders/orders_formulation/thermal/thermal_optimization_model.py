@@ -177,7 +177,7 @@ class ThermalOptimizationModel(OptimisationModel):
         # Gradients are defined on a "shifted" time frame.
         self.gradients_time_frame = generate_datetimes(
             self.parameters.start_date - self.parameters.timestep,
-            self.parameters.end_optimization_date - 2 * self.parameters.timestep,
+            self.parameters.end_date + self.thermal_unit.additional_hours - 2 * self.parameters.timestep,
             self.parameters.timestep,
         )
 
@@ -285,7 +285,7 @@ class ThermalOptimizationModel(OptimisationModel):
 
         # Sanity check on the start_date and the end_date. A warning message is sent to the user if the start_date is later
         # than the end_date.
-        if self.parameters.start_date > self.parameters.end_optimization_date:
+        if self.parameters.start_date > self.parameters.end_date + self.thermal_unit.additional_hours:
             cfg.logger.error(
                 "The end_optimization_date is earlier than or identical to the start_date. \n"
                 "The time frame cannot be defined. Please check the values of start_date, end date and AdditionalHours"
@@ -294,60 +294,100 @@ class ThermalOptimizationModel(OptimisationModel):
 
         # Get the parameters of the unit
         fcr_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_optimization_date, 0
+            self.parameters.start_date,
+            self.parameters.timestep,
+            self.parameters.end_date + self.thermal_unit.additional_hours,
+            0,
         )
         fcr_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_optimization_date, 0
+            self.parameters.start_date,
+            self.parameters.timestep,
+            self.parameters.end_date + self.thermal_unit.additional_hours,
+            0,
         )
         afrr_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_optimization_date, 0
+            self.parameters.start_date,
+            self.parameters.timestep,
+            self.parameters.end_date + self.thermal_unit.additional_hours,
+            0,
         )
         afrr_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_optimization_date, 0
+            self.parameters.start_date,
+            self.parameters.timestep,
+            self.parameters.end_date + self.thermal_unit.additional_hours,
+            0,
         )
         mfrr_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_optimization_date, 0
+            self.parameters.start_date,
+            self.parameters.timestep,
+            self.parameters.end_date + self.thermal_unit.additional_hours,
+            0,
         )
         mfrr_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_optimization_date, 0
+            self.parameters.start_date,
+            self.parameters.timestep,
+            self.parameters.end_date + self.thermal_unit.additional_hours,
+            0,
         )
         rr_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_optimization_date, 0
+            self.parameters.start_date,
+            self.parameters.timestep,
+            self.parameters.end_date + self.thermal_unit.additional_hours,
+            0,
         )
         rr_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_optimization_date, 0
+            self.parameters.start_date,
+            self.parameters.timestep,
+            self.parameters.end_date + self.thermal_unit.additional_hours,
+            0,
         )
         if self.thermal_unit.fcr_up_procured:
             fcr_up_procured = self.thermal_unit.fcr_up_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+                self.parameters.execution_date,
+                self.parameters.start_date,
+                self.parameters.end_date + self.thermal_unit.additional_hours,
             )
         if self.thermal_unit.fcr_down_procured:
             fcr_down_procured = self.thermal_unit.fcr_down_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+                self.parameters.execution_date,
+                self.parameters.start_date,
+                self.parameters.end_date + self.thermal_unit.additional_hours,
             )
         if self.thermal_unit.afrr_up_procured:
             afrr_up_procured = self.thermal_unit.afrr_up_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+                self.parameters.execution_date,
+                self.parameters.start_date,
+                self.parameters.end_date + self.thermal_unit.additional_hours,
             )
         if self.thermal_unit.afrr_down_procured:
             afrr_down_procured = self.thermal_unit.afrr_down_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+                self.parameters.execution_date,
+                self.parameters.start_date,
+                self.parameters.end_date + self.thermal_unit.additional_hours,
             )
         if self.thermal_unit.mfrr_up_procured:
             mfrr_up_procured = self.thermal_unit.mfrr_up_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+                self.parameters.execution_date,
+                self.parameters.start_date,
+                self.parameters.end_date + self.thermal_unit.additional_hours,
             )
         if self.thermal_unit.mfrr_down_procured:
             mfrr_down_procured = self.thermal_unit.mfrr_down_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+                self.parameters.execution_date,
+                self.parameters.start_date,
+                self.parameters.end_date + self.thermal_unit.additional_hours,
             )
         if self.thermal_unit.rr_up_procured:
             rr_up_procured = self.thermal_unit.rr_up_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+                self.parameters.execution_date,
+                self.parameters.start_date,
+                self.parameters.end_date + self.thermal_unit.additional_hours,
             )
         if self.thermal_unit.rr_down_procured:
             rr_down_procured = self.thermal_unit.rr_down_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_optimization_date
+                self.parameters.execution_date,
+                self.parameters.start_date,
+                self.parameters.end_date + self.thermal_unit.additional_hours,
             )
 
         # Check that the minimum_stable_power_duration is smaller than the minimumTimeOn
@@ -410,7 +450,7 @@ class ThermalOptimizationModel(OptimisationModel):
         # Definition of the time_frame time frame : the time frame on which the optimization program will be solved.
         # Remark: we define the time series until end_date - time_step because
         # we want all time steps to lie in the [start_date, end_optimization_date] range.
-        end_date = self.parameters.end_optimization_date - self.parameters.timestep
+        end_date = self.parameters.end_date + self.thermal_unit.additional_hours - self.parameters.timestep
         self.time_frame = generate_datetimes(self.parameters.start_date, end_date, self.parameters.timestep)
 
         # Define T_traceback, the number of timesteps we need to go before start_date to define the initial conditions.
@@ -593,7 +633,7 @@ class ThermalOptimizationModel(OptimisationModel):
             # Define the time_frame_union_minus_one which includes the start_date_minus_one time step.
             self.time_frame_union_minus_one = generate_datetimes(
                 self.parameters.start_date - self.parameters.timestep,
-                self.parameters.end_optimization_date - self.parameters.timestep,
+                self.parameters.end_date + self.thermal_unit.additional_hours - self.parameters.timestep,
                 self.parameters.timestep,
             )
 
