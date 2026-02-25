@@ -27,7 +27,7 @@ from pydantic_extra_types.pendulum_dt import DateTime, Duration
 import atlas.config as cfg
 from atlas import AtlasDataset
 from atlas.config import DEFAULT_VALUE_IO, logger
-from atlas.enums import BusinessModelName, StorageType
+from atlas.enums import BusinessModelName, CouplingType, StorageType
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.typing import get_class_inheritance_chain, get_type_attribute
@@ -145,7 +145,7 @@ class PrometheusToAtlasDataParser:
 
         for storage in dataset.storage:
             storage.transition_duration = (
-                pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration
+                pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration  # type: ignore
             )
 
             if storage.additional_hours_ is None:
@@ -160,7 +160,7 @@ class PrometheusToAtlasDataParser:
 
         for market_border in dataset.market_border:
             market_border.coupling_type = (
-                "ATC" if market_border.coupling_type is None else market_border.coupling_type
+                CouplingType.ATC if market_border.coupling_type is None else market_border.coupling_type
             )
             market_border.time_resolution = (
                 0.0 if market_border.time_resolution is None else market_border.time_resolution
