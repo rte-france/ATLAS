@@ -83,14 +83,8 @@ class Storage(Equipment):
     minimum_power: AbstractTimeseries | None = None
     minimum_state_of_charge: AbstractTimeseries | None = None
 
-    additional_hours: Duration | None = Field(
-        None,
-        description="Optimization period in hours for hydraulic group.",
-    )
-
     @field_validator(
         "transition_duration",
-        "additional_hours",
         mode="before",
     )
     @classmethod

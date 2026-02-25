@@ -90,8 +90,6 @@ class Thermal(Equipment):
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
 
-    additional_hours: Duration | None = None
-
     @field_validator(
         "minimum_stable_power_duration",
         "minimum_time_off",
@@ -99,7 +97,6 @@ class Thermal(Equipment):
         "outage_mean_duration",
         "shutdown_duration",
         "startup_duration",
-        "additional_hours",
         mode="before",
     )
     @classmethod

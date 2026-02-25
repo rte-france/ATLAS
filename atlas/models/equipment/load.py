@@ -35,14 +35,3 @@ class Load(Equipment):
     da_buy_submitted_volume: AbstractTimeseries | None = None
     power_forecast_high: AbstractTimeseries | None = None
     power_forecast_low: AbstractTimeseries | None = None
-
-    additional_hours: Duration | None = Field(
-        None,
-        description="Default optimization period in hours for PV, Wind, and Load. Overwritten by specific equipment.",
-    )
-
-    @field_validator("additional_hours", mode="before")
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects (hours default)."""
-        return convert_to_duration(v)

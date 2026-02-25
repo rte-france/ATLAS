@@ -77,17 +77,6 @@ class Hydro(Equipment):
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
 
-    additional_hours: Duration | None = Field(
-        None,
-        description="Optimization period in hours for hydraulic group.",
-    )
-
-    @field_validator("additional_hours", mode="before")
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
-
     @field_validator("fragment_prices", "fragment_volumes", mode="before")
     @classmethod
     def validate_fragment_prices_and_volumes(cls, value: Any):

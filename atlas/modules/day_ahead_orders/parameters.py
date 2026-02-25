@@ -8,8 +8,7 @@ This file is part of the ATLAS project.
 from functools import cached_property
 from pathlib import Path
 
-from pendulum import DateTime, duration
-from pendulum.duration import Duration
+from pendulum import DateTime, Duration
 from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
@@ -92,10 +91,10 @@ class DayAheadOrdersParameters(AbstractParameters):
         "the Storage instances with the type PumpedHydraulicStorage.",
     )
     solver_timeout: Duration = Field(
-        default_factory=lambda: duration(minutes=4), description="Timeout of the optimization."
+        default_factory=lambda: Duration(minutes=4), description="Timeout of the optimization."
     )
     timestep: Duration = Field(
-        default_factory=lambda: duration(minutes=60), description="Discretization step of the simulated time interval"
+        default_factory=lambda: Duration(minutes=60), description="Discretization step of the simulated time interval"
     )
     price_forecasts_types: list[str] = Field(
         ["Medium", "High", "Low"],

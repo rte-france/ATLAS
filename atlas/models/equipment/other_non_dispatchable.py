@@ -23,14 +23,3 @@ class OtherNonDispatchable(Equipment):
 
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
     da_sell_submitted_volume: AbstractTimeseries | None = None
-
-    additional_hours: Duration | None = Field(
-        None,
-        description="Default optimization period for other non dispatchable equipment.",
-    )
-
-    @field_validator("additional_hours", mode="before")
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects (hours default)."""
-        return convert_to_duration(v)

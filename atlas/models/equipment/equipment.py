@@ -4,7 +4,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pydantic import Field, field_serializer
+from pydantic import Field, field_serializer, field_validator
+
+from pendulum import Duration
 
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -13,6 +15,7 @@ from atlas.models.business_model import BusinessModel
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
 from atlas.validators import serializer_business_model
+from atlas.validators import convert_to_duration
 
 
 class Equipment(BusinessModel):
@@ -148,8 +151,15 @@ class Equipment(BusinessModel):
     total_id_cleared_quantity: AbstractTimeseries | None = None
     total_id_sell_submitted_volume: AbstractTimeseries | None = None
     variable_cost: AbstractTimeseries | None = None
+    additional_hours: Duration | None = None
 
     @field_serializer("node", "portfolio", mode="plain")
     def serializer_bmo(self, value: BusinessModel | None) -> str | None:
         """Serialize BusinessModel attributes to string."""
         return serializer_business_model(value)
+
+    @field_validator("additional_hours", mode="before")
+    @classmethod
+    def parse_additional_hours(cls, v):
+        """Convert various duration formats to Duration objects (hours default)."""
+        return convert_to_duration(v)
