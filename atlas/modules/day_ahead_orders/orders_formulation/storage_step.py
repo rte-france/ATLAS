@@ -304,12 +304,11 @@ class StorageStep:
         :return: output variables
         :rtype: tuple[dict[DateTime, float], dict[DateTime, float]]
         """
+        optimization_period = storage.additional_hours
         if storage.storage_type == StorageType.BATTERY:
-            optimization_period = storage.additional_hours
             smoothing_factor = self.parameters.battery_smoothing_factor
             power_fragments = self.parameters.battery_nb_fragments
         elif storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-            optimization_period = storage.additional_hours
             smoothing_factor = self.parameters.phs_smoothing_factor
             power_fragments = self.parameters.phs_nb_fragments
         else:

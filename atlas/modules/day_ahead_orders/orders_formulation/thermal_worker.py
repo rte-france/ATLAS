@@ -13,9 +13,9 @@ from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import ThermalStrategy
-from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
-from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_intermediate_load_orders import (
     ThermalIntermediateLoadOrders,
