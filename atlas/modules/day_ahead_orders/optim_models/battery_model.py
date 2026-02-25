@@ -5,8 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration
-
 from atlas.modules.day_ahead_orders.models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
@@ -20,7 +18,6 @@ class BatteryModel(StorageModel):
         solver_name: str,
         name: str,
         storage: StorageDAO,
-        optimization_period: Duration,
         solver_options: SolverOptions,
     ):
         """
@@ -37,7 +34,7 @@ class BatteryModel(StorageModel):
         :param solver_options: solver options
         :type solver_options: SolverOptions
         """
-        super().__init__(parameters, solver_name, name, storage, optimization_period, solver_options)
+        super().__init__(parameters, solver_name, name, storage, storage.additional_hours, solver_options)
 
     def create_constraints(self, initial_stock: float | None, power_fragments: int) -> None:
         """

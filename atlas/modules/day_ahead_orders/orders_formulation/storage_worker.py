@@ -221,7 +221,6 @@ def _optimize_battery(
     parameters: DayAheadOrdersParameters,
 ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
     """Optimization function for Battery and PHS units."""
-    optimization_period = storage.additional_hours
     if storage.storage_type == StorageType.BATTERY:
         smoothing_factor = parameters.battery_smoothing_factor
         power_fragments = parameters.battery_nb_fragments
@@ -239,7 +238,6 @@ def _optimize_battery(
         parameters.solver_name,
         "Optimization of the storage unit " + storage.name,
         storage,
-        optimization_period,
         solvers_options,
     )
     model.create_decision_variables(power_fragments)
