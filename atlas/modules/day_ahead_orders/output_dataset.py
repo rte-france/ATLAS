@@ -117,4 +117,4 @@ class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
                 "da_buy_submitted_volume": storage.da_buy_submitted_volume,
                 "variable_cost": storage.variable_cost,
             }
-            self.change_sets.append(UpdateObject(storage_dict, Thermal))
+            self.change_sets.append(UpdateObject(storage_dict, Storage))
