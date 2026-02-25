@@ -95,20 +95,16 @@ class StorageStep:
                     self.parameters.start_date, self.parameters.timestep, end_date, 0
                 )
             if Ppurchase != 0:
-                storage.variable_cost.set_value(self.parameters.start_date, round(Ppurchase, 2))
-                storage.variable_cost.set_value(self.parameters.penultimate_date, round(Ppurchase, 2))
+                for t in generate_datetimes(self.parameters.start_date, end_date, self.parameters.timestep):
+                    storage.variable_cost.set_value(t, round(Ppurchase, 2))
             elif storage.discharge_efficiency != 0 and storage.charge_efficiency != 0:
-                storage.variable_cost.set_value(
-                    self.parameters.start_date,
-                    round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2),
-                )
-                storage.variable_cost.set_value(
-                    self.parameters.penultimate_date,
-                    round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2),
-                )
+                for t in generate_datetimes(self.parameters.start_date, end_date, self.parameters.timestep):
+                    storage.variable_cost.set_value(
+                        t, round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2)
+                    )
             else:
-                storage.variable_cost.set_value(self.parameters.start_date, round(Psale, 2))
-                storage.variable_cost.set_value(self.parameters.penultimate_date, round(Psale, 2))
+                for t in generate_datetimes(self.parameters.start_date, end_date, self.parameters.timestep):
+                    storage.variable_cost.set_value(t, round(Psale, 2))
                 cfg.logger.warning(
                     f"ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
                     "This is not supposed to be the case, as the default value for these is 1 and not 0"
