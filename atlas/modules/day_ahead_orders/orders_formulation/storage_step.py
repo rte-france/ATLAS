@@ -7,16 +7,12 @@ This file is part of the ATLAS project.
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from pendulum import DateTime
-
 import atlas.config as cfg
-from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, StorageType
+from atlas.enums import StorageType
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
-from atlas.modules.day_ahead_orders.models.order import OrderDAO
-from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.orders_formulation.storage_worker import (
+    _create_orders_with_couplings,
     _initiate_stock,
     _optimize_battery,
     _optimize_ev,
@@ -26,7 +22,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.storage_worker import (
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.solver.models import SolverOptions
-from atlas.timing import bmo_name_datetime_to_str, generate_datetimes
+from atlas.timing import generate_datetimes
 
 
 class StorageStep:
@@ -175,57 +171,11 @@ class StorageStep:
                 )
 
             # --- Formulate orders, possibly with associated coupling instances
-            # First, orders that are included in a COMPLEMENT coupling
-            daily_buy_volume = sum(buy_volume * self.parameters.timestep.total_hours() for buy_volume in Qa.values())
-            if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
-                # Create the order coupling instance
-                coupling_instance = OrderCouplingDAO(
-                    name=f"COMPLEMENT_DA_{storage.name}_{bmo_name_datetime_to_str(self.parameters.execution_date)}",
-                    coupling_type=CouplingType.COMPLEMENT,
-                    complement_direction=ComplementDirection.EqualTo,
-                )
-
-                # Compute the ComplementEnergy according to the evolution DisplacementEnergy over the day,
-                # if it is feasible given all orders generated for this equipment.
-                # If not, the energy requirement is capped to the feasible limit
-                energy_requirement = storage.displacement_energy.get_value(
-                    self.parameters.penultimate_date
-                ) - storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.timestep)
-
-                if energy_requirement > daily_buy_volume:
-                    coupling_instance.complement_energy = daily_buy_volume
-                else:
-                    coupling_instance.complement_energy = energy_requirement
-
-                for t in [i for i, e in Qa.items()]:
-                    self.add_spot_order_with_coupling(OrderType.Buy, storage, t, Qa[t], Ppurchase, coupling_instance)
-                    buy_submitted_volumes.set_or_add_value(t, Qa[t])
-                for t in [i for i, e in Qv.items()]:
-                    self.add_spot_order_with_coupling(OrderType.Sell, storage, t, Qv[t], Psale, coupling_instance)
-                    sell_submitted_volumes.set_or_add_value(t, Qv[t])
-
-                self.dataset.order_coupling.append(coupling_instance)
-
-            # All other orders
-            else:
-                # Create a COMPLEMENT order coupling
-                coupling_instance = OrderCouplingDAO(
-                    name=f"COMPLEMENT_DA_{storage.name}_{bmo_name_datetime_to_str(self.parameters.execution_date)}",
-                    coupling_type=CouplingType.COMPLEMENT,
-                )
-
-                for t in [i for i, e in Qa.items()]:
-                    self.add_spot_order_with_coupling(OrderType.Buy, storage, t, Qa[t], Ppurchase, coupling_instance)
-                    buy_submitted_volumes.set_or_add_value(t, Qa[t])
-                for t in [i for i, e in Qv.items()]:
-                    self.add_spot_order_with_coupling(OrderType.Sell, storage, t, Qv[t], Psale, coupling_instance)
-                    sell_submitted_volumes.set_or_add_value(t, Qv[t])
-
-                # Fill the COMPLEMENT order coupling
-                coupling_instance.coupling_type = CouplingType.COMPLEMENT
-                coupling_instance.complement_direction = ComplementDirection.EqualTo
-                coupling_instance.complement_energy = buy_submitted_volumes.sum() - sell_submitted_volumes.sum()
-                self.dataset.order_coupling.append(coupling_instance)
+            orders, order_couplings = _create_orders_with_couplings(
+                storage, Qa, Qv, Ppurchase, Psale, buy_submitted_volumes, sell_submitted_volumes, self.parameters
+            )
+            self.dataset.order.extend(orders)
+            self.dataset.order_coupling.extend(order_couplings)
 
             if storage.da_buy_submitted_volume is None:
                 storage.da_buy_submitted_volume = buy_submitted_volumes
@@ -236,45 +186,3 @@ class StorageStep:
                 storage.da_sell_submitted_volume = sell_submitted_volumes
             else:
                 storage.da_sell_submitted_volume += sell_submitted_volumes
-
-    def add_spot_order_with_coupling(
-        self,
-        order_type: OrderType,
-        storage: StorageDAO,
-        start_date: DateTime,
-        qmax: float,
-        price: float,
-        coupling_instance: OrderCouplingDAO,
-    ) -> None:
-        """
-        Add a spot order with a coupling instance to the model
-        :param order_type: the order type
-        :type order_type: OrderType
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :param start_date: the start date
-        :type start_date: DateTime
-        :param qmax: the maximum power
-        :type qmax: float
-        :param price: the price
-        :type price: float
-        :param coupling_instance: the coupling instance
-        :type coupling_instance: OrderCouplingDAO
-        :return: None
-        """
-        order = OrderDAO(
-            name=f"storage_order_type_{order_type}_at_{bmo_name_datetime_to_str(start_date)}_for_unit_{storage.name}",
-            equipment=storage,
-            portfolio=storage.portfolio,
-            market_area=storage.portfolio.market_area,
-            execution_date=self.parameters.execution_date,
-            start_date=start_date,
-            end_date=start_date + self.parameters.timestep,
-            order_type=order_type,
-            product=Product.DayAhead,
-            qmax=qmax,
-            qmin=0.0,
-            price=price,
-        )
-        self.dataset.order.append(order)
-        coupling_instance.orders.append(order)

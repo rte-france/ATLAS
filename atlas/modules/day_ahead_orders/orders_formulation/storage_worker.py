@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.enums import ComplementDirection, CouplingType, OrderType, StorageType
+from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, StorageType
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
@@ -402,8 +402,6 @@ def _create_spot_order(
     parameters: DayAheadOrdersParameters,
 ) -> OrderDAO:
     """Create a single spot order."""
-    from atlas.enums import Product
-    from atlas.timing import bmo_name_datetime_to_str
 
     return OrderDAO(
         name=f"storage_order_type_{order_type}_at_{bmo_name_datetime_to_str(start_date)}_for_unit_{storage.name}",
