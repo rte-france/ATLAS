@@ -199,13 +199,9 @@ def _optimize_ev(
 
     if parameters.export_lp:
         lp_file_name = parameters.export_lp_path / f"storage_{model.storage.name}.lp"
-        model.export_model(str(lp_file_name))
+        model.export_model(lp_file_name)
 
     model.solve()
-
-    status = model.solution_info.status if model.solution_info else None
-    cfg.logger.debug(f"Solver status: {status}")
-    cfg.logger.debug(f"Objective function value: {model._objective}")
 
     Qvv: dict[DateTime, float] = {}
     Qaa: dict[DateTime, float] = {}
@@ -252,13 +248,9 @@ def _optimize_battery(
 
     if parameters.export_lp:
         lp_file_name = parameters.export_lp_path / f"storage_{model.storage.name}.lp"
-        model.export_model(str(lp_file_name))
+        model.export_model(lp_file_name)
 
     model.solve()
-
-    status = model.solution_info.status if model.solution_info else None
-    cfg.logger.debug(f"Solver status: {status}")
-    cfg.logger.debug(f"Objective function value: {model._objective}")
 
     Qvv: dict[DateTime, float] = {}
     Qaa: dict[DateTime, float] = {}
