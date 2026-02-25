@@ -148,15 +148,15 @@ class PrometheusToAtlasDataParser:
                 pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration  # type: ignore
             )
 
-            if storage.additional_hours_ is None:
+            if storage.additional_hours is None:
                 if storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-                    storage.additional_hours_ = Duration(hours=144)
+                    storage.additional_hours = Duration(hours=144)
                 elif storage.storage_type == StorageType.BATTERY:
-                    storage.additional_hours_ = Duration(hours=48)
+                    storage.additional_hours = Duration(hours=48)
                 elif storage.storage_type == StorageType.ELECTRIC_VEHICLE:
-                    storage.additional_hours_ = Duration(hours=24)
+                    storage.additional_hours = Duration(hours=24)
                 else:
-                    storage.additional_hours_ = Duration(hours=48)
+                    storage.additional_hours = Duration(hours=48)
 
         for market_border in dataset.market_border:
             market_border.coupling_type = (
