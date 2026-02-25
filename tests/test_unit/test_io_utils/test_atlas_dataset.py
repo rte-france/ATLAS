@@ -556,9 +556,10 @@ class TestAtlasDatasetEq:
         assert AtlasDataset() == AtlasDataset()
 
     def test_same_objects_are_equal(self):
-        node = Node(name="node1")
-        ds1 = AtlasDataset(node=[node])
-        ds2 = AtlasDataset(node=[node])
+        node_1 = Node(name="node")
+        node_2 = Node(name="node")
+        ds1 = AtlasDataset(node=[node_1])
+        ds2 = AtlasDataset(node=[node_2])
         assert ds1 == ds2
 
     def test_different_node_names_are_not_equal(self):
@@ -601,6 +602,12 @@ class TestAtlasDatasetEq:
         ds2 = AtlasDataset(thermal=[th2])
         assert ds1 != ds2
 
+    def test_eq_with_same_name_same_attribute(self):
+        th1 = Thermal(name="th", installed_capacity=100)
+        th2 = Thermal(name="th", installed_capacity=100)
+        ds1 = AtlasDataset(thermal=[th1])
+        ds2 = AtlasDataset(thermal=[th2])
+        assert ds1 == ds2
 
 @pytest.fixture()
 def simple_timeseries():
