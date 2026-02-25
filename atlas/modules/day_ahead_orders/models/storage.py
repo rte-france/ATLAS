@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas import LazyTimeseries, Storage, Timeseries
-from atlas.modules.day_ahead_orders.data_models.portfolio import PortfolioDAO
+from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
 
 
 class StorageDAO(Storage):

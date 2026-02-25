@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from atlas import Hydro, LazyTimeseries, ScenarioMatrix, Timeseries
-from atlas.modules.day_ahead_orders.data_models.portfolio import PortfolioDAO
+from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
 
 
 class HydroDAO(Hydro):

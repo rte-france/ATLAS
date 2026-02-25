@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pendulum import Duration
 
 from atlas import LazyTimeseries, Thermal, Timeseries
-from atlas.modules.day_ahead_orders.data_models.portfolio import PortfolioDAO
+from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
 
 
 class ThermalDAO(Thermal):
