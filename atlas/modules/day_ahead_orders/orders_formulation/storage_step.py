@@ -13,9 +13,9 @@ import atlas.config as cfg
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, StorageType
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
-from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
-from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.data_models.storage import StorageDAO
+from atlas.modules.day_ahead_orders.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
 from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
@@ -305,11 +305,11 @@ class StorageStep:
         :rtype: tuple[dict[DateTime, float], dict[DateTime, float]]
         """
         if storage.storage_type == StorageType.BATTERY:
-            optimization_period = self.parameters.battery_additional_hours
+            optimization_period = storage.additional_hours
             smoothing_factor = self.parameters.battery_smoothing_factor
             power_fragments = self.parameters.battery_nb_fragments
         elif storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-            optimization_period = self.parameters.phs_additional_hours
+            optimization_period = storage.additional_hours
             smoothing_factor = self.parameters.phs_smoothing_factor
             power_fragments = self.parameters.phs_nb_fragments
         else:

@@ -31,6 +31,7 @@ class HydroPO(BaseEquipmentPO, Hydro):
     maximum_power: AbstractTimeseries
     initial_level: AbstractTimeseries
     storage_marginal_value: AbstractScenarioMatrix
+    additional_hours: Duration
 
     optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None

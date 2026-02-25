@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any
 
 import pendulum
-from pendulum.duration import Duration
 
 from atlas.models.business_model import BusinessModel
 from atlas.timing import parse_frequency
@@ -92,7 +91,7 @@ def convert_to_duration(
         return None
 
     # Handle existing Duration objects
-    if isinstance(value, Duration):
+    if isinstance(value, pendulum.Duration):
         duration_obj = value
     elif isinstance(value, str):
         if value == "P":
@@ -101,7 +100,7 @@ def convert_to_duration(
         if value.startswith("P") or "T" in value:
             try:
                 obj = pendulum.parse(value)
-                if not isinstance(obj, Duration):
+                if not isinstance(obj, pendulum.Duration):
                     raise ValueError(f"Parsed value is not a Duration: {obj}")
                 duration_obj = obj
             except Exception as e:
