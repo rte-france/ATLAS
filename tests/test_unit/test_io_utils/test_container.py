@@ -176,16 +176,17 @@ def test_eq_with_not_object_inside():
     assert c_1 == c_2
 
 def test_not_eq_with_different_object_with_same_name():
-    a_1 = DummyBM("a")
-    a_2 = DummyBM("1")
-    c_1 = Container([a_1])
-    c_2 = Container([a_2])
+    a = DummyBM("a")
+    b = DummyBM("b")
+    c_1 = Container([a])
+    c_2 = Container([b])
     assert c_1 != c_2
 
 def test_eq_with_object_inside():
-    a = DummyBM("a")
-    c_1 = Container([a])
-    c_2 = Container([a])
+    a_1 = DummyBM("a")
+    a_2 = DummyBM("a")
+    c_1 = Container([a_1])
+    c_2 = Container([a_2])
     assert c_1 == c_2
 
 def test_not_eq_when_one_as_more_item():
