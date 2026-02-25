@@ -746,7 +746,7 @@ class ThermalOptimizationModel(OptimisationModel):
         :rtype: dict[str, Timeseries]
         """
         if self.parameters.export_lp:
-            lp_file_name = self.parameters.output_folder / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
+            lp_file_name = self.parameters.export_lp_path / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
             self.export_model(str(lp_file_name))
 
         cfg.logger.info(f"Optimisation model '{self.name}' with price type '{self.price_type}'")

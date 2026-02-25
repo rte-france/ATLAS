@@ -198,7 +198,7 @@ def _optimize_ev(
     model.create_constraints(initial_stock)
 
     if parameters.export_lp:
-        lp_file_name = parameters.output_folder / f"storage_{model.storage.name}.lp"
+        lp_file_name = parameters.export_lp_path / f"storage_{model.storage.name}.lp"
         model.export_model(str(lp_file_name))
 
     model.solve()
@@ -251,7 +251,7 @@ def _optimize_battery(
     model.create_constraints(initial_stock, power_fragments)
 
     if parameters.export_lp:
-        lp_file_name = parameters.output_folder / f"storage_{model.storage.name}.lp"
+        lp_file_name = parameters.export_lp_path / f"storage_{model.storage.name}.lp"
         model.export_model(str(lp_file_name))
 
     model.solve()

@@ -14,7 +14,7 @@ These parameters are inherited from `AbstractParameters`:
 
 ## Execution Parameters
 
-- **`output_folder`** (str, default: ""): Path where the lp exports outputs are exported.
+- **`export_lp_path`** (str, default: ""): Path where the lp exports outputs are exported.
 
 ## Optimization Parameters
 
@@ -91,7 +91,7 @@ These parameters are inherited from `AbstractParameters`:
 start_date: "2028-09-27 00:00:00"
 execution_date: "2028-09-26 12:00:00"
 end_date: "2028-09-28 00:00:00"
-output_folder: "./lp_exports"
+export_lp_path: "./lp_exports"
 proportional_reserves_penalty: True
 use_presolve: True
 automated_unprocured_reserves_penalty: 10000

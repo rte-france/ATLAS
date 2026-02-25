@@ -16,7 +16,7 @@ from atlas.validators import convert_to_duration
 
 
 class DayAheadOrdersParameters(AbstractParameters):
-    output_folder: Path = Field(
+    export_lp_path: Path = Field(
         Path("DAO_lp_exports"),
         description="Optional parameter to choose an output folder in the folder where the LPs will be exported.",
     )

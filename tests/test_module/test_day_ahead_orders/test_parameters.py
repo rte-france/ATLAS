@@ -4,10 +4,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime, Duration
 from pathlib import Path
 
 import pytest
+from pendulum import DateTime, Duration
 from pydantic import ValidationError
 
 from atlas.enums import SolverEnum
@@ -16,7 +16,7 @@ from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 def test_default_parameters():
     params = DayAheadOrdersParameters(start_date=DateTime.now(), end_date=DateTime.now(), execution_date=DateTime.now())
-    assert params.output_folder == Path("DAO_lp_exports")
+    assert params.export_lp_path == Path("DAO_lp_exports")
     assert params.export_lp == False
     assert params.proportional_reserves_penalty == True
     assert params.use_presolve == True

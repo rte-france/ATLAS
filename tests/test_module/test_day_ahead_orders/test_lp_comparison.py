@@ -81,7 +81,7 @@ class TestThermalCombinationLPComparison:
         with tempfile.TemporaryDirectory() as tmpdir:
             params_dict = base_parameters_dict.copy()
             params_dict["export_lp"] = True
-            params_dict["output_folder"] = tmpdir
+            params_dict["export_lp_path"] = tmpdir
             params_dict["solver_name"] = "SCIP"
 
             input_data = AtlasDataset.from_directory(combination_dir)
