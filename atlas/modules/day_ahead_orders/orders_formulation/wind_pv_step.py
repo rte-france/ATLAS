@@ -13,6 +13,7 @@ from atlas.enums import OrderType, Product
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.timing import bmo_name_datetime_to_str
 
 
 class WindPVStep:
@@ -67,9 +68,9 @@ class WindPVStep:
                     # Assign a unique name
                     bid_name = ""
                     if isinstance(equipment, Wind):
-                        bid_name = f"wind_order_at_{t}_for_unit_{equipment.name}"
+                        bid_name = f"wind_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{equipment.name}"
                     elif isinstance(equipment, Solar):
-                        bid_name = f"pv_order_at_{t}_for_unit_{equipment.name}"
+                        bid_name = f"pv_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{equipment.name}"
                     else:
                         cfg.logger.warning(f"equipment {equipment.name} isn't Wind nor Solar")
 

@@ -20,7 +20,7 @@ from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageMod
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.solver.models import SolverOptions
-from atlas.timing import generate_datetimes
+from atlas.timing import bmo_name_datetime_to_str, generate_datetimes
 
 
 class StorageStep:
@@ -120,7 +120,7 @@ class StorageStep:
             if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
                 # Create the order coupling instance
                 coupling_instance = OrderCouplingDAO(
-                    name=f"COMPLEMENT_DA_{storage.name}_{self.parameters.execution_date}",
+                    name=f"COMPLEMENT_DA_{storage.name}_{bmo_name_datetime_to_str(self.parameters.execution_date)}",
                     coupling_type=CouplingType.COMPLEMENT,
                     complement_direction=ComplementDirection.EqualTo,
                 )
@@ -150,7 +150,7 @@ class StorageStep:
             else:
                 # Create a COMPLEMENT order coupling
                 coupling_instance = OrderCouplingDAO(
-                    name=f"COMPLEMENT_DA_{storage.name}_{self.parameters.execution_date}",
+                    name=f"COMPLEMENT_DA_{storage.name}_{bmo_name_datetime_to_str(self.parameters.execution_date)}",
                     coupling_type=CouplingType.COMPLEMENT,
                 )
 
@@ -394,7 +394,7 @@ class StorageStep:
         :return: None
         """
         order = OrderDAO(
-            name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{storage.name}",
+            name=f"storage_order_type_{order_type}_at_{bmo_name_datetime_to_str(start_date)}_for_unit_{storage.name}",
             equipment=storage,
             portfolio=storage.portfolio,
             market_area=storage.portfolio.market_area,

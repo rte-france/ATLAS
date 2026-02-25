@@ -12,6 +12,7 @@ from atlas.enums import OrderType, Product
 from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.timing import bmo_name_datetime_to_str
 
 
 class NonDispatchableStep:
@@ -66,7 +67,7 @@ class NonDispatchableStep:
                 # We formulate as many offers as there are time stamps in orders_time.
                 for t in orders_time:
                     bid_output = OrderDAO(
-                        name=f"otherND_order_at_{t}_for_unit_{unit.name}",  # Assign a unique name.
+                        name=f"otherND_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",  # Assign a unique name.
                         market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,
                         equipment=unit,
