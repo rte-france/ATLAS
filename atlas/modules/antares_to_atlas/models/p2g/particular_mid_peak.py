@@ -111,48 +111,23 @@ def _convert_pcomp_units(
             continue
 
         area = areas[area_name]
+        thermals = area.get_thermals()
+        thermal_name = f"{area.id}_{suffix}"
 
-        # TODO: Verify the thermal cluster naming convention
-        # In old code: f"{area.Name}_{functions.node_special_format(area.Name)}_{suffix}"
-        # node_special_format() uppercases the first letter and replaces spaces with underscores
-        # For now, using a simple format — verify the exact naming
-        thermal_name = f"{area.id}_{suffix}"  # TODO: apply node_special_format
-
-        # Find the thermal cluster in this area
-        try:
-            thermals = area.get_thermals()
-        except Exception as e:
-            logger.warning(f"Could not get thermals for area {area.id}: {e}")
-            continue
-
-        thermal = None
-        for thermal_key, thermal_obj in thermals.items():
-            if thermal_name.lower() in thermal_key.lower():
-                thermal = thermal_obj
-                break
+        thermal = thermals.get(thermal_name, None)
 
         if thermal is None:
             continue
 
-        # TODO: Verify how to check if a thermal cluster is enabled
-        # In old code: not antares_instance.Enabled
-        enabled = True  # TODO: thermal.properties.enabled or similar
+        enabled = thermal.properties.enabled
         if not enabled:
             continue
 
-        # Filter zero-capacity units
-        # TODO: Verify field names NominalCapacity and UnitCount
-        installed_capacity = 0.0  # TODO: float(thermal.nominal_capacity) * float(thermal.unit_count)
+        installed_capacity = thermal.properties.nominal_capacity * thermal.properties.unit_count
         if installed_capacity == 0.0:
             continue
 
         logger.info(f"Creating pcomp thermal unit: {thermal_name}")
-
-        # Check if already created by thermal.py (avoid duplicates)
-        existing = next((t for t in atlas_dataset.thermal if t.name == thermal_name), None)
-        if existing:
-            _apply_pcomp_properties(existing, thermal, properties, installed_capacity)
-            continue
 
         unit = _create_pcomp_equipment(
             area_name=area_name,
@@ -171,7 +146,6 @@ def _convert_pcomp_units(
 
 def _create_pcomp_equipment(
     area_name: str,
-    thermal_name: str,
     thermal: ThermalCluster,
     parameters: AntaresToAtlasParameters,
     atlas_dataset: AtlasDataset,
@@ -179,44 +153,32 @@ def _create_pcomp_equipment(
     properties: dict,
 ) -> Thermal | None:
     """Create a new Thermal equipment for a pcomp cluster."""
-    # Maximum power
+
     maximum_power_ts = _get_maximum_power(thermal, parameters)
 
-    # Minimum power from MinStablePower
-    # TODO: Verify field name on ThermalCluster
-    min_stable_power = 0.0  # TODO: float(thermal.min_stable_power)
     minimum_power_ts = Timeseries.from_index(
         start_date=parameters.start_date,
         frequency="1h",
         end_date=parameters.start_date + duration(years=1),
-        default_value=min_stable_power,
+        default_value=thermal.properties.min_stable_power,
     )
 
-    # Variable cost: prefer MarketBidCost, fall back to MarginalCost
-    # TODO: Verify field names on ThermalCluster
-    variable_cost_ts = _get_variable_cost(thermal, parameters)
+    variable_cost_ts = Timeseries.from_index(
+        start_date=parameters.start_date,
+        frequency="1h",
+        end_date=parameters.start_date + duration(years=1),
+        default_value=_get_variable_cost(thermal),
+    )
 
-    # Startup cost (per unit * unit_count)
-    # TODO: Verify field names — StartupCost * UnitCount in old code
-    startup_cost_value = 0.0  # TODO: float(thermal.startup_cost) * float(thermal.unit_count)
     startup_cost_ts = Timeseries.from_index(
         start_date=parameters.start_date,
         frequency="1h",
         end_date=parameters.start_date + duration(years=1),
-        default_value=startup_cost_value,
+        default_value=thermal.properties.startup_cost * thermal.properties.unit_count,
     )
 
-    # CO2 factor: use antares value if non-zero, else use hardcoded key
-    # TODO: Verify field name for CO2
-    co2_value = 0.0  # TODO: float(thermal.co2)
-    co2_factor = co2_value if co2_value != 0.0 else parameters.co2_emission_factors.get(properties["co2_factor_key"])
-
-    # Unit count for MaximumGradient scaling
-    unit_count = None  # TODO: int(thermal.unit_count)
-    maximum_gradient = properties["maximum_gradient_per_unit"] * unit_count if unit_count else None
-
     equipment = Thermal(
-        name=thermal_name,
+        name=thermal.name,
         node=atlas_dataset.get("node", area_name),
         portfolio=atlas_dataset.get(
             "portfolio",
@@ -227,36 +189,19 @@ def _create_pcomp_equipment(
         installed_capacity=installed_capacity,
         variable_cost=variable_cost_ts,
         startup_cost=startup_cost_ts,
-        co2_emission_factor=co2_factor,
-        minimum_stable_power_duration=properties["minimum_stable_power_duration"],
-        startup_delay_probability=properties["startup_delay_probability"],
-        startup_duration=properties["startup_duration"],
-        shutdown_duration=properties["shutdown_duration"],
-        maximum_gradient=maximum_gradient,
-        strategy=properties["strategy"],
-        setup_delay=properties["setup_delay"],
-        unit_count=unit_count,
+        co2_emission_factor=thermal.properties.co2,
+        minimum_stable_power_duration=thermal.properties.min_stable_power,  # TODO check all theses propertis not accessible
+        startup_delay_probability=thermal.properties.startup_delay_probability,
+        startup_duration=thermal.properties.startup_duration,
+        shutdown_duration=thermal.properties.shutdown_duration,
+        maximum_gradient=thermal.properties.max_gradient_per_unit,
+        strategy=thermal.properties.strategy,
+        setup_delay=thermal.properties.setup_delay,
+        unit_count=thermal.properties.unit_count,
     )
 
-    logger.debug(f"Created pcomp thermal unit: {thermal_name}")
+    logger.debug(f"Created pcomp thermal unit: {thermal.name}")
     return equipment
-
-
-def _apply_pcomp_properties(
-    equipment: Thermal,
-    thermal: ThermalCluster,
-    properties: dict,
-    installed_capacity: float,
-) -> None:
-    """Apply pcomp-specific properties to an already-existing Thermal equipment."""
-    unit_count = equipment.unit_count
-    equipment.minimum_stable_power_duration = properties["minimum_stable_power_duration"]
-    equipment.startup_delay_probability = properties["startup_delay_probability"]
-    equipment.startup_duration = properties["startup_duration"]
-    equipment.shutdown_duration = properties["shutdown_duration"]
-    equipment.maximum_gradient = properties["maximum_gradient_per_unit"] * unit_count if unit_count else None
-    equipment.strategy = properties["strategy"]
-    equipment.setup_delay = properties["setup_delay"]
 
 
 def _get_maximum_power(thermal: ThermalCluster, parameters: AntaresToAtlasParameters) -> Timeseries:
@@ -278,12 +223,16 @@ def _get_maximum_power(thermal: ThermalCluster, parameters: AntaresToAtlasParame
         )
 
 
-def _get_variable_cost(thermal: ThermalCluster, parameters: AntaresToAtlasParameters) -> Timeseries | None:
+def _get_variable_cost(thermal: ThermalCluster) -> Timeseries | None:
     """Get variable cost: MarketBidCost * modulation if > 0, else MarginalCost * modulation."""
-    # TODO: Verify field names on ThermalCluster
-    # In old code:
+
+    # In old code: # TODO
     #   if antares_instance.MarketBidCost > 0:
     #       return float(antares_instance.MarketBidCost) * antares_instance.MarketBidModulation
     #   else:
     #       return float(antares_instance.MarginalCost) * antares_instance.MarginalCostModulation
-    return None  # TODO
+    return (
+        thermal.properties.market_bid_cost * thermal.properties.market_bid_modulation
+        if thermal.properties.market_bid_cost > 0
+        else thermal.properties.marginal_cost * thermal.properties.marginal_cost_modulation
+    )

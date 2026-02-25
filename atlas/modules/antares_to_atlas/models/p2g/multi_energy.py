@@ -26,8 +26,6 @@ def update_variable_cost_for_gas_units(
     The yield factor (already inversed, i.e. > 1) comes from binding constraints:
     - "me_prod_ch4": lists CH4-consuming thermals and their yield weights
     - "me_prod_h2":  lists H2-consuming thermals and their yield weights
-
-    Note: P2G unit variable costs are also updated here (TODO).
     """
     logger.info("Updating variable costs for gas-consuming thermal units")
 
