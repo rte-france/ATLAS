@@ -9,6 +9,7 @@ from pendulum import duration
 
 from atlas.enums import LoadType, StorageType
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.storage import Storage
@@ -129,24 +130,18 @@ def _convert_standard_evs(
         thermals = area.get_thermals()
         logger.debug(f"Processing EV for area {area.id}")
 
-        # TODO: Get thermal cluster for EV_inj
-        # In old code: ThermalTechnology.GetInstanceByName(f"{area.id}_{node_special_format}_VE_inj")
         ev_inj_thermal = thermals.get(f"{area_name}_ve_inj", None)
 
         if not ev_inj_thermal:
             logger.debug(f"No EV injection thermal found for area {area.id}")
             continue
 
-        # TODO: Get link to ve_eu virtual node
-        # In old code: Link.GetInstanceByName(f"{area.id}_ve_eu")
         ev_link = links.get(f"{area_name}_ve_eu", None)
 
         if not ev_link:
             logger.debug(f"No EV link found for area {area.id}")
             continue
 
-        # TODO: Get binding constraint for efficiency
-        # In old code: BindingConstraint.GetInstanceByName(f"ve_stock_{area.id}")
         ev_stock_bc = binding_constraints.get(f"ve_stock_{area_name}", None)
 
         if not ev_stock_bc:
@@ -166,7 +161,6 @@ def _convert_standard_evs(
         # - Maximum energy from ev_stor.Disponibility[scenario]
         # - Efficiencies from binding constraint weights
         try:
-            # TODO: Get correct time series from thermals and links
             maximum_power_ts = Timeseries.from_index(
                 start_date=parameters.start_date,
                 frequency="1h",
@@ -186,7 +180,6 @@ def _convert_standard_evs(
                 default_value=0.0,
             )
 
-            # Check if non-zero
             if maximum_power_ts.max() == 0.0 or maximum_energy_ts.max() == 0.0:
                 continue
 
@@ -299,31 +292,21 @@ def _convert_france_heavy_vehicles(
     if "fr" not in areas:
         return []
 
-    area = areas["fr"]
-
-    # TODO: Get link to ve_fr_mobilite_lourde
-    # In old code: Link.GetInstanceByName("fr_ve_fr_mobilite_lourde")
-    hv_link = None
-    for link_id, link_obj in links.items():
-        if "fr_ve_fr_mobilite_lourde" in link_id.lower():
-            hv_link = link_obj
-            break
+    hv_link = links.get("fr_ve_fr_mobilite_lourde", None)
 
     if not hv_link:
         logger.debug("No heavy vehicle link found for FR")
         return []
 
-    # TODO: Get CalculatedTransit time series from link
-    # In old code: HV_link.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
     try:
-        # TODO: Get correct transit data
-        transit_df = hv_link.get_capacity_direct()  # TODO: Get correct method
+        transit_df = hv_link.get_capacity_direct()[
+            parameters.scenario
+        ]  # TODO HV_link.CalculatedTransit.GetTimeSeriesByName(str(p.scenario))
         maximum_power_ts = Timeseries(transit_df * -1.0)
     except Exception as e:
         logger.warning(f"Could not get transit data for FR heavy vehicles: {e}")
         return []
 
-    # Create Load equipment
     hv = Load(
         name="fr_heavy_vehicles",
         node=atlas_dataset.get("node", "fr"),
@@ -332,8 +315,7 @@ def _convert_france_heavy_vehicles(
             "supplier_fr" if parameters.consumption_production_separation else "portfolio_fr",
         ),
         load_type=LoadType.OTHER_NON_DISPATCHABLE_LOAD,
-        # TODO: Add maximum_power_forecast
-        # maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, maximum_power_ts),
+        maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, maximum_power_ts),
     )
 
     logger.info("FR heavy vehicles conversion done")

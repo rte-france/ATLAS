@@ -119,12 +119,7 @@ def _get_yields_from_binding_constraint(study: Study, bc_name: str) -> dict[str,
     """
     binding_constraints = study.get_binding_constraints()
 
-    # TODO: Verify if binding constraints are indexed by name or ID
-    bc = None
-    for bc_id, bc_obj in binding_constraints.items():
-        if bc_name.lower() in bc_id.lower():
-            bc = bc_obj
-            break
+    bc = binding_constraints.get(bc_name, None)
 
     if bc is None:
         logger.warning(f"Binding constraint {bc_name} not found")
