@@ -106,7 +106,9 @@ def _convert_dsr_fr(
         if bc_name:
             bc = binding_constraints.get(bc_name, None)
             if bc is not None:
-                maximum_daily_energy = Timeseries(bc.get_less_term_matrix())  # TODO
+                maximum_daily_energy = Timeseries(
+                    bc.get_less_term_matrix()
+                )  # TODO antares_input_marker.BindingConstraint.GetInstanceByName("cluster_name").LessThan
 
         thermal_name = dsr_config["thermal_name"]
         if thermal_name not in thermals:
@@ -115,7 +117,9 @@ def _convert_dsr_fr(
 
         cluster = thermals[thermal_name]
 
-        disponibility = cluster.get_series_matrix()[parameters.scenario - 1]  # TODO
+        disponibility = cluster.get_series_matrix()[
+            parameters.scenario - 1
+        ]  # TODO instance.Disponibility[str(p.scenario)]
 
         # Create variable cost timeseries
         variable_cost = Timeseries.from_index(
@@ -159,7 +163,9 @@ def _convert_dsr_other_country(
     bc = binding_constraints.get(bc_name, None)
 
     if bc is not None:
-        maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
+        maximum_daily_energy = Timeseries(
+            bc.get_less_term_matrix()
+        )  # TODO antares_input_marker.BindingConstraint.GetInstanceByName("cluster_name").LessThan
 
     thermal_name = f"{area.id}_{area.upper()}_DSR_0"
 
@@ -172,7 +178,9 @@ def _convert_dsr_other_country(
     cluster = thermals[thermal_name]
 
     try:
-        maximum_power_df = cluster.get_series_matrix()[parameters.scenario - 1]  # TODO
+        maximum_power_df = cluster.get_series_matrix()[
+            parameters.scenario - 1
+        ]  # TODO instance.Disponibility[str(p.scenario)]
         if maximum_power_df.abs().max() == 0:
             return None
         maximum_power = Timeseries(maximum_power_df)

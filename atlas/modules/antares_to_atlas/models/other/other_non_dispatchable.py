@@ -33,7 +33,7 @@ def convert_other_non_dispatchable_units(
 
         # if antares_node.HydroReservoir.ROR.Count > sc_hydro - 1:
         #     ror = antares_node.HydroReservoir.ROR.TimeSeries[sc_hydro - 1]
-        ror = areas[area_name].hydro.get_ror_series()
+        ror = areas[area_name].hydro.get_ror_series()  # TODO antares_node.HydroReservoir.ROR.TimeSeries[sc_hydro - 1]
         if ror.abs().max().item() > 0:
             non_disp_units.append(
                 OtherNonDispatchable(
@@ -51,7 +51,7 @@ def convert_other_non_dispatchable_units(
                 )
             )
 
-            # for source in antares_node.MiscGenProduction.Index:
+            # for source in antares_node.MiscGenProduction.Index: # TODO
             #     prod = antares_node.MiscGenProduction[source]
             #     if prod.Abs().Max() > 0:
 

@@ -126,30 +126,20 @@ def _convert_standard_evs(
             continue
 
         area = areas[area_name]
+        thermals = area.get_thermals()
         logger.debug(f"Processing EV for area {area.id}")
 
         # TODO: Get thermal cluster for EV_inj
         # In old code: ThermalTechnology.GetInstanceByName(f"{area.id}_{node_special_format}_VE_inj")
-        ev_inj_thermal = None
-        try:
-            thermals = area.get_thermals()
-            for thermal_key, thermal_obj in thermals.items():
-                if "ve_inj" in thermal_key.lower():
-                    ev_inj_thermal = thermal_obj
-                    break
-        except Exception as e:
-            logger.warning(f"Could not access thermals for area {area.id}: {e}")
+        ev_inj_thermal = thermals.get(f"{area_name}_ve_inj", None)
 
         if not ev_inj_thermal:
+            logger.debug(f"No EV injection thermal found for area {area.id}")
             continue
 
         # TODO: Get link to ve_eu virtual node
         # In old code: Link.GetInstanceByName(f"{area.id}_ve_eu")
-        ev_link = None
-        for link_id, link_obj in links.items():
-            if f"{area.id}_ve_eu" in link_id.lower():
-                ev_link = link_obj
-                break
+        ev_link = links.get(f"{area_name}_ve_eu", None)
 
         if not ev_link:
             logger.debug(f"No EV link found for area {area.id}")
@@ -157,11 +147,7 @@ def _convert_standard_evs(
 
         # TODO: Get binding constraint for efficiency
         # In old code: BindingConstraint.GetInstanceByName(f"ve_stock_{area.id}")
-        ev_stock_bc = None
-        for bc_id, bc_obj in binding_constraints.items():
-            if f"ve_stock_{area.id}".lower() in bc_id.lower():
-                ev_stock_bc = bc_obj
-                break
+        ev_stock_bc = binding_constraints.get(f"ve_stock_{area_name}", None)
 
         if not ev_stock_bc:
             logger.debug(f"No binding constraint found for EV in area {area.id}")
@@ -169,17 +155,7 @@ def _convert_standard_evs(
 
         # TODO: Get storage thermal cluster
         # In old code: ThermalTechnology.GetInstanceByName(f"ve_vhr_storage_VE_VHR_storage_VE_{node_special_format}_1")
-        ev_stor_thermal = None
-        try:
-            # Need to access ve_vhr_storage area
-            if "ve_vhr_storage" in study.get_areas():
-                ve_storage_thermals = study.get_areas()["ve_vhr_storage"].get_thermals()
-                for thermal_key, thermal_obj in ve_storage_thermals.items():
-                    if area.id.lower() in thermal_key.lower() and "_1" in thermal_key:
-                        ev_stor_thermal = thermal_obj
-                        break
-        except Exception as e:
-            logger.warning(f"Could not get storage thermal for EV in area {area.id}: {e}")
+        ev_stor_thermal = thermals.get(f"ve_vhr_storage_ve_vhr_storage_ve_{area_name}_1", None)
 
         if not ev_stor_thermal:
             continue

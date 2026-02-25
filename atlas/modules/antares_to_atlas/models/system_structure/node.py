@@ -58,13 +58,13 @@ def convert_system_structure(
         ctrl_block = ControlBlock(name=area_name)
         control_blocks.append(ctrl_block)
 
-        if str(parameters.scenario) in area.CalculatedMarginalPrice.Index:
+        if str(parameters.scenario) in area.CalculatedMarginalPrice.Index:  # TODO
             market_area = MarketArea(
                 name=area_name,
                 control_block=ctrl_block,
                 price_forecast_medium=ForecastingMatrix().add(
                     index=parameters.execution_date,
-                    timeseries=area.CalculatedMarginalPrice.GetTimeSeriesByName(str(parameters.scenario)),  # TODO
+                    timeseries=area.CalculatedMarginalPrice.GetTimeSeriesByName[parameters.scenario],  # TODO
                 ),
                 minimum_price=Timeseries.from_index(
                     parameters.start_date,
