@@ -271,6 +271,11 @@ class AbstractTimeseries(ABC, Generic[TBackend]):
         ...
 
     @abstractmethod
+    def first_value(self) -> float | None:
+        """Return the first value in the Timeseries."""
+        ...
+
+    @abstractmethod
     def last_date(self) -> pendulum.DateTime | None:
         """Return the last date in the Timeseries index."""
         ...

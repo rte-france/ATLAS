@@ -51,22 +51,19 @@ def convert_battery_units(
             atlas_dataset=atlas_dataset,
             links=links,
         )
-        if normal_battery:
-            batteries.append(normal_battery)
 
         pcomp_battery = _convert_pcomp_battery(
             area=area,
             study=study,
+            parameters=parameters,
+            atlas_dataset=atlas_dataset,
             links=links,
         )
-        if pcomp_battery:
-            batteries.append(pcomp_battery)
 
         # Merge if both exist
         if normal_battery and pcomp_battery:
             logger.debug(f"Merging normal and pcomp batteries for area {area.id}")
             _merge_batteries(normal_battery, pcomp_battery, parameters)
-            batteries.remove(pcomp_battery)
 
     atlas_dataset.storage.add(batteries)
 
@@ -113,10 +110,9 @@ def _convert_normal_battery(
         maximum_energy_ts = Timeseries(maximum_energy_df)
 
         # In old code: binding_constraint.Weights[0] and binding_constraint.Weights[1]
-
-        terms = binding_constraint.get_terms()
-        charge_efficiency = 1.0  # TODO: Extract from binding constraint
-        discharge_efficiency = 1.0  # TODO: Extract from binding constraint
+        # TODO: Extract efficiencies from binding constraint terms = binding_constraint.get_terms()
+        charge_efficiency = 1.0
+        discharge_efficiency = 1.0
 
         # In old code: link.CalculatedTransit[str(p.scenario)]
         power_charge_df = link.get_capacity_direct()[parameters.scenario]  # TODO: Get correct transit data
@@ -174,6 +170,8 @@ def _convert_normal_battery(
 def _convert_pcomp_battery(
     area: Area,
     study: Study,
+    parameters: AntaresToAtlasParameters,
+    atlas_dataset: AtlasDataset,
     links: dict[str, Link],
 ) -> Storage | None:
     """Convert PCOMP battery unit."""
@@ -183,18 +181,84 @@ def _convert_pcomp_battery(
     if not link:
         return None
 
-    # Get binding constraint
     binding_constraints = study.get_binding_constraints()
     binding_constraint = binding_constraints.get(f"batteries_pcomp_{area.id}", None)
 
-    if not binding_constraint:
-        logger.warning(f"Binding constraint batteries_pcomp_{area.id} not found for PCOMP battery in area {area.id}")
+    if binding_constraint:
+        thermals = area.get_thermals()
+        areas = study.get_areas()
+        batteries_inj_thermal = thermals.get("batteries_pcomp_inj", None)
 
-    # TODO: Similar implementation as normal battery
-    # This would follow the same pattern as _convert_normal_battery
-    # with different link and thermal technology names
-    logger.debug(f"TODO: Implement PCOMP battery conversion for area {area.id}")
-    return None
+        if not batteries_inj_thermal:
+            return None
+
+        maximum_power_df = batteries_inj_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get dispo
+        power_discharge_df = batteries_inj_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get dispo
+
+        if maximum_power_df.abs().max().max() == 0:
+            return None
+
+        maximum_power_ts = Timeseries(maximum_power_df)
+        power_discharge_ts = Timeseries(power_discharge_df)
+
+        z_batteries_thermals = areas["z_batteries_pcomp"].get_thermals()
+        stock_thermal = z_batteries_thermals.get(f"z_batteries_pcomp_batteries_pcomp_{area.id}_1", None)
+        maximum_energy_df = stock_thermal.get_series_matrix()[parameters.scenario]  # TODO: Get Disponibility
+        maximum_energy_ts = Timeseries(maximum_energy_df)
+
+        # TODO: Extract efficiencies from binding constraint terms
+        charge_efficiency = 1.0
+        discharge_efficiency = 1.0
+
+        power_charge_df = link.get_capacity_direct()[parameters.scenario]  # TODO: Get correct transit data
+        power_charge_ts = Timeseries(power_charge_df * -1.0)
+
+        if power_discharge_ts is None:
+            power_discharge_ts = Timeseries.from_index(
+                start_date=parameters.start_date,
+                frequency="1h",
+                end_date=parameters.start_date + duration(years=1),
+                default_value=0.0,
+            )
+
+        power_ts = power_discharge_ts + power_charge_ts
+
+        minimum_power_df = link.get_capacity_direct()[parameters.scenario]
+        minimum_power_value = float(minimum_power_df.abs().max().max())
+        minimum_power_ts = Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=-minimum_power_value,
+        )
+
+    # Create battery equipment
+    battery = Storage(
+        name=f"{area.id}_battery_pcomp",
+        node=atlas_dataset.get("node", area.id),
+        portfolio=atlas_dataset.get(
+            "portfolio",
+            f"generator_{area.id}" if parameters.consumption_production_separation else f"portfolio_{area.id}",
+        ),
+        storage_type=StorageType.BATTERY,
+        maximum_power=maximum_power_ts,
+        minimum_power=minimum_power_ts,
+        maximum_energy=maximum_energy_ts,
+        minimum_state_of_charge=Timeseries.from_index(
+            start_date=parameters.start_date,
+            frequency="1h",
+            end_date=parameters.start_date + duration(years=1),
+            default_value=0.0,
+        ),
+        charge_efficiency=charge_efficiency,
+        discharge_efficiency=discharge_efficiency,
+        storage_initial_level=parameters.battery_initial_level,
+        unit_count=1,
+        power=ForecastingMatrix().add(power_ts, parameters.execution_date),
+    )
+
+    logger.debug(f"Created PCOMP battery for area: {area.id}")
+    return battery
 
 
 def _merge_batteries(normal_battery: Storage, pcomp_battery: Storage, parameters: AntaresToAtlasParameters) -> None:
@@ -202,9 +266,20 @@ def _merge_batteries(normal_battery: Storage, pcomp_battery: Storage, parameters
 
     Merges capacities and calculates weighted average efficiencies.
     """
-    # TODO: Implement battery merging logic
-    # - Add maximum_power, minimum_power, maximum_energy
-    # - Calculate weighted average for charge_efficiency and discharge_efficiency
-    # - Merge power time series
-    logger.debug("TODO: Implement battery merging logic")
-    pass
+    normal_battery.maximum_power += pcomp_battery.maximum_power
+    normal_battery.minimum_power += pcomp_battery.minimum_power
+    normal_battery.maximum_energy += pcomp_battery.maximum_energy
+
+    normal_battery.discharge_efficiency = (
+        normal_battery.discharge_efficiency * normal_battery.maximum_power.first_value()
+        + pcomp_battery.discharge_efficiency * pcomp_battery.maximum_power.first_value()
+    ) / (normal_battery.maximum_power.first_value() + pcomp_battery.maximum_power.first_value())
+
+    normal_battery.charge_efficiency = (
+        normal_battery.charge_efficiency * normal_battery.maximum_power.first_value()
+        + pcomp_battery.charge_efficiency * pcomp_battery.maximum_power.first_value()
+    ) / (normal_battery.maximum_power.first_value() + pcomp_battery.maximum_power.first_value())
+
+    normal_battery.power = normal_battery.power.replace(
+        parameters.execution_date, normal_battery.power + pcomp_battery.power
+    )

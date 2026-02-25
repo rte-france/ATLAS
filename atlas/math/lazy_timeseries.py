@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Generator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import pendulum
@@ -464,6 +464,12 @@ class LazyTimeseries(AbstractTimeseries[pl.LazyFrame]):
         result = self.timeseries.select("time").head(1).collect()
         if result.height > 0:
             return pendulum.instance(result.item())
+        return None
+
+    def first_value(self) -> float | None:
+        result = self.timeseries.select("value").head(1).collect()
+        if result.height > 0:
+            return cast(float, result.item())
         return None
 
     def last_date(self) -> pendulum.DateTime | None:
