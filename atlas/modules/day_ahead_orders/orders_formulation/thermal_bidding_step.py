@@ -105,7 +105,7 @@ class ThermalBiddingStep:
                         self.dataset.order.extend(result.orders)
                         self.dataset.order_coupling.extend(result.order_couplings)
                         cfg.logger.info(
-                            f"Completed order formulation for thermal unit: {thermal_name} ({result.strategy})"
+                            f"Completed order formulation for thermal unit: {thermal_name} ({result.strategy.value})"
                         )
                     else:
                         cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal_name}")
@@ -126,7 +126,9 @@ class ThermalBiddingStep:
                 # Add orders and couplings to the dataset
                 self.dataset.order.extend(result.orders)
                 self.dataset.order_coupling.extend(result.order_couplings)
-                cfg.logger.info(f"Completed order formulation for thermal unit: {thermal.name} ({result.strategy})")
+                cfg.logger.info(
+                    f"Completed order formulation for thermal unit: {thermal.name} ({result.strategy.value})"
+                )
             else:
                 cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
 
