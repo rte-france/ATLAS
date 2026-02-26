@@ -16,7 +16,7 @@ from atlas.validators import convert_to_duration
 
 
 class DayAheadOrdersParameters(AbstractParameters):
-    output_folder: Path = Field(
+    export_lp_path: Path = Field(
         Path("DAO_lp_exports"),
         description="Optional parameter to choose an output folder in the folder where the LPs will be exported.",
     )
@@ -29,6 +29,14 @@ class DayAheadOrdersParameters(AbstractParameters):
     use_presolve: bool = Field(
         True,
         description="Boolean indicating if a presolve step is desired or not before solving the optimization program.",
+    )
+    use_multiprocessing: bool = Field(
+        False,
+        description="If True, use multiprocessing for parallel storage and thermal optimization. If False, use sequential for loop.",
+    )
+    max_workers: int | None = Field(
+        None,
+        description="Maximum number of parallel processes for equipment optimization. None defaults to CPU count. Only used if use_multiprocessing is True.",
     )
     automated_unprocured_reserves_penalty: float = Field(
         10000,

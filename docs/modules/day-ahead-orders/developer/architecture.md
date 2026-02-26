@@ -17,7 +17,7 @@ atlas/modules/day_ahead_orders/
 ├── output_dataset.py                    # Output data structure
 ├── orchestrator.py                      # Orchestrates the mains steps of the module execution
 ├── parameters.py                        # Module parameters
-├── data_models/                         # Equipment-specific models
+├── models/                         # Equipment-specific models
 │   ├── hydro.py
 │   ├── load.py
 │   ├── market_area.py

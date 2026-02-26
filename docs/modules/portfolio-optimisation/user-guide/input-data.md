@@ -119,8 +119,6 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`max_workers`** (int, default: None): Max parallel processes (None = CPU count)
 
-- **`debug`** (bool, default: False): Enable debug mode
-
 - **`allowed_round_off_error`** (float, default: 0.01 MW): Rounding error threshold
 
 ## Example Configuration

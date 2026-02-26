@@ -50,8 +50,8 @@ class DayAheadOrdersOrchestrator:
         )
 
         # ensure output folder exists
-        if self.parameters.output_folder:
-            path = Path(self.parameters.output_folder)
+        if self.parameters.export_lp_path:
+            path = Path(self.parameters.export_lp_path)
             path.mkdir(parents=True, exist_ok=True)
 
         if len(orders_time) > 0:

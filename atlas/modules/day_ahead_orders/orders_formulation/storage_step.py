@@ -5,22 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import atlas.config as cfg
-from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, StorageType
-from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
-from atlas.modules.day_ahead_orders.models.order import OrderDAO
-from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.models.storage import StorageDAO
-from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
-from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
-from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
+from atlas.modules.day_ahead_orders.orders_formulation.storage_worker import optimize_single_storage
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.solver.models import SolverOptions
-from atlas.timing import bmo_name_datetime_to_str, generate_datetimes
 
 
 class StorageStep:
@@ -40,397 +30,89 @@ class StorageStep:
         Formulates storage bids on the spot market.
         Uses the parameters specified by the user and the dataset to create bids based on the forecast
         stored in the Power forecasting matrix of a "Storage" equipment.
+
+        Supports both sequential and parallel processing based on use_multiprocessing parameter.
         :return: None
         """
+        if self.parameters.use_multiprocessing:
+            self._formulate_storage_orders_parallel()
+        else:
+            self._formulate_storage_orders_sequential()
 
-        # Loop on all the actors that have EV storage capacity
+    def _formulate_storage_orders_parallel(self) -> None:
+        """
+        Formulate storage orders using multiprocessing for parallel execution.
+        """
+        cfg.logger.info(f"Starting parallel storage optimization for {len(self.dataset.storage)} units")
+
+        with ProcessPoolExecutor(max_workers=self.parameters.max_workers) as executor:
+            future_to_storage = {
+                executor.submit(optimize_single_storage, storage, self.parameters): storage.name
+                for storage in self.dataset.storage
+            }
+
+            for future in as_completed(future_to_storage):
+                storage_name = future_to_storage[future]
+                try:
+                    result = future.result()
+
+                    if result.success:
+                        # Add orders and couplings to the dataset
+                        self.dataset.order.extend(result.orders)
+                        self.dataset.order_coupling.extend(result.order_couplings)
+
+                        # Update the storage unit in the dataset with submitted volumes and variable cost
+                        for storage in self.dataset.storage:
+                            if storage.name == result.storage_name:
+                                if storage.da_buy_submitted_volume is None:
+                                    storage.da_buy_submitted_volume = result.buy_submitted_volumes
+                                else:
+                                    storage.da_buy_submitted_volume += result.buy_submitted_volumes
+
+                                if storage.da_sell_submitted_volume is None:
+                                    storage.da_sell_submitted_volume = result.sell_submitted_volumes
+                                else:
+                                    storage.da_sell_submitted_volume += result.sell_submitted_volumes
+
+                                if result.variable_cost is not None:
+                                    storage.variable_cost = result.variable_cost
+                                break
+
+                        cfg.logger.info(f"Completed optimization for storage: {storage_name}")
+                    else:
+                        cfg.logger.warning(f"Optimization skipped or failed for storage: {storage_name}")
+
+                except Exception as e:
+                    cfg.logger.error(f"Error processing storage {storage_name}: {e}")
+
+    def _formulate_storage_orders_sequential(self) -> None:
+        """
+        Formulate storage orders using sequential processing.
+        """
+        cfg.logger.info(f"Starting sequential storage optimization for {len(self.dataset.storage)} units")
+
         for storage in self.dataset.storage:
-            # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
-            end_date = self.parameters.penultimate_date
-            local_index = generate_datetimes(
-                self.parameters.start_date,
-                end_date,
-                self.parameters.timestep,
-            )
+            result = optimize_single_storage(storage, self.parameters)
 
-            local_max_energy = (
-                storage.maximum_energy.set_frequency(self.parameters.timestep, False)
-                .filter(item=local_index, inplace=False)
-                .max()
-            )
-            if local_max_energy <= 0:
-                cfg.logger.debug(f"Equipment {str(storage.name)} avoided, as its maximum_energy is 0")
-                continue
+            if result.success:
+                # Add orders and couplings to the dataset
+                self.dataset.order.extend(result.orders)
+                self.dataset.order_coupling.extend(result.order_couplings)
 
-            cfg.logger.debug(f"Equipment {str(storage.name)}")
-
-            buy_submitted_volumes = DAOTimeseries(
-                Timeseries.from_index(self.parameters.start_date, self.parameters.timestep, end_date, 0)
-            )
-            sell_submitted_volumes = DAOTimeseries(
-                Timeseries.from_index(self.parameters.start_date, self.parameters.timestep, end_date, 0)
-            )
-
-            # if the stock of the equipment at start date is not defined, initiate it
-            initial_stock = self.initiate_stock(storage)
-
-            # Determine offers times and quantities through an optimisation algorithm under a price forecast
-            solver_options = SolverOptions(
-                presolve=self.parameters.use_presolve,
-                duality_gap=self.parameters.solver_duality_gap,
-                time_limit=self.parameters.solver_timeout,
-            )
-            if storage.storage_type == StorageType.ELECTRIC_VEHICLE:
-                Qv, Qa = self.optimize_ev(storage, initial_stock, solver_options)
-            else:
-                Qv, Qa = self.optimize_battery(storage, initial_stock, solver_options)
-
-            # Determine sale and purchase prices
-            Psale, Ppurchase = self.price_calculation(storage, Qv, Qa)
-
-            # Store Ppurchase as price reference in variable_cost, in the dataset.
-            # Psale can then be deduced from Ppurchase, Charge and and Discharge efficiency
-            if storage.variable_cost is None:
-                storage.variable_cost = Timeseries.from_index(
-                    self.parameters.start_date, self.parameters.timestep, end_date, 0
-                )
-            if Ppurchase != 0:
-                for t in generate_datetimes(self.parameters.start_date, end_date, self.parameters.timestep):
-                    storage.variable_cost.set_value(t, round(Ppurchase, 2))
-            elif storage.discharge_efficiency != 0 and storage.charge_efficiency != 0:
-                for t in generate_datetimes(self.parameters.start_date, end_date, self.parameters.timestep):
-                    storage.variable_cost.set_value(
-                        t, round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2)
-                    )
-            else:
-                for t in generate_datetimes(self.parameters.start_date, end_date, self.parameters.timestep):
-                    storage.variable_cost.set_value(t, round(Psale, 2))
-                cfg.logger.warning(
-                    f"ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
-                    "This is not supposed to be the case, as the default value for these is 1 and not 0"
-                )
-
-            # --- Formulate orders, possibly with associated coupling instances
-            # First, orders that are included in a COMPLEMENT coupling
-            daily_buy_volume = sum(buy_volume * self.parameters.timestep.total_hours() for buy_volume in Qa.values())
-            if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
-                # Create the order coupling instance
-                coupling_instance = OrderCouplingDAO(
-                    name=f"COMPLEMENT_DA_{storage.name}_{bmo_name_datetime_to_str(self.parameters.execution_date)}",
-                    coupling_type=CouplingType.COMPLEMENT,
-                    complement_direction=ComplementDirection.EqualTo,
-                )
-
-                # Compute the ComplementEnergy according to the evolution DisplacementEnergy over the day,
-                # if it is feasible given all orders generated for this equipment.
-                # If not, the energy requirement is capped to the feasible limit
-                energy_requirement = storage.displacement_energy.get_value(
-                    self.parameters.penultimate_date
-                ) - storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.timestep)
-
-                if energy_requirement > daily_buy_volume:
-                    coupling_instance.complement_energy = daily_buy_volume
+                # Update the storage unit in the dataset with submitted volumes and variable cost
+                if storage.da_buy_submitted_volume is None:
+                    storage.da_buy_submitted_volume = result.buy_submitted_volumes
                 else:
-                    coupling_instance.complement_energy = energy_requirement
+                    storage.da_buy_submitted_volume += result.buy_submitted_volumes
 
-                for t in [i for i, e in Qa.items()]:
-                    self.add_spot_order_with_coupling(OrderType.Buy, storage, t, Qa[t], Ppurchase, coupling_instance)
-                    buy_submitted_volumes.set_or_add_value(t, Qa[t])
-                for t in [i for i, e in Qv.items()]:
-                    self.add_spot_order_with_coupling(OrderType.Sell, storage, t, Qv[t], Psale, coupling_instance)
-                    sell_submitted_volumes.set_or_add_value(t, Qv[t])
+                if storage.da_sell_submitted_volume is None:
+                    storage.da_sell_submitted_volume = result.sell_submitted_volumes
+                else:
+                    storage.da_sell_submitted_volume += result.sell_submitted_volumes
 
-                self.dataset.order_coupling.append(coupling_instance)
+                if result.variable_cost is not None:
+                    storage.variable_cost = result.variable_cost
 
-            # All other orders
+                cfg.logger.info(f"Completed optimization for storage: {storage.name}")
             else:
-                # Create a COMPLEMENT order coupling
-                coupling_instance = OrderCouplingDAO(
-                    name=f"COMPLEMENT_DA_{storage.name}_{bmo_name_datetime_to_str(self.parameters.execution_date)}",
-                    coupling_type=CouplingType.COMPLEMENT,
-                )
-
-                for t in [i for i, e in Qa.items()]:
-                    self.add_spot_order_with_coupling(OrderType.Buy, storage, t, Qa[t], Ppurchase, coupling_instance)
-                    buy_submitted_volumes.set_or_add_value(t, Qa[t])
-                for t in [i for i, e in Qv.items()]:
-                    self.add_spot_order_with_coupling(OrderType.Sell, storage, t, Qv[t], Psale, coupling_instance)
-                    sell_submitted_volumes.set_or_add_value(t, Qv[t])
-
-                # Fill the COMPLEMENT order coupling
-                coupling_instance.coupling_type = CouplingType.COMPLEMENT
-                coupling_instance.complement_direction = ComplementDirection.EqualTo
-                coupling_instance.complement_energy = buy_submitted_volumes.sum() - sell_submitted_volumes.sum()
-                self.dataset.order_coupling.append(coupling_instance)
-
-            if storage.da_buy_submitted_volume is None:
-                storage.da_buy_submitted_volume = buy_submitted_volumes
-            else:
-                storage.da_buy_submitted_volume += buy_submitted_volumes
-
-            if storage.da_sell_submitted_volume is None:
-                storage.da_sell_submitted_volume = sell_submitted_volumes
-            else:
-                storage.da_sell_submitted_volume += sell_submitted_volumes
-
-    def optimize_ev(
-        self,
-        storage: StorageDAO,
-        initial_stock: float | None,
-        solvers_options: SolverOptions,
-    ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
-        """
-        Optimization function for ElectricVehicle units
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :param initial_stock: the initial stock
-        :type initial_stock: float | None
-        :param solvers_options: solvers options
-        :type solvers_options: SolverOptions
-        :return: output variables
-        :rtype: tuple[dict[DateTime, float], dict[DateTime, float]]
-        """
-        # Creation of optimization problem
-        model = ElectricVehicleModel(
-            self.parameters,
-            self.parameters.solver_name,
-            "Optimization of the storage unit " + storage.name,
-            storage,
-            solvers_options,
-        )
-        model.create_decision_variables(self.parameters.ev_nb_fragments)
-        model.create_objective_function(
-            self.parameters.ev_nb_fragments, self.parameters.ev_smoothing_factor, "maximize"
-        )
-        model.create_constraints(initial_stock)
-
-        if self.parameters.export_lp:
-            lp_file_name = self.parameters.output_folder / f"storage_{model.storage.name}.lp"
-            model.export_model(str(lp_file_name))
-
-        model.solve()
-
-        status = model.solution_info.status if model.solution_info else None
-        cfg.logger.debug(f"Solver status: {status}")
-        cfg.logger.debug(f"Objective function value: {model._objective}")
-
-        # Assign the values to the output variables
-        # Note that the time domain of the output variables is [start date, end date]
-        Qvv: dict[DateTime, float] = {}
-        Qaa: dict[DateTime, float] = {}
-        for t in model.time_frame:
-            if t >= self.parameters.end_date:
-                break
-            Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-            Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
-
-        return Qvv, Qaa
-
-    def optimize_battery(
-        self,
-        storage: StorageDAO,
-        initial_stock: float | None,
-        solvers_options: SolverOptions,
-    ) -> tuple[dict[DateTime, float], dict[DateTime, float]]:
-        """
-        Optimization function for Battery and PHS units
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :param initial_stock: the initial stock
-        :type initial_stock: float | None
-        :param solvers_options: solvers options
-        :type solvers_options: SolverOptions
-        :return: output variables
-        :rtype: tuple[dict[DateTime, float], dict[DateTime, float]]
-        """
-        if storage.storage_type == StorageType.BATTERY:
-            optimization_period = storage.additional_hours
-            smoothing_factor = self.parameters.battery_smoothing_factor
-            power_fragments = self.parameters.battery_nb_fragments
-        elif storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-            optimization_period = storage.additional_hours
-            smoothing_factor = self.parameters.phs_smoothing_factor
-            power_fragments = self.parameters.phs_nb_fragments
-        else:
-            cfg.logger.error(
-                f"equipment {storage.name} isn't {StorageType.BATTERY} nor {StorageType.PUMPED_HYDRAULIC_STORAGE}"
-            )
-
-        # Creation of optimization problem
-        model = BatteryModel(
-            self.parameters,
-            self.parameters.solver_name,
-            "Optimization of the storage unit " + storage.name,
-            storage,
-            optimization_period,
-            solvers_options,
-        )
-        model.create_decision_variables(power_fragments)
-        model.create_objective_function(power_fragments, smoothing_factor, "maximize")
-        model.create_constraints(initial_stock, power_fragments)
-
-        if self.parameters.export_lp:
-            lp_file_name = self.parameters.output_folder / f"storage_{model.storage.name}.lp"
-            model.export_model(str(lp_file_name))
-
-        model.solve()
-
-        status = model.solution_info.status if model.solution_info else None
-        cfg.logger.debug(f"Solver status: {status}")
-        cfg.logger.debug(f"Objective function value: {model._objective}")
-
-        # Assign the values to the output variables
-        # Note that the time domain of the output variables is [start date, end date]
-        Qvv: dict[DateTime, float] = {}
-        Qaa: dict[DateTime, float] = {}
-        for t in model.time_frame:
-            if t >= self.parameters.end_date:
-                break
-            Qvv[t] = round(model.get_variable(StorageModel.sold_at_key(t)).solution_value(), 2)
-            Qaa[t] = round(model.get_variable(StorageModel.purchased_at_key(t)).solution_value(), 2)
-
-        return Qvv, Qaa
-
-    def price_calculation(
-        self, storage: StorageDAO, Qv: dict[DateTime, float], Qa: dict[DateTime, float]
-    ) -> tuple[float, float]:
-        """
-        Price computation
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :param Qv: the Qv
-        :type Qv: dict[DateTime, float]
-        :param Qa: the Qa
-        :type Qa: dict[DateTime, float]
-        :return: Psale, Ppurchase
-        :rtype: tuple[float, float]
-        """
-        P_a_max = 0.0
-        P_v_min = 0.0
-        # Get the price forecast from the dataset: estimations are at ActionHour, from start date to end date
-        # The price forecast is relative to the equipment's market area
-        # it is the estimation the actor has of the energy prices at the given date
-        price_forecast = storage.portfolio.market_area.price_forecast_medium.get_forecast(
-            self.parameters.execution_date,
-            self.parameters.start_date,
-            self.parameters.end_date,
-            self.parameters.timestep,
-        )
-
-        # Check if either Qv or Qa is empty (i.e. contains only 0)
-        Qv_empty = True
-        for qv_value in Qv.values():
-            if qv_value != 0:
-                Qv_empty = False
-
-        Qa_empty = True
-        for qa_value in Qa.values():
-            if qa_value != 0:
-                Qa_empty = False
-
-        # Evaluate the minimum of sale prices
-        if [i for i, e in Qv.items() if e != 0]:
-            P_v_min = min([price_forecast.get_value(t) for t in [i for i, e in Qv.items() if e != 0]])
-        # Evaluate the maximum of purchase prices
-        if [i for i, e in Qa.items() if e != 0]:
-            P_a_max = max([price_forecast.get_value(t) for t in [i for i, e in Qa.items() if e != 0]])
-
-        if (storage.storage_type in [StorageType.BATTERY, StorageType.PUMPED_HYDRAULIC_STORAGE]) or (storage.is_v2g):
-            # if negative prices, Psale and Ppurchase are set to zero
-            # Else they are evaluated in a manner that makes profit = 0
-            if P_a_max <= 0:
-                P_a_max = 0.0
-            if P_v_min <= 0:
-                P_v_min = 0.0
-
-            if Qa_empty:
-                Psale = P_v_min
-                Ppurchase = 0.0
-            elif Qv_empty:
-                Psale = 0.0
-                Ppurchase = P_a_max
-            elif P_a_max == 0 and P_v_min == 0:
-                Psale = 0.0
-                Ppurchase = 0.0
-            else:
-                a = (storage.discharge_efficiency * storage.charge_efficiency * P_v_min - P_a_max) / (
-                    storage.discharge_efficiency * storage.charge_efficiency * P_v_min + P_a_max
-                )
-                Psale = P_v_min * (1 - a)
-                Ppurchase = P_a_max * (1 + a)
-        else:
-            Psale = 0.0
-            Ppurchase = P_a_max
-
-        return Psale, Ppurchase
-
-    def add_spot_order_with_coupling(
-        self,
-        order_type: OrderType,
-        storage: StorageDAO,
-        start_date: DateTime,
-        qmax: float,
-        price: float,
-        coupling_instance: OrderCouplingDAO,
-    ) -> None:
-        """
-        Add a spot order with a coupling instance to the model
-        :param order_type: the order type
-        :type order_type: OrderType
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :param start_date: the start date
-        :type start_date: DateTime
-        :param qmax: the maximum power
-        :type qmax: float
-        :param price: the price
-        :type price: float
-        :param coupling_instance: the coupling instance
-        :type coupling_instance: OrderCouplingDAO
-        :return: None
-        """
-        order = OrderDAO(
-            name=f"storage_order_type_{order_type}_at_{bmo_name_datetime_to_str(start_date)}_for_unit_{storage.name}",
-            equipment=storage,
-            portfolio=storage.portfolio,
-            market_area=storage.portfolio.market_area,
-            execution_date=self.parameters.execution_date,
-            start_date=start_date,
-            end_date=start_date + self.parameters.timestep,
-            order_type=order_type,
-            product=Product.DayAhead,
-            qmax=qmax,
-            qmin=0.0,
-            price=price,
-        )
-        self.dataset.order.append(order)
-        coupling_instance.orders.append(order)
-
-    def initiate_stock(self, storage: StorageDAO) -> float | None:
-        """
-        The first step is to evaluate if the equipment is in an "Initial" situation or not
-        This is indicated by StoredEnergy, but one should be careful here
-        The idea is to verify that there is a value in StoredEnergy "not too long" before start_date,
-        and we arbitrarily choose to look as far as two days before to verify this. Assumption could be discussed.
-
-        :param storage: the storage object
-        :type storage: StorageDAO
-        :return: the initial stock
-        :rtype: float | None
-        """
-        if storage.stored_energy is None:
-            initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(self.parameters.start_date)
-        else:
-            energy_forecast = storage.stored_energy.get_forecast(
-                self.parameters.execution_date,
-                self.parameters.start_date.subtract(days=2),
-                self.parameters.start_date - self.parameters.timestep,
-                self.parameters.timestep,
-            )
-            if len(energy_forecast) == 0:
-                initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(
-                    self.parameters.start_date
-                )
-            else:
-                initial_stock = energy_forecast.get_value(self.parameters.start_date - self.parameters.timestep)
-        return initial_stock
+                cfg.logger.warning(f"Optimization skipped or failed for storage: {storage.name}")
