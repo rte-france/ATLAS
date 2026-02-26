@@ -5,6 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from pendulum import DateTime
@@ -144,7 +145,9 @@ class ThermalBiddingStep:
         }
 
         # Getting only relevant orders
-        list_of_relevant_orders_intermediate: list[OrderDAO] = []
+        relevent_orders_intermediate: list[OrderDAO] = []
+        relevant_orders_names: set[str] = set()  # For O(1) membership checks using order names
+
         for order in self.dataset.order:
             if (
                 order.product == Product.DayAhead
@@ -156,41 +159,52 @@ class ThermalBiddingStep:
                         order.start_date, order.qmax if order.qmax is not None else 0
                     )
                 else:
-                    list_of_relevant_orders_intermediate.append(order)
+                    relevent_orders_intermediate.append(order)
+                    relevant_orders_names.add(order.name)
 
         # --- Intermediate ---
         # Creation of a reversed dict of all coupling in which a given order is involved
-        unit_order_coupling_list: dict[str, Coupling] = {}
+        # Use defaultdict to eliminate redundant key existence checks
+        unit_order_coupling_list: dict[str, Coupling] = defaultdict(lambda: Coupling([]))
         for coupling_instance in self.dataset.order_coupling:
-            for order_index, order_from_coupling in enumerate(coupling_instance.orders):
-                if order_from_coupling in list_of_relevant_orders_intermediate:
-                    if coupling_instance.coupling_type == CouplingType.EXCLUSION:
-                        others = [o for o in coupling_instance.orders if o is not order_from_coupling]
-                        new_coupling = Coupling(others, CouplingType.EXCLUSION)
-                    elif coupling_instance.coupling_type == CouplingType.PARENT_CHILDREN:
-                        if order_index == 0:
-                            # order is parent
-                            new_coupling = Coupling(coupling_instance.orders[1:], "PARENT")
-                        else:
-                            # order is child
-                            new_coupling = Coupling([coupling_instance.orders[0]], "CHILD")
-                    elif coupling_instance.coupling_type == CouplingType.IDENTICAL_VOLUME:
-                        others = [o for o in coupling_instance.orders if o is not order_from_coupling]
-                        new_coupling = Coupling(others, CouplingType.IDENTICAL_VOLUME)
+            coupling_type = coupling_instance.coupling_type
+            orders = coupling_instance.orders
+
+            # Pre-filter relevant orders to avoid redundant checks
+            relevant_orders_in_coupling = [o for o in orders if o.name in relevant_orders_names]
+            if not relevant_orders_in_coupling:
+                continue
+
+            for order_index, order_from_coupling in enumerate(orders):
+                if order_from_coupling.name not in relevant_orders_names:
+                    continue
+
+                if coupling_type == CouplingType.EXCLUSION:
+                    # Avoid list comprehension: build others list more efficiently
+                    others = orders[:order_index] + orders[order_index + 1 :]
+                    new_coupling = Coupling(others, CouplingType.EXCLUSION)
+                elif coupling_type == CouplingType.PARENT_CHILDREN:
+                    if order_index == 0:
+                        # order is parent - use slice reference
+                        new_coupling = Coupling(orders[1:], "PARENT")
                     else:
-                        cfg.logger.warning(
-                            "COMPLEMENT are not supposed to be connected by EXCLUSION couplings and are ignored"
-                        )
-                        break
+                        # order is child - create single-element list without comprehension
+                        new_coupling = Coupling(orders[:1], "CHILD")
+                elif coupling_type == CouplingType.IDENTICAL_VOLUME:
+                    # Avoid list comprehension: build others list more efficiently
+                    others = orders[:order_index] + orders[order_index + 1 :]
+                    new_coupling = Coupling(others, CouplingType.IDENTICAL_VOLUME)
+                else:
+                    cfg.logger.warning(
+                        "COMPLEMENT are not supposed to be connected by EXCLUSION couplings and are ignored"
+                    )
+                    break
 
-                    if order_from_coupling.name not in unit_order_coupling_list:
-                        unit_order_coupling_list[order_from_coupling.name] = Coupling([])
-
-                    unit_order_coupling_list[order_from_coupling.name] = new_coupling
+                unit_order_coupling_list[order_from_coupling.name] = new_coupling
 
         # This stored already considered orders to prevent double counting
         # We use a dict to access elements using hashing to improve compute time
-        already_considered_orders = {order.name: False for order in list_of_relevant_orders_intermediate}
+        already_considered_orders = {order.name: False for order in relevent_orders_intermediate}
         list_of_mutually_exclusive_programms: dict[str, list[Timeseries]] = {
             equipment.name: [] for equipment in self.dataset.thermal
         }
@@ -200,7 +214,7 @@ class ThermalBiddingStep:
                 continue
 
             for coupled_order in coupling_instance.orders:
-                if coupled_order not in list_of_relevant_orders_intermediate:
+                if coupled_order.name not in relevant_orders_names:
                     continue
                 if not already_considered_orders[coupled_order.name]:
                     programm, list_of_considerer_orders = self.graph_search_of_connected_orders(
@@ -223,7 +237,7 @@ class ThermalBiddingStep:
                         already_considered_orders[order_name] = True
 
         # Uncoupled orders or orders coupled to non-exclusive groups (COMPLEMENT for instance)
-        for order in list_of_relevant_orders_intermediate:
+        for order in relevent_orders_intermediate:
             if not already_considered_orders[order.name]:
                 da_sell_submitted_volumes[order.equipment.name].set_or_add_value(
                     order.start_date, order.qmax if order.qmax is not None else 0
@@ -241,9 +255,9 @@ class ThermalBiddingStep:
 
                 if programms:
                     for t in self.orders_time:
-                        da_sell_submitted_volume.set_or_add_value(
-                            t, max([programm.get_value(t) for programm in programms])
-                        )
+                        # Use generator expression instead of list comprehension for better memory efficiency
+                        max_val = max((programm.get_value(t) for programm in programms), default=0)
+                        da_sell_submitted_volume.set_or_add_value(t, max_val)
                 equipment.da_sell_submitted_volume = da_sell_submitted_volume
 
             else:
