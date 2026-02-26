@@ -15,11 +15,6 @@ from atlas.enums import CouplingType, Product, ThermalStrategy
 from atlas.models.market.order import Order
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_intermediate_load_orders import (
-    ThermalIntermediateLoadOrders,
-)
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load_orders import ThermalPeakLoadOrders
 from atlas.modules.day_ahead_orders.orders_formulation.thermal_worker import optimize_single_thermal_unit
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
@@ -84,7 +79,7 @@ class ThermalBiddingStep:
 
         # This is done last and not during the bidding process because of mutually exclusive programs, and to simplify debug
         cfg.logger.info("Computing maximum sell volumes...")
-        self.computeDASellSubmittedVolumes()
+        self.compute_da_sell_submitted_volume()
         cfg.logger.info("End of computation.")
 
     def _formulate_thermal_orders_parallel(self) -> None:
@@ -119,32 +114,22 @@ class ThermalBiddingStep:
 
     def _formulate_thermal_orders_sequential(self) -> None:
         """
-        Formulate thermal orders using sequential processing (original implementation).
+        Formulate thermal orders using sequential processing.
         """
-        # Formulate baseload orders
-        cfg.logger.info("Formulation of the thermic baseload orders...")
-        thermal_base_load_orders = ThermalBaseLoadOrders(self.dataset, self.orders_time, self.parameters)
-        thermal_base_load_orders.formulate_thermal_baseload_orders()
+        cfg.logger.info(f"Starting sequential thermal optimization for {len(self.dataset.thermal)} units")
 
-        # Formulate intermediate load orders
-        cfg.logger.info(
-            "Baseload orders formulation completed. Moving on to the formulation of the intermediate load orders..."
-        )
-        thermal_intermediate_load_orders = ThermalIntermediateLoadOrders(
-            self.dataset, self.orders_time, self.parameters
-        )
-        thermal_intermediate_load_orders.formulate_thermal_intermediate_load_orders()
+        for thermal in self.dataset.thermal:
+            result = optimize_single_thermal_unit(thermal, self.orders_time, self.parameters)
 
-        # Formulate peak load orders
-        cfg.logger.info(
-            "Intermediate load orders formulation completed. Moving on to the formulation of the peak load orders..."
-        )
+            if result.success:
+                # Add orders and couplings to the dataset
+                self.dataset.order.extend(result.orders)
+                self.dataset.order_coupling.extend(result.order_couplings)
+                cfg.logger.info(f"Completed order formulation for thermal unit: {thermal.name} ({result.strategy})")
+            else:
+                cfg.logger.warning(f"Order formulation failed for thermal unit: {thermal.name}")
 
-        thermal_peak_load_orders = ThermalPeakLoadOrders(self.dataset, self.orders_time, self.parameters)
-        thermal_peak_load_orders.formulate_thermal_peak_load_orders()
-        cfg.logger.info("Peak load orders formulation completed.")
-
-    def computeDASellSubmittedVolumes(self) -> None:
+    def compute_da_sell_submitted_volume(self) -> None:
         """
         compute DA sell submitted volumes
         :return: None
