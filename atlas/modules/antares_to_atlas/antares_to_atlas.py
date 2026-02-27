@@ -118,7 +118,7 @@ class AntaresToAtlas:
         for converter in standard_converters:
             registry.register(converter)
 
-        if self.parameters.hypothesis == "BP23":
+        if self.parameters.hypothesis.upper() == "BP23":
             self._register_bp23_converters(registry)
 
         return registry
@@ -155,7 +155,6 @@ class AntaresToAtlas:
         :rtype: AtlasDataset
         """
         logger.info("Starting Antares to Atlas conversion")
-        logger.info(f"Study Path: {study_path}")
         logger.info(f"Hypothesis: {self.parameters.hypothesis}")
         logger.info(f"Scenario: {self.parameters.scenario}")
 
