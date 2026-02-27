@@ -118,7 +118,7 @@ class AntaresToAtlas:
         for converter in standard_converters:
             registry.register(converter)
 
-        if self.parameters.hypothesis.upper() == "BP23":
+        if self.parameters.hypothesis == "BP23":
             self._register_bp23_converters(registry)
 
         return registry

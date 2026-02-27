@@ -83,6 +83,14 @@ class AntaresToAtlasParameters(Parameters):
     # Conversion control
     conversion_steps: list[str] = Field(default_factory=list, description="Specific steps to execute (empty = all)")
 
+    @field_validator("hypothesis")
+    @classmethod
+    def uppercase_hypothesis(cls, v: str | None) -> str | None:
+        """Convert hypothesis to uppercase."""
+        if v is not None:
+            return v.upper()
+        return v
+
     @field_validator("market_areas")
     @classmethod
     def validate_market_areas(cls, v: list[str]) -> list[str]:
