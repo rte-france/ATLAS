@@ -712,7 +712,7 @@ class PrometheusToAtlasDataParser:
             except (IndexError, TypeError):
                 pass
 
-        return ":".join(map(str, items))
+        return "|".join(map(str, items))
 
     def _apply_default_values(self, attrs: dict[str, Any], object_type_snake: str) -> None:
         """Apply default values based on class inheritance chain.

@@ -9,7 +9,7 @@ dependencies = [
     "h5py>=3.13.0",
     "loguru>=0.7.3",
     "numpy>=2.0.1",
-    "ortools<9.15",
+    "ortools>=9.12.4544,<9.15",
     "pandas>=2.2.2",
     "pendulum>=3.0.0",
     "plotly>=6.0.1",

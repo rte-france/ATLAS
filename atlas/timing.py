@@ -13,7 +13,6 @@ from typing import Literal, cast
 import pendulum
 import polars as pl
 import pytz
-from pendulum import DateTime
 
 
 def datetime_to_pendulum(fmt: str) -> str:
@@ -260,10 +259,3 @@ def check_timezone(timezone: str) -> None:
     """Validate timezone string."""
     if timezone not in pytz.all_timezones:
         raise ValueError(f"Invalid timezone: {timezone}")
-
-
-def bmo_name_datetime_to_str(date: DateTime):
-    """Conversion of DateTime to str that doesn't contain :.
-    Important when using list of BMO name
-    """
-    return date.format("YYYY_MM_DD_HH-mm-ss")

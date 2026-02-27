@@ -24,7 +24,7 @@ from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import E
 from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.solver.models import SolverOptions
-from atlas.timing import bmo_name_datetime_to_str, generate_datetimes
+from atlas.timing import generate_datetimes
 
 if TYPE_CHECKING:
     from atlas.enums import OrderType
@@ -330,7 +330,7 @@ def _create_orders_with_couplings(
 
     if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
         coupling_instance = OrderCouplingDAO(
-            name=f"COMPLEMENT_DA_{storage.name}_{bmo_name_datetime_to_str(parameters.execution_date)}",
+            name=f"COMPLEMENT_DA_{storage.name}_{parameters.execution_date}",
             coupling_type=CouplingType.COMPLEMENT,
             complement_direction=ComplementDirection.EqualTo,
         )
@@ -359,7 +359,7 @@ def _create_orders_with_couplings(
         order_couplings.append(coupling_instance)
     else:
         coupling_instance = OrderCouplingDAO(
-            name=f"COMPLEMENT_DA_{storage.name}_{bmo_name_datetime_to_str(parameters.execution_date)}",
+            name=f"COMPLEMENT_DA_{storage.name}_{parameters.execution_date}",
             coupling_type=CouplingType.COMPLEMENT,
         )
 
@@ -394,7 +394,7 @@ def _create_spot_order(
     """Create a single spot order."""
 
     return OrderDAO(
-        name=f"storage_order_type_{order_type}_at_{bmo_name_datetime_to_str(start_date)}_for_unit_{storage.name}",
+        name=f"storage_order_type_{order_type}_at_{start_date}_for_unit_{storage.name}",
         equipment=storage,
         portfolio=storage.portfolio,
         market_area=storage.portfolio.market_area,

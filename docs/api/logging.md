@@ -44,4 +44,4 @@ LOG_NAME=atlas
 LOG_FORMAT=
 ```
 
-::: atlas.logging.Logger
+::: atlas.log.Logger
