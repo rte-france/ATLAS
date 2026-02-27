@@ -204,7 +204,7 @@ requires-dist = [
     { name = "h5py", specifier = ">=3.13.0" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "numpy", specifier = ">=2.0.1" },
-    { name = "ortools", specifier = "<9.15" },
+    { name = "ortools", specifier = ">=9.12.4544,<9.15" },
     { name = "pandas", specifier = ">=2.2.2" },
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "plotly", specifier = ">=6.0.1" },

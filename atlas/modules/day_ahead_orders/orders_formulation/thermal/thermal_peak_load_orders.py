@@ -14,7 +14,6 @@ from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.timing import bmo_name_datetime_to_str
 
 
 class ThermalPeakLoadOrders:
@@ -110,7 +109,7 @@ class ThermalPeakLoadOrders:
 
                     # Create the instance
                     inflexible_order = OrderDAO(
-                        name=f"inflexible_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        name=f"inflexible_order_at_{t}_for_unit_{unit.name}",
                         market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
                         portfolio=unit.portfolio,
                         equipment=unit,
@@ -151,11 +150,11 @@ class ThermalPeakLoadOrders:
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
-                        order_name=f"flexible_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        order_name=f"flexible_order_at_{t}_for_unit_{unit.name}",
                         q_max=q_max,
                         q_min=0,
                         price=unit.variable_cost.get_value(t),
-                        link_name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        link_name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}",
                     )
 
                 # Reserve orders
@@ -168,12 +167,12 @@ class ThermalPeakLoadOrders:
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
-                        order_name=f"automated_downward_reserve_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        order_name=f"automated_downward_reserve_order_at_{t}_for_unit_{unit.name}",
                         q_max=automated_reserves_down_procured.get_value(t),
                         q_min=(1 - self.parameters.proportional_reserves_penalty)
                         * automated_reserves_down_procured.get_value(t),
                         price=unit.variable_cost.get_value(t) - self.parameters.automated_unprocured_reserves_penalty,
-                        link_name=f"PARENT_CHILDREN_automated_downward_reserve_inflexible_orders_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        link_name=f"PARENT_CHILDREN_automated_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
 
                 # Manual downward reserves requirements
@@ -183,12 +182,12 @@ class ThermalPeakLoadOrders:
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
-                        order_name=f"manual_downward_reserve_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        order_name=f"manual_downward_reserve_order_at_{t}_for_unit_{unit.name}",
                         q_max=manual_reserves_down_procured.get_value(t),
                         q_min=(1 - self.parameters.proportional_reserves_penalty)
                         * manual_reserves_down_procured.get_value(t),
                         price=unit.variable_cost.get_value(t) - self.parameters.manual_unprocured_reserves_penalty,
-                        link_name=f"PARENT_CHILDREN_manual_downward_reserve_inflexible_orders_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        link_name=f"PARENT_CHILDREN_manual_downward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
 
                 # Automated upward reserves requirements
@@ -198,12 +197,12 @@ class ThermalPeakLoadOrders:
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
-                        order_name=f"automated_upward_reserve_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        order_name=f"automated_upward_reserve_order_at_{t}_for_unit_{unit.name}",
                         q_max=automated_reserves_up_procured.get_value(t),
                         q_min=(1 - self.parameters.proportional_reserves_penalty)
                         * automated_reserves_up_procured.get_value(t),
                         price=(unit.variable_cost.get_value(t) + self.parameters.automated_unprocured_reserves_penalty),
-                        link_name=f"PARENT_CHILDREN_automated_upward_reserve_inflexible_orders_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        link_name=f"PARENT_CHILDREN_automated_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
 
                 # Manual upward reserves requirements
@@ -213,12 +212,12 @@ class ThermalPeakLoadOrders:
                         inflexible_order=inflexible_order,
                         t=t,
                         unit=unit,
-                        order_name=f"manual_upward_reserve_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        order_name=f"manual_upward_reserve_order_at_{t}_for_unit_{unit.name}",
                         q_max=manual_reserves_up_procured.get_value(t),
                         q_min=(1 - self.parameters.proportional_reserves_penalty)
                         * manual_reserves_up_procured.get_value(t),
                         price=unit.variable_cost.get_value(t) + self.parameters.manual_unprocured_reserves_penalty,
-                        link_name=f"PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{bmo_name_datetime_to_str(t)}_for_unit_{unit.name}",
+                        link_name=f"PARENT_CHILDREN_manual_upward_reserve_inflexible_orders_at_{t}_for_unit_{unit.name}",
                     )
 
     def create_order_and_link(

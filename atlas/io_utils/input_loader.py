@@ -555,7 +555,7 @@ def _resolve_list_object_reference(
 
     # Parse the list from CSV format (colon-separated string)
     if isinstance(object_list_string, str):
-        object_names = object_list_string.split(":")
+        object_names = object_list_string.split("|")
     elif isinstance(object_list_string, list):
         object_names = object_list_string
     else:

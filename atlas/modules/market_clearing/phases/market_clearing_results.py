@@ -237,7 +237,7 @@ class MarketClearingResults:
             coupling_dict = {
                 "Name": order_coupling_name,
                 "Type": mc_order_coupling.coupling_type.value,
-                "OrderList": ":".join([order.name for order in mc_order_coupling.orders]),
+                "OrderList": "|".join([order.name for order in mc_order_coupling.orders]),
             }
             coupling_data = pl.DataFrame({k: [v] for k, v in coupling_dict.items()}, schema=couplings_data.schema)
             couplings_data.extend(coupling_data)

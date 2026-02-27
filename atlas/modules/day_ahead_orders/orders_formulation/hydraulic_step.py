@@ -18,7 +18,7 @@ from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.timing import bmo_name_datetime_to_str, generate_datetimes
+from atlas.timing import generate_datetimes
 
 
 class HydraulicStep:
@@ -105,7 +105,7 @@ class HydraulicStep:
 
             # Create a COMPLEMENT coupling between all orders of the day to comply with MinimumEnergy constraints
             coupling_instance = OrderCouplingDAO(
-                name=f"COMPLEMENT_{str(equipment.name)}_{bmo_name_datetime_to_str(parameters.execution_date)}",
+                name=f"COMPLEMENT_{str(equipment.name)}_{parameters.execution_date}",
                 coupling_type=CouplingType.COMPLEMENT,
                 complement_direction=ComplementDirection.GreaterThan,
             )
@@ -149,7 +149,7 @@ class HydraulicStep:
                     # Do not formulate empty orders
                     if v != 0:
                         # Assign a unique name.
-                        bid_name = f"hydraulic_order_fragment_{str(k)}_at_{bmo_name_datetime_to_str(t)}_for_unit_{equipment.name}"
+                        bid_name = f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}"
                         bid_qmax = v
 
                         bid_output = OrderDAO(

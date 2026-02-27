@@ -26,7 +26,7 @@ def parse_list_float(value: Any) -> list[float] | None:
                 f"All elements in the list must be of type float. Got: {value}",
             )
     try:
-        return list(map(float, value.split(":")))
+        return list(map(float, value.split("|")))
     except Exception as e:
         raise ValueError(
             f"Failed to parse list attribute '{value}': {e}",
@@ -38,7 +38,7 @@ def serializer_list_float(value: list[float] | None) -> str | None:
     if value is None:
         return None
     if isinstance(value, list):
-        return ":".join(map(str, value))
+        return "|".join(map(str, value))
     raise ValueError(
         f"Expected list of floats, got: {value}",
     )
@@ -58,7 +58,7 @@ def serializer_list_business_model(value: list[BusinessModel] | None) -> str | N
     if value is None:
         return None
     if isinstance(value, list):
-        return ":".join(str(bm.name) for bm in value)
+        return "|".join(str(bm.name) for bm in value)
     raise ValueError(
         f"Expected list of BusinessModel instances, got: {value}",
     )
