@@ -10,14 +10,14 @@ import math
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import generate_datetimes
 from atlas.enums import ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
-from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.timing import generate_datetimes
 
 
 class ThermalBaseLoadOrders(ThermalUnitOrders):

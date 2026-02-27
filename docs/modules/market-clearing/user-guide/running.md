@@ -2,57 +2,40 @@
 
 ## Basic Usage
 
-```python
-from pathlib import Path
+See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern and parameter formats.
 
-from atlas.io_utils.input_loader import InputLoader
-from atlas.modules.market_clearing import MarketClearingModule
+For common parameters (dates, solver, timestep, etc.), see [Common Parameters](../../../concepts/common-parameters.md).
 
-raw_data_path = Path("path/to/dataset")
-raw_params_path = Path("path/to/parameters.yml")
+## Module-Specific Parameters
 
-mc_module = MarketClearingModule()
-raw_data = InputLoader.from_directory(raw_data_path)
-mc_module.run(raw_data, raw_params_path)
-```
+This module adds the following parameters beyond the common ones:
 
-## Input Data Structure
+### Market Type
 
-Input data is basically a dictionary of business model objects by type, obtained by a call to `InputLoader.from_directory`:
+**`market`** (string): Type of market clearing to perform
+- Options: `"DayAhead"`, `"IntraDay"`, etc.
+
+## Example Configuration
 
 ```python
-raw_data = {
-    "market_area": [...],
-    "control_block": [...],
-    "order": [...],
-    "order_coupling": [...],
-}
-```
+from atlas import AtlasDataset, MarketClearingModule
 
-## Parameters
-
-Provide as dictionary or file path:
-
-```python
-# Dictionary
 params = {
+    # Common parameters
     "start_date": "2024-01-01T00:00:00",
     "end_date": "2024-01-02T00:00:00",
     "execution_date": "2023-12-31T12:00:00",
+    "timestep": "PT1H",
+    "solver_name": "XPRESS",
     "export_result": true,
-    "solver": "XPRESS",
-    "timestep": "PT1H"
+
+    # Module-specific parameters
+    "market": "DayAhead"
 }
 
-# Or JSON file
-module.run(raw_data, "config/parameters.json")
+module = MarketClearingModule()
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, params)
 ```
 
-See [Parameters](input-data.md) for full list.
-
-
-## Key Options
-
-**How to change the type of Market Clearing** ? Set `market` to DayAhead / IntraDay / ...
-
-**Solver**: Choose solver with `solver` parameter and configure `use_presolve`
+See [Parameters](input-data.md) for the complete list of module-specific parameters.

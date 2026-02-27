@@ -9,7 +9,7 @@ from pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import OrderType, Product
-from atlas.logging import logger
+from atlas.log import logger
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.modules.market_clearing.parameters import MarketClearingParameters

@@ -2,44 +2,45 @@
 
 ## Introduction
 
-The Market Clearing module is responsible for determining the market equilibrium by matching supply and demand across multiple market areas while respecting economic and network constraints.
+The Market Clearing module determines market equilibrium by matching supply and demand across multiple market areas while respecting economic and network constraints.
+
+## What It Does
+
+The module:
+- **Matches supply and demand**: Finds equilibrium across market areas
+- **Computes clearing prices**: Determines prices for each market area
+- **Optimizes exchanges**: Calculates cross-border flows
+- **Respects constraints**: Honors transmission capacity and economic limits
 
 ## How to Use
 
-The module follows ATLAS's standard `AbstractModule` pattern:
+See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern.
 
-```python
-from pathlib import Path
+## Module-Specific Workflow
 
-from atlas.io_utils.input_loader import InputLoader
-from atlas.modules.market_clearing import MarketClearingModule
+Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/module-pattern.md)), this module:
 
-raw_data_path = Path("path/to/dataset")
-raw_params_path = Path("path/to/parameters.yml")
+1. **Processes market orders**: Collects buy/sell orders from all equipment
+2. **Builds optimization model**: Creates market clearing optimization
+3. **Solves market**: Finds equilibrium prices and quantities
+4. **Updates results**: Writes clearing prices to equipment/portfolios and flows to interconnections
 
-mc_module = MarketClearingModule()
-raw_data = InputLoader.from_directory(raw_data_path)
-mc_module.run(raw_data, raw_params_path)
-```
+## Key Outputs
 
-Where:
-- `raw_data_path`: Path to the dataset to use
-- `raw_data`: Dictionary of business model objects (portfolios, equipment, market areas)
-- `raw_params_path`: Parameter dictionary or path to JSON/YAML file
+The module produces:
+- **Market clearing prices**: Price per market area and timestep
+- **Accepted quantities**: Accepted portion of each order
+- **Cross-border flows**: Power exchanges between market areas
 
-## Module Workflow
+## Market Mechanism
 
-The `run()` method executes:
-
-1. **Import Parameters**: Load `MarketClearingParameters`
-2. **Import Data**: Convert to `MarketClearingInputDataset`
-3. **Validate**: Check timestep consistency
-4. **Execute**: Run all phases and result
-5. **Export**: Update prices of equipments/portfolios and flow
-
-Results are stored directly in the business model objects.
+The module uses an **economic dispatch** approach:
+- Maximizes social welfare (consumer surplus + producer surplus)
+- Respects transmission capacity constraints
+- Handles multiple interconnected market areas
+- Determines locational marginal prices
 
 ## Next Steps
 
-- [Parameters](input-data.md): Configuration options
+- [Parameters](input-data.md): Module-specific configuration options
 - [Running](running.md): Execution details

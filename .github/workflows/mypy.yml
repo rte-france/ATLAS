@@ -24,7 +24,7 @@ jobs:
         run: pip install uv
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-groups
 
       - name: Run mypy
         run: uv run mypy atlas

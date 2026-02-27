@@ -11,15 +11,15 @@ import pendulum
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import generate_datetimes
 from atlas.enums import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
-from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
-from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.timing import generate_datetimes
 
 
 class ThermalUnitOrders:
@@ -501,7 +501,7 @@ class ThermalUnitOrders:
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]
             coupling = OrderCouplingDAO(
-                name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{date}_with_scenario_{case}",
+                name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{pendulum.DateTime.instance(date)}_with_scenario_{case}",
                 coupling_type=CouplingType.IDENTICAL_RATIO,
             )
             for order in inflexible_orders:

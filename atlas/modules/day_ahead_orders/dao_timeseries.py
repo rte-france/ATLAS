@@ -11,7 +11,7 @@ import pandas as pd
 import polars as pl
 
 from atlas import Timeseries
-from atlas.typing import TimeseriesDict
+from atlas.type import TimeseriesDict
 
 
 class DAOTimeseries(Timeseries):

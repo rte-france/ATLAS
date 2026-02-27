@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 from loguru import logger as loguru_logger
 
 # Import the Logger class (adjust path as needed)
-from atlas.logging import Logger
+from atlas.log import Logger
 
 
 class TestLogger(unittest.TestCase):

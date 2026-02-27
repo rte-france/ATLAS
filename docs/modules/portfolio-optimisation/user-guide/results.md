@@ -38,6 +38,4 @@ Positive = over-generation, Negative = under-generation
 
 **No power update**: Check `export_result=True`, verify optimization succeeded, check if equipment was excluded
 
-**Unexpected values**: Verify input data, check solver status, review parameters, enable `debug=True`
-
 **Zero generation**: Check startup/min generation constraints, fuel costs vs prices, min up/down times

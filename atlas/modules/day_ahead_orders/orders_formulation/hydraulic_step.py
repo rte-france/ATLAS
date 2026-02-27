@@ -14,8 +14,8 @@ import atlas.config as cfg
 from atlas import Timeseries
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
-from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
-from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.timing import generate_datetimes
@@ -174,7 +174,7 @@ class HydraulicStep:
                             pmin = level_inf.get_value(t)
                             pmax = level_sup.get_value(t)
                             bid_output.price = weight_inf * pmin + weight_sup * pmax + delta_wu[k][1]
-
+                        dataset.order.append(bid_output)
                         coupling_instance.orders.append(bid_output)
 
                         submitted_volumes.set_or_add_value(t, bid_qmax)

@@ -10,7 +10,7 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas import Solar, Wind
 from atlas.enums import OrderType, Product
-from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
+from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
