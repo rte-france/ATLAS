@@ -4,8 +4,8 @@ from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
 import atlas.config as cfg
-from atlas import BusinessModel
 from atlas.enums import BusinessModelName
+from atlas.models.business_model import BusinessModel
 
 
 class ChangeSet(ABC):
@@ -38,6 +38,18 @@ class ChangeSet(ABC):
 
     def __str__(self) -> str:
         return repr(self)
+
+    def get_object_identifier(self) -> tuple[str, str]:
+        """Return a tuple (model_type, object_name) that uniquely identifies the target object.
+
+        This is useful for detecting duplicate change sets targeting the same object.
+        """
+        if isinstance(self, (AddObject, UpdateObject)):
+            return (self.model_type.value, self.data.get("name", ""))
+        elif isinstance(self, DeleteObject):
+            return (self.model_type.value, self.name)
+        else:
+            return (self.model_type.value, "")
 
     @staticmethod
     def get_model_type(

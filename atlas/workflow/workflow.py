@@ -89,6 +89,16 @@ class Workflow:
         """Returns the final dataset of the workflow"""
         return self.steps[-1].get_output_dataset()
 
+    def __repr__(self) -> str:
+        """Return a detailed string representation of the workflow."""
+        step_names = [step.name for step in self._steps]
+        return f"Workflow(name={self.parameters.name!r}, steps={step_names})"
+
+    def __str__(self) -> str:
+        """Return a human-readable string representation of the workflow."""
+        step_count = len(self._steps)
+        return f"Workflow '{self.parameters.name}' ({step_count} step{'s' if step_count != 1 else ''})"
+
     def execute(self) -> None:
         """
         Execute the workflow
@@ -115,8 +125,8 @@ class Workflow:
             if not output_dataset:
                 raise RuntimeError(f"Step {step.name} did not produce output_dataset")
 
-            logger.debug("Applying list of change set")
+            logger.debug("Applying all change sets to the current input state")
             CISHandler.apply(output_dataset.change_sets, cis)
             logger.info(f"Finishing step :'{step.name}'")
 
-        cis.data.to_directory(self.parameters.output_dataset_path)
+        cis.to_directory(self.parameters.output_dataset_path)

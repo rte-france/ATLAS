@@ -46,30 +46,30 @@ def run(
             logger.info(f"Workflow completed in {t()} seconds")
             logger.info("✓ Workflow completed successfully.")
         except Exception as e:
-            logger.info(f"✗ Workflow failed: {e}")
+            logger.error(f"✗ Workflow failed: {e}")
             raise typer.Exit(code=1) from e
 
     else:
         if module_name is None:
-            logger.info("Error: --module is required in module mode.")
+            logger.error("Error: --module is required in module mode.")
             raise typer.Exit(code=1)
 
         if dataset_path is None:
-            logger.info("Error: --dataset is required in module mode.")
+            logger.error("Error: --dataset is required in module mode.")
             raise typer.Exit(code=1)
 
         if not dataset_path.exists() or not dataset_path.is_dir():
-            logger.info(f"Error:Dataset directory not found: {dataset_path}")
+            logger.error(f"Error: Dataset directory not found: {dataset_path}")
             raise typer.Exit(code=1)
 
         if not config_path.exists():
-            logger.info(f"Error: Parameters file not found: {config_path}")
+            logger.error(f"Error: Parameters file not found: {config_path}")
             raise typer.Exit(code=1)
 
         try:
             module_class = ModuleRegistry.get(module_name)
         except ValueError as e:
-            logger.info(f"Error: {e}")
+            logger.error(f"Error: {e}")
             raise typer.Exit(code=1) from e
 
         logger.info(f"Running module: {module_name}")
@@ -83,7 +83,7 @@ def run(
             logger.info(f"Module '{module_name}' completed in {t()} seconds")
             logger.info(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")
         except Exception as e:
-            logger.info(f"✗ Module '{module_name}' failed: {e}")
+            logger.error(f"✗ Module '{module_name}' failed: {e}")
             raise typer.Exit(code=1) from e
 
 

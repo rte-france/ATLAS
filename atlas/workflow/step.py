@@ -109,3 +109,13 @@ class WorkflowStep:
         Stores the resulting dataset as output.
         """
         self._output_dataset = self.module.run(input_dataset, self.parameters)
+
+    def __repr__(self) -> str:
+        """Return a detailed string representation of the workflow step."""
+        module_name = self.module.__class__.__name__
+        has_output = self._output_dataset is not None
+        return f"WorkflowStep(name={self.name!r}, module={module_name}, executed={has_output})"
+
+    def __str__(self) -> str:
+        """Return a human-readable string representation of the workflow step."""
+        return f"WorkflowStep '{self.name}' ({self.module.__class__.__name__})"

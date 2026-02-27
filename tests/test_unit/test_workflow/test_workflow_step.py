@@ -166,3 +166,32 @@ class TestWorkflowStepRun:
         ws.run(atlas_dataset)
 
         assert ws.output_dataset is ws.get_output_dataset()
+
+
+class TestWorkflowStepRepresentation:
+    def test_str_representation(self):
+        from atlas.modules.market_clearing.module import MarketClearingModule
+
+        step = WorkflowStep("TestStep", MarketClearingModule, {})
+        result = str(step)
+        assert "WorkflowStep 'TestStep'" in result
+        assert "MarketClearingModule" in result
+
+    def test_repr_before_execution(self):
+        from atlas.modules.market_clearing.module import MarketClearingModule
+
+        step = WorkflowStep("TestStep", MarketClearingModule, {})
+        result = repr(step)
+        assert "WorkflowStep(" in result
+        assert "name='TestStep'" in result
+        assert "executed=False" in result
+
+    def test_repr_after_execution(self):
+        from unittest.mock import MagicMock
+
+        from atlas.modules.market_clearing.module import MarketClearingModule
+
+        step = WorkflowStep("TestStep", MarketClearingModule, {})
+        step._output_dataset = MagicMock()
+        result = repr(step)
+        assert "executed=True" in result
