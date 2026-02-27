@@ -174,7 +174,7 @@ class HydraulicStep:
                             pmin = level_inf.get_value(t)
                             pmax = level_sup.get_value(t)
                             bid_output.price = weight_inf * pmin + weight_sup * pmax + delta_wu[k][1]
-
+                        dataset.order.append(bid_output)
                         coupling_instance.orders.append(bid_output)
 
                         submitted_volumes.set_or_add_value(t, bid_qmax)
