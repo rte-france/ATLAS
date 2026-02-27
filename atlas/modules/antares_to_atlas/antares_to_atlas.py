@@ -54,7 +54,7 @@ class AntaresToAtlas:
         converter = AntaresToAtlas.from_file("parameters.yaml")
 
         # Execute conversion
-        converter.convert()
+        converter.convert(study_path="data/antares")
         ```
 
     :param parameters: Conversion parameters

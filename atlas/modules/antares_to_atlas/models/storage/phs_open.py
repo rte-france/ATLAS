@@ -172,22 +172,16 @@ def _create_open_phs(
     # - Creating the PHS with the closed part
     # For now, leaving this with TODO comments
 
-    # Get efficiencies from binding constraint
-    # TODO: Find binding constraint for open PHS
-    charge_efficiency = 1.0
-    discharge_efficiency = 1.0
-
     binding_constraints = study.get_binding_constraints()
-    for bc_id, bc_obj in binding_constraints.items():
-        if "phs" in bc_id.lower() and area.id.lower() in bc_id.lower():
-            try:
-                terms = bc_obj.get_terms()
-                # TODO: Extract weights from terms
-                # charge_efficiency = abs(weights[0])
-                # discharge_efficiency = abs(weights[1])
-                break
-            except Exception as e:
-                logger.warning(f"Could not extract efficiency from binding constraint {bc_id}: {e}")
+    bc_name = f"{area.id}_phs_open"  # TODO define properly
+    bc_obj = binding_constraints.get(bc_name, None)
+    if bc_obj:
+        bc_terms = bc_obj.get_terms()
+        term_name = f"{area.id}_phs_open_charge_efficiency"  # TODO define properly
+        term = bc_terms.get(term_name, None)
+        if term:
+            charge_efficiency = term.weight  # TODO not sure how to access
+            discharge_efficiency = term.offset
 
     # TODO: Calculate the split ratio and update hydro equipment
     # This involves complex logic from the old code around lines 139-187
@@ -278,16 +272,15 @@ def convert_phs_open_fr(
     discharge_efficiency = 1.0
 
     binding_constraints = study.get_binding_constraints()
-    for bc_id, bc_obj in binding_constraints.items():
-        if "phs" in bc_id.lower() and "fr" in bc_id.lower():
-            try:
-                terms = bc_obj.get_terms()
-                # TODO: Extract weights from terms
-                # charge_efficiency = abs(weights[0])
-                # discharge_efficiency = abs(weights[1])
-                break
-            except Exception as e:
-                logger.warning(f"Could not extract efficiency from binding constraint {bc_id}: {e}")
+    bc_name = f"{area.id}_phs_open_fr"  # TODO define properly
+    bc_obj = binding_constraints.get(bc_name, None)
+    if bc_obj:
+        bc_terms = bc_obj.get_terms()
+        term_name = f"{area.id}_phs_open_fr_charge_efficiency"  # TODO define properly
+        term = bc_terms.get(term_name, None)
+        if term:
+            charge_efficiency = term.weight  # TODO not sure how to access
+            discharge_efficiency = term.offset
 
     # Get capacities
     try:
