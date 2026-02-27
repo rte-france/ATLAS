@@ -179,15 +179,15 @@ output_dataset_path: path/to/output/dataset
 steps:
   - name: "generate_orders"
     module: "DayAheadOrders"
-    parameters: "day_ahead_params.yaml"
+    parameters_path: "day_ahead_params.yaml"
 
   - name: "clear_market"
     module: "MarketClearing"
-    parameters: "market_clearing_params.yaml"
+    parameters_path: "market_clearing_params.yaml"
 
   - name: "optimize_portfolio"
     module: "PortfolioOptimisation"
-    parameters: "portfolio_params.yaml"
+    parameters_path: "portfolio_params.yaml"
 
 ```
 
