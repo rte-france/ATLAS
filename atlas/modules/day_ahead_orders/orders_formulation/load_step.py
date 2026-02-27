@@ -13,7 +13,6 @@ from atlas.enums import LoadType, OrderType, Product
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.timing import bmo_name_datetime_to_str
 
 
 class LoadStep:
@@ -66,7 +65,7 @@ class LoadStep:
                         # Formulate an order if max_consumption_value is strictly positive
                         if max_consumption_value > 0:
                             bid_output = OrderDAO(
-                                name=f"load_order_at_{bmo_name_datetime_to_str(t)}_for_unit_{load.name}",
+                                name=f"load_order_at_{t}_for_unit_{load.name}",
                                 market_area=load.portfolio.market_area,
                                 portfolio=load.portfolio,
                                 equipment=load,

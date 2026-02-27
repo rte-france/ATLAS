@@ -712,7 +712,7 @@ class PrometheusToAtlasDataParser:
             except (IndexError, TypeError):
                 pass
 
-        return ":".join(map(str, items))
+        return "|".join(map(str, items))
 
     def _apply_default_values(self, attrs: dict[str, Any], object_type_snake: str) -> None:
         """Apply default values based on class inheritance chain.
@@ -841,3 +841,13 @@ def find_hdf5_files(directory: Path) -> list[Path]:
             continue
 
     return valid_hdf5_files
+
+
+
+if __name__ == "__main__":
+    path = Path("data/prometheus")
+    ts = path / "PortfolioOptimization output v1.3"
+    hdf = path / "77cbdca7-411b-4bfb-aaf4-c34a5c125a1b"
+    output = "data/anonymises/PO-Output"
+    pta = PrometheusToAtlasDataParser(ts, hdf, output)
+    pta.process(True)
