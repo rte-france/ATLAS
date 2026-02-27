@@ -174,7 +174,8 @@ Create `workflow.yaml`:
 
 ```yaml
 name: "complete_market_simulation"
-
+dataset_path: path/to/dataset
+output_dataset_path: path/to/output/dataset
 steps:
   - name: "generate_orders"
     module: "DayAheadOrders"
