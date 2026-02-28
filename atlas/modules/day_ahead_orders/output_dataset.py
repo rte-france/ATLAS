@@ -11,11 +11,7 @@ from atlas import (
     ControlBlock,
     Hydro,
     Load,
-    MarketArea,
-    MarketBorder,
-    Node,
     OtherNonDispatchable,
-    Portfolio,
     Solar,
     Storage,
     Thermal,
@@ -23,7 +19,6 @@ from atlas import (
 )
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
-from atlas.models.business_model import BusinessModel
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.models.load import LoadDAO
@@ -57,23 +52,6 @@ class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
 
         self.order: list[OrderDAO] = []
         self.order_coupling: list[OrderCouplingDAO] = []
-
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        return [
-            ControlBlock,
-            MarketArea,
-            MarketBorder,
-            Node,
-            Portfolio,
-            Wind,
-            Storage,
-            Hydro,
-            Solar,
-            Thermal,
-            Load,
-            OrderDAO,
-            OrderCouplingDAO,
-        ]
 
     def build_change_sets(self):
         for order in self.order:
