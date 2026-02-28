@@ -148,35 +148,6 @@ class ElectricVehicleModel(StorageModel):
                 f"Maximum_storage_level_constraint_at_{t}",
             )
 
-            # Create additional constraints linked with MaximumPower, to represent the fact that a part of the EV fleet
-            # is going to be fully charged / discharged (depending on the ratio between StoredEnergy and MaximumEnergy, and possibly MinimumStateOfCharge),
-            # meaning that it will not be able to purcharse / sell energy.
-            # Explanation note: the ratio that determines the part of the fleet that is fully charged or discharged is evaluated
-            # on the previous time step, since StoredEnergy(t) is unkown prior to the optimization. This is assumed to be a good estimation
-            # of the ratio at t. Every other value is taken at t.
-            # We need to recode this one, the concept is very interesting but solving the optimization
-            # becomes exponentially longer with each additional hour. And currently impossible to solve for 7 days.
-            """
-            if t == p.start_date:
-                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
-                                                                                  (InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step)) -
-                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.time_step))) *
-                                                                                  Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
-                OPPROB += Qa[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.MaximumPower.GetValue(t) *
-                                                                                  (1 - InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step))) /
-                                                                                  Equipment.ChargeEfficiency) , "Adjustment_of_Pmax_purchase_at_{}".format(t)
-            else:
-                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
-                                                                                  (StoredEnergy[t.AddMinutes(-p.time_step)]/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step)) -
-                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.time_step))) *
-                                                                                  Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
-                OPPROB += Qa[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.MaximumPower.GetValue(t) *
-                                                                                  (1 - StoredEnergy[t.AddMinutes(-p.time_step)]/
-                                                                                   Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step))) /
-                                                                                  Equipment.ChargeEfficiency) , "Adjustment_of_Pmax_purchase_at_{}".format(t)
-
-            """
-
         # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
         self.add_constraint(
             sum(self.get_variable(StorageModel.purchased_at_key(t)) for t in self.time_frame)

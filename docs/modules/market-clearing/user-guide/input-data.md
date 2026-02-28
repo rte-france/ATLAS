@@ -21,12 +21,12 @@ This document describes all configuration parameters available for the **Market 
 
 * **`solver_name`** (`SolverEnum`, default: `XPRESS`): Optimization solver used for the market clearing problem.
 
-  * Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`, `"CBC"`
+    * Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`, `"CBC"`
 
 * **`use_presolve`** (`bool`, default: `True`): Enable a presolve step before executing all optimization in the market clearing.
 
-  * `True`: Presolve is applied (recommended for performance)
-  * `False`: Presolve is skipped
+    * `True`: Presolve is applied (recommended for performance)
+    * `False`: Presolve is skipped
 
 * **`export_lp`** (`bool`, default: `False`): Export solver LP files for debugging and analysis.
 
@@ -36,16 +36,16 @@ This document describes all configuration parameters available for the **Market 
 
 * **`market`** (`Product`, default: `DayAhead`): What type of clearing is execute.
 
-  * Only orders matching this market name are considered
-  * Not case-sensitive
+    * Only orders matching this market name are considered
+    * Not case-sensitive
 
-* **`time_step`** (`Duration`, default: `1 hour`): Time resolution of the studied market.
+* **`timestep`** (`Duration`, default: `1 hour`): Time resolution of the studied market.
 
-  * Must be strictly greater than 0
+    * Must be strictly greater than 0
 
 * **`execution_datetime_tolerance`** (`int`, default: `5 minutes`): Tolerance window used to handle overlapping markets (Intraday or Balancing).
 
-  * Must be greater than the execution date difference between consecutive order formulation and clearing
+    * Must be greater than the execution date difference between consecutive order formulation and clearing
 
 ---
 
@@ -53,13 +53,13 @@ This document describes all configuration parameters available for the **Market 
 
 * **`market_area_names`** (`str | list[str]`, default: `"All"`): Market areas included in the Market Clearing.
 
-  * `"All"`: All market areas are included
-  * List of strings: Explicit selection (e.g. `["FR", "DE"]`)
+    * `"All"`: All market areas are included
+    * List of strings: Explicit selection (e.g. `["FR", "DE"]`)
 
 * **`control_block_names`** (`str | list[str]`, default: `"All"`): Control blocks included in the Market Clearing.
 
-  * `"All"`: All control blocks are included
-  * List of strings: Explicit selection (e.g. `["CB_FR", "CB_DE"]`)
+    * `"All"`: All control blocks are included
+    * List of strings: Explicit selection (e.g. `["CB_FR", "CB_DE"]`)
 
 ---
 
@@ -67,17 +67,17 @@ This document describes all configuration parameters available for the **Market 
 
 * **`exchange_constraints_type`** (`ExchangeConstraintsType`, default: `ATC`): Type of constraints applied to exchanges between market areas.
 
-  * `ATC`: Available Transfer Capacity
-  * `FB`: Flow-Based constraints
+    * `ATC`: Available Transfer Capacity
+    * `FB`: Flow-Based constraints
 
 * **`prevent_adverse_flows`** (`bool`, default: `False`): Prevent adverse flows during the pricing phase.
 
-  * Not used in Flow-Based configurations
+    * Not used in Flow-Based configurations
 
 * **`activate_constrained_tso_quantity`** (`bool`, default: `False`): Used in Balancing markets only.
 
-  * Enforces constraint on TSO sold/bought quantities
-  * TSO quantities can only be accepted if sufficient opposite offers exist
+    * Enforces constraint on TSO sold/bought quantities
+    * TSO quantities can only be accepted if sufficient opposite offers exist
 
 ---
 
@@ -132,7 +132,7 @@ This document describes all configuration parameters available for the **Market 
 ## Example Configuration
 
 ```yml
-time_step: "60m"
+timestep: "1h"
 start_date:  "2028-09-27 00:00:00"
 end_date: "2028-09-28 00:00:00"
 execution_date: "2028-09-26 12:00:00"

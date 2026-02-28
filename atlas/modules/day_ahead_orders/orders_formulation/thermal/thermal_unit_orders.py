@@ -126,15 +126,6 @@ class ThermalUnitOrders:
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
         startup = True if 2 in online_timeframe.values else False
-        # if T_start > 0:
-        #     startup = True if 2 in online_timeframe.Values else False
-        # else:
-        #     # Another way to check the startup, less efficient but more robust
-        #     startup = False
-        #     for t in list(online_timeframe.Index)[:-1]:
-        #         t_next = t.AddMinutes(p.time_step)
-        #         if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 1:
-        #             startup = True
 
         ## See whether the ramps are complete or not
         T_startSD_in_sim = False
