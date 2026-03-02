@@ -1,4 +1,4 @@
-"""Unit tests for OutputGenerator class."""
+"""Unit tests for save_to_directory class."""
 
 import shutil
 
@@ -6,9 +6,9 @@ import pendulum
 import polars as pl
 import pytest
 
-from atlas.io_utils.output_generator import OutputGenerator
+from atlas.io_utils.output_writer import save_to_directory
 from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.math.scenario_matrix import ScenarioMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.node import Node
@@ -76,7 +76,7 @@ def simple_scenario_matrix():
 
 
 class TestOutputGeneratorToDirectory:
-    """Test the to_directory method of OutputGenerator."""
+    """Test the to_directory method of save_to_directory."""
 
     def test_to_directory_simple_objects(self, temp_output_dir):
         """Test exporting simple BusinessModel objects without math fields."""
@@ -87,7 +87,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"node": [node1, node2]}
 
         # Export to directory
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Verify directory structure
         assert (temp_output_dir / "objects").exists()
@@ -120,7 +120,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"equipment": [equipment]}
 
         # Export to directory
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Read CSV content
         csv_content = (temp_output_dir / "objects" / "equipment.csv").read_text()
@@ -150,7 +150,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"equipment": [equipment]}
 
         # Export to directory
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Verify directory structure
         assert (temp_output_dir / "timeseries").exists()
@@ -184,7 +184,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"equipment": [equipment]}
 
         # Export to directory
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Verify directory structure
         assert (temp_output_dir / "forecasting_matrix").exists()
@@ -214,7 +214,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"equipment": [equipment]}
 
         # Export to directory
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Verify directory structure
         assert (temp_output_dir / "scenario_matrix").exists()
@@ -242,7 +242,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"equipment": [equipment1, equipment2]}
 
         # Export to directory
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Read CSV content
         csv_content = (temp_output_dir / "objects" / "equipment.csv").read_text()
@@ -261,7 +261,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"node": [node], "portfolio": [portfolio]}
 
         # Export to directory
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Verify both CSV files exist
         assert (temp_output_dir / "objects" / "node.csv").exists()
@@ -292,7 +292,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"equipment": [equipment]}
 
         # Export to directory
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Read CSV content
         csv_content = (temp_output_dir / "objects" / "equipment.csv").read_text()
@@ -308,7 +308,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"node": [node]}
 
         # Export with custom separator
-        OutputGenerator.to_directory(dataset, temp_output_dir, separator=",")
+        save_to_directory(dataset, temp_output_dir, separator=",")
 
         # Read CSV content
         csv_content = (temp_output_dir / "objects" / "node.csv").read_text()
@@ -325,7 +325,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"equipment": [equipment]}
 
         # Export with CSV extension for timeseries
-        OutputGenerator.to_directory(dataset, temp_output_dir, timeseries_file_extension="csv")
+        save_to_directory(dataset, temp_output_dir, timeseries_file_extension="csv")
 
         # Verify CSV file exists instead of parquet
         assert (temp_output_dir / "timeseries" / "equipment" / "test_equipment.csv").exists()
@@ -335,7 +335,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {}
 
         # Should not raise error
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Objects directory should still be created
         assert (temp_output_dir / "objects").exists()
@@ -346,7 +346,7 @@ class TestOutputGeneratorToDirectory:
         dataset = {"node": [node]}
 
         # Export to directory
-        OutputGenerator.to_directory(dataset, temp_output_dir)
+        save_to_directory(dataset, temp_output_dir)
 
         # Verify all directories are created
         assert (temp_output_dir / "objects").is_dir()

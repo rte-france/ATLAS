@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 from pendulum import duration
 
-from atlas.enum import SolverEnum
+from atlas.enums import SolverEnum
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 from tests.conftest import requires_xpress
@@ -186,3 +186,38 @@ class TestSolverOptionsParameterPassing:
 
         model = OptimisationModel(solver_name=SolverEnum.GLOP)
         assert isinstance(model._parameter_builder, GenericParameterBuilder)
+
+    def test_scip_uses_scip_builder(self):
+        """Test that SCIP solver uses SCIPParameterBuilder."""
+        from atlas.solver.solver_interface import SCIPParameterBuilder
+
+        model = OptimisationModel(solver_name=SolverEnum.SCIP)
+        assert isinstance(model._parameter_builder, SCIPParameterBuilder)
+
+    def test_scip_parameter_format(self):
+        """Test that SCIP parameters are formatted correctly."""
+        from unittest.mock import patch
+
+        from atlas.solver.solver_interface import SCIPParameterBuilder
+
+        options = SolverOptions(presolve=False, duality_gap=0.0001)
+        model = OptimisationModel(solver_name=SolverEnum.SCIP, options=options)
+
+        # Patch SetSolverSpecificParametersAsString to capture the parameter string
+        with patch.object(model._solver, "SetSolverSpecificParametersAsString") as mock_set_params:
+            mock_set_params.return_value = True
+
+            x = model.add_continuous_variable("x", 0, 10)
+            model.set_direction("maximize")
+            model.set_objective(x)
+            model.solve()
+
+            # Verify the parameter string format
+            mock_set_params.assert_called_once()
+            param_string = mock_set_params.call_args[0][0]
+
+            # SCIP expects newline-separated parameters in the format "parameter/name = value"
+            assert "presolving/maxrounds = 0" in param_string
+            assert "limits/gap = 0.0001" in param_string
+            # Parameters should be separated by newlines, not spaces
+            assert "\n" in param_string

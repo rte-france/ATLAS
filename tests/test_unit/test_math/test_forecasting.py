@@ -9,7 +9,7 @@ import polars as pl
 import pytest
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_matrix import LazyMatrix
+from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.timeseries import Timeseries
 
 
@@ -207,7 +207,7 @@ def test_repr(hourly_df):
     """Test the __repr__ method."""
     matrix = ForecastingMatrix(hourly_df)
     repr_str = repr(matrix)
-    assert "Forecasting Matrix" in repr_str
+    assert "Forecasting ScenarioMatrix" in repr_str
 
 
 def test_custom_date_format():
@@ -684,12 +684,12 @@ def test_lazy_forecasting_matrix():
         }
     ).lazy()
 
-    # Create from LazyMatrix
-    lazy_matrix = LazyMatrix(lazy_df)
+    # Create from LazyScenarioMatrix
+    lazy_matrix = LazyScenarioMatrix(lazy_df)
     lazy_forecasting = LazyForecastingMatrix(lazy_matrix, timezone="UTC")
     assert isinstance(lazy_forecasting, LazyForecastingMatrix)
 
-    # Test from Matrix
+    # Test from ScenarioMatrix
     matrix = ForecastingMatrix(lazy_df.collect())
     lazy_forecasting_from_matrix = LazyForecastingMatrix(matrix)
     assert isinstance(lazy_forecasting_from_matrix, LazyForecastingMatrix)

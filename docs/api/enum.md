@@ -1,17 +1,17 @@
-# Enum classes
+# Enums classes
 
-::: atlas.enum.ThermalStrategy
+::: atlas.enums.ThermalStrategy
 
-::: atlas.enum.LoadType
+::: atlas.enums.LoadType
 
-::: atlas.enum.StorageType
+::: atlas.enums.StorageType
 
-::: atlas.enum.ReservesTypes
+::: atlas.enums.ReservesTypes
 
-::: atlas.enum.ComplementDirection
+::: atlas.enums.ComplementDirection
 
-::: atlas.enum.CouplingType
+::: atlas.enums.CouplingType
 
-::: atlas.enum.OrderType
+::: atlas.enums.OrderType
 
-::: atlas.enum.Product
+::: atlas.enums.Product

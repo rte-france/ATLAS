@@ -1,7 +1,7 @@
 from pendulum import Duration
 from pydantic import BaseModel, ConfigDict, Field
 
-from atlas.enum import SolverStatus
+from atlas.enums import SolverStatus
 
 
 class SolverOptions(BaseModel):

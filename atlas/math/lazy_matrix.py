@@ -4,7 +4,7 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements LazyMatrix
+Module that implements LazyScenarioMatrix
 """
 
 from __future__ import annotations
@@ -17,33 +17,34 @@ import pandas as pd
 import pendulum
 import polars as pl
 
-from atlas.io_utils.utils import scan_data_file
+from atlas.io_utils.utils import get_metadata_from_frame, scan_data_file
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.matrix import Matrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone
 from atlas.typing import TimeseriesDict
 
 
-class LazyMatrix:
+class LazyScenarioMatrix(AbstractScenarioMatrix[pl.LazyFrame]):
     """Base class for lazily storing Timeseries-like data indexed by scenario keys or datetimes."""
 
-    def __init__(self, matrix: pl.LazyFrame | LazyMatrix | Matrix, timezone: str = "UTC") -> None:
+    def __init__(self, matrix: pl.LazyFrame | LazyScenarioMatrix | ScenarioMatrix, timezone: str = "UTC") -> None:
         """
-        Initialize the LazyMatrix.
+        Initialize the LazyScenarioMatrix.
 
-        :param matrix: LazyFrame, Matrix, or LazyMatrix object.
-        :type matrix: pl.LazyFrame | LazyMatrix | Matrix
+        :param matrix: LazyFrame, ScenarioMatrix, or LazyScenarioMatrix object.
+        :type matrix: pl.LazyFrame | LazyScenarioMatrix | ScenarioMatrix
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
         check_timezone(timezone)
         self.timezone = timezone
 
-        if isinstance(matrix, LazyMatrix):
+        if isinstance(matrix, LazyScenarioMatrix):
             self.matrix = matrix.get_matrix()
             self.timezone = matrix.timezone
-        elif isinstance(matrix, Matrix):
+        elif isinstance(matrix, ScenarioMatrix):
             self.matrix = matrix.to_lazy()
             self.timezone = matrix.timezone
         elif isinstance(matrix, pl.LazyFrame):
@@ -53,10 +54,10 @@ class LazyMatrix:
             value_columns = [name for name, dtype in schema.items() if dtype.is_numeric()]
 
             if len(time_columns) != 1:
-                raise ValueError("LazyMatrix must have exactly one datetime column")
+                raise ValueError("LazyScenarioMatrix must have exactly one datetime column")
 
             if len(time_columns) + len(value_columns) != len(schema):
-                raise ValueError("LazyMatrix must have N columns one for datetime and N-1 for numerical values")
+                raise ValueError("LazyScenarioMatrix must have N columns one for datetime and N-1 for numerical values")
 
             self.matrix = (
                 matrix.rename({time_columns[0]: "time"})
@@ -64,23 +65,39 @@ class LazyMatrix:
                 .sort("time")
             )
         else:
-            raise TypeError("LazyMatrix requires a LazyFrame, Matrix, or LazyMatrix")
+            raise TypeError("LazyScenarioMatrix requires a LazyFrame, ScenarioMatrix, or LazyScenarioMatrix")
 
         self.indexes = self._get_indexes()
 
+    def _get_data(self) -> pl.LazyFrame:
+        """Return the underlying LazyFrame."""
+        return self.matrix
+
+    def _return(self, data: pl.LazyFrame, inplace: bool) -> LazyScenarioMatrix:
+        """Wrap data into LazyScenarioMatrix type."""
+        if inplace:
+            self.matrix = data
+            return self
+        return self.__class__(data, timezone=self.timezone)
+
+    def _get_shape(self) -> tuple[int, int]:
+        """Return (rows, columns) of the underlying LazyFrame (requires collection)."""
+        collected = self.matrix.select(pl.len()).collect()
+        return (collected.item(), len(self.matrix.collect_schema()))
+
     @property
     def lazyframe(self) -> pl.LazyFrame:
-        """Returns the Matrix DataFrame"""
+        """Returns the ScenarioMatrix DataFrame"""
         return self.matrix
 
     @property
     def index(self) -> list[str]:
-        """Returns the Matrix indexes (e.g columns names)"""
+        """Returns the ScenarioMatrix indexes (e.g columns names)"""
         return self._get_indexes()
 
     def __repr__(self):
-        """String representation of the Matrix"""
-        return f"LazyMatrix with schema : {self.matrix.collect_schema()}"
+        """String representation of the ScenarioMatrix"""
+        return f"LazyScenarioMatrix with schema : {self.matrix.collect_schema()}"
 
     @classmethod
     def from_file(
@@ -89,14 +106,14 @@ class LazyMatrix:
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
-    ) -> LazyMatrix:
+    ) -> LazyScenarioMatrix:
         """
-        Load a LazyMatrix from a file.
+        Load a LazyScenarioMatrix from a file.
 
         :param file_path: Path to the file
         :param separator: CSV separator (if applicable)
         :param timezone: Timezone to apply
-        :return: LazyMatrix instance
+        :return: LazyScenarioMatrix instance
         """
 
         return cls(scan_data_file(file_path, filters, separator), timezone)
@@ -105,9 +122,9 @@ class LazyMatrix:
         """Return internal lazy frame."""
         return self.matrix
 
-    def collect(self) -> Matrix:
-        """Collect the lazy frame and return a regular Matrix object."""
-        return Matrix(self.matrix.collect(), timezone=self.timezone)
+    def collect(self) -> ScenarioMatrix:
+        """Collect the lazy frame and return a regular ScenarioMatrix object."""
+        return ScenarioMatrix(self.matrix.collect(), timezone=self.timezone)
 
     def _get_indexes(self) -> list[str]:
         """Identify index columns by excluding the time column."""
@@ -222,3 +239,72 @@ class LazyMatrix:
             return self
         else:
             return self.__class__(resampled_sm.to_lazy(), timezone=self.timezone)
+
+    @property
+    def dataframe(self) -> pl.LazyFrame:
+        """Returns the underlying LazyFrame."""
+        return self.matrix
+
+    @property
+    def metadata(self) -> dict:
+        """Return the metadata of the matrix."""
+        return self.describe()
+
+    def __len__(self) -> int:
+        """Number of timeseries in the matrix."""
+        return len(self.indexes)
+
+    def __contains__(self, index: str) -> bool:
+        """Check if an index exists in the matrix."""
+        return index in self.indexes
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality with another matrix."""
+        if not isinstance(other, LazyScenarioMatrix):
+            raise TypeError("Cannot compare with non-LazyScenarioMatrix object")
+        return self.matrix.collect().equals(other.matrix.collect())
+
+    def __getitem__(self, index: str) -> LazyTimeseries:
+        """Get a timeseries by index."""
+        return self.select(index)
+
+    def to_lazy(self) -> pl.LazyFrame:
+        """Return the internal LazyFrame."""
+        return self.matrix
+
+    def to_file(
+        self,
+        path: str | Path,
+        file_format: str = "csv",
+        separator: str = ";",
+    ) -> None:
+        """Export the matrix to a file."""
+        self.collect().to_file(path, file_format, separator)  # type: ignore[arg-type]
+
+    def to_file_with_attribute(
+        self,
+        path: str | Path,
+        attribute: str,
+        file_format: str = "csv",
+        separator: str = ";",
+        concatenate: bool = True,
+    ) -> None:
+        """Export the matrix to a file with an attribute column."""
+        self.collect().to_file_with_attribute(path, attribute, file_format, separator, concatenate)  # type: ignore[arg-type]
+
+    def plot(
+        self,
+        title: str = "ScenarioMatrix Timeseries Plot",
+        height: int = 500,
+        width: int = 800,
+        show_grid: bool = True,
+        line_shape: str = "hv",
+        template: str = "plotly_white",
+    ):
+        """Generate an interactive Plotly figure."""
+        return self.collect().plot(title, height, width, show_grid, line_shape, template)  # type: ignore[arg-type]
+
+    def describe(self) -> dict:
+        """Get metadata about the matrix."""
+
+        return get_metadata_from_frame(self.matrix.collect())

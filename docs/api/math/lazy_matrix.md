@@ -1,4 +1,4 @@
-# Lazy Matrix
+# Lazy ScenarioMatrix
 
 ::: atlas.LazyScenarioMatrix
     options:

@@ -1,4 +1,9 @@
-"""Prometheus HDF5 data transformer for Atlas datasets.
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+
+Prometheus HDF5 data transformer for Atlas datasets.
 
 This module handles the conversion of Prometheus HDF5 data files into Atlas-compatible
 datasets, including objects, timeseries, scenario matrices, and forecasting matrices.
@@ -6,6 +11,7 @@ datasets, including objects, timeseries, scenario matrices, and forecasting matr
 
 import os
 import shutil
+import tempfile
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -19,7 +25,9 @@ import polars as pl
 from pydantic_extra_types.pendulum_dt import DateTime, Duration
 
 import atlas.config as cfg
+from atlas import AtlasDataset
 from atlas.config import DEFAULT_VALUE_IO, logger
+from atlas.enums import BusinessModelName, CouplingType, StorageType
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
 from atlas.typing import get_class_inheritance_chain, get_type_attribute
@@ -69,6 +77,7 @@ class PrometheusToAtlasDataParser:
         date_format_forecasting: str = DEFAULT_DATE_FORMAT_FORECASTING,
         date_format_input_files: str = DEFAULT_DATE_FORMAT_INPUT,
         date_format_timestep: str = DEFAULT_DATE_FORMAT_TIMESTEP,
+        default_value: bool = True,
     ) -> None:
         self.hdf5_path = Path(hdf5_path)
         self.output_dir = Path(output_dir)
@@ -76,6 +85,10 @@ class PrometheusToAtlasDataParser:
         self.date_format_forecasting = date_format_forecasting
         self.date_format_input_files = date_format_input_files
         self.date_format_timestep = date_format_timestep
+        self.default_value = default_value
+
+        tmp_dir = tempfile.mkdtemp()
+        self.tmp_dir = Path(tmp_dir)
 
         logger.info(f"Initialized parser with HDF5 path: {self.hdf5_path} and output root: {self.output_dir}")
 
@@ -107,13 +120,51 @@ class PrometheusToAtlasDataParser:
             object_types = list(hdf5_file.keys())
             logger.info(f"Found object types: {object_types}")
 
-            objects_dir = self.output_dir / "objects"
+            objects_dir = self.tmp_dir / "objects"
             _ensure_directory(objects_dir)
 
             for object_type in object_types:
                 self._process_object_type(hdf5_file, object_type, objects_dir, use_multiprocessing, n_workers)
 
+        dataset = AtlasDataset.from_directory(self.tmp_dir)
+        if self.default_value:
+            self.add_default_value(dataset)
+        shutil.rmtree(self.tmp_dir)
+        dataset.to_directory(self.output_dir)
         logger.success(f"Export done to Atlas dataset - {self.output_dir}!")
+
+    @staticmethod
+    def add_default_value(dataset: AtlasDataset):
+        for equipment_name in cfg.EQUIPMENT_MODELS:
+            for equipment in dataset.get_container_by_type(equipment_name):
+                equipment.maximum_afrr = 0 if equipment.maximum_afrr is None else equipment.maximum_afrr
+                equipment.maximum_fcr = 0 if equipment.maximum_fcr is None else equipment.maximum_fcr
+                equipment.setup_delay = 0 if equipment.setup_delay is None else equipment.setup_delay
+                equipment.unit_count = 1 if equipment.unit_count is None else equipment.unit_count
+                equipment.maximum_gradient = 0 if equipment.maximum_gradient is None else equipment.maximum_gradient
+
+        for storage in dataset.storage:
+            storage.transition_duration = (
+                pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration  # type: ignore
+            )
+
+            if storage.additional_hours_ is None:
+                if storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
+                    storage.additional_hours_ = Duration(hours=144)
+                elif storage.storage_type == StorageType.BATTERY:
+                    storage.additional_hours_ = Duration(hours=48)
+                elif storage.storage_type == StorageType.ELECTRIC_VEHICLE:
+                    storage.additional_hours_ = Duration(hours=24)
+                else:
+                    storage.additional_hours_ = Duration(hours=48)
+
+        for market_border in dataset.market_border:
+            market_border.coupling_type = (
+                CouplingType.ATC if market_border.coupling_type is None else market_border.coupling_type
+            )
+            market_border.time_resolution = (
+                0.0 if market_border.time_resolution is None else market_border.time_resolution
+            )
 
     def _process_object_type(
         self,
@@ -158,7 +209,7 @@ class PrometheusToAtlasDataParser:
 
         # Create matrix directories
         for matrix_type in MATRIX_TYPES:
-            _ensure_directory(self.output_dir / matrix_type / object_type_snake)
+            _ensure_directory(self.tmp_dir / matrix_type / object_type_snake)
 
         # Process instances in parallel or sequentially
         if use_multiprocessing and len(instances) > 1:
@@ -265,7 +316,7 @@ class PrometheusToAtlasDataParser:
             attr_name_snake = NAME_MAPPING[attr_name_snake]
 
         # Validate attribute exists in model
-        model_fields = cfg.MODEL_MAPPING_NAME[object_type_snake].model_fields.keys()
+        model_fields = cfg.MODEL_MAPPING_NAME[BusinessModelName(object_type_snake)].model_fields.keys()
         if attr_name_snake not in model_fields:
             logger.debug(
                 f"The attribute '{attr_name_snake}' is not present in Atlas model object: {object_type_snake}, skipping it."
@@ -349,7 +400,7 @@ class PrometheusToAtlasDataParser:
             file_path: Path to the CSV file
 
         Returns:
-            Matrix type string or None if not recognized
+            ScenarioMatrix type string or None if not recognized
         """
         if "forecast_matrix" in file_path:
             return "forecasting_matrix"
@@ -479,7 +530,7 @@ class PrometheusToAtlasDataParser:
             attrs[attr_name_snake] = None
             return
 
-        parquet_path = self.output_dir / matrix_type / object_type_snake / f"{instance_snake}.parquet"
+        parquet_path = self.tmp_dir / matrix_type / object_type_snake / f"{instance_snake}.parquet"
 
         if parquet_path.exists():
             # Concatenate with existing data
@@ -606,7 +657,7 @@ class PrometheusToAtlasDataParser:
             Resolved type annotation
         """
 
-        type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
+        type_attribute = get_type_attribute(BusinessModelName(object_type_snake), attr_name_snake)
         try:
             return get_args(type_attribute)[0]
         except (IndexError, TypeError):
@@ -626,7 +677,7 @@ class PrometheusToAtlasDataParser:
 
         items: list[Any] = [item.decode("utf-8") if isinstance(item, bytes) else item for item in val]
 
-        type_attribute = get_type_attribute(object_type_snake, attr_name_snake)
+        type_attribute = get_type_attribute(BusinessModelName(object_type_snake), attr_name_snake)
         if type_attribute is not None:
             try:
                 type_args = get_args(type_attribute)
@@ -646,12 +697,12 @@ class PrometheusToAtlasDataParser:
             attrs: Dictionary to update with default values
             object_type_snake: Snake-case object type
         """
-        inheritance_chain = get_class_inheritance_chain(object_type_snake)
+        inheritance_chain = get_class_inheritance_chain(BusinessModelName(object_type_snake))
         for base_class in inheritance_chain:
             # base_class is str from the inheritance chain
             base_class_str = str(base_class) if not isinstance(base_class, str) else base_class
             if base_class_str in DEFAULT_VALUE_IO:
-                defaults = DEFAULT_VALUE_IO[base_class_str]
+                defaults = DEFAULT_VALUE_IO[BusinessModelName(base_class_str)]
                 if isinstance(defaults, dict):
                     for default_attr_name, default_value in defaults.items():
                         if default_attr_name not in attrs:

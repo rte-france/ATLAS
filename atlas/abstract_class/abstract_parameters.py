@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
 
-from atlas.enum import SolverEnum
+from atlas.enums import SolverEnum
 
 
 class AbstractParameters(BaseModel):

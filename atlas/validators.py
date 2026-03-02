@@ -10,7 +10,6 @@ from typing import Any
 
 import pendulum
 from pendulum.duration import Duration
-from pydantic import ValidationError
 
 from atlas.models.business_model import BusinessModel
 from atlas.timing import parse_frequency
@@ -24,14 +23,13 @@ def parse_list_float(value: Any) -> list[float] | None:
         if all(isinstance(v, float) for v in value):
             return value
         else:
-            raise ValidationError(
+            raise ValueError(
                 f"All elements in the list must be of type float. Got: {value}",
             )
-
     try:
         return list(map(float, value.split(":")))
     except Exception as e:
-        raise ValidationError(
+        raise ValueError(
             f"Failed to parse list attribute '{value}': {e}",
         ) from e
 

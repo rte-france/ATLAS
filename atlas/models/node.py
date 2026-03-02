@@ -6,9 +6,8 @@ This file is part of the ATLAS project.
 
 from pydantic import field_serializer
 
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.market.market_area import MarketArea
@@ -36,8 +35,8 @@ class Node(BusinessModel):
     market_area: MarketArea | None = None
     balance_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_power_injection: ForecastingMatrix | LazyForecastingMatrix | None = None
-    da_power_injection: Timeseries | LazyTimeseries | None = None
-    reference_balance: Timeseries | LazyTimeseries | None = None
+    da_power_injection: AbstractTimeseries | None = None
+    reference_balance: AbstractTimeseries | None = None
 
     @field_serializer("control_block", "market_area", mode="plain")
     def serializer_bmo(self, value: BusinessModel | None) -> str | None:

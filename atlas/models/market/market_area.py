@@ -6,9 +6,8 @@ This file is part of the ATLAS project.
 
 from pydantic import field_serializer
 
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.validators import serializer_business_model
@@ -69,18 +68,18 @@ class MarketArea(BusinessModel):
     price_forecast_high: ForecastingMatrix | LazyForecastingMatrix | None = None
     price_forecast_low: ForecastingMatrix | LazyForecastingMatrix | None = None
     price_forecast_medium: ForecastingMatrix | LazyForecastingMatrix | None = None
-    afrr_activation_price: Timeseries | LazyTimeseries | None = None
-    da_balance: Timeseries | LazyTimeseries | None = None
-    da_price: Timeseries | LazyTimeseries | None = None
-    fcr_activation_price: Timeseries | LazyTimeseries | None = None
-    maximum_price: Timeseries | LazyTimeseries | None = None
-    minimum_price: Timeseries | LazyTimeseries | None = None
-    mfrr_activation_balance: Timeseries | LazyTimeseries | None = None
-    mfrr_activation_price: Timeseries | LazyTimeseries | None = None
-    reference_balance: Timeseries | LazyTimeseries | None = None
-    rr_activation_balance: Timeseries | LazyTimeseries | None = None
-    rr_activation_price: Timeseries | LazyTimeseries | None = None
-    total_id_balance: Timeseries | LazyTimeseries | None = None
+    afrr_activation_price: AbstractTimeseries | None = None
+    da_balance: AbstractTimeseries | None = None
+    da_price: AbstractTimeseries | None = None
+    fcr_activation_price: AbstractTimeseries | None = None
+    maximum_price: AbstractTimeseries | None = None
+    minimum_price: AbstractTimeseries | None = None
+    mfrr_activation_balance: AbstractTimeseries | None = None
+    mfrr_activation_price: AbstractTimeseries | None = None
+    reference_balance: AbstractTimeseries | None = None
+    rr_activation_balance: AbstractTimeseries | None = None
+    rr_activation_price: AbstractTimeseries | None = None
+    total_id_balance: AbstractTimeseries | None = None
 
     @field_serializer("control_block", mode="plain")
     def serializer_bmo(self, value: BusinessModel | None) -> str | None:
