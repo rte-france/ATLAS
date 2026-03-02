@@ -12,6 +12,7 @@ from atlas.models.business_model import BusinessModel
 from atlas.modules.price_forcast.data_models.load import LoadIDPF
 from atlas.modules.price_forcast.data_models.market_area import MarketAreaIDPF
 from atlas.modules.price_forcast.data_models.solar import SolarIDPF
+from atlas.modules.price_forcast.data_models.wind import WindIDPF
 from atlas.modules.price_forcast.price_forcast_input_dataset import PriceForcastInputDataset
 from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
 

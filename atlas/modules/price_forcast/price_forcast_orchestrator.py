@@ -1,6 +1,7 @@
 import pendulum
 
 import atlas.config as cfg
+from atlas import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.price_forcast.price_forcast_input_dataset import PriceForcastInputDataset
 from atlas.modules.price_forcast.price_forcast_output_dataset import PriceForcastOutputDataset
@@ -28,9 +29,6 @@ class PriceForcastOrchestrator:
         """
         # ------ Markers and Parameters
 
-        # FIXME - do we keep the name 'Output_PrevisionPrix_IJ'?
-        # API.IO.SetOutputMarkerByIdentifier('Output_PrevisionPrix_IJ', input_marker)
-
         if self.parameters.verbose:
             cfg.logger.info(str(self.parameters))
 
@@ -46,10 +44,14 @@ class PriceForcastOrchestrator:
                 if load.portfolio.market_area.name == market_area.name and load.load_type == "BaseLoad"
             ]
             solar_list = [
-                solar for solar in self.output_dataset.solar if solar.portfolio.market_area.name == market_area.name
+                solar
+                for solar in self.output_dataset.solar
+                if solar.portfolio.market_area.name == market_area.name
             ]
             wind_list = [
-                wind for wind in self.output_dataset.solar if wind.portfolio.market_area.name == market_area.name
+                wind
+                for wind in self.output_dataset.wind
+                if wind.portfolio.market_area.name == market_area.name
             ]
 
             # ------ ID Price Forecast calculation ------
@@ -68,8 +70,8 @@ class PriceForcastOrchestrator:
 
             # Create a time series that store the differences in consumption in two scenarios
             # The load scenarios are in the Atlas model
-            conso_diff = self.generate_empty_timeseries()
-            for load in load_list:
+            conso_diff = load_list[0].power_forecast_low - load_list[0].power_forecast_high
+            for load in load_list[1:]:
                 if load.power_forecast_high and load.power_forecast_low:
                     conso_diff += load.power_forecast_low - load.power_forecast_high
                 else:
@@ -125,7 +127,6 @@ class PriceForcastOrchestrator:
                 )
 
             # The difference in consumption is stored in the following time series:
-            # FIXME how do we transfer this unit value?? 'MW'
             delta_conso = self.generate_empty_timeseries()
 
             for time in index:
@@ -134,7 +135,7 @@ class PriceForcastOrchestrator:
 
             # We can make a price forecast by summing this deltaPrice with the last established price in the MarketClearing:
             id_prices = market_area.id_price
-            if len(id_prices) == 0:
+            if id_prices is None or len(id_prices) == 0:
                 last_price = market_area.da_price
                 last_price_str = "DA price"
             else:
@@ -192,12 +193,11 @@ class PriceForcastOrchestrator:
                     prev_ij.set_value(time, prev_ij.get_value(time) * corrective_ratio)
 
             # Saving the result in the Price Forecast Matrix:
+            market_area.id_price_forecast = ForecastingMatrix()
             market_area.id_price_forecast.add(prev_ij, self.parameters.execution_date)
             cfg.logger.info(f"The update of {market_area.name} price has been done using {last_price_str}")
         return self.output_dataset
 
-    # TODO - This function is also used by module Day-Ahead-Order and maybe used by other module
-    #   Can we consider making this function on a more global scale
     def define_orders_time(self) -> list[pendulum.DateTime]:
         """
         This function creates a sequence of timestamps between a start_date and an end_date
@@ -221,7 +221,7 @@ class PriceForcastOrchestrator:
         return Timeseries.from_index(
             start_date=self.parameters.start_date,
             frequency=self.parameters.time_step,
-            end_date=self.parameters.end_date,
+            end_date=self.parameters.penultimate_date,
             default_value=0,
         )
 

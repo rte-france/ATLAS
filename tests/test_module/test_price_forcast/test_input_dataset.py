@@ -211,14 +211,4 @@ class TestIDForecastInputDataset(unittest.TestCase):
         expected_data = AtlasDataset.from_directory("test_data/id_price_forecast_output")
 
         for market_area in output.market_area:
-            print("----------------------------------------------------------")
-            x = market_area.id_price_forecast
-            print(x)
-            print("----------------------------------------------------------")
-            y = expected_data.market_area.get(market_area.name).id_price_forecast
-            print(y)
-            print("----------------------------------------------------------")
-            z = input.input_data.market_area.get(market_area.name).id_price_forecast
-            print(z)
-            print("----------------------------------------------------------")
             assert market_area.id_price_forecast == expected_data.market_area.get(market_area.name).id_price_forecast
