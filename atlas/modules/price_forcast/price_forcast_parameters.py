@@ -8,6 +8,9 @@ from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.timing import build_datetime
 from atlas.validators import convert_to_duration
 
+import pendulum
+from pendulum import duration
+from pendulum import Timezone
 
 class PriceForcastParameters(AbstractParameters):
     debug: bool = Field(
@@ -31,11 +34,11 @@ class PriceForcastParameters(AbstractParameters):
         description="Time step (in minutes) of the simulated market.",
     )
     execution_date_day_ahead: DateTime = Field(
-        default_factory=lambda: DateTime(year=2028, month=9, day=1, hour=12),
+        default_factory=lambda: pendulum.datetime(year=2028, month=9, day=26, hour=12),
         description="Reference date from DayAhead market.",
     )
     execution_date_scenarios: DateTime = Field(
-        default_factory=lambda: DateTime(year=2028, month=7, day=1),
+        default_factory=lambda: pendulum.datetime(year=2028, month=7, day=1),
         description="Reference date for the scenarios from price forecast matrix.",
     )
 
@@ -43,8 +46,6 @@ class PriceForcastParameters(AbstractParameters):
     def penultimate_date(self) -> DateTime:
         return self.end_date - self.time_step
 
-    # FIXME Should we create a validator in validator.py that convert various type of DateTime,
-    #       as we do with Duration using function convert_to_duration?
     @field_validator(
         "execution_date_day_ahead",
         "execution_date_scenarios",
