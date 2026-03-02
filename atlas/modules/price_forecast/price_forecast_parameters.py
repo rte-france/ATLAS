@@ -10,7 +10,7 @@ from atlas.timing import build_datetime
 from atlas.validators import convert_to_duration
 
 
-class PriceForcastParameters(AbstractParameters):
+class PriceForecastParameters(AbstractParameters):
     debug: bool = Field(
         False,
         description="A boolean indicating if the script will run in debug mode.",

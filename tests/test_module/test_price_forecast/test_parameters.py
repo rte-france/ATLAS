@@ -3,7 +3,7 @@ import unittest
 import pendulum
 from pendulum import duration
 
-from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
+from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
 
 
 class TestIDPriceForecastParametersDurationValidator(unittest.TestCase):
@@ -11,7 +11,7 @@ class TestIDPriceForecastParametersDurationValidator(unittest.TestCase):
 
     def test_parse_duration_with_string(self):
         """Test parsing duration from string format."""
-        params = PriceForcastParameters(
+        params = PriceForecastParameters(
             start_date=pendulum.datetime(2024, 1, 1),
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),
@@ -22,7 +22,7 @@ class TestIDPriceForecastParametersDurationValidator(unittest.TestCase):
 
     def test_parse_duration_with_duration_object(self):
         """Test parsing duration when already a Duration object."""
-        params = PriceForcastParameters(
+        params = PriceForecastParameters(
             start_date=pendulum.datetime(2024, 1, 1),
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),
@@ -37,7 +37,7 @@ class TestIDPriceForecastParametersDateTimeValidator(unittest.TestCase):
 
     def test_execution_date_day_ahead(self):
         """Test execution_date_day_ahead."""
-        params = PriceForcastParameters(
+        params = PriceForecastParameters(
             start_date=pendulum.datetime(2024, 1, 1),
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),
@@ -48,7 +48,7 @@ class TestIDPriceForecastParametersDateTimeValidator(unittest.TestCase):
 
     def test_execution_date_day_ahead(self):
         """Test execution_date_day_ahead."""
-        params = PriceForcastParameters(
+        params = PriceForecastParameters(
             start_date=pendulum.datetime(2024, 1, 1),
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),
@@ -63,7 +63,7 @@ class TestIDPriceForecastParametersBuiltinData(unittest.TestCase):
 
     def test_debug_field(self):
         """Test execution_date_day_ahead."""
-        params = PriceForcastParameters(
+        params = PriceForecastParameters(
             start_date=pendulum.datetime(2024, 1, 1),
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),
@@ -74,7 +74,7 @@ class TestIDPriceForecastParametersBuiltinData(unittest.TestCase):
 
     def test_verbose_field(self):
         """Test execution_date_day_ahead."""
-        params = PriceForcastParameters(
+        params = PriceForecastParameters(
             start_date=pendulum.datetime(2024, 1, 1),
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),
@@ -90,7 +90,7 @@ class TestIDPriceForecastParametersBuiltinData(unittest.TestCase):
     #   question3: must intraday_positive_price_cap be positive? Hence raise an error when negative?
     def test_price_cap_field(self):
         """Test execution_date_day_ahead."""
-        params = PriceForcastParameters(
+        params = PriceForecastParameters(
             start_date=pendulum.datetime(2024, 1, 1),
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),

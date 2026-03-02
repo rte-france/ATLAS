@@ -15,9 +15,9 @@ from atlas.models.equipment.load import Load
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
-from atlas.modules.price_forcast.price_forcast_input_dataset import PriceForcastInputDataset
-from atlas.modules.price_forcast.price_forcast_orchestrator import PriceForcastOrchestrator
-from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
+from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForcastInputDataset
+from atlas.modules.price_forecast.price_forecast_orchestrator import PriceForecastOrchestrator
+from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
 
 
 class TestIDForecastInputDataset(unittest.TestCase):
@@ -43,7 +43,7 @@ class TestIDForecastInputDataset(unittest.TestCase):
     @pytest.fixture
     def mock_parameters(self):
         """Create mock parameters for testing."""
-        params = Mock(spec=PriceForcastParameters)
+        params = Mock(spec=PriceForecastParameters)
         params.start_date = pendulum.datetime(2024, 1, 1)
         params.end_date = pendulum.datetime(2024, 1, 2)
         params.execution_date = (pendulum.datetime(2024, 1, 1),)

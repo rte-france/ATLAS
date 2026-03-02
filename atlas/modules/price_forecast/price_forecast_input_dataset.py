@@ -5,16 +5,16 @@ from atlas import (
     BusinessModel,
 )
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.modules.price_forcast.data_models.load import LoadIDPF
-from atlas.modules.price_forcast.data_models.market_area import MarketAreaIDPF
-from atlas.modules.price_forcast.data_models.solar import SolarIDPF
-from atlas.modules.price_forcast.data_models.wind import WindIDPF
-from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
+from atlas.modules.price_forecast.data_models.load import LoadIDPF
+from atlas.modules.price_forecast.data_models.market_area import MarketAreaIDPF
+from atlas.modules.price_forecast.data_models.solar import SolarIDPF
+from atlas.modules.price_forecast.data_models.wind import WindIDPF
+from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
 
 
-class PriceForcastInputDataset(AbstractDataset[PriceForcastParameters]):
-    def __init__(self, raw_data: AtlasDataset, parameters: PriceForcastParameters):
-        self.parameters: PriceForcastParameters = parameters
+class PriceForcastInputDataset(AbstractDataset[PriceForecastParameters]):
+    def __init__(self, raw_data: AtlasDataset, parameters: PriceForecastParameters):
+        self.parameters: PriceForecastParameters = parameters
         self.input_data = raw_data
 
         self.market_area: list[MarketAreaIDPF] = [cast(MarketAreaIDPF, obj) for obj in raw_data.market_area]

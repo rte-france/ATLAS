@@ -3,29 +3,29 @@ import pendulum
 import atlas.config as cfg
 from atlas import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.modules.price_forcast.price_forcast_input_dataset import PriceForcastInputDataset
-from atlas.modules.price_forcast.price_forcast_output_dataset import PriceForcastOutputDataset
-from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
+from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForcastInputDataset
+from atlas.modules.price_forecast.price_forecast_output_dataset import PriceForecastOutputDataset
+from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
 from atlas.timing import generate_datetimes
 
 
-class PriceForcastOrchestrator:
-    def __init__(self, parameters: PriceForcastParameters, input_dataset: PriceForcastInputDataset):
+class PriceForecastOrchestrator:
+    def __init__(self, parameters: PriceForecastParameters, input_dataset: PriceForcastInputDataset):
         """
         :param parameters: the parameters
-        :type parameters: PriceForcastParameters
+        :type parameters: PriceForecastParameters
         :param input_dataset: the input dataset
         :type input_dataset: PriceForcastInputDataset
         """
         self.parameters = parameters
         self.input_dataset = input_dataset
-        self.output_dataset = PriceForcastOutputDataset(parameters, input_dataset)
+        self.output_dataset = PriceForecastOutputDataset(parameters, input_dataset)
 
-    def execute(self) -> PriceForcastOutputDataset:
+    def execute(self) -> PriceForecastOutputDataset:
         """
         FIXME ADD DESCRIPTION
         :return: the output dataset
-        :rtype: PriceForcastOutputDataset
+        :rtype: PriceForecastOutputDataset
         """
         # ------ Markers and Parameters
 
