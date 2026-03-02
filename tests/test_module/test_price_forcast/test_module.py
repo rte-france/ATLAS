@@ -23,14 +23,12 @@ class TestModule(unittest.TestCase):
         )
 
         input = PriceForcastInputDataset(data, parameter)
-
         orchestrator = PriceForcastOrchestrator(parameter, input)
-
         output = orchestrator.execute()
+        expected_data = AtlasDataset.from_directory("test_data/id_price_forecast_output")
 
-        expected_data = load_from_directory("test_data/id_price_forecast_output")
-        expected_output = PriceForcastOutputDataset(expected_data)
-
-        assert 1 == 1
-
-        # TODO assert output equal expected output
+        assert len(output.market_area) == len(expected_data.market_area)
+        for market_area in output.market_area:
+            assert (
+                market_area.id_price_forecast == expected_data.market_area.get(market_area.name).id_price_forecast
+            )

@@ -1,15 +1,10 @@
 from typing import cast
 
 from atlas import (
-    BusinessModel,
-    Load,
-    MarketArea,
-    Solar,
-    Wind,
     AtlasDataset,
+    BusinessModel,
 )
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.config import INVERSE_MODEL_MAPPING_NAME
 from atlas.modules.price_forcast.data_models.load import LoadIDPF
 from atlas.modules.price_forcast.data_models.market_area import MarketAreaIDPF
 from atlas.modules.price_forcast.data_models.solar import SolarIDPF
@@ -25,7 +20,7 @@ class PriceForcastInputDataset(AbstractDataset[PriceForcastParameters]):
         self.market_area: list[MarketAreaIDPF] = [cast(MarketAreaIDPF, obj) for obj in raw_data.market_area]
         self.solar: list[SolarIDPF] = [cast(SolarIDPF, obj) for obj in raw_data.solar]
         self.wind: list[WindIDPF] = [cast(WindIDPF, obj) for obj in raw_data.wind]
-        self.load: list[Load] = [cast(LoadIDPF, obj) for obj in raw_data.load]
+        self.load: list[LoadIDPF] = [cast(LoadIDPF, obj) for obj in raw_data.load]
 
     def get_business_model_class_used(self) -> list[type[BusinessModel]]:
         return []
