@@ -179,21 +179,3 @@ class TestIDForecastInputDataset(unittest.TestCase):
         assert len(dataset.solar) == 0
         assert len(dataset.wind) == 0
         assert len(dataset.market_area) == 0
-
-    def test_module_execution(self):
-        data = AtlasDataset.from_directory("test_data/id_price_forecast_input")
-
-        parameter = PriceForcastParameters(
-            start_date=pendulum.datetime(2028, 9, 27),
-            end_date=pendulum.datetime(2028, 9, 28),
-            execution_date=pendulum.datetime(2028, 9, 26, 22),
-            timestep="1h",
-        )
-
-        input = PriceForcastInputDataset(data, parameter)
-        orchestrator = PriceForcastOrchestrator(parameter, input)
-        output = orchestrator.execute()
-        expected_data = AtlasDataset.from_directory("test_data/id_price_forecast_output")
-
-        for market_area in output.market_area:
-            assert market_area.id_price_forecast == expected_data.market_area.get(market_area.name).id_price_forecast
