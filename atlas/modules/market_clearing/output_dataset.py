@@ -124,7 +124,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
         self.update_raw_data_with_modified_business_model_object()
 
     def update_raw_data_with_not_modified_business_model_object(self):
-        """Update atlas_dataset with business model object that have not changed"""
+        """Update raw_data with business model object that have not changed"""
         # Create not modified MarketArea
         for market_area in self.input_dataset.raw_data.market_area:
             if market_area.name not in self.input_dataset.mc_market_areas:
@@ -145,7 +145,7 @@ class MarketClearingOutputDataset(AbstractDataset[MarketClearingParameters]):
                 self.raw_data.order.add(order)
 
     def update_raw_data_with_modified_business_model_object(self):
-        """Update atlas_dataset with business model object that have changed
+        """Update raw_data with business model object that have changed
         [MarketArea, MarketBorder, CriticalBranch, Order, Equipment, Portfolio]"""
         # Create modified MarketArea
         for mc_market_area in self.input_dataset.mc_market_areas.values():
