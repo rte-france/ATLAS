@@ -1,33 +1,27 @@
-from unittest.mock import MagicMock, Mock, patch
+import unittest
+from datetime import datetime
+from unittest.mock import Mock
 
 import pendulum
+import polars as pl
 import pytest
 
 from atlas import ControlBlock, Portfolio
-from atlas.io_utils.input_loader import load_from_directory
-from atlas.models.market.market_area import MarketArea
-from atlas.models.equipment.wind import Wind
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.load import Load
-from atlas.modules.price_forcast.price_forcast_orchestrator import PriceForcastOrchestrator
-from atlas.modules.price_forcast.price_forcast_output_dataset import PriceForcastOutputDataset
-from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
+from atlas.enums import LoadType
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.equipment.load import Load
+from atlas.models.equipment.solar import Solar
+from atlas.models.equipment.wind import Wind
+from atlas.models.market.market_area import MarketArea
 from atlas.modules.price_forcast.price_forcast_input_dataset import PriceForcastInputDataset
-from atlas.modules.price_forcast.data_models.solar import SolarIDPF
-from atlas.modules.price_forcast.data_models.load import LoadIDPF
-from atlas.modules.price_forcast.data_models.market_area import MarketAreaIDPF
+from atlas.modules.price_forcast.price_forcast_orchestrator import PriceForcastOrchestrator
+from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
 
-import polars as pl
-from atlas.enums import LoadType
-from datetime import datetime
-from atlas.io_utils.atlas_dataset import AtlasDataset
-import unittest
 
 class TestIDForecastInputDataset(unittest.TestCase):
     """Test suite for PriceForcastInputDataset class."""
-
 
     @pytest.fixture
     def mock_df(self):
@@ -46,21 +40,19 @@ class TestIDForecastInputDataset(unittest.TestCase):
             }
         )
 
-
     @pytest.fixture
     def mock_parameters(self):
         """Create mock parameters for testing."""
         params = Mock(spec=PriceForcastParameters)
         params.start_date = pendulum.datetime(2024, 1, 1)
         params.end_date = pendulum.datetime(2024, 1, 2)
-        params.execution_date=pendulum.datetime(2024, 1, 1),
+        params.execution_date = (pendulum.datetime(2024, 1, 1),)
         params.time_step = pendulum.duration(hours=1)
         params.intraday_negative_price_cap = -500
         params.intraday_positive_price_cap = 4000
         params.execution_date_day_ahead = pendulum.datetime(2028, 9, 1, 12)
         params.execution_date_scenarios = pendulum.datetime(2028, 7, 1)
         return params
-
 
     @pytest.fixture
     def mock_portfolio(self):
@@ -90,7 +82,6 @@ class TestIDForecastInputDataset(unittest.TestCase):
 
         return portfolio
 
-
     @pytest.fixture
     def mock_market_area(self, mock_portfolio):
         """Create a real Marker area."""
@@ -99,7 +90,6 @@ class TestIDForecastInputDataset(unittest.TestCase):
             portfolio=mock_portfolio,
         )
         return market_area
-
 
     @pytest.fixture
     def mock_wind_equipment(self, mock_portfolio):
@@ -110,7 +100,6 @@ class TestIDForecastInputDataset(unittest.TestCase):
         )
         return wind
 
-
     @pytest.fixture
     def mock_solar_equipment(self, mock_portfolio):
         """Create a real Solar equipment."""
@@ -119,7 +108,6 @@ class TestIDForecastInputDataset(unittest.TestCase):
             portfolio=mock_portfolio,
         )
         return solar
-
 
     @pytest.fixture
     def mock_load(self):
@@ -131,8 +119,9 @@ class TestIDForecastInputDataset(unittest.TestCase):
         )
         return load
 
-
-    def test_initialization_with_wind_equipment(self, ):
+    def test_initialization_with_wind_equipment(
+        self,
+    ):
         """Test that InputDataset initializes correctly with wind equipment."""
         input_data = AtlasDataset(wind=[self.mock_wind_equipment])
 
@@ -142,7 +131,6 @@ class TestIDForecastInputDataset(unittest.TestCase):
         # Assertions
         assert dataset.input_data == input_data
         assert len(dataset.wind) == 1
-
 
     def test_initialization_with_solar_equipment(self):
         """Test that InputDataset initializes correctly with solar equipment."""
@@ -156,7 +144,6 @@ class TestIDForecastInputDataset(unittest.TestCase):
         # Assertions
         assert len(dataset.solar) == 1
 
-
     def test_initialization_with_market_area(self):
         """Test that InputDataset initializes correctly market area."""
         # Setup mock
@@ -168,7 +155,6 @@ class TestIDForecastInputDataset(unittest.TestCase):
         # Assertions
         assert len(dataset.market_area) == 1
 
-
     def test_initialization_with_load(self):
         """Test that InputDataset initializes correctly load."""
         # Setup mock
@@ -179,7 +165,6 @@ class TestIDForecastInputDataset(unittest.TestCase):
 
         # Assertions
         assert len(dataset.load) == 1
-
 
     def test_initialization_with_empty_input_data(self):
         """Test that InputDataset handles empty input data gracefully."""

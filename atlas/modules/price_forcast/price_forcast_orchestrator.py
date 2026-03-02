@@ -44,14 +44,10 @@ class PriceForcastOrchestrator:
                 if load.portfolio.market_area.name == market_area.name and load.load_type == "BaseLoad"
             ]
             solar_list = [
-                solar
-                for solar in self.output_dataset.solar
-                if solar.portfolio.market_area.name == market_area.name
+                solar for solar in self.output_dataset.solar if solar.portfolio.market_area.name == market_area.name
             ]
             wind_list = [
-                wind
-                for wind in self.output_dataset.wind
-                if wind.portfolio.market_area.name == market_area.name
+                wind for wind in self.output_dataset.wind if wind.portfolio.market_area.name == market_area.name
             ]
 
             # ------ ID Price Forecast calculation ------

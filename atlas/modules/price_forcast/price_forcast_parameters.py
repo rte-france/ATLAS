@@ -1,5 +1,6 @@
 from functools import cached_property
 
+import pendulum
 from pendulum import DateTime, duration
 from pendulum.duration import Duration
 from pydantic import Field, field_validator
@@ -8,9 +9,6 @@ from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.timing import build_datetime
 from atlas.validators import convert_to_duration
 
-import pendulum
-from pendulum import duration
-from pendulum import Timezone
 
 class PriceForcastParameters(AbstractParameters):
     debug: bool = Field(

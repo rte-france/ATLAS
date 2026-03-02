@@ -18,10 +18,7 @@ from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastPar
 
 
 class PriceForcastOutputDataset(AbstractDataset[PriceForcastParameters]):
-    def __init__(self,
-                 parameters: PriceForcastParameters,
-                 input_dataset: PriceForcastInputDataset):
-
+    def __init__(self, parameters: PriceForcastParameters, input_dataset: PriceForcastInputDataset):
         self.parameters: PriceForcastParameters = copy.deepcopy(parameters)
 
         market_area: list[MarketArea] = copy.deepcopy(input_dataset.market_area)

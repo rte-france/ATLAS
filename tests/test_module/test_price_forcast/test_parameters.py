@@ -1,9 +1,10 @@
+import unittest
+
 import pendulum
 from pendulum import duration
 
 from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
 
-import unittest
 
 class TestIDPriceForecastParametersDurationValidator(unittest.TestCase):
     """Test suite for duration field validator."""
@@ -94,7 +95,7 @@ class TestIDPriceForecastParametersBuiltinData(unittest.TestCase):
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),
             intraday_negative_price_cap=-1,
-            intraday_positive_price_cap=1
+            intraday_positive_price_cap=1,
         )
 
         assert params.intraday_negative_price_cap == -1
