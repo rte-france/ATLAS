@@ -2,27 +2,43 @@
 
 ## Overview
 
-The Market Clearing module is responsible for determining the market equilibrium by matching supply and demand across multiple market areas while respecting economic and network constraints.
+Determines market equilibrium by matching supply and demand across multiple market areas while respecting economic and network constraints.
 
-Its main objective is to compute:
+## Quick Start
 
-- Accepted quantities for each market order
-- Market clearing prices per area
-- Cross-border exchanges between areas
+```python
+from atlas import AtlasDataset, MarketClearingModule
+
+module = MarketClearingModule()
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, "path/to/parameters.yml")
+```
+
+See [Running Modules](../../concepts/running-modules.md) for execution details.
+
+## Key Outputs
+
+- **Accepted quantities**: For each market order
+- **Market clearing prices**: Per market area
+- **Cross-border exchanges**: Between market areas
+
+## Key Features
+
+- **Multi-area support**: Handles multiple interconnected market areas
+- **Network constraints**: Respects transmission capacity limits
+- **Economic optimization**: Maximizes social welfare
 
 ## Documentation
 
-### [User Guide](user-guide/overview.md)
-How to use the module:
-
-- [Overview](user-guide/overview.md): Introduction and basic usage
-- [Parameters](user-guide/input-data.md): Configuration reference
+### User Guide
+- [Overview](user-guide/overview.md): Module-specific introduction
+- [Parameters](user-guide/input-data.md): Module-specific parameters
 - [Running](user-guide/running.md): Execution details
 
-### [Developer Reference](developer/architecture.md)
-Technical documentation for contributors:
+### Common Documentation
+- [Module Pattern](../../concepts/module-pattern.md): ATLAS module architecture
+- [Common Parameters](../../concepts/common-parameters.md): Shared configuration options
+- [Running Modules](../../concepts/running-modules.md): General execution guide
 
-- [Architecture](developer/architecture.md): Module design
-- [API Reference](developer/api-reference.md): Class and function documentation
-- [Contributing](developer/contributing.md): Development guidelines
-- [Examples](developer/examples.md): Development examples
+### Developer Reference
+- [Architecture](developer/architecture.md): Module design and structure

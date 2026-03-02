@@ -9,7 +9,7 @@ from atlas.custom_errors import DataValidationError, DirectoryStructureError
 
 
 class InputLoaderConfig(BaseModel):
-    """Pydantic model for InputLoader configuration validation."""
+    """Pydantic model for AtlasDataset configuration validation."""
 
     directory_path: Path
     separator: str = ";"

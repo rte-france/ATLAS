@@ -24,9 +24,15 @@ class MarketClearingResults:
     finding such orders, called "marginal", and maximizing the volumes they can trade.
     """
 
-    def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
+    def __init__(
+        self,
+        input_dataset: MarketClearingInputDataset,
+        parameters: MarketClearingParameters,
+        accepted_powers: dict[tuple[str, str], float],
+    ):
         self.input_dataset = input_dataset
         self.parameters = parameters
+        self.accepted_powers = accepted_powers
 
     def run(self) -> None:
         if self.parameters.export_csv:
@@ -71,7 +77,7 @@ class MarketClearingResults:
                 "Qmin": mc_order.qmin,
                 "Qmax": mc_order.qmax,
                 "Price": mc_order.price,
-                "AcceptedPower": mc_order.accepted_power,
+                "AcceptedPower": self.accepted_powers[mc_order.market_area.name, order_name],
             }
             offer = pl.DataFrame({k: [v] for k, v in order_dict.items()}, schema=offers.schema)
             if offers is None:
@@ -231,7 +237,7 @@ class MarketClearingResults:
             coupling_dict = {
                 "Name": order_coupling_name,
                 "Type": mc_order_coupling.coupling_type.value,
-                "OrderList": ":".join([order.name for order in mc_order_coupling.orders]),
+                "OrderList": "|".join([order.name for order in mc_order_coupling.orders]),
             }
             coupling_data = pl.DataFrame({k: [v] for k, v in coupling_dict.items()}, schema=couplings_data.schema)
             couplings_data.extend(coupling_data)

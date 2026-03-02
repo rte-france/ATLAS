@@ -14,7 +14,7 @@ These parameters are inherited from `AbstractParameters`:
 
 ## Execution Parameters
 
-- **`output_folder`** (str, default: ""): Path where the lp exports outputs are exported.
+- **`export_lp_path`** (str, default: ""): Path where the lp exports outputs are exported.
 
 ## Optimization Parameters
 
@@ -51,8 +51,6 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`battery_smoothing_factor`** (float, default: 0.1): Coefficient used to determine the extra cost of each power fragment in the optimization problem related to the Storage instances with the type Battery.
 
-- **`battery_additional_hours`** (Duration, default: 48 hours): Number of extra hours after end date for the optimization programs applied to Storage instances with the type Battery.
-
 ### Pumped Hydraulic Storage
 
 - **`phs_nb_fragments`** (int, default: 3): Number of orders that can be formulated at one time-step for the optimization problem related to the Storage instances with the type PumpedHydraulicStorage.
@@ -61,7 +59,6 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`hydraulic_minimal_fragment_size`** (int, default: 100): Minimal amount of power for an offer to be formulated. If for one particular time-step, the quantity Qmax of an offer is less than this threshold, the associated fragment is removed. Then the Qmax values of the other fragments are renormalized.
 
-- **`phs_additional_hours`** (Duration, default: 144 hours): Number of extra hours after end date for the optimization programs applied to Storage instances with the type PumpedHydraulicStorage.
 
 ### Electric Vehicle
 
@@ -71,7 +68,6 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`ev_energy_coef`** (float, default: 1.5): Coefficient multiplied to the delta of DisplacementEnergy to compensate for over the entire EV optimization time frame, used to generate enough Buy offers.
 
-- **`ev_additional_hours`** (Duration, default: 144 hours): Number of extra hours after end date for the optimization programs applied to Storage instances with the type ElectricVehicle.
 
 ### Load
 
@@ -85,13 +81,21 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`thermal_additional_hours`** (Duration, default: 12 hours): Number of extra hours after end date for the optimization programs applied to Thermic instances.
 
+
+## Performance Parameters
+
+- **`use_multiprocessing`** (bool, default: True): Use parallel processing for portfolios
+
+- **`max_workers`** (int, default: None): Max parallel processes (None = CPU count)
+
+
 ## Example Configuration
 
 ```yml
 start_date: "2028-09-27 00:00:00"
 execution_date: "2028-09-26 12:00:00"
 end_date: "2028-09-28 00:00:00"
-output_folder: "./lp_exports"
+export_lp_path: "./lp_exports"
 proportional_reserves_penalty: True
 use_presolve: True
 automated_unprocured_reserves_penalty: 10000
@@ -104,18 +108,15 @@ load_price: 3000
 manual_unprocured_reserves_penalty: 100
 phs_smoothing_factor: 0.2
 solver_duality_gap: 0.0001
-thermal_additional_hours: 12h
-battery_additional_hours: 48h
 battery_nb_fragments: 3
-ev_additional_hours: 144h
 ev_nb_fragments: 3
-phs_additional_hours: 144h
 phs_nb_fragments: 3
 solver_timeout: 240s
 timestep: 1h
 price_forecasts_types: ["Medium"]
 solver_name: "SCIP"
 export_lp: True
+use_multiprocessing: True
 ```
 
 ## Next Steps

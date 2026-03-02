@@ -12,12 +12,13 @@ from collections.abc import Callable
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import ScenarioMatrix, SolverOptions, Thermal
 from atlas.enums import CouplingType, ThermalStrategy
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
-from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_1,
     combination_2,
@@ -34,6 +35,7 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimizat
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.solver.models import SolverOptions
 
 
 class ThermalIntermediateLoadOrders(ThermalUnitOrders):
@@ -373,7 +375,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     prices_low = unit.portfolio.market_area.price_forecast_low.get_forecast(
                         self.parameters.execution_date,
                         self.parameters.start_date,
-                        self.parameters.end_optimization_date,
+                        self.parameters.end_date + unit.additional_hours,
                     )
                     prices.append(prices_low)
 
@@ -381,7 +383,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     prices_medium = unit.portfolio.market_area.price_forecast_medium.get_forecast(
                         self.parameters.execution_date,
                         self.parameters.start_date,
-                        self.parameters.end_optimization_date,
+                        self.parameters.end_date + unit.additional_hours,
                     )
                     prices.append(prices_medium)
 
@@ -389,7 +391,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                     prices_high = unit.portfolio.market_area.price_forecast_high.get_forecast(
                         self.parameters.execution_date,
                         self.parameters.start_date,
-                        self.parameters.end_optimization_date,
+                        self.parameters.end_date + unit.additional_hours,
                     )
                     prices.append(prices_high)
 

@@ -30,7 +30,7 @@ from atlas.config import DEFAULT_VALUE_IO, logger
 from atlas.enums import BusinessModelName, CouplingType, StorageType
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
-from atlas.typing import get_class_inheritance_chain, get_type_attribute
+from atlas.type import get_class_inheritance_chain, get_type_attribute
 
 # Constants
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
@@ -143,20 +143,44 @@ class PrometheusToAtlasDataParser:
                 equipment.unit_count = 1 if equipment.unit_count is None else equipment.unit_count
                 equipment.maximum_gradient = 0 if equipment.maximum_gradient is None else equipment.maximum_gradient
 
+        for load in dataset.load:
+            load.additional_hours = Duration(hours=0) if load.additional_hours is None else load.additional_hours
+
+        for other_non_dispatchable in dataset.other_non_dispatchable:
+            other_non_dispatchable.additional_hours = (
+                Duration(hours=0)
+                if other_non_dispatchable.additional_hours is None
+                else other_non_dispatchable.additional_hours
+            )
+
+        for solar in dataset.solar:
+            solar.additional_hours = Duration(hours=0) if solar.additional_hours is None else solar.additional_hours
+
+        for wind in dataset.wind:
+            wind.additional_hours = Duration(hours=0) if wind.additional_hours is None else wind.additional_hours
+
+        for hydro in dataset.hydro:
+            hydro.additional_hours = Duration(hours=12) if hydro.additional_hours is None else hydro.additional_hours
+
+        for thermal in dataset.thermal:
+            thermal.additional_hours = (
+                Duration(hours=12) if thermal.additional_hours is None else thermal.additional_hours
+            )
+
         for storage in dataset.storage:
             storage.transition_duration = (
                 pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration  # type: ignore
             )
 
-            if storage.additional_hours_ is None:
+            if storage.additional_hours is None:
                 if storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
-                    storage.additional_hours_ = Duration(hours=144)
+                    storage.additional_hours = Duration(hours=144)
                 elif storage.storage_type == StorageType.BATTERY:
-                    storage.additional_hours_ = Duration(hours=48)
+                    storage.additional_hours = Duration(hours=48)
                 elif storage.storage_type == StorageType.ELECTRIC_VEHICLE:
-                    storage.additional_hours_ = Duration(hours=24)
+                    storage.additional_hours = Duration(hours=24)
                 else:
-                    storage.additional_hours_ = Duration(hours=48)
+                    storage.additional_hours = Duration(hours=48)
 
         for market_border in dataset.market_border:
             market_border.coupling_type = (
@@ -688,7 +712,7 @@ class PrometheusToAtlasDataParser:
             except (IndexError, TypeError):
                 pass
 
-        return ":".join(map(str, items))
+        return "|".join(map(str, items))
 
     def _apply_default_values(self, attrs: dict[str, Any], object_type_snake: str) -> None:
         """Apply default values based on class inheritance chain.

@@ -4,22 +4,21 @@ This file is part of the ATLAS project.
 Module that implements Parameters
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
+from typing import Self
 
 import yaml
 from pydantic import BaseModel
 
 
 class Parameters(BaseModel):
-    """A class to represent parameters."""
-
-
-class ParametersParser:
     """A class to parse parameters from a YAML or JSON file."""
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Parameters:
+    def from_file(cls, file_path: str | Path) -> Self:
         """Load parameters from a YAML or JSON file.
         :param file_path: Path to the parameters file.
         :type file_path: str or pathlib.Path
@@ -36,7 +35,7 @@ class ParametersParser:
         else:
             raise ValueError(f"Unsupported file extension: {file_extension}")
 
-        return Parameters(**parameters)
+        return cls(**parameters)
 
     @staticmethod
     def _parse_yaml(file_path: str | Path) -> dict:

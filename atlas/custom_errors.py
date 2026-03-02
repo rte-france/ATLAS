@@ -1,5 +1,5 @@
 class InputLoaderError(Exception):
-    """Base exception for InputLoader errors."""
+    """Base exception for AtlasDataset errors."""
 
     pass
 

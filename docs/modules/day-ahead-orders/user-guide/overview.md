@@ -2,45 +2,39 @@
 
 ## Introduction
 
-This module computes all **Order** instances based on the **Equipment** instances found in the input dataset, between ***start date*** and ***end date***.
-The data used for the calculation is based on a forecast made at ***execution date***.
+The Day-Ahead Orders module computes all market orders based on equipment in the input dataset. Orders are generated for the period between `start_date` and `end_date`, using forecasts made at `execution_date`.
+
+## What It Does
+
+The module:
+- **Generates orders**: Creates order objects for all equipment
+- **Uses forecasts**: Based on data available at execution date
+- **Supports multiple asset types**: Load, non-dispatchable, storage, hydraulic, wind, solar, and thermal
+- **Updates business objects**: Stores orders directly in equipment objects
 
 ## How to Use
 
-The module follows Atlas standard `AbstractModule` pattern, run it simply by calling `run` method:
+See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern.
 
-```python
-from pathlib import Path
+## Module-Specific Workflow
 
-from atlas import InputLoader
-from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
+Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/module-pattern.md)), this module:
 
-raw_data_path = Path("path/to/dataset")
-raw_params_path = Path("path/to/parameters.yml")
+1. **Identifies equipment**: Finds all equipment in the input dataset
+2. **Generates orders**: Creates appropriate orders for each equipment type
+3. **Applies forecasts**: Uses forecast data from execution date
+4. **Stores results**: Updates equipment with generated orders
 
-mc_module = DayAheadOrdersModule()
-raw_data = InputLoader.from_directory(raw_data_path)
-mc_module.run(raw_data, raw_params_path)  # type:ignore [arg-type]
-```
+## Order Types
 
-Where:
-
-- `raw_data_path`: Path to the dataset to use
-- `raw_data`: Dictionary of business model objects (portfolios, equipment, market areas)
-- `raw_params_path`: Parameter dictionary or path to JSON/YAML file
-
-## Module Workflow
-
-The `run()` method executes:
-
-1. **Import Parameters**: Load `DayAheadOrdersParameters`
-2. **Import Data**: Convert to `DayAheadOrdersInputDataset`
-3. **Validate**: Check timestep consistency
-4. **Execute**: Run all steps
-
-Results are stored directly in the business model objects.
+The module generates different order types based on equipment:
+- **Thermal units**: Generates thermal orders with cost curves
+- **Hydro units**: Generates hydraulic orders with reservoir constraints
+- **Storage units**: Generates storage orders with charge/discharge profiles
+- **Wind/Solar**: Generates non-dispatchable orders based on forecasts
+- **Load**: Generates load orders based on demand forecasts
 
 ## Next Steps
 
-- [Parameters](input-data.md): Configuration options
+- [Parameters](input-data.md): Module-specific configuration options
 - [Running](running.md): Execution details

@@ -7,35 +7,97 @@ table {
     padding: 8px;
   }
   tr:nth-child(even) {
-    background-color: #f9f6fb; /* light lilac background for even rows */
+    background-color: #f8f9fa;
   }
-  
+
   :root {
-    --md-primary-fg-color: #9b59b6;  /* Primary lilac/purple */
-    --md-accent-fg-color: #c39bd3;   /* Accent lilac */
-    --md-typeset-a-color: #af7ac5;   /* Links */
+    --md-primary-fg-color: #ffffff;
+    --md-primary-bg-color: #9b59b6;
+    --md-accent-fg-color: #c39bd3;
+    --md-typeset-a-color: #9b59b6;
   }
-  
-  .md-header, .md-tabs {
-    background-color: #9b59b6 !important; /* Top nav bar lilac */
+
+  /* Strong lilac header at top */
+  .md-header {
+    background-color: #9b59b6 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
   }
-  
-  .md-footer {
-    background-color: #6c3483 !important; /* Deeper purple for footer */
-    color: white !important;
+
+  .md-header__title {
+    color: #ffffff !important;
+    font-weight: 600;
   }
-  
+
+  .md-header__button {
+    color: #ffffff !important;
+  }
+
+  /* Lighter tabs bar below header */
+  .md-tabs {
+    background: linear-gradient(to bottom, #c39bd3, #d4b5e0) !important;
+    border-bottom: 1px solid rgba(155, 89, 182, 0.2);
+  }
+
+  .md-tabs__link {
+    color: #ffffff !important;
+    opacity: 0.85;
+  }
+
+  .md-tabs__link--active {
+    color: #ffffff !important;
+    opacity: 1;
+    font-weight: 600;
+    border-bottom: 2px solid #ffffff !important;
+  }
+
+  /* Sidebar navigation */
   .md-nav__link--active {
-    color: #c39bd3 !important; /* Soft lilac for active link */
+    color: #9b59b6 !important;
+    font-weight: 600;
   }
-  
+
+  .md-nav__link:hover {
+    color: #c39bd3 !important;
+  }
+
+  /* Footer */
+  .md-footer {
+    background-color: #f5f5f5 !important;
+    color: #263238 !important;
+    border-top: 3px solid #9b59b6 !important;
+  }
+
+  .md-footer-meta {
+    background-color: #e8e8e8 !important;
+  }
+
+  /* Buttons */
   .md-button--primary {
     background-color: #9b59b6 !important;
     border-color: #9b59b6 !important;
+    color: white !important;
   }
-  
-  .md-button--secondary {
-    background-color: #c39bd3 !important;
-    border-color: #c39bd3 !important;
+
+  .md-button--primary:hover {
+    background-color: #8e44ad !important;
   }
-  
+
+  /* Links */
+  a {
+    color: #9b59b6 !important;
+  }
+
+  a:hover {
+    color: #8e44ad !important;
+  }
+
+  /* Headings with lilac accent */
+  h1, h2 {
+    border-left: 4px solid #9b59b6;
+    padding-left: 12px;
+  }
+
+  h3 {
+    color: #9b59b6 !important;
+  }

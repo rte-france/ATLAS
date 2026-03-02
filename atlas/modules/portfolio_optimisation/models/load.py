@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.enums import LoadType
@@ -22,6 +22,7 @@ from atlas.solver.solver_interface import OptimisationModel
 class LoadPO(BaseEquipmentPO, Load):
     load_type: LoadType
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
+    additional_hours: Duration
 
     optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None

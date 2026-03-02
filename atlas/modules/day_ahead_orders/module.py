@@ -51,8 +51,6 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
         equipments: dict[str, list] = {
             "control_block": input_dataset.control_block,
             "market_area": input_dataset.market_area,
-            "market_border": input_dataset.market_border,
-            "node": input_dataset.node,
             "portfolio": input_dataset.portfolio,
             "wind": input_dataset.wind,
             "storage": input_dataset.storage,
