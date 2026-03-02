@@ -1,3 +1,5 @@
+from loguru import logger
+
 from atlas import AtlasDataset
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForcastInputDataset
@@ -6,7 +8,9 @@ from atlas.modules.price_forecast.price_forecast_output_dataset import PriceFore
 from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
 
 
-class PriceForecastModule(AbstractModule[PriceForecastParameters, PriceForcastInputDataset, PriceForecastOutputDataset]):
+class PriceForecastModule(
+    AbstractModule[PriceForecastParameters, PriceForcastInputDataset, PriceForecastOutputDataset]
+):
     def get_parameters_class(self):
         """Returns the concrete Parameters class for this module."""
         return PriceForecastParameters
@@ -17,6 +21,12 @@ class PriceForecastModule(AbstractModule[PriceForecastParameters, PriceForcastIn
         return input_dataset
 
     def validate_data(self, parameters: PriceForecastParameters, input_dataset: PriceForcastInputDataset) -> bool:
+        if parameters.intraday_positive_price_cap < 0:
+            logger.error(f"Intraday positive price cap isn't positive: {parameters.intraday_positive_price_cap}")
+            return False
+        if parameters.intraday_negative_price_cap > 0:
+            logger.error(f"Intraday negative price cap isn't negative: {parameters.intraday_negative_price_cap}")
+            return False
         return True
 
     def execute(
@@ -34,6 +44,17 @@ class PriceForecastModule(AbstractModule[PriceForecastParameters, PriceForcastIn
         output_dataset: PriceForecastOutputDataset,
     ) -> bool:
         """Validates results"""
+        for market_area in output_dataset.market_area:
+            if market_area.id_price_forecast is None:
+                logger.error(
+                    f"intraday price forecast missing for Market area {market_area.name} doesn't have negative price cap isn't negative: {parameters.intraday_negative_price_cap}"
+                )
+                return False
+            if parameters.execution_date not in market_area.id_price_forecast:
+                logger.error(
+                    f"Missing timestep {parameters.execution_date} in price forecast for Market area {market_area.name}"
+                )
+                return False
         return True
 
     def export_results(

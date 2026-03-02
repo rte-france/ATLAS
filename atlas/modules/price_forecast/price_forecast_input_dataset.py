@@ -2,7 +2,6 @@ from typing import cast
 
 from atlas import (
     AtlasDataset,
-    BusinessModel,
 )
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.modules.price_forecast.data_models.load import LoadIDPF
@@ -21,6 +20,3 @@ class PriceForcastInputDataset(AbstractDataset[PriceForecastParameters]):
         self.solar: list[SolarIDPF] = [cast(SolarIDPF, obj) for obj in raw_data.solar]
         self.wind: list[WindIDPF] = [cast(WindIDPF, obj) for obj in raw_data.wind]
         self.load: list[LoadIDPF] = [cast(LoadIDPF, obj) for obj in raw_data.load]
-
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        return []
