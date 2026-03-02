@@ -21,5 +21,5 @@ class PriceForecastOutputDataset(AbstractModuleOutput[PriceForecastParameters]):
         self.wind: list[WindIDPF] = copy.deepcopy(input_dataset.wind)
 
     def build_change_sets(self) -> None:
-        change_set: ChangeSet = ChangeSet("market_area")
-        self.change_sets.append(change_set)
+        for market_area in self.input_data.market_area:
+            self.change_sets.append(ChangeSet.from_object(market_area))
