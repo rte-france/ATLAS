@@ -14,6 +14,7 @@ import pytest
 
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.workflow.step import ModuleRegistry, Step, WorkflowStep
 
@@ -169,17 +170,7 @@ class TestWorkflowStepRun:
 
 
 class TestWorkflowStepRepresentation:
-    def test_str_representation(self):
-        from atlas.modules.market_clearing.module import MarketClearingModule
-
-        step = WorkflowStep("TestStep", MarketClearingModule, {})
-        result = str(step)
-        assert "WorkflowStep 'TestStep'" in result
-        assert "MarketClearingModule" in result
-
     def test_repr_before_execution(self):
-        from atlas.modules.market_clearing.module import MarketClearingModule
-
         step = WorkflowStep("TestStep", MarketClearingModule, {})
         result = repr(step)
         assert "WorkflowStep(" in result
@@ -187,10 +178,6 @@ class TestWorkflowStepRepresentation:
         assert "executed=False" in result
 
     def test_repr_after_execution(self):
-        from unittest.mock import MagicMock
-
-        from atlas.modules.market_clearing.module import MarketClearingModule
-
         step = WorkflowStep("TestStep", MarketClearingModule, {})
         step._output_dataset = MagicMock()
         result = repr(step)

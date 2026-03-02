@@ -25,7 +25,7 @@ from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 class DayAheadOrdersInputDataset(AbstractDataset[DayAheadOrdersParameters]):
     def __init__(self, raw_data: AtlasDataset, parameters: DayAheadOrdersParameters):
         self.parameters: DayAheadOrdersParameters = parameters
-        self.control_block: list[ControlBlock] = list(raw_data.control_block)
+        self.control_block: list[ControlBlock] = raw_data.control_block.all()
         self.market_area: list[MarketAreaDAO] = [MarketAreaDAO(**dict(obj)) for obj in raw_data.market_area]
         self.portfolio: list[PortfolioDAO] = [PortfolioDAO(**dict(obj)) for obj in raw_data.portfolio]
         self.wind: list[WindDAO] = [WindDAO(**dict(obj)) for obj in raw_data.wind]

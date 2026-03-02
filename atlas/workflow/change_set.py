@@ -36,9 +36,6 @@ class ChangeSet(ABC):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(model_type={self.model_type.value!r})"
 
-    def __str__(self) -> str:
-        return repr(self)
-
     def get_object_identifier(self) -> tuple[str, str]:
         """Return a tuple (model_type, object_name) that uniquely identifies the target object.
 

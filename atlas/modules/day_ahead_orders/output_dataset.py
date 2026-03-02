@@ -5,8 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import copy
-
 from atlas import (
     ControlBlock,
     Hydro,
@@ -37,18 +35,19 @@ from atlas.workflow.change_set import AddObject, UpdateObject
 class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
     def __init__(self, input_dataset: DayAheadOrdersInputDataset):
         super().__init__()
-        self.parameters: DayAheadOrdersParameters = copy.deepcopy(input_dataset.parameters)
-        self.control_block: list[ControlBlock] = copy.deepcopy(input_dataset.control_block)
-        self.market_area: list[MarketAreaDAO] = copy.deepcopy(input_dataset.market_area)
-        self.portfolio: list[PortfolioDAO] = copy.deepcopy(input_dataset.portfolio)
-        self.other_non_dispatchable: list[OtherNonDispatchable] = copy.deepcopy(input_dataset.other_non_dispatchable)
+        self.input_dataset = input_dataset
+        self.parameters: DayAheadOrdersParameters = input_dataset.parameters
+        self.control_block: list[ControlBlock] = input_dataset.control_block
+        self.market_area: list[MarketAreaDAO] = input_dataset.market_area
+        self.portfolio: list[PortfolioDAO] = input_dataset.portfolio
+        self.other_non_dispatchable: list[OtherNonDispatchable] = input_dataset.other_non_dispatchable
 
-        self.load: list[LoadDAO] = copy.deepcopy(input_dataset.load)
-        self.storage: list[StorageDAO] = copy.deepcopy(input_dataset.storage)
-        self.hydro: list[HydroDAO] = copy.deepcopy(input_dataset.hydro)
-        self.solar: list[SolarDAO] = copy.deepcopy(input_dataset.solar)
-        self.thermal: list[ThermalDAO] = copy.deepcopy(input_dataset.thermal)
-        self.wind: list[WindDAO] = copy.deepcopy(input_dataset.wind)
+        self.load: list[LoadDAO] = input_dataset.load
+        self.storage: list[StorageDAO] = input_dataset.storage
+        self.hydro: list[HydroDAO] = input_dataset.hydro
+        self.solar: list[SolarDAO] = input_dataset.solar
+        self.thermal: list[ThermalDAO] = input_dataset.thermal
+        self.wind: list[WindDAO] = input_dataset.wind
 
         self.order: list[OrderDAO] = []
         self.order_coupling: list[OrderCouplingDAO] = []

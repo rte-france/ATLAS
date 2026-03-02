@@ -90,11 +90,6 @@ class Workflow:
         return self.steps[-1].get_output_dataset()
 
     def __repr__(self) -> str:
-        """Return a detailed string representation of the workflow."""
-        step_names = [step.name for step in self._steps]
-        return f"Workflow(name={self.parameters.name!r}, steps={step_names})"
-
-    def __str__(self) -> str:
         """Return a human-readable string representation of the workflow."""
         step_count = len(self._steps)
         return f"Workflow '{self.parameters.name}' ({step_count} step{'s' if step_count != 1 else ''})"
