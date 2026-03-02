@@ -12,13 +12,15 @@ from atlas.models.business_model import BusinessModel
 from atlas.modules.price_forcast.data_models.load import LoadIDPF
 from atlas.modules.price_forcast.data_models.market_area import MarketAreaIDPF
 from atlas.modules.price_forcast.data_models.solar import SolarIDPF
-from atlas.modules.price_forcast.data_models.wind import WindIDPF
 from atlas.modules.price_forcast.price_forcast_input_dataset import PriceForcastInputDataset
 from atlas.modules.price_forcast.price_forcast_parameters import PriceForcastParameters
 
 
 class PriceForcastOutputDataset(AbstractDataset[PriceForcastParameters]):
-    def __init__(self, parameters: PriceForcastParameters, input_dataset: PriceForcastInputDataset):
+    def __init__(self,
+                 parameters: PriceForcastParameters,
+                 input_dataset: PriceForcastInputDataset):
+
         self.parameters: PriceForcastParameters = copy.deepcopy(parameters)
 
         market_area: list[MarketArea] = copy.deepcopy(input_dataset.market_area)

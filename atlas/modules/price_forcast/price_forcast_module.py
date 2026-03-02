@@ -19,11 +19,6 @@ class MarketClearingModule(AbstractModule[PriceForcastParameters, PriceForcastIn
         return input_dataset
 
     def validate_data(self, parameters: PriceForcastParameters, input_dataset: PriceForcastInputDataset) -> bool:
-        # TODO
-        # FIXME fix comment - sont-ils pertinant?
-        # Check control block parameters compare to control block object
-        # Check market area parameters compare to Market Area object
-        # FIXME - May add sub function to make thing more clean
         return True
 
     def execute(
@@ -41,7 +36,6 @@ class MarketClearingModule(AbstractModule[PriceForcastParameters, PriceForcastIn
         output_dataset: PriceForcastOutputDataset,
     ) -> bool:
         """Validates results"""
-        # TODO
         return True
 
     def export_results(
@@ -51,5 +45,4 @@ class MarketClearingModule(AbstractModule[PriceForcastParameters, PriceForcastIn
         output_dataset: PriceForcastOutputDataset,
     ) -> None:
         """Exports results."""
-        # TODO
         return
