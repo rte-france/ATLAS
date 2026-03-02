@@ -6,10 +6,12 @@ This file is part of the ATLAS project.
 """
 
 import copy
+from typing import cast
 
 import atlas.config as cfg
 from atlas.config import logger
 from atlas.custom_errors import ChangeSetApplicationError
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.workflow.change_set import ChangeSet
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.change_set_handler import ChangeSetHandler
@@ -47,7 +49,7 @@ class CISHandler:
 
                     if rollback_on_error:
                         logger.warning("Rolling back all changes")
-                        cis.data = cis_backup
+                        cis.data = cast(AtlasDataset, cis_backup)
 
                     raise ChangeSetApplicationError(error_msg, change_set, e) from e
 
@@ -62,7 +64,7 @@ class CISHandler:
 
             if rollback_on_error:
                 logger.warning("Rolling back all changes")
-                cis.data = cis_backup
+                cis.data = cast(AtlasDataset, cis_backup)
 
             raise
 

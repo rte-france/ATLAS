@@ -5,6 +5,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from collections.abc import Iterable
+
 from pendulum import Duration
 
 import atlas.config as cfg
@@ -200,7 +202,8 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
         output_dataset = orchestrator.execute()
         return output_dataset
 
-    def get_business_model_class_used(self) -> list[BusinessModelName]:
+    @staticmethod
+    def get_business_model_class_used() -> Iterable[BusinessModelName]:
         return [
             BusinessModelName.CONTROL_BLOCK,
             BusinessModelName.MARKET_AREA,
