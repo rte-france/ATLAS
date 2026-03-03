@@ -7,17 +7,18 @@ This file is part of the ATLAS project.
 
 from pydantic_extra_types.pendulum_dt import Duration
 
-from atlas import LazyTimeseries, Storage, Timeseries
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.models.equipment.storage import Storage
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
 
 
 class StorageDAO(Storage):
     portfolio: PortfolioDAO
-    maximum_energy: Timeseries | LazyTimeseries
-    minimum_power: Timeseries | LazyTimeseries
-    maximum_power: Timeseries | LazyTimeseries
-    variable_cost: Timeseries
-    displacement_energy: Timeseries | LazyTimeseries
+    maximum_energy: AbstractTimeseries
+    minimum_power: AbstractTimeseries
+    maximum_power: AbstractTimeseries
+    variable_cost: AbstractTimeseries
+    displacement_energy: AbstractTimeseries
     storage_initial_level: float
-    minimum_state_of_charge: Timeseries | LazyTimeseries
+    minimum_state_of_charge: AbstractTimeseries
     additional_hours: Duration

@@ -7,18 +7,19 @@ This file is part of the ATLAS project.
 
 from pendulum import Duration
 
-from atlas import LazyTimeseries, Thermal, Timeseries
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
 
 
 class ThermalDAO(Thermal):
     portfolio: PortfolioDAO
-    variable_cost: Timeseries | LazyTimeseries
-    startup_cost: Timeseries | LazyTimeseries
-    minimum_time_on: Duration
-    maximum_power: Timeseries
-    minimum_power: Timeseries
+    variable_cost: AbstractTimeseries
+    startup_cost: AbstractTimeseries
+    minimum_time_on: AbstractTimeseries
+    maximum_power: AbstractTimeseries
+    minimum_power: AbstractTimeseries
     minimum_stable_power_duration: Duration
-    maximum_daily_energy: Timeseries | LazyTimeseries
+    maximum_daily_energy: AbstractTimeseries
     minimum_time_off: Duration
     additional_hours: Duration
