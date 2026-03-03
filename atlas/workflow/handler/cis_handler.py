@@ -23,9 +23,11 @@ class CISHandler:
         """Apply a list of change sets to the current input state.
 
         :param change_sets: List of change sets to apply
+        :type change_set: list[ChangeSet]
         :param cis: Current input state to modify
+        :type cis: CurrentInputState
         :param rollback_on_error: If True, rollback all changes if any change set fails (default: True)
-        :raises ChangeSetApplicationError: If a change set fails to apply
+        :type rollback_on_error: bool
         """
         if not change_sets:
             logger.debug("No change sets to apply")
@@ -74,6 +76,9 @@ class CISHandler:
 
         Multiple updates to the same object in a single batch can lead to undefined behavior.
         This validation logs warnings for duplicates.
+
+        :param change_sets: List of change sets to apply
+        :type change_set: list[ChangeSet]
         """
         seen_objects: dict[tuple[str, str], list[int]] = {}
 

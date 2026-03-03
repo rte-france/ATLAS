@@ -5,12 +5,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import (
-    AtlasDataset,
-    ControlBlock,
-    OtherNonDispatchable,
-)
+from typing import TypeVar
+
+from atlas import AtlasDataset, ControlBlock
 from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.modules.day_ahead_orders.models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.models.load import LoadDAO
 from atlas.modules.day_ahead_orders.models.market_area import MarketAreaDAO
@@ -21,19 +20,39 @@ from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.models.wind import WindDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
+T = TypeVar("T")
+
+
+def convert_with_portfolio_map(
+    equipment_list: list, dao_class: type[T], portfolio_map: dict[str, PortfolioDAO]
+) -> list[T]:
+    result = []
+    for obj in equipment_list:
+        obj_dict = dict(obj)
+        obj_dict["portfolio"] = portfolio_map[obj.portfolio.name]
+        result.append(dao_class(**obj_dict))
+    return result
+
 
 class DayAheadOrdersInputDataset(AbstractDataset[DayAheadOrdersParameters]):
     def __init__(self, raw_data: AtlasDataset, parameters: DayAheadOrdersParameters):
         self.parameters: DayAheadOrdersParameters = parameters
         self.control_block: list[ControlBlock] = raw_data.control_block.all()
+        self.other_non_dispatchable: list[OtherNonDispatchable] = raw_data.other_non_dispatchable.all()
         self.market_area: list[MarketAreaDAO] = [MarketAreaDAO(**dict(obj)) for obj in raw_data.market_area]
-        self.portfolio: list[PortfolioDAO] = [PortfolioDAO(**dict(obj)) for obj in raw_data.portfolio]
-        self.wind: list[WindDAO] = [WindDAO(**dict(obj)) for obj in raw_data.wind]
-        self.storage: list[StorageDAO] = [StorageDAO(**dict(obj)) for obj in raw_data.storage]
-        self.hydro: list[HydroDAO] = [HydroDAO(**dict(obj)) for obj in raw_data.hydro]
-        self.solar: list[SolarDAO] = [SolarDAO(**dict(obj)) for obj in raw_data.solar]
-        self.thermal: list[ThermalDAO] = [ThermalDAO(**dict(obj)) for obj in raw_data.thermal]
-        self.other_non_dispatchable: list[OtherNonDispatchable] = [
-            OtherNonDispatchable(**dict(obj)) for obj in raw_data.other_non_dispatchable
-        ]
-        self.load: list[LoadDAO] = [LoadDAO(**dict(obj)) for obj in raw_data.load]
+
+        # Create portfolio mapping to avoid duplicate instantiation
+        portfolio_map: dict[str, PortfolioDAO] = {}
+        for portfolio in raw_data.portfolio:
+            portfolio_dict = dict(portfolio)
+            portfolio_dict["market_area"] = MarketAreaDAO(**dict(portfolio.market_area))  # type: ignore [arg-type]
+            portfolio_map[portfolio.name] = PortfolioDAO(**portfolio_dict)
+
+        self.portfolio: list[PortfolioDAO] = list(portfolio_map.values())
+
+        self.wind: list[WindDAO] = convert_with_portfolio_map(raw_data.wind.all(), WindDAO, portfolio_map)
+        self.storage: list[StorageDAO] = convert_with_portfolio_map(raw_data.storage.all(), StorageDAO, portfolio_map)
+        self.hydro: list[HydroDAO] = convert_with_portfolio_map(raw_data.hydro.all(), HydroDAO, portfolio_map)
+        self.solar: list[SolarDAO] = convert_with_portfolio_map(raw_data.solar.all(), SolarDAO, portfolio_map)
+        self.thermal: list[ThermalDAO] = convert_with_portfolio_map(raw_data.thermal.all(), ThermalDAO, portfolio_map)
+        self.load: list[LoadDAO] = convert_with_portfolio_map(raw_data.load.all(), LoadDAO, portfolio_map)

@@ -16,10 +16,10 @@ class ChangeSetHandler:
         """Apply a single change set to the current input state.
 
         :param change_set: The change set to apply
+        :type change_set: ChangeSet
         :param cis: The current input state to modify
-        :raises TypeError: If the change set type is not supported
-        :raises ValueError: If the change set data is invalid or references are missing
-        :raises ValidationError: If the data does not match the model schema
+        :type cis: CurrentInputState
+
         """
         if isinstance(change_set, AddObject):
             ChangeSetHandler._add(change_set, cis)
