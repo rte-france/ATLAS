@@ -3408,11 +3408,13 @@
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h2>
 <p>The Market Clearing module determines market equilibrium by matching supply and demand across multiple market areas while respecting economic and network constraints.</p>
 <h2 id="what-it-does">What It Does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
-<p>The module:
-- <strong>Matches supply and demand</strong>: Finds equilibrium across market areas
-- <strong>Computes clearing prices</strong>: Determines prices for each market area
-- <strong>Optimizes exchanges</strong>: Calculates cross-border flows
-- <strong>Respects constraints</strong>: Honors transmission capacity and economic limits</p>
+<p>The module:</p>
+<ul>
+<li><strong>Matches supply and demand</strong>: Finds equilibrium across market areas</li>
+<li><strong>Computes clearing prices</strong>: Determines prices for each market area</li>
+<li><strong>Optimizes exchanges</strong>: Calculates cross-border flows</li>
+<li><strong>Respects constraints</strong>: Honors transmission capacity and economic limits</li>
+</ul>
 <h2 id="how-to-use">How to Use<a class="headerlink" href="#how-to-use" title="Permanent link">&para;</a></h2>
 <p>See <a href="../../../concepts/running-modules.md">Running Modules</a> for the standard ATLAS module execution pattern.</p>
 <h2 id="module-specific-workflow">Module-Specific Workflow<a class="headerlink" href="#module-specific-workflow" title="Permanent link">&para;</a></h2>
@@ -3424,16 +3426,20 @@
 <li><strong>Updates results</strong>: Writes clearing prices to equipment/portfolios and flows to interconnections</li>
 </ol>
 <h2 id="key-outputs">Key Outputs<a class="headerlink" href="#key-outputs" title="Permanent link">&para;</a></h2>
-<p>The module produces:
-- <strong>Market clearing prices</strong>: Price per market area and timestep
-- <strong>Accepted quantities</strong>: Accepted portion of each order
-- <strong>Cross-border flows</strong>: Power exchanges between market areas</p>
+<p>The module produces:</p>
+<ul>
+<li><strong>Market clearing prices</strong>: Price per market area and timestep</li>
+<li><strong>Accepted quantities</strong>: Accepted portion of each order</li>
+<li><strong>Cross-border flows</strong>: Power exchanges between market areas</li>
+</ul>
 <h2 id="market-mechanism">Market Mechanism<a class="headerlink" href="#market-mechanism" title="Permanent link">&para;</a></h2>
-<p>The module uses an <strong>economic dispatch</strong> approach:
-- Maximizes social welfare (consumer surplus + producer surplus)
-- Respects transmission capacity constraints
-- Handles multiple interconnected market areas
-- Determines locational marginal prices</p>
+<p>The module uses an <strong>economic dispatch</strong> approach:</p>
+<ul>
+<li>Maximizes social welfare (consumer surplus + producer surplus)</li>
+<li>Respects transmission capacity constraints</li>
+<li>Handles multiple interconnected market areas</li>
+<li>Determines locational marginal prices</li>
+</ul>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../input-data/">Parameters</a>: Module-specific configuration options</li>

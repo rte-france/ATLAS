@@ -3311,18 +3311,16 @@
 <ul>
 <li>
 <p><strong><code>solver_name</code></strong> (<code>SolverEnum</code>, default: <code>XPRESS</code>): Optimization solver used for the market clearing problem.</p>
-</li>
-<li>
-<p>Options: <code>"XPRESS"</code>, <code>"PNE"</code>, <code>"GLOP"</code>, <code>"SCIP"</code>, <code>"CP-SAT"</code>, <code>"CBC"</code></p>
+<ul>
+<li>Options: <code>"XPRESS"</code>, <code>"PNE"</code>, <code>"GLOP"</code>, <code>"SCIP"</code>, <code>"CP-SAT"</code>, <code>"CBC"</code></li>
+</ul>
 </li>
 <li>
 <p><strong><code>use_presolve</code></strong> (<code>bool</code>, default: <code>True</code>): Enable a presolve step before executing all optimization in the market clearing.</p>
-</li>
-<li>
-<p><code>True</code>: Presolve is applied (recommended for performance)</p>
-</li>
-<li>
-<p><code>False</code>: Presolve is skipped</p>
+<ul>
+<li><code>True</code>: Presolve is applied (recommended for performance)</li>
+<li><code>False</code>: Presolve is skipped</li>
+</ul>
 </li>
 <li>
 <p><strong><code>export_lp</code></strong> (<code>bool</code>, default: <code>False</code>): Export solver LP files for debugging and analysis.</p>
@@ -3333,24 +3331,22 @@
 <ul>
 <li>
 <p><strong><code>market</code></strong> (<code>Product</code>, default: <code>DayAhead</code>): What type of clearing is execute.</p>
+<ul>
+<li>Only orders matching this market name are considered</li>
+<li>Not case-sensitive</li>
+</ul>
 </li>
 <li>
-<p>Only orders matching this market name are considered</p>
-</li>
-<li>
-<p>Not case-sensitive</p>
-</li>
-<li>
-<p><strong><code>time_step</code></strong> (<code>Duration</code>, default: <code>1 hour</code>): Time resolution of the studied market.</p>
-</li>
-<li>
-<p>Must be strictly greater than 0</p>
+<p><strong><code>timestep</code></strong> (<code>Duration</code>, default: <code>1 hour</code>): Time resolution of the studied market.</p>
+<ul>
+<li>Must be strictly greater than 0</li>
+</ul>
 </li>
 <li>
 <p><strong><code>execution_datetime_tolerance</code></strong> (<code>int</code>, default: <code>5 minutes</code>): Tolerance window used to handle overlapping markets (Intraday or Balancing).</p>
-</li>
-<li>
-<p>Must be greater than the execution date difference between consecutive order formulation and clearing</p>
+<ul>
+<li>Must be greater than the execution date difference between consecutive order formulation and clearing</li>
+</ul>
 </li>
 </ul>
 <hr />
@@ -3358,46 +3354,42 @@
 <ul>
 <li>
 <p><strong><code>market_area_names</code></strong> (<code>str | list[str]</code>, default: <code>"All"</code>): Market areas included in the Market Clearing.</p>
-</li>
-<li>
-<p><code>"All"</code>: All market areas are included</p>
-</li>
-<li>
-<p>List of strings: Explicit selection (e.g. <code>["FR", "DE"]</code>)</p>
+<ul>
+<li><code>"All"</code>: All market areas are included</li>
+<li>List of strings: Explicit selection (e.g. <code>["FR", "DE"]</code>)</li>
+</ul>
 </li>
 <li>
 <p><strong><code>control_block_names</code></strong> (<code>str | list[str]</code>, default: <code>"All"</code>): Control blocks included in the Market Clearing.</p>
-</li>
-<li>
-<p><code>"All"</code>: All control blocks are included</p>
-</li>
+<ul>
+<li><code>"All"</code>: All control blocks are included</li>
 <li>List of strings: Explicit selection (e.g. <code>["CB_FR", "CB_DE"]</code>)</li>
+</ul>
+</li>
 </ul>
 <hr />
 <h2 id="exchange-network-constraints">Exchange &amp; Network Constraints<a class="headerlink" href="#exchange-network-constraints" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
 <p><strong><code>exchange_constraints_type</code></strong> (<code>ExchangeConstraintsType</code>, default: <code>ATC</code>): Type of constraints applied to exchanges between market areas.</p>
-</li>
-<li>
-<p><code>ATC</code>: Available Transfer Capacity</p>
-</li>
-<li>
-<p><code>FB</code>: Flow-Based constraints</p>
+<ul>
+<li><code>ATC</code>: Available Transfer Capacity</li>
+<li><code>FB</code>: Flow-Based constraints</li>
+</ul>
 </li>
 <li>
 <p><strong><code>prevent_adverse_flows</code></strong> (<code>bool</code>, default: <code>False</code>): Prevent adverse flows during the pricing phase.</p>
-</li>
-<li>
-<p>Not used in Flow-Based configurations</p>
+<ul>
+<li>Not used in Flow-Based configurations</li>
+</ul>
 </li>
 <li>
 <p><strong><code>activate_constrained_tso_quantity</code></strong> (<code>bool</code>, default: <code>False</code>): Used in Balancing markets only.</p>
-</li>
-<li>
-<p>Enforces constraint on TSO sold/bought quantities</p>
-</li>
+<ul>
+<li>Enforces constraint on TSO sold/bought quantities</li>
 <li>TSO quantities can only be accepted if sufficient opposite offers exist</li>
+</ul>
+</li>
 </ul>
 <hr />
 <h2 id="objective-function-modifiers">Objective Function Modifiers<a class="headerlink" href="#objective-function-modifiers" title="Permanent link">&para;</a></h2>
@@ -3491,7 +3483,7 @@
 <span class="normal"><a href="#__codelineno-0-24">24</a></span>
 <span class="normal"><a href="#__codelineno-0-25">25</a></span>
 <span class="normal"><a href="#__codelineno-0-26">26</a></span>
-<span class="normal"><a href="#__codelineno-0-27">27</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>time_step: &quot;60m&quot;
+<span class="normal"><a href="#__codelineno-0-27">27</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>timestep: &quot;1h&quot;
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>start_date:  &quot;2028-09-27 00:00:00&quot;
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a>end_date: &quot;2028-09-28 00:00:00&quot;
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a>execution_date: &quot;2028-09-26 12:00:00&quot;
