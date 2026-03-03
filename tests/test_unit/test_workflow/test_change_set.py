@@ -189,3 +189,20 @@ class TestDeleteObject:
         cs = DeleteObject.from_object(order)
         assert cs.name == "o1"
         assert cs.model_type == BusinessModelName.ORDER
+
+
+class TestChangeSetIdentifier:
+    def test_add_object_identifier(self):
+        add = AddObject({"name": "test_order"}, model_type=Order)
+        identifier = add.get_object_identifier()
+        assert identifier == ("order", "test_order")
+
+    def test_update_object_identifier(self):
+        update = UpdateObject({"name": "test_order"}, model_type=Order)
+        identifier = update.get_object_identifier()
+        assert identifier == ("order", "test_order")
+
+    def test_delete_object_identifier(self):
+        delete = DeleteObject("test_order", model_type=Order)
+        identifier = delete.get_object_identifier()
+        assert identifier == ("order", "test_order")

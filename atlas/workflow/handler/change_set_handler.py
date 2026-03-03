@@ -1,6 +1,9 @@
 from typing import Any
 
+from pydantic import ValidationError
+
 import atlas.config as cfg
+from atlas.config import logger
 from atlas.models.business_model import BusinessModel
 from atlas.type import get_type_attribute
 from atlas.workflow.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
@@ -10,6 +13,14 @@ from atlas.workflow.current_input_state import CurrentInputState
 class ChangeSetHandler:
     @staticmethod
     def apply(change_set: ChangeSet, cis: CurrentInputState):
+        """Apply a single change set to the current input state.
+
+        :param change_set: The change set to apply
+        :type change_set: ChangeSet
+        :param cis: The current input state to modify
+        :type cis: CurrentInputState
+
+        """
         if isinstance(change_set, AddObject):
             ChangeSetHandler._add(change_set, cis)
 
@@ -30,15 +41,35 @@ class ChangeSetHandler:
         Find the BusinessModel of the attribute in the other cis container
         """
         data = change_set.data.copy()  # avoid mutating original
-        obj = cfg.MODEL_MAPPING_NAME[change_set.model_type].model_validate({"name": data["name"]})
+        obj_name = data.get("name")
+
+        # Validate that the object doesn't already exist
+        container = cis.data.get_container_by_type(change_set.model_type)
+        if obj_name in container:
+            raise ValueError(
+                f"Cannot add '{change_set.model_type}' object '{obj_name}': "
+                f"an object with this name already exists in CurrentInputState"
+            )
+
+        # Validate model class exists
+        model_class = cfg.MODEL_MAPPING_NAME.get(change_set.model_type)
+        if model_class is None:
+            raise ValueError(f"Unknown model type: {change_set.model_type}")
+
+        logger.debug(f"Adding new {change_set.model_type} object: {obj_name}")
+
+        # Create minimal object with just the name for validation
+        try:
+            obj = model_class.model_validate({"name": obj_name})
+        except ValidationError as e:
+            raise ValueError(f"Invalid name for {change_set.model_type} object '{obj_name}': {e}") from e
 
         ChangeSetHandler._resolve_reference(obj, data, cis)
         ChangeSetHandler._fill_object(obj, data)
 
-        container = cis.data.get_container_by_type(change_set.model_type)
-
         # Add the object to the container
         container.add(obj)
+        logger.debug(f"Successfully added {change_set.model_type} object: {obj_name}")
 
     @staticmethod
     def _update(change_set: UpdateObject, cis: CurrentInputState):
@@ -52,13 +83,30 @@ class ChangeSetHandler:
 
         # Get the existing object by name
         obj_name = data.get("name")
+        if not obj_name:
+            raise ValueError(f"UpdateObject for {change_set.model_type} is missing 'name' field")
+
+        logger.debug(f"Updating {change_set.model_type} object: {obj_name}")
+
         try:
             obj: BusinessModel = container.get(str(obj_name))
         except KeyError:
-            raise ValueError(f"Object '{obj_name}' not found in container for type {change_set.model_type}") from None
+            raise ValueError(
+                f"Cannot update '{change_set.model_type}' object '{obj_name}': object not found in CurrentInputState"
+            ) from None
+
+        # Validate that we're only updating existing fields (optional but recommended)
+        # This can be relaxed if dynamic field addition is needed
+        model_class = cfg.MODEL_MAPPING_NAME.get(change_set.model_type)
+        if model_class is not None:
+            model_fields = model_class.model_fields.keys()
+            invalid_fields = [key for key in data.keys() if key not in model_fields and key != "name"]
+            if invalid_fields:
+                logger.warning(f"Updating {change_set.model_type} '{obj_name}' with non-model fields: {invalid_fields}")
 
         ChangeSetHandler._resolve_reference(obj, data, cis)
         ChangeSetHandler._fill_object(obj, data)
+        logger.debug(f"Successfully updated {change_set.model_type} object: {obj_name}")
 
     @staticmethod
     def _resolve_reference(obj: BusinessModel, data: dict[str, Any], cis: CurrentInputState):
@@ -101,10 +149,19 @@ class ChangeSetHandler:
 
     @staticmethod
     def _remove(change_set: DeleteObject, cis: CurrentInputState):
+        """Remove an object from the CurrentInputState.
+
+        :param change_set: The delete change set
+        :param cis: The current input state
+        :raises ValueError: If the object doesn't exist
+        """
+        logger.debug(f"Removing {change_set.model_type} object: {change_set.name}")
+
         container = cis.data.get_container_by_type(change_set.model_type)
         if change_set.name not in container:
             raise ValueError(
-                f"Trying to remove '{change_set.model_type}' object '{change_set.name}' "
-                f"but it is not present in CurrentInputState"
+                f"Cannot remove '{change_set.model_type}' object '{change_set.name}': "
+                f"object not found in CurrentInputState"
             )
         container.remove(change_set.name)
+        logger.debug(f"Successfully removed {change_set.model_type} object: {change_set.name}")

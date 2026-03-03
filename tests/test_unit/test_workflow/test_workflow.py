@@ -289,3 +289,28 @@ class TestWorkflowFromFile:
         # build_steps will try to open the parameters file -- should raise
         with pytest.raises(Exception):
             Workflow.from_file(config)
+
+
+class TestWorkflowRepresentation:
+    def test_repr_representation(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text("solver: GLOP\n")
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"steps:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters_path: {params_file}\n"
+        )
+
+        workflow = Workflow.from_file(config)
+        result = repr(workflow)
+        assert "Workflow 'test_workflow'" in result
+        assert "1 step" in result

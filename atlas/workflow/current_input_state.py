@@ -7,6 +7,7 @@ This file is part of the ATLAS project.
 
 import copy
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Any
 
 from atlas import BusinessModel
@@ -18,6 +19,10 @@ from atlas.io_utils.container import Container
 class CurrentInputState:
     def __init__(self, data: AtlasDataset):
         self.data = data
+
+    def to_directory(self, path: str | Path):
+        """Write the current input state to a directory."""
+        self.data.to_directory(path)
 
     def filter_dataset(
         self,
