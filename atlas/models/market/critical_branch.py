@@ -4,13 +4,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pydantic import field_serializer
+
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area_ptdf import MarketAreaPtdf
 from atlas.models.market.node_ptdf import NodePtdf
 from atlas.models.node import Node
+from atlas.validators import serializer_business_model, serializer_list_business_model
 
 
 class CriticalBranch(BusinessModel):
@@ -32,7 +34,7 @@ class CriticalBranch(BusinessModel):
     :param da_shadow_price: Critical branch shadow prices for the Day Ahead market clearing
     :type da_shadow_price: Timeseries
     :param flow_reliability_margin: Safety margin to avoid forecast errors or uncertainties, in the Flow Based model
-    :type flow_reliability_margin: Timeseries | LazyTimeseries
+    :type flow_reliability_margin: AbstractTimeseries
     :param maximum_flow: Maximum power allowed on this branch
     :type maximum_flow: Timeseries
     :param reference_flow: Reference flow in the base case, i.e. forecasted flow prior to an electricity market
@@ -44,13 +46,22 @@ class CriticalBranch(BusinessModel):
 
     downhill_node: Node | None = None
     uphill_node: Node | None = None
-    market_area_ptdf: MarketAreaPtdf | None = None
-    node_ptdf: NodePtdf | None = None
+    market_area_ptdf: list[MarketAreaPtdf] | None = None
+    node_ptdf: list[NodePtdf] | None = None
     id_flow: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_shadow_price: ForecastingMatrix | LazyForecastingMatrix | None = None
-    da_flow: Timeseries | LazyTimeseries | None = None
-    da_shadow_price: Timeseries | LazyTimeseries | None = None
-    flow_reliability_margin: Timeseries | LazyTimeseries | None = None
-    maximum_flow: Timeseries | LazyTimeseries | None = None
-    reference_flow: Timeseries | LazyTimeseries | None = None
-    total_id_flow: Timeseries | LazyTimeseries | None = None
+    da_flow: AbstractTimeseries | None = None
+    da_shadow_price: AbstractTimeseries | None = None
+    flow_reliability_margin: AbstractTimeseries | None = None
+    maximum_flow: AbstractTimeseries | None = None
+    reference_flow: AbstractTimeseries | None = None
+    total_id_flow: AbstractTimeseries | None = None
+
+    @field_serializer("downhill_node", "uphill_node", mode="plain")
+    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
+        """Serialize BusinessModel attributes to string."""
+        return serializer_business_model(value)
+
+    @field_serializer("market_area_ptdf", "node_ptdf", mode="plain")
+    def serializer_list_bmo(self, value: list[BusinessModel] | None) -> str | None:
+        return serializer_list_business_model(value)

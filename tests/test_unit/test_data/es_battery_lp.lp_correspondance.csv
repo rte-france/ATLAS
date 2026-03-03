@@ -1,0 +1,10 @@
+Type;New Name;Original Name
+objective;OBJ;Profit
+constraint;C_0;Respect_of_sale_power_fragment_0_limit_at_27/09/2028 00:00:00
+constraint;C_9;Respect_Pmax_sale_at_27/09/2028 00:00:00
+constraint;C_10;Respect_Pmax_purchase_at_27/09/2028 00:00:00
+variable Constraints;V_0;Amount_purchased_in_fragment_0_at_27_09_2028_00:00:00
+variable Constraints;V_216;Amount_sold_in_fragment_0_at_27_09_2028_00:00:00
+variable Constraints;V_432;Amount_sold_at_27_09_2028_00:00:00
+variable Constraints;V_433;Amount_purchased_at_27_09_2028_00:00:00
+variable Binaries;V_435;isSell_at_27_09_2028_00:00:00

@@ -9,8 +9,9 @@ import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pendulum import duration
 
-from atlas.enum import SolverStatus
+from atlas.enums import SolverStatus
 from atlas.solver.solver_interface import OptimisationModel, SolutionInfo
 
 
@@ -72,7 +73,7 @@ class TestOptimisationModel:
 
         # Test with default bounds
         model.add_continuous_variable("y")
-        mock_solver.NumVar.assert_called_with(0.0, float("inf"), "y")
+        mock_solver.NumVar.assert_called_with(float("-inf"), float("inf"), "y")
 
         # Test duplicate variable
         with pytest.raises(ValueError, match="Variable 'x' already exists"):
@@ -132,10 +133,65 @@ class TestOptimisationModel:
         with pytest.raises(ValueError, match="Constraint 'custom_constraint' already exists"):
             model.add_constraint(mock_expr, "custom_constraint")
 
+    def test_set_direction_maximize(self, model):
+        """Test setting direction to maximize."""
+        model.set_direction("maximize")
+        assert model._objective_direction == "maximize"
+
+    def test_set_direction_minimize(self, model):
+        """Test setting direction to minimize."""
+        model.set_direction("minimize")
+        assert model._objective_direction == "minimize"
+
+    def test_set_direction_immutable(self, model):
+        """Test that direction cannot be changed once set (immutable)."""
+        # Set direction first time
+        model.set_direction("maximize")
+        assert model._objective_direction == "maximize"
+
+        # Try to change to minimize - should raise error
+        with pytest.raises(ValueError, match="Optimization direction is already set"):
+            model.set_direction("minimize")
+
+        # Verify direction hasn't changed
+        assert model._objective_direction == "maximize"
+
+    def test_set_direction_same_value_twice(self, model):
+        """Test that setting the same direction twice still raises error."""
+        model.set_direction("maximize")
+
+        # Even setting the same value should raise error (immutable means immutable)
+        with pytest.raises(ValueError, match="Optimization direction is already set"):
+            model.set_direction("maximize")
+
+    def test_set_direction_invalid_value(self, model):
+        """Test setting invalid direction value."""
+        with pytest.raises(ValueError, match="Direction must be 'maximize' or 'minimize'"):
+            model.set_direction("invalid")
+
+        # Direction should still be None
+        assert model._objective_direction is None
+
+    def test_set_direction_after_clear(self, model):
+        """Test that direction can be set again after clearing the model."""
+        # Set direction and add objective
+        model.set_direction("maximize")
+        mock_expr = MagicMock()
+        model.add_objective(mock_expr)
+
+        # Clear the model
+        model.clear()
+        assert model._objective_direction is None
+
+        # Should be able to set direction again after clear
+        model.set_direction("minimize")
+        assert model._objective_direction == "minimize"
+
     def test_set_objective_maximize(self, model, mock_solver):
         """Test setting objective with maximize direction."""
         mock_expr = MagicMock()
-        model.set_objective(mock_expr, "maximize")
+        model.set_direction("maximize")
+        model.set_objective(mock_expr)
 
         mock_solver.Maximize.assert_called_with(mock_expr)
         assert model._objective is mock_expr
@@ -144,30 +200,24 @@ class TestOptimisationModel:
     def test_set_objective_minimize(self, model, mock_solver):
         """Test setting objective with minimize direction."""
         mock_expr = MagicMock()
-        model.set_objective(mock_expr, "minimize")
+        model.set_direction("minimize")
+        model.set_objective(mock_expr)
 
         mock_solver.Minimize.assert_called_with(mock_expr)
         assert model._objective is mock_expr
         assert model._objective_direction == "minimize"
 
-    def test_set_objective_default_direction(self, model, mock_solver):
-        """Test setting objective with default direction (maximize)."""
+    def test_set_objective_without_direction(self, model, mock_solver):
+        """Test setting objective without first setting direction."""
         mock_expr = MagicMock()
-        model.set_objective(mock_expr)  # Should default to maximize
-
-        mock_solver.Maximize.assert_called_with(mock_expr)
-        assert model._objective_direction == "maximize"
-
-    def test_set_objective_invalid_direction(self, model):
-        """Test setting objective with invalid direction."""
-        mock_expr = MagicMock()
-        with pytest.raises(ValueError, match="Optimisation direction not supported"):
-            model.set_objective(mock_expr, "invalid_direction")
+        with pytest.raises(ValueError, match="Optimization direction must be set before setting objective"):
+            model.set_objective(mock_expr)
 
     def test_add_objective_first_call_maximize(self, model, mock_solver):
         """Test first call to add_objective with maximize direction."""
         mock_expr = MagicMock()
-        model.add_objective(mock_expr, "maximize")
+        model.set_direction("maximize")
+        model.add_objective(mock_expr)
 
         mock_solver.Maximize.assert_called_with(mock_expr)
         assert model._objective is mock_expr
@@ -176,14 +226,15 @@ class TestOptimisationModel:
     def test_add_objective_first_call_minimize(self, model, mock_solver):
         """Test first call to add_objective with minimize direction."""
         mock_expr = MagicMock()
-        model.add_objective(mock_expr, "minimize")
+        model.set_direction("minimize")
+        model.add_objective(mock_expr)
 
         mock_solver.Minimize.assert_called_with(mock_expr)
         assert model._objective is mock_expr
         assert model._objective_direction == "minimize"
 
     def test_add_objective_multiple_calls_same_direction(self, model, mock_solver):
-        """Test multiple calls to add_objective with same direction."""
+        """Test multiple calls to add_objective."""
         mock_expr1 = MagicMock()
         mock_expr2 = MagicMock()
         mock_expr3 = MagicMock()
@@ -192,48 +243,33 @@ class TestOptimisationModel:
         mock_expr1.__add__ = MagicMock(return_value=MagicMock())
         mock_expr1.__add__.return_value.__add__ = MagicMock(return_value=MagicMock())
 
+        # Set direction first
+        model.set_direction("maximize")
+
         # First call
-        model.add_objective(mock_expr1, "maximize")
+        model.add_objective(mock_expr1)
         assert model._objective is mock_expr1
         assert model._objective_direction == "maximize"
 
         # Second call - should add to existing objective
-        model.add_objective(mock_expr2, "maximize")
+        model.add_objective(mock_expr2)
         mock_expr1.__add__.assert_called_with(mock_expr2)
         assert model._objective_direction == "maximize"
 
         # Third call - should add to existing combined objective
-        model.add_objective(mock_expr3, "maximize")
+        model.add_objective(mock_expr3)
         assert model._objective_direction == "maximize"
 
-    def test_add_objective_direction_conflict(self, model, mock_solver):
-        """Test add_objective with conflicting directions."""
+    def test_add_objective_without_direction(self, model, mock_solver):
+        """Test add_objective without first setting direction."""
         mock_expr1 = MagicMock()
-        mock_expr2 = MagicMock()
 
-        # First call with maximize
-        model.add_objective(mock_expr1, "maximize")
-
-        # Second call with minimize should raise error
+        # Should raise error when direction is not set
         with pytest.raises(
             ValueError,
-            match="Objective direction 'minimize' conflicts with previously set direction 'maximize'",
+            match="Optimization direction must be set before adding objective terms",
         ):
-            model.add_objective(mock_expr2, "minimize")
-
-    def test_add_objective_default_direction(self, model, mock_solver):
-        """Test add_objective with default direction."""
-        mock_expr = MagicMock()
-        model.add_objective(mock_expr)  # Should default to maximize
-
-        mock_solver.Maximize.assert_called_with(mock_expr)
-        assert model._objective_direction == "maximize"
-
-    def test_add_objective_invalid_direction(self, model):
-        """Test add_objective with invalid direction."""
-        mock_expr = MagicMock()
-        with pytest.raises(ValueError, match="Unsupported optimization direction: invalid"):
-            model.add_objective(mock_expr, "invalid")
+            model.add_objective(mock_expr1)
 
     def test_add_objective_after_set_objective(self, model, mock_solver):
         """Test add_objective after using set_objective."""
@@ -243,11 +279,12 @@ class TestOptimisationModel:
         # Configure mock addition
         mock_expr1.__add__ = MagicMock(return_value=MagicMock())
 
-        # First set objective
-        model.set_objective(mock_expr1, "maximize")
+        # First set direction and objective
+        model.set_direction("maximize")
+        model.set_objective(mock_expr1)
 
         # Then add to it
-        model.add_objective(mock_expr2, "maximize")
+        model.add_objective(mock_expr2)
         mock_expr1.__add__.assert_called_with(mock_expr2)
 
     def test_set_objective_after_add_objective(self, model, mock_solver):
@@ -255,15 +292,16 @@ class TestOptimisationModel:
         mock_expr1 = MagicMock()
         mock_expr2 = MagicMock()
 
-        # First add objective
-        model.add_objective(mock_expr1, "maximize")
+        # First set direction and add objective
+        model.set_direction("maximize")
+        model.add_objective(mock_expr1)
         assert model._objective is mock_expr1
 
-        # Then set objective (should replace)
-        model.set_objective(mock_expr2, "minimize")
+        # Then set objective (should replace, but direction stays the same)
+        model.set_objective(mock_expr2)
         assert model._objective is mock_expr2
-        assert model._objective_direction == "minimize"
-        mock_solver.Minimize.assert_called_with(mock_expr2)
+        assert model._objective_direction == "maximize"
+        mock_solver.Maximize.assert_called_with(mock_expr2)
 
     def test_solve_without_time_limit(self, model, mock_solver):
         """Test solving without time limit."""
@@ -279,8 +317,11 @@ class TestOptimisationModel:
         mock_solver.SetTimeLimit.assert_not_called()
 
     def test_solve_with_time_limit(self, model, mock_solver):
-        """Test solving with time limit."""
-        model.solve(time_limit=30.0)
+        """Test solving with time limit via SolverOptions."""
+        from atlas.solver.models import SolverOptions
+
+        model.set_solver_options(SolverOptions(time_limit=duration(seconds=30)))
+        model.solve()
 
         mock_solver.SetTimeLimit.assert_called_with(30000)  # 30.0 * 1000
         mock_solver.Solve.assert_called_once()
@@ -319,6 +360,128 @@ class TestOptimisationModel:
 
         with pytest.raises(ValueError, match="Variable 'nonexistent' not found in solution"):
             model.get_variable_value("nonexistent")
+
+    def test_get_constraint(self, model, mock_solver):
+        """Test getting constraint objects."""
+        # Add a constraint first
+        mock_expr = MagicMock()
+        model.add_constraint(mock_expr, "test_constraint")
+
+        # Test getting existing constraint
+        model.get_constraint("test_constraint")
+        mock_solver.LookupConstraint.assert_called_with("test_constraint")
+
+        # Test getting non-existent constraint
+        with pytest.raises(ValueError, match="Constraint 'nonexistent' not found"):
+            model.get_constraint("nonexistent")
+
+    def test_get_constraint_bounds_basic(self, model, mock_solver):
+        """Test getting constraint bounds for a constraint."""
+        # Setup mock constraint
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 5.0
+        mock_constraint.ub.return_value = 10.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        # Add constraint
+        model._constraints_name.add("test_constraint")
+
+        # Get bounds
+        bounds = model.get_constraint_bounds("test_constraint")
+
+        assert bounds.lower_bound == 5.0
+        assert bounds.upper_bound == 10.0
+        mock_solver.LookupConstraint.assert_called_with("test_constraint")
+
+    def test_get_constraint_bounds_infinity(self, model, mock_solver):
+        """Test getting constraint bounds with infinite bounds."""
+        # Setup mock constraint with infinite bounds
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = float("-inf")
+        mock_constraint.ub.return_value = float("inf")
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("unbounded_constraint")
+
+        bounds = model.get_constraint_bounds("unbounded_constraint")
+
+        assert bounds.lower_bound == float("-inf")
+        assert bounds.upper_bound == float("inf")
+
+    def test_get_constraint_bounds_upper_only(self, model, mock_solver):
+        """Test getting constraint bounds with only upper bound."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = float("-inf")
+        mock_constraint.ub.return_value = 100.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("upper_bound_constraint")
+
+        bounds = model.get_constraint_bounds("upper_bound_constraint")
+
+        assert bounds.lower_bound == float("-inf")
+        assert bounds.upper_bound == 100.0
+
+    def test_get_constraint_bounds_lower_only(self, model, mock_solver):
+        """Test getting constraint bounds with only lower bound."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 0.0
+        mock_constraint.ub.return_value = float("inf")
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("lower_bound_constraint")
+
+        bounds = model.get_constraint_bounds("lower_bound_constraint")
+
+        assert bounds.lower_bound == 0.0
+        assert bounds.upper_bound == float("inf")
+
+    def test_get_constraint_bounds_equality(self, model, mock_solver):
+        """Test getting constraint bounds for equality constraint."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 5.0
+        mock_constraint.ub.return_value = 5.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("equality_constraint")
+
+        bounds = model.get_constraint_bounds("equality_constraint")
+
+        assert bounds.lower_bound == 5.0
+        assert bounds.upper_bound == 5.0
+
+    def test_get_constraint_bounds_negative(self, model, mock_solver):
+        """Test getting constraint bounds with negative values."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = -20.0
+        mock_constraint.ub.return_value = -5.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("negative_constraint")
+
+        bounds = model.get_constraint_bounds("negative_constraint")
+
+        assert bounds.lower_bound == -20.0
+        assert bounds.upper_bound == -5.0
+
+    def test_get_constraint_bounds_zero(self, model, mock_solver):
+        """Test getting constraint bounds with zero values."""
+        mock_constraint = MagicMock()
+        mock_constraint.lb.return_value = 0.0
+        mock_constraint.ub.return_value = 0.0
+        mock_solver.LookupConstraint.return_value = mock_constraint
+
+        model._constraints_name.add("zero_constraint")
+
+        bounds = model.get_constraint_bounds("zero_constraint")
+
+        assert bounds.lower_bound == 0.0
+        assert bounds.upper_bound == 0.0
+
+    def test_get_constraint_bounds_nonexistent(self, model, mock_solver):
+        """Test getting bounds for non-existent constraint."""
+        with pytest.raises(ValueError, match="Constraint 'nonexistent' not found"):
+            model.get_constraint_bounds("nonexistent")
 
     def test_get_constraint_slack_value_not_solved(self, model):
         model._constraints_name.add("c1")
@@ -386,7 +549,8 @@ class TestOptimisationModel:
         # Add some data first
         model.add_continuous_variable("x", 0, 10)
         model.add_constraint(MagicMock(), "test_constraint")
-        model.set_objective(MagicMock(), "maximize")
+        model.set_direction("maximize")
+        model.set_objective(MagicMock())
         model.solve()  # Create solution info
 
         # Verify data exists
@@ -420,6 +584,7 @@ class TestOptimisationModel:
         model.add_constraint(MagicMock(), "c2")
         assert len(model.constraints) == 2
 
+        model.set_direction("maximize")
         model.set_objective(MagicMock())
 
     def test_model_repr(self, model):
@@ -476,7 +641,8 @@ class TestIntegrationScenarios:
         integration_model.add_constraint(2 * x + y, "resource")  # Mock expression
 
         # Objective: maximize 3x + 2y
-        integration_model.set_objective(3 * x + 2 * y, "maximize")
+        integration_model.set_direction("maximize")
+        integration_model.set_objective(3 * x + 2 * y)
 
         # Solve
         solution = integration_model.solve()
@@ -509,10 +675,13 @@ class TestIntegrationScenarios:
         mock_expr1.__add__ = MagicMock(return_value=mock_combined1)
         mock_combined1.__add__ = MagicMock(return_value=mock_combined2)
 
+        # Set direction first
+        integration_model.set_direction("maximize")
+
         # Build objective incrementally
-        integration_model.add_objective(mock_expr1, "maximize")  # Start with first term
-        integration_model.add_objective(mock_expr2, "maximize")  # Add second term
-        integration_model.add_objective(mock_expr3, "maximize")  # Add third term
+        integration_model.add_objective(mock_expr1)  # Start with first term
+        integration_model.add_objective(mock_expr2)  # Add second term
+        integration_model.add_objective(mock_expr3)  # Add third term
 
         # Verify the expressions were combined
         mock_expr1.__add__.assert_called_with(mock_expr2)
@@ -535,7 +704,8 @@ class TestIntegrationScenarios:
         integration_model.add_constraint(y - 20 * z, "linking")
 
         # Objective
-        integration_model.set_objective(2 * x + 10 * y + 50 * z, "maximize")
+        integration_model.set_direction("maximize")
+        integration_model.set_objective(2 * x + 10 * y + 50 * z)
 
         solution = integration_model.solve()
 
@@ -550,7 +720,8 @@ class TestIntegrationScenarios:
         y = integration_model.add_continuous_variable("y", 0, 10)
 
         integration_model.add_constraint(x + y, "initial_constraint")
-        integration_model.set_objective(x + y, "maximize")
+        integration_model.set_direction("maximize")
+        integration_model.set_objective(x + y)
 
         # Solve initial model
         solution1 = integration_model.solve()
@@ -573,10 +744,13 @@ class TestIntegrationScenarios:
         y = integration_model.add_continuous_variable("y", 0, 10)
         z = integration_model.add_continuous_variable("z", 0, 10)
 
+        # Set direction first
+        integration_model.set_direction("maximize")
+
         # Build objective step by step
-        integration_model.add_objective(x, "maximize")  # profit from x
-        integration_model.add_objective(2 * y, "maximize")  # double profit from y
-        integration_model.add_objective(-0.5 * z, "maximize")  # cost of z
+        integration_model.add_objective(x)  # profit from x
+        integration_model.add_objective(2 * y)  # double profit from y
+        integration_model.add_objective(-0.5 * z)  # cost of z
 
         # Add constraints
         integration_model.add_constraint(x + y + z, "resource_limit")
@@ -608,13 +782,17 @@ class TestIntegrationScenarios:
         with pytest.raises(RuntimeError, match="Optimisation model has not been solved yet"):
             integration_model.get_variable_value("x")
 
-        # Test add_objective direction conflict
-        integration_model.add_objective(x, "maximize")
+        # Test add_objective without direction
         with pytest.raises(
             ValueError,
-            match="Objective direction 'minimize' conflicts with previously set direction 'maximize'",
+            match="Optimization direction must be set before adding objective terms",
         ):
-            integration_model.add_objective(x, "minimize")
+            integration_model.add_objective(x)
+
+        # Test setting direction twice
+        integration_model.set_direction("maximize")
+        with pytest.raises(ValueError, match="Optimization direction is already set"):
+            integration_model.set_direction("minimize")
 
     def test_model_export_and_clear_workflow(self, integration_model):
         """Test export and clear in a workflow."""
@@ -622,8 +800,9 @@ class TestIntegrationScenarios:
         x = integration_model.add_continuous_variable("x")
         y = integration_model.add_continuous_variable("y")
         integration_model.add_constraint(x + y, "sum_constraint")
-        integration_model.add_objective(x, "maximize")
-        integration_model.add_objective(y, "maximize")
+        integration_model.set_direction("maximize")
+        integration_model.add_objective(x)
+        integration_model.add_objective(y)
 
         # Solve
         solution = integration_model.solve()

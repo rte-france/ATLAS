@@ -4,10 +4,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.enum import ReservesTypes
+from atlas.enums import ReservesTypes
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
 
 
@@ -53,7 +52,7 @@ class ControlBlock(BusinessModel):
     :param positive_imbalance_price: Positive Imbalance Settlement Price (ISP-P)
     :type positive_imbalance_price: Timeseries
     :param rr_activated: Volume of RR activated
-    :type rr_activated: Timeseries | LazyTimeseries
+    :type rr_activated: AbstractTimeseries
     :param rr_activation_costs: Balancing costs for RR reserves
     :type rr_activation_costs: Timeseries
     :param specific_activated_power: Power activated by the Balancing Mechanism
@@ -61,9 +60,9 @@ class ControlBlock(BusinessModel):
     :param specific_activation_costs: Total balancing cost from the Balancing Mechanism
     :type specific_activation_costs: Timeseries
     :param weighted_balance_price_down: Weighted average balancing energy activation price downward
-    :type weighted_balance_price_down: Timeseries | LazyTimeseries
+    :type weighted_balance_price_down: AbstractTimeseries
     :param weighted_balance_price_up: Weighted average balancing energy activation price upward
-    :type weighted_balance_price_up: Timeseries | LazyTimeseries
+    :type weighted_balance_price_up: AbstractTimeseries
     """
 
     alternative_type: ReservesTypes | None = None
@@ -79,15 +78,15 @@ class ControlBlock(BusinessModel):
     rr_up_required: ForecastingMatrix | LazyForecastingMatrix | None = None
     spilled_energy: ForecastingMatrix | LazyForecastingMatrix | None = None
     unsupplied_energy: ForecastingMatrix | LazyForecastingMatrix | None = None
-    afrr_activation_costs: Timeseries | LazyTimeseries | None = None
-    fcr_activation_costs: Timeseries | LazyTimeseries | None = None
-    mfrr_activated: Timeseries | LazyTimeseries | None = None
-    mfrr_activation_costs: Timeseries | LazyTimeseries | None = None
-    negative_imbalance_price: Timeseries | LazyTimeseries | None = None
-    positive_imbalance_price: Timeseries | LazyTimeseries | None = None
-    rr_activated: Timeseries | LazyTimeseries | None = None
-    rr_activation_costs: Timeseries | LazyTimeseries | None = None
-    weighted_balance_price_down: Timeseries | LazyTimeseries | None = None
-    weighted_balance_price_up: Timeseries | LazyTimeseries | None = None
-    specific_activated_power: Timeseries | None = None
-    specific_activation_costs: Timeseries | LazyTimeseries | None = None
+    afrr_activation_costs: AbstractTimeseries | None = None
+    fcr_activation_costs: AbstractTimeseries | None = None
+    mfrr_activated: AbstractTimeseries | None = None
+    mfrr_activation_costs: AbstractTimeseries | None = None
+    negative_imbalance_price: AbstractTimeseries | None = None
+    positive_imbalance_price: AbstractTimeseries | None = None
+    rr_activated: AbstractTimeseries | None = None
+    rr_activation_costs: AbstractTimeseries | None = None
+    weighted_balance_price_down: AbstractTimeseries | None = None
+    weighted_balance_price_up: AbstractTimeseries | None = None
+    specific_activated_power: AbstractTimeseries | None = None
+    specific_activation_costs: AbstractTimeseries | None = None

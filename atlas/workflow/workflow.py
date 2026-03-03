@@ -5,8 +5,22 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from __future__ import annotations
+
+import copy
+from pathlib import Path
+from typing import Any
+
+import yaml
+
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.workflow.workflow_step import WorkflowStep
+from atlas.config import logger
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.timing import timer
+from atlas.workflow.current_input_state import CurrentInputState
+from atlas.workflow.handler.cis_handler import CISHandler
+from atlas.workflow.parameters import WorkflowParameters
+from atlas.workflow.step import WorkflowStep
 
 
 class Workflow:
@@ -14,19 +28,42 @@ class Workflow:
 
     Each step processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, name: str, dataset: AbstractDataset, steps: list[WorkflowStep] | None):
+    def __init__(self, parameters: WorkflowParameters):
         """Initialize a Workflow instance.
 
-        :param name: Name of the workflow.
-        :type name: str
-        :param dataset: The initial input dataset for the workflow.
-        :type dataset: AbstractDataset
-        :param steps: Optional list of workflow steps to execute.
-        :type steps: list[WorkflowStep] | None
+        :param parameters: Name of the workflow.
+        :type parameters: WorkflowParameters
         """
-        self.name = name
-        self.dataset = dataset
-        self._steps: list[WorkflowStep] = steps if steps is not None else []
+        self.parameters = parameters
+        self.generic_module_parameters: dict[str, Any] = {}
+        self._steps: list[WorkflowStep] = []
+
+        self.build_generic_module_parameters()
+        self.build_steps()
+
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> Workflow:
+        parameters = WorkflowParameters.from_file(file_path=file_path)
+        return cls(parameters=parameters)
+
+    def build_generic_module_parameters(self):
+        if self.parameters.parameters_path:
+            with open(self.parameters.parameters_path) as file:
+                self.generic_module_parameters = yaml.safe_load(file)
+
+    def build_steps(self):
+        for step in self.parameters.steps:
+            parameters = Workflow.build_module_parameters(self.generic_module_parameters, step.parameters_path)
+            workflow_step = WorkflowStep(step.name, step.module.value, parameters)
+            self.add_step(workflow_step)
+
+    @staticmethod
+    def build_module_parameters(parameters: dict[str, Any], parameters_path: Path):
+        parameters = copy.deepcopy(parameters)
+        with open(parameters_path) as file:
+            custom_parameters = yaml.safe_load(file)
+        parameters.update(custom_parameters)
+        return parameters
 
     @property
     def steps(self) -> list[WorkflowStep]:
@@ -37,31 +74,54 @@ class Workflow:
         """
         return self._steps
 
-    def add_step(self, step: WorkflowStep) -> None:
-        """Add a single step to the end of the workflow."""
-        self._steps.append(step)
-
-    def add_steps(self, steps: list[WorkflowStep]) -> None:
-        """Add multiple steps to the end of the workflow."""
-        self._steps.extend(steps)
+    def add_step(self, step: WorkflowStep | list[WorkflowStep]) -> None:
+        """Add one or multiple steps to the end of the workflow."""
+        if isinstance(step, list):
+            if not all(isinstance(s, WorkflowStep) for s in step):
+                raise TypeError("All items in the list must be WorkflowStep instances.")
+            self._steps.extend(step)
+        else:
+            if not isinstance(step, WorkflowStep):
+                raise TypeError(f"Expected a WorkflowStep instance, got {type(step).__name__}.")
+            self._steps.append(step)
 
     def get_output_dataset(self) -> AbstractDataset | None:
         """Returns the final dataset of the workflow"""
         return self.steps[-1].get_output_dataset()
 
+    def __repr__(self) -> str:
+        """Return a human-readable string representation of the workflow."""
+        step_count = len(self._steps)
+        return f"Workflow '{self.parameters.name}' ({step_count} step{'s' if step_count != 1 else ''})"
+
     def execute(self) -> None:
         """
         Execute the workflow
-        :return:
-        """
-        """
+
         Execute all workflow steps sequentially.
 
         Each step receives as input the output of the previous step.
         The first step receives the workflow's initial dataset.
         """
-        output_dataset: AbstractDataset | None = None
-        for i, step in enumerate(self.steps):
-            step.input_dataset = self.dataset if i == 0 else output_dataset
-            step.execute()
+        logger.info(f"Launching workflow : {self.parameters.name}")
+        atlas_dataset = AtlasDataset.from_directory(self.parameters.dataset_path)
+        cis = CurrentInputState(atlas_dataset)
+
+        for step in self.steps:
+            logger.info(f"Launching step :'{step.name}'")
+            input_dataset = cis.filter_dataset(step.module.get_business_model_class_used(), step.module.get_filters())
+
+            with timer() as t:
+                step.run(input_dataset)
+            logger.info(f"Step '{step.name}' completed in {t()} seconds")
+
             output_dataset = step.output_dataset
+
+            if not output_dataset:
+                raise RuntimeError(f"Step {step.name} did not produce output_dataset")
+
+            logger.debug("Applying all change sets to the current input state")
+            CISHandler.apply(output_dataset.change_sets, cis)
+            logger.info(f"Finishing step :'{step.name}'")
+
+        cis.to_directory(self.parameters.output_dataset_path)

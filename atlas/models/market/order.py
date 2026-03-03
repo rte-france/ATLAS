@@ -4,13 +4,15 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from pydantic import field_serializer
 from pydantic_extra_types.pendulum_dt import DateTime
 
-from atlas.enum import OrderType, Product
+from atlas.enums import OrderType, Product
 from atlas.models.business_model import BusinessModel
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.market.market_area import MarketArea
 from atlas.models.portfolio import Portfolio
+from atlas.validators import serializer_business_model
 
 
 class Order(BusinessModel):
@@ -64,3 +66,8 @@ class Order(BusinessModel):
     product: Product | None = None
     qmax: float | None = None
     qmin: float | None = None
+
+    @field_serializer("equipment", "market_area", "portfolio", mode="plain")
+    def serializer_bmo(self, value: BusinessModel | None) -> str | None:
+        """Serialize BusinessModel attributes to string."""
+        return serializer_business_model(value)

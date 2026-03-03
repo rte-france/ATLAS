@@ -7,12 +7,11 @@ This file is part of the ATLAS project.
 from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
-from atlas.enum import StorageType
+from atlas.enums import StorageType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import hours_validator
+from atlas.validators import convert_to_duration
 
 
 class Storage(Equipment):
@@ -43,7 +42,7 @@ class Storage(Equipment):
     :param maximum_energy: Maximum energy that can be stored
     :type maximum_energy: Timeseries
     :param maximum_power: Maximum power of the unit or cluster
-    :type maximum_power: Timeseries | LazyTimeseries
+    :type maximum_power: AbstractTimeseries
     :param minimum_power: Minimum power of the unit or cluster
     :type minimum_power: Timeseries
     :param minimum_state_of_charge: Coefficient applied to MaximumEnergy, to represent the minimum energy that can be
@@ -76,19 +75,19 @@ class Storage(Equipment):
 
     stored_energy: ForecastingMatrix | LazyForecastingMatrix | None = None
 
-    da_buy_submitted_volume: Timeseries | LazyTimeseries | None = None
-    da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
-    displacement_energy: Timeseries | LazyTimeseries | None = None
-    maximum_energy: Timeseries | LazyTimeseries | None = None
-    maximum_power: Timeseries | LazyTimeseries | None = None
-    minimum_power: Timeseries | LazyTimeseries | None = None
-    minimum_state_of_charge: Timeseries | LazyTimeseries | None = None
+    da_buy_submitted_volume: AbstractTimeseries | None = None
+    da_sell_submitted_volume: AbstractTimeseries | None = None
+    displacement_energy: AbstractTimeseries | None = None
+    maximum_energy: AbstractTimeseries | None = None
+    maximum_power: AbstractTimeseries | None = None
+    minimum_power: AbstractTimeseries | None = None
+    minimum_state_of_charge: AbstractTimeseries | None = None
 
     @field_validator(
         "transition_duration",
         mode="before",
     )
     @classmethod
-    def convert_hours_to_duration(cls, v):
+    def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""
-        return hours_validator(v)
+        return convert_to_duration(v)

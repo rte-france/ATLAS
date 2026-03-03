@@ -9,36 +9,70 @@ from __future__ import annotations
 from typing import Any
 
 import pendulum
-from pendulum import duration
-from pendulum.duration import Duration as PendulumDuration
-from pydantic import ValidationError
-from pydantic_extra_types.pendulum_dt import Duration
+
+from atlas.models.business_model import BusinessModel
+from atlas.timing import parse_frequency
 
 
 def parse_list_float(value: Any) -> list[float] | None:
     """Parse list attributes with proper error handling."""
     if value is None:
         return None
-
+    if isinstance(value, list):
+        if all(isinstance(v, float) for v in value):
+            return value
+        else:
+            raise ValueError(
+                f"All elements in the list must be of type float. Got: {value}",
+            )
     try:
-        return list(map(float, value.split(":")))
+        return list(map(float, value.split("|")))
     except Exception as e:
-        raise ValidationError(
+        raise ValueError(
             f"Failed to parse list attribute '{value}': {e}",
         ) from e
 
 
+def serializer_list_float(value: list[float] | None) -> str | None:
+    """Serialize list attributes to string."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return "|".join(map(str, value))
+    raise ValueError(
+        f"Expected list of floats, got: {value}",
+    )
+
+
+def serializer_business_model(value: BusinessModel | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, BusinessModel):
+        return value.name
+    raise ValueError(
+        f"Expected BusinessModel instance, got: {value}",
+    )
+
+
+def serializer_list_business_model(value: list[BusinessModel] | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return "|".join(str(bm.name) for bm in value)
+    raise ValueError(
+        f"Expected list of BusinessModel instances, got: {value}",
+    )
+
+
 def convert_to_duration(
     value: Any,
-    default_unit: str = "hours",
     allow_zero: bool = True,
-) -> pendulum.Duration | Duration | None:
+) -> pendulum.Duration | None:
     """
     Simple conversion of numeric values and Duration objects to Duration.
 
     Args:
         value: Input value to convert to Duration
-        default_unit: Default unit for numeric values ("hours", "minutes", "seconds")
         allow_zero: Whether to allow zero duration (negative values never allowed)
 
     Returns:
@@ -49,29 +83,34 @@ def convert_to_duration(
 
     Supported input formats:
         - None -> None
-        - int/float with default_unit (e.g., 2.5 -> 2.5 hours)
+        - string like '15m', '1h', or '1d30m'
+        - Duration as string using format iso_8601
         - Duration objects (both Pydantic and Pendulum) -> passthrough
     """
     if value is None:
         return None
 
     # Handle existing Duration objects
-    if isinstance(value, Duration | PendulumDuration):
+    if isinstance(value, pendulum.Duration):
         duration_obj = value
-    elif isinstance(value, int | float):
-        # Numeric value with default unit
-        if default_unit == "hours":
-            duration_obj = duration(hours=value)
-        elif default_unit == "minutes":
-            duration_obj = duration(minutes=value)
-        elif default_unit == "seconds":
-            duration_obj = duration(seconds=value)
+    elif isinstance(value, str):
+        if value == "P":
+            duration_obj = pendulum.duration(hours=0)
+            return duration_obj
+        if value.startswith("P") or "T" in value:
+            try:
+                obj = pendulum.parse(value)
+                if not isinstance(obj, pendulum.Duration):
+                    raise ValueError(f"Parsed value is not a Duration: {obj}")
+                duration_obj = obj
+            except Exception as e:
+                raise ValueError(f"Failed to parse ISO 8601 duration string '{value}': {e}") from e
         else:
-            raise ValueError(f"Unsupported default_unit: {default_unit}")
+            duration_obj = parse_frequency(value)
     else:
         raise ValueError(
             f"Cannot convert {type(value).__name__} to Duration. "
-            f"Supported types: None, int, float, Duration objects. Got: {value}"
+            f"Supported types: None, str, Duration objects. Got: {value}"
         )
 
     # Validation - negative values never allowed for time durations
@@ -84,39 +123,3 @@ def convert_to_duration(
         raise ValueError(f"Zero duration not allowed: {duration_obj}")
 
     return duration_obj
-
-
-def duration_validator(
-    default_unit: str = "hours",
-    allow_zero: bool = True,
-):
-    """
-    Factory function to create Pydantic field validators for Duration fields.
-
-    Args:
-        default_unit: Default unit for numeric inputs ("hours", "minutes", "seconds")
-        allow_zero: Whether to allow zero duration (negative values never allowed)
-
-    Returns:
-        Validator function suitable for use with @field_validator
-
-    Example:
-        @field_validator('my_duration_field', mode='before')
-        @classmethod
-        def validate_duration(cls, v):
-            return duration_validator(default_unit="minutes")(v)
-    """
-
-    def validator(value: Any) -> pendulum.Duration | Duration | None:
-        return convert_to_duration(
-            value,
-            default_unit=default_unit,
-            allow_zero=allow_zero,
-        )
-
-    return validator
-
-
-# Common pre-configured validators
-hours_validator = duration_validator(default_unit="hours")
-minutes_validator = duration_validator(default_unit="minutes")

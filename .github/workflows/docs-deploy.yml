@@ -1,16 +1,77 @@
-name: Docs Deploy
+name: Documentation Deploy
 
 on:
   push:
-    branches: 
+    branches:
       - main
+      - develop
+    tags:
+      - 'v*'  # Trigger on version tags
   pull_request:
-    branches: 
+    branches:
       - main
 
 jobs:
   deploy-docs:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'  # Only deploy on push, not PR
+
+    permissions:
+      contents: write  # Required for mike to push to gh-pages
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Required for mike versioning
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --group docs --no-dev
+
+      # Deploy development version for develop branch
+      - name: Deploy development docs
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          uv run mike deploy --push --update-aliases dev latest
+          uv run mike set-default --push latest
+
+      # Deploy versioned docs for tags (only from main branch)
+      - name: Deploy versioned docs
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          # Check if tag was created from main branch
+          TAG_COMMIT=$(git rev-list -n 1 $GITHUB_REF)
+          MAIN_COMMIT=$(git rev-list -n 1 origin/main)
+
+          if [ "$TAG_COMMIT" != "$MAIN_COMMIT" ]; then
+            echo "Tag was not created from main branch. Skipping deployment."
+            exit 1
+          fi
+
+          # Extract version from tag (remove 'v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Deploying documentation for version: $VERSION"
+
+          # Deploy version and set as latest if it's the highest version
+          uv run mike deploy --push --update-aliases $VERSION latest
+          uv run mike set-default --push latest
+
+  # Separate job for PR previews (optional)
+  preview-docs:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
 
     steps:
       - uses: actions/checkout@v3
@@ -20,7 +81,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.13'
 
       - name: Install uv
         run: pip install uv
@@ -28,12 +89,5 @@ jobs:
       - name: Install dependencies
         run: uv sync --group docs --no-dev
 
-      - name: Build docs
-        run: uv run mkdocs build
-
-      - name: Deploy docs
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          branch: gh-pages
-          folder: site
-          clean: true
+      - name: Build docs (validation only)
+        run: uv run zensical build

@@ -4,9 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 
 
@@ -19,4 +18,4 @@ class OtherNonDispatchable(Equipment):
     """
 
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
-    da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
+    da_sell_submitted_volume: AbstractTimeseries | None = None

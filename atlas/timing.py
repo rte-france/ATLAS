@@ -5,10 +5,10 @@ This file is part of the ATLAS project.
 """
 
 import re
-from collections import Counter
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Literal, cast
 
 import pendulum
 import polars as pl
@@ -92,9 +92,9 @@ def pendulum_to_datetime(fmt: str) -> str:
 
 @contextmanager
 def timer() -> Generator[Callable[[], str], None, None]:
-    """Context manager to measure elapsed time in seconds."""
+    """Context manager to measure elapsed time with milliseconds precision."""
     start = pendulum.now()
-    yield lambda: str((pendulum.now() - start).as_duration())
+    yield lambda: f"{(pendulum.now() - start).total_seconds():.3f}s"
 
 
 def parse_frequency(freq: str) -> pendulum.Duration:
@@ -148,9 +148,10 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
 def generate_datetimes(
     start: str | datetime,
     end: str | datetime,
-    freq: str | pendulum.Duration,
+    freq: str | pendulum.Duration | timedelta,
     timezone: str = "UTC",
     date_format: str = "YYYY-MM-DD HH:mm:ss",
+    closed: Literal["both", "left", "right", "none"] = "both",
 ) -> list[pendulum.DateTime]:
     """
     Generate a list of datetimes using pendulum.
@@ -165,6 +166,8 @@ def generate_datetimes(
     :type timezone: str, optional
     :param date_format: Date format string, defaults to "YYYY-MM-DD HH:mm:ss"
     :type date_format: str, optional
+    :param closed: Define which sides of the range are closed (inclusive).
+    :type closed: {"both", "left", "right", "none"}
     :return: List of datetime objects
     :rtype: List[pendulum.DateTime]
     """
@@ -173,20 +176,31 @@ def generate_datetimes(
 
     if end_date < start_date:
         raise ValueError("End date has to be after start date")
-    elif end_date == start_date:
-        return []
-    else:
-        step = get_duration(freq)
-        return [start_date + i * step for i in range(int((end_date - start_date) / step) + 1)]
+
+    return [
+        pendulum.instance(i)
+        for i in pl.datetime_range(
+            start=start_date.naive(),
+            end=end_date.naive(),
+            interval=get_duration(freq),
+            closed=closed,
+            time_unit="us",
+            eager=True,
+        )
+        .dt.replace_time_zone(timezone)
+        .to_list()
+    ]
 
 
-def get_duration(freq: str | pendulum.Duration) -> pendulum.Duration:
+def get_duration(freq: str | timedelta | pendulum.Duration) -> pendulum.Duration:
     if isinstance(freq, str):
         step = parse_frequency(freq)
     elif isinstance(freq, pendulum.Duration):
         step = freq
+    elif isinstance(freq, timedelta):
+        step = pendulum.duration(seconds=freq.total_seconds())
     else:
-        raise TypeError("Frequency must be a string or a pendulum.Duration")
+        raise TypeError("Frequency must be a string, a timedelta or a pendulum.Duration")
     return step
 
 
@@ -196,27 +210,27 @@ def infer_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
     Returns None if the timeseries is empty or has only one timestamp.
     Raises ValueError if the index is not regular.
     """
-    times = timeseries.select("time").to_series().to_list()
+    times = timeseries["time"]
     if len(times) < 2:
         return pendulum.duration()
 
-    times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
-    deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
-    first_delta = deltas[0]
-    if not all(d == first_delta for d in deltas):
+    deltas_seconds = times.diff().dt.total_seconds().drop_nulls()
+
+    first_delta = deltas_seconds[0]
+    if not (deltas_seconds == first_delta).all():
         raise ValueError("Timeseries datetime index is not regular. Cannot infer frequency.")
+
     return pendulum.duration(seconds=first_delta)
 
 
 def get_lowest_frequency(timeseries: pl.DataFrame) -> pendulum.Duration:
-    times = timeseries.select("time").to_series().to_list()
+    times = timeseries["time"]
     if len(times) < 2:
         return pendulum.duration()
 
-    times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
-    deltas = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
+    min_delta_seconds = cast(float, times.diff().dt.total_seconds().drop_nulls().min())
 
-    return pendulum.duration(seconds=min(deltas))
+    return pendulum.duration(seconds=min_delta_seconds)
 
 
 def get_most_frequent_timestep(timeseries: pl.DataFrame) -> pendulum.Duration:
@@ -230,17 +244,15 @@ def get_most_frequent_timestep(timeseries: pl.DataFrame) -> pendulum.Duration:
     If there are multiple modes with the same count, the smallest delta is returned.
     If the timeseries has fewer than 2 timestamps, returns 0 duration.
     """
-    times = timeseries.select("time").to_series().to_list()
+    times = timeseries["time"]
     if len(times) < 2:
         return pendulum.duration()
 
-    times = [pendulum.instance(t) if not isinstance(t, pendulum.DateTime) else t for t in times]
-    deltas_in_seconds = [times[i + 1].diff(times[i]).in_seconds() for i in range(len(times) - 1)]
+    mode_result = times.diff().dt.total_seconds().drop_nulls().mode()
 
-    counter = Counter(deltas_in_seconds)
-    most_common_delta, _ = counter.most_common(1)[0]
+    most_common_delta = mode_result.min() if len(mode_result) > 1 else mode_result[0]
 
-    return pendulum.duration(seconds=most_common_delta)
+    return pendulum.duration(seconds=cast(float, most_common_delta))
 
 
 def check_timezone(timezone: str) -> None:

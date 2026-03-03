@@ -4,34 +4,40 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Module that implements Matrix
+Module that implements ScenarioMatrix
 """
 
 from __future__ import annotations
 
 import pickle
+from datetime import timedelta
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import pandas as pd
+import pendulum
 import plotly.graph_objects as go
 import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.timing import check_timezone
+from atlas.timing import check_timezone, get_duration, infer_frequency
+from atlas.type import TimeseriesDict
 
 
-class Matrix:
+class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
     """A container for time-indexed `Timeseries` data, supporting both eager and lazy operations.
 
     This class abstracts over Polars and Pandas DataFrames to provide a uniform way
     to manage multiple time series, each associated with a unique index or scenario key."""
 
-    def __init__(self, matrix: pd.DataFrame | pl.DataFrame | Matrix | None = None, timezone: str = "UTC") -> None:
+    def __init__(
+        self, matrix: pd.DataFrame | pl.DataFrame | ScenarioMatrix | None = None, timezone: str = "UTC"
+    ) -> None:
         """
         :param matrix: DataFrame containing the matrix data.
-        :type matrix: pd.DataFrame | pl.DataFrame | Matrix
+        :type matrix: pd.DataFrame | pl.DataFrame | ScenarioMatrix
         :param timezone: Timezone for the datetime column.
         :type timezone: str
         """
@@ -42,12 +48,12 @@ class Matrix:
         self.indexes: list[str] = self._get_indexes()
 
     def __repr__(self):
-        """Provide a string representation of the Matrix object."""
-        return f"Matrix : {self.matrix}"
+        """Provide a string representation of the ScenarioMatrix object."""
+        return f"ScenarioMatrix : {self.matrix}"
 
     def describe(self) -> dict[str, Any]:
         """
-        Get metadata about the Matrix.
+        Get metadata about the ScenarioMatrix.
 
         :return: A dictionnary containing matrix metadata
         :rtype: dict[str, Any]
@@ -61,19 +67,19 @@ class Matrix:
         timezone: str = "UTC",
         filters: tuple[str, str] | None = None,
         separator: str = ";",
-    ) -> Matrix:
+    ) -> ScenarioMatrix:
         """
-        Load a Matrix from a file.
+        Load a ScenarioMatrix from a file.
 
         :param file_path: Path to the file (CSV or Parquet).
         :type file_path: str | Path
-        :return: A Matrix object.
-        :rtype: Matrix
+        :return: A ScenarioMatrix object.
+        :rtype: ScenarioMatrix
         """
 
         return cls(read_data_file(file_path, filters, separator), timezone)
 
-    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | Matrix | None, timezone: str) -> None:
+    def _set_matrix(self, matrix: pl.DataFrame | pd.DataFrame | ScenarioMatrix | None, timezone: str) -> None:
         """Set matrix attribute"""
         if matrix is None:
             self.matrix: pl.DataFrame = pl.DataFrame(
@@ -83,7 +89,7 @@ class Matrix:
             )
             self.timezone: str = timezone
             return
-        if isinstance(matrix, Matrix):
+        if isinstance(matrix, ScenarioMatrix):
             self.matrix: pl.DataFrame = matrix.matrix  # type: ignore[no-redef]
             self.timezone: str = matrix.timezone  # type: ignore[no-redef]
         else:
@@ -99,25 +105,36 @@ class Matrix:
             self.timezone: str = timezone  # type: ignore[no-redef]
 
     @staticmethod
-    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | Matrix | None) -> None:
+    def _check_matrix(matrix: pl.DataFrame | pd.DataFrame | ScenarioMatrix | None) -> None:
         """Check matrix data structure"""
         if matrix is None:
             return
-        if isinstance(matrix, Matrix):
+        if isinstance(matrix, ScenarioMatrix):
             return
         df: pl.DataFrame = pl.DataFrame(matrix) if isinstance(matrix, pd.DataFrame) else matrix
 
         time_columns = df.select(pl.selectors.datetime() | pl.selectors.date()).columns
         if len(time_columns) != 1:
-            raise ValueError("Matrix must have exactly one time column")
+            raise ValueError("ScenarioMatrix must have exactly one time column")
 
         value_columns = df.select(pl.selectors.numeric()).columns
 
         if len(value_columns) < 1:
-            raise ValueError("Matrix must have at least one numeric column")
+            raise ValueError("ScenarioMatrix must have at least one numeric column")
 
         if len(time_columns) + len(value_columns) != len(df.columns):
-            raise ValueError("Matrix must have N columns one for datetime and N-1 for numerical values")
+            raise ValueError("ScenarioMatrix must have N columns one for datetime and N-1 for numerical values")
+
+    def _get_data(self) -> pl.DataFrame:
+        """Return the underlying DataFrame."""
+        return self.matrix
+
+    def _return(self, data: pl.DataFrame, inplace: bool) -> ScenarioMatrix:
+        """Wrap data into ScenarioMatrix type."""
+        if inplace:
+            self.matrix = data
+            return self
+        return self.__class__(data, timezone=self.timezone)
 
     def _get_indexes(self) -> list[str]:
         """
@@ -127,6 +144,37 @@ class Matrix:
         :rtype: list[str]
         """
         return self.matrix.select(pl.selectors.numeric()).columns
+
+    def _trim_null_extremities(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        Remove rows at the beginning and end where all value columns are null.
+        This is called after delete and select operations to clean up the matrix edges.
+        """
+        if len(df) == 0:
+            return df
+
+        # Get value columns (all except time)
+        value_columns = [col for col in df.columns if col != "time"]
+
+        if len(value_columns) == 0:
+            return df
+
+        # Create boolean mask: True where all value columns are null
+        all_null_mask = df.select(pl.all_horizontal([pl.col(idx).is_null() for idx in value_columns])).to_series()
+
+        # Find indices where at least one value column is not null
+        valid_indices = (~all_null_mask).arg_true()
+
+        if len(valid_indices) == 0:
+            # All rows are null, keep only time column with no data
+            return df
+
+        # Get first and last valid indices
+        first_valid_idx = valid_indices[0]
+        last_valid_idx = valid_indices[-1]
+
+        # Trim the matrix
+        return df.slice(first_valid_idx, last_valid_idx - first_valid_idx + 1)
 
     def __len__(self) -> int:
         """
@@ -160,7 +208,8 @@ class Matrix:
         """
         if index not in self.indexes:
             raise KeyError(f"No timeseries found for index: {index}")
-        return Timeseries(self.matrix.select("time", index))
+        df = self._trim_null_extremities(self.matrix.select(["time", index]))
+        return Timeseries(df)
 
     def select(self, index: str) -> Timeseries:
         """
@@ -180,12 +229,12 @@ class Matrix:
 
         :param other: Another matrix instance.
         :type other: object
-        :raises TypeError: If the object to compare is not a Matrix
+        :raises TypeError: If the object to compare is not a ScenarioMatrix
         :return: True if equal, False otherwise.
         :rtype: bool
         """
-        if not isinstance(other, Matrix):
-            raise TypeError("Cannot compare with non-Matrix object")
+        if not isinstance(other, ScenarioMatrix):
+            raise TypeError("Cannot compare with non-ScenarioMatrix object")
 
         return self.matrix.equals(other.matrix)
 
@@ -198,18 +247,9 @@ class Matrix:
         """
         return self.matrix.lazy()
 
-    def abs(self, inplace: bool = True) -> Matrix:
-        df = self.matrix.select([pl.col(c).abs().alias(c) for c in self.index])
-
-        if inplace:
-            self.matrix = df
-            return self
-        else:
-            return Matrix(df, timezone=self.timezone)
-
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | dict[str, list],
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str,
     ) -> None:
         """
@@ -229,7 +269,7 @@ class Matrix:
             on="time",
             how="full",
             coalesce=True,
-        )
+        ).sort("time")
         self.indexes = self._get_indexes()
 
     def delete(self, index: str) -> None:
@@ -243,8 +283,26 @@ class Matrix:
         if index not in self.indexes:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
-        self.matrix = self.matrix.drop(index)
+        self.matrix = self.matrix.drop(index).sort("time")
         self.indexes = self._get_indexes()
+
+        self.matrix = self._trim_null_extremities(self.matrix)
+
+    def replace(
+        self,
+        index: str,
+        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+    ) -> None:
+        """
+        Replace a Timeseries in the matrix and keep indexes sorted.
+
+        :param timeseries: Timeseries data to add.
+        :type timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict
+        :param index: Datetime key for the new forecast.
+        :type index: str | datetime
+        """
+        self.delete(index=index)
+        self.add(timeseries=timeseries, index=index)
 
     def get_matrix(self) -> pl.DataFrame:
         """
@@ -288,19 +346,81 @@ class Matrix:
         else:
             raise NotImplementedError("Format not supported")
 
+    def to_file_with_attribute(
+        self,
+        path: str | Path,
+        attribute: str,
+        file_format: Literal["csv", "parquet", "pickle"] = "csv",
+        separator: str = ";",
+        concatenate: bool = True,
+    ) -> None:
+        """
+        Export the ScenarioMatrix to a file with an attribute column.
+
+        If the file already exists and concatenate is True, the new data will be
+        appended to the existing data.
+
+        :param path: Destination file path
+        :type path: str or Path
+        :param attribute: Attribute name to add as a column
+        :type attribute: str
+        :param file_format: Export file format, defaults to "csv"
+        :type file_format: Literal["csv", "parquet", "pickle"], optional
+        :param separator: Export column separator format, defaults to ";"
+        :type separator: str, optional
+        :param concatenate: If True, concatenate with existing file data, defaults to True
+        :type concatenate: bool, optional
+        :raises ValueError: If file extension doesn't match format
+        :raises NotImplementedError: If the file format is not supported
+        """
+        file_format_lower = file_format.lower()
+
+        if isinstance(path, Path):
+            path_str = str(path)
+        else:
+            path_str = path
+
+        if not path_str.lower().endswith(file_format_lower):
+            raise ValueError("Format and file extension don't match.")
+
+        df_to_write = self.matrix.clone().insert_column(1, pl.lit(attribute).alias("attribute"))
+
+        if concatenate:
+            path_obj = Path(path_str)
+            if path_obj.exists() and file_format_lower != "pickle":
+                try:
+                    if file_format_lower == "csv":
+                        existing_df = pl.read_csv(path_str, separator=separator, try_parse_dates=True)
+                    elif file_format_lower == "parquet":
+                        existing_df = pl.read_parquet(path_str)
+
+                    df_to_write = pl.concat([existing_df, df_to_write])
+                except Exception:
+                    pass
+
+        if file_format_lower == "csv":
+            df_to_write.write_csv(path_str, separator=separator)
+        elif file_format_lower == "parquet":
+            df_to_write.write_parquet(path_str)
+        elif file_format_lower == "pickle":
+            with open(path_str, "wb") as f:
+                pickle.dump(self, f)
+        else:
+            raise NotImplementedError("Format not supported")
+
     @property
     def dataframe(self) -> pl.DataFrame:
-        """Returns the Matrix DataFrame"""
+        """Returns the ScenarioMatrix DataFrame"""
         return self.matrix
 
     @property
     def shape(self) -> tuple[int, int]:
-        """Returns the Matrix shape"""
+        """Returns the ScenarioMatrix shape"""
         return self._get_shape()
 
     @property
     def index(self) -> list[str]:
-        """Returns the Matrix indexes (e.g columns names)"""
+        """Returns the ScenarioMatrix indexes (e.g columns names)"""
         return self._get_indexes()
 
     @property
@@ -314,7 +434,7 @@ class Matrix:
 
     def plot(
         self,
-        title: str = "Matrix Timeseries Plot",
+        title: str = "ScenarioMatrix Timeseries Plot",
         height: int = 500,
         width: int = 800,
         show_grid: bool = True,
@@ -322,7 +442,7 @@ class Matrix:
         template: str = "plotly_white",
     ) -> go.Figure:
         """
-        Generate an interactive Plotly figure for the Matrix data with a slider to select indexes.
+        Generate an interactive Plotly figure for the ScenarioMatrix data with a slider to select indexes.
 
         :param title: Plot title
         :param height: Plot height in pixels
@@ -391,3 +511,91 @@ class Matrix:
         )
 
         return fig
+
+    def _upsample(
+        self, frequency: str | pendulum.Duration, interpolation_method: Literal["linear", "constant"] = "constant"
+    ) -> pl.DataFrame:
+        """
+        Upsample all scenarios to a higher frequency.
+
+        :param frequency: Target frequency for upsampling
+        :type frequency: str | pendulum.Duration
+        :param interpolation_method: Method to fill missing values
+        :type interpolation_method: Literal["linear", "constant"]
+        :return: Upsampled DataFrame
+        :rtype: pl.DataFrame
+        """
+        if interpolation_method == "linear":
+            df = (
+                self.matrix.upsample(time_column="time", every=frequency)
+                .with_columns([pl.col(col).interpolate_by("time") for col in self.indexes])
+                .fill_null(strategy="forward")
+                .sort("time")
+            )
+        elif interpolation_method == "constant":
+            df = self.matrix.upsample(time_column="time", every=frequency).fill_null(strategy="forward").sort("time")
+        else:
+            raise NotImplementedError("Unsupported interpolation method")
+
+        return df
+
+    def _downsample(
+        self, frequency: str | pendulum.Duration, agg: Literal["mean", "sum", "min", "max"] = "mean"
+    ) -> pl.DataFrame:
+        """
+        Downsample all scenarios by grouping time intervals.
+
+        :param frequency: Target frequency for downsampling
+        :type frequency: str | pendulum.Duration
+        :param agg: Aggregation method
+        :type agg: Literal["mean", "sum", "min", "max"]
+        :return: Downsampled DataFrame
+        :rtype: pl.DataFrame
+        """
+        grouped_df = self.matrix.group_by_dynamic("time", every=frequency)
+
+        if agg == "mean":
+            df = grouped_df.agg([pl.col(col).mean() for col in self.indexes])
+        elif agg == "sum":
+            df = grouped_df.agg([pl.col(col).sum() for col in self.indexes])
+        elif agg == "min":
+            df = grouped_df.agg([pl.col(col).min() for col in self.indexes])
+        elif agg == "max":
+            df = grouped_df.agg([pl.col(col).max() for col in self.indexes])
+        else:
+            raise NotImplementedError("Unsupported aggregation function")
+
+        return df.sort("time")
+
+    def set_frequency(self, frequency: str | timedelta | pendulum.Duration, inplace: bool = True) -> Self:
+        """
+        Change the frequency (timestep) of all scenario time series in the matrix.
+
+        This method upscales or downscales all scenarios to the specified frequency,
+        similar to the `set_frequency` method for individual timeseries.
+
+        :param frequency: The desired frequency. Can be a string (e.g., '1d', '15m') or a `pendulum.Duration`.
+        :type frequency: str or pendulum.Duration
+        :param inplace: If True, modifies the object in place. If False, returns a new modified object.
+        :type inplace: bool
+        :return: The resampled scenario matrix, either modified in place or as a new object.
+        :rtype: ScenarioMatrix
+        """
+        if len(self.matrix) == 0:
+            return self if inplace else self.__class__(self.matrix.clone(), self.timezone)
+
+        new_timestep = get_duration(frequency)
+        current_frequency = infer_frequency(self.matrix)
+
+        if new_timestep > current_frequency:
+            df = self._downsample(new_timestep)
+        elif new_timestep < current_frequency:
+            df = self._upsample(new_timestep)
+        else:
+            df = self.matrix.clone() if not inplace else self.matrix
+
+        if inplace:
+            self.matrix = df
+            return self
+        else:
+            return self.__class__(df, self.timezone)

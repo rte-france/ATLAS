@@ -6,15 +6,14 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from pendulum import Duration
 from pydantic import Field, field_validator
-from pydantic_extra_types.pendulum_dt import Duration
 
-from atlas.enum import ThermalStrategy
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.scenario_matrix import LazyScenarioMatrix, ScenarioMatrix
-from atlas.math.timeseries import Timeseries
+from atlas.enums import ThermalStrategy
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import hours_validator
+from atlas.validators import convert_to_duration
 
 
 class Thermal(Equipment):
@@ -49,7 +48,7 @@ class Thermal(Equipment):
     :param strategy: Thermal strategy to be used for this unit. Possible values are "thermal", "thermal_with_startup_delay", "thermal_with_shutdown".
     :type strategy: ThermalStrategy
     :param state_sequence: Sequence of states for the thermal unit.
-    :type state_sequence: ScenarioMatrix | LazyScenarioMatrix
+    :type state_sequence: AbstractScenarioMatrix
     :param da_sell_submitted_volume: Sum of volume of sell offers on the Day Ahead market
     :type da_sell_submitted_volume: Timeseries
     :param maximum_power: Maximum power of the unit or cluster
@@ -86,10 +85,10 @@ class Thermal(Equipment):
         None, description="Startup duration in hours (will be converted to Duration)"
     )
     strategy: ThermalStrategy | None = None
-    state_sequence: ScenarioMatrix | LazyScenarioMatrix | None = None
-    da_sell_submitted_volume: Timeseries | LazyTimeseries | None = None
-    maximum_power: Timeseries | LazyTimeseries | None = None
-    minimum_power: Timeseries | LazyTimeseries | None = None
+    state_sequence: AbstractScenarioMatrix | None = None
+    da_sell_submitted_volume: AbstractTimeseries | None = None
+    maximum_power: AbstractTimeseries | None = None
+    minimum_power: AbstractTimeseries | None = None
 
     @field_validator(
         "minimum_stable_power_duration",
@@ -101,6 +100,6 @@ class Thermal(Equipment):
         mode="before",
     )
     @classmethod
-    def convert_hours_to_duration(cls, v):
+    def parse_duration(cls, v):
         """Convert various duration formats to Duration objects."""
-        return hours_validator(v)
+        return convert_to_duration(v)

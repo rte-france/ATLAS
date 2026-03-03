@@ -1,4 +1,4 @@
-# Forecasting Matrix
+# Forecasting ScenarioMatrix
 
 ::: atlas.ForecastingMatrix
     options:
