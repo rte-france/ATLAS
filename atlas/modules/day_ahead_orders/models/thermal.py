@@ -16,10 +16,9 @@ class ThermalDAO(Thermal):
     portfolio: PortfolioDAO
     variable_cost: AbstractTimeseries
     startup_cost: AbstractTimeseries
-    minimum_time_on: AbstractTimeseries
+    minimum_time_on: Duration
     maximum_power: AbstractTimeseries
     minimum_power: AbstractTimeseries
     minimum_stable_power_duration: Duration
-    maximum_daily_energy: AbstractTimeseries
     minimum_time_off: Duration
     additional_hours: Duration

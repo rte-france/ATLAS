@@ -1019,7 +1019,8 @@ class ThermalOptimizationModel(OptimisationModel):
                     days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
 
             for date in days_in_time_frame:
-                upper_bound = thermal_unit.maximum_daily_energy.get_value(date)
+                if thermal_unit.maximum_daily_energy is not None:
+                    upper_bound = thermal_unit.maximum_daily_energy.get_value(date)
 
                 matching_steps = []
                 for local_time in time_frame:

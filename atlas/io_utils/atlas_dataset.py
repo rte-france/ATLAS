@@ -320,7 +320,18 @@ class AtlasDataset(BaseModel):
         :rtype: Container
         """
         if isinstance(object_type, type) and issubclass(object_type, BusinessModel):
-            object_type_str = cfg.INVERSE_MODEL_MAPPING_NAME[object_type]
+            # For subclasses, we need to find the base type that's registered in INVERSE_MODEL_MAPPING_NAME
+            # by checking the MRO (Method Resolution Order)
+            object_type_str = None
+            for base_class in object_type.__mro__:
+                if base_class in cfg.INVERSE_MODEL_MAPPING_NAME:
+                    object_type_str = cfg.INVERSE_MODEL_MAPPING_NAME[base_class]
+                    break
+            if object_type_str is None:
+                raise ValueError(
+                    f"Type {object_type!r} is not registered in MODEL_MAPPING_NAME. "
+                    f"Available types: {list(cfg.MODEL_MAPPING_NAME.keys())}"
+                )
         elif isinstance(object_type, str):
             object_type_str = BusinessModelName(object_type)
         elif isinstance(object_type, BusinessModelName):

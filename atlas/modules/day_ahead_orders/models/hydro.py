@@ -18,6 +18,5 @@ class HydroDAO(Hydro):
     initial_level: AbstractTimeseries
     storage_marginal_value: AbstractScenarioMatrix
     maximum_power: AbstractTimeseries
-    maximum_curtailment_ratio: AbstractTimeseries
     fragment_prices: list[float]
     fragment_volumes: list[float]

@@ -329,6 +329,7 @@ def _create_orders_with_couplings(
     daily_buy_volume = sum(buy_volume * parameters.timestep.total_hours() for buy_volume in Qa.values())
 
     if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
+        assert storage.displacement_energy is not None, "displacement_energy must be set for electric vehicles"
         coupling_instance = OrderCouplingDAO(
             name=f"COMPLEMENT_DA_{storage.name}_{parameters.execution_date}",
             coupling_type=CouplingType.COMPLEMENT,
