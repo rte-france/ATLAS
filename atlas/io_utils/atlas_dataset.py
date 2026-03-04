@@ -12,7 +12,7 @@ import copy
 import pickle
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Literal, get_origin, cast
+from typing import Any, Literal, cast, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -152,11 +152,6 @@ class AtlasDataset(BaseModel):
         """
         if isinstance(directory_path, str):
             directory_path = Path(directory_path)
-        print(directory_path)
-        print(directory_path)
-        print(directory_path)
-        print(directory_path)
-        print(directory_path)
         raw_data = load_from_directory(
             directory_path=directory_path,
             separator=separator,
@@ -691,35 +686,47 @@ class AtlasDataset(BaseModel):
                 dataset.node.add(node)
         for border in copy_dataset.market_border:
             if (
-                    border.downhill_control_block is not None
-                    and border.downhill_control_block.name in control_block_names
-                    and border.uphill_control_block is not None
-                    and border.uphill_control_block.name in control_block_names
+                border.downhill_control_block is not None
+                and border.downhill_control_block.name in control_block_names
+                and border.uphill_control_block is not None
+                and border.uphill_control_block.name in control_block_names
             ):
                 dataset.market_border.add(border)
         for ma_ptdf in copy_dataset.market_area_ptdf:
             ma_ptdf_area: MarketArea | None = ma_ptdf.market_area
-            if ma_ptdf_area is not None and ma_ptdf_area.control_block is not None and ma_ptdf_area.control_block.name in control_block_names:
+            if (
+                ma_ptdf_area is not None
+                and ma_ptdf_area.control_block is not None
+                and ma_ptdf_area.control_block.name in control_block_names
+            ):
                 dataset.market_area_ptdf.add(ma_ptdf)
         for node_ptdf in copy_dataset.node_ptdf:
             node_ptdf_node: Node | None = node_ptdf.node
-            if node_ptdf_node is not None and node_ptdf_node.control_block is not None and node_ptdf_node.control_block.name in control_block_names:
+            if (
+                node_ptdf_node is not None
+                and node_ptdf_node.control_block is not None
+                and node_ptdf_node.control_block.name in control_block_names
+            ):
                 dataset.node_ptdf.add(node_ptdf)
         for critical_branch in copy_dataset.critical_branch:
             up_node: Node | None = critical_branch.uphill_node
             down_node: Node | None = critical_branch.downhill_node
             if (
-                    up_node is not None
-                    and up_node.control_block is not None
-                    and up_node.control_block.name in control_block_names
-                    and down_node is not None
-                    and down_node.control_block is not None
-                    and down_node.control_block.name in control_block_names
+                up_node is not None
+                and up_node.control_block is not None
+                and up_node.control_block.name in control_block_names
+                and down_node is not None
+                and down_node.control_block is not None
+                and down_node.control_block.name in control_block_names
             ):
                 dataset.critical_branch.add(critical_branch)
         for order in copy_dataset.order:
             order_ma: MarketArea | None = order.market_area
-            if order_ma is not None and order_ma.control_block is not None and order_ma.control_block.name in control_block_names:
+            if (
+                order_ma is not None
+                and order_ma.control_block is not None
+                and order_ma.control_block.name in control_block_names
+            ):
                 dataset.order.add(order)
         # Hypothesis that every Order in OrderCoupling has the same MarketArea
         for order_coupling in copy_dataset.order_coupling:
@@ -728,7 +735,11 @@ class AtlasDataset(BaseModel):
                 continue
             for coupled_order in order_coupling.orders:
                 coupling_ma: MarketArea | None = coupled_order.market_area
-                if coupling_ma is not None and coupling_ma.control_block is not None and coupling_ma.control_block.name not in control_block_names:
+                if (
+                    coupling_ma is not None
+                    and coupling_ma.control_block is not None
+                    and coupling_ma.control_block.name not in control_block_names
+                ):
                     keep_coupling = False
                     break
             if keep_coupling:
@@ -742,9 +753,9 @@ class AtlasDataset(BaseModel):
             for equipment in copy_dataset.get_items_by_type(equipment_type):
                 equipment_node: Node | None = cast(Equipment, equipment).node
                 if (
-                        equipment_node is not None
-                        and equipment_node.control_block is not None
-                        and equipment_node.control_block.name in control_block_names
+                    equipment_node is not None
+                    and equipment_node.control_block is not None
+                    and equipment_node.control_block.name in control_block_names
                 ):
                     if equipment_names is None or equipment.name in equipments:
                         equipments.add(equipment)
