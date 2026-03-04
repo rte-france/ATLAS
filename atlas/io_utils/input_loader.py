@@ -29,7 +29,7 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
-from atlas.typing import get_type_attribute
+from atlas.type import get_type_attribute
 
 
 def load_from_directory(
@@ -108,7 +108,7 @@ def load_from_directory(
                     objects_instantiated,
                 )
 
-                cfg.logger.info(
+                cfg.logger.debug(
                     f"Instantiated {len(objects_instantiated[object_type])} "
                     f"objects of type {cfg.MODEL_MAPPING_NAME[object_type].__name__}"
                 )
@@ -118,7 +118,7 @@ def load_from_directory(
                     f"Failed to instantiate objects of type '{object_type}': {str(e)}"
                 ) from e
 
-        cfg.logger.success("Atlas data loaded successfully.")
+        cfg.logger.info("Atlas data loaded successfully.")
         return objects_instantiated
 
     except (DirectoryStructureError, FileParsingError, ObjectInstantiationError, DataValidationError):
@@ -555,7 +555,7 @@ def _resolve_list_object_reference(
 
     # Parse the list from CSV format (colon-separated string)
     if isinstance(object_list_string, str):
-        object_names = object_list_string.split(":")
+        object_names = object_list_string.split("|")
     elif isinstance(object_list_string, list):
         object_names = object_list_string
     else:

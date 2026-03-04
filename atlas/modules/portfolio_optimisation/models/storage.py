@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.enums import StorageType
@@ -28,6 +28,7 @@ class StoragePO(BaseEquipmentPO, Storage):
     discharge_efficiency: float
     charge_efficiency: float
     maximum_energy: AbstractTimeseries
+    additional_hours: Duration
 
     optimisation_time_window: list[DateTime] = []
     _cached_energy_forecast: Timeseries | None = None

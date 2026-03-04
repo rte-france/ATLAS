@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 """
 
 from atlas.enums import BusinessModelName
-from atlas.logging import Logger
+from atlas.log import Logger
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
@@ -93,7 +93,7 @@ DEFAULT_VALUE_IO = {
         "maximum_gradient": 0,
     },
     BusinessModelName.STORAGE: {
-        "transition_duration": 0,
+        "transition_duration": "P0D",
     },
     BusinessModelName.MARKET_BORDER: {
         "coupling_type": "ATC",

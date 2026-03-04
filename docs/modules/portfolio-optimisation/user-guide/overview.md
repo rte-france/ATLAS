@@ -4,34 +4,41 @@
 
 The Portfolio Optimisation module optimizes energy portfolios to determine optimal dispatch strategies for thermal, hydro, solar, wind, storage, and load assets.
 
+## What It Does
+
+The module:
+- **Optimizes dispatch**: Determines optimal power output for each asset
+- **Handles multiple portfolios**: Processes all portfolios in the input dataset
+- **Considers market conditions**: Accounts for prices, imbalance penalties, and constraints
+- **Supports multiple asset types**: Thermal, hydro, storage, solar, wind, and load
+
 ## How to Use
 
-The module follows Atla's standard `AbstractModule` pattern, run it simply by calling `run` method:
+See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern.
 
-```python
-module = PortfolioOptimisationModule()
-module.run(input_data: dict[str, list[BusinessModel]], parameters: PortfolioOptimisationParameters)
-```
+## Module-Specific Workflow
 
-Where:
+Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/module-pattern.md)), this module:
 
-- `raw_data`: Dictionary of business model objects (portfolios, equipment, market areas)
-- `raw_params`: Parameter dictionary or path to JSON/YAML file
+1. **Groups equipment by portfolio**: Organizes assets into portfolios
+2. **Applies manual activation rules**: Excludes equipment based on configuration
+3. **Runs optimization**: Uses solver to find optimal dispatch
+4. **Updates results**: Writes `power` forecasts to equipment and `imbalance` to portfolios
 
-## Module Workflow
+## Optimization Modes
 
-The `run()` method executes:
+**Portfolio-level** (`is_portfolio_bidding=true`):
+- Optimizes entire portfolio considering imbalance penalties
+- Coordinates assets within the portfolio
+- Accounts for portfolio-level constraints
 
-1. **Import Parameters**: Load `PortfolioOptimisationParameters`
-2. **Import Data**: Convert to `PortfolioOptimisationInputDataset`
-3. **Validate**: Check timestep consistency
-4. **Execute**: Run optimization for each portfolio
-5. **Export**: Update equipment `power` and portfolio `imbalance` (if `export_result=True`)
-
-Results are stored directly in the business model objects.
+**Individual units** (`is_portfolio_bidding=false`):
+- Optimizes each unit independently
+- No portfolio-level coordination
+- Simpler but may be suboptimal
 
 ## Next Steps
 
-- [Parameters](input-data.md): Configuration options
-- [Running](running.md): Execution details
+- [Parameters](input-data.md): Module-specific configuration options
+- [Running](running.md): Execution modes and options
 - [Results](results.md): Accessing outputs

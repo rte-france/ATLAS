@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -25,6 +25,7 @@ class SolarPO(BaseEquipmentPO, Solar):
     maximum_afrr: float
     maximum_curtailment_ratio: AbstractTimeseries
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
+    additional_hours: Duration
 
     optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None

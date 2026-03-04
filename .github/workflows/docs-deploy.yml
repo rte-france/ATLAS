@@ -90,4 +90,4 @@ jobs:
         run: uv sync --group docs --no-dev
 
       - name: Build docs (validation only)
-        run: uv run mkdocs build
+        run: uv run zensical build

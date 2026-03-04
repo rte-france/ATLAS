@@ -11,15 +11,15 @@ import pendulum
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import generate_datetimes
 from atlas.enums import CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
-from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
-from atlas.modules.day_ahead_orders.data_models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.models.order import OrderDAO
+from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.timing import generate_datetimes
 
 
 class ThermalUnitOrders:
@@ -126,15 +126,6 @@ class ThermalUnitOrders:
         ## See whether there is a startup or not. Used to know if we need to amortise startup cost over the inflexible
         # orders or not.
         startup = True if 2 in online_timeframe.values else False
-        # if T_start > 0:
-        #     startup = True if 2 in online_timeframe.Values else False
-        # else:
-        #     # Another way to check the startup, less efficient but more robust
-        #     startup = False
-        #     for t in list(online_timeframe.Index)[:-1]:
-        #         t_next = t.AddMinutes(p.time_step)
-        #         if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 1:
-        #             startup = True
 
         ## See whether the ramps are complete or not
         T_startSD_in_sim = False
@@ -501,7 +492,7 @@ class ThermalUnitOrders:
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]
             coupling = OrderCouplingDAO(
-                name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{date}_with_scenario_{case}",
+                name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{pendulum.DateTime.instance(date)}_with_scenario_{case}",
                 coupling_type=CouplingType.IDENTICAL_RATIO,
             )
             for order in inflexible_orders:

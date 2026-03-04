@@ -5,8 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import BusinessModel
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
@@ -17,21 +16,42 @@ from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.portfolio_orchestrator import PortfolioOptimisationResult
+from atlas.workflow.change_set import UpdateObject
 
 
-class PortfolioOptimisationOutputDataset(AbstractDataset[PortfolioOptimisationParameters]):
+class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisationParameters]):
     def __init__(
         self,
         parameters: PortfolioOptimisationParameters,
         optimisation_results: dict[str, PortfolioOptimisationResult],
         input_dataset: PortfolioOptimisationInputDataset,
     ):
+        super().__init__()
         self.optimisation_results = optimisation_results
         self.parameters = parameters
         self.input_dataset = input_dataset
 
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        return []
+    def build_change_sets(self) -> None:
+        """Run in-place mutations then export each modified object as an UpdateObject changeset."""
+        self.build()
+        for model in self.optimisation_results.values():
+            portfolio = model.portfolio
+            if self.parameters.is_portfolio_bidding:
+                portfolio_data: dict = {
+                    "name": portfolio.name,
+                    "imbalance": portfolio.imbalance,
+                    "power": portfolio.power,
+                }
+                self.change_sets.append(UpdateObject(portfolio_data, type(portfolio)))
+
+                for _, equipment_list in portfolio.equipments.iter_by_type():
+                    for equipment in equipment_list:
+                        equipment_data: dict = {"name": equipment.name, "power": equipment.power}
+                        if isinstance(equipment, (HydroPO, StoragePO)):
+                            equipment_data["stored_energy"] = equipment.stored_energy
+                        if isinstance(equipment, ThermalPO):
+                            equipment_data["state_sequence"] = equipment.state_sequence
+                        self.change_sets.append(UpdateObject(equipment_data, type(equipment)))
 
     def build(self):
         for model in self.optimisation_results.values():
