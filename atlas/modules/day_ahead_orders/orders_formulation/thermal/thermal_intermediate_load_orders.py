@@ -419,6 +419,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 day_zero = model.is_day_zero()
                 combination_function(model=model, day_zero=day_zero)
 
+                # Add daily energy constraint after all combination constraints
+                model.add_daily_energy_constraint()
+
                 res = model.solve_thermal_optimization()
                 results[unit.name][price_type] = res
 
