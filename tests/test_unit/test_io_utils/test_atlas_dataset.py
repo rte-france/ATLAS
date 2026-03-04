@@ -869,3 +869,30 @@ class TestFilterDataset:
         orders = subset.order.all()
         assert len(orders) == 1
         assert orders[0].name == "order_2"
+
+def test_filter_equipments_keeps_only_selected():
+    t1 = Thermal(name="plant_1")
+    t2 = Thermal(name="plant_2")
+    t3 = Thermal(name="plant_3")
+
+    dataset = AtlasDataset(
+        thermal=[t1, t2, t3]
+    )
+
+    filtered = dataset.filter_equipments(["plant_1", "plant_3"])
+
+    remaining_names = [e.name for e in filtered.thermal]
+
+    assert set(remaining_names) == {"plant_1", "plant_3"}
+    assert "plant_2" not in remaining_names
+
+def test_filter_does_not_modify_original_dataset():
+    t1 = Thermal(name="plant_1")
+    t2 = Thermal(name="plant_2")
+
+    dataset = AtlasDataset(thermal=[t1, t2])
+
+    filtered = dataset.filter_equipments(["plant_1"])
+
+    assert len(dataset.thermal) == 2  # original unchanged
+    assert len(filtered.thermal) == 1

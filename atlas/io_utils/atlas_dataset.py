@@ -17,13 +17,13 @@ from typing import Any, Literal, get_origin, cast
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 import atlas.config as cfg
-from atlas import Equipment
 from atlas.enums import BusinessModelName
 from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
+from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
@@ -668,12 +668,12 @@ class AtlasDataset(BaseModel):
 
         return AtlasDataset.from_dict(filtered_data)
 
-    def filter_equipments(self, equipment_names: list[str]) -> AtlasDataset:
+    def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
         copy_dataset = copy.deepcopy(self)
         for equipment_type in cfg.EQUIPMENT_MODELS:
             equipments = copy_dataset.get_container_by_type(equipment_type)
             for equipment in copy_dataset.get_items_by_type(equipment_type):
-                if equipment.name not in equipment_names:
+                if equipment.name not in equipment_names and equipment_names:
                     equipments.remove(equipment.name)
         return copy_dataset
 
