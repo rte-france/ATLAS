@@ -29,24 +29,4 @@ class CurrentInputState:
         included_types: Iterable[str | BusinessModelName] = (),
         filters: dict[str | BusinessModelName, Any] | None = None,
     ) -> AtlasDataset:
-        filtered_data: dict[str, list[BusinessModel]] = {}
-        dataset_copy = copy.deepcopy(self.data)
-        for object_type in included_types:
-            object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
-            if not filters or object_type_str not in filters:
-                try:
-                    container: Container[BusinessModel] = dataset_copy.get_container_by_type(object_type_str)
-                    filtered_data[object_type_str] = list(container)
-                except ValueError:
-                    continue
-
-        if filters:
-            for object_type, filter_fn in filters.items():
-                object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
-                try:
-                    filtered_container: Container[BusinessModel] = dataset_copy.get_container_by_type(object_type_str)
-                    filtered_data[object_type_str] = [obj for obj in filtered_container if filter_fn(obj)]
-                except ValueError:
-                    continue
-
-        return AtlasDataset.from_dict(filtered_data)
+        return self.data.filter_dataset(included_types=included_types, filters=filters)

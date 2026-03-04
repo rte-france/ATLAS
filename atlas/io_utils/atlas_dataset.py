@@ -8,9 +8,10 @@ Module that implements AtlasDataset
 
 from __future__ import annotations
 
+import copy
 import pickle
 from pathlib import Path
-from typing import Any, Literal, get_origin
+from typing import Any, Literal, get_origin, Iterable
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -149,7 +150,11 @@ class AtlasDataset(BaseModel):
         """
         if isinstance(directory_path, str):
             directory_path = Path(directory_path)
-
+        print(directory_path)
+        print(directory_path)
+        print(directory_path)
+        print(directory_path)
+        print(directory_path)
         raw_data = load_from_directory(
             directory_path=directory_path,
             separator=separator,
@@ -633,3 +638,30 @@ class AtlasDataset(BaseModel):
                 except Exception:
                     diffs[str(i)] = {"error": "Couldn't check diff"}
         return diffs if diffs else None
+
+    def filter_dataset(
+        self,
+        included_types: Iterable[str | BusinessModelName] = (),
+        filters: dict[str | BusinessModelName, Any] | None = None,
+    ) -> AtlasDataset:
+        filtered_data: dict[str, list[BusinessModel]] = {}
+        dataset = copy.deepcopy(self)
+        for object_type in included_types:
+            object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
+            if not filters or object_type_str not in filters:
+                try:
+                    container: Container[BusinessModel] = dataset.get_container_by_type(object_type_str)
+                    filtered_data[object_type_str] = list(container)
+                except ValueError:
+                    continue
+
+        if filters:
+            for object_type, filter_fn in filters.items():
+                object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
+                try:
+                    filtered_container: Container[BusinessModel] = dataset.get_container_by_type(object_type_str)
+                    filtered_data[object_type_str] = [obj for obj in filtered_container if filter_fn(obj)]
+                except ValueError:
+                    continue
+
+        return AtlasDataset.from_dict(filtered_data)
