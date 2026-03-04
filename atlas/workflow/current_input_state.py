@@ -5,15 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import copy
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from atlas import BusinessModel
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.container import Container
 
 
 class CurrentInputState:

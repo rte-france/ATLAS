@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import copy
 import pickle
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Literal, get_origin, Iterable
+from typing import Any, Literal, get_origin, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 import atlas.config as cfg
+from atlas import Equipment
 from atlas.enums import BusinessModelName
 from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
@@ -665,3 +667,76 @@ class AtlasDataset(BaseModel):
                     continue
 
         return AtlasDataset.from_dict(filtered_data)
+
+    def filter_zones(self, control_block_names: list[str], equipment_names: list[str] | None = None) -> AtlasDataset:
+        copy_dataset = copy.deepcopy(self)
+        dataset = AtlasDataset()
+        for cb in copy_dataset.control_block:
+            if cb.name in control_block_names:
+                dataset.control_block.add(cb)
+        for ma in copy_dataset.market_area:
+            if ma.control_block is not None and ma.control_block.name in control_block_names:
+                dataset.market_area.add(ma)
+        for node in copy_dataset.node:
+            if node.control_block is not None and node.control_block.name in control_block_names:
+                dataset.node.add(node)
+        for border in copy_dataset.market_border:
+            if (
+                    border.downhill_control_block is not None
+                    and border.downhill_control_block.name in control_block_names
+                    and border.uphill_control_block is not None
+                    and border.uphill_control_block.name in control_block_names
+            ):
+                dataset.market_border.add(border)
+        for ma_ptdf in copy_dataset.market_area_ptdf:
+            ma_ptdf_area: MarketArea | None = ma_ptdf.market_area
+            if ma_ptdf_area is not None and ma_ptdf_area.control_block is not None and ma_ptdf_area.control_block.name in control_block_names:
+                dataset.market_area_ptdf.add(ma_ptdf)
+        for node_ptdf in copy_dataset.node_ptdf:
+            node_ptdf_node: Node | None = node_ptdf.node
+            if node_ptdf_node is not None and node_ptdf_node.control_block is not None and node_ptdf_node.control_block.name in control_block_names:
+                dataset.node_ptdf.add(node_ptdf)
+        for critical_branch in copy_dataset.critical_branch:
+            up_node: Node | None = critical_branch.uphill_node
+            down_node: Node | None = critical_branch.downhill_node
+            if (
+                    up_node is not None
+                    and up_node.control_block is not None
+                    and up_node.control_block.name in control_block_names
+                    and down_node is not None
+                    and down_node.control_block is not None
+                    and down_node.control_block.name in control_block_names
+            ):
+                dataset.critical_branch.add(critical_branch)
+        for order in copy_dataset.order:
+            order_ma: MarketArea | None = order.market_area
+            if order_ma is not None and order_ma.control_block is not None and order_ma.control_block.name in control_block_names:
+                dataset.order.add(order)
+        # Hypothesis that every Order in OrderCoupling has the same MarketArea
+        for order_coupling in copy_dataset.order_coupling:
+            keep_coupling = False
+            if order_coupling.orders is None:
+                continue
+            for coupled_order in order_coupling.orders:
+                coupling_ma: MarketArea | None = coupled_order.market_area
+                if coupling_ma is not None and coupling_ma.control_block is not None and coupling_ma.control_block.name not in control_block_names:
+                    keep_coupling = False
+                    break
+            if keep_coupling:
+                dataset.order_coupling.add(order_coupling)
+        for portfolio in copy_dataset.portfolio:
+            if portfolio.control_block is not None and portfolio.control_block.name in control_block_names:
+                dataset.portfolio.add(portfolio)
+
+        for equipment_type in cfg.EQUIPMENT_MODELS:
+            equipments = dataset.get_container_by_type(equipment_type)
+            for equipment in copy_dataset.get_items_by_type(equipment_type):
+                equipment_node: Node | None = cast(Equipment, equipment).node
+                if (
+                        equipment_node is not None
+                        and equipment_node.control_block is not None
+                        and equipment_node.control_block.name in control_block_names
+                ):
+                    if equipment_names is None or equipment.name in equipments:
+                        equipments.add(equipment)
+        return dataset
