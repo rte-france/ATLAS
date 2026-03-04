@@ -9,7 +9,7 @@ import math
 from datetime import datetime
 from typing import Literal
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.math.timeseries import Timeseries
