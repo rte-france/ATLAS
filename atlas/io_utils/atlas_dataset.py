@@ -664,10 +664,12 @@ class AtlasDataset(BaseModel):
 
     def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
         copy_dataset = copy.deepcopy(self)
+        if not equipment_names:
+            return copy_dataset
         for equipment_type in cfg.EQUIPMENT_MODELS:
             equipments = copy_dataset.get_container_by_type(equipment_type)
             for equipment in copy_dataset.get_items_by_type(equipment_type):
-                if equipment.name not in equipment_names and equipment_names:
+                if equipment.name not in equipment_names:
                     equipments.remove(equipment.name)
         return copy_dataset
 
