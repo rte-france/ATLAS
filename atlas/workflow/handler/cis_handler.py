@@ -50,22 +50,20 @@ class CISHandler:
                     logger.error(error_msg)
 
                     if rollback_on_error:
-                        logger.warning("Rolling back all changes")
+                        logger.error("Rolling back all changes")
                         cis.data = cast(AtlasDataset, cis_backup)
 
                     raise ChangeSetApplicationError(error_msg, change_set, e) from e
 
             logger.info(f"Successfully applied {len(change_sets)} change sets to CIS")
 
-        except ChangeSetApplicationError:
-            raise
         except Exception as e:
             # Catch any unexpected errors
             error_msg = f"Unexpected error while applying change sets: {type(e).__name__}: {e}"
             logger.error(error_msg)
 
             if rollback_on_error:
-                logger.warning("Rolling back all changes")
+                logger.error("Rolling back all changes")
                 cis.data = cast(AtlasDataset, cis_backup)
 
             raise

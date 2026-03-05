@@ -9,7 +9,7 @@ import math
 from datetime import datetime
 from typing import Literal
 
-from pendulum import DateTime, Duration
+from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.math.timeseries import Timeseries
@@ -995,48 +995,29 @@ class ThermalOptimizationModel(OptimisationModel):
                 - self.get_variable(self.automated_reserves_down_at(t))
             )
 
-    def create_daily_energy_constraint(
-        self, thermal_unit: ThermalDAO, time_frame: list[DateTime], time_step: Duration, q: ModelVar
-    ) -> None:
+    def add_daily_energy_constraint(self) -> None:
         """
-        Creation of daily energy constraint
-        :param thermal_unit: the thermal unit
-        :type thermal_unit: ThermalDAO
-        :param time_frame: the time frame
-        :type time_frame: list[DateTime]
-        :param time_step: the time step
-        :type time_step: Duration
-        :param q: the model variable
-        :type q: ModelVar
+        Add daily energy constraint to the optimization model.
+        This constraint limits the total energy output per day.
+        Should be called once after all combination constraints are added.
+
         :return: None
         """
-        # Energy limits
-        if thermal_unit.has_daily_energy_constraint:
-            days_in_time_frame = []
-
-            for local_time in time_frame:
-                if datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0) not in days_in_time_frame:
-                    days_in_time_frame.append(datetime(local_time.year, local_time.month, local_time.day, 0, 0, 0))
+        if self.thermal_unit.has_daily_energy_constraint:
+            days_in_time_frame = sorted({datetime(t.year, t.month, t.day, 0, 0, 0) for t in self.time_frame})
 
             for date in days_in_time_frame:
-                upper_bound = thermal_unit.maximum_daily_energy.get_value(date)
+                matching_steps = [
+                    t for t in self.time_frame if (t.year == date.year and t.month == date.month and t.day == date.day)
+                ]
 
-                matching_steps = []
-                for local_time in time_frame:
-                    if (
-                        (local_time.year == date.year)
-                        and (local_time.month == date.month)
-                        and (local_time.day == date.day)
-                    ):
-                        matching_steps.append(local_time)
-
-                if matching_steps:  # Add a constraint only if the list of filtered dates is not empty.
-                    # Enforce eq. (37)
-                    self.add_constraint(
-                        sum(q.get_value(t) for t in matching_steps)
-                        <= upper_bound * time_step.total_days() * len(matching_steps),
-                        f"energy_limit_of_{thermal_unit.name}_at_{date}",
-                    )
+                if matching_steps and self.thermal_unit.maximum_daily_energy is not None:
+                    constraint_expr = sum(
+                        self.q.get_value(t) for t in matching_steps
+                    ) <= self.thermal_unit.maximum_daily_energy.get_value(
+                        date
+                    ) * self.parameters.timestep.total_days() * len(matching_steps)
+                    self.add_constraint(constraint_expr, f"energy_limit_of_{self.thermal_unit.name}_at_{date}")
 
     def is_day_zero(self) -> bool:
         """

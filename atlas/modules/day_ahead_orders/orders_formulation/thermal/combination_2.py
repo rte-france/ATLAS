@@ -325,5 +325,3 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             "Please check the value of `maximum_gradient`."
         )
         raise ValueError("Missing gradients for thermic units.")
-
-    model.create_daily_energy_constraint(model.thermal_unit, model.time_frame, model.parameters.timestep, model.q)
