@@ -7267,7 +7267,7 @@ current one</p>
 
 <a href="#atlas.Timeseries.from_timeseries" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_timeseries</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">timeseries</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            atlas.Timeseries (atlas.math.timeseries.Timeseries)" href="#atlas.Timeseries">Timeseries</a></span><span class="p">,</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">timeseries</span><span class="p">:</span> <span class="n"><span title="atlas.math.abstract_timeseries.AbstractTimeseries">AbstractTimeseries</span></span><span class="p">,</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">default_value</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            atlas.Timeseries (atlas.math.timeseries.Timeseries)" href="#atlas.Timeseries">Timeseries</a></span>
 </span></code></pre></div>
@@ -7293,7 +7293,7 @@ current one</p>
                 <code>timeseries</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="            atlas.Timeseries (atlas.math.timeseries.Timeseries)" href="#atlas.Timeseries">Timeseries</a></code>
+                  <code><span title="atlas.math.abstract_timeseries.AbstractTimeseries">AbstractTimeseries</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7368,7 +7368,7 @@ current one</p>
 <span class="normal"><a href="#__codelineno-0-192">192</a></span>
 <span class="normal"><a href="#__codelineno-0-193">193</a></span>
 <span class="normal"><a href="#__codelineno-0-194">194</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-176"><a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="nd">@classmethod</span>
-</span><span id="__span-0-177"><a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_timeseries</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">timeseries</span><span class="p">:</span> <span class="n">Timeseries</span><span class="p">,</span> <span class="n">default_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Timeseries</span><span class="p">:</span>
+</span><span id="__span-0-177"><a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_timeseries</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">timeseries</span><span class="p">:</span> <span class="n">AbstractTimeseries</span><span class="p">,</span> <span class="n">default_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Timeseries</span><span class="p">:</span>
 </span><span id="__span-0-178"><a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Timeseries from another, using its structure.</span>
 </span><span id="__span-0-179"><a id="__codelineno-0-179" name="__codelineno-0-179"></a>
 </span><span id="__span-0-180"><a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">    :param timeseries: The input timeseries object</span>
