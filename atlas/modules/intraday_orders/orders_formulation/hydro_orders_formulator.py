@@ -19,29 +19,6 @@ from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order
 
 
-def build_offer(
-    volume: float,
-    price: float,
-    order_type: OrderType,
-    dataset: IntradayOrdersOutputDataset,
-    equipment: Hydro,
-    time: DateTime,
-    parameters: IntradayOrdersParameters,
-):
-    if volume > parameters.allowed_round_off_error:
-        bid_name = HydroOrdersFormulator.ORDER_NAME_TEMPLATE.format(
-            order_type,
-            str(volume),
-            get_date_to_clean_string(time),
-            equipment.name,
-            get_date_to_clean_string(parameters.execution_date),
-        )
-        bid_output = build_intraday_order(equipment, bid_name, price, 0.0, volume, order_type, time, parameters)
-        dataset.add_order(bid_output)
-
-    return None
-
-
 class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
     ORDER_NAME_TEMPLATE = "ID_hydraulic_{}_fragment_{}_at_{}_for_unit_{}_{}"
 
@@ -145,25 +122,25 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
                         # Create the order
                         if volume_engagement > 0:
                             # If the volume corresponds to an engagement we try to buy it
-                            build_offer(volume, price, OrderType.Buy, dataset, equipment, t, parameters)
+                            self.build_offer(volume, price, OrderType.Buy, dataset, equipment, t, parameters)
                             buy_submitted_volume.sum_value_at(t, abs(volume))
 
                         # We split if the volume is split
                         elif volume_engagement < 0 and abs(volume_engagement) < volume:
                             # If the volume corresponds to an engagement we try to buy it
-                            build_offer(
+                            self.build_offer(
                                 volume + volume_engagement, price, OrderType.Buy, dataset, equipment, t, parameters
                             )
                             buy_submitted_volume.sum_value_at(t, abs(volume + volume_engagement))
                             # If the volume does not match an engagement we try to sell it
-                            build_offer(
+                            self.build_offer(
                                 abs(volume_engagement), price, OrderType.Sell, dataset, equipment, t, parameters
                             )
                             sell_submitted_volume.sum_value_at(t, abs(volume))
 
                         elif volume_engagement < 0 and abs(volume_engagement) > volume:
                             # If the volume does not correspond to an engagement we try to sell it
-                            build_offer(volume, price, OrderType.Sell, dataset, equipment, t, parameters)
+                            self.build_offer(volume, price, OrderType.Sell, dataset, equipment, t, parameters)
                             sell_submitted_volume.sum_value_at(t, abs(volume))
 
                         else:
@@ -174,5 +151,28 @@ class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
 
                 equipment.total_id_buy_submitted_volume += buy_submitted_volume
                 equipment.total_id_sell_submitted_volume += sell_submitted_volume
+
+        return None
+
+    def build_offer(
+        self,
+        volume: float,
+        price: float,
+        order_type: OrderType,
+        dataset: IntradayOrdersOutputDataset,
+        equipment: Hydro,
+        time: DateTime,
+        parameters: IntradayOrdersParameters,
+    ):
+        if volume > parameters.allowed_round_off_error:
+            bid_name = self.ORDER_NAME_TEMPLATE.format(
+                order_type,
+                str(volume),
+                get_date_to_clean_string(time),
+                equipment.name,
+                get_date_to_clean_string(parameters.execution_date),
+            )
+            bid_output = build_intraday_order(equipment, bid_name, price, 0.0, volume, order_type, time, parameters)
+            dataset.add_order(bid_output)
 
         return None

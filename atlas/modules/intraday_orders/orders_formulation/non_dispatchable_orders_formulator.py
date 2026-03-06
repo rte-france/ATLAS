@@ -56,7 +56,7 @@ class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatcha
             # Now we loop over the time stamps for which we want an offer to be made.
             # We formulate as many offers as there are time stamps in orders_time.
             for t in orders_timestamps:
-                bid_name = NonDispatchableOrdersFormulator.ORDER_NAME_TEMPLATE.format(
+                bid_name = self.ORDER_NAME_TEMPLATE.format(
                     get_date_to_clean_string(parameters.execution_date), equipment.name, get_date_to_clean_string(t)
                 )
 
