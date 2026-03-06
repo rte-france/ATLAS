@@ -5,10 +5,10 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import BusinessModel
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 
 
-class IntradayOrdersOutputDataset(AbstractDataset[IntradayOrdersParameters]):
-    pass
+class IntradayOrdersOutputDataset(AbstractModuleOutput[IntradayOrdersParameters]):
+    def build_change_sets(self) -> None:
+        pass
