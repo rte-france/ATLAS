@@ -6,12 +6,14 @@ This file is part of the ATLAS project.
 """
 
 from datetime import datetime
+from functools import cached_property
 
 from pendulum import duration, DateTime
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.validators import convert_to_duration
 
 
 class IntradayOrdersParameters(AbstractParameters):
@@ -62,3 +64,17 @@ class IntradayOrdersParameters(AbstractParameters):
         description="Number of extra hours after end_date for the optimization programs applied to Thermal instances.",
     )
     timestep: Duration = Field(lambda: duration(hours=1), description="Time step of the simulated market.")
+
+    @cached_property
+    def penultimate_date(self) -> DateTime:
+        return self.end_date - self.timestep
+
+    @field_validator(
+        "timestep",
+        "solver_timeout",
+        mode="before",
+    )
+    @classmethod
+    def parse_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)
