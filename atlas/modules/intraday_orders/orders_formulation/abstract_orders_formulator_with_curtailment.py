@@ -20,7 +20,6 @@ R = TypeVar("R", bound=Solar | Wind)
 
 
 class AbstractOrdersFormulatorWithCurtailment(AbstractOrdersFormulator[R]):
-    ORDER_NAME_TEMPLATE: str
     CURTAILMENT_ORDER_NAME_TEMPLATE: str
 
     def formulate_orders(

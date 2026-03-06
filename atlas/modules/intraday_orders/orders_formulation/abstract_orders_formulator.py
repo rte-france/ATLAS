@@ -18,6 +18,8 @@ E = TypeVar("E", bound=Equipment)
 
 
 class AbstractOrdersFormulator(ABC, Generic[E]):
+    ORDER_NAME_TEMPLATE: str
+
     @abstractmethod
     def formulate_orders(
         self,
