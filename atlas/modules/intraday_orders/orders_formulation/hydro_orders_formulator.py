@@ -12,20 +12,11 @@ from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas import Hydro, Timeseries
-from atlas.enums import Product, OrderType
-from atlas.modules.intraday_orders.models.order import IntraDayOrder
+from atlas.enums import OrderType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-
-
-def get_date_to_clean_string(date: DateTime):
-    """
-    Converts a datetime object to a string without special characters
-    """
-    string = str(date)
-    string = string.replace("/", "_").replace(":", "_").replace(" ", "_")
-    return string
+from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order
 
 
 def build_offer(
@@ -38,37 +29,22 @@ def build_offer(
     parameters: IntradayOrdersParameters,
 ):
     if volume > parameters.allowed_round_off_error:
-        # Assign a unique name.
-        bid_name = "ID_hydraulic_{}_fragment_{}_at_{}_for_unit_{}_{}".format(
+        bid_name = HydroOrdersFormulator.ORDER_NAME_TEMPLATE.format(
             order_type,
             str(volume),
             get_date_to_clean_string(time),
             equipment.name,
             get_date_to_clean_string(parameters.execution_date),
         )
-
-        bid_output = IntraDayOrder(
-            name=bid_name,
-            market_area=equipment.portfolio.market_area,
-            portfolio=equipment.portfolio,
-            equipment=equipment,
-            qmax=volume,
-            qmin=0,
-            price=price,
-            product=Product.Intraday,
-            order_type=order_type,
-            is_agent_tso=False,
-            execution_date=parameters.execution_date,
-            start_date=time,
-            end_date=time + parameters.timestep,
-        )
-
+        bid_output = build_intraday_order(equipment, bid_name, price, 0.0, volume, order_type, time, parameters)
         dataset.add_order(bid_output)
 
     return None
 
 
 class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
+    ORDER_NAME_TEMPLATE = "ID_hydraulic_{}_fragment_{}_at_{}_for_unit_{}_{}"
+
     def formulate_orders(
         self,
         equipments: List[Hydro],
