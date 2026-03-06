@@ -14,12 +14,13 @@ from atlas.enums import OrderType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order
+from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order, intraday_step
 
 
 class NonDispatchableOrdersFormulator(AbstractOrdersFormulator[OtherNonDispatchable]):
     ORDER_NAME_TEMPLATE = "otherND_IDOrder_{}_{}_{}"
 
+    @intraday_step("non-dispatchable")
     def formulate_orders(
         self,
         equipments: List[OtherNonDispatchable],

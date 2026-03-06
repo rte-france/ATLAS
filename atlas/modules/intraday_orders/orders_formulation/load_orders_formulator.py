@@ -14,12 +14,13 @@ from atlas.enums import LoadType, OrderType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string
+from atlas.modules.intraday_orders.utils import build_intraday_order, get_date_to_clean_string, intraday_step
 
 
 class LoadOrdersFormulator(AbstractOrdersFormulator[Load]):
     ORDER_NAME_TEMPLATE = "{}_IDOrder_{}_{}_{}"
 
+    @intraday_step("load")
     def formulate_orders(
         self,
         equipments: List[Load],

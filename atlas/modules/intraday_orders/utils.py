@@ -5,11 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from typing import List
+from typing import List, Callable, Type
 
-from pydantic_extra_types.pendulum_dt import Duration
 from pendulum import DateTime
+from pydantic_extra_types.pendulum_dt import Duration
 
+import atlas.config as cfg
 from atlas import Equipment
 from atlas.enums import OrderType, Product
 from atlas.modules.intraday_orders.models.order import IntraDayOrder
@@ -57,3 +58,21 @@ def build_intraday_order(
         start_date=time,
         end_date=time + parameters.timestep,
     )
+
+
+def intraday_step(step_name: str):
+    """
+    Decorator method to wrap an intraday formulation step with log messages.
+    """
+    message = f"Formulation of the intraday {step_name} orders"
+
+    def decorator(func: Callable) -> Callable:
+        def wrapper(*args, **kwargs):
+            cfg.logger.info(f"{message} [start]")
+            result = func(*args, **kwargs)
+            cfg.logger.info(f"{message} [end]")
+            return result
+
+        return wrapper
+
+    return decorator

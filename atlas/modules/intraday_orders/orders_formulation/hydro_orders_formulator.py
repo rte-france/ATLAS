@@ -16,12 +16,13 @@ from atlas.enums import OrderType
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order
+from atlas.modules.intraday_orders.utils import get_date_to_clean_string, build_intraday_order, intraday_step
 
 
 class HydroOrdersFormulator(AbstractOrdersFormulator[Hydro]):
     ORDER_NAME_TEMPLATE = "ID_hydraulic_{}_fragment_{}_at_{}_for_unit_{}_{}"
 
+    @intraday_step("hydraulic")
     def formulate_orders(
         self,
         equipments: List[Hydro],
