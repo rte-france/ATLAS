@@ -115,18 +115,8 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
         if parameters.verbose:
             cfg.logger.info(f"Formulating storage orders for unit {equipment.name}")
 
-        if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
-            order_coupling = OrderCoupling()
-            order_coupling.name = f"Complement_for_unit_{equipment.name}_IJ"
-            order_coupling.coupling_type = CouplingType.COMPLEMENT
-
-            # By default, EVs are assumed to respect their DisplacementEnergy after the DA Clearing (not necessarily the PO)
-            # So the total energy bought / sold in ID should be equal to 0
-            order_coupling.complement_energy = 0
-            order_coupling.complement_direction = ComplementDirection.EqualTo
-
-        daily_buy_quantity = 0
-        daily_sell_quantity = 0
+        daily_buy_quantity = 0.0
+        daily_sell_quantity = 0.0
 
         for t in orders_timestamps:
             # Read new and previous planning at this time step
@@ -135,39 +125,19 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
 
             # Identify if a sell or buy order should be created based on the results from the optimization
             if (
-                equipment.storage_type != StorageType.ELECTRIC_VEHICLE
-                or not parameters.electric_vehicles_complement_ordering
+                equipment.storage_type == StorageType.ELECTRIC_VEHICLE
+                and parameters.electric_vehicles_complement_ordering
             ):
-                q_order = 0.0
-                if new_quantity > previous_quantity:
-                    q_order = new_quantity - previous_quantity
-                    price = final_sell_price
-                    order_type = OrderType.Sell
-
-                    sell_submitted_volume.sum_value_at(t, new_quantity - previous_quantity)
-                    daily_sell_quantity += sell_submitted_volume.get_value(t)
-
-                elif previous_quantity > new_quantity:
-                    q_order = previous_quantity - new_quantity
-                    price = final_buy_price
-                    order_type = OrderType.Buy
-
-                    buy_submitted_volume.sum_value_at(t, new_quantity - previous_quantity)
-                    daily_buy_quantity += buy_submitted_volume.get_value(t)
-
-                else:
-                    continue
-
-                # Creation of the order with the relevant parameters
-                if q_order > parameters.allowed_round_off_error:
-                    order_name = "ID_{}_{}_{}".format(
-                        get_date_to_clean_string(parameters.execution_date), equipment.name, get_date_to_clean_string(t)
-                    )
-                    order = build_intraday_order(equipment, order_name, price, 0.0, q_order, order_type, t, parameters)
-                    dataset.add_order(order)
-
-            else:
+                # By default, EVs are assumed to respect their DisplacementEnergy after the DA Clearing (not necessarily the PO)
+                # So the total energy bought / sold in ID should be equal to 0
+                order_coupling = OrderCoupling(
+                    name=f"Complement_for_unit_{equipment.name}_IJ",
+                    coupling_type=CouplingType.COMPLEMENT,
+                    complement_energy=0.0,
+                    complement_direction=ComplementDirection.EqualTo,
+                )
                 add_order_coupling_to_output = False
+
                 if previous_quantity - equipment.minimum_power.get_value(t) > parameters.allowed_round_off_error:
                     order_name = "ID_Buy_{}_{}_{}".format(
                         get_date_to_clean_string(parameters.execution_date), equipment.name, get_date_to_clean_string(t)
@@ -210,3 +180,31 @@ class StorageOrdersFormulator(AbstractOrdersFormulator[Storage]):
 
                 if add_order_coupling_to_output:
                     dataset.add_order_coupling(order_coupling)
+
+            else:
+                if new_quantity > previous_quantity:
+                    q_order = new_quantity - previous_quantity
+                    price = final_sell_price
+                    order_type = OrderType.Sell
+
+                    sell_submitted_volume.sum_value_at(t, new_quantity - previous_quantity)
+                    daily_sell_quantity += sell_submitted_volume.get_value(t)
+
+                elif previous_quantity > new_quantity:
+                    q_order = previous_quantity - new_quantity
+                    price = final_buy_price
+                    order_type = OrderType.Buy
+
+                    buy_submitted_volume.sum_value_at(t, new_quantity - previous_quantity)
+                    daily_buy_quantity += buy_submitted_volume.get_value(t)
+
+                else:
+                    continue
+
+                # Creation of the order with the relevant parameters
+                if q_order > parameters.allowed_round_off_error:
+                    order_name = "ID_{}_{}_{}".format(
+                        get_date_to_clean_string(parameters.execution_date), equipment.name, get_date_to_clean_string(t)
+                    )
+                    order = build_intraday_order(equipment, order_name, price, 0.0, q_order, order_type, t, parameters)
+                    dataset.add_order(order)
