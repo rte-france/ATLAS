@@ -9,19 +9,21 @@ from typing import List
 
 from pendulum import DateTime
 
-from atlas import Thermal
+from atlas import Thermal, Timeseries
 from atlas.modules.intraday_orders.orders_formulation.abstract_orders_formulator import AbstractOrdersFormulator
 from atlas.modules.intraday_orders.output_dataset import IntradayOrdersOutputDataset
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
-from atlas.modules.intraday_orders.utils import intraday_step
 
 
 class ThermalOrdersFormulator(AbstractOrdersFormulator[Thermal]):
-    @intraday_step("thermal")
-    def formulate_orders(
+    EQUIPMENT_TYPE_NAME = "thermal"
+
+    def formulate_equipment_orders(
         self,
-        equipments: List[Thermal],
+        equipment: Thermal,
         orders_timestamps: List[DateTime],
+        buy_submitted_volume: Timeseries,
+        sell_submitted_volume: Timeseries,
         dataset: IntradayOrdersOutputDataset,
         parameters: IntradayOrdersParameters,
     ):

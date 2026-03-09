@@ -7,12 +7,13 @@ This file is part of the ATLAS project.
 
 from typing import List, TypeVar
 
-from atlas import BusinessModel, AtlasDataset, Wind, Solar, Thermal, OtherNonDispatchable, Hydro, Load, Storage
+import atlas.config as cfg
+from atlas import AtlasDataset, Wind, Solar, Thermal, OtherNonDispatchable, Hydro, Load, Storage, Equipment
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.io_utils.container import Container
 from atlas.modules.intraday_orders.parameters import IntradayOrdersParameters
 
-T = TypeVar("T")
+T = TypeVar("T", bound=Equipment)
 
 
 def container_to_list(container: Container[T]) -> List[T]:
@@ -22,9 +23,17 @@ def container_to_list(container: Container[T]) -> List[T]:
     return data_list
 
 
+def has_hydro_water_values(hydro: Hydro) -> bool:
+    if len(hydro.storage_marginal_value.index) == 0:
+        msg = f"There are no water values for instance {hydro.name}. This instance will be ignored in the calculation."
+        cfg.logger.warning(msg)
+        return False
+    return True
+
+
 class IntradayOrdersInputDataset(AbstractDataset[IntradayOrdersParameters]):
     def __init__(self, raw_data: AtlasDataset):
-        self.__hydro: List[Hydro] = container_to_list(raw_data.hydro)
+        self.__hydro: List[Hydro] = list(filter(has_hydro_water_values, container_to_list(raw_data.hydro)))
         self.__load: List[Load] = container_to_list(raw_data.load)
         self.__other_non_dispatchable: List[OtherNonDispatchable] = container_to_list(raw_data.other_non_dispatchable)
         self.__solar: List[Solar] = container_to_list(raw_data.solar)
