@@ -184,7 +184,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
         # Initialize flat_down_stop.
         for t in model.previous_time_frame[:-2]:
-            # Moreover, if we are after extended_start_date + time_step
+            # Moreover, if we are after extended_start_date + timestep
             # initialize flat_down_stop (which traces back up to two time index before)
             t_minus_one = t - model.parameters.timestep
             t_minus_two = t - 2 * model.parameters.timestep

@@ -3,19 +3,19 @@ import pendulum
 import atlas.config as cfg
 from atlas import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForcastInputDataset
+from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForecastInputDataset
 from atlas.modules.price_forecast.price_forecast_output_dataset import PriceForecastOutputDataset
 from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
 from atlas.timing import generate_datetimes
 
 
 class PriceForecastOrchestrator:
-    def __init__(self, parameters: PriceForecastParameters, input_dataset: PriceForcastInputDataset):
+    def __init__(self, parameters: PriceForecastParameters, input_dataset: PriceForecastInputDataset):
         """
         :param parameters: the parameters
         :type parameters: PriceForecastParameters
         :param input_dataset: the input dataset
-        :type input_dataset: PriceForcastInputDataset
+        :type input_dataset: PriceForecastInputDataset
         """
         self.parameters = parameters
         self.input_dataset = input_dataset
@@ -197,7 +197,7 @@ class PriceForecastOrchestrator:
     def define_orders_time(self) -> list[pendulum.DateTime]:
         """
         This function creates a sequence of timestamps between a start_date and an end_date
-        with frequency matching the time_step parameter.
+        with frequency matching the timestep parameter.
         In particular, it makes sure that no time step crosses the end_date boundary.
 
         :return: a list of DateTime objects
@@ -206,7 +206,7 @@ class PriceForecastOrchestrator:
         orders_time = []
         if self.parameters.start_date < self.parameters.end_date:
             orders_time = generate_datetimes(
-                self.parameters.start_date, self.parameters.penultimate_date, self.parameters.time_step
+                self.parameters.start_date, self.parameters.penultimate_date, self.parameters.timestep
             )
         else:
             msg = "The end_date parameter must be posterior to the start_date parameter."
@@ -216,7 +216,7 @@ class PriceForecastOrchestrator:
     def generate_empty_timeseries(self) -> Timeseries:
         return Timeseries.from_index(
             start_date=self.parameters.start_date,
-            frequency=self.parameters.time_step,
+            frequency=self.parameters.timestep,
             end_date=self.parameters.penultimate_date,
             default_value=0,
         )

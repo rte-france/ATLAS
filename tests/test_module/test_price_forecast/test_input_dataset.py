@@ -15,13 +15,13 @@ from atlas.models.equipment.load import Load
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
-from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForcastInputDataset
+from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForecastInputDataset
 from atlas.modules.price_forecast.price_forecast_orchestrator import PriceForecastOrchestrator
 from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
 
 
 class TestIDForecastInputDataset(unittest.TestCase):
-    """Test suite for PriceForcastInputDataset class."""
+    """Test suite for PriceForecastInputDataset class."""
 
     @pytest.fixture
     def mock_df(self):
@@ -126,7 +126,7 @@ class TestIDForecastInputDataset(unittest.TestCase):
         input_data = AtlasDataset(wind=[self.mock_wind_equipment])
 
         # Create dataset
-        dataset = PriceForcastInputDataset(input_data, self.mock_parameters)
+        dataset = PriceForecastInputDataset(input_data, self.mock_parameters)
 
         # Assertions
         assert dataset.input_data == input_data
@@ -139,7 +139,7 @@ class TestIDForecastInputDataset(unittest.TestCase):
         input_data = AtlasDataset(solar=[self.mock_solar_equipment])
 
         # Create dataset
-        dataset = PriceForcastInputDataset(input_data, self.mock_parameters)
+        dataset = PriceForecastInputDataset(input_data, self.mock_parameters)
 
         # Assertions
         assert len(dataset.solar) == 1
@@ -150,7 +150,7 @@ class TestIDForecastInputDataset(unittest.TestCase):
         input_data = AtlasDataset(market_area=[self.mock_market_area])
 
         # Create dataset
-        dataset = PriceForcastInputDataset(input_data, self.mock_parameters)
+        dataset = PriceForecastInputDataset(input_data, self.mock_parameters)
 
         # Assertions
         assert len(dataset.market_area) == 1
@@ -161,7 +161,7 @@ class TestIDForecastInputDataset(unittest.TestCase):
         input_data = AtlasDataset(load=[self.mock_load])
 
         # Create dataset
-        dataset = PriceForcastInputDataset(input_data, self.mock_parameters)
+        dataset = PriceForecastInputDataset(input_data, self.mock_parameters)
 
         # Assertions
         assert len(dataset.load) == 1
@@ -172,7 +172,7 @@ class TestIDForecastInputDataset(unittest.TestCase):
         input_data.from_dict({})
 
         # Create dataset
-        dataset = PriceForcastInputDataset(input_data, self.mock_parameters)
+        dataset = PriceForecastInputDataset(input_data, self.mock_parameters)
 
         # Assertions
         assert len(dataset.load) == 0

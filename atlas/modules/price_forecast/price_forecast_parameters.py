@@ -11,23 +11,17 @@ from atlas.validators import convert_to_duration
 
 
 class PriceForecastParameters(AbstractParameters):
-    debug: bool = Field(
-        False,
-        description="A boolean indicating if the script will run in debug mode.",
-    )
-    verbose: bool = Field(
-        True,
-        description="A boolean indicating whether or not the program shall return detailed logs.",
-    )
     intraday_negative_price_cap: int = Field(
         -500,
         description="Lower price cap of the Intraday market, -500 €/MWh in 2024.",
+        le=0,
     )
     intraday_positive_price_cap: int = Field(
         4000,
         description="Upper price cap of the Intraday market, 4000 €/MWh in 2024.",
+        ge=0,
     )
-    time_step: Duration = Field(
+    timestep: Duration = Field(
         default_factory=lambda: duration(minutes=60),
         description="Time step (in minutes) of the simulated market.",
     )
@@ -42,23 +36,13 @@ class PriceForecastParameters(AbstractParameters):
 
     @cached_property
     def penultimate_date(self) -> DateTime:
-        return self.end_date - self.time_step
+        return self.end_date - self.timestep
 
     @field_validator(
-        "execution_date_day_ahead",
-        "execution_date_scenarios",
+        "timestep",
         mode="before",
     )
     @classmethod
-    def convert_to_datetime(cls, v):
-        """Convert various datetime formats to DateTime objects."""
-        return build_datetime(v)
-
-    @field_validator(
-        "time_step",
-        mode="before",
-    )
-    @classmethod
-    def convert_to_duration(cls, v):
+    def parse_to_duration(cls, v):
         """Convert various duration formats to Duration objects."""
         return convert_to_duration(v)

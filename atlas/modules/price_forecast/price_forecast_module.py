@@ -2,35 +2,29 @@ from loguru import logger
 
 from atlas import AtlasDataset
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForcastInputDataset
+from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForecastInputDataset
 from atlas.modules.price_forecast.price_forecast_orchestrator import PriceForecastOrchestrator
 from atlas.modules.price_forecast.price_forecast_output_dataset import PriceForecastOutputDataset
 from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
 
 
 class PriceForecastModule(
-    AbstractModule[PriceForecastParameters, PriceForcastInputDataset, PriceForecastOutputDataset]
+    AbstractModule[PriceForecastParameters, PriceForecastInputDataset, PriceForecastOutputDataset]
 ):
     def get_parameters_class(self):
         """Returns the concrete Parameters class for this module."""
         return PriceForecastParameters
 
-    def import_data(self, raw_data: AtlasDataset, parameters: PriceForecastParameters) -> PriceForcastInputDataset:
+    def import_data(self, raw_data: AtlasDataset, parameters: PriceForecastParameters) -> PriceForecastInputDataset:
         """Imports data using business objects and parameters."""
-        input_dataset = PriceForcastInputDataset(raw_data, parameters)
+        input_dataset = PriceForecastInputDataset(raw_data, parameters)
         return input_dataset
 
-    def validate_data(self, parameters: PriceForecastParameters, input_dataset: PriceForcastInputDataset) -> bool:
-        if parameters.intraday_positive_price_cap < 0:
-            logger.error(f"Intraday positive price cap isn't positive: {parameters.intraday_positive_price_cap}")
-            return False
-        if parameters.intraday_negative_price_cap > 0:
-            logger.error(f"Intraday negative price cap isn't negative: {parameters.intraday_negative_price_cap}")
-            return False
+    def validate_data(self, parameters: PriceForecastParameters, input_dataset: PriceForecastInputDataset) -> bool:
         return True
 
     def execute(
-        self, parameters: PriceForecastParameters, input_dataset: PriceForcastInputDataset
+        self, parameters: PriceForecastParameters, input_dataset: PriceForecastInputDataset
     ) -> PriceForecastOutputDataset:
         """Executes the module's main logic."""
         orchestrator = PriceForecastOrchestrator(parameters, input_dataset)
@@ -40,7 +34,7 @@ class PriceForecastModule(
     def validates_results(
         self,
         parameters: PriceForecastParameters,
-        input_dataset: PriceForcastInputDataset,
+        input_dataset: PriceForecastInputDataset,
         output_dataset: PriceForecastOutputDataset,
     ) -> bool:
         """Validates results"""
@@ -60,7 +54,7 @@ class PriceForecastModule(
     def export_results(
         self,
         parameters: PriceForecastParameters,
-        input_dataset: PriceForcastInputDataset,
+        input_dataset: PriceForecastInputDataset,
         output_dataset: PriceForecastOutputDataset,
     ) -> None:
         """Exports results."""

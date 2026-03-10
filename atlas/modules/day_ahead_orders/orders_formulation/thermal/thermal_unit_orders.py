@@ -132,7 +132,7 @@ class ThermalUnitOrders:
         #     # Another way to check the startup, less efficient but more robust
         #     startup = False
         #     for t in list(online_timeframe.Index)[:-1]:
-        #         t_next = t.AddMinutes(p.time_step)
+        #         t_next = t.AddMinutes(p.timestep)
         #         if online_timeframe.get_value(t_next) - online_timeframe.get_value(t) == 1:
         #             startup = True
 
@@ -537,7 +537,7 @@ class ThermalUnitOrders:
 
         # Based on these time steps, deduce the intervals.
         # The intervals bounds are retrieved by comparing the total minutes between to time steps :
-        # if the total number of minutes is greater that time_step, then the time steps i and i+1 correspond to bounds of two distinct intervals
+        # if the total number of minutes is greater that timestep, then the time steps i and i+1 correspond to bounds of two distinct intervals
         intervals = []
         if online_at_t:
             intervals.append(online_at_t[0])

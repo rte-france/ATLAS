@@ -81,7 +81,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         - 3 if the unit is in its shutdown phase at t
 
         The sequence of states is computed over the extended time frame, retrieved with the input parameters.
-        For the baseload unit, the extentedTimeFrame corresponds to start_date - T_traceback * time_step , ... , end_date + T_traceback * time_step
+        For the baseload unit, the extentedTimeFrame corresponds to start_date - T_traceback * timestep , ... , end_date + T_traceback * timestep
 
         REMARK : if there are more than one start up and one shutdown over the period, the program will be considered as inconsistent.
 

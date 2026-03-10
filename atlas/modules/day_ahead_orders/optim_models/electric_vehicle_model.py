@@ -159,20 +159,20 @@ class ElectricVehicleModel(StorageModel):
             """
             if t == p.start_date:
                 OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
-                                                                                  (InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step)) -
-                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.time_step))) *
+                                                                                  (InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.timestep)) -
+                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.timestep))) *
                                                                                   Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
                 OPPROB += Qa[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.MaximumPower.GetValue(t) *
-                                                                                  (1 - InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step))) /
+                                                                                  (1 - InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.timestep))) /
                                                                                   Equipment.ChargeEfficiency) , "Adjustment_of_Pmax_purchase_at_{}".format(t)
             else:
                 OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
-                                                                                  (StoredEnergy[t.AddMinutes(-p.time_step)]/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step)) -
-                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.time_step))) *
+                                                                                  (StoredEnergy[t.AddMinutes(-p.timestep)]/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.timestep)) -
+                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.timestep))) *
                                                                                   Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
                 OPPROB += Qa[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.MaximumPower.GetValue(t) *
-                                                                                  (1 - StoredEnergy[t.AddMinutes(-p.time_step)]/
-                                                                                   Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.time_step))) /
+                                                                                  (1 - StoredEnergy[t.AddMinutes(-p.timestep)]/
+                                                                                   Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.timestep))) /
                                                                                   Equipment.ChargeEfficiency) , "Adjustment_of_Pmax_purchase_at_{}".format(t)
 
             """

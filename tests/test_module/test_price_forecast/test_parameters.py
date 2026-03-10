@@ -15,10 +15,10 @@ class TestIDPriceForecastParametersDurationValidator(unittest.TestCase):
             start_date=pendulum.datetime(2024, 1, 1),
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),
-            time_step="2h",
+            timestep="2h",
         )
 
-        assert params.time_step == duration(hours=2)
+        assert params.timestep == duration(hours=2)
 
     def test_parse_duration_with_duration_object(self):
         """Test parsing duration when already a Duration object."""
@@ -26,10 +26,10 @@ class TestIDPriceForecastParametersDurationValidator(unittest.TestCase):
             start_date=pendulum.datetime(2024, 1, 1),
             end_date=pendulum.datetime(2024, 1, 2),
             execution_date=pendulum.datetime(2024, 1, 1),
-            time_step=duration(minutes=30),
+            timestep=duration(minutes=30),
         )
 
-        assert params.time_step == duration(minutes=30)
+        assert params.timestep == duration(minutes=30)
 
 
 class TestIDPriceForecastParametersDateTimeValidator(unittest.TestCase):

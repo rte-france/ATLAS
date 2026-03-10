@@ -63,7 +63,7 @@ class StorageModel(OptimisationModel):
         # Set-up the time frames
         # Definition of the time_frame time frame: the time frame on which
         # the optimization program will be solved.
-        # Remark: we define the time series until end_date - time_step because
+        # Remark: we define the time series until end_date - timestep because
         # we want all time steps to lie in the [start_date, end_optimization_date] range.
         self.time_frame: list[DateTime] = generate_datetimes(
             self.parameters.start_date,
