@@ -647,7 +647,7 @@ class AtlasDataset(BaseModel):
             if not filters or object_type_str not in filters:
                 try:
                     container: Container[BusinessModel] = self.get_container_by_type(object_type_str)
-                    filtered_data[object_type_str] = list([copy.deepcopy(obj) for obj in container])
+                    filtered_data[object_type_str] = [copy.deepcopy(obj) for obj in container]
                 except ValueError:
                     continue
 
@@ -656,7 +656,9 @@ class AtlasDataset(BaseModel):
                 object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
                 try:
                     filtered_container: Container[BusinessModel] = self.get_container_by_type(object_type_str)
-                    filtered_data[object_type_str] = [copy.deepcopy(obj) for obj in filtered_container if filter_fn(obj)]
+                    filtered_data[object_type_str] = [
+                        copy.deepcopy(obj) for obj in filtered_container if filter_fn(obj)
+                    ]
                 except ValueError:
                     continue
 
