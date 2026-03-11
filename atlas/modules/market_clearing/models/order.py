@@ -102,14 +102,14 @@ class OrderMC(Order):
             return False
 
         # Check that the end datetime also does, but to within 1 minute:
-        if order.end_date > parameters.end_date:
+        if order.end_date > parameters.date.end_date:
             return False
 
         # For overlapping markets, such as (Intraday or Balancing), we need to only
         # consider orders that have an ExecutionDate close to the Clearing execution_date
         # The concept of "close" is here defined by the execution_date_tolerance parameter
         tolerance = parameters.execution_datetime_tolerance
-        if (parameters.execution_date - order.execution_date).total_seconds() / 60 > float(tolerance):
+        if (parameters.date.execution_date - order.execution_date).total_seconds() / 60 > float(tolerance):
             return False
 
         # MS

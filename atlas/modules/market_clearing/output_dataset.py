@@ -303,10 +303,10 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             ]
 
             values_bal = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, balance_values
+                self.input_dataset.parameters.date.start_date, self.input_dataset.parameters.timestep, balance_values
             )
             values_price = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, price_values
+                self.input_dataset.parameters.date.start_date, self.input_dataset.parameters.timestep, price_values
             )
 
             match self.input_dataset.parameters.market:
@@ -361,10 +361,10 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             ]
 
             flow = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, flow_values
+                self.input_dataset.parameters.date.start_date, self.input_dataset.parameters.timestep, flow_values
             )
             shadow_price = Timeseries.from_values(
-                self.input_dataset.parameters.start_date, self.input_dataset.parameters.timestep, shadow_price_values
+                self.input_dataset.parameters.date.start_date, self.input_dataset.parameters.timestep, shadow_price_values
             )
             match self.input_dataset.parameters.market:
                 case Product.DayAhead:
@@ -492,10 +492,10 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
     ) -> ForecastingMatrix | LazyForecastingMatrix:
         if forecast_obj is None:
             new_forecast_obj = ForecastingMatrix()
-            new_forecast_obj.add(other, self.input_dataset.parameters.execution_date)
+            new_forecast_obj.add(other, self.input_dataset.parameters.date.execution_date)
             return new_forecast_obj
         else:
             if isinstance(forecast_obj, LazyTimeseries):
                 forecast_obj = forecast_obj.collect()
-            forecast_obj.add(other, self.input_dataset.parameters.execution_date)
+            forecast_obj.add(other, self.input_dataset.parameters.date.execution_date)
             return forecast_obj

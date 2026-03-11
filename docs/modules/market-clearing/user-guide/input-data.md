@@ -6,7 +6,7 @@ The Market Clearing module is configured through `MarketClearingParameters`. Par
 
 ## Required Parameters
 
-These parameters are inherited from `AbstractParameters`:
+These parameters are inherited from `DateParameters`:
 
 - **`start_date`** (DateTime): Start of the optimization period
 - **`end_date`** (DateTime): End of the optimization period
@@ -121,11 +121,11 @@ This document describes all configuration parameters available for the **Market 
 
 ## Output Configuration
 
-* **`output_dataset_path`** (`str | None`, default: `None`): Path where the market clearing output dataset is exported.
+* **`export_output_dataset`** (`boolean`, default: `False`): True if we want the output dataset to be exported
 
-* **`output_path`** (`str`, default: `""`): Path where the market clearing outputs are exported (csv and lp).
+* **`output_dir`** (`str`, default: `""`): Path where the market clearing outputs are exported (csv,  lp, dataset).
 
-* **`export_csv`** (`boolean`, default: `False`): True if output csv files are exported else False .
+* **`export_result`** (`boolean`, default: `False`): True if output csv files are exported else False .
 
   * Includes offers, market areas, order couplings, and market borders
 ---
@@ -133,9 +133,10 @@ This document describes all configuration parameters available for the **Market 
 
 ```yml
 timestep: "1h"
-start_date:  "2028-09-27 00:00:00"
-end_date: "2028-09-28 00:00:00"
-execution_date: "2028-09-26 12:00:00"
+date:
+  start_date:  "2028-09-27 00:00:00"
+  end_date: "2028-09-28 00:00:00"
+  execution_date: "2028-09-26 12:00:00"
 activate_constrained_tso_quantity: False
 prevent_adverse_flows: False
 fb_branch_load_slack_penalty: 200
@@ -150,15 +151,17 @@ market_price_penalty_alpha: 10
 market_price_penalty_beta: 20
 paradoxically_accepted_penalty_M: 1_000
 paradoxically_rejected_penalty_N: 10_000
-solver: "XPRESS"
-use_presolve: True
+solver:
+  solver_name: "XPRESS"
+  use_presolve: True
+  export_lp: True
 log_level: "DEBUG"
 product: "DayAhead"
-export_lp: True
-export_csv: True
 allowed_round_off_error: 1e-3
 execution_datetime_tolerance: 5
-output_path: ""
+output:
+  export_result: True
+  export_output_dataset: True
 ```
 
 ## Next Steps

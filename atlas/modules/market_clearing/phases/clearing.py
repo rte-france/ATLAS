@@ -25,16 +25,16 @@ DEFAULT_MIN_FLOW = -10000.0
 
 class Clearing(OptimisationModel):
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
-        solver_option = SolverOptions(presolve=parameters.use_presolve)
-        super().__init__(parameters.solver_name, options=solver_option)
+        solver_option = SolverOptions(presolve=parameters.solver.use_presolve)
+        super().__init__(parameters.solver.solver_name, options=solver_option)
         self.input_dataset = input_dataset
         self.parameters = parameters
 
     def run(self):
         self.build()
         self.solve()
-        if self.parameters.export_lp:
-            output_path = self.parameters.output_path
+        if self.parameters.solver.export_lp:
+            output_path = self.parameters.output.output_dir
             output_path.mkdir(parents=True, exist_ok=True)
             self.export_model(str(output_path / "clearing_model.lp"))
             with open(output_path / "clearing_accepted_powers.json", "w") as f:
@@ -278,7 +278,7 @@ class Clearing(OptimisationModel):
         for time_index, time in enumerate(self.input_dataset.times):
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
                 if mc_border.time_resolution > self.parameters.timestep.total_minutes():
-                    time_elapsed = time - self.parameters.start_date
+                    time_elapsed = time - self.parameters.date.start_date
                     # % and / have same precedence => parsed left to right
                     res_offset = (
                         time_elapsed.minutes % mc_border.time_resolution / self.parameters.timestep.total_minutes()

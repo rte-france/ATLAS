@@ -37,8 +37,8 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.raw_data = raw_data
         self.parameters = parameters
         self.times = generate_datetimes(
-            self.parameters.start_date,
-            cast(pendulum.DateTime, self.parameters.end_date - self.parameters.timestep),
+            self.parameters.date.start_date,
+            cast(pendulum.DateTime, self.parameters.date.end_date - self.parameters.timestep),
             self.parameters.timestep,
         )
 
