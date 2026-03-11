@@ -122,6 +122,9 @@ class Workflow:
 
             logger.debug("Applying all change sets to the current input state")
             CISHandler.apply(output_dataset.change_sets, cis)
+            if step.parameters.output.export_output_dataset:
+                cis.data.to_directory(step.parameters.get_path(step.parameters.output.output_dir) / "output_dataset")
+
             logger.info(f"Finishing step :'{step.name}'")
 
         cis.to_directory(self.parameters.output_dataset_path)

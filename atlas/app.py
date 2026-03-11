@@ -10,6 +10,8 @@ from atlas.config import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.timing import timer
+from atlas.workflow.current_input_state import CurrentInputState
+from atlas.workflow.handler.cis_handler import CISHandler
 from atlas.workflow.step import ModuleRegistry
 from atlas.workflow.workflow import Workflow
 
@@ -39,15 +41,11 @@ def run(
             raise typer.Exit(code=1)
 
         logger.info(f"Running workflow: {config_path}")
-        try:
-            with timer() as t:
-                wf = Workflow.from_file(config_path)
-                wf.execute()
-            logger.info(f"Workflow completed in {t()} seconds")
-            logger.info("✓ Workflow completed successfully.")
-        except Exception as e:
-            logger.error(f"✗ Workflow failed: {e}")
-            raise typer.Exit(code=1) from e
+        with timer() as t:
+            wf = Workflow.from_file(config_path)
+            wf.execute()
+        logger.info(f"Workflow completed in {t()} seconds")
+        logger.info("✓ Workflow completed successfully.")
 
     else:
         if module_name is None:
@@ -79,7 +77,13 @@ def run(
         try:
             with timer() as t:
                 input_data = AtlasDataset.from_directory(dataset_path)
-                module_class().run(input_data, config_path)
+                cis = CurrentInputState(input_data)
+                module = module_class()
+                parameters = module.get_parameters_class().from_file(config_path)
+                output_dataset = module.run(input_data, parameters)
+                if parameters.output.export_output_dataset:
+                    CISHandler.apply(output_dataset.change_sets, cis)
+                    cis.data.to_directory(parameters.get_path(parameters.output.output_dir) / "output_dataset")
 
             logger.info(f"Module '{module_name}' completed in {t()} seconds")
             rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")

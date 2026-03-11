@@ -78,12 +78,12 @@ class WorkflowStep:
         :type name: str
         :param module: Module to be executed in this step.
         :type module: AbstractModule
-        :param parameters: Parameter dict for the module.
-        :type parameters: dict[str, Any]
+        :param parameters: Parameter for the module.
+        :type parameters: AbstractParameters
         """
         self.name: str = name
         self.module = module()
-        self.parameters = parameters
+        self.parameters = self.module.get_parameters_class().model_validate(parameters)
         self._output_dataset: AbstractModuleOutput | None = None
 
     @property

@@ -54,4 +54,4 @@ class MultiProcessingParameters(BaseModel):
 class OutputParameters(BaseModel):
     export_result: bool = False
     export_output_dataset: bool = False
-    output_dir: Path | None = None
+    output_dir: Path = Path()

@@ -98,12 +98,6 @@ class TestWorkflowStepInit:
         mock_class.assert_called_once()
         assert ws.module is mock_instance
 
-    def test_init_stores_parameters(self):
-        mock_class, _ = _make_mock_module_class()
-        params = {"key": "value", "number": 42}
-        ws = WorkflowStep("step", mock_class, params)
-        assert ws.parameters == params
-
     def test_output_dataset_is_none_before_run(self):
         mock_class, _ = _make_mock_module_class()
         ws = WorkflowStep("step", mock_class, {})
