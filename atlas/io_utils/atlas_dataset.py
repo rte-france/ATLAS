@@ -8,9 +8,11 @@ Module that implements AtlasDataset
 
 from __future__ import annotations
 
+import copy
 import pickle
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Literal, get_origin
+from typing import Any, Literal, cast, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -21,6 +23,7 @@ from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
+from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
@@ -149,7 +152,6 @@ class AtlasDataset(BaseModel):
         """
         if isinstance(directory_path, str):
             directory_path = Path(directory_path)
-
         raw_data = load_from_directory(
             directory_path=directory_path,
             separator=separator,
@@ -644,3 +646,124 @@ class AtlasDataset(BaseModel):
                 except Exception:
                     diffs[str(i)] = {"error": "Couldn't check diff"}
         return diffs if diffs else None
+
+    def filter_dataset(
+        self,
+        included_types: Iterable[str | BusinessModelName] = (),
+        filters: dict[str | BusinessModelName, Any] | None = None,
+    ) -> AtlasDataset:
+        filtered_data: dict[str, list[BusinessModel]] = {}
+        for object_type in included_types:
+            object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
+            if not filters or object_type_str not in filters:
+                try:
+                    container: Container[BusinessModel] = self.get_container_by_type(object_type_str)
+                    filtered_data[object_type_str] = [copy.deepcopy(obj) for obj in container]
+                except ValueError:
+                    continue
+
+        if filters:
+            for object_type, filter_fn in filters.items():
+                object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
+                try:
+                    filtered_container: Container[BusinessModel] = self.get_container_by_type(object_type_str)
+                    filtered_data[object_type_str] = [
+                        copy.deepcopy(obj) for obj in filtered_container if filter_fn(obj)
+                    ]
+                except ValueError:
+                    continue
+
+        return AtlasDataset.from_dict(filtered_data)
+
+    def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
+        copy_dataset = copy.deepcopy(self)
+        if not equipment_names:
+            return copy_dataset
+        for equipment_type in cfg.EQUIPMENT_MODELS:
+            equipments = copy_dataset.get_container_by_type(equipment_type)
+            for equipment in copy_dataset.get_items_by_type(equipment_type):
+                if equipment.name not in equipment_names:
+                    equipments.remove(equipment.name)
+        return copy_dataset
+
+    def filter_zones(self, control_block_names: list[str], equipment_names: list[str] | None = None) -> AtlasDataset:
+        dataset = AtlasDataset()
+        for cb in self.control_block:
+            if cb.name in control_block_names:
+                dataset.control_block.add(cb)
+        for ma in self.market_area:
+            if ma.control_block is not None and ma.control_block.name in control_block_names:
+                dataset.market_area.add(ma)
+        for node in self.node:
+            if node.control_block is not None and node.control_block.name in control_block_names:
+                dataset.node.add(node)
+        for border in self.market_border:
+            if (
+                border.downhill_control_block is not None
+                and border.downhill_control_block.name in control_block_names
+                and border.uphill_control_block is not None
+                and border.uphill_control_block.name in control_block_names
+            ):
+                dataset.market_border.add(border)
+        for ma_ptdf in self.market_area_ptdf:
+            if (
+                ma_ptdf.market_area is not None
+                and ma_ptdf.market_area.control_block is not None
+                and ma_ptdf.market_area.control_block.name in control_block_names
+            ):
+                dataset.market_area_ptdf.add(ma_ptdf)
+        for node_ptdf in self.node_ptdf:
+            if (
+                node_ptdf.node is not None
+                and node_ptdf.node.control_block is not None
+                and node_ptdf.node.control_block.name in control_block_names
+            ):
+                dataset.node_ptdf.add(node_ptdf)
+        for critical_branch in self.critical_branch:
+            if (
+                critical_branch.uphill_node is not None
+                and critical_branch.uphill_node.control_block is not None
+                and critical_branch.uphill_node.control_block.name in control_block_names
+                and critical_branch.downhill_node is not None
+                and critical_branch.downhill_node.control_block is not None
+                and critical_branch.downhill_node.control_block.name in control_block_names
+            ):
+                dataset.critical_branch.add(critical_branch)
+        for order in self.order:
+            if (
+                order.market_area is not None
+                and order.market_area.control_block is not None
+                and order.market_area.control_block.name in control_block_names
+            ):
+                dataset.order.add(order)
+        # Hypothesis that every Order in OrderCoupling has the same MarketArea
+        for order_coupling in self.order_coupling:
+            keep_coupling = False
+            if order_coupling.orders is None:
+                continue
+            for coupled_order in order_coupling.orders:
+                if (
+                    coupled_order.market_area is not None
+                    and coupled_order.market_area.control_block is not None
+                    and coupled_order.market_area.control_block.name in control_block_names
+                ):
+                    keep_coupling = True
+                    break
+            if keep_coupling:
+                dataset.order_coupling.add(order_coupling)
+        for portfolio in self.portfolio:
+            if portfolio.control_block is not None and portfolio.control_block.name in control_block_names:
+                dataset.portfolio.add(portfolio)
+
+        for equipment_type in cfg.EQUIPMENT_MODELS:
+            equipments = dataset.get_container_by_type(equipment_type)
+            for equipment in self.get_items_by_type(equipment_type):
+                equipment_node: Node | None = cast(Equipment, equipment).node
+                if (
+                    equipment_node is not None
+                    and equipment_node.control_block is not None
+                    and equipment_node.control_block.name in control_block_names
+                ):
+                    if equipment_names is None or equipment.name in equipments:
+                        equipments.add(equipment)
+        return copy.deepcopy(dataset)
