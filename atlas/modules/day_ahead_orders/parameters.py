@@ -9,13 +9,15 @@ from functools import cached_property
 from pathlib import Path
 
 from pendulum import DateTime, Duration
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, ConfigDict
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.validators import convert_to_duration
 
 
 class DayAheadOrdersParameters(AbstractParameters):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     export_lp_path: Path = Field(
         Path("DAO_lp_exports"),
         description="Optional parameter to choose an output folder in the folder where the LPs will be exported.",
