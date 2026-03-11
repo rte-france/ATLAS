@@ -137,7 +137,7 @@ class ElectricVehicleModel(StorageModel):
                 self.get_variable(StorageModel.purchased_at_key(t)) >= 0, f"Respect_Pmin_purchase_at_{t}"
             )
 
-            # Respect of minimum and maximum stoage level constraints
+            # Respect of minimum and maximum storage level constraints
             self.add_constraint(
                 self.get_variable(StorageModel.stored_energy_at_key(t))
                 >= self.storage.minimum_state_of_charge.get_value(t) * self.storage.maximum_energy.get_value(t),

@@ -21,9 +21,10 @@ class LoadStep:
         dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
-        Formulates consumption bids on the spot market.
-        Uses the parameters specified by the user and the dataset to create bids based on the forecast
-        stored in the Power forecasting matrix of a "Load" equipment.
+        Formulates consumption orders on the spot market for all Load equipment in the dataset.
+        For each load equipment, the function uses the parameters specified by the user and 
+        the dataset information to create orders based on the consumption forecast
+        stored in the MaximumPowerForecast matrix.
 
         The function takes the following arguments:
         :param dataset: the dataset
@@ -35,12 +36,12 @@ class LoadStep:
         :return: None
         """
 
-        # Loop over the market players first
+        # Loop over all load equipment first
         for load in dataset.load:
             if load.maximum_power_forecast is None:
                 cfg.logger.warning(f"maximum_power_forecast is None for load {load.name}, {load.load_type}")
             else:
-                # Extract the forecasting matrix of the current actor.
+                # Extract the forecasting matrix of the equipment
                 consumption_forecast = load.maximum_power_forecast.get_forecast(
                     parameters.execution_date,
                     parameters.start_date,
@@ -53,10 +54,9 @@ class LoadStep:
                 else:
                     load.da_buy_submitted_volume += consumption_forecast.abs()
 
-                # Now we loop over the time stamps for which we want an offer to be made.
-                # We formulate as many offers as there are time stamps in orders_time.
+                # Loop over the time steps of orders_time, and formulate a separate orders for each one
                 for t in orders_time:
-                    # Extract the desired consumption level.
+                    # Extract the forecasted consumption level
                     if len(consumption_forecast) == 0:
                         cfg.logger.debug(f"consumption_forecast is empty for load {load.name}, {load.load_type}")
                     else:
