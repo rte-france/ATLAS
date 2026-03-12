@@ -62,7 +62,7 @@ class DayAheadOrdersOrchestrator:
             LoadStep.formulate_load_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Consumption orders formulated.")
 
-            #### STEP 2 - NON DISPATCHABLE UNITS ####
+            #### STEP 2 - NON DISPATCHABLE GENERATION UNITS ####
             cfg.logger.info("Formulation of the non-dispatchable orders...")
             NonDispatchableStep.formulate_non_dispatchable_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Non-dispatchable orders formulated.")
@@ -73,7 +73,7 @@ class DayAheadOrdersOrchestrator:
             storage.formulate_storage_orders()
             cfg.logger.info("Storage orders formulated.")
 
-            #### STEP 4 - LAKES UNITS ####
+            #### STEP 4 - HYDRO RESERVOIR UNITS ####
             cfg.logger.info("Formulation of the hydraulic orders...")
             HydraulicStep.formulate_hydraulic_orders(self.output_dataset, orders_time, self.parameters)
             cfg.logger.info("Hydraulic orders formulated.")

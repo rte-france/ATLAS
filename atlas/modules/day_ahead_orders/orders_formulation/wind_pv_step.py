@@ -21,12 +21,11 @@ class WindPVStep:
         dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
-        This function formulates wind and pv orders. Orders are priced at the variable cost
-        `PropCost`. This can be assimilated to a `plug-in` strategy implied by
-        a "à la Bertrand" market structure (competition through prices).
-
-        For all bids, Qmax corresponds to the production forecast at the time for wich
-        the offer is made. Qmin corresponds to a ratio of Qmax given by the property MaximumCurtailmentRatio.
+        This function formulates wind and pv orders for all solar and wind equipments. For each order:
+            _ The price corresponds to the variable cost of each equipment (possibly negative).
+            _ Qmax corresponds to the generation forecast, extracted from MaximumPowerForecast at
+              the execution_date for which the order is made.
+            _ Qmin corresponds to a ratio of Qmax given by the property MaximumCurtailmentRatio.
 
         :param dataset: the dataset
         :type dataset: DayAheadOrdersOutput
@@ -37,12 +36,12 @@ class WindPVStep:
         :return: None
         """
 
-        # Create a list of the different non dispatchable portfolios.
+        # Retrieve all wind and solar equipments from the dataset.
         equipments_list = dataset.wind + dataset.solar
 
-        # Loop over the market players first.
+        # Loop over all these equipments.
         for equipment in equipments_list:
-            # Extract the maximum_power_forecast matrix of the current actor.
+            # Extract the maximum_power_forecast matrix for the current equipment.
             if equipment.maximum_power_forecast is None:
                 cfg.logger.warning(f"maximum_power_forecast is None for wind/photovoltaic {equipment.name}")
             else:
@@ -64,16 +63,11 @@ class WindPVStep:
                 # Now we loop over the time stamps for which we want an offer to be made.
                 # We formulate as many offers as there are time stamps in orders_time.
                 for t in orders_time:
-                    # Assign a unique name
-                    bid_name = ""
-                    if isinstance(equipment, Wind):
-                        bid_name = f"wind_order_at_{t}_for_unit_{equipment.name}"
-                    elif isinstance(equipment, Solar):
-                        bid_name = f"pv_order_at_{t}_for_unit_{equipment.name}"
-                    else:
-                        cfg.logger.warning(f"equipment {equipment.name} isn't Wind nor Solar")
+                    # Assign a unique name. FC: I simplfiy this part, given the loop we're in the equipment has to be Wind or Solar.
+                    # In addition these is no need to add wind or solar in the name as the equipment name already contains this information.
+                    bid_name = "order_at_{t}_for_unit_{equipment.name}"
 
-                    # Extract the available production level range
+                    # Extract the available generation level range
                     max_production_value = production_forecast.get_value(t)
                     min_production_value = max_production_value * (1 - equipment.maximum_curtailment_ratio.get_value(t))
 
@@ -85,9 +79,7 @@ class WindPVStep:
                             equipment=equipment,
                             qmax=max_production_value,
                             qmin=min_production_value,
-                            price=0.0
-                            if variable_costs is None
-                            else variable_costs.get_value(t),  # Extract the PropCpst that will define the price.
+                            price=0.0 if variable_costs is None else variable_costs.get_value(t),
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
                             is_agent_tso=False,

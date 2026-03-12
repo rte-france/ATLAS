@@ -27,7 +27,7 @@ class HydraulicStep:
         dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
-        This function formulates the hydraulic reservoir offers.
+        This function formulates the hydraulic reservoir orders.
 
         :param dataset: the dataset
         :type dataset: DayAheadOrdersOutput
@@ -37,7 +37,7 @@ class HydraulicStep:
         :type parameters: DayAheadOrdersParameters
         :return: None
         """
-        # Keep only the hydraulic reservoir for which water values have been computed.
+        # Keep only hydraulic reservoirs with water values (in storage_marginal_value)
         hydraulic_units = [unit for unit in dataset.hydro if len(unit.storage_marginal_value.index) > 0]
 
         hydraulic_empty = [unit for unit in dataset.hydro if len(unit.storage_marginal_value.index) == 0]
@@ -45,7 +45,7 @@ class HydraulicStep:
             msg = f"There are no water values for instance {equipment.name}. This instance will be ignored in the calculation."
             cfg.logger.warning(msg)
 
-        # Loop over the market players first.
+        # Loop each retained hydraulic unit
         for equipment in hydraulic_units:
             # Retrieve volumes and prices of fragments
             delta_wu: dict[float, tuple[float, float]] = {}
@@ -103,7 +103,7 @@ class HydraulicStep:
                 weight_inf = (int(xpmax) - energy_level) / (int(xpmax) - int(xpmin))
                 weight_sup = (energy_level - int(xpmin)) / (int(xpmax) - int(xpmin))
 
-            # Create a COMPLEMENT coupling between all orders of the day to comply with MinimumEnergy constraints
+            # Create a COMPLEMENT coupling between all orders of the current day to comply with MinimumEnergy constraints
             coupling_instance = OrderCouplingDAO(
                 name=f"COMPLEMENT_{str(equipment.name)}_{parameters.execution_date}",
                 coupling_type=CouplingType.COMPLEMENT,

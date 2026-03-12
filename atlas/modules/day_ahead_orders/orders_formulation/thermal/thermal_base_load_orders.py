@@ -39,7 +39,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
     def formulate_thermal_baseload_orders(self) -> None:
         """
         This function formulates offers for the thermic baseload units.
-        Baseload units are identified thanks to an attribute of the thermic class.
+        Baseload units are identified based on the attribute "strategy", specific to the thermal class.
 
         Returns None
         """
@@ -54,9 +54,9 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
 
         # Start the formulation of the orders
         for unit in equipments_list:
-            # Get the states sequence and the inconsistency status of the unit.
+            # Get the state sequence and the inconsistency status of the unit.
             states_sequence, inconsistent = self.determine_baseload_states_sequence(unit)
-            if inconsistent:  # skip the unit if its states sequence is inconsistent.
+            if inconsistent:  # skip the unit if its state sequence is inconsistent.
                 cfg.logger.warning(
                     f"Equipment {unit.name}'s states sequence is inconsistent. "
                     "No orders have been formulated for this unit"
@@ -75,7 +75,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         Computes the sequence of states on a single time frame for the baseload unit passed as input.
 
         The encoding of the states is the following:
-        - 0 if the unit is offline at t
+        - 0 if the unit is offline at t, i.e. if its maximum power is equal to 0 at t.
         - 1 if the unit is online at t
         - 2 if the unit is in its start up phase at t
         - 3 if the unit is in its shutdown phase at t
@@ -92,10 +92,10 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         :rtype: tuple[Timeseries, bool]
         """
 
-        # Intialize the value of the boolean inconsistent
+        # Initialize the value of the boolean inconsistent
         inconsistent = False
 
-        # Sanity check : see whether the unit passed as an input is a baselaod unit. Otherwise raise an error.
+        # Sanity check: see whether the unit passed as an input is a baselaod unit. Otherwise raise an error.
         if not unit.strategy == ThermalStrategy.BASE:
             cfg.logger.error(f"Equipement {unit.name} is not of strategy 'Base'.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
@@ -125,7 +125,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             )
         )
 
-        # Iterate through the unit's maximum_power and based on the current value, determine whether the unit
+        # Iterate through the unit's maximum_power and based on the current value
         for t in extended_time_frame:
             if maximum_power is not None and t in maximum_power and maximum_power.get_value(t) > 0:
                 states_sequence.set_or_add_value(t, 1)
