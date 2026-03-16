@@ -57,14 +57,14 @@ class HydraulicStep:
             local_index = generate_datetimes(
                 parameters.date.start_date,
                 end_date,
-                parameters.timestep,
+                parameters.date.timestep,
             )
             submitted_volumes = DAOTimeseries(
-                Timeseries.from_index(parameters.date.start_date, parameters.timestep, end_date, 0)
+                Timeseries.from_index(parameters.date.start_date, parameters.date.timestep, end_date, 0)
             )
 
             local_max_energy = (
-                equipment.maximum_energy.set_frequency(parameters.timestep, False)
+                equipment.maximum_energy.set_frequency(parameters.date.timestep, False)
                 .filter(item=local_index, inplace=False)
                 .max()
             )
@@ -77,10 +77,10 @@ class HydraulicStep:
                 energy_forecast = equipment.stored_energy.get_forecast(
                     parameters.date.execution_date,
                     parameters.date.start_date.subtract(days=1),
-                    parameters.date.start_date - parameters.timestep,
+                    parameters.date.start_date - parameters.date.timestep,
                 )
                 if len(energy_forecast) > 0:
-                    energy_level = energy_forecast.get_value(parameters.date.start_date - parameters.timestep)
+                    energy_level = energy_forecast.get_value(parameters.date.start_date - parameters.date.timestep)
                 else:
                     energy_level = equipment.initial_level.get_value(parameters.date.start_date)
             else:
@@ -110,10 +110,15 @@ class HydraulicStep:
                 complement_direction=ComplementDirection.GreaterThan,
             )
 
-            if len(equipment.minimum_energy.slice(parameters.date.start_date, parameters.date.end_date, "both", False)) > 0:
+            if (
+                len(equipment.minimum_energy.slice(parameters.date.start_date, parameters.date.end_date, "both", False))
+                > 0
+            ):
                 coupling_instance.complement_energy = -(
                     energy_level
-                    - equipment.minimum_energy.slice(parameters.date.start_date, parameters.date.end_date, "both", False).min()
+                    - equipment.minimum_energy.slice(
+                        parameters.date.start_date, parameters.date.end_date, "both", False
+                    ).min()
                 )
             else:
                 coupling_instance.complement_energy = -(
@@ -164,7 +169,7 @@ class HydraulicStep:
                             is_agent_tso=False,
                             execution_date=parameters.date.execution_date,
                             start_date=t,
-                            end_date=t + parameters.timestep,
+                            end_date=t + parameters.date.timestep,
                         )
                         if not xmin:
                             bid_output.price = level_sup.get_value(t) + delta_wu[k][1]

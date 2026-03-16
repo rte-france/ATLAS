@@ -159,7 +159,7 @@ class PortfolioOptimisationModule(
         :type input_dataset: PortfolioOptimisationInputDataset
         :raises ValueError: If timestep validation fails
         """
-        expected_timestep = parameters.timestep
+        expected_timestep = parameters.date.timestep
         logger.debug(f"Expected timestep: {expected_timestep}")
 
         validation_errors = []

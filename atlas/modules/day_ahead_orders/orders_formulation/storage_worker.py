@@ -84,11 +84,11 @@ def optimize_single_storage(
         local_index = generate_datetimes(
             parameters.date.start_date,
             end_date,
-            parameters.timestep,
+            parameters.date.timestep,
         )
 
         local_max_energy = (
-            storage.maximum_energy.set_frequency(parameters.timestep, False)
+            storage.maximum_energy.set_frequency(parameters.date.timestep, False)
             .filter(item=local_index, inplace=False)
             .max()
         )
@@ -101,10 +101,10 @@ def optimize_single_storage(
 
         # Initialize result timeseries
         buy_submitted_volumes = DAOTimeseries(
-            Timeseries.from_index(parameters.date.start_date, parameters.timestep, end_date, 0)
+            Timeseries.from_index(parameters.date.start_date, parameters.date.timestep, end_date, 0)
         )
         sell_submitted_volumes = DAOTimeseries(
-            Timeseries.from_index(parameters.date.start_date, parameters.timestep, end_date, 0)
+            Timeseries.from_index(parameters.date.start_date, parameters.date.timestep, end_date, 0)
         )
 
         # Get initial stock
@@ -126,15 +126,15 @@ def optimize_single_storage(
         Psale, Ppurchase = _price_calculation(storage, Qv, Qa, parameters)
 
         # Update variable cost
-        variable_cost = Timeseries.from_index(parameters.date.start_date, parameters.timestep, end_date, 0)
+        variable_cost = Timeseries.from_index(parameters.date.start_date, parameters.date.timestep, end_date, 0)
         if Ppurchase != 0:
-            for t in generate_datetimes(parameters.date.start_date, end_date, parameters.timestep):
+            for t in generate_datetimes(parameters.date.start_date, end_date, parameters.date.timestep):
                 variable_cost.set_value(t, round(Ppurchase, 2))
         elif storage.discharge_efficiency != 0 and storage.charge_efficiency != 0:
-            for t in generate_datetimes(parameters.date.start_date, end_date, parameters.timestep):
+            for t in generate_datetimes(parameters.date.start_date, end_date, parameters.date.timestep):
                 variable_cost.set_value(t, round(Psale * storage.discharge_efficiency * storage.charge_efficiency, 2))
         else:
-            for t in generate_datetimes(parameters.date.start_date, end_date, parameters.timestep):
+            for t in generate_datetimes(parameters.date.start_date, end_date, parameters.date.timestep):
                 variable_cost.set_value(t, round(Psale, 2))
             cfg.logger.warning(
                 f"ChargeEfficiency or DischargeEfficiency is null for equipment {storage.name}. "
@@ -169,13 +169,13 @@ def _initiate_stock(storage: StorageDAO, parameters: DayAheadOrdersParameters) -
         energy_forecast = storage.stored_energy.get_forecast(
             parameters.date.execution_date,
             parameters.date.start_date.subtract(days=2),
-            parameters.date.start_date - parameters.timestep,
-            parameters.timestep,
+            parameters.date.start_date - parameters.date.timestep,
+            parameters.date.timestep,
         )
         if len(energy_forecast) == 0:
             initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(parameters.date.start_date)
         else:
-            initial_stock = energy_forecast.get_value(parameters.date.start_date - parameters.timestep)
+            initial_stock = energy_forecast.get_value(parameters.date.start_date - parameters.date.timestep)
     return initial_stock
 
 
@@ -198,8 +198,7 @@ def _optimize_ev(
     model.create_constraints(initial_stock)
 
     if parameters.solver.export_lp:
-        lp_file_path = (parameters.get_path(parameters.output.output_dir) / "DAO_lp" /
-                        f"storage_{model.storage.name}.lp")
+        lp_file_path = parameters.get_path(parameters.output.output_dir) / "DAO_lp" / f"storage_{model.storage.name}.lp"
         model.export_model(lp_file_path)
 
     model.solve()
@@ -246,8 +245,7 @@ def _optimize_battery(
     model.create_constraints(initial_stock, power_fragments)
 
     if parameters.solver.export_lp:
-        lp_file_path = (parameters.get_path(parameters.output.output_dir) / "DAO_lp" /
-                        f"storage_{model.storage.name}.lp")
+        lp_file_path = parameters.get_path(parameters.output.output_dir) / "DAO_lp" / f"storage_{model.storage.name}.lp"
         model.export_model(str(lp_file_path))
 
     model.solve()
@@ -274,7 +272,7 @@ def _price_calculation(
         parameters.date.execution_date,
         parameters.date.start_date,
         parameters.date.end_date,
-        parameters.timestep,
+        parameters.date.timestep,
     )
 
     Qv_empty = all(qv_value == 0 for qv_value in Qv.values())
@@ -328,7 +326,7 @@ def _create_orders_with_couplings(
     orders: list[OrderDAO] = []
     order_couplings: list[OrderCouplingDAO] = []
 
-    daily_buy_volume = sum(buy_volume * parameters.timestep.total_hours() for buy_volume in Qa.values())
+    daily_buy_volume = sum(buy_volume * parameters.date.timestep.total_hours() for buy_volume in Qa.values())
 
     if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
         assert storage.displacement_energy is not None, "displacement_energy must be set for electric vehicles"
@@ -340,7 +338,7 @@ def _create_orders_with_couplings(
 
         energy_requirement = storage.displacement_energy.get_value(
             parameters.penultimate_date
-        ) - storage.displacement_energy.get_value(parameters.date.start_date - parameters.timestep)
+        ) - storage.displacement_energy.get_value(parameters.date.start_date - parameters.date.timestep)
 
         if energy_requirement > daily_buy_volume:
             coupling_instance.complement_energy = daily_buy_volume
@@ -403,7 +401,7 @@ def _create_spot_order(
         market_area=storage.portfolio.market_area,
         execution_date=parameters.date.execution_date,
         start_date=start_date,
-        end_date=start_date + parameters.timestep,
+        end_date=start_date + parameters.date.timestep,
         order_type=order_type,
         product=Product.DayAhead,
         qmax=qmax,

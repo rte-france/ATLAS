@@ -120,8 +120,8 @@ def initialize_gradient_initial_conditions(
     :return: None
     :rtype: None
     """
-    start_date_minus_one = parameters.date.start_date - parameters.timestep
-    start_date_minus_two = parameters.date.start_date - 2 * parameters.timestep
+    start_date_minus_one = parameters.date.start_date - parameters.date.timestep
+    start_date_minus_two = parameters.date.start_date - 2 * parameters.date.timestep
 
     power_minus_one = obj.power_level_var.get_value(start_date_minus_one)
     power_minus_two = obj.power_level_var.get_value(start_date_minus_two)

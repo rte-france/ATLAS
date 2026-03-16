@@ -262,14 +262,14 @@ class ExchangesFixing(OptimisationModel):
     def create_borders_exchanges_constraints(self):
         for time_index, _time in enumerate(self.input_dataset.times):
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-                if mc_border.time_resolution > self.parameters.timestep:
+                if mc_border.time_resolution > self.parameters.date.timestep:
                     time_elapsed = _time - self.parameters.date.start_date
                     # % and / have same precedence => parsed left to right
                     res_offset = (
-                        time_elapsed.minutes % mc_border.time_resolution / self.parameters.timestep.total_minutes()
+                        time_elapsed.minutes % mc_border.time_resolution / self.parameters.date.timestep.total_minutes()
                     )
                     if res_offset != 0:
-                        precedent_time_index = res_offset * self.parameters.timestep.total_minutes()
+                        precedent_time_index = res_offset * self.parameters.date.timestep.total_minutes()
                         self.add_constraint(
                             self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                             == self.get_variable(

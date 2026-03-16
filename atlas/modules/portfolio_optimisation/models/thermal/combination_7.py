@@ -105,7 +105,7 @@ def add_initial_conditions(
 
             # Distinguish between startup and shutdown for intermediate power levels
             if time != extended_start_date:
-                prev_time = time - parameters.timestep
+                prev_time = time - parameters.date.timestep
 
                 if obj.on_start_var.get_extended_value(time) == 1:
                     if power_ts.get_value(prev_time) < power_t:
@@ -132,7 +132,7 @@ def add_constraints(
     if obj.minimum_power is None or obj.maximum_power is None:
         raise ValueError("minimum_power and maximum_power cannot be None")
 
-    prev_time = time - parameters.timestep
+    prev_time = time - parameters.date.timestep
 
     off_var = obj.off_var.get_value(time)
     on_up_var = obj.on_up_var.get_value(time)
@@ -196,17 +196,17 @@ def add_constraints(
     model.add_constraint(off_prev_var + on_up_var <= 1, f"transition_constraint_11_{time}_{obj.name}")
     model.add_constraint(off_prev_var + on_down_var <= 1, f"transition_constraint_12_{time}_{obj.name}")
 
-    start_eviction_time = time - (obj._T_start - 1) * parameters.timestep
+    start_eviction_time = time - (obj._T_start - 1) * parameters.date.timestep
     turned_on_start_eviction_var = obj.turned_on.get_value(start_eviction_time)
     model.add_constraint(turned_on_start_eviction_var + start_var <= 1, f"start_eviction_constraint_{time}_{obj.name}")
 
-    stop_eviction_time = time - (obj._T_stop - 1) * parameters.timestep
+    stop_eviction_time = time - (obj._T_stop - 1) * parameters.date.timestep
     turned_off_stop_eviction_var = obj.turned_off.get_value(stop_eviction_time)
     model.add_constraint(turned_off_stop_eviction_var + stop_var <= 1, f"stop_eviction_constraint_{time}_{obj.name}")
 
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
-            local_time = time - (s + obj._T_start) * parameters.timestep
+            local_time = time - (s + obj._T_start) * parameters.date.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(
                 turned_on_local_var <= on_up_var + on_down_var,
@@ -215,7 +215,7 @@ def add_constraints(
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
-            local_time = time - (s + obj._T_stop) * parameters.timestep
+            local_time = time - (s + obj._T_stop) * parameters.date.timestep
             turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(
                 turned_off_local_var <= off_var,
@@ -224,7 +224,7 @@ def add_constraints(
 
     if obj._T_stop >= 2:
         for s in range(1, obj._T_stop - 1):
-            local_time = time - s * parameters.timestep
+            local_time = time - s * parameters.date.timestep
             turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(
                 turned_off_local_var <= stop_var,
@@ -233,7 +233,7 @@ def add_constraints(
 
     if obj._T_start >= 2:
         for s in range(1, obj._T_start - 1):
-            local_time = time - s * parameters.timestep
+            local_time = time - s * parameters.date.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(
                 turned_on_local_var <= start_var,

@@ -141,24 +141,28 @@ class HydroPO(BaseEquipmentPO, Hydro):
 
         if time in parameters.target_times:
             # Default to 0 if inflows data is not provided (e.g., reservoir without natural inflows)
-            inflow = self.inflows.get_value(time) * parameters.timestep.total_days() if self.inflows is not None else 0
+            inflow = (
+                self.inflows.get_value(time) * parameters.date.timestep.total_days() if self.inflows is not None else 0
+            )
 
             if time == parameters.date.start_date:
                 model.add_constraint(
                     stored_energy_var
-                    == self.initial_level.get_value(parameters.date.start_date - parameters.timestep)
-                    - power_level_fragment_sum_var * parameters.timestep.total_hours()
+                    == self.initial_level.get_value(parameters.date.start_date - parameters.date.timestep)
+                    - power_level_fragment_sum_var * parameters.date.timestep.total_hours()
                     + inflow,
                     f"storage_level_evol_{time}_{self.name}",
                 )
 
             else:
-                stored_energy_prev_var = model.get_variable(f"{self.name}_stored_energy_{time - parameters.timestep}")
+                stored_energy_prev_var = model.get_variable(
+                    f"{self.name}_stored_energy_{time - parameters.date.timestep}"
+                )
 
                 model.add_constraint(
                     stored_energy_var
                     == stored_energy_prev_var
-                    - power_level_fragment_sum_var * parameters.timestep.total_hours()
+                    - power_level_fragment_sum_var * parameters.date.timestep.total_hours()
                     + inflow,
                     f"storage_level_evol_{time}_{self.name}",
                 )
@@ -198,12 +202,14 @@ class HydroPO(BaseEquipmentPO, Hydro):
 
                 if time in parameters.target_times:
                     model.add_objective(
-                        fragment_price * power_level_frag_var * parameters.timestep.total_hours(),
+                        fragment_price * power_level_frag_var * parameters.date.timestep.total_hours(),
                     )
 
                 else:
                     model.add_objective(
-                        -(price_forecast - fragment_price) * power_level_frag_var * parameters.timestep.total_hours(),
+                        -(price_forecast - fragment_price)
+                        * power_level_frag_var
+                        * parameters.date.timestep.total_hours(),
                     )
             cfg.logger.debug(f"Finished adding objective for hydro unit {self.name} at time {time}")
         else:
@@ -220,10 +226,13 @@ class HydroPO(BaseEquipmentPO, Hydro):
         :return: Current energy level
         :rtype: float
         """
-        if self._cached_energy_forecast and parameters.date.start_date - parameters.timestep in self._cached_energy_forecast:
-            return self._cached_energy_forecast.get_value(parameters.date.start_date - parameters.timestep)
+        if (
+            self._cached_energy_forecast
+            and parameters.date.start_date - parameters.date.timestep in self._cached_energy_forecast
+        ):
+            return self._cached_energy_forecast.get_value(parameters.date.start_date - parameters.date.timestep)
         else:
-            return self.initial_level.get_value(parameters.date.start_date - parameters.timestep)
+            return self.initial_level.get_value(parameters.date.start_date - parameters.date.timestep)
 
     def _calculate_marginal_weights(self, energy_level: float) -> dict:
         """

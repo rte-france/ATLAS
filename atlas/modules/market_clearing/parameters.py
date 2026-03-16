@@ -4,13 +4,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import Duration, duration
-from pydantic import Field, field_validator, ConfigDict
+from pydantic import ConfigDict, Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.io_utils.section_parameters import DateParameters, SolverParameters, OutputParameters
 from atlas.enums import Enum, Product
-from atlas.validators import convert_to_duration
+from atlas.io_utils.section_parameters import DateParameters, OutputParameters, SolverParameters
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -28,8 +26,6 @@ class ExchangeConstraintsType(str, Enum):
 class MarketClearingParameters(AbstractParameters):
     """Parameters of for Market Clearing module
 
-    :param timestep: Timestep of the studied market, in minutes : must be superior to 0, default value is 60
-    :type timestep: int
     :param price_modifier_lambda_1: Price modifier that allows to alter prices for a better optimization :
     default value is 0
     :type price_modifier_lambda_1: float
@@ -85,15 +81,12 @@ class MarketClearingParameters(AbstractParameters):
     select all market area. the default value is 'All'
     :type market_area_names: str | list[str]
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     date: DateParameters
     solver: SolverParameters = Field(default_factory=SolverParameters)
     output: OutputParameters = Field(default_factory=OutputParameters)
 
-    timestep: Duration = Field(
-        default_factory=lambda: duration(hours=1),
-        description="Timestep of the studied market",
-    )
     price_modifier_lambda_1: float = Field(
         0, description="Price modifier that allows to alter prices for a better optimization : default value is 0"
     )
@@ -190,12 +183,6 @@ class MarketClearingParameters(AbstractParameters):
         -int(1e8),
         description="Min price : default value is - 100 000 000",
     )
-
-    @field_validator("timestep", mode="before")
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
 
     @field_validator("market_area_names", "control_block_names", mode="before")
     @classmethod

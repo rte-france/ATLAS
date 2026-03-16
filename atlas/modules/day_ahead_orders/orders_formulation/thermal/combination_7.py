@@ -85,7 +85,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         # Distinguish between start-ups and shutdowns
         # discard the extended_start_date only.
         for t in model.previous_time_frame[:-1]:
-            t_prev = t - model.parameters.timestep
+            t_prev = t - model.parameters.date.timestep
             if model.START.get_extended_value(t) == 1:  # Take start or stop, does not matter.
                 if model.q.get_extended_value(t) > model.q.get_extended_value(
                     t_prev
@@ -106,7 +106,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             down_to_stop[t] = 0
             if not t == model.extended_start_date:
                 # Reconstruct potential switches using the state variables
-                t_prev = t - model.parameters.timestep
+                t_prev = t - model.parameters.date.timestep
                 # See if the unit has been turned off
                 if model.STOP.get_extended_value(t) - model.STOP.get_extended_value(t_prev) == 1:
                     model.turned_off.set_extended(t, 1)
@@ -127,26 +127,29 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # Enforces eq (3).
     for t in model.time_frame:
         model.add_constraint(model.turned_on.get_value(t) <= 1 - model.OFF.get_value(t))
-        model.add_constraint(model.turned_on.get_value(t) <= model.OFF.get_value(t - model.parameters.timestep))
+        model.add_constraint(model.turned_on.get_value(t) <= model.OFF.get_value(t - model.parameters.date.timestep))
         model.add_constraint(
-            model.turned_on.get_value(t) >= model.OFF.get_value(t - model.parameters.timestep) - model.OFF.get_value(t),
+            model.turned_on.get_value(t)
+            >= model.OFF.get_value(t - model.parameters.date.timestep) - model.OFF.get_value(t),
             f"constraints_defining_turned_on_{t}",
         )
 
     # Constraints on turned_off
     # Defined here when entering the STOP state as in eq. (5) because T_stop > 0
     for t in model.time_frame:
-        model.add_constraint(model.turned_off.get_value(t) <= 1 - model.STOP.get_value(t - model.parameters.timestep))
+        model.add_constraint(
+            model.turned_off.get_value(t) <= 1 - model.STOP.get_value(t - model.parameters.date.timestep)
+        )
         model.add_constraint(model.turned_off.get_value(t) <= model.STOP.get_value(t))
         model.add_constraint(
             model.turned_off.get_value(t)
-            >= model.STOP.get_value(t) - model.STOP.get_value(t - model.parameters.timestep),
+            >= model.STOP.get_value(t) - model.STOP.get_value(t - model.parameters.date.timestep),
             f"constraints_defining_turned_off_{t}",
         )
 
     # Constraints on down_to_stop (eq. (20))
     for t in model.time_frame:
-        t_minus_one = t - model.parameters.timestep
+        t_minus_one = t - model.parameters.date.timestep
         model.add_constraint(down_to_stop[t] <= model.STOP.get_value(t))
         model.add_constraint(down_to_stop[t] <= model.ON_DOWN.get_value(t_minus_one))
         model.add_constraint(down_to_stop[t] >= model.STOP.get_value(t) + model.ON_DOWN.get_value(t_minus_one) - 1)
@@ -173,7 +176,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # Transitions from ON_UP and ON_DOWN to START and START to OFF are forbidden
     # Direct transitions from OFF to ON_UP and ON_DOWN are forbidden.
     for t in model.time_frame:
-        t_minus_one = t - model.parameters.timestep
+        t_minus_one = t - model.parameters.date.timestep
         # STOP to ON (eq. (13))
         model.add_constraint(model.STOP.get_value(t_minus_one) + model.ON_UP.get_value(t) <= 1)
         model.add_constraint(model.STOP.get_value(t_minus_one) + model.ON_DOWN.get_value(t) <= 1)
@@ -200,8 +203,8 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         # Eviction constraints.
     for t in model.time_frame:
         # Define t - T_start and t - T_stop.
-        t_minus_T_start = t - model.T_start * model.parameters.timestep
-        t_minus_T_stop = t - model.T_stop * model.parameters.timestep
+        t_minus_T_start = t - model.T_start * model.parameters.date.timestep
+        t_minus_T_stop = t - model.T_stop * model.parameters.date.timestep
         # Add the constraints.
         # Implements equation (16)
         model.add_constraint(
@@ -221,7 +224,9 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             time_steps = range(1, model.T_on)
             for s in time_steps:
                 # Enforces eq. (31) with T_start > 0
-                t_minus_s_minus_T_start = t - s * model.parameters.timestep - model.T_start * model.parameters.timestep
+                t_minus_s_minus_T_start = (
+                    t - s * model.parameters.date.timestep - model.T_start * model.parameters.date.timestep
+                )
                 model.add_constraint(
                     model.turned_on.get_value(t_minus_s_minus_T_start)
                     <= model.ON_UP.get_value(t) + model.ON_DOWN.get_value(t),
@@ -233,7 +238,9 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             for s in time_steps:
                 # Enforces eq. (32) with T_stop > 0
                 # Shift the index because the OFF is formally considered when entering the STOP state.
-                t_minus_s_minus_T_stop = t - s * model.parameters.timestep - model.T_stop * model.parameters.timestep
+                t_minus_s_minus_T_stop = (
+                    t - s * model.parameters.date.timestep - model.T_stop * model.parameters.date.timestep
+                )
                 model.add_constraint(
                     model.turned_off.get_value(t_minus_s_minus_T_stop) <= model.OFF.get_value(t),
                     f"minimum_time_OFF_{model.thermal_unit.name}_at_{t_minus_s_minus_T_stop}_for_{t}",
@@ -242,7 +249,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         for t in model.time_frame:
             for s in model.stop_time_steps:
                 # Enforces eq. (24)
-                t_minus_s = t - s * model.parameters.timestep
+                t_minus_s = t - s * model.parameters.date.timestep
                 model.add_constraint(
                     model.turned_off.get_value(t_minus_s) <= model.STOP.get_value(t),
                     f"shutdown_ramp_of_{model.thermal_unit.name}_at_{t_minus_s}_for_{t}",
@@ -251,7 +258,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         for t in model.time_frame:
             for s in model.start_time_steps:
                 # Enforces eq. (17)
-                t_minus_s = t - s * model.parameters.timestep
+                t_minus_s = t - s * model.parameters.date.timestep
                 model.add_constraint(
                     model.turned_on.get_value(t_minus_s) <= model.START.get_value(t),
                     f"start_up_ramp_of_{model.thermal_unit.name}_at_{t_minus_s}_for_{t}",
@@ -333,7 +340,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         for t in model.gradients_time_frame:  # The gradients are defined only up to T-1.
             # NB. The downward gradient implemented here requires the unit to be at most at deltaQ in order to be able to enter the stop state.
             # The resulting constraint set is considerably more constraining than if the gradient was relaxed.
-            t_next = t + model.parameters.timestep  # Get the next time step
+            t_next = t + model.parameters.date.timestep  # Get the next time step
 
             # Upward constrained gradient (eq. (35))
             model.add_constraint(
@@ -363,7 +370,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             )  # Downward gradient
     elif model.delta_q == 0:
         for t in model.gradients_time_frame:
-            t_next = t + model.parameters.timestep
+            t_next = t + model.parameters.date.timestep
 
             # Upward unconstrained gradient (eq. (36))
             model.add_constraint(

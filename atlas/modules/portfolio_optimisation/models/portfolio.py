@@ -172,7 +172,7 @@ class PortfolioPO(Portfolio):
                 model,
                 time,
                 *imbalance_prices,
-                parameters.timestep,
+                parameters.date.timestep,
             )
             if self.equipments.has_generation_equipment():
                 self._add_reserve_penalty_terms(model, time, parameters)
@@ -245,20 +245,22 @@ class PortfolioPO(Portfolio):
         auto_contracted_diff_down = model.get_variable(f"automated_contracted_diff_down_{self.name}_{time}")
 
         model.add_objective(
-            parameters.manual_unprocured_reserves_penalty * parameters.timestep.total_hours() * contracted_diff_up,
+            parameters.manual_unprocured_reserves_penalty * parameters.date.timestep.total_hours() * contracted_diff_up,
         )
         model.add_objective(
-            parameters.manual_unprocured_reserves_penalty * parameters.timestep.total_hours() * contracted_diff_down
+            parameters.manual_unprocured_reserves_penalty
+            * parameters.date.timestep.total_hours()
+            * contracted_diff_down
         )
 
         model.add_objective(
             parameters.automated_unprocured_reserves_penalty
-            * parameters.timestep.total_hours()
+            * parameters.date.timestep.total_hours()
             * auto_contracted_diff_up,
         )
         model.add_objective(
             parameters.automated_unprocured_reserves_penalty
-            * parameters.timestep.total_hours()
+            * parameters.date.timestep.total_hours()
             * auto_contracted_diff_down,
         )
 

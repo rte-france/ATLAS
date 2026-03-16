@@ -6,17 +6,18 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from os import getcwd
-from pathlib import Path
-
 from pendulum import DateTime, duration
 from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enums import MarketType, StorageType, ThermalStrategy
-from atlas.io_utils.section_parameters import MultiProcessingParameters, OutputParameters, SolverParameters, \
-    DateParameters
+from atlas.io_utils.section_parameters import (
+    DateParameters,
+    MultiProcessingParameters,
+    OutputParameters,
+    SolverParameters,
+)
 from atlas.timing import generate_datetimes
 from atlas.validators import convert_to_duration
 
@@ -127,13 +128,7 @@ class PortfolioOptimisationParameters(AbstractParameters):
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
     )
 
-    timestep: Duration = Field(
-        default_factory=lambda: duration(hours=1),
-        description="Time step of the simulated market.",  # type: ignore[assignment]
-    )
-
     @field_validator(
-        "timestep",
         "battery_automated_reserve_duration",
         "battery_reserve_duration",
         "electric_vehicle_automated_reserve_duration",
@@ -186,12 +181,12 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def target_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period."""
-        return generate_datetimes(self.date.start_date, self.date.end_date, self.timestep, closed="left")
+        return generate_datetimes(self.date.start_date, self.date.end_date, self.date.timestep, closed="left")
 
     @property
     def init_battery_time(self) -> DateTime:
         """Datetime for the initial battery state (start_date - timestep)."""
-        return self.date.start_date - self.timestep
+        return self.date.start_date - self.date.timestep
 
     @property
     def storage_mapping(self):

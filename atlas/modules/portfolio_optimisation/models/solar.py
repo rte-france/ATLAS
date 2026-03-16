@@ -111,7 +111,7 @@ class SolarPO(BaseEquipmentPO, Solar):
             cfg.logger.debug(f"Adding objective for solar unit {self.name} at time {time}")
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             model.add_objective(
-                get_variable_cost(self, time) * power_level_var * parameters.timestep.total_hours(),
+                get_variable_cost(self, time) * power_level_var * parameters.date.timestep.total_hours(),
             )
         else:
             cfg.logger.debug(f"Skipping objective for solar unit {self.name} at non-target time {time}")

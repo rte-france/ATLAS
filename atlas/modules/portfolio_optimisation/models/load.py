@@ -84,11 +84,11 @@ class LoadPO(BaseEquipmentPO, Load):
                 model.add_objective(
                     (get_variable_cost(self, time) - price_forecast)
                     * power_level_var
-                    * parameters.timestep.total_hours(),
+                    * parameters.date.timestep.total_hours(),
                 )
             else:
                 model.add_objective(
-                    get_variable_cost(self, time) * -power_level_var * parameters.timestep.total_hours(),
+                    get_variable_cost(self, time) * -power_level_var * parameters.date.timestep.total_hours(),
                 )
         else:
             cfg.logger.debug(f"Skipping objective for load unit {self.name} at non-target time {time}")

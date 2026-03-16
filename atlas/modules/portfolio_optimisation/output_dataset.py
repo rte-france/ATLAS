@@ -67,14 +67,16 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 ]
                 imbalance_ts = Timeseries.from_values(
                     start_date=self.parameters.target_times[0],
-                    frequency=self.parameters.timestep,
+                    frequency=self.parameters.date.timestep,
                     values=imbalance_values,
                 )
                 if portfolio.imbalance:
                     portfolio.imbalance.add(imbalance_ts, self.parameters.date.execution_date)
                 else:
                     portfolio.imbalance = ForecastingMatrix(
-                        imbalance_ts.dataframe.rename({"value": self.parameters.date.execution_date.to_datetime_string()})
+                        imbalance_ts.dataframe.rename(
+                            {"value": self.parameters.date.execution_date.to_datetime_string()}
+                        )
                     )
 
                 power_values = [0.0] * len(self.parameters.target_times)
@@ -93,7 +95,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
                 power_ts = Timeseries.from_values(
                     start_date=self.parameters.target_times[0],
-                    frequency=self.parameters.timestep,
+                    frequency=self.parameters.date.timestep,
                     values=power_values,
                 )
 
@@ -204,7 +206,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         """
         power_ts = Timeseries.from_values(
             start_date=self.parameters.target_times[0],
-            frequency=self.parameters.timestep,
+            frequency=self.parameters.date.timestep,
             values=power_values,
         )
 
@@ -229,7 +231,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         """
         power_ts = Timeseries.from_values(
             start_date=self.parameters.target_times[0],
-            frequency=self.parameters.timestep,
+            frequency=self.parameters.date.timestep,
             values=power_values,
         )
 
@@ -259,7 +261,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
 
         stored_energy_ts = Timeseries.from_values(
             start_date=self.parameters.target_times[0],
-            frequency=self.parameters.timestep,
+            frequency=self.parameters.date.timestep,
             values=stored_energy_values,
         )
 
@@ -275,15 +277,19 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
     def _update_state_sequence(self, equipment: ThermalPO, state_sequence: list[float]):
         state_sequence_ts = Timeseries.from_values(
             start_date=self.parameters.target_times[0],
-            frequency=self.parameters.timestep,
+            frequency=self.parameters.date.timestep,
             values=state_sequence,
         )
 
         if equipment.state_sequence:
             if self.parameters.date.execution_date in equipment.state_sequence:
-                equipment.state_sequence.replace(self.parameters.date.execution_date.to_datetime_string(), state_sequence_ts)
+                equipment.state_sequence.replace(
+                    self.parameters.date.execution_date.to_datetime_string(), state_sequence_ts
+                )
             else:
-                equipment.state_sequence.add(state_sequence_ts, self.parameters.date.execution_date.to_datetime_string())
+                equipment.state_sequence.add(
+                    state_sequence_ts, self.parameters.date.execution_date.to_datetime_string()
+                )
         else:
             equipment.state_sequence = ScenarioMatrix(
                 state_sequence_ts.dataframe.rename({"value": self.parameters.date.execution_date.to_datetime_string()})

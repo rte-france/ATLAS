@@ -882,7 +882,7 @@ class Pricing(OptimisationModel):
             )
 
     def convert_time_index_to_time(self, time_index: int) -> pendulum.DateTime:
-        return self.parameters.date.start_date + time_index * self.parameters.timestep
+        return self.parameters.date.start_date + time_index * self.parameters.date.timestep
 
     # Generator of border ranks and names of neighbour area for each border of a given market area:
     def get_market_area_neighbours(self, mc_market_area_name: str) -> list[tuple[MarketBorderMC, str]]:

@@ -253,9 +253,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         """
 
         # Compute T_stable, T_start and T_stop : will be used to see which states will be incorporated
-        T_start = int(math.floor(unit.startup_duration / self.parameters.timestep))
-        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.timestep))
-        T_stable = int(math.ceil(unit.minimum_stable_power_duration / self.parameters.timestep))
+        T_start = int(math.floor(unit.startup_duration / self.parameters.date.timestep))
+        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.date.timestep))
+        T_stable = int(math.ceil(unit.minimum_stable_power_duration / self.parameters.date.timestep))
 
         # Since states are mutually exclusive, we need to sum them in order to collapse them on a single time series.
 
@@ -430,7 +430,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
                 new_sequence_ts = DAOTimeseries(
                     Timeseries.from_index(
-                        self.parameters.date.start_date, self.parameters.timestep, self.parameters.date.end_date, default_value=0
+                        self.parameters.date.start_date,
+                        self.parameters.date.timestep,
+                        self.parameters.date.end_date,
+                        default_value=0,
                     )
                 )
 
@@ -464,6 +467,8 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
                 if unit.state_sequence is None:
                     unit.state_sequence = ScenarioMatrix()
-                unit.state_sequence.add(new_sequence_ts, f"{self.parameters.date.execution_date}-{price_type.upper()}_DAO")
+                unit.state_sequence.add(
+                    new_sequence_ts, f"{self.parameters.date.execution_date}-{price_type.upper()}_DAO"
+                )
 
         return results

@@ -6,15 +6,17 @@ This file is part of the ATLAS project.
 """
 
 from functools import cached_property
-from pathlib import Path
 
-from pendulum import DateTime, Duration
-from pydantic import Field, field_validator, ConfigDict
+from pendulum import DateTime
+from pydantic import ConfigDict, Field
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.io_utils.section_parameters import DateParameters, SolverParameters, OutputParameters, \
-    MultiProcessingParameters
-from atlas.validators import convert_to_duration
+from atlas.io_utils.section_parameters import (
+    DateParameters,
+    MultiProcessingParameters,
+    OutputParameters,
+    SolverParameters,
+)
 
 
 class DayAheadOrdersParameters(AbstractParameters):
@@ -89,9 +91,6 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type PumpedHydraulicStorage.",
     )
-    timestep: Duration = Field(
-        default_factory=lambda: Duration(minutes=60), description="Discretization step of the simulated time interval"
-    )
     price_forecasts_types: list[str] = Field(
         ["Medium", "High", "Low"],
         description="List of available PriceForecasts in the input data, separated by ';'. The default value should "
@@ -100,13 +99,4 @@ class DayAheadOrdersParameters(AbstractParameters):
 
     @cached_property
     def penultimate_date(self) -> DateTime:
-        return self.date.end_date - self.timestep
-
-    @field_validator(
-        "timestep",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
+        return self.date.end_date - self.date.timestep

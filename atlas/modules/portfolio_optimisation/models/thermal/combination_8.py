@@ -98,7 +98,7 @@ def add_initial_conditions(
             obj.turned_on.set_extended(time, 0)
             obj.turned_off.set_extended(time, 0)
 
-            prev_time = time - parameters.timestep
+            prev_time = time - parameters.date.timestep
             prev_power = power_ts.get_value(prev_time) if prev_time in power_ts else 0
             # Distinguish between startup and shutdown for intermediate power levels
             if time != extended_start_date and obj.on_start_var.get_extended_value(time) == 1:
@@ -118,7 +118,7 @@ def add_initial_conditions(
 
         # Handle stable-specific variables for non-dayZero
         for idx, time in enumerate(kwargs.get("stable_initial_times", [])):
-            next_time = time + parameters.timestep
+            next_time = time + parameters.date.timestep
             current_power = obj.power_level_var.get_extended_value(time)
             next_power = obj.power_level_var.get_extended_value(next_time)
 
@@ -154,7 +154,7 @@ def add_initial_conditions(
                 obj.on_flat_var.set_extended(time, 0)
 
             if time != extended_start_date and obj.off_var.get_extended_value(time) != 1:
-                prev_time = time - parameters.timestep
+                prev_time = time - parameters.date.timestep
                 if obj.on_flat_var.get_extended_value(time) - obj.on_flat_var.get_extended_value(prev_time) == 1:
                     obj.stable_var.set_extended(time, 1)
 
@@ -168,16 +168,16 @@ def add_initial_conditions(
                 initialize_flat_down_stop_initial_conditions(
                     obj,
                     time,
-                    time - parameters.timestep,
-                    time - 2 * parameters.timestep,
+                    time - parameters.date.timestep,
+                    time - 2 * parameters.date.timestep,
                 )
 
         initialize_gradient_initial_conditions(obj, parameters)
         initialize_flat_down_stop_initial_conditions(
             obj,
-            parameters.date.start_date - parameters.timestep,
-            parameters.date.start_date - 2 * parameters.timestep,
-            parameters.date.start_date - 3 * parameters.timestep,
+            parameters.date.start_date - parameters.date.timestep,
+            parameters.date.start_date - 2 * parameters.date.timestep,
+            parameters.date.start_date - 3 * parameters.date.timestep,
         )
 
 
@@ -204,7 +204,7 @@ def add_constraints(
     if obj.minimum_power is None or obj.maximum_power is None:
         raise ValueError("minimum_power and maximum_power cannot be None")
 
-    prev_time = time - parameters.timestep
+    prev_time = time - parameters.date.timestep
 
     off_var = obj.off_var.get_value(time)
     on_up_var = obj.on_up_var.get_value(time)
@@ -240,10 +240,10 @@ def add_constraints(
     down_grad_prev_var = obj.down_grad_var.get_value(prev_time)
     dd_grad_prev_var = obj.dd_grad_var.get_value(prev_time)
 
-    on_flat_2_prev_var = obj.on_flat_var.get_value(prev_time - parameters.timestep)
-    on_down_2_prev_var = obj.on_down_var.get_value(prev_time - parameters.timestep)
-    on_up_2_prev_var = obj.on_up_var.get_value(prev_time - parameters.timestep)
-    stop_2_prev_var = obj.stop_var.get_value(prev_time - parameters.timestep)
+    on_flat_2_prev_var = obj.on_flat_var.get_value(prev_time - parameters.date.timestep)
+    on_down_2_prev_var = obj.on_down_var.get_value(prev_time - parameters.date.timestep)
+    on_up_2_prev_var = obj.on_up_var.get_value(prev_time - parameters.date.timestep)
+    stop_2_prev_var = obj.stop_var.get_value(prev_time - parameters.date.timestep)
 
     reserves_up_var = model.get_variable(f"reserves_up_{obj.name}_{time}")
     reserves_down_var = model.get_variable(f"reserves_down_{obj.name}_{time}")
@@ -455,14 +455,14 @@ def add_constraints(
     model.add_constraint(off_prev_var + on_flat_var <= 1, f"transition_constraint_18_{time}_{obj.name}")
     model.add_constraint(off_prev_var + on_down_var <= 1, f"transition_constraint_19_{time}_{obj.name}")
 
-    stop_eviction_time = time - (obj._T_stop - 1) * parameters.timestep
+    stop_eviction_time = time - (obj._T_stop - 1) * parameters.date.timestep
     turned_off_stop_eviction_var = obj.turned_off.get_value(stop_eviction_time)
     model.add_constraint(
         turned_off_stop_eviction_var + stop_var <= 1,
         f"stop_eviction_constraint_{time}_{obj.name}",
     )
 
-    start_eviction_time = time - (obj._T_start - 1) * parameters.timestep
+    start_eviction_time = time - (obj._T_start - 1) * parameters.date.timestep
     turned_on_start_eviction_var = obj.turned_on.get_value(start_eviction_time)
     model.add_constraint(
         turned_on_start_eviction_var + start_var <= 1,
@@ -471,7 +471,7 @@ def add_constraints(
 
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
-            local_time = time - (s + obj._T_start) * parameters.timestep
+            local_time = time - (s + obj._T_start) * parameters.date.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(
                 turned_on_local_var <= on_up_var + on_down_var + on_flat_var,
@@ -479,7 +479,7 @@ def add_constraints(
             )
 
             if time == parameters.date.start_date:
-                local_time = time - (s + obj._T_start + 1) * parameters.timestep
+                local_time = time - (s + obj._T_start + 1) * parameters.date.timestep
                 turned_on_local_var = obj.turned_on.get_value(local_time)
                 model.add_constraint(
                     turned_on_local_var <= on_up_prev_var + on_down_prev_var + on_flat_prev_var,
@@ -488,7 +488,7 @@ def add_constraints(
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
-            local_time = time - (s + obj._T_stop) * parameters.timestep
+            local_time = time - (s + obj._T_stop) * parameters.date.timestep
             turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(
                 turned_off_local_var <= off_var,
@@ -497,14 +497,14 @@ def add_constraints(
 
     if obj._T_stable >= 2:
         for s in range(1, obj._T_stable - 1):
-            local_time = time - s * parameters.timestep
+            local_time = time - s * parameters.date.timestep
             stable_local_var = obj.stable_var.get_value(local_time)
             model.add_constraint(
                 stable_local_var <= on_flat_var,
                 f"minimum_time_stable_{obj.name}_{local_time}_{time}",
             )
             if time == parameters.date.start_date:
-                local_time = time - (s + 1) * parameters.timestep
+                local_time = time - (s + 1) * parameters.date.timestep
                 stable_local_var = obj.stable_var.get_value(local_time)
                 model.add_constraint(
                     stable_local_var <= on_flat_prev_var,
@@ -513,7 +513,7 @@ def add_constraints(
 
     if obj._T_stop >= 2:
         for s in range(1, obj._T_stop - 1):
-            local_time = time - s * parameters.timestep
+            local_time = time - s * parameters.date.timestep
             turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(
                 turned_off_local_var <= stop_var,
@@ -522,7 +522,7 @@ def add_constraints(
 
     if obj._T_start >= 2:
         for s in range(1, obj._T_start - 1):
-            local_time = time - s * parameters.timestep
+            local_time = time - s * parameters.date.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(
                 turned_on_local_var <= start_var,

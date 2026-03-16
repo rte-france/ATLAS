@@ -5,20 +5,27 @@ This file is part of the ATLAS project.
 
 Module that implements AbstractParameters
 """
+
 from pathlib import Path
 
 from pendulum import Duration
-from pydantic import ConfigDict, model_validator, BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_extra_types.pendulum_dt import DateTime
 from typing_extensions import Self
 
 from atlas.enums import SolverEnum
+from atlas.validators import convert_to_duration
 
 
 class DateParameters(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     start_date: DateTime
     end_date: DateTime
     execution_date: DateTime
+    timestep: Duration = Field(
+        default_factory=lambda: Duration(minutes=60), description="Discretization step of the simulated time interval"
+    )
 
     @model_validator(mode="after")
     def check_dates(self) -> Self:
@@ -35,16 +42,24 @@ class DateParameters(BaseModel):
             )
         return self
 
+    @field_validator(
+        "timestep",
+        mode="before",
+    )
+    @classmethod
+    def parse_duration(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)
+
 
 class SolverParameters(BaseModel):
     solver_name: SolverEnum = SolverEnum.XPRESS
     export_lp: bool = False
     use_presolve: bool = False
     duality_gap: float = Field(0.0001, description="duality gap used for the optimization.")
-    timeout: Duration = Field(
-        default_factory=lambda: Duration(minutes=4), description="Timeout of the optimization."
-    )
+    timeout: Duration = Field(default_factory=lambda: Duration(minutes=4), description="Timeout of the optimization.")
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
 
 class MultiProcessingParameters(BaseModel):
     use_multiprocessing: bool = False

@@ -114,9 +114,9 @@ class OrderMC(Order):
 
         # MS
         duration_span = order.end_date.diff(order.start_date).as_duration()
-        if parameters.timestep > duration_span:
+        if parameters.date.timestep > duration_span:
             logger.info(
-                f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.timestep} min"
+                f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.date.timestep} min"
             )
             return False
 
