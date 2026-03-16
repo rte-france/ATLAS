@@ -28,3 +28,5 @@ class WorkflowParameters(Parameters):
     steps: list[Step]
     output_dataset_path: Path
     parameters_path: Path | None = None
+    path_from_workflow: bool = True
+    output_dir: Path = Path()

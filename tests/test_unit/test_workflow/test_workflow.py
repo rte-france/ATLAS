@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 Unit tests for Workflow.
 """
-
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -175,6 +175,7 @@ class TestWorkflowExecute:
         wf.parameters = params
         wf.generic_module_parameters = {}
         wf._steps = []
+        wf.workflow_path = Path()
 
         call_order = []
 
@@ -220,6 +221,7 @@ class TestWorkflowExecute:
         wf.parameters = params
         wf.generic_module_parameters = {}
         wf._steps = []
+        wf.workflow_path = Path()
 
         step = _make_workflow_step("bad_step", output=None)
         # step.run will set _output_dataset = None (the default)
@@ -242,6 +244,7 @@ class TestWorkflowExecute:
         wf.parameters = params
         wf.generic_module_parameters = {}
         wf._steps = []
+        wf.workflow_path = Path()
 
         mock_change_set = MagicMock()
         output = self._make_mock_output()
@@ -321,3 +324,144 @@ class TestWorkflowRepresentation:
         result = repr(workflow)
         assert "Workflow 'test_workflow'" in result
         assert "1 step" in result
+
+class TestWorkflowPathFromWorkflow:
+
+    def test_workflow_path_set_to_parent_when_path_from_workflow_true(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"path_from_workflow: true\n"
+            f"steps: []\n"
+        )
+
+        workflow = Workflow.from_file(config)
+
+        assert workflow.workflow_path == tmp_path
+
+    def test_workflow_path_empty_when_path_from_workflow_false(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"path_from_workflow: false\n"
+            f"steps: []\n"
+        )
+
+        workflow = Workflow.from_file(config)
+
+        assert workflow.workflow_path == Path()
+
+    def test_dataset_loaded_relative_to_workflow_when_path_from_workflow_true(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: dataset\n"
+            f"output_dataset_path: output\n"
+            f"path_from_workflow: true\n"
+            f"steps: []\n"
+        )
+
+        workflow = Workflow.from_file(config)
+
+        with patch("atlas.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir, \
+             patch("atlas.workflow.workflow.CurrentInputState"), \
+             patch.object(Path, "mkdir", return_value=None), \
+             patch.object(AtlasDataset, "to_directory"):
+            mock_from_dir.return_value = AtlasDataset()
+            workflow.execute()
+            mock_from_dir.assert_called_once_with(tmp_path / "dataset")
+
+    def test_dataset_loaded_relative_to_cwd_when_path_from_workflow_false(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"path_from_workflow: false\n"
+            f"steps: []\n"
+        )
+
+        workflow = Workflow.from_file(config)
+
+        with patch("atlas.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir, \
+             patch("atlas.workflow.workflow.CurrentInputState"), \
+             patch.object(AtlasDataset, "to_directory"):
+            mock_from_dir.return_value = AtlasDataset()
+            workflow.execute()
+            mock_from_dir.assert_called_once_with(Path() / dataset_dir)
+
+    def test_step_output_dir_resolved_relative_to_workflow(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        params_file = tmp_path / "params.yaml"
+        params_file.write_text(
+            "date:\n"
+            "  start_date: '2028-09-27 00:00:00'\n"
+            "  end_date: '2028-09-28 00:00:00'\n"
+            "  execution_date: '2028-09-26 12:00:00'\n"
+        )
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"path_from_workflow: true\n"
+            f"output_dir: results\n"
+            f"steps:\n"
+            f"  - module: MarketClearing\n"
+            f"    parameters_path: {params_file}\n"
+        )
+
+        workflow = Workflow.from_file(config)
+        step = workflow.steps[0]
+
+        assert step.parameters.output.output_dir == tmp_path / "results" / "MarketClearing"
+
+    def test_generic_parameters_loaded_relative_to_workflow(self, tmp_path):
+        dataset_dir = tmp_path / "dataset"
+        dataset_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        generic_params = tmp_path / "generic.yaml"
+        generic_params.write_text("solver_name: XPRESS\n")
+
+        config = tmp_path / "workflow.yaml"
+        config.write_text(
+            f"name: test_workflow\n"
+            f"dataset_path: {dataset_dir}\n"
+            f"output_dataset_path: {output_dir}\n"
+            f"path_from_workflow: true\n"
+            f"parameters_path: generic.yaml\n"
+            f"steps: []\n"
+        )
+
+        workflow = Workflow.from_file(config)
+
+        assert workflow.generic_module_parameters.get("solver_name") == "XPRESS"

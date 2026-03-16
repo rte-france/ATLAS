@@ -36,6 +36,10 @@ class ModuleRegistry(Enum):
             valid = [m.name for m in cls]
             raise ValueError(f"Unknown module: '{name}'. Valid modules are: {valid}") from None
 
+    @classmethod
+    def has_name(cls, name: str) -> bool:
+        return name in cls._member_names_
+
 
 class Step(BaseModel):
     """Definition of a single step in the workflow.

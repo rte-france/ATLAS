@@ -20,7 +20,7 @@ from atlas.timing import timer
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
 from atlas.workflow.parameters import WorkflowParameters
-from atlas.workflow.step import WorkflowStep
+from atlas.workflow.step import WorkflowStep, ModuleRegistry
 
 
 class Workflow:
@@ -28,13 +28,16 @@ class Workflow:
 
     Each step processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, parameters: WorkflowParameters):
+    def __init__(self, parameters: WorkflowParameters, workflow_path: Path):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
         :type parameters: WorkflowParameters
+        :param workflow_path: Path.
+        :type workflow_path: WorkflowParameters
         """
         self.parameters = parameters
+        self.workflow_path = workflow_path
         self.generic_module_parameters: dict[str, Any] = {}
         self._steps: list[WorkflowStep] = []
 
@@ -44,21 +47,33 @@ class Workflow:
     @classmethod
     def from_file(cls, file_path: str | Path) -> Workflow:
         parameters = WorkflowParameters.from_file(file_path=file_path)
-        return cls(parameters=parameters)
+        workflow_path = file_path.parent if parameters.path_from_workflow else Path()
+        return cls(parameters=parameters, workflow_path=workflow_path)
 
     def build_generic_module_parameters(self):
         if self.parameters.parameters_path:
-            with open(self.parameters.parameters_path) as file:
+            with open(self.workflow_path / self.parameters.parameters_path) as file:
                 self.generic_module_parameters = yaml.safe_load(file)
 
     def build_steps(self):
+        name_dict = {}
         for step in self.parameters.steps:
-            parameters = Workflow.build_module_parameters(self.generic_module_parameters, step.parameters_path)
+            parameters = Workflow.build_module_parameters(self.generic_module_parameters, self.workflow_path / step.parameters_path)
+            if ModuleRegistry.has_name(step.name):
+                if step.name not in name_dict:
+                    step.name = f"{step.name}_1"
+                    name_dict[step.name] = 1
+                else:
+                    step.name = f"{step.name}_{name_dict[step.name] + 1}"
+                    name_dict[step.name] += 1
+            if "output" not in parameters:
+                parameters["output"] = {}
+            parameters["output"]["output_dir"] = self.workflow_path / self.parameters.output_dir / step.name
             workflow_step = WorkflowStep(step.name, step.module.value, parameters)
             self.add_step(workflow_step)
 
     @staticmethod
-    def build_module_parameters(parameters: dict[str, Any], parameters_path: Path):
+    def build_module_parameters(parameters: dict[str, Any], parameters_path: Path) -> dict[str, Any]:
         parameters = copy.deepcopy(parameters)
         with open(parameters_path) as file:
             custom_parameters = yaml.safe_load(file)
@@ -104,7 +119,7 @@ class Workflow:
         The first step receives the workflow's initial dataset.
         """
         logger.info(f"Launching workflow : {self.parameters.name}")
-        atlas_dataset = AtlasDataset.from_directory(self.parameters.dataset_path)
+        atlas_dataset = AtlasDataset.from_directory(self.workflow_path / self.parameters.dataset_path)
         cis = CurrentInputState(atlas_dataset)
 
         for step in self.steps:
@@ -127,4 +142,4 @@ class Workflow:
 
             logger.info(f"Finishing step :'{step.name}'")
 
-        cis.to_directory(self.parameters.output_dataset_path)
+        cis.to_directory(self.workflow_path / self.parameters.output_dir / "workflow_output")
