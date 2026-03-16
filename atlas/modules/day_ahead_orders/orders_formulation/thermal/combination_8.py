@@ -57,7 +57,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # A. INITIAL CONDITIONS
 
     # Define the start_date - 2 time steps.
-    start_date_minus_two = model.parameters.start_date - 2 * model.parameters.timestep
+    start_date_minus_two = model.parameters.date.start_date - 2 * model.parameters.timestep
 
     if day_zero:
         # Remind the user how the program has been initialized

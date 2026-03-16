@@ -46,8 +46,8 @@ class NonDispatchableStep:
                 cfg.logger.warning(f"maximum_power_forecast is None for other_non_dispatchable {unit.name}")
             else:
                 production_forecast = unit.maximum_power_forecast.get_forecast(
-                    parameters.execution_date,
-                    parameters.start_date,
+                    parameters.date.execution_date,
+                    parameters.date.start_date,
                     parameters.penultimate_date,
                     parameters.timestep,
                 )
@@ -76,7 +76,7 @@ class NonDispatchableStep:
                         product=Product.DayAhead,
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
-                        execution_date=parameters.execution_date,
+                        execution_date=parameters.date.execution_date,
                         start_date=t,
                         end_date=t + parameters.timestep,
                     )

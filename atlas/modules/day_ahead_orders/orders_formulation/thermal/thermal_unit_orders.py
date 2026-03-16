@@ -78,41 +78,41 @@ class ThermalUnitOrders:
         ## Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements
 
         automated_reserves_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
+            self.parameters.date.start_date, self.parameters.timestep, self.parameters.date.end_date, 0
         )
         automated_reserves_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
+            self.parameters.date.start_date, self.parameters.timestep, self.parameters.date.end_date, 0
         )
         manual_reserves_up_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
+            self.parameters.date.start_date, self.parameters.timestep, self.parameters.date.end_date, 0
         )
         manual_reserves_down_procured = Timeseries.from_index(
-            self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, 0
+            self.parameters.date.start_date, self.parameters.timestep, self.parameters.date.end_date, 0
         )
 
         if unit.afrr_up_procured and unit.fcr_up_procured:
             automated_reserves_up_procured = unit.afrr_up_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+                self.parameters.date.execution_date, self.parameters.date.start_date, self.parameters.date.end_date
             ) + unit.fcr_up_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+                self.parameters.date.execution_date, self.parameters.date.start_date, self.parameters.date.end_date
             )
         if unit.afrr_down_procured and unit.fcr_down_procured:
             automated_reserves_down_procured = unit.afrr_down_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+                self.parameters.date.execution_date, self.parameters.date.start_date, self.parameters.date.end_date
             ) + unit.fcr_down_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+                self.parameters.date.execution_date, self.parameters.date.start_date, self.parameters.date.end_date
             )
         if unit.mfrr_up_procured and unit.rr_up_procured:
             manual_reserves_up_procured = unit.mfrr_up_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+                self.parameters.date.execution_date, self.parameters.date.start_date, self.parameters.date.end_date
             ) + unit.rr_up_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+                self.parameters.date.execution_date, self.parameters.date.start_date, self.parameters.date.end_date
             )
         if unit.mfrr_down_procured and unit.rr_down_procured:
             manual_reserves_down_procured = unit.mfrr_down_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+                self.parameters.date.execution_date, self.parameters.date.start_date, self.parameters.date.end_date
             ) + unit.rr_down_procured.get_forecast(
-                self.parameters.execution_date, self.parameters.start_date, self.parameters.end_date
+                self.parameters.date.execution_date, self.parameters.date.start_date, self.parameters.date.end_date
             )
 
         ## Get the unit-specific parameters:
@@ -267,7 +267,7 @@ class ThermalUnitOrders:
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
-                    execution_date=self.parameters.execution_date,
+                    execution_date=self.parameters.date.execution_date,
                     start_date=t,
                     end_date=t + self.parameters.timestep,
                 )
@@ -289,7 +289,7 @@ class ThermalUnitOrders:
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
-                    execution_date=self.parameters.execution_date,
+                    execution_date=self.parameters.date.execution_date,
                     start_date=t,
                     end_date=t + self.parameters.timestep,
                 )
@@ -310,7 +310,7 @@ class ThermalUnitOrders:
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
-                    execution_date=self.parameters.execution_date,
+                    execution_date=self.parameters.date.execution_date,
                     start_date=t,
                     end_date=t + self.parameters.timestep,
                 )
@@ -331,7 +331,7 @@ class ThermalUnitOrders:
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
-                    execution_date=self.parameters.execution_date,
+                    execution_date=self.parameters.date.execution_date,
                     start_date=t,
                     end_date=t + self.parameters.timestep,
                 )
@@ -351,7 +351,7 @@ class ThermalUnitOrders:
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
-                    execution_date=self.parameters.execution_date,
+                    execution_date=self.parameters.date.execution_date,
                     start_date=t,
                     end_date=t + self.parameters.timestep,
                 )
@@ -404,7 +404,7 @@ class ThermalUnitOrders:
                         product=Product.DayAhead,
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
-                        execution_date=self.parameters.execution_date,
+                        execution_date=self.parameters.date.execution_date,
                         start_date=t,
                         end_date=t + self.parameters.timestep,
                     )
@@ -435,7 +435,7 @@ class ThermalUnitOrders:
                         product=Product.DayAhead,
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
-                        execution_date=self.parameters.execution_date,
+                        execution_date=self.parameters.date.execution_date,
                         start_date=t,
                         end_date=t + self.parameters.timestep,
                     )
@@ -457,7 +457,7 @@ class ThermalUnitOrders:
                     product=Product.DayAhead,
                     order_type=OrderType.Sell,
                     is_agent_tso=False,
-                    execution_date=self.parameters.execution_date,
+                    execution_date=self.parameters.date.execution_date,
                     start_date=t,
                     end_date=t + self.parameters.timestep,
                 )

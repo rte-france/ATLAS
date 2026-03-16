@@ -75,7 +75,7 @@ class ElectricVehicleModel(StorageModel):
             )
 
             # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == self.parameters.start_date:
+            if t == self.parameters.date.start_date:
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (
@@ -154,9 +154,9 @@ class ElectricVehicleModel(StorageModel):
             * self.storage.charge_efficiency
             >= (
                 self.storage.displacement_energy.get_value(  # type: ignore [union-attr]
-                    self.parameters.end_date + self.optimization_period - self.parameters.timestep
+                    self.parameters.date.end_date + self.optimization_period - self.parameters.timestep
                 )
-                - self.storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.timestep)  # type: ignore [union-attr]
+                - self.storage.displacement_energy.get_value(self.parameters.date.start_date - self.parameters.timestep)  # type: ignore [union-attr]
             )
             * self.parameters.ev_energy_coef,
             f"DisplacementEnergy_compensation_for_{str(self.storage.name)}",

@@ -47,8 +47,8 @@ class WindPVStep:
                 cfg.logger.warning(f"maximum_power_forecast is None for wind/photovoltaic {equipment.name}")
             else:
                 production_forecast = equipment.maximum_power_forecast.get_forecast(
-                    parameters.execution_date,
-                    parameters.start_date,
+                    parameters.date.execution_date,
+                    parameters.date.start_date,
                     parameters.penultimate_date,
                 )
                 if equipment.da_sell_submitted_volume is None:
@@ -91,7 +91,7 @@ class WindPVStep:
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
                             is_agent_tso=False,
-                            execution_date=parameters.execution_date,
+                            execution_date=parameters.date.execution_date,
                             start_date=t,
                             end_date=t + parameters.timestep,
                         )

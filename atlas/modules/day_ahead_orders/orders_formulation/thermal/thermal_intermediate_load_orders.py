@@ -358,9 +358,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         results: dict[str, dict[str, dict[str, Timeseries]]] = {}
 
         solver_options = SolverOptions(
-            presolve=self.parameters.use_presolve,
-            duality_gap=self.parameters.solver_duality_gap,
-            time_limit=self.parameters.solver_timeout,
+            presolve=self.parameters.solver.use_presolve,
+            duality_gap=self.parameters.solver.duality_gap,
+            time_limit=self.parameters.solver.timeout,
         )
 
         for unit in equipments_list:
@@ -373,25 +373,25 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             for price_type in price_types:
                 if price_type == "Low":
                     prices_low = unit.portfolio.market_area.price_forecast_low.get_forecast(
-                        self.parameters.execution_date,
-                        self.parameters.start_date,
-                        self.parameters.end_date + unit.additional_hours,
+                        self.parameters.date.execution_date,
+                        self.parameters.date.start_date,
+                        self.parameters.date.end_date + unit.additional_hours,
                     )
                     prices.append(prices_low)
 
                 elif price_type == "Medium":
                     prices_medium = unit.portfolio.market_area.price_forecast_medium.get_forecast(
-                        self.parameters.execution_date,
-                        self.parameters.start_date,
-                        self.parameters.end_date + unit.additional_hours,
+                        self.parameters.date.execution_date,
+                        self.parameters.date.start_date,
+                        self.parameters.date.end_date + unit.additional_hours,
                     )
                     prices.append(prices_medium)
 
                 elif price_type == "High":
                     prices_high = unit.portfolio.market_area.price_forecast_high.get_forecast(
-                        self.parameters.execution_date,
-                        self.parameters.start_date,
-                        self.parameters.end_date + unit.additional_hours,
+                        self.parameters.date.execution_date,
+                        self.parameters.date.start_date,
+                        self.parameters.date.end_date + unit.additional_hours,
                     )
                     prices.append(prices_high)
 
@@ -430,7 +430,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
                 new_sequence_ts = DAOTimeseries(
                     Timeseries.from_index(
-                        self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, default_value=0
+                        self.parameters.date.start_date, self.parameters.timestep, self.parameters.date.end_date, default_value=0
                     )
                 )
 
@@ -464,6 +464,6 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
                 if unit.state_sequence is None:
                     unit.state_sequence = ScenarioMatrix()
-                unit.state_sequence.add(new_sequence_ts, f"{self.parameters.execution_date}-{price_type.upper()}_DAO")
+                unit.state_sequence.add(new_sequence_ts, f"{self.parameters.date.execution_date}-{price_type.upper()}_DAO")
 
         return results

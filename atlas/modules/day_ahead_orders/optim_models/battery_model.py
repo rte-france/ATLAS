@@ -76,7 +76,7 @@ class BatteryModel(StorageModel):
             )
 
             # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == self.parameters.start_date:
+            if t == self.parameters.date.start_date:
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (

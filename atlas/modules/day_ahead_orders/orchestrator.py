@@ -46,12 +46,12 @@ class DayAheadOrdersOrchestrator:
         # Create the sequence of orders times. In particular, this sequence is such that the end date of the last order will be before
         # the end date of the overall time frame.
         orders_time = generate_datetimes(
-            self.parameters.start_date, self.parameters.penultimate_date, self.parameters.timestep
+            self.parameters.date.start_date, self.parameters.penultimate_date, self.parameters.timestep
         )
 
         # ensure output folder exists
-        if self.parameters.export_lp_path:
-            path = Path(self.parameters.export_lp_path)
+        if self.parameters.solver.export_lp:
+            path = self.parameters.get_path(self.parameters.output.output_dir) / "DAO_lp"
             path.mkdir(parents=True, exist_ok=True)
 
         if len(orders_time) > 0:

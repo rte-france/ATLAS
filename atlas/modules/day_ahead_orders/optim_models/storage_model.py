@@ -55,9 +55,9 @@ class StorageModel(OptimisationModel):
         # Get the price forecast from the dataset: estimations are at ActionHour, over the optimization period
         # The price forecast is relative to the equipment's market area
         self.price_forecast: Timeseries = self.storage.portfolio.market_area.price_forecast_medium.get_forecast(
-            self.parameters.execution_date,
-            self.parameters.start_date,
-            self.parameters.end_date + self.optimization_period,
+            self.parameters.date.execution_date,
+            self.parameters.date.start_date,
+            self.parameters.date.end_date + self.optimization_period,
             self.parameters.timestep,
         )
         # Set-up the time frames
@@ -66,8 +66,8 @@ class StorageModel(OptimisationModel):
         # Remark: we define the time series until end_date - time_step because
         # we want all time steps to lie in the [start_date, end_optimization_date] range.
         self.time_frame: list[DateTime] = generate_datetimes(
-            self.parameters.start_date,
-            self.parameters.end_date + self.optimization_period - self.parameters.timestep,
+            self.parameters.date.start_date,
+            self.parameters.date.end_date + self.optimization_period - self.parameters.timestep,
             self.parameters.timestep,
         )
 
