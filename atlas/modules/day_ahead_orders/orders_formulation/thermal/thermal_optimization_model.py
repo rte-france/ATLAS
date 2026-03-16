@@ -751,11 +751,9 @@ class ThermalOptimizationModel(OptimisationModel):
         """
 
         if self.parameters.solver.export_lp:
-            lp_file_path = (
-                self.parameters.get_output_dir()
-                / "lp_export"
-                / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
-            )
+            output_path = self.parameters.get_output_dir() / "lp_export"
+            output_path.mkdir(parents=True, exist_ok=True)
+            lp_file_path = output_path / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
             self.export_model(str(lp_file_path))
 
         cfg.logger.info(f"Optimisation model '{self.name}' with price type '{self.price_type}'")

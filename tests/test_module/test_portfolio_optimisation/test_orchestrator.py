@@ -189,9 +189,8 @@ class TestOptimiseSinglePortfolio:
     @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioOptimisationModel")
     def test_lp_export_when_enabled(self, mock_model_class, mock_parameters, time_window):
         """Test that LP files are exported when export_lp is True."""
-        # Setup
-        mock_parameters.output.output_dir = Path("tmp")
         mock_parameters.solver.export_lp = True
+        mock_parameters.get_output_dir.return_value = Path("tmp")
 
         # Create a fresh mock portfolio
         test_portfolio = Mock(spec=PortfolioPO)
@@ -206,8 +205,8 @@ class TestOptimiseSinglePortfolio:
         mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
-        # Call function
-        optimise_single_portfolio(test_portfolio, time_window, mock_parameters)
+        with patch("pathlib.Path.mkdir"):
+            optimise_single_portfolio(test_portfolio, time_window, mock_parameters)
 
         # Verify LP export was called
         mock_model.export_model.assert_called_once_with(Path("tmp/lp_export/po_test_portfolio.lp"))

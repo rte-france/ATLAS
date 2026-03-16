@@ -49,8 +49,8 @@ class DayAheadOrdersOrchestrator:
 
         # ensure output folder exists
         if self.parameters.solver.export_lp:
-            path = self.parameters.get_output_dir() / "lp_exports"
-            path.mkdir(parents=True, exist_ok=True)
+            output_path = self.parameters.get_output_dir() / "lp_exports"
+            output_path.mkdir(parents=True, exist_ok=True)
 
         if len(orders_time) > 0:
             cfg.logger.info("Extraction completed, now starting the formulation of orders...")
