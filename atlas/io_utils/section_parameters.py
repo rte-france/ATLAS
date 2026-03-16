@@ -60,6 +60,11 @@ class SolverParameters(BaseModel):
     timeout: Duration = Field(default_factory=lambda: Duration(minutes=4), description="Timeout of the optimization.")
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    @field_validator("timeout", mode="before")
+    @classmethod
+    def parse_timeout(cls, v):
+        """Convert various duration formats to Duration objects."""
+        return convert_to_duration(v)
 
 class MultiProcessingParameters(BaseModel):
     use_multiprocessing: bool = False
