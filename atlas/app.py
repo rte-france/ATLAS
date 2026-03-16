@@ -88,7 +88,7 @@ def run(
             logger.info(f"Module '{module_name}' completed in {t()} seconds")
             rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")
         except Exception as e:
-            logger.error(f"✗ Module '{module_name}' failed: {e}")
+            logger.exception(f"✗ Module '{module_name}' failed: {e}")
             raise typer.Exit(code=1) from e
 
 
