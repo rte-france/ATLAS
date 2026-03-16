@@ -121,7 +121,7 @@ class ThermalPO(BaseEquipmentPO, Thermal):
 
         self._Delta_Q = self.maximum_gradient * parameters.timestep.total_minutes()
         self._Delta_Q_unconstrained = self.maximum_power.slice(
-            parameters.start_date, parameters.end_date, inplace=False
+            parameters.date.start_date, parameters.date.end_date, inplace=False
         ).max()
 
         self._combination = self._determine_combination()
@@ -318,12 +318,12 @@ class ThermalPO(BaseEquipmentPO, Thermal):
 
         if self.T_traceback > 0:
             for k in range(self.T_traceback, 0, -1):
-                initial_times.append(parameters.start_date - k * parameters.timestep)
+                initial_times.append(parameters.date.start_date - k * parameters.timestep)
         else:
-            initial_times.append(parameters.start_date - parameters.timestep)
+            initial_times.append(parameters.date.start_date - parameters.timestep)
 
         for k in range(self.T_traceback, 1, -1):
-            stable_initial_times.append(parameters.start_date - k * parameters.timestep)
+            stable_initial_times.append(parameters.date.start_date - k * parameters.timestep)
 
         return initial_times, stable_initial_times
 
@@ -430,15 +430,15 @@ class ThermalPO(BaseEquipmentPO, Thermal):
     def _add_initial_variables(self, parameters: PortfolioOptimisationParameters):
         """Add initial variables for timestep not included in optimisation times"""
         if self._T_stable >= 1:
-            self.on_up_var.set_model_var(parameters.start_date - parameters.timestep)
-            self.on_down_var.set_model_var(parameters.start_date - parameters.timestep)
-            self.on_flat_var.set_model_var(parameters.start_date - parameters.timestep)
-            self.stable_var.set_model_var(parameters.start_date - parameters.timestep)
-            self.entered_up_var.set_model_var(parameters.start_date - parameters.timestep)
-            self.entered_down_var.set_model_var(parameters.start_date - parameters.timestep)
+            self.on_up_var.set_model_var(parameters.date.start_date - parameters.timestep)
+            self.on_down_var.set_model_var(parameters.date.start_date - parameters.timestep)
+            self.on_flat_var.set_model_var(parameters.date.start_date - parameters.timestep)
+            self.stable_var.set_model_var(parameters.date.start_date - parameters.timestep)
+            self.entered_up_var.set_model_var(parameters.date.start_date - parameters.timestep)
+            self.entered_down_var.set_model_var(parameters.date.start_date - parameters.timestep)
 
         if self._T_stable >= 1 and (self._T_start >= 1 or self._T_stop >= 1):
-            self.dd_grad_var.set_model_var(parameters.start_date - parameters.timestep)
+            self.dd_grad_var.set_model_var(parameters.date.start_date - parameters.timestep)
 
     def add_initial_conditions(
         self,
@@ -455,7 +455,7 @@ class ThermalPO(BaseEquipmentPO, Thermal):
         initial_times, stable_initial_times = self._get_initial_time_window(parameters)
 
         power_ts = (
-            self.power.get_forecast(parameters.execution_date, initial_times[0], initial_times[-1])
+            self.power.get_forecast(parameters.date.execution_date, initial_times[0], initial_times[-1])
             if self.power is not None
             else None
         )
@@ -463,7 +463,7 @@ class ThermalPO(BaseEquipmentPO, Thermal):
         # Determine if this is dayZero initialization
         day_zero = power_ts is None
         if power_ts is not None:
-            if parameters.start_date - parameters.timestep != power_ts.last_date():
+            if parameters.date.start_date - parameters.timestep != power_ts.last_date():
                 day_zero = True
 
         initial_condition_functions: dict[int, Callable[..., None]] = {

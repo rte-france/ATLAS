@@ -161,9 +161,9 @@ def add_initial_conditions(
         initialize_gradient_initial_conditions(obj, parameters)
         initialize_flat_down_stop_initial_conditions(
             obj,
-            parameters.start_date - parameters.timestep,
-            parameters.start_date - 2 * parameters.timestep,
-            parameters.start_date - 3 * parameters.timestep,
+            parameters.date.start_date - parameters.timestep,
+            parameters.date.start_date - 2 * parameters.timestep,
+            parameters.date.start_date - 3 * parameters.timestep,
         )
 
 
@@ -317,7 +317,7 @@ def add_constraints(
                 turned_on_local_var <= on_up_var + on_down_var + on_flat_var,
                 f"minimum_time_on_{obj.name}_{local_time}_{time}",
             )
-            if time == parameters.start_date:
+            if time == parameters.date.start_date:
                 local_time = time - (s + 1) * parameters.timestep
                 turned_on_local_var = obj.turned_on.get_value(local_time)
                 model.add_constraint(
@@ -343,7 +343,7 @@ def add_constraints(
                 f"minimum_time_stable_{obj.name}_{local_time}_{time}",
             )
 
-            if time == parameters.start_date:
+            if time == parameters.date.start_date:
                 local_time = time - (s + 1) * parameters.timestep
                 stable_local_var = obj.stable_var.get_value(local_time)
                 model.add_constraint(
@@ -480,7 +480,7 @@ def add_constraints(
         f"D_evol_4_{time}_{obj.name}",
     )
 
-    if time == parameters.start_date:
+    if time == parameters.date.start_date:
         model.add_constraint(
             stable_prev_var <= 1 - on_flat_2_prev_var,
             f"stable_evol_1_{prev_time}_{obj.name}",

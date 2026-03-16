@@ -71,10 +71,10 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                     values=imbalance_values,
                 )
                 if portfolio.imbalance:
-                    portfolio.imbalance.add(imbalance_ts, self.parameters.execution_date)
+                    portfolio.imbalance.add(imbalance_ts, self.parameters.date.execution_date)
                 else:
                     portfolio.imbalance = ForecastingMatrix(
-                        imbalance_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
+                        imbalance_ts.dataframe.rename({"value": self.parameters.date.execution_date.to_datetime_string()})
                     )
 
                 power_values = [0.0] * len(self.parameters.target_times)
@@ -82,7 +82,7 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                     for e in equipment_list:
                         if e.power:
                             forecast = e.power.get_forecast(
-                                self.parameters.execution_date,
+                                self.parameters.date.execution_date,
                                 min(self.parameters.target_times),
                                 max(self.parameters.target_times),
                             )
@@ -98,11 +98,11 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
                 )
 
                 if portfolio.power:
-                    if self.parameters.execution_date in portfolio.power:
-                        portfolio.power.delete(self.parameters.execution_date)
+                    if self.parameters.date.execution_date in portfolio.power:
+                        portfolio.power.delete(self.parameters.date.execution_date)
                 else:
                     portfolio.power = ForecastingMatrix(
-                        power_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
+                        power_ts.dataframe.rename({"value": self.parameters.date.execution_date.to_datetime_string()})
                     )
 
                 for type, equipment_list in portfolio.equipments.iter_by_type():
@@ -209,13 +209,13 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         )
 
         if equipment.power:
-            if self.parameters.execution_date in equipment.power:
-                equipment.power.replace(self.parameters.execution_date, power_ts)
+            if self.parameters.date.execution_date in equipment.power:
+                equipment.power.replace(self.parameters.date.execution_date, power_ts)
             else:
-                equipment.power.add(power_ts, self.parameters.execution_date)
+                equipment.power.add(power_ts, self.parameters.date.execution_date)
         else:
             equipment.power = ForecastingMatrix(
-                power_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
+                power_ts.dataframe.rename({"value": self.parameters.date.execution_date.to_datetime_string()})
             )
 
     def _update_id_po_orders_forecasting_matrix(self, equipment: EquipmentPO, power_values: list[float]):
@@ -234,13 +234,13 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         )
 
         if equipment.id_po_for_orders:
-            if self.parameters.execution_date in equipment.id_po_for_orders:
-                equipment.id_po_for_orders.replace(self.parameters.execution_date, power_ts)
+            if self.parameters.date.execution_date in equipment.id_po_for_orders:
+                equipment.id_po_for_orders.replace(self.parameters.date.execution_date, power_ts)
             else:
-                equipment.id_po_for_orders.add(power_ts, self.parameters.execution_date)
+                equipment.id_po_for_orders.add(power_ts, self.parameters.date.execution_date)
         else:
             equipment.id_po_for_orders = ForecastingMatrix(
-                power_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
+                power_ts.dataframe.rename({"value": self.parameters.date.execution_date.to_datetime_string()})
             )
 
     def _update_stored_energy_forecasting_matrix(
@@ -264,12 +264,12 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         )
 
         if equipment.stored_energy:
-            if self.parameters.execution_date in equipment.stored_energy:
-                equipment.stored_energy.delete(self.parameters.execution_date)
-            equipment.stored_energy.add(stored_energy_ts, self.parameters.execution_date)
+            if self.parameters.date.execution_date in equipment.stored_energy:
+                equipment.stored_energy.delete(self.parameters.date.execution_date)
+            equipment.stored_energy.add(stored_energy_ts, self.parameters.date.execution_date)
         else:
             equipment.stored_energy = ForecastingMatrix(
-                stored_energy_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
+                stored_energy_ts.dataframe.rename({"value": self.parameters.date.execution_date.to_datetime_string()})
             )
 
     def _update_state_sequence(self, equipment: ThermalPO, state_sequence: list[float]):
@@ -280,13 +280,13 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         )
 
         if equipment.state_sequence:
-            if self.parameters.execution_date in equipment.state_sequence:
-                equipment.state_sequence.replace(self.parameters.execution_date.to_datetime_string(), state_sequence_ts)
+            if self.parameters.date.execution_date in equipment.state_sequence:
+                equipment.state_sequence.replace(self.parameters.date.execution_date.to_datetime_string(), state_sequence_ts)
             else:
-                equipment.state_sequence.add(state_sequence_ts, self.parameters.execution_date.to_datetime_string())
+                equipment.state_sequence.add(state_sequence_ts, self.parameters.date.execution_date.to_datetime_string())
         else:
             equipment.state_sequence = ScenarioMatrix(
-                state_sequence_ts.dataframe.rename({"value": self.parameters.execution_date.to_datetime_string()})
+                state_sequence_ts.dataframe.rename({"value": self.parameters.date.execution_date.to_datetime_string()})
             )
 
     def update_equipment(

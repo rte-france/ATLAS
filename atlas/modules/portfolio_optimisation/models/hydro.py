@@ -143,10 +143,10 @@ class HydroPO(BaseEquipmentPO, Hydro):
             # Default to 0 if inflows data is not provided (e.g., reservoir without natural inflows)
             inflow = self.inflows.get_value(time) * parameters.timestep.total_days() if self.inflows is not None else 0
 
-            if time == parameters.start_date:
+            if time == parameters.date.start_date:
                 model.add_constraint(
                     stored_energy_var
-                    == self.initial_level.get_value(parameters.start_date - parameters.timestep)
+                    == self.initial_level.get_value(parameters.date.start_date - parameters.timestep)
                     - power_level_fragment_sum_var * parameters.timestep.total_hours()
                     + inflow,
                     f"storage_level_evol_{time}_{self.name}",
@@ -220,10 +220,10 @@ class HydroPO(BaseEquipmentPO, Hydro):
         :return: Current energy level
         :rtype: float
         """
-        if self._cached_energy_forecast and parameters.start_date - parameters.timestep in self._cached_energy_forecast:
-            return self._cached_energy_forecast.get_value(parameters.start_date - parameters.timestep)
+        if self._cached_energy_forecast and parameters.date.start_date - parameters.timestep in self._cached_energy_forecast:
+            return self._cached_energy_forecast.get_value(parameters.date.start_date - parameters.timestep)
         else:
-            return self.initial_level.get_value(parameters.start_date - parameters.timestep)
+            return self.initial_level.get_value(parameters.date.start_date - parameters.timestep)
 
     def _calculate_marginal_weights(self, energy_level: float) -> dict:
         """

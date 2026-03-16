@@ -15,6 +15,8 @@ from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enums import MarketType, StorageType, ThermalStrategy
+from atlas.io_utils.section_parameters import MultiProcessingParameters, OutputParameters, SolverParameters, \
+    DateParameters
 from atlas.timing import generate_datetimes
 from atlas.validators import convert_to_duration
 
@@ -22,26 +24,17 @@ from atlas.validators import convert_to_duration
 class PortfolioOptimisationParameters(AbstractParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
-    export_lp: bool = Field(False, description="Boolean indicating if the LP model should be exported to a file.")
-    export_lp_path: Path = Field(
-        default_factory=lambda: Path(getcwd()),  # type: ignore[assignment]
-        description="Directory path where LP files will be exported if export_lp is True.",
-    )
+    date: DateParameters
+    solver: SolverParameters = Field(default_factory=SolverParameters)
+    output: OutputParameters = Field(default_factory=OutputParameters)
+    multiprocessing: MultiProcessingParameters = Field(default_factory=MultiProcessingParameters)
+
     is_portfolio_bidding: bool = Field(
         True, description="True if optimization is on portfolios, False for individual units."
     )
     use_forecast: bool = Field(
         False,
         description="Whether to take a price forecast. If true, optimization happens before a market.",
-    )
-    use_presolve: bool = Field(False, description="Boolean indicating if the solver should use a presolve mode.")
-    use_multiprocessing: bool = Field(
-        True,
-        description="If True, use multiprocessing for parallel portfolio optimization. If False, use sequential for loop.",
-    )
-    max_workers: int | None = Field(
-        None,
-        description="Maximum number of parallel processes for portfolio optimization. None defaults to CPU count. Only used if use_multiprocessing is True.",
     )
     allowed_round_off_error: float = Field(
         0.01, description="Error (in MW) below which the activated power is considered equal to 0."
@@ -82,7 +75,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
         0.15,
         description="Quantity (%) of imbalance qualified as small, relative to max portfolio energy.",
     )
-    solver_duality_gap: float = Field(0.0001, description="Duality gap used for the optimization.")
     battery_automated_reserve_duration: Duration = Field(
         default_factory=lambda: duration(minutes=60),
         description="Automated reserve duration for battery equipment.",  # type: ignore[assignment]
@@ -115,10 +107,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
         default_factory=lambda: duration(minutes=60),
         description="Manual reserve duration for pumped hydraulic equipment.",  # type: ignore[assignment]
     )
-    solver_timeout: Duration = Field(
-        default_factory=lambda: duration(seconds=60),
-        description="Timeout (in seconds) of the optimization.",  # type: ignore[assignment]
-    )
     excluded_market_areas_: list[str] | None = Field(
         None,
         description='list of market areas excluded from classic optimization. None and ["all"] are possible values.',
@@ -146,7 +134,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
 
     @field_validator(
         "timestep",
-        "solver_timeout",
         "battery_automated_reserve_duration",
         "battery_reserve_duration",
         "electric_vehicle_automated_reserve_duration",
@@ -199,12 +186,12 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def target_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period."""
-        return generate_datetimes(self.start_date, self.end_date, self.timestep, closed="left")
+        return generate_datetimes(self.date.start_date, self.date.end_date, self.timestep, closed="left")
 
     @property
     def init_battery_time(self) -> DateTime:
         """Datetime for the initial battery state (start_date - timestep)."""
-        return self.start_date - self.timestep
+        return self.date.start_date - self.timestep
 
     @property
     def storage_mapping(self):

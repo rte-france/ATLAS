@@ -234,7 +234,7 @@ def add_constraints(
     model.add_constraint(stable_var <= on_flat_var, f"stable_evol_2_{time}_{obj.name}")
     model.add_constraint(stable_var >= on_flat_var - on_flat_prev_var, f"stable_evol_3_{time}_{obj.name}")
 
-    if time == parameters.start_date:
+    if time == parameters.date.start_date:
         model.add_constraint(
             stable_prev_var <= 1 - on_flat_2_prev_var,
             f"stable_evol_1_{prev_time}_{obj.name}",
@@ -389,7 +389,7 @@ def add_constraints(
                 turned_on_local_var <= on_up_var + on_down_var + on_flat_var,
                 f"minimum_time_on_{obj.name}_{local_time}_{time}",
             )
-            if time == parameters.start_date:
+            if time == parameters.date.start_date:
                 local_time = time - (s + obj._T_start + 1) * parameters.timestep
                 turned_on_local_var = obj.turned_on.get_value(local_time)
                 model.add_constraint(
@@ -415,7 +415,7 @@ def add_constraints(
                 f"minimum_time_stable_{obj.name}_{local_time}_{time}",
             )
 
-            if time == parameters.start_date:
+            if time == parameters.date.start_date:
                 local_time = time - (s + 1) * parameters.timestep
                 stable_local_var = obj.stable_var.get_value(local_time)
                 model.add_constraint(

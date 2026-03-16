@@ -237,7 +237,7 @@ class StoragePO(BaseEquipmentPO, Storage):
                 displacement_energy = int(self.displacement_energy.get_value(time))
                 displacement_energy_prev = int(self.displacement_energy.get_value(prev_time))
 
-            if time == parameters.start_date:
+            if time == parameters.date.start_date:
                 model.add_constraint(
                     stored_energy_var
                     == self.get_initial_stock(parameters) * max_energy / max_energy_previous
@@ -323,7 +323,7 @@ class StoragePO(BaseEquipmentPO, Storage):
 
     def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
         default_energy = (
-            self.maximum_energy.get_value(parameters.start_date - parameters.timestep) * self.storage_initial_level
+            self.maximum_energy.get_value(parameters.date.start_date - parameters.timestep) * self.storage_initial_level
         )
 
         if self.stored_energy is None or not self._cached_energy_forecat_initial:
