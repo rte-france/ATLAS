@@ -6,6 +6,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from pendulum import DateTime, duration
 from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
@@ -127,6 +129,9 @@ class PortfolioOptimisationParameters(AbstractParameters):
         MarketType.dayahead,
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
     )
+
+    def get_output_dir(self) -> Path:
+        return self.get_path(self.output.output_dir)
 
     @field_validator(
         "battery_automated_reserve_duration",

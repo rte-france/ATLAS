@@ -21,8 +21,8 @@ class AbstractParameters(Parameters):
 
     relative_src: Path = Path()
 
-    def get_path(cls, relative_path):
-        return cls.relative_src / relative_path
+    def get_path(self, relative_path: Path) -> Path:
+        return self.relative_src / relative_path
 
 
 P = TypeVar("P", bound=AbstractParameters)

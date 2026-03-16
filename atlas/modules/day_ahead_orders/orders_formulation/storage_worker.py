@@ -199,7 +199,7 @@ def _optimize_ev(
 
     if parameters.solver.export_lp:
         lp_file_path = (
-            parameters.get_path(parameters.output.output_dir) / "lp_export" / f"storage_{model.storage.name}.lp"
+            parameters.get_output_dir() / "lp_export" / f"storage_{model.storage.name}.lp"
         )
         model.export_model(lp_file_path)
 
@@ -248,7 +248,7 @@ def _optimize_battery(
 
     if parameters.solver.export_lp:
         lp_file_path = (
-            parameters.get_path(parameters.output.output_dir) / "lp_export" / f"storage_{model.storage.name}.lp"
+            parameters.get_output_dir() / "lp_export" / f"storage_{model.storage.name}.lp"
         )
         model.export_model(str(lp_file_path))
 

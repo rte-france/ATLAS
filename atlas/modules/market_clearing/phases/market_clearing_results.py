@@ -36,8 +36,8 @@ class MarketClearingResults:
 
     def run(self) -> None:
         if self.parameters.output.export_result:
-            if not self.parameters.get_path(self.parameters.output.output_dir).exists():
-                self.parameters.get_path(self.parameters.output.output_dir).mkdir(parents=True, exist_ok=True)
+            if not self.parameters.get_output_dir().exists():
+                self.parameters.get_output_dir().mkdir(parents=True, exist_ok=True)
             self.export_offers()
             self.export_market_areas_data()
             self.export_couplings_data()
@@ -84,7 +84,7 @@ class MarketClearingResults:
                 offers = offer
             else:
                 offers.extend(offer)
-        offers.write_csv(self.parameters.get_path(self.parameters.output.output_dir / "offers.csv"))
+        offers.write_csv(self.parameters.get_output_dir() / "offers.csv")
 
     def export_market_areas_data(self):
         if self.parameters.market == Product.DayAhead:
@@ -96,7 +96,7 @@ class MarketClearingResults:
         else:
             # Consider only MFRRActivation
             market_area_data = self.create_mfrr_market_areas_data()
-        market_area_data.write_csv(self.parameters.get_path(self.parameters.output.output_dir / "market_area_data.csv"))
+        market_area_data.write_csv(self.parameters.get_output_dir() / "market_area_data.csv")
 
     def create_day_ahead_market_areas_data(self) -> pl.DataFrame:
         market_areas_data = pl.DataFrame(
@@ -241,7 +241,7 @@ class MarketClearingResults:
             }
             coupling_data = pl.DataFrame({k: [v] for k, v in coupling_dict.items()}, schema=couplings_data.schema)
             couplings_data.extend(coupling_data)
-        couplings_data.write_csv(self.parameters.get_path(self.parameters.output.output_dir / "coupling_data.csv"))
+        couplings_data.write_csv(self.parameters.get_output_dir() / "coupling_data.csv")
 
     def export_borders_data(self):
         if self.parameters.market == Product.DayAhead:
@@ -254,7 +254,7 @@ class MarketClearingResults:
             # Consider only MFRRActivation
             borders_data = self.create_mfrr_borders_data()
 
-        borders_data.write_csv(self.parameters.get_path(self.parameters.output.output_dir / "border.csv"))
+        borders_data.write_csv(self.parameters.get_output_dir() / "border.csv")
 
     def create_day_ahead_borders_data(self) -> pl.DataFrame:
         market_borders_data = pl.DataFrame(

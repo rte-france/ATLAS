@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+from pathlib import Path
 
 from pydantic import ConfigDict, Field, field_validator
 
@@ -183,6 +184,9 @@ class MarketClearingParameters(AbstractParameters):
         -int(1e8),
         description="Min price : default value is - 100 000 000",
     )
+
+    def get_output_dir(self) -> Path:
+        return self.get_path(self.output.output_dir)
 
     @field_validator("market_area_names", "control_block_names", mode="before")
     @classmethod

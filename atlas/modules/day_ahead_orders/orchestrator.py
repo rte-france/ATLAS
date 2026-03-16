@@ -49,7 +49,7 @@ class DayAheadOrdersOrchestrator:
 
         # ensure output folder exists
         if self.parameters.solver.export_lp:
-            path = self.parameters.get_path(self.parameters.output.output_dir) / "DAO_lp"
+            path = self.parameters.get_output_dir() / "lp_exports"
             path.mkdir(parents=True, exist_ok=True)
 
         if len(orders_time) > 0:

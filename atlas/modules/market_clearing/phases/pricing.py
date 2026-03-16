@@ -52,7 +52,7 @@ class Pricing(OptimisationModel):
     def run(self):
         self.build_first()
         solver_info = self.solve()
-        output_path = self.parameters.get_path(self.parameters.output.output_dir)
+        output_path = self.parameters.get_output_dir()
         if self.parameters.solver.export_lp:
             output_path.mkdir(parents=True, exist_ok=True)
             self.export_model(str(output_path / "lp_export" / "pricing_1_model.lp"))

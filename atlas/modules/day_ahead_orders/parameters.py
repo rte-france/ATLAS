@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from functools import cached_property
+from pathlib import Path
 
 from pendulum import DateTime
 from pydantic import ConfigDict, Field
@@ -96,6 +97,9 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="List of available PriceForecasts in the input data, separated by ';'. The default value should "
         "always include 'Medium'.",
     )
+
+    def get_output_dir(self) -> Path:
+        return self.get_path(self.output.output_dir)
 
     @cached_property
     def penultimate_date(self) -> DateTime:
