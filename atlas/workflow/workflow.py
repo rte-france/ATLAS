@@ -57,18 +57,19 @@ class Workflow:
                 self.generic_module_parameters = yaml.safe_load(file)
 
     def build_steps(self):
-        name_dict = {}
+        name_counts: dict[str, int] = {}
         for step in self.parameters.steps:
+            name_counts[step.name] = name_counts.get(step.name, 0) + 1
+
+        name_index: dict[str, int] = {}
+        for step in self.parameters.steps:
+            if name_counts[step.name] > 1:
+                name_index[step.name] = name_index.get(step.name, 0) + 1
+                step.name = f"{step.name}_{name_index[step.name]}"
+
             parameters = Workflow.build_module_parameters(
                 self.generic_module_parameters, self.workflow_path / step.parameters_path
             )
-            if ModuleRegistry.has_name(step.name):
-                if step.name not in name_dict:
-                    step.name = f"{step.name}_1"
-                    name_dict[step.name] = 1
-                else:
-                    step.name = f"{step.name}_{name_dict[step.name] + 1}"
-                    name_dict[step.name] += 1
             if "output" not in parameters:
                 parameters["output"] = {}
             parameters["output"]["output_dir"] = self.workflow_path / self.parameters.output_dir / step.name
