@@ -3,6 +3,7 @@ See AUTHORS.txt
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
+
 from pathlib import Path
 
 from pydantic import ConfigDict, Field, field_validator
@@ -85,7 +86,7 @@ class MarketClearingParameters(AbstractParameters):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     date: DateParameters
-    solver: SolverParameters = Field(default_factory=SolverParameters)
+    solver: SolverParameters = Field(default_factory=lambda: SolverParameters())  # type: ignore[call-arg, arg-type]
     output: OutputParameters = Field(default_factory=OutputParameters)
 
     price_modifier_lambda_1: float = Field(

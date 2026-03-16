@@ -20,7 +20,7 @@ from atlas.timing import timer
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
 from atlas.workflow.parameters import WorkflowParameters
-from atlas.workflow.step import WorkflowStep, ModuleRegistry
+from atlas.workflow.step import ModuleRegistry, WorkflowStep
 
 
 class Workflow:
@@ -46,6 +46,7 @@ class Workflow:
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> Workflow:
+        file_path = Path(file_path)
         parameters = WorkflowParameters.from_file(file_path=file_path)
         workflow_path = file_path.parent if parameters.path_from_workflow else Path()
         return cls(parameters=parameters, workflow_path=workflow_path)
@@ -58,7 +59,9 @@ class Workflow:
     def build_steps(self):
         name_dict = {}
         for step in self.parameters.steps:
-            parameters = Workflow.build_module_parameters(self.generic_module_parameters, self.workflow_path / step.parameters_path)
+            parameters = Workflow.build_module_parameters(
+                self.generic_module_parameters, self.workflow_path / step.parameters_path
+            )
             if ModuleRegistry.has_name(step.name):
                 if step.name not in name_dict:
                     step.name = f"{step.name}_1"
