@@ -753,7 +753,7 @@ class ThermalOptimizationModel(OptimisationModel):
         if self.parameters.solver.export_lp:
             lp_file_path = (
                 self.parameters.get_path(self.parameters.output.output_dir)
-                / "DAO_lp"
+                / "lp_export"
                 / f"{self.thermal_unit.name}_price_{self.price_type}.lp"
             )
             self.export_model(str(lp_file_path))

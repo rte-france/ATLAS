@@ -36,12 +36,12 @@ class Clearing(OptimisationModel):
         if self.parameters.solver.export_lp:
             output_path = self.parameters.output.output_dir
             output_path.mkdir(parents=True, exist_ok=True)
-            self.export_model(str(output_path / "clearing_model.lp"))
-            with open(output_path / "clearing_accepted_powers.json", "w") as f:
+            self.export_model(str(output_path / "lp_export" / "clearing_model.lp"))
+            with open(output_path / "lp_export" / "clearing_accepted_powers.json", "w") as f:
                 json.dump([[ma, o, val] for (ma, o), val in self.retrieve_accepted_powers().items()], f)
-            with open(output_path / "clearing_local_balances.json", "w") as f:
+            with open(output_path / "lp_export" / "clearing_local_balances.json", "w") as f:
                 json.dump([[ma, t, val] for (ma, t), val in self.retrieve_local_balances().items()], f)
-            with open(output_path / "clearing_saturated_critical_branches.json", "w") as f:
+            with open(output_path / "lp_export" / "clearing_saturated_critical_branches.json", "w") as f:
                 json.dump(
                     [
                         [cb, time_index, val]

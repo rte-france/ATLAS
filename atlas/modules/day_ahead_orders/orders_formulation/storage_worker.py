@@ -198,7 +198,9 @@ def _optimize_ev(
     model.create_constraints(initial_stock)
 
     if parameters.solver.export_lp:
-        lp_file_path = parameters.get_path(parameters.output.output_dir) / "DAO_lp" / f"storage_{model.storage.name}.lp"
+        lp_file_path = (
+            parameters.get_path(parameters.output.output_dir) / "lp_export" / f"storage_{model.storage.name}.lp"
+        )
         model.export_model(lp_file_path)
 
     model.solve()
@@ -245,7 +247,9 @@ def _optimize_battery(
     model.create_constraints(initial_stock, power_fragments)
 
     if parameters.solver.export_lp:
-        lp_file_path = parameters.get_path(parameters.output.output_dir) / "DAO_lp" / f"storage_{model.storage.name}.lp"
+        lp_file_path = (
+            parameters.get_path(parameters.output.output_dir) / "lp_export" / f"storage_{model.storage.name}.lp"
+        )
         model.export_model(str(lp_file_path))
 
     model.solve()

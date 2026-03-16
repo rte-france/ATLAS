@@ -28,9 +28,9 @@ class ExchangesFixing(OptimisationModel):
         if self.parameters.solver.export_lp:
             output_path = self.parameters.get_path(self.parameters.output.output_dir)
             output_path.mkdir(parents=True, exist_ok=True)
-            self.export_model(str(output_path / "exchanges_fixing_model.lp"))
+            self.export_model(str(output_path / "lp_export" / "exchanges_fixing_model.lp"))
 
-            with open(output_path / "exchanges_fixing_border_exchanges.json", "w") as f:
+            with open(output_path / "lp_export" / "exchanges_fixing_border_exchanges.json", "w") as f:
                 json.dump(
                     [[b, time_index, val] for (b, time_index), val in self.retrieve_border_exchanges().items()], f
                 )

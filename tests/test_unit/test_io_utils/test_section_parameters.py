@@ -1,5 +1,8 @@
 from datetime import datetime
 
+import pytest
+from pydantic import ValidationError
+
 from atlas.io_utils.section_parameters import DateParameters
 
 
@@ -45,3 +48,7 @@ def test_date_validation_boundary():
         execution_date=start,
     )
     assert params.start_date < params.end_date
+
+def test_invalid_timestep_raises():
+    with pytest.raises(ValidationError):
+        DateParameters(timestep="")

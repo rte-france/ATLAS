@@ -113,7 +113,7 @@ class TestWorkflowStepRun:
         ws = WorkflowStep("step", mock_class, {"param": 1})
         ws.run(atlas_dataset)
 
-        mock_instance.run.assert_called_once_with(atlas_dataset, {"param": 1})
+        mock_instance.run.assert_called_once_with(atlas_dataset, ws.parameters)
 
     def test_run_stores_output_dataset(self, atlas_dataset):
         mock_output = MagicMock()
@@ -164,15 +164,23 @@ class TestWorkflowStepRun:
 
 
 class TestWorkflowStepRepresentation:
+    def _make_mc_params(self):
+        return {
+            "date": {
+                "start_date": "2028-09-27 00:00:00",
+                "end_date": "2028-09-28 00:00:00",
+                "execution_date": "2028-09-26 12:00:00",
+            }
+        }
     def test_repr_before_execution(self):
-        step = WorkflowStep("TestStep", MarketClearingModule, {})
+        step = WorkflowStep("TestStep", MarketClearingModule, self._make_mc_params())
         result = repr(step)
         assert "WorkflowStep(" in result
         assert "name='TestStep'" in result
         assert "executed=False" in result
 
     def test_repr_after_execution(self):
-        step = WorkflowStep("TestStep", MarketClearingModule, {})
+        step = WorkflowStep("TestStep", MarketClearingModule, self._make_mc_params())
         step._output_dataset = MagicMock()
         result = repr(step)
         assert "executed=True" in result

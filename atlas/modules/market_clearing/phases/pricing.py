@@ -55,20 +55,20 @@ class Pricing(OptimisationModel):
         output_path = self.parameters.get_path(self.parameters.output.output_dir)
         if self.parameters.solver.export_lp:
             output_path.mkdir(parents=True, exist_ok=True)
-            self.export_model(str(output_path / "pricing_1_model.lp"))
+            self.export_model(str(output_path / "lp_export" / "pricing_1_model.lp"))
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_second()
             solver_info = self.solve()
             if self.parameters.solver.export_lp:
-                self.export_model(str(output_path / "pricing_2_model.lp"))
+                self.export_model(str(output_path / "lp_export" / "pricing_2_model.lp"))
 
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_third()
             _ = self.solve()
             if self.parameters.solver.export_lp:
-                self.export_model(str(output_path / "pricing_3_model.lp"))
+                self.export_model(str(output_path / "lp_export" / "pricing_3_model.lp"))
         if self.parameters.solver.export_lp:
-            with open(output_path / "pricing_market_prices.json", "w") as f:
+            with open(output_path / "lp_export" / "pricing_market_prices.json", "w") as f:
                 json.dump(
                     [
                         [market_area_name, time_index, val]

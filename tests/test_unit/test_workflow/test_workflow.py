@@ -298,7 +298,14 @@ class TestWorkflowRepresentation:
         output_dir = tmp_path / "output"
         output_dir.mkdir()
         params_file = tmp_path / "params.yaml"
-        params_file.write_text("solver: GLOP\n")
+        params_file.write_text(
+            "date:\n"
+            "  start_date: '2028-09-27 00:00:00'\n"
+            "  end_date: '2028-09-28 00:00:00'\n"
+            "  execution_date: '2028-09-26 12:00:00'\n"
+            "solver:\n"
+            "  solver_name: GLOP\n"
+        )
 
         config = tmp_path / "workflow.yaml"
         config.write_text(

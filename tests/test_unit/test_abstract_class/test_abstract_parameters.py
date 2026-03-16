@@ -6,15 +6,12 @@ This file is part of the ATLAS project.
 
 import json
 import tempfile
-from datetime import datetime
 from pathlib import Path
 
 import pytest
 import yaml
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.enums import SolverEnum
-from atlas.io_utils.section_parameters import DateParameters
 
 
 def test_from_yaml_file():
@@ -29,7 +26,7 @@ def test_from_yaml_file():
 
     try:
         params = AbstractParameters.from_file(temp_file_path)
-        assert params.relative_src == "path_for_relative_path"
+        assert params.relative_src == Path("path_for_relative_path")
     finally:
         Path(temp_file_path).unlink()
 
@@ -46,7 +43,7 @@ def test_from_json_file():
 
     try:
         params = AbstractParameters.from_file(temp_file_path)
-        assert params.relative_src == "path_for_relative_path"
+        assert params.relative_src == Path("path_for_relative_path")
     finally:
         Path(temp_file_path).unlink()
 
@@ -63,7 +60,7 @@ def test_from_yml_file():
 
     try:
         params = AbstractParameters.from_file(temp_file_path)
-        assert params.relative_src == "path_for_relative_path"
+        assert params.relative_src == Path("path_for_relative_path")
     finally:
         Path(temp_file_path).unlink()
 
@@ -93,6 +90,6 @@ def test_pathlib_path_support():
 
     try:
         params = AbstractParameters.from_file(temp_file_path)
-        assert params.relative_src == "path_for_relative_path"
+        assert params.relative_src == Path("path_for_relative_path")
     finally:
         temp_file_path.unlink()

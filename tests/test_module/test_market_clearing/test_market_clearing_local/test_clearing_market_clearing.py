@@ -37,7 +37,7 @@ def test_if_clearing_generated_lp_matches_reference(dataset_name):
         try:
             mc_module = MarketClearingModule()
             parameters = mc_module.import_parameters(parameters_path)
-            parameters.output_path = Path(tmpdir)
+            parameters.output.output_dir = Path(tmpdir)
             input_dataset = mc_module.import_data(raw_data, parameters)
 
             clearing = Clearing(input_dataset, parameters)
@@ -45,7 +45,7 @@ def test_if_clearing_generated_lp_matches_reference(dataset_name):
         except Exception as e:
             pytest.fail(f"Clearing failed for {dataset_name}: {e}")
 
-        clearing_lp = Path(parameters.output_path) / "clearing_model.lp"
+        clearing_lp = Path(parameters.output.output_dir) / "clearing_model.lp"
 
         try:
             generated_lp_data = SolverHelper.read_lp_ortools(str(clearing_lp))
