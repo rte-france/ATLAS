@@ -26,13 +26,21 @@ REFERENCE_LP_DIR = Path(__file__).parent / "lp_files"
 def base_parameters_dict():
     """Create base portfolio optimisation parameters dictionary for testing."""
     return {
-        "start_date": "2028-09-27 00:00:00",
-        "end_date": "2028-09-28 00:00:00",
-        "execution_date": "2028-09-26 12:00:00",
-        "timestep": "PT1H",  # ISO 8601 duration format
-        "use_multiprocessing": False,
-        "use_presolve": False,
-        "solver_timeout": "PT120S",  # ISO 8601 duration format
+        "date": {
+            "start_date": "2028-09-27 00:00:00",
+            "end_date": "2028-09-28 00:00:00",
+            "execution_date": "2028-09-26 12:00:00",
+            "timestep": "PT1H",  # ISO 8601 duration format
+        },
+        "solver": {
+            "solver_name": "SCIP",
+            "use_presolve": False,
+            "export_lp": True,
+            "timeout": "PT120S",  # ISO 8601 duration format
+        },
+        "multiprocessing": {
+            "use_multiprocessing": False,
+        },
         "battery_smoothing_factor": 0.1,
         "small_imbalance_size": 0.15,
         "small_imbalance_penalty": 0.05,
@@ -65,9 +73,9 @@ class TestThermalCombinationLPComparison:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             params_dict = base_parameters_dict.copy()
-            params_dict["export_lp"] = True
-            params_dict["export_lp_path"] = tmpdir
-            params_dict["solver_name"] = "SCIP"
+            params_dict["output"] = {
+                "output_dir": tmpdir,
+            }
 
             input_data = AtlasDataset.from_directory(combination_dir)
 
@@ -78,7 +86,7 @@ class TestThermalCombinationLPComparison:
             except Exception as e:
                 pytest.fail(f"Portfolio optimization failed for {combination_name}: {e}")
 
-            lp_files = list(Path(tmpdir).glob("*.lp"))
+            lp_files = lp_files = list((Path(tmpdir) / "lp_export").glob("*.lp"))
             assert len(lp_files) > 0, f"No LP files generated for {combination_name}"
 
             generated_lp = lp_files[0]
