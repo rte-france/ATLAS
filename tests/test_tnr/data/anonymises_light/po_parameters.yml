@@ -1,0 +1,19 @@
+date:
+  start_date: "2028-09-27 00:00:00"
+  end_date: "2028-09-28 00:00:00"
+  execution_date: "2028-09-26 12:00:00"
+  timestep: "PT1H"
+market: "DayAhead"
+solver:
+  solver_name: "SCIP"
+  timeout: "PT5S"
+  export_lp: true
+multiprocessing:
+  use_multiprocessing: false
+is_portfolio_bidding: true
+use_forecast: false
+small_imbalance_penalty: 0.05
+battery_smoothing_factor: 0.1
+electric_vehicle_number_of_fragments: 1
+pumped_hydraulic_number_of_fragments: 1
+excluded_thermal_strategies_: "Base"
