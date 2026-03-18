@@ -22,7 +22,7 @@ class NonDispatchableStep:
         """
         This function formulates orders for all non dispatchable equipments, for each time step in orders_time.
         For each order:
-            _ Qmin = 0 and Qmax corresponds to the generation forecast at the associated time step, 
+            _ Qmin = 0 and Qmax corresponds to the generation forecast at the associated time step,
               which is stored in the maximum_power_forecast matrix of the equipment.
               As we deal with non_dispatchable generation, the volume is assumed to be non curtailable.
             _ The price is extracted from the variable_cost attribute of the equipment.

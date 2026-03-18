@@ -22,7 +22,7 @@ class LoadStep:
     ) -> None:
         """
         Formulates consumption orders on the spot market for all Load equipment in the dataset.
-        For each load equipment, the function uses the parameters specified by the user and 
+        For each load equipment, the function uses the parameters specified by the user and
         the dataset information to create orders based on the consumption forecast
         stored in the MaximumPowerForecast matrix.
 
@@ -54,12 +54,12 @@ class LoadStep:
                 else:
                     load.da_buy_submitted_volume += consumption_forecast.abs()
 
-                # Loop over the time steps of orders_time, and formulate a separate orders for each one
-                for t in orders_time:
-                    # Extract the forecasted consumption level
-                    if len(consumption_forecast) == 0:
-                        cfg.logger.debug(f"consumption_forecast is empty for load {load.name}, {load.load_type}")
-                    else:
+                # If consumption_forecast is empty, skip the current equipment
+                if len(consumption_forecast) == 0:
+                    cfg.logger.debug(f"consumption_forecast is empty for load {load.name}, {load.load_type}")
+                else:
+                    # Loop over the time steps of orders_time, and formulate a separate orders for each one
+                    for t in orders_time:
                         max_consumption_value = abs(consumption_forecast.get_value(t))
 
                         # Formulate an order if max_consumption_value is strictly positive
