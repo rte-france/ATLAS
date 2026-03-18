@@ -6,7 +6,7 @@ date:
 market: "DayAhead"
 solver:
   solver_name: "SCIP"
-  timeout: "PT120S"
+  timeout: "PT300S"
   export_lp: true
 multiprocessing:
   use_multiprocessing: false
