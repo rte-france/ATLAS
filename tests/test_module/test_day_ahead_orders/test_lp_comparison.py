@@ -33,7 +33,7 @@ def base_parameters_dict():
             "timestep": "PT1H",  # ISO 8601 duration format
         },
         "solver": {
-            "solver_name": "XPRESS",
+            "solver_name": "SCIP",
             "export_lp": True,
             "use_presolve": True,
             "duality_gap": 0.0001,
