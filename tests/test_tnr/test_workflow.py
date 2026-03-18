@@ -30,10 +30,13 @@ class TestWorkflowIntegration:
 
     @pytest.mark.tnr
     def test_workflow_all_steps_produce_output(self):
-        workflow = Workflow.from_file(WORKFLOW_CONFIG)
-        workflow.execute()
 
-        assert workflow.get_output_dataset() is not None
+        with timer() as t:
+            workflow = Workflow.from_file(WORKFLOW_CONFIG)
+            workflow.execute()
 
-        for step in workflow.steps:
-            assert step.output_dataset is not None, f"Step '{step.name}' did not produce output"
+            assert workflow.get_output_dataset() is not None
+
+            for step in workflow.steps:
+                assert step.output_dataset is not None, f"Step '{step.name}' did not produce output"
+            print(f"Workflow completed in {t()} seconds")
