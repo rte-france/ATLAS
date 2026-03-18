@@ -1,5 +1,3 @@
-from typing import cast
-
 from atlas import (
     AtlasDataset,
 )
