@@ -173,7 +173,9 @@ def _initiate_stock(storage: StorageDAO, parameters: DayAheadOrdersParameters) -
             parameters.temporal.timestep,
         )
         if len(energy_forecast) == 0:
-            initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(parameters.temporal.start_date)
+            initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(
+                parameters.temporal.start_date
+            )
         else:
             initial_stock = energy_forecast.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
     return initial_stock

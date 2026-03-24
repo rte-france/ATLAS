@@ -308,7 +308,9 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 balance_values,
             )
             values_price = Timeseries.from_values(
-                self.input_dataset.parameters.temporal.start_date, self.input_dataset.parameters.temporal.timestep, price_values
+                self.input_dataset.parameters.temporal.start_date,
+                self.input_dataset.parameters.temporal.timestep,
+                price_values,
             )
 
             match self.input_dataset.parameters.market:
@@ -363,7 +365,9 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             ]
 
             flow = Timeseries.from_values(
-                self.input_dataset.parameters.temporal.start_date, self.input_dataset.parameters.temporal.timestep, flow_values
+                self.input_dataset.parameters.temporal.start_date,
+                self.input_dataset.parameters.temporal.timestep,
+                flow_values,
             )
             shadow_price = Timeseries.from_values(
                 self.input_dataset.parameters.temporal.start_date,

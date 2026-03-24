@@ -9,11 +9,12 @@ from atlas import (
     ControlBlock,
     Hydro,
     Load,
+    MarketArea,
     OtherNonDispatchable,
     Solar,
     Storage,
     Thermal,
-    Wind, MarketArea,
+    Wind,
 )
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy

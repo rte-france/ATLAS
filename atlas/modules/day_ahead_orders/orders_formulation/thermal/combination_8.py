@@ -244,7 +244,9 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # Enforces eq. (3)
     for t in model.time_frame:
         model.add_constraint(model.turned_on.get_value(t) <= 1 - model.OFF.get_value(t))
-        model.add_constraint(model.turned_on.get_value(t) <= model.OFF.get_value(t - model.parameters.temporal.timestep))
+        model.add_constraint(
+            model.turned_on.get_value(t) <= model.OFF.get_value(t - model.parameters.temporal.timestep)
+        )
         model.add_constraint(
             model.turned_on.get_value(t)
             >= model.OFF.get_value(t - model.parameters.temporal.timestep) - model.OFF.get_value(t)
@@ -484,7 +486,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             for s in time_steps:
                 # Enforces eq. (31), with T_start > 0
                 t_minus_s_minus_T_start = (
-                        t - s * model.parameters.temporal.timestep - model.T_start * model.parameters.temporal.timestep
+                    t - s * model.parameters.temporal.timestep - model.T_start * model.parameters.temporal.timestep
                 )
                 model.add_constraint(
                     model.turned_on.get_value(t_minus_s_minus_T_start)
@@ -497,7 +499,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             for s in time_steps:
                 # Enforces eq. (32) with T_stop > 0
                 t_minus_s_minus_T_stop = (
-                        t - s * model.parameters.temporal.timestep - model.T_stop * model.parameters.temporal.timestep
+                    t - s * model.parameters.temporal.timestep - model.T_stop * model.parameters.temporal.timestep
                 )
                 model.add_constraint(
                     model.turned_off.get_value(t_minus_s_minus_T_stop) <= model.OFF.get_value(t),

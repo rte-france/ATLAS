@@ -113,7 +113,9 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
 
         extended_start_date = self.parameters.temporal.start_date - T_traceback * self.parameters.temporal.timestep
         extended_end_date = self.parameters.temporal.end_date - T_traceback * self.parameters.temporal.timestep
-        extended_time_frame = generate_datetimes(extended_start_date, extended_end_date, self.parameters.temporal.timestep)
+        extended_time_frame = generate_datetimes(
+            extended_start_date, extended_end_date, self.parameters.temporal.timestep
+        )
 
         # Initialize the output time series
         states_sequence = DAOTimeseries(
@@ -159,7 +161,9 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
                     # En end is shifted of une time step because the unit ends its start-up and the beginning of the time step
                     # end_of_start_up.
                     startup_time_frame = generate_datetimes(
-                        started_at_t, end_of_start_up - self.parameters.temporal.timestep, self.parameters.temporal.timestep
+                        started_at_t,
+                        end_of_start_up - self.parameters.temporal.timestep,
+                        self.parameters.temporal.timestep,
                     )
                     break  # Interrupt when the first startup is found.
                 else:
@@ -177,7 +181,9 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
                     # The beginning is shifted by one time step because the unit formally end its shutdown at the end of the
                     # time step end_of_shutdown
                     shutdown_time_frame = generate_datetimes(
-                        stopped_at_t, end_of_shutdown - self.parameters.temporal.timestep, self.parameters.temporal.timestep
+                        stopped_at_t,
+                        end_of_shutdown - self.parameters.temporal.timestep,
+                        self.parameters.temporal.timestep,
                     )
                     break  # Interrupt when the first startup is found.
                 else:

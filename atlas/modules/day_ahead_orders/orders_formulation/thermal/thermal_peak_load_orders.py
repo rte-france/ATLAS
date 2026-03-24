@@ -48,41 +48,69 @@ class ThermalPeakLoadOrders:
         for unit in equipments_list:
             # Get the reserve procurements at the executionDate and collapse them into automated and manual reserves procurements
             automated_reserves_up_procured = Timeseries.from_index(
-                self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
+                self.parameters.temporal.start_date,
+                self.parameters.temporal.timestep,
+                self.parameters.temporal.end_date,
+                0,
             )
             automated_reserves_down_procured = Timeseries.from_index(
-                self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
+                self.parameters.temporal.start_date,
+                self.parameters.temporal.timestep,
+                self.parameters.temporal.end_date,
+                0,
             )
             manual_reserves_up_procured = Timeseries.from_index(
-                self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
+                self.parameters.temporal.start_date,
+                self.parameters.temporal.timestep,
+                self.parameters.temporal.end_date,
+                0,
             )
             manual_reserves_down_procured = Timeseries.from_index(
-                self.parameters.temporal.start_date, self.parameters.temporal.timestep, self.parameters.temporal.end_date, 0
+                self.parameters.temporal.start_date,
+                self.parameters.temporal.timestep,
+                self.parameters.temporal.end_date,
+                0,
             )
 
             if unit.afrr_up_procured and unit.fcr_up_procured:
                 automated_reserves_up_procured = unit.afrr_up_procured.get_forecast(
-                    self.parameters.temporal.execution_date, self.parameters.temporal.start_date, self.parameters.temporal.end_date
+                    self.parameters.temporal.execution_date,
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.end_date,
                 ) + unit.fcr_up_procured.get_forecast(
-                    self.parameters.temporal.execution_date, self.parameters.temporal.start_date, self.parameters.temporal.end_date
+                    self.parameters.temporal.execution_date,
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.end_date,
                 )
             if unit.afrr_down_procured and unit.fcr_down_procured:
                 automated_reserves_down_procured = unit.afrr_down_procured.get_forecast(
-                    self.parameters.temporal.execution_date, self.parameters.temporal.start_date, self.parameters.temporal.end_date
+                    self.parameters.temporal.execution_date,
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.end_date,
                 ) + unit.fcr_down_procured.get_forecast(
-                    self.parameters.temporal.execution_date, self.parameters.temporal.start_date, self.parameters.temporal.end_date
+                    self.parameters.temporal.execution_date,
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.end_date,
                 )
             if unit.mfrr_up_procured and unit.rr_up_procured:
                 manual_reserves_up_procured = unit.mfrr_up_procured.get_forecast(
-                    self.parameters.temporal.execution_date, self.parameters.temporal.start_date, self.parameters.temporal.end_date
+                    self.parameters.temporal.execution_date,
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.end_date,
                 ) + unit.rr_up_procured.get_forecast(
-                    self.parameters.temporal.execution_date, self.parameters.temporal.start_date, self.parameters.temporal.end_date
+                    self.parameters.temporal.execution_date,
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.end_date,
                 )
             if unit.mfrr_down_procured and unit.rr_down_procured:
                 manual_reserves_down_procured = unit.mfrr_down_procured.get_forecast(
-                    self.parameters.temporal.execution_date, self.parameters.temporal.start_date, self.parameters.temporal.end_date
+                    self.parameters.temporal.execution_date,
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.end_date,
                 ) + unit.rr_down_procured.get_forecast(
-                    self.parameters.temporal.execution_date, self.parameters.temporal.start_date, self.parameters.temporal.end_date
+                    self.parameters.temporal.execution_date,
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.end_date,
                 )
 
             for t in self.orders_time:

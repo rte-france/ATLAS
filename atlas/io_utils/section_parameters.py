@@ -66,6 +66,7 @@ class SolverParameters(BaseModel):
         """Convert various duration formats to Duration objects."""
         return convert_to_duration(v)
 
+
 class MultiProcessingParameters(BaseModel):
     use_multiprocessing: bool = False
     max_workers: int | None = None

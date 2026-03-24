@@ -152,7 +152,9 @@ class MarketClearingResults:
                     self.input_dataset.times  # type: ignore[arg-type]
                 )
             if id_balance_ts is not None:
-                id_balance_ts = id_balance_ts.set_frequency(self.input_dataset.parameters.temporal.timestep, False).filter(
+                id_balance_ts = id_balance_ts.set_frequency(
+                    self.input_dataset.parameters.temporal.timestep, False
+                ).filter(
                     self.input_dataset.times  # type: ignore[arg-type]
                 )
 

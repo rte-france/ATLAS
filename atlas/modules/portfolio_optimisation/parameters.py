@@ -186,7 +186,9 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def target_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period."""
-        return generate_datetimes(self.temporal.start_date, self.temporal.end_date, self.temporal.timestep, closed="left")
+        return generate_datetimes(
+            self.temporal.start_date, self.temporal.end_date, self.temporal.timestep, closed="left"
+        )
 
     @property
     def init_battery_time(self) -> DateTime:

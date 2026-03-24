@@ -20,7 +20,7 @@ from atlas.timing import timer
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
 from atlas.workflow.parameters import WorkflowParameters
-from atlas.workflow.step import ModuleRegistry, WorkflowStep
+from atlas.workflow.step import WorkflowStep
 
 
 class Workflow:

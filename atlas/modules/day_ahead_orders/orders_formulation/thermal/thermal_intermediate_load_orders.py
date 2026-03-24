@@ -391,7 +391,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                         )
                         prices.append(prices_medium)
                     else:
-                        raise AttributeError(f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
+                        raise AttributeError(
+                            f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_medium'"
+                        )
 
                 elif price_type == "High":
                     if unit.portfolio.market_area.price_forecast_high is not None:
@@ -402,7 +404,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                         )
                         prices.append(prices_high)
                     else:
-                        raise AttributeError(f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_high'")
+                        raise AttributeError(
+                            f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_high'"
+                        )
 
                 else:
                     cfg.logger.error(

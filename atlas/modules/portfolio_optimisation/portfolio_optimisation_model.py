@@ -47,7 +47,9 @@ class PortfolioOptimisationModel(OptimisationModel):
 
         for hydro in self.portfolio.equipments.hydro:
             hydro.prefetch_forecasts(
-                self.parameters.temporal.execution_date, self.parameters.temporal.timestep, self.parameters.temporal.start_date
+                self.parameters.temporal.execution_date,
+                self.parameters.temporal.timestep,
+                self.parameters.temporal.start_date,
             )
 
         for storage in self.portfolio.equipments.storage:
