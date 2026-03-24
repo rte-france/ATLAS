@@ -281,8 +281,7 @@ def _price_calculation(
             parameters.temporal.timestep,
         )
     else:
-        raise AttributeError(
-            f"{storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
+        raise AttributeError(f"{storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
 
     Qv_empty = all(qv_value == 0 for qv_value in Qv.values())
     Qa_empty = all(qa_value == 0 for qa_value in Qa.values())

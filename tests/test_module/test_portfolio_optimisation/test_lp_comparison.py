@@ -26,7 +26,7 @@ REFERENCE_LP_DIR = Path(__file__).parent / "lp_files"
 def base_parameters_dict():
     """Create base portfolio optimisation parameters dictionary for testing."""
     return {
-        "date": {
+        "temporal": {
             "start_date": "2028-09-27 00:00:00",
             "end_date": "2028-09-28 00:00:00",
             "execution_date": "2028-09-26 12:00:00",

@@ -62,9 +62,7 @@ class StorageModel(OptimisationModel):
                 self.parameters.temporal.timestep,
             )
         else:
-            raise AttributeError(
-                f"{self.storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'"
-            )
+            raise AttributeError(f"{self.storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
         # Set-up the time frames
         # Definition of the time_frame time frame: the time frame on which
         # the optimization program will be solved.

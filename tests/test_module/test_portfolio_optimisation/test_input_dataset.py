@@ -49,7 +49,7 @@ class TestPortfolioOptimisationInputDataset:
     def mock_parameters(self):
         """Create mock parameters for testing."""
         params = Mock(spec=PortfolioOptimisationParameters)
-        params.date = make_date()
+        params.temporal = make_date()
         params.market = MarketType.dayahead
         params.use_forecast = False
         params.excluded_technologies = []
