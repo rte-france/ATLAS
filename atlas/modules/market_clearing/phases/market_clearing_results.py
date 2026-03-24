@@ -144,15 +144,15 @@ class MarketClearingResults:
             if isinstance(id_balance_forecast, LazyForecastingMatrix):
                 id_balance_forecast = id_balance_forecast.collect()
 
-            id_price_ts = id_price_forecast.select(self.parameters.date.execution_date)
-            id_balance_ts = id_balance_forecast.select(self.parameters.date.execution_date)
+            id_price_ts = id_price_forecast.select(self.parameters.temporal.execution_date)
+            id_balance_ts = id_balance_forecast.select(self.parameters.temporal.execution_date)
 
             if id_price_ts is not None:
-                id_price_ts = id_price_ts.set_frequency(self.input_dataset.parameters.date.timestep, False).filter(
+                id_price_ts = id_price_ts.set_frequency(self.input_dataset.parameters.temporal.timestep, False).filter(
                     self.input_dataset.times  # type: ignore[arg-type]
                 )
             if id_balance_ts is not None:
-                id_balance_ts = id_balance_ts.set_frequency(self.input_dataset.parameters.date.timestep, False).filter(
+                id_balance_ts = id_balance_ts.set_frequency(self.input_dataset.parameters.temporal.timestep, False).filter(
                     self.input_dataset.times  # type: ignore[arg-type]
                 )
 

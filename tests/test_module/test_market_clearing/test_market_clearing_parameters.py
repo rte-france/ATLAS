@@ -26,8 +26,8 @@ def make_date(**kwargs):
 
 
 def test_default_parameters():
-    params = MarketClearingParameters(date=make_date())
-    assert params.date.timestep == Duration(hours=1)
+    params = MarketClearingParameters(temporal=make_date())
+    assert params.temporal.timestep == Duration(hours=1)
     assert params.solver.solver_name == SolverEnum.XPRESS
     assert params.allowed_round_off_error == 0.001
     assert params.exchange_constraints_type == ExchangeConstraintsType.ATC
@@ -44,7 +44,7 @@ def test_default_parameters():
 
 def test_custom_parameters():
     params = MarketClearingParameters(
-        date=make_date(timestep=Duration(minutes=15)),
+        temporal=make_date(timestep=Duration(minutes=15)),
         solver=SolverParameters(solver_name=SolverEnum.XPRESS, use_presolve=False),
         control_block_names=["CB1", "CB2"],
         market_area_names="[MA]",
@@ -53,7 +53,7 @@ def test_custom_parameters():
         market=Product.Intraday,
         paradoxically_rejected_penalty_N=2000,
     )
-    assert params.date.timestep == Duration(minutes=15)
+    assert params.temporal.timestep == Duration(minutes=15)
     assert params.price_modifier_lambda_1 == 0.05
     assert params.control_block_names == ["CB1", "CB2"]
     assert params.market_area_names == ["MA"]
@@ -69,9 +69,9 @@ def test_invalid_enum_for_exchange_constraints_type_raises():
 
 
 def test_list_or_str_control_blocks():
-    params = MarketClearingParameters(date=make_date(), control_block_names="All")
+    params = MarketClearingParameters(temporal=make_date(), control_block_names="All")
     assert isinstance(params.control_block_names, str)
 
-    params = MarketClearingParameters(date=make_date(), control_block_names=["CB1", "CB2"])
+    params = MarketClearingParameters(temporal=make_date(), control_block_names=["CB1", "CB2"])
     assert isinstance(params.control_block_names, list)
     assert "CB1" in params.control_block_names

@@ -253,9 +253,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         """
 
         # Compute T_stable, T_start and T_stop : will be used to see which states will be incorporated
-        T_start = int(math.floor(unit.startup_duration / self.parameters.date.timestep))
-        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.date.timestep))
-        T_stable = int(math.ceil(unit.minimum_stable_power_duration / self.parameters.date.timestep))
+        T_start = int(math.floor(unit.startup_duration / self.parameters.temporal.timestep))
+        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.temporal.timestep))
+        T_stable = int(math.ceil(unit.minimum_stable_power_duration / self.parameters.temporal.timestep))
 
         # Since states are mutually exclusive, we need to sum them in order to collapse them on a single time series.
 
@@ -373,25 +373,25 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             for price_type in price_types:
                 if price_type == "Low":
                     prices_low = unit.portfolio.market_area.price_forecast_low.get_forecast(
-                        self.parameters.date.execution_date,
-                        self.parameters.date.start_date,
-                        self.parameters.date.end_date + unit.additional_hours,
+                        self.parameters.temporal.execution_date,
+                        self.parameters.temporal.start_date,
+                        self.parameters.temporal.end_date + unit.additional_hours,
                     )
                     prices.append(prices_low)
 
                 elif price_type == "Medium":
                     prices_medium = unit.portfolio.market_area.price_forecast_medium.get_forecast(
-                        self.parameters.date.execution_date,
-                        self.parameters.date.start_date,
-                        self.parameters.date.end_date + unit.additional_hours,
+                        self.parameters.temporal.execution_date,
+                        self.parameters.temporal.start_date,
+                        self.parameters.temporal.end_date + unit.additional_hours,
                     )
                     prices.append(prices_medium)
 
                 elif price_type == "High":
                     prices_high = unit.portfolio.market_area.price_forecast_high.get_forecast(
-                        self.parameters.date.execution_date,
-                        self.parameters.date.start_date,
-                        self.parameters.date.end_date + unit.additional_hours,
+                        self.parameters.temporal.execution_date,
+                        self.parameters.temporal.start_date,
+                        self.parameters.temporal.end_date + unit.additional_hours,
                     )
                     prices.append(prices_high)
 
@@ -430,9 +430,9 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
                 new_sequence_ts = DAOTimeseries(
                     Timeseries.from_index(
-                        self.parameters.date.start_date,
-                        self.parameters.date.timestep,
-                        self.parameters.date.end_date,
+                        self.parameters.temporal.start_date,
+                        self.parameters.temporal.timestep,
+                        self.parameters.temporal.end_date,
                         default_value=0,
                     )
                 )
@@ -468,7 +468,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 if unit.state_sequence is None:
                     unit.state_sequence = ScenarioMatrix()
                 unit.state_sequence.add(
-                    new_sequence_ts, f"{self.parameters.date.execution_date}-{price_type.upper()}_DAO"
+                    new_sequence_ts, f"{self.parameters.temporal.execution_date}-{price_type.upper()}_DAO"
                 )
 
         return results

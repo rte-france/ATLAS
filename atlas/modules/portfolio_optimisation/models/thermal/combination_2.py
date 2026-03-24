@@ -98,7 +98,7 @@ def add_initial_conditions(
             obj.down_to_stop_grad.set_extended(time, 0)
 
             if time != extended_start_date:
-                prev_time = time - parameters.date.timestep
+                prev_time = time - parameters.temporal.timestep
 
                 if obj.stop_var.get_extended_value(time) - obj.stop_var.get_extended_value(prev_time) == 1:
                     obj.turned_off.set_extended(time, 1)
@@ -131,7 +131,7 @@ def add_constraints(
     if obj.minimum_power is None or obj.maximum_power is None:
         raise ValueError("minimum_power and maximum_power cannot be None")
 
-    prev_time = time - parameters.date.timestep
+    prev_time = time - parameters.temporal.timestep
 
     # Get variables
     off_var = obj.off_var.get_value(time)
@@ -188,13 +188,13 @@ def add_constraints(
     model.add_constraint(on_up_prev_var + off_var <= 1, f"transition_constraint_4_{time}_{obj.name}")
     model.add_constraint(on_down_prev_var + off_var <= 1, f"transition_constraint_5_{time}_{obj.name}")
 
-    eviction_time = time - (obj._T_stop - 1) * parameters.date.timestep
+    eviction_time = time - (obj._T_stop - 1) * parameters.temporal.timestep
     turned_off_eviction_var = obj.turned_off.get_value(eviction_time)
     model.add_constraint(turned_off_eviction_var + stop_var <= 1, f"eviction_constraint_{time}_{obj.name}")
 
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
-            local_time = time - s * parameters.date.timestep
+            local_time = time - s * parameters.temporal.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(
                 turned_on_local_var <= on_up_var + on_down_var, f"minimum_time_on_{obj.name}_{local_time}_{time}"
@@ -202,13 +202,13 @@ def add_constraints(
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
-            local_time = time - (s + obj._T_stop) * parameters.date.timestep
+            local_time = time - (s + obj._T_stop) * parameters.temporal.timestep
             turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(turned_off_local_var <= off_var, f"minimum_time_off_{obj.name}_{local_time}_{time}")
 
     if obj._T_stop >= 2:
         for s in range(1, obj._T_stop - 1):
-            local_time = time - s * parameters.date.timestep
+            local_time = time - s * parameters.temporal.timestep
             turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(turned_off_local_var <= stop_var, f"shutdown_ramp_{obj.name}_{local_time}_{time}")
 

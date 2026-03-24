@@ -189,7 +189,7 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
     elif parameters.market == MarketType.intraday:
         return (
             cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_cleared_quantity)
-            .get_forecast(parameters.date.execution_date, parameters.date.start_date, parameters.date.end_date)
+            .get_forecast(parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date)
             .filter(parameters.target_times, inplace=False)
         )
 
@@ -243,7 +243,7 @@ def _apply_power_constraints(
     max_power_forecast: AbstractTimeseries | None = None
     if isinstance(equipment, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
         max_power_forecast = equipment.maximum_power_forecast.get_forecast(
-            parameters.date.execution_date, parameters.date.start_date, parameters.date.end_date
+            parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
         )
 
     for time, power_value in new_power.iter_rows():
@@ -365,7 +365,7 @@ def _update_stored_energy(
     """
 
     new_stored_energy = Timeseries.from_index(
-        parameters.date.start_date, parameters.date.timestep, parameters.date.end_date, default_value=0
+        parameters.temporal.start_date, parameters.temporal.timestep, parameters.temporal.end_date, default_value=0
     )
 
     initial_stored_energy = _get_initial_stored_energy(equipment, parameters)
@@ -373,7 +373,7 @@ def _update_stored_energy(
 
     for index, time in enumerate(parameters.target_times):
         previous_energy = (
-            initial_stored_energy if index == 0 else new_stored_energy.get_value(time - parameters.date.timestep)
+            initial_stored_energy if index == 0 else new_stored_energy.get_value(time - parameters.temporal.timestep)
         )
 
         new_energy_value = _calculate_new_energy_value(equipment, time, previous_energy, new_power, parameters)
@@ -391,16 +391,16 @@ def _update_stored_energy(
 
     # Add extra timestep for interpolation
     new_stored_energy.set_value(
-        parameters.date.end_date + parameters.date.timestep,
-        new_stored_energy.get_value(parameters.date.end_date),
+        parameters.temporal.end_date + parameters.temporal.timestep,
+        new_stored_energy.get_value(parameters.temporal.end_date),
     )
 
     # Update equipment stored energy
     if not parameters.use_forecast and equipment.stored_energy:
         stored_energy_matrix = equipment.stored_energy
-        if parameters.date.execution_date in stored_energy_matrix:
-            stored_energy_matrix.delete(parameters.date.execution_date)
-        stored_energy_matrix.add(new_stored_energy, parameters.date.execution_date)
+        if parameters.temporal.execution_date in stored_energy_matrix:
+            stored_energy_matrix.delete(parameters.temporal.execution_date)
+        stored_energy_matrix.add(new_stored_energy, parameters.temporal.execution_date)
 
 
 def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: PortfolioOptimisationParameters) -> float:
@@ -418,20 +418,20 @@ def _get_initial_stored_energy(equipment: HydroPO | StoragePO, parameters: Portf
 
     if stored_energy_matrix:
         local_stored_energy = stored_energy_matrix.get_forecast(
-            parameters.date.execution_date,
-            parameters.date.start_date - parameters.date.timestep,
-            parameters.date.start_date,
+            parameters.temporal.execution_date,
+            parameters.temporal.start_date - parameters.temporal.timestep,
+            parameters.temporal.start_date,
         )
 
-        target_time = parameters.date.start_date - parameters.date.timestep
+        target_time = parameters.temporal.start_date - parameters.temporal.timestep
         if local_stored_energy.first_date() <= target_time:
             return local_stored_energy.get_value(target_time)
 
     # Fallback to initial level calculations
     if isinstance(equipment, HydroPO):
-        return equipment.initial_level.get_value(parameters.date.start_date - parameters.date.timestep)
+        return equipment.initial_level.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
     else:
-        max_energy = equipment.maximum_energy.get_value(parameters.date.start_date - parameters.date.timestep)
+        max_energy = equipment.maximum_energy.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
         return equipment.storage_initial_level * max_energy
 
 
@@ -458,13 +458,13 @@ def _calculate_new_energy_value(
     :rtype: float
     """
     power_value = new_power.get_value(time)
-    time_factor_hours = parameters.date.timestep.in_hours()
+    time_factor_hours = parameters.temporal.timestep.in_hours()
 
     if isinstance(equipment, StoragePO):
         if equipment.storage_type == StorageType.ELECTRIC_VEHICLE:
             # Handle capacity scaling for electric vehicles
             capacity_ratio = equipment.maximum_energy.get_value(time) / equipment.maximum_energy.get_value(
-                time - parameters.date.timestep
+                time - parameters.temporal.timestep
             )
             previous_energy *= capacity_ratio
 
@@ -496,7 +496,7 @@ def _apply_energy_bounds(
     :rtype: tuple[float, float]
     """
     min_energy, max_energy = bounds
-    timestep_hours = parameters.date.timestep.total_hours()
+    timestep_hours = parameters.temporal.timestep.total_hours()
 
     if energy_value > max_energy:
         correction = (max_energy - energy_value) * timestep_hours
@@ -553,9 +553,9 @@ def _finalize_power_update(
     :rtype: None
     """
     # Add extra timestep for interpolation
-    next_time = parameters.date.end_date + parameters.date.timestep
+    next_time = parameters.temporal.end_date + parameters.temporal.timestep
     if equipment.power:
-        next_power_value = equipment.power.get_forecast(parameters.date.execution_date, next_time, next_time).get_value(
+        next_power_value = equipment.power.get_forecast(parameters.temporal.execution_date, next_time, next_time).get_value(
             next_time
         )
         new_power.set_value(next_time, next_power_value)
@@ -564,11 +564,11 @@ def _finalize_power_update(
     if parameters.use_forecast:
         if equipment.id_po_for_orders:
             cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_po_for_orders).add(
-                new_power, parameters.date.execution_date
+                new_power, parameters.temporal.execution_date
             )
     else:
         if equipment.power:
             equipment.power.replace(
-                parameters.date.execution_date,
+                parameters.temporal.execution_date,
                 new_power,
             )

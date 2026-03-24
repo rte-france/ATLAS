@@ -171,7 +171,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 if equipment.name not in equipments_ts:
                     equipments_ts[equipment.name] = Timeseries.from_index(
                         self.input_dataset.times[0],
-                        self.input_dataset.parameters.date.timestep,
+                        self.input_dataset.parameters.temporal.timestep,
                         self.input_dataset.times[-1],
                         0.0,
                     )
@@ -179,7 +179,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 if portfolio.name not in portfolios_ts:
                     portfolios_ts[portfolio.name] = Timeseries.from_index(
                         self.input_dataset.times[0],
-                        self.input_dataset.parameters.date.timestep,
+                        self.input_dataset.parameters.temporal.timestep,
                         self.input_dataset.times[-1],
                         0.0,
                     )
@@ -187,8 +187,8 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
 
                 indexes = generate_datetimes(
                     mc_order.start_date,
-                    mc_order.end_datetime - self.input_dataset.parameters.date.timestep,
-                    self.input_dataset.parameters.date.timestep,
+                    mc_order.end_datetime - self.input_dataset.parameters.temporal.timestep,
+                    self.input_dataset.parameters.temporal.timestep,
                 )
                 values_sold = [accepted_power * mc_order.production_sign for _ in range(len(indexes))]
 
@@ -197,7 +197,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                     portfolios_ts[portfolio.name].sum_value_at(mc_order.start_date, values_sold[0])
                 else:
                     value_sold_ts = Timeseries.from_values(
-                        mc_order.start_date, self.input_dataset.parameters.date.timestep, values_sold
+                        mc_order.start_date, self.input_dataset.parameters.temporal.timestep, values_sold
                     )
                     equipments_ts[equipment.name] += value_sold_ts
                     portfolios_ts[portfolio.name] += value_sold_ts
@@ -303,12 +303,12 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             ]
 
             values_bal = Timeseries.from_values(
-                self.input_dataset.parameters.date.start_date,
-                self.input_dataset.parameters.date.timestep,
+                self.input_dataset.parameters.temporal.start_date,
+                self.input_dataset.parameters.temporal.timestep,
                 balance_values,
             )
             values_price = Timeseries.from_values(
-                self.input_dataset.parameters.date.start_date, self.input_dataset.parameters.date.timestep, price_values
+                self.input_dataset.parameters.temporal.start_date, self.input_dataset.parameters.temporal.timestep, price_values
             )
 
             match self.input_dataset.parameters.market:
@@ -363,11 +363,11 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             ]
 
             flow = Timeseries.from_values(
-                self.input_dataset.parameters.date.start_date, self.input_dataset.parameters.date.timestep, flow_values
+                self.input_dataset.parameters.temporal.start_date, self.input_dataset.parameters.temporal.timestep, flow_values
             )
             shadow_price = Timeseries.from_values(
-                self.input_dataset.parameters.date.start_date,
-                self.input_dataset.parameters.date.timestep,
+                self.input_dataset.parameters.temporal.start_date,
+                self.input_dataset.parameters.temporal.timestep,
                 shadow_price_values,
             )
             match self.input_dataset.parameters.market:
@@ -432,7 +432,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
             updated_values = {"name": mc_critical_branch.name}
             flow = Timeseries.from_index(
                 self.input_dataset.times[0],
-                self.input_dataset.parameters.date.timestep,
+                self.input_dataset.parameters.temporal.timestep,
                 self.input_dataset.times[-1],
                 0.0,
             )
@@ -440,7 +440,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
                 if mc_market_area_ptdf.da_ptdf is None:
                     continue
                 da_ptdf = mc_market_area_ptdf.da_ptdf.set_frequency(
-                    self.input_dataset.parameters.date.timestep, False
+                    self.input_dataset.parameters.temporal.timestep, False
                 ).filter(self.input_dataset.times)  # type: ignore[arg-type]
                 flow += da_ptdf
 
@@ -485,7 +485,7 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         if other.index[0] not in ts_obj:
             null_ts = Timeseries.from_index(
                 self.input_dataset.times[0],
-                self.input_dataset.parameters.date.timestep,
+                self.input_dataset.parameters.temporal.timestep,
                 self.input_dataset.times[-1],
                 0.0,
             )
@@ -499,10 +499,10 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
     ) -> ForecastingMatrix | LazyForecastingMatrix:
         if forecast_obj is None:
             new_forecast_obj = ForecastingMatrix()
-            new_forecast_obj.add(other, self.input_dataset.parameters.date.execution_date)
+            new_forecast_obj.add(other, self.input_dataset.parameters.temporal.execution_date)
             return new_forecast_obj
         else:
             if isinstance(forecast_obj, LazyTimeseries):
                 forecast_obj = forecast_obj.collect()
-            forecast_obj.add(other, self.input_dataset.parameters.date.execution_date)
+            forecast_obj.add(other, self.input_dataset.parameters.temporal.execution_date)
             return forecast_obj

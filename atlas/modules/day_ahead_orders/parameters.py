@@ -23,7 +23,7 @@ from atlas.io_utils.section_parameters import (
 class DayAheadOrdersParameters(AbstractParameters):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    date: DateParameters
+    temporal: DateParameters
     solver: SolverParameters = Field(default_factory=lambda: SolverParameters())  # type: ignore[call-arg, arg-type]
     output: OutputParameters = Field(default_factory=OutputParameters)
     multiprocessing: MultiProcessingParameters = Field(default_factory=MultiProcessingParameters)
@@ -103,4 +103,4 @@ class DayAheadOrdersParameters(AbstractParameters):
 
     @cached_property
     def penultimate_date(self) -> DateTime:
-        return self.date.end_date - self.date.timestep
+        return self.temporal.end_date - self.temporal.timestep

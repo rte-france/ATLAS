@@ -86,7 +86,7 @@ def add_initial_conditions(
             obj.turned_on.set_extended(time, 0)
 
             if time != extended_start_date:
-                prev_time = time - parameters.date.timestep
+                prev_time = time - parameters.temporal.timestep
 
                 if obj.off_var.get_extended_value(time) - obj.off_var.get_extended_value(prev_time) == 1:
                     obj.turned_off.set_extended(time, 1)
@@ -97,7 +97,7 @@ def add_initial_conditions(
 
         for time in kwargs.get("stable_initial_times", []):
             if obj.off_var.get_extended_value(time) == 0:
-                next_time = time + parameters.date.timestep
+                next_time = time + parameters.temporal.timestep
                 current_power = obj.power_level_var.get_extended_value(time)
                 next_power = obj.power_level_var.get_extended_value(next_time)
 
@@ -127,7 +127,7 @@ def add_initial_conditions(
 
             # Detect state transitions for non-initial times
             if time != extended_start_date:
-                prev_time = time - parameters.date.timestep
+                prev_time = time - parameters.temporal.timestep
                 if obj.on_flat_var.get_extended_value(time) - obj.on_flat_var.get_extended_value(prev_time) == 1:
                     obj.stable_var.set_extended(time, 1)
 
@@ -164,7 +164,7 @@ def add_constraints(
     if obj.minimum_power is None or obj.maximum_power is None:
         raise ValueError("minimum_power and maximum_power cannot be None")
 
-    prev_time = time - parameters.date.timestep
+    prev_time = time - parameters.temporal.timestep
 
     # Get variables
     off_var = obj.off_var.get_value(time)
@@ -194,9 +194,9 @@ def add_constraints(
     stable_prev_var = obj.stable_var.get_value(prev_time)
 
     power_level_prev_var = obj.power_level_var.get_value(prev_time)
-    on_up_prev_2_var = obj.on_up_var.get_value(prev_time - parameters.date.timestep)
-    on_down_prev_2_var = obj.on_down_var.get_value(prev_time - parameters.date.timestep)
-    on_flat_prev_2_var = obj.on_flat_var.get_value(prev_time - parameters.date.timestep)
+    on_up_prev_2_var = obj.on_up_var.get_value(prev_time - parameters.temporal.timestep)
+    on_down_prev_2_var = obj.on_down_var.get_value(prev_time - parameters.temporal.timestep)
+    on_flat_prev_2_var = obj.on_flat_var.get_value(prev_time - parameters.temporal.timestep)
 
     # Reserve variables
     reserves_up_var = model.get_variable(f"reserves_up_{obj.name}_{time}")
@@ -305,7 +305,7 @@ def add_constraints(
     model.add_constraint(on_up_prev_var + on_down_var <= 1, f"transition_constraint_1_{time}_{obj.name}")
     model.add_constraint(on_down_prev_var + on_up_var <= 1, f"transition_constraint_2_{time}_{obj.name}")
 
-    if time == parameters.date.start_date:
+    if time == parameters.temporal.start_date:
         model.add_constraint(
             off_prev_var + on_up_prev_var + on_down_prev_var + on_flat_prev_var == 1,
             f"mutual_exclusion_{prev_time}_{obj.name}",
@@ -358,7 +358,7 @@ def add_constraints(
 
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
-            local_time = time - s * parameters.date.timestep
+            local_time = time - s * parameters.temporal.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(
                 turned_on_local_var <= on_up_var + on_down_var + on_flat_var,
@@ -367,7 +367,7 @@ def add_constraints(
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
-            local_time = time - s * parameters.date.timestep
+            local_time = time - s * parameters.temporal.timestep
             turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(
                 turned_off_local_var <= off_var,
@@ -376,7 +376,7 @@ def add_constraints(
 
     if obj._T_stable >= 2:
         for s in range(1, obj._T_stable - 1):
-            local_time = time - s * parameters.date.timestep
+            local_time = time - s * parameters.temporal.timestep
             stable_local_var = obj.stable_var.get_value(local_time)
             model.add_constraint(
                 stable_local_var <= on_flat_var,
