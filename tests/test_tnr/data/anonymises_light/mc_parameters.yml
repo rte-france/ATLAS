@@ -20,7 +20,7 @@ paradoxically_rejected_penalty_N: 10_000
 solver:
   solver_name: "SCIP"
   use_presolve: True
-  timeout: "PT5S"
+  timeout: "PT10S"
 log_level: "DEBUG"
 product: "DayAhead"
 allowed_round_off_error: 1e-3

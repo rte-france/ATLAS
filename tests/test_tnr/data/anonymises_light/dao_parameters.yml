@@ -18,7 +18,7 @@ ev_nb_fragments: 3
 phs_nb_fragments: 3
 solver:
   use_presolve: True
-  timeout: "PT300S"
+  timeout: "PT10S"
   solver_name: "SCIP"
   export_lp: True
   duality_gap: 0.0001
