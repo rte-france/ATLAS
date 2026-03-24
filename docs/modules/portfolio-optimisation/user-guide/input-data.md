@@ -4,32 +4,17 @@
 
 The Portfolio Optimisation module is configured through `PortfolioOptimisationParameters`. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.
 
-## Required Parameters
+## Common Parameters
 
-These parameters are inherited from `AbstractParameters`:
+The common section are :
+```yaml
+temporal:       # Time configuration (required)
+output:         # Output configuration (optional, has defaults)
+solver:         # Solver configuration (optional, has defaults)
+```
 
-- **`start_date`** (DateTime): Start of the optimization period
-- **`end_date`** (DateTime): End of the optimization period
-- **`execution_date`** (DateTime): Date when the optimization is executed
-- **`export_result`** (bool): Whether to export results
 
 ## Optimization Parameters
-
-### Market & Solver
-
-- **`timestep`** (Duration, default: 1 hour): Time step of the market
-
-- **`market`** (MarketType, default: `dayahead`): Market type for optimization
-    * Options: `"DayAhead"`, `"Intraday"`, `"RRActivation"`, `"MFRRActivation"`
-
-- **`solver_name`** (SolverEnum, default: `XPRESS`): Optimization solver to use
-    * Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`
-
-- **`solver_timeout`** (Duration, default: 60 seconds): Maximum solve time
-
-- **`solver_duality_gap`** (float, default: 0.0001): Duality gap for optimization
-
-- **`use_presolve`** (bool, default: False): Enable solver presolve mode
 
 ### Optimization Scope
 
@@ -115,31 +100,30 @@ These parameters are inherited from `AbstractParameters`:
 
 ## Performance Parameters
 
-- **`use_multiprocessing`** (bool, default: True): Use parallel processing for portfolios
-
-- **`max_workers`** (int, default: None): Max parallel processes (None = CPU count)
-
 - **`allowed_round_off_error`** (float, default: 0.01 MW): Rounding error threshold
 
-## Example Configuration
-
-```json
-{
-  "start_date": "2024-01-01T00:00:00",
-  "end_date": "2024-01-02T00:00:00",
-  "execution_date": "2023-12-31T12:00:00",
-  "export_result": true,
-  "market": "DayAhead",
-  "solver_name": "XPRESS",
-  "solver_timeout": "PT60S",
-  "timestep": "PT1H",
-  "is_portfolio_bidding": true,
-  "use_forecast": false,
-  "use_multiprocessing": true,
-  "excluded_market_areas": ["FR", "DE"],
-  "excluded_technologies": ["thermal"],
-  "excluded_thermal_strategy": ["Peak"]
-}
+```yml
+temporal:
+  start_date:  "2028-09-27 00:00:00"
+  end_date: "2028-09-28 00:00:00"
+  execution_date: "2028-09-26 12:00:00"
+  timestep: "1h"
+solver:
+  solver_name: "SCIP"
+  use_presolve: True
+  export_lp: True
+output:
+  export_result: True
+  export_output_dataset: True
+multiprocessing:
+  use_multiprocessing: True
+  max_workers: 4
+market: DayAhead
+is_portfolio_bidding: True
+use_forecast: False
+excluded_market_areas: ["FR", "DE"]
+excluded_technologies: ["thermal"]
+excluded_thermal_strategy: ["Peak"]
 ```
 
 ## Next Steps

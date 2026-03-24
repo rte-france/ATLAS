@@ -3,32 +3,17 @@
 ## Overview
 
 The Market Clearing module is configured through `MarketClearingParameters`. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.
-
-## Required Parameters
-
-These parameters are inherited from `DateParameters`:
-
-- **`start_date`** (DateTime): Start of the optimization period
-- **`end_date`** (DateTime): End of the optimization period
-- **`execution_date`** (DateTime): Date when the optimization is executed
-
-# Market Clearing – Parameters
-
 This document describes all configuration parameters available for the **Market Clearing** module. The structure, level of detail, and wording are aligned with the parameter documentation of the **Market Clearing** module to ensure consistency across the project.
 
----
-## Solver Configuration
 
-* **`solver_name`** (`SolverEnum`, default: `XPRESS`): Optimization solver used for the market clearing problem.
+## Common Parameters
 
-    * Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`, `"CBC"`
-
-* **`use_presolve`** (`bool`, default: `True`): Enable a presolve step before executing all optimization in the market clearing.
-
-    * `True`: Presolve is applied (recommended for performance)
-    * `False`: Presolve is skipped
-
-* **`export_lp`** (`bool`, default: `False`): Export solver LP files for debugging and analysis.
+The common section are :
+```yaml
+temporal:       # Time configuration (required)
+output:         # Output configuration (optional, has defaults)
+solver:         # Solver configuration (optional, has defaults)
+```
 
 ---
 
@@ -119,24 +104,21 @@ This document describes all configuration parameters available for the **Market 
 
 ---
 
-## Output Configuration
-
-* **`export_output_dataset`** (`boolean`, default: `False`): True if we want the output dataset to be exported
-
-* **`output_dir`** (`str`, default: `""`): Path where the market clearing outputs are exported (csv,  lp, dataset).
-
-* **`export_result`** (`boolean`, default: `False`): True if output csv files are exported else False .
-
-  * Includes offers, market areas, order couplings, and market borders
----
 ## Example Configuration
 
 ```yml
-timestep: "1h"
-date:
+temporal:
   start_date:  "2028-09-27 00:00:00"
   end_date: "2028-09-28 00:00:00"
   execution_date: "2028-09-26 12:00:00"
+  timestep: "1h"
+solver:
+  solver_name: "SCIP"
+  use_presolve: True
+  export_lp: True
+output:
+  export_result: True
+  export_output_dataset: True
 activate_constrained_tso_quantity: False
 prevent_adverse_flows: False
 fb_branch_load_slack_penalty: 200
@@ -151,17 +133,10 @@ market_price_penalty_alpha: 10
 market_price_penalty_beta: 20
 paradoxically_accepted_penalty_M: 1_000
 paradoxically_rejected_penalty_N: 10_000
-solver:
-  solver_name: "XPRESS"
-  use_presolve: True
-  export_lp: True
 log_level: "DEBUG"
 product: "DayAhead"
 allowed_round_off_error: 1e-3
 execution_datetime_tolerance: 5
-output:
-  export_result: True
-  export_output_dataset: True
 ```
 
 ## Next Steps
