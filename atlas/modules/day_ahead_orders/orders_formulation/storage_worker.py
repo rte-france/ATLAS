@@ -273,13 +273,16 @@ def _price_calculation(
     """Price computation."""
     P_a_max = 0.0
     P_v_min = 0.0
-
-    price_forecast = storage.portfolio.market_area.price_forecast_medium.get_forecast(
-        parameters.temporal.execution_date,
-        parameters.temporal.start_date,
-        parameters.temporal.end_date,
-        parameters.temporal.timestep,
-    )
+    if storage.portfolio.market_area.price_forecast_medium is not None:
+        price_forecast = storage.portfolio.market_area.price_forecast_medium.get_forecast(
+            parameters.temporal.execution_date,
+            parameters.temporal.start_date,
+            parameters.temporal.end_date,
+            parameters.temporal.timestep,
+        )
+    else:
+        raise AttributeError(
+            f"{storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
 
     Qv_empty = all(qv_value == 0 for qv_value in Qv.values())
     Qa_empty = all(qa_value == 0 for qa_value in Qa.values())
