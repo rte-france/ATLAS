@@ -136,9 +136,9 @@ class PortfolioOptimisationOrchestrator:
         """
         cfg.logger.info(
             "Starting Portfolio Optimisation\n"
-            f"  Start Date:          {self.parameters.date.start_date}\n"
-            f"  End Date:            {self.parameters.date.end_date}\n"
-            f"  Execution Date:      {self.parameters.date.execution_date}\n"
+            f"  Start Date:          {self.parameters.temporal.start_date}\n"
+            f"  End Date:            {self.parameters.temporal.end_date}\n"
+            f"  Execution Date:      {self.parameters.temporal.execution_date}\n"
             f"  Portfolios:          {len(input_dataset.portfolios)}\n"
             f"  Manual Activation:   {len(input_dataset.portfolios_manual_activation)}\n"
             f"  Mode:                {'Portfolio Bidding' if self.parameters.is_portfolio_bidding else 'Individual Equipment'}\n"

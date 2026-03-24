@@ -102,21 +102,21 @@ class OrderMC(Order):
             return False
 
         # Check that the end datetime also does, but to within 1 minute:
-        if order.end_date > parameters.date.end_date:
+        if order.end_date > parameters.temporal.end_date:
             return False
 
         # For overlapping markets, such as (Intraday or Balancing), we need to only
         # consider orders that have an ExecutionDate close to the Clearing execution_date
         # The concept of "close" is here defined by the execution_date_tolerance parameter
         tolerance = parameters.execution_datetime_tolerance
-        if (parameters.date.execution_date - order.execution_date).total_seconds() / 60 > float(tolerance):
+        if (parameters.temporal.execution_date - order.execution_date).total_seconds() / 60 > float(tolerance):
             return False
 
         # MS
         duration_span = order.end_date.diff(order.start_date).as_duration()
-        if parameters.date.timestep > duration_span:
+        if parameters.temporal.timestep > duration_span:
             logger.info(
-                f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.date.timestep} min"
+                f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.temporal.timestep} min"
             )
             return False
 

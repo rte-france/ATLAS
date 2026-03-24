@@ -140,9 +140,9 @@ class ThermalBiddingStep:
         da_sell_submitted_volumes = {
             equipment.name: DAOTimeseries(
                 Timeseries.from_index(
-                    self.parameters.date.start_date,
-                    self.parameters.date.timestep,
-                    self.parameters.date.end_date,
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.timestep,
+                    self.parameters.temporal.end_date,
                     default_value=0,
                 )
             )
@@ -227,9 +227,9 @@ class ThermalBiddingStep:
                         unit_order_coupling_list,
                         DAOTimeseries(
                             Timeseries.from_index(
-                                self.parameters.date.start_date,
-                                self.parameters.date.timestep,
-                                self.parameters.date.end_date,
+                                self.parameters.temporal.start_date,
+                                self.parameters.temporal.timestep,
+                                self.parameters.temporal.end_date,
                                 default_value=0,
                             )
                         ),

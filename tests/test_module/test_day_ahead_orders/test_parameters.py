@@ -17,7 +17,7 @@ from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 def test_default_parameters():
     params = DayAheadOrdersParameters(
-        date=DateParameters(
+        temporal=DateParameters(
             start_date=DateTime.now(),
             end_date=DateTime.now(),
             execution_date=DateTime.now())
@@ -39,14 +39,14 @@ def test_default_parameters():
     assert params.ev_nb_fragments == 3
     assert params.phs_nb_fragments == 3
     assert params.solver.timeout == Duration(minutes=4)
-    assert params.date.timestep == Duration(hours=1)
+    assert params.temporal.timestep == Duration(hours=1)
     assert params.price_forecasts_types == ["Medium", "High", "Low"]
     assert params.solver.solver_name == "XPRESS"
 
 
 def test_custom_parameters():
     params = DayAheadOrdersParameters(
-        date=DateParameters(
+        temporal=DateParameters(
             timestep=Duration(minutes=15),
             start_date=DateTime.now(),
             end_date=DateTime.now(),
@@ -69,7 +69,7 @@ def test_custom_parameters():
         phs_nb_fragments=2,
         price_forecasts_types=["Medium"],
     )
-    assert params.date.timestep == Duration(minutes=15)
+    assert params.temporal.timestep == Duration(minutes=15)
     assert params.automated_unprocured_reserves_penalty == 1000
     assert params.battery_smoothing_factor == 0.2
     assert params.ev_energy_coef == 1.1

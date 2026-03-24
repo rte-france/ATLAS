@@ -117,7 +117,7 @@ class StoragePO(BaseEquipmentPO, Storage):
 
         if time in self.optimisation_time_window:
             cfg.logger.debug(f"Adding constraints for storage unit {self.name} at time {time}")
-            prev_time = time - parameters.date.timestep
+            prev_time = time - parameters.temporal.timestep
 
             automated_reserves_up_var = model.get_variable(f"automated_reserves_up_{self.name}_{time}")
             automated_reserves_down_var = model.get_variable(f"automated_reserves_down_{self.name}_{time}")
@@ -237,12 +237,12 @@ class StoragePO(BaseEquipmentPO, Storage):
                 displacement_energy = int(self.displacement_energy.get_value(time))
                 displacement_energy_prev = int(self.displacement_energy.get_value(prev_time))
 
-            if time == parameters.date.start_date:
+            if time == parameters.temporal.start_date:
                 model.add_constraint(
                     stored_energy_var
                     == self.get_initial_stock(parameters) * max_energy / max_energy_previous
-                    - power_level_buy_var * self.charge_efficiency * parameters.date.timestep.total_hours()
-                    - power_level_sell_var * parameters.date.timestep.total_hours() / self.discharge_efficiency
+                    - power_level_buy_var * self.charge_efficiency * parameters.temporal.timestep.total_hours()
+                    - power_level_sell_var * parameters.temporal.timestep.total_hours() / self.discharge_efficiency
                     + (displacement_energy - displacement_energy_prev),
                     f"storage_level_evol_{time}_{self.name}",
                 )
@@ -253,8 +253,8 @@ class StoragePO(BaseEquipmentPO, Storage):
                 model.add_constraint(
                     stored_energy_var
                     == stored_energy_prev_var * max_energy / max_energy_previous
-                    - power_level_buy_var * self.charge_efficiency * parameters.date.timestep.total_hours()
-                    - power_level_sell_var * parameters.date.timestep.total_hours() / self.discharge_efficiency
+                    - power_level_buy_var * self.charge_efficiency * parameters.temporal.timestep.total_hours()
+                    - power_level_sell_var * parameters.temporal.timestep.total_hours() / self.discharge_efficiency
                     + (displacement_energy - displacement_energy_prev),
                     f"storage_level_evol_{time}_{self.name}",
                 )
@@ -287,7 +287,7 @@ class StoragePO(BaseEquipmentPO, Storage):
             power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
             power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
             model.add_objective(
-                -price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.date.timestep.total_hours(),
+                -price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.temporal.timestep.total_hours(),
             )
 
             if time not in parameters.target_times:
@@ -323,7 +323,7 @@ class StoragePO(BaseEquipmentPO, Storage):
 
     def get_initial_stock(self, parameters: PortfolioOptimisationParameters) -> float:
         default_energy = (
-            self.maximum_energy.get_value(parameters.date.start_date - parameters.date.timestep)
+            self.maximum_energy.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
             * self.storage_initial_level
         )
 

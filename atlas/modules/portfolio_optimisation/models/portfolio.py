@@ -172,7 +172,7 @@ class PortfolioPO(Portfolio):
                 model,
                 time,
                 *imbalance_prices,
-                parameters.date.timestep,
+                parameters.temporal.timestep,
             )
             if self.equipments.has_generation_equipment():
                 self._add_reserve_penalty_terms(model, time, parameters)
@@ -245,22 +245,22 @@ class PortfolioPO(Portfolio):
         auto_contracted_diff_down = model.get_variable(f"automated_contracted_diff_down_{self.name}_{time}")
 
         model.add_objective(
-            parameters.manual_unprocured_reserves_penalty * parameters.date.timestep.total_hours() * contracted_diff_up,
+            parameters.manual_unprocured_reserves_penalty * parameters.temporal.timestep.total_hours() * contracted_diff_up,
         )
         model.add_objective(
             parameters.manual_unprocured_reserves_penalty
-            * parameters.date.timestep.total_hours()
+            * parameters.temporal.timestep.total_hours()
             * contracted_diff_down
         )
 
         model.add_objective(
             parameters.automated_unprocured_reserves_penalty
-            * parameters.date.timestep.total_hours()
+            * parameters.temporal.timestep.total_hours()
             * auto_contracted_diff_up,
         )
         model.add_objective(
             parameters.automated_unprocured_reserves_penalty
-            * parameters.date.timestep.total_hours()
+            * parameters.temporal.timestep.total_hours()
             * auto_contracted_diff_down,
         )
 
@@ -390,7 +390,7 @@ class PortfolioPO(Portfolio):
         for equipment in forecast_based_equipment:
             upstream_energy = self._get_upstream_energy(equipment, time, parameters)
             forecast_t = equipment.maximum_power_forecast.get_forecast(
-                parameters.date.execution_date, time, time, default_value=0
+                parameters.temporal.execution_date, time, time, default_value=0
             ).get_value(time)
 
             residual_energy += upstream_energy - min(forecast_t, upstream_energy)
@@ -421,7 +421,7 @@ class PortfolioPO(Portfolio):
         :rtype: float
         """
         return sum(
-            abs(self._get_maximum_power(obj, time, parameters.date.execution_date))
+            abs(self._get_maximum_power(obj, time, parameters.temporal.execution_date))
             for _, equipment_list in self.equipments.get_dispatchable_equipment_types()
             for obj in equipment_list
         )
@@ -459,7 +459,7 @@ class PortfolioPO(Portfolio):
         :rtype: float | None
         """
 
-        execution_date = parameters.date.execution_date
+        execution_date = parameters.temporal.execution_date
         market = parameters.market
 
         if time not in parameters.target_times:
@@ -615,7 +615,7 @@ class PortfolioPO(Portfolio):
         if reserve_attr:
             return (
                 cast(ForecastingMatrix | LazyForecastingMatrix, reserve_attr)
-                .get_forecast(parameters.date.execution_date, time, time)
+                .get_forecast(parameters.temporal.execution_date, time, time)
                 .get_value(time)
             )
         else:

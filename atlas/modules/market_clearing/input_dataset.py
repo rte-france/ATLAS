@@ -37,9 +37,9 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         self.raw_data = raw_data
         self.parameters = parameters
         self.times = generate_datetimes(
-            self.parameters.date.start_date,
-            cast(pendulum.DateTime, self.parameters.date.end_date - self.parameters.date.timestep),
-            self.parameters.date.timestep,
+            self.parameters.temporal.start_date,
+            cast(pendulum.DateTime, self.parameters.temporal.end_date - self.parameters.temporal.timestep),
+            self.parameters.temporal.timestep,
         )
 
         self.is_atc = self.parameters.exchange_constraints_type == ExchangeConstraintsType.ATC
@@ -71,7 +71,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         for critical_branch in critical_branches:
             critical_branch_dump = {
                 **MarketClearingInputDataset.shallow_dump(critical_branch),
-                "timestep": self.parameters.date.timestep,
+                "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
             mc_critical_branch = CriticalBranchMC.model_validate(critical_branch_dump)
@@ -116,7 +116,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
             }
             market_area_dump = {
                 **MarketClearingInputDataset.shallow_dump(market_area),
-                "timestep": self.parameters.date.timestep,
+                "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
                 "mc_orders": market_area_orders,
             }
@@ -132,7 +132,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                 id_with_status = True if order.qmin and order.qmin > self.parameters.allowed_round_off_error else False
                 order_dump = {
                     **MarketClearingInputDataset.shallow_dump(order),
-                    "timestep": self.parameters.date.timestep,
+                    "timestep": self.parameters.temporal.timestep,
                     "id_with_status": id_with_status,
                 }
                 mc_order = OrderMC.model_validate(order_dump)
@@ -218,7 +218,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
                     continue
             market_border_dump = {
                 **MarketClearingInputDataset.shallow_dump(market_border),
-                "timestep": self.parameters.date.timestep,
+                "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
             mc_market_border = MarketBorderMC.model_validate(market_border_dump)
@@ -230,7 +230,7 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
         for market_area_ptdf in market_area_ptdfs:
             market_area_ptdf_dump = {
                 **MarketClearingInputDataset.shallow_dump(market_area_ptdf),
-                "timestep": self.parameters.date.timestep,
+                "timestep": self.parameters.temporal.timestep,
                 "times": self.times,
             }
             mc_market_area_ptdf = MarketAreaPtdfMC.model_validate(market_area_ptdf_dump)

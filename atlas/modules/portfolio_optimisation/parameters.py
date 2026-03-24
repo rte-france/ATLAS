@@ -27,7 +27,7 @@ from atlas.validators import convert_to_duration
 class PortfolioOptimisationParameters(AbstractParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
-    date: DateParameters
+    temporal: DateParameters
     solver: SolverParameters = Field(default_factory=lambda: SolverParameters())  # type: ignore[call-arg, arg-type]
     output: OutputParameters = Field(default_factory=OutputParameters)
     multiprocessing: MultiProcessingParameters = Field(default_factory=MultiProcessingParameters)
@@ -186,12 +186,12 @@ class PortfolioOptimisationParameters(AbstractParameters):
     @property
     def target_times(self) -> list[DateTime]:
         """Datetime index for the main optimization period."""
-        return generate_datetimes(self.date.start_date, self.date.end_date, self.date.timestep, closed="left")
+        return generate_datetimes(self.temporal.start_date, self.temporal.end_date, self.temporal.timestep, closed="left")
 
     @property
     def init_battery_time(self) -> DateTime:
         """Datetime for the initial battery state (start_date - timestep)."""
-        return self.date.start_date - self.date.timestep
+        return self.temporal.start_date - self.temporal.timestep
 
     @property
     def storage_mapping(self):

@@ -85,7 +85,7 @@ class MarketClearingParameters(AbstractParameters):
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    date: DateParameters
+    temporal: DateParameters
     solver: SolverParameters = Field(default_factory=lambda: SolverParameters())  # type: ignore[call-arg, arg-type]
     output: OutputParameters = Field(default_factory=OutputParameters)
 
