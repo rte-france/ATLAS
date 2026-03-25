@@ -56,17 +56,30 @@ class Workflow:
             with open(self.workflow_path / self.parameters.parameters_path) as file:
                 self.generic_module_parameters = yaml.safe_load(file)
 
-    def build_steps(self):
+    @staticmethod
+    def add_index_in_step_name(steps: list) -> None:
+        """Append a numeric index suffix to duplicate step names, in-place.
+
+        Steps whose name is unique are left unchanged. Steps sharing a name are
+        renamed '<name>_1', '<name>_2', etc., in the order they appear.
+
+        :param steps: List of step parameter objects exposing a 'name' attribute.
+        :type steps: list
+        """
         name_counts: dict[str, int] = {}
-        for step in self.parameters.steps:
+        for step in steps:
             name_counts[step.name] = name_counts.get(step.name, 0) + 1
 
         name_index: dict[str, int] = {}
-        for step in self.parameters.steps:
+        for step in steps:
             if name_counts[step.name] > 1:
                 name_index[step.name] = name_index.get(step.name, 0) + 1
                 step.name = f"{step.name}_{name_index[step.name]}"
 
+    def build_steps(self):
+        self.add_index_in_step_name(self.parameters.steps)
+
+        for step in self.parameters.steps:
             parameters = Workflow.build_module_parameters(
                 self.generic_module_parameters, self.workflow_path / step.parameters_path
             )
