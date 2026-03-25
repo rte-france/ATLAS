@@ -41,4 +41,4 @@ def test_module_runs_successfully(
     with timer() as t:
         run_module(module_class, config_path, dataset_path)
 
-    print(f"\n⏱ {module_class.__name__}: {t():.2f}s")
+    print(f"\n⏱ {module_class.__name__}: {t()}s")
