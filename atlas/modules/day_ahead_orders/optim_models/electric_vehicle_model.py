@@ -75,23 +75,23 @@ class ElectricVehicleModel(StorageModel):
             )
 
             # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == self.parameters.start_date:
+            if t == self.parameters.temporal.start_date:
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (
                         initial_stock
                         * (
                             self.storage.maximum_energy.get_value(t)
-                            / self.storage.maximum_energy.get_value(t - self.parameters.timestep)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.temporal.timestep)
                         )
-                        + self.parameters.timestep.total_hours()
+                        + self.parameters.temporal.timestep.total_hours()
                         * (
                             self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
                             - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                         + (
                             self.storage.displacement_energy.get_value(t)  # type: ignore [union-attr]
-                            - self.storage.displacement_energy.get_value(t - self.parameters.timestep)  # type: ignore [union-attr]
+                            - self.storage.displacement_energy.get_value(t - self.parameters.temporal.timestep)  # type: ignore [union-attr]
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -100,19 +100,19 @@ class ElectricVehicleModel(StorageModel):
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (
-                        self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.timestep))
+                        self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.temporal.timestep))
                         * (
                             self.storage.maximum_energy.get_value(t)
-                            / self.storage.maximum_energy.get_value(t - self.parameters.timestep)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.temporal.timestep)
                         )
-                        + self.parameters.timestep.total_hours()
+                        + self.parameters.temporal.timestep.total_hours()
                         * (
                             self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
                             - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                         + (
                             self.storage.displacement_energy.get_value(t)  # type: ignore [union-attr]
-                            - self.storage.displacement_energy.get_value(t - self.parameters.timestep)  # type: ignore [union-attr]
+                            - self.storage.displacement_energy.get_value(t - self.parameters.temporal.timestep)  # type: ignore [union-attr]
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -149,14 +149,19 @@ class ElectricVehicleModel(StorageModel):
             )
 
         # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
+        assert self.storage.displacement_energy is not None, (
+            f"displacement_energy is required for ElectricVehicle {self.storage.name}"
+        )
         self.add_constraint(
             sum(self.get_variable(StorageModel.purchased_at_key(t)) for t in self.time_frame)
             * self.storage.charge_efficiency
             >= (
-                self.storage.displacement_energy.get_value(  # type: ignore [union-attr]
-                    self.parameters.end_date + self.optimization_period - self.parameters.timestep
+                self.storage.displacement_energy.get_value(
+                    self.parameters.temporal.end_date + self.optimization_period - self.parameters.temporal.timestep
                 )
-                - self.storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.timestep)  # type: ignore [union-attr]
+                - self.storage.displacement_energy.get_value(
+                    self.parameters.temporal.start_date - self.parameters.temporal.timestep
+                )
             )
             * self.parameters.ev_energy_coef,
             f"DisplacementEnergy_compensation_for_{str(self.storage.name)}",

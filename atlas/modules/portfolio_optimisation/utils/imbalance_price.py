@@ -61,13 +61,13 @@ def _get_forecast_price(
     if parameters.market == MarketType.dayahead:
         return (
             cast(ForecastingMatrix | LazyForecastingMatrix, market_area.price_forecast_medium)
-            .get_forecast(parameters.execution_date, time, time)
+            .get_forecast(parameters.temporal.execution_date, time, time)
             .get_value(time)
         )
     elif parameters.market == MarketType.intraday:
         return (
             cast(ForecastingMatrix | LazyForecastingMatrix, market_area.id_price_forecast)
-            .get_forecast(parameters.execution_date, time, time)
+            .get_forecast(parameters.temporal.execution_date, time, time)
             .get_value(time)
         )
 
@@ -97,7 +97,7 @@ def _get_actual_price(
     elif parameters.market == MarketType.intraday:
         return (
             cast(ForecastingMatrix | LazyForecastingMatrix, market_area.id_price)
-            .get_forecast(parameters.execution_date, time, time)
+            .get_forecast(parameters.temporal.execution_date, time, time)
             .get_value(time)
         )
     elif parameters.market == MarketType.rr_activation:

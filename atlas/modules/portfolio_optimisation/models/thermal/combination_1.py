@@ -74,7 +74,7 @@ def add_initial_conditions(
             obj.turned_on.set_extended(time, 0)
 
             if time != extended_start_date:
-                prev_time = time - parameters.timestep
+                prev_time = time - parameters.temporal.timestep
 
                 if obj.off_var.get_extended_value(time) - obj.off_var.get_extended_value(prev_time) == 1:
                     obj.turned_off.set_extended(time, 1)
@@ -107,7 +107,7 @@ def add_constraints(
     if obj.minimum_power is None or obj.maximum_power is None:
         raise ValueError("minimum_power and maximum_power cannot be None")
 
-    prev_time = time - parameters.timestep
+    prev_time = time - parameters.temporal.timestep
 
     off_var = obj.off_var.get_value(time)
     on_up_var = obj.on_up_var.get_value(time)
@@ -145,7 +145,7 @@ def add_constraints(
 
     if obj._T_on >= 2:
         for s in range(1, obj._T_on):
-            local_time = time - s * parameters.timestep
+            local_time = time - s * parameters.temporal.timestep
             turned_on_local_var = obj.turned_on.get_value(local_time)
             model.add_constraint(
                 turned_on_local_var <= on_up_var + on_down_var, f"minimum_time_on_{obj.name}_{local_time}_{time}"
@@ -153,7 +153,7 @@ def add_constraints(
 
     if obj._T_off >= 2:
         for s in range(1, obj._T_off):
-            local_time = time - s * parameters.timestep
+            local_time = time - s * parameters.temporal.timestep
             turned_off_local_var = obj.turned_off.get_value(local_time)
             model.add_constraint(turned_off_local_var <= off_var, f"minimum_time_off_{obj.name}_{local_time}_{time}")
 

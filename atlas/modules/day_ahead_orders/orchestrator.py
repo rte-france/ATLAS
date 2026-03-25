@@ -5,8 +5,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pathlib import Path
-
 import atlas.config as cfg
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.orders_formulation.hydraulic_step import HydraulicStep
@@ -46,13 +44,13 @@ class DayAheadOrdersOrchestrator:
         # Create the sequence of orders times. In particular, this sequence is such that the end date of the last order will be before
         # the end date of the overall time frame.
         orders_time = generate_datetimes(
-            self.parameters.start_date, self.parameters.penultimate_date, self.parameters.timestep
+            self.parameters.temporal.start_date, self.parameters.penultimate_date, self.parameters.temporal.timestep
         )
 
         # ensure output folder exists
-        if self.parameters.export_lp_path:
-            path = Path(self.parameters.export_lp_path)
-            path.mkdir(parents=True, exist_ok=True)
+        if self.parameters.solver.export_lp:
+            output_path = self.parameters.get_output_dir() / "lp_export"
+            output_path.mkdir(parents=True, exist_ok=True)
 
         if len(orders_time) > 0:
             cfg.logger.info("Extraction completed, now starting the formulation of orders...")

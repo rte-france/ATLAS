@@ -73,7 +73,7 @@ class ThermalBiddingStep:
         Supports both sequential and parallel processing based on use_multiprocessing parameter.
         :return: None
         """
-        if self.parameters.use_multiprocessing:
+        if self.parameters.multiprocessing.use_multiprocessing:
             self._formulate_thermal_orders_parallel()
         else:
             self._formulate_thermal_orders_sequential()
@@ -89,7 +89,7 @@ class ThermalBiddingStep:
         """
         cfg.logger.info(f"Starting parallel thermal optimization for {len(self.dataset.thermal)} units")
 
-        with ProcessPoolExecutor(max_workers=self.parameters.max_workers) as executor:
+        with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
             future_to_thermal = {
                 executor.submit(optimize_single_thermal_unit, thermal, self.orders_time, self.parameters): thermal.name
                 for thermal in self.dataset.thermal
@@ -140,7 +140,10 @@ class ThermalBiddingStep:
         da_sell_submitted_volumes = {
             equipment.name: DAOTimeseries(
                 Timeseries.from_index(
-                    self.parameters.start_date, self.parameters.timestep, self.parameters.end_date, default_value=0
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.timestep,
+                    self.parameters.temporal.end_date,
+                    default_value=0,
                 )
             )
             for equipment in self.dataset.thermal
@@ -224,9 +227,9 @@ class ThermalBiddingStep:
                         unit_order_coupling_list,
                         DAOTimeseries(
                             Timeseries.from_index(
-                                self.parameters.start_date,
-                                self.parameters.timestep,
-                                self.parameters.end_date,
+                                self.parameters.temporal.start_date,
+                                self.parameters.temporal.timestep,
+                                self.parameters.temporal.end_date,
                                 default_value=0,
                             )
                         ),

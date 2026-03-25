@@ -33,9 +33,8 @@ class Pricing(OptimisationModel):
         clearing_local_balances: dict[tuple[str, int], float],
         clearing_accepted_powers: dict[tuple[str, str], float],
     ):
-        solver_option = SolverOptions(presolve=parameters.use_presolve)
-        super().__init__(parameters.solver_name, options=solver_option)
-        super().__init__(parameters.solver_name)
+        solver_option = SolverOptions(presolve=parameters.solver.use_presolve)
+        super().__init__(parameters.solver.solver_name, options=solver_option)
         self.input_dataset = input_dataset
         self.parameters = parameters
         self.saturated_critical_branch = saturated_critical_branch
@@ -53,22 +52,22 @@ class Pricing(OptimisationModel):
     def run(self):
         self.build_first()
         solver_info = self.solve()
-        output_path = self.parameters.output_path
-        if self.parameters.export_lp:
+        output_path = self.parameters.get_output_dir() / "lp_export"
+        if self.parameters.solver.export_lp:
             output_path.mkdir(parents=True, exist_ok=True)
             self.export_model(str(output_path / "pricing_1_model.lp"))
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_second()
             solver_info = self.solve()
-            if self.parameters.export_lp:
+            if self.parameters.solver.export_lp:
                 self.export_model(str(output_path / "pricing_2_model.lp"))
 
         if solver_info.status not in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             self.build_third()
             _ = self.solve()
-            if self.parameters.export_lp:
+            if self.parameters.solver.export_lp:
                 self.export_model(str(output_path / "pricing_3_model.lp"))
-        if self.parameters.export_lp:
+        if self.parameters.solver.export_lp:
             with open(output_path / "pricing_market_prices.json", "w") as f:
                 json.dump(
                     [
@@ -883,7 +882,7 @@ class Pricing(OptimisationModel):
             )
 
     def convert_time_index_to_time(self, time_index: int) -> pendulum.DateTime:
-        return self.parameters.start_date + time_index * self.parameters.timestep
+        return self.parameters.temporal.start_date + time_index * self.parameters.temporal.timestep
 
     # Generator of border ranks and names of neighbour area for each border of a given market area:
     def get_market_area_neighbours(self, mc_market_area_name: str) -> list[tuple[MarketBorderMC, str]]:

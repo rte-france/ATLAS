@@ -7,12 +7,11 @@ This file is part of the ATLAS project.
 
 from typing import TypeVar
 
-from atlas import AtlasDataset, ControlBlock
+from atlas import AtlasDataset, ControlBlock, MarketArea
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.modules.day_ahead_orders.models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.models.load import LoadDAO
-from atlas.modules.day_ahead_orders.models.market_area import MarketAreaDAO
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
 from atlas.modules.day_ahead_orders.models.solar import SolarDAO
 from atlas.modules.day_ahead_orders.models.storage import StorageDAO
@@ -39,13 +38,13 @@ class DayAheadOrdersInputDataset(AbstractDataset[DayAheadOrdersParameters]):
         self.parameters: DayAheadOrdersParameters = parameters
         self.control_block: list[ControlBlock] = raw_data.control_block.all()
         self.other_non_dispatchable: list[OtherNonDispatchable] = raw_data.other_non_dispatchable.all()
-        self.market_area: list[MarketAreaDAO] = [MarketAreaDAO(**dict(obj)) for obj in raw_data.market_area]
+        self.market_area: list[MarketArea] = [MarketArea(**dict(obj)) for obj in raw_data.market_area]
 
         # Create portfolio mapping to avoid duplicate instantiation
         portfolio_map: dict[str, PortfolioDAO] = {}
         for portfolio in raw_data.portfolio:
             portfolio_dict = dict(portfolio)
-            portfolio_dict["market_area"] = MarketAreaDAO(**dict(portfolio.market_area))  # type: ignore [arg-type]
+            portfolio_dict["market_area"] = MarketArea(**dict(portfolio.market_area))  # type: ignore [arg-type]
             portfolio_map[portfolio.name] = PortfolioDAO(**portfolio_dict)
 
         self.portfolio: list[PortfolioDAO] = list(portfolio_map.values())

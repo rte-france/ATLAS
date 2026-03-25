@@ -76,29 +76,29 @@ class BatteryModel(StorageModel):
             )
 
             # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == self.parameters.start_date:
+            if t == self.parameters.temporal.start_date:
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (
                         initial_stock
-                        + self.parameters.timestep.total_hours()
+                        + self.parameters.temporal.timestep.total_hours()
                         * (
                             self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
                             - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                     ),
-                    f"Stock_tracking_at_{t + self.parameters.timestep}",
+                    f"Stock_tracking_at_{t + self.parameters.temporal.timestep}",
                 )
             else:
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))
-                    == self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.timestep))
-                    + self.parameters.timestep.total_hours()
+                    == self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.temporal.timestep))
+                    + self.parameters.temporal.timestep.total_hours()
                     * (
                         self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
                         - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                     ),
-                    f"Stock_tracking_at_{t + self.parameters.timestep}",
+                    f"Stock_tracking_at_{t + self.parameters.temporal.timestep}",
                 )
 
             # Respect of system states constraints (isSell and isV2G)
