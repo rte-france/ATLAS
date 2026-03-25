@@ -1209,10 +1209,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#required-parameters" class="md-nav__link">
+  <a href="#common-parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Required Parameters
+        Common Parameters
       
     </span>
   </a>
@@ -1230,17 +1230,6 @@
   
     <nav class="md-nav" aria-label="Optimization Parameters">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#market-solver" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Market &amp; Solver
-      
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#optimization-scope" class="md-nav__link">
@@ -1363,17 +1352,6 @@
     <span class="md-ellipsis">
       
         Performance Parameters
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#example-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example Configuration
       
     </span>
   </a>
@@ -3436,10 +3414,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#required-parameters" class="md-nav__link">
+  <a href="#common-parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Required Parameters
+        Common Parameters
       
     </span>
   </a>
@@ -3457,17 +3435,6 @@
   
     <nav class="md-nav" aria-label="Optimization Parameters">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#market-solver" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Market &amp; Solver
-      
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#optimization-scope" class="md-nav__link">
@@ -3597,17 +3564,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example Configuration
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3641,42 +3597,15 @@
 <h1 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h1>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>The Portfolio Optimisation module is configured through <code>PortfolioOptimisationParameters</code>. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.</p>
-<h2 id="required-parameters">Required Parameters<a class="headerlink" href="#required-parameters" title="Permanent link">&para;</a></h2>
-<p>These parameters are inherited from <code>AbstractParameters</code>:</p>
-<ul>
-<li><strong><code>start_date</code></strong> (DateTime): Start of the optimization period</li>
-<li><strong><code>end_date</code></strong> (DateTime): End of the optimization period</li>
-<li><strong><code>execution_date</code></strong> (DateTime): Date when the optimization is executed</li>
-<li><strong><code>export_result</code></strong> (bool): Whether to export results</li>
-</ul>
+<h2 id="common-parameters">Common Parameters<a class="headerlink" href="#common-parameters" title="Permanent link">&para;</a></h2>
+<p>The common section are :
+<div class="language-yaml highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span>
+<span class="normal"><a href="#__codelineno-0-2">2</a></span>
+<span class="normal"><a href="#__codelineno-0-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nt">temporal</span><span class="p">:</span><span class="w">       </span><span class="c1"># Time configuration (required)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="nt">output</span><span class="p">:</span><span class="w">         </span><span class="c1"># Output configuration (optional, has defaults)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="nt">solver</span><span class="p">:</span><span class="w">         </span><span class="c1"># Solver configuration (optional, has defaults)</span>
+</span></code></pre></div></td></tr></table></div></p>
 <h2 id="optimization-parameters">Optimization Parameters<a class="headerlink" href="#optimization-parameters" title="Permanent link">&para;</a></h2>
-<h3 id="market-solver">Market &amp; Solver<a class="headerlink" href="#market-solver" title="Permanent link">&para;</a></h3>
-<ul>
-<li>
-<p><strong><code>timestep</code></strong> (Duration, default: 1 hour): Time step of the market</p>
-</li>
-<li>
-<p><strong><code>market</code></strong> (MarketType, default: <code>dayahead</code>): Market type for optimization</p>
-<ul>
-<li>Options: <code>"DayAhead"</code>, <code>"Intraday"</code>, <code>"RRActivation"</code>, <code>"MFRRActivation"</code></li>
-</ul>
-</li>
-<li>
-<p><strong><code>solver_name</code></strong> (SolverEnum, default: <code>XPRESS</code>): Optimization solver to use</p>
-<ul>
-<li>Options: <code>"XPRESS"</code>, <code>"PNE"</code>, <code>"GLOP"</code>, <code>"SCIP"</code>, <code>"CP-SAT"</code></li>
-</ul>
-</li>
-<li>
-<p><strong><code>solver_timeout</code></strong> (Duration, default: 60 seconds): Maximum solve time</p>
-</li>
-<li>
-<p><strong><code>solver_duality_gap</code></strong> (float, default: 0.0001): Duality gap for optimization</p>
-</li>
-<li>
-<p><strong><code>use_presolve</code></strong> (bool, default: False): Enable solver presolve mode</p>
-</li>
-</ul>
 <h3 id="optimization-scope">Optimization Scope<a class="headerlink" href="#optimization-scope" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
@@ -3801,48 +3730,49 @@
 </ul>
 <h2 id="performance-parameters">Performance Parameters<a class="headerlink" href="#performance-parameters" title="Permanent link">&para;</a></h2>
 <ul>
-<li>
-<p><strong><code>use_multiprocessing</code></strong> (bool, default: True): Use parallel processing for portfolios</p>
-</li>
-<li>
-<p><strong><code>max_workers</code></strong> (int, default: None): Max parallel processes (None = CPU count)</p>
-</li>
-<li>
-<p><strong><code>allowed_round_off_error</code></strong> (float, default: 0.01 MW): Rounding error threshold</p>
-</li>
+<li><strong><code>allowed_round_off_error</code></strong> (float, default: 0.01 MW): Rounding error threshold</li>
 </ul>
-<h2 id="example-configuration">Example Configuration<a class="headerlink" href="#example-configuration" title="Permanent link">&para;</a></h2>
-<div class="language-json highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-0-10">10</a></span>
-<span class="normal"><a href="#__codelineno-0-11">11</a></span>
-<span class="normal"><a href="#__codelineno-0-12">12</a></span>
-<span class="normal"><a href="#__codelineno-0-13">13</a></span>
-<span class="normal"><a href="#__codelineno-0-14">14</a></span>
-<span class="normal"><a href="#__codelineno-0-15">15</a></span>
-<span class="normal"><a href="#__codelineno-0-16">16</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="p">{</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;start_date&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-01T00:00:00&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;end_date&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-02T00:00:00&quot;</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;execution_date&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2023-12-31T12:00:00&quot;</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;export_result&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;market&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DayAhead&quot;</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="w">  </span><span class="nt">&quot;solver_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;XPRESS&quot;</span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="w">  </span><span class="nt">&quot;solver_timeout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PT60S&quot;</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="w">  </span><span class="nt">&quot;timestep&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PT1H&quot;</span><span class="p">,</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="w">  </span><span class="nt">&quot;is_portfolio_bidding&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="w">  </span><span class="nt">&quot;use_forecast&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="w">  </span><span class="nt">&quot;use_multiprocessing&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="w">  </span><span class="nt">&quot;excluded_market_areas&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;FR&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;DE&quot;</span><span class="p">],</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="w">  </span><span class="nt">&quot;excluded_technologies&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;thermal&quot;</span><span class="p">],</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="w">  </span><span class="nt">&quot;excluded_thermal_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Peak&quot;</span><span class="p">]</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="p">}</span>
+<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-1-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-1-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-1-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-1-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-1-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-1-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-1-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-1-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-1-10">10</a></span>
+<span class="normal"><a href="#__codelineno-1-11">11</a></span>
+<span class="normal"><a href="#__codelineno-1-12">12</a></span>
+<span class="normal"><a href="#__codelineno-1-13">13</a></span>
+<span class="normal"><a href="#__codelineno-1-14">14</a></span>
+<span class="normal"><a href="#__codelineno-1-15">15</a></span>
+<span class="normal"><a href="#__codelineno-1-16">16</a></span>
+<span class="normal"><a href="#__codelineno-1-17">17</a></span>
+<span class="normal"><a href="#__codelineno-1-18">18</a></span>
+<span class="normal"><a href="#__codelineno-1-19">19</a></span>
+<span class="normal"><a href="#__codelineno-1-20">20</a></span>
+<span class="normal"><a href="#__codelineno-1-21">21</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a>temporal:
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a>  start_date:  &quot;2028-09-27 00:00:00&quot;
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3"></a>  end_date: &quot;2028-09-28 00:00:00&quot;
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4"></a>  execution_date: &quot;2028-09-26 12:00:00&quot;
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5"></a>  timestep: &quot;1h&quot;
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6"></a>solver:
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7"></a>  solver_name: &quot;SCIP&quot;
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8"></a>  use_presolve: True
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9"></a>  export_lp: True
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10"></a>output:
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11"></a>  export_result: True
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12"></a>  export_output_dataset: True
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13"></a>multiprocessing:
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14"></a>  use_multiprocessing: True
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15"></a>  max_workers: 4
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16"></a>market: DayAhead
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17"></a>is_portfolio_bidding: True
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18"></a>use_forecast: False
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19"></a>excluded_market_areas: [&quot;FR&quot;, &quot;DE&quot;]
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20"></a>excluded_technologies: [&quot;thermal&quot;]
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21"></a>excluded_thermal_strategy: [&quot;Peak&quot;]
 </span></code></pre></div></td></tr></table></div>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>

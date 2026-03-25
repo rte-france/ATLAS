@@ -1923,52 +1923,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#required-parameters" class="md-nav__link">
+  <a href="#common-parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Required Parameters
+        Common Parameters
       
     </span>
   </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#execution-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Execution Parameters
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#optimization-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optimization Parameters
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Optimization Parameters">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#solver-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Solver configuration
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2069,17 +2030,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#performance-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Performance Parameters
-      
-    </span>
-  </a>
   
 </li>
       
@@ -3436,52 +3386,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#required-parameters" class="md-nav__link">
+  <a href="#common-parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Required Parameters
+        Common Parameters
       
     </span>
   </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#execution-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Execution Parameters
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#optimization-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optimization Parameters
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Optimization Parameters">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#solver-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Solver configuration
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3586,17 +3497,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#performance-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Performance Parameters
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#example-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3641,42 +3541,16 @@
 <h1 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h1>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>The Day-Ahead Orders module is configured through <code>DayAheadOrdersParameters</code>. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.</p>
-<h2 id="required-parameters">Required Parameters<a class="headerlink" href="#required-parameters" title="Permanent link">&para;</a></h2>
-<p>These parameters are inherited from <code>AbstractParameters</code>:</p>
-<ul>
-<li><strong><code>start_date</code></strong> (DateTime): Start of the optimization period</li>
-<li><strong><code>end_date</code></strong> (DateTime): End of the optimization period</li>
-<li><strong><code>execution_date</code></strong> (DateTime): Date when the optimization is executed</li>
-</ul>
-<h2 id="execution-parameters">Execution Parameters<a class="headerlink" href="#execution-parameters" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong><code>export_lp_path</code></strong> (str, default: ""): Path where the lp exports outputs are exported.</li>
-</ul>
-<h2 id="optimization-parameters">Optimization Parameters<a class="headerlink" href="#optimization-parameters" title="Permanent link">&para;</a></h2>
-<h3 id="solver-configuration">Solver configuration<a class="headerlink" href="#solver-configuration" title="Permanent link">&para;</a></h3>
-<ul>
-<li>
-<p><strong><code>timestep</code></strong> (Duration, default: 1 hour): Discretization step of the simulated time interval</p>
-</li>
-<li>
-<p><strong><code>solver_name</code></strong> (SolverEnum, default: <code>XPRESS</code>): Optimization solver to use</p>
-<ul>
-<li>Options: <code>"XPRESS"</code>, <code>"PNE"</code>, <code>"GLOP"</code>, <code>"SCIP"</code>, <code>"CP-SAT"</code></li>
-</ul>
-</li>
-<li>
-<p><strong><code>export_lp</code></strong> (bool, default: False): Export solver LP files for debugging and analysis.</p>
-</li>
-<li>
-<p><strong><code>solver_timeout</code></strong> (Duration, default: 4 minutes): Maximum solve time</p>
-</li>
-<li>
-<p><strong><code>solver_duality_gap</code></strong> (float, default: 0.0001): Duality gap for optimization</p>
-</li>
-<li>
-<p><strong><code>use_presolve</code></strong> (bool, default: False): Enable solver presolve mode</p>
-</li>
-</ul>
+<h2 id="common-parameters">Common Parameters<a class="headerlink" href="#common-parameters" title="Permanent link">&para;</a></h2>
+<p>The common section are :
+<div class="language-yaml highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span>
+<span class="normal"><a href="#__codelineno-0-2">2</a></span>
+<span class="normal"><a href="#__codelineno-0-3">3</a></span>
+<span class="normal"><a href="#__codelineno-0-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nt">temporal</span><span class="p">:</span><span class="w">       </span><span class="c1"># Time configuration (required)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="nt">output</span><span class="p">:</span><span class="w">         </span><span class="c1"># Output configuration (optional, has defaults)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="nt">solver</span><span class="p">:</span><span class="w">         </span><span class="c1"># Solver configuration (optional, has defaults)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="nt">multiprocessing</span><span class="p">:</span><span class="w"> </span><span class="c1"># Parallel execution (optional, has defaults)</span>
+</span></code></pre></div></td></tr></table></div></p>
 <h2 id="penalties-pricing">Penalties &amp; Pricing<a class="headerlink" href="#penalties-pricing" title="Permanent link">&para;</a></h2>
 <h3 id="reserve-penalties">Reserve Penalties<a class="headerlink" href="#reserve-penalties" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3740,65 +3614,64 @@
 <p><strong><code>thermal_additional_hours</code></strong> (Duration, default: 12 hours): Number of extra hours after end date for the optimization programs applied to Thermic instances.</p>
 </li>
 </ul>
-<h2 id="performance-parameters">Performance Parameters<a class="headerlink" href="#performance-parameters" title="Permanent link">&para;</a></h2>
-<ul>
-<li>
-<p><strong><code>use_multiprocessing</code></strong> (bool, default: True): Use parallel processing for portfolios</p>
-</li>
-<li>
-<p><strong><code>max_workers</code></strong> (int, default: None): Max parallel processes (None = CPU count)</p>
-</li>
-</ul>
 <h2 id="example-configuration">Example Configuration<a class="headerlink" href="#example-configuration" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-0-10">10</a></span>
-<span class="normal"><a href="#__codelineno-0-11">11</a></span>
-<span class="normal"><a href="#__codelineno-0-12">12</a></span>
-<span class="normal"><a href="#__codelineno-0-13">13</a></span>
-<span class="normal"><a href="#__codelineno-0-14">14</a></span>
-<span class="normal"><a href="#__codelineno-0-15">15</a></span>
-<span class="normal"><a href="#__codelineno-0-16">16</a></span>
-<span class="normal"><a href="#__codelineno-0-17">17</a></span>
-<span class="normal"><a href="#__codelineno-0-18">18</a></span>
-<span class="normal"><a href="#__codelineno-0-19">19</a></span>
-<span class="normal"><a href="#__codelineno-0-20">20</a></span>
-<span class="normal"><a href="#__codelineno-0-21">21</a></span>
-<span class="normal"><a href="#__codelineno-0-22">22</a></span>
-<span class="normal"><a href="#__codelineno-0-23">23</a></span>
-<span class="normal"><a href="#__codelineno-0-24">24</a></span>
-<span class="normal"><a href="#__codelineno-0-25">25</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a>start_date: &quot;2028-09-27 00:00:00&quot;
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>execution_date: &quot;2028-09-26 12:00:00&quot;
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a>end_date: &quot;2028-09-28 00:00:00&quot;
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a>export_lp_path: &quot;./lp_exports&quot;
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>proportional_reserves_penalty: True
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a>use_presolve: True
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a>automated_unprocured_reserves_penalty: 10000
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>battery_smoothing_factor: 0.1
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a>ev_energy_coef: 1.5
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a>ev_smoothing_factor: 0.1
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a>epsilon: 0.001
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a>hydraulic_minimal_fragment_size: 100
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a>load_price: 3000
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a>manual_unprocured_reserves_penalty: 100
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15"></a>phs_smoothing_factor: 0.2
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16"></a>solver_duality_gap: 0.0001
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17"></a>battery_nb_fragments: 3
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18"></a>ev_nb_fragments: 3
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19"></a>phs_nb_fragments: 3
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20"></a>solver_timeout: 240s
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21"></a>timestep: 1h
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22"></a>price_forecasts_types: [&quot;Medium&quot;]
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23"></a>solver_name: &quot;SCIP&quot;
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24"></a>export_lp: True
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25"></a>use_multiprocessing: True
+<div class="language-text highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-1-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-1-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-1-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-1-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-1-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-1-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-1-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-1-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-1-10">10</a></span>
+<span class="normal"><a href="#__codelineno-1-11">11</a></span>
+<span class="normal"><a href="#__codelineno-1-12">12</a></span>
+<span class="normal"><a href="#__codelineno-1-13">13</a></span>
+<span class="normal"><a href="#__codelineno-1-14">14</a></span>
+<span class="normal"><a href="#__codelineno-1-15">15</a></span>
+<span class="normal"><a href="#__codelineno-1-16">16</a></span>
+<span class="normal"><a href="#__codelineno-1-17">17</a></span>
+<span class="normal"><a href="#__codelineno-1-18">18</a></span>
+<span class="normal"><a href="#__codelineno-1-19">19</a></span>
+<span class="normal"><a href="#__codelineno-1-20">20</a></span>
+<span class="normal"><a href="#__codelineno-1-21">21</a></span>
+<span class="normal"><a href="#__codelineno-1-22">22</a></span>
+<span class="normal"><a href="#__codelineno-1-23">23</a></span>
+<span class="normal"><a href="#__codelineno-1-24">24</a></span>
+<span class="normal"><a href="#__codelineno-1-25">25</a></span>
+<span class="normal"><a href="#__codelineno-1-26">26</a></span>
+<span class="normal"><a href="#__codelineno-1-27">27</a></span>
+<span class="normal"><a href="#__codelineno-1-28">28</a></span>
+<span class="normal"><a href="#__codelineno-1-29">29</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a>temporal:
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a>  start_date:  &quot;2028-09-27 00:00:00&quot;
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3"></a>  end_date: &quot;2028-09-28 00:00:00&quot;
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4"></a>  execution_date: &quot;2028-09-26 12:00:00&quot;
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5"></a>  timestep: &quot;1h&quot;
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6"></a>solver:
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7"></a>  solver_name: &quot;SCIP&quot;
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8"></a>  use_presolve: True
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9"></a>  export_lp: True
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10"></a>output:
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11"></a>  export_result: True
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12"></a>  export_output_dataset: True
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13"></a>multiprocessing:
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14"></a>  use_multiprocessing: True
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15"></a>  max_workers: 4
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16"></a>proportional_reserves_penalty: True
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17"></a>automated_unprocured_reserves_penalty: 10000
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18"></a>battery_smoothing_factor: 0.1
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19"></a>ev_energy_coef: 1.5
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20"></a>ev_smoothing_factor: 0.1
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21"></a>epsilon: 0.001
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22"></a>hydraulic_minimal_fragment_size: 100
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23"></a>load_price: 3000
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24"></a>manual_unprocured_reserves_penalty: 100
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25"></a>phs_smoothing_factor: 0.2
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26"></a>battery_nb_fragments: 3
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27"></a>ev_nb_fragments: 3
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28"></a>phs_nb_fragments: 3
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29"></a>price_forecasts_types: [&quot;Medium&quot;]
 </span></code></pre></div></td></tr></table></div>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>

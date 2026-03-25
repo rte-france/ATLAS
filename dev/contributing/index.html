@@ -3199,6 +3199,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Running Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tnr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TNR
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3369,6 +3386,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Running Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tnr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TNR
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3465,20 +3499,24 @@ We welcome bug reports, feature suggestions, and pull requests.</p>
 <blockquote>
 <p>Make sure all tests pass before submitting a PR.</p>
 </blockquote>
+<h3 id="tnr">TNR<a class="headerlink" href="#tnr" title="Permanent link">&para;</a></h3>
+<p>Some test are mark as TNR, They are longer and are mandatory when merging into main.</p>
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-v<span class="w"> </span>-s<span class="w"> </span>--cov<span class="o">=</span>atlas<span class="w"> </span>--cov-report<span class="o">=</span>xml<span class="w"> </span>--disable-warnings<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;tnr&quot;</span>
+</span></code></pre></div></td></tr></table></div>
 <h2 id="code-style">Code Style<a class="headerlink" href="#code-style" title="Permanent link">&para;</a></h2>
 <p>We use <code>ruff</code> to format and lint the code:</p>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">1</a></span>
-<span class="normal"><a href="#__codelineno-5-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>atlas
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>atlas
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1">1</a></span>
+<span class="normal"><a href="#__codelineno-6-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>atlas
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>atlas
 </span></code></pre></div></td></tr></table></div>
 <p>We also use <code>mypy</code> for typing analysis :</p>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>mypy<span class="w"> </span>atlas
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-1">1</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>mypy<span class="w"> </span>atlas
 </span></code></pre></div></td></tr></table></div>
 <h2 id="build-the-documentation-website">Build the documentation website<a class="headerlink" href="#build-the-documentation-website" title="Permanent link">&para;</a></h2>
 <p>We use <code>zensical</code> to build our documentation website, run the command below and visit <a href="http://localhost:8000">http://localhost:8000</a> :</p>
-<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-1">1</a></span>
-<span class="normal"><a href="#__codelineno-7-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--all-groups
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2"></a>uv<span class="w"> </span>run<span class="w"> </span>zensical<span class="w"> </span>serve
+<div class="language-bash highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-1">1</a></span>
+<span class="normal"><a href="#__codelineno-8-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--all-groups
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2"></a>uv<span class="w"> </span>run<span class="w"> </span>zensical<span class="w"> </span>serve
 </span></code></pre></div></td></tr></table></div>
 <h2 id="making-a-pull-request">Making a Pull Request<a class="headerlink" href="#making-a-pull-request" title="Permanent link">&para;</a></h2>
 <p>Before contributing code, make sure you've:</p>
