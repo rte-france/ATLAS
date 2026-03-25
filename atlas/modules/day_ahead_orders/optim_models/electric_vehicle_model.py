@@ -160,7 +160,7 @@ class ElectricVehicleModel(StorageModel):
                     self.parameters.temporal.end_date + self.optimization_period - self.parameters.temporal.timestep
                 )
                 - self.storage.displacement_energy.get_value(
-                self.parameters.temporal.start_date - self.parameters.temporal.timestep
+                    self.parameters.temporal.start_date - self.parameters.temporal.timestep
                 )
             )
             * self.parameters.ev_energy_coef,

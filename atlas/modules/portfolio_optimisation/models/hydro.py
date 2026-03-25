@@ -142,7 +142,9 @@ class HydroPO(BaseEquipmentPO, Hydro):
         if time in parameters.target_times:
             # Default to 0 if inflows data is not provided (e.g., reservoir without natural inflows)
             inflow = (
-                self.inflows.get_value(time) * parameters.temporal.timestep.total_days() if self.inflows is not None else 0
+                self.inflows.get_value(time) * parameters.temporal.timestep.total_days()
+                if self.inflows is not None
+                else 0
             )
 
             if time == parameters.temporal.start_date:

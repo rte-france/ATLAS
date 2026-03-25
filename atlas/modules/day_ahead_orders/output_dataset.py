@@ -9,6 +9,7 @@ from atlas import (
     ControlBlock,
     Hydro,
     Load,
+    MarketArea,
     OtherNonDispatchable,
     Solar,
     Storage,
@@ -20,7 +21,6 @@ from atlas.enums import ThermalStrategy
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.models.load import LoadDAO
-from atlas.modules.day_ahead_orders.models.market_area import MarketAreaDAO
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
@@ -38,7 +38,7 @@ class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
         self.input_dataset = input_dataset
         self.parameters: DayAheadOrdersParameters = input_dataset.parameters
         self.control_block: list[ControlBlock] = input_dataset.control_block
-        self.market_area: list[MarketAreaDAO] = input_dataset.market_area
+        self.market_area: list[MarketArea] = input_dataset.market_area
         self.portfolio: list[PortfolioDAO] = input_dataset.portfolio
         self.other_non_dispatchable: list[OtherNonDispatchable] = input_dataset.other_non_dispatchable
 

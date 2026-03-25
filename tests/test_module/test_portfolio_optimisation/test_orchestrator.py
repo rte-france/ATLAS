@@ -248,9 +248,9 @@ class TestPortfolioOptimisationOrchestrator:
         params.multiprocessing.max_workers = None
         params.market = MarketType.dayahead
         params.use_forecast = False
-        params.date.start_date = pendulum.datetime(2024, 1, 1)
-        params.date.end_date = pendulum.datetime(2024, 1, 2)
-        params.date.execution_date = pendulum.datetime(2024, 1, 1)
+        params.temporal.start_date = pendulum.datetime(2024, 1, 1)
+        params.temporal.end_date = pendulum.datetime(2024, 1, 2)
+        params.temporal.execution_date = pendulum.datetime(2024, 1, 1)
         return params
 
     @pytest.fixture

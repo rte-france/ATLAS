@@ -245,7 +245,9 @@ class PortfolioPO(Portfolio):
         auto_contracted_diff_down = model.get_variable(f"automated_contracted_diff_down_{self.name}_{time}")
 
         model.add_objective(
-            parameters.manual_unprocured_reserves_penalty * parameters.temporal.timestep.total_hours() * contracted_diff_up,
+            parameters.manual_unprocured_reserves_penalty
+            * parameters.temporal.timestep.total_hours()
+            * contracted_diff_up,
         )
         model.add_objective(
             parameters.manual_unprocured_reserves_penalty

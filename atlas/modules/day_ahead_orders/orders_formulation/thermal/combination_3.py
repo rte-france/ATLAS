@@ -169,7 +169,9 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # Enforces eq. (3)
     for t in model.time_frame:
         model.add_constraint(model.turned_on.get_value(t) <= 1 - model.OFF.get_value(t))
-        model.add_constraint(model.turned_on.get_value(t) <= model.OFF.get_value(t - model.parameters.temporal.timestep))
+        model.add_constraint(
+            model.turned_on.get_value(t) <= model.OFF.get_value(t - model.parameters.temporal.timestep)
+        )
         model.add_constraint(
             model.turned_on.get_value(t)
             >= model.OFF.get_value(t - model.parameters.temporal.timestep) - model.OFF.get_value(t)

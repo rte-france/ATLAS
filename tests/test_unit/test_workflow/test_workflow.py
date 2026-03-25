@@ -302,7 +302,7 @@ class TestWorkflowRepresentation:
         output_dir.mkdir()
         params_file = tmp_path / "params.yaml"
         params_file.write_text(
-            "date:\n"
+            "temporal:\n"
             "  start_date: '2028-09-27 00:00:00'\n"
             "  end_date: '2028-09-28 00:00:00'\n"
             "  execution_date: '2028-09-26 12:00:00'\n"
@@ -421,7 +421,7 @@ class TestWorkflowPathFromWorkflow:
         output_dir.mkdir()
         params_file = tmp_path / "params.yaml"
         params_file.write_text(
-            "date:\n"
+            "temporal:\n"
             "  start_date: '2028-09-27 00:00:00'\n"
             "  end_date: '2028-09-28 00:00:00'\n"
             "  execution_date: '2028-09-26 12:00:00'\n"

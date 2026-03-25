@@ -372,28 +372,41 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
 
             for price_type in price_types:
                 if price_type == "Low":
-                    prices_low = unit.portfolio.market_area.price_forecast_low.get_forecast(
-                        self.parameters.temporal.execution_date,
-                        self.parameters.temporal.start_date,
-                        self.parameters.temporal.end_date + unit.additional_hours,
-                    )
-                    prices.append(prices_low)
+                    if unit.portfolio.market_area.price_forecast_low is not None:
+                        prices_low = unit.portfolio.market_area.price_forecast_low.get_forecast(
+                            self.parameters.temporal.execution_date,
+                            self.parameters.temporal.start_date,
+                            self.parameters.temporal.end_date + unit.additional_hours,
+                        )
+                        prices.append(prices_low)
+                    else:
+                        raise AttributeError(f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_low'")
 
                 elif price_type == "Medium":
-                    prices_medium = unit.portfolio.market_area.price_forecast_medium.get_forecast(
-                        self.parameters.temporal.execution_date,
-                        self.parameters.temporal.start_date,
-                        self.parameters.temporal.end_date + unit.additional_hours,
-                    )
-                    prices.append(prices_medium)
+                    if unit.portfolio.market_area.price_forecast_medium is not None:
+                        prices_medium = unit.portfolio.market_area.price_forecast_medium.get_forecast(
+                            self.parameters.temporal.execution_date,
+                            self.parameters.temporal.start_date,
+                            self.parameters.temporal.end_date + unit.additional_hours,
+                        )
+                        prices.append(prices_medium)
+                    else:
+                        raise AttributeError(
+                            f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_medium'"
+                        )
 
                 elif price_type == "High":
-                    prices_high = unit.portfolio.market_area.price_forecast_high.get_forecast(
-                        self.parameters.temporal.execution_date,
-                        self.parameters.temporal.start_date,
-                        self.parameters.temporal.end_date + unit.additional_hours,
-                    )
-                    prices.append(prices_high)
+                    if unit.portfolio.market_area.price_forecast_high is not None:
+                        prices_high = unit.portfolio.market_area.price_forecast_high.get_forecast(
+                            self.parameters.temporal.execution_date,
+                            self.parameters.temporal.start_date,
+                            self.parameters.temporal.end_date + unit.additional_hours,
+                        )
+                        prices.append(prices_high)
+                    else:
+                        raise AttributeError(
+                            f"{unit.portfolio.market_area.name} has no attribute 'price_forecast_high'"
+                        )
 
                 else:
                     cfg.logger.error(

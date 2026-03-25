@@ -80,7 +80,9 @@ class HydraulicStep:
                     parameters.temporal.start_date - parameters.temporal.timestep,
                 )
                 if len(energy_forecast) > 0:
-                    energy_level = energy_forecast.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
+                    energy_level = energy_forecast.get_value(
+                        parameters.temporal.start_date - parameters.temporal.timestep
+                    )
                 else:
                     energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
             else:
@@ -111,7 +113,11 @@ class HydraulicStep:
             )
 
             if (
-                len(equipment.minimum_energy.slice(parameters.temporal.start_date, parameters.temporal.end_date, "both", False))
+                len(
+                    equipment.minimum_energy.slice(
+                        parameters.temporal.start_date, parameters.temporal.end_date, "both", False
+                    )
+                )
                 > 0
             ):
                 coupling_instance.complement_energy = -(

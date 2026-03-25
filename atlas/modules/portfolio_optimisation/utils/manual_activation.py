@@ -189,7 +189,9 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
     elif parameters.market == MarketType.intraday:
         return (
             cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_cleared_quantity)
-            .get_forecast(parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date)
+            .get_forecast(
+                parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+            )
             .filter(parameters.target_times, inplace=False)
         )
 
@@ -555,9 +557,9 @@ def _finalize_power_update(
     # Add extra timestep for interpolation
     next_time = parameters.temporal.end_date + parameters.temporal.timestep
     if equipment.power:
-        next_power_value = equipment.power.get_forecast(parameters.temporal.execution_date, next_time, next_time).get_value(
-            next_time
-        )
+        next_power_value = equipment.power.get_forecast(
+            parameters.temporal.execution_date, next_time, next_time
+        ).get_value(next_time)
         new_power.set_value(next_time, next_power_value)
 
     # Update equipment power

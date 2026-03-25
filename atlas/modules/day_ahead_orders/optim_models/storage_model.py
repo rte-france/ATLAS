@@ -54,12 +54,15 @@ class StorageModel(OptimisationModel):
         self.optimization_period: Duration = optimization_period
         # Get the price forecast from the dataset: estimations are at ActionHour, over the optimization period
         # The price forecast is relative to the equipment's market area
-        self.price_forecast: Timeseries = self.storage.portfolio.market_area.price_forecast_medium.get_forecast(
-            self.parameters.temporal.execution_date,
-            self.parameters.temporal.start_date,
-            self.parameters.temporal.end_date + self.optimization_period,
-            self.parameters.temporal.timestep,
-        )
+        if self.storage.portfolio.market_area.price_forecast_medium is not None:
+            self.price_forecast: Timeseries = self.storage.portfolio.market_area.price_forecast_medium.get_forecast(
+                self.parameters.temporal.execution_date,
+                self.parameters.temporal.start_date,
+                self.parameters.temporal.end_date + self.optimization_period,
+                self.parameters.temporal.timestep,
+            )
+        else:
+            raise AttributeError(f"{self.storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
         # Set-up the time frames
         # Definition of the time_frame time frame: the time frame on which
         # the optimization program will be solved.

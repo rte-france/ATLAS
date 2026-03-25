@@ -177,7 +177,9 @@ class ThermalOptimizationModel(OptimisationModel):
         # Gradients are defined on a "shifted" time frame.
         self.gradients_time_frame = generate_datetimes(
             self.parameters.temporal.start_date - self.parameters.temporal.timestep,
-            self.parameters.temporal.end_date + self.thermal_unit.additional_hours - 2 * self.parameters.temporal.timestep,
+            self.parameters.temporal.end_date
+            + self.thermal_unit.additional_hours
+            - 2 * self.parameters.temporal.timestep,
             self.parameters.temporal.timestep,
         )
 
@@ -450,8 +452,12 @@ class ThermalOptimizationModel(OptimisationModel):
         # Definition of the time_frame time frame : the time frame on which the optimization program will be solved.
         # Remark: we define the time series until end_date - time_step because
         # we want all time steps to lie in the [start_date, end_optimization_date] range.
-        end_date = self.parameters.temporal.end_date + self.thermal_unit.additional_hours - self.parameters.temporal.timestep
-        self.time_frame = generate_datetimes(self.parameters.temporal.start_date, end_date, self.parameters.temporal.timestep)
+        end_date = (
+            self.parameters.temporal.end_date + self.thermal_unit.additional_hours - self.parameters.temporal.timestep
+        )
+        self.time_frame = generate_datetimes(
+            self.parameters.temporal.start_date, end_date, self.parameters.temporal.timestep
+        )
 
         # Define T_traceback, the number of timesteps we need to go before start_date to define the initial conditions.
         # We add +1 in order to avoid out-of-bounds errors when defining the ON_FLAT state.
@@ -637,7 +643,9 @@ class ThermalOptimizationModel(OptimisationModel):
             # Define the time_frame_union_minus_one which includes the start_date_minus_one time step.
             self.time_frame_union_minus_one = generate_datetimes(
                 self.parameters.temporal.start_date - self.parameters.temporal.timestep,
-                self.parameters.temporal.end_date + self.thermal_unit.additional_hours - self.parameters.temporal.timestep,
+                self.parameters.temporal.end_date
+                + self.thermal_unit.additional_hours
+                - self.parameters.temporal.timestep,
                 self.parameters.temporal.timestep,
             )
 

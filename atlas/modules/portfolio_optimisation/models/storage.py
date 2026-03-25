@@ -287,7 +287,9 @@ class StoragePO(BaseEquipmentPO, Storage):
             power_level_sell_var = model.get_variable(f"{self.name}_power_level_sell_{time}")
             power_level_buy_var = model.get_variable(f"{self.name}_power_level_buy_{time}")
             model.add_objective(
-                -price_forecast * (power_level_buy_var + power_level_sell_var) * parameters.temporal.timestep.total_hours(),
+                -price_forecast
+                * (power_level_buy_var + power_level_sell_var)
+                * parameters.temporal.timestep.total_hours(),
             )
 
             if time not in parameters.target_times:

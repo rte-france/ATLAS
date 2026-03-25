@@ -173,7 +173,9 @@ def _initiate_stock(storage: StorageDAO, parameters: DayAheadOrdersParameters) -
             parameters.temporal.timestep,
         )
         if len(energy_forecast) == 0:
-            initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(parameters.temporal.start_date)
+            initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(
+                parameters.temporal.start_date
+            )
         else:
             initial_stock = energy_forecast.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
     return initial_stock
@@ -271,13 +273,15 @@ def _price_calculation(
     """Price computation."""
     P_a_max = 0.0
     P_v_min = 0.0
-
-    price_forecast = storage.portfolio.market_area.price_forecast_medium.get_forecast(
-        parameters.temporal.execution_date,
-        parameters.temporal.start_date,
-        parameters.temporal.end_date,
-        parameters.temporal.timestep,
-    )
+    if storage.portfolio.market_area.price_forecast_medium is not None:
+        price_forecast = storage.portfolio.market_area.price_forecast_medium.get_forecast(
+            parameters.temporal.execution_date,
+            parameters.temporal.start_date,
+            parameters.temporal.end_date,
+            parameters.temporal.timestep,
+        )
+    else:
+        raise AttributeError(f"{storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
 
     Qv_empty = all(qv_value == 0 for qv_value in Qv.values())
     Qa_empty = all(qa_value == 0 for qa_value in Qa.values())
