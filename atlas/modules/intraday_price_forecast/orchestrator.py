@@ -1,3 +1,4 @@
+import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
@@ -55,7 +56,7 @@ class IntradayPriceForecastOrchestrator:
         )
 
         for market_area in self.output_dataset.market_area:
-            cfg.logger.info(f"Computing intraday price forecast for market area: {market_area.name}")
+            cfg.logger.info(f"Computing intraday price forecast for market area: '{market_area.name}'")
 
             loads, solars, winds = self._filter_assets_by_market_area(market_area)
 
@@ -67,13 +68,15 @@ class IntradayPriceForecastOrchestrator:
 
             intraday_price_forecast = baseline_price + price_sensitivity_ratio * consumption_delta
 
-            intraday_price_forecast = self._apply_non_negativity_constraint(intraday_price_forecast, time_window)
+            intraday_price_forecast = self._apply_non_negativity_constraint(intraday_price_forecast)
 
             intraday_price_forecast = self._apply_price_caps(intraday_price_forecast, market_area, time_window)
 
             self._save_price_forecast(market_area, intraday_price_forecast)
 
-            cfg.logger.info(f"The update of {market_area.name} price has been done using {price_source_label}")
+            cfg.logger.info(
+                f"Intraday price for market area '{market_area.name}' has been done using {price_source_label}"
+            )
 
         return self.output_dataset
 
@@ -131,11 +134,13 @@ class IntradayPriceForecastOrchestrator:
             execution_date=self.parameters.execution_date_scenarios,
             start_date=self.parameters.temporal.start_date,
             end_date=self.parameters.penultimate_date,
+            timestep=self.parameters.temporal.timestep,
         )
         price_forecast_low = market_area.price_forecast_low.get_forecast(
             execution_date=self.parameters.execution_date_scenarios,
             start_date=self.parameters.temporal.start_date,
             end_date=self.parameters.penultimate_date,
+            timestep=self.parameters.temporal.timestep,
         )
         price_difference = price_forecast_high - price_forecast_low
 
@@ -146,7 +151,7 @@ class IntradayPriceForecastOrchestrator:
             if load.power_forecast_high and load.power_forecast_low:
                 consumption_difference += load.power_forecast_low - load.power_forecast_high
             else:
-                cfg.logger.error(f"Error, missing PowerForecast high or low for unit {load.name}")
+                cfg.logger.error(f"Error, missing 'power_forecast' high or low for unit {load.name}")
 
         # Calculate the ratio for each timestep
         price_sensitivity_ratio = self._create_empty_timeseries()
@@ -187,6 +192,7 @@ class IntradayPriceForecastOrchestrator:
                 execution_date=self.parameters.execution_date_day_ahead,
                 start_date=self.parameters.temporal.start_date,
                 end_date=self.parameters.penultimate_date,
+                timestep=self.parameters.temporal.timestep,
             )
 
         # Calculate intraday residual consumption
@@ -196,22 +202,20 @@ class IntradayPriceForecastOrchestrator:
                 execution_date=self.parameters.temporal.execution_date,
                 start_date=self.parameters.temporal.start_date,
                 end_date=self.parameters.penultimate_date,
+                timestep=self.parameters.temporal.timestep,
             )
 
-        # Compute the difference
-        consumption_delta = self._create_empty_timeseries()
-        for time in time_window:
-            intraday_value = (
-                residual_consumption_intraday.get_value(time) if time in residual_consumption_intraday else 0.0
-            )
-            day_ahead_value = (
-                residual_consumption_day_ahead.get_value(time) if time in residual_consumption_day_ahead else 0.0
-            )
-            consumption_delta.set_value(time, intraday_value - day_ahead_value)
+        intraday_ts = residual_consumption_intraday.slice(
+            self.parameters.temporal.start_date, self.parameters.penultimate_date, inplace=False
+        )
+        day_ahead_ts = residual_consumption_day_ahead.slice(
+            self.parameters.temporal.start_date, self.parameters.penultimate_date, inplace=False
+        )
+        consumption_delta = intraday_ts - day_ahead_ts
 
         return consumption_delta
 
-    def _get_baseline_price(self, market_area) -> tuple[Timeseries, str]:
+    def _get_baseline_price(self, market_area: MarketAreaIDPF) -> tuple[Timeseries, str]:
         """
         Determine the baseline price to use for the forecast.
 
@@ -229,9 +233,8 @@ class IntradayPriceForecastOrchestrator:
             )
             price_source_label = "Day Ahead price"
         else:
-            latest_intraday_price = intraday_prices[intraday_prices.index[len(intraday_prices) - 1]]
+            latest_intraday_price = intraday_prices.select(intraday_prices.index[-1])
 
-            # Check if the latest intraday price covers the forecast period
             if (
                 self.parameters.temporal.start_date not in latest_intraday_price
                 or self.parameters.penultimate_date not in latest_intraday_price
@@ -242,22 +245,23 @@ class IntradayPriceForecastOrchestrator:
                 baseline_price = latest_intraday_price
                 price_source_label = "Intraday price"
 
-        return baseline_price, price_source_label
+        return baseline_price.set_frequency(self.parameters.temporal.timestep), price_source_label
 
-    def _apply_non_negativity_constraint(self, price_forecast: Timeseries, time_window: list[DateTime]) -> Timeseries:
+    def _apply_non_negativity_constraint(self, price_forecast: Timeseries) -> Timeseries:
         """
         Ensure all price values are non-negative.
 
         :param price_forecast: The price forecast timeseries
         :type price_forecast: Timeseries
-        :param time_window: Time window for the constraint
-        :type time_window: list[DateTime]
         :return: Price forecast with non-negative values
         :rtype: Timeseries
         """
-        for time in time_window:
-            if price_forecast.get_value(time) < 0.0:
-                price_forecast.set_value(time, 0.0)
+        df = price_forecast.slice(
+            self.parameters.temporal.start_date, self.parameters.penultimate_date, inplace=False
+        ).dataframe.with_columns(pl.when(pl.col("value") < 0.0).then(0.0).otherwise(pl.col("value")).alias("value"))
+
+        price_forecast = Timeseries(df)
+
         return price_forecast
 
     def _apply_price_caps(self, price_forecast: Timeseries, market_area, time_window: list[DateTime]) -> Timeseries:
@@ -338,7 +342,7 @@ class IntradayPriceForecastOrchestrator:
 
         if condition_met:
             corrective_ratio = float(cap_value / extreme_value)
-            cfg.logger.info(f"ID price forecasts {cap_type} capped in area {market_area_name}")
+            cfg.logger.info(f"Intraday price forecasts {cap_type} capped in area '{market_area_name}'")
 
             for time in time_window:
                 price_forecast.set_value(time, price_forecast.get_value(time) * corrective_ratio)
