@@ -4,8 +4,6 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pathlib import Path
-
 import pytest
 from pendulum import DateTime, Duration
 from pydantic import ValidationError
@@ -17,10 +15,7 @@ from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 def test_default_parameters():
     params = DayAheadOrdersParameters(
-        temporal=DateParameters(
-            start_date=DateTime.now(),
-            end_date=DateTime.now(),
-            execution_date=DateTime.now())
+        temporal=DateParameters(start_date=DateTime.now(), end_date=DateTime.now(), execution_date=DateTime.now())
     )
     assert params.solver.export_lp == False
     assert params.solver.use_presolve == False
@@ -50,11 +45,9 @@ def test_custom_parameters():
             timestep=Duration(minutes=15),
             start_date=DateTime.now(),
             end_date=DateTime.now(),
-            execution_date=DateTime.now()),
-        solver=SolverParameters(
-            solver_name=SolverEnum.XPRESS,
-            duality_gap=0.001,
-            timeout=Duration(minutes=1)),
+            execution_date=DateTime.now(),
+        ),
+        solver=SolverParameters(solver_name=SolverEnum.XPRESS, duality_gap=0.001, timeout=Duration(minutes=1)),
         automated_unprocured_reserves_penalty=1000,
         battery_smoothing_factor=0.2,
         ev_energy_coef=1.1,
@@ -85,7 +78,6 @@ def test_custom_parameters():
     assert params.phs_nb_fragments == 2
     assert params.solver.timeout == Duration(minutes=1)
     assert params.price_forecasts_types == ["Medium"]
-
 
 
 def test_invalid_price_forecasts_types_raises():

@@ -18,7 +18,7 @@ from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.solver.solver_helper import SolverHelper
 
 # Test data directories
-THERMAL_COMBINATIONS_DIR = Path("tests/test_module/test_day_ahead_orders/thermals-dataset-dao")
+THERMAL_COMBINATIONS_DIR = Path("tests/test_module/thermals-dataset")
 REFERENCE_LP_DIR = Path(__file__).parent / "lp_files"
 
 
