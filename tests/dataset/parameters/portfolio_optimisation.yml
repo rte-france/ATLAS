@@ -7,7 +7,7 @@ market: "DayAhead"
 solver:
   solver_name: "SCIP"
   timeout: "PT10S"
-  export_lp: true
+  export_lp: false
 multiprocessing:
   use_multiprocessing: false
 is_portfolio_bidding: true

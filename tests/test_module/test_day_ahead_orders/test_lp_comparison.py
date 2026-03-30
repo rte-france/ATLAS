@@ -34,7 +34,7 @@ def base_parameters_dict():
         },
         "solver": {
             "solver_name": "SCIP",
-            "export_lp": True,
+            "export_lp": False,
             "use_presolve": True,
             "duality_gap": 0.0001,
             "timeout": "PT120S",  # ISO 8601 duration format

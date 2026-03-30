@@ -8,11 +8,11 @@ from atlas.timing import timer
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
 
-DATA_DIR = Path("tests/dataset/data/")
+DATA_DIR = Path("tests/dataset/")
 PARAMS_DIR = Path("tests/dataset/parameters/")
 
 MODULE_CONFIGS = [
-    (DayAheadOrdersModule, PARAMS_DIR / "day_ahead.yml", DATA_DIR / "day_ahead_input"),
+    (DayAheadOrdersModule, PARAMS_DIR / "day_ahead_orders.yml", DATA_DIR / "day_ahead_input"),
     (MarketClearingModule, PARAMS_DIR / "market_clearing.yml", DATA_DIR / "market_clearing_input"),
     (PortfolioOptimisationModule, PARAMS_DIR / "portfolio_optimisation.yml", DATA_DIR / "portfolio_optimisation_input"),
 ]

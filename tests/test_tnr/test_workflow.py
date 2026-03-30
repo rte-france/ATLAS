@@ -5,7 +5,7 @@ import pytest
 from atlas.timing import timer
 from atlas.workflow.workflow import Workflow
 
-WORKFLOW_CONFIG = Path("tests/test_tnr/data/anonymises_light/workflow_parameters.yml")
+WORKFLOW_CONFIG = Path("tests/test_tnr/dataset/workflow.yml")
 
 
 @pytest.mark.skipif(
@@ -13,14 +13,12 @@ WORKFLOW_CONFIG = Path("tests/test_tnr/data/anonymises_light/workflow_parameters
     reason=f"Workflow config not found: {WORKFLOW_CONFIG}",
 )
 class TestWorkflowIntegration:
-
     def test_workflow_loads_without_error(self):
         workflow = Workflow.from_file(WORKFLOW_CONFIG)
 
         assert workflow is not None
         assert workflow.parameters.name is not None
         assert len(workflow.steps) > 0
-
 
     def test_workflow_step_names_are_unique(self):
         workflow = Workflow.from_file(WORKFLOW_CONFIG)
@@ -30,7 +28,6 @@ class TestWorkflowIntegration:
 
     @pytest.mark.tnr
     def test_workflow_all_steps_produce_output(self):
-
         with timer() as t:
             workflow = Workflow.from_file(WORKFLOW_CONFIG)
             workflow.execute()
