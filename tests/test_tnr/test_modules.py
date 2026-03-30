@@ -8,12 +8,13 @@ from atlas.timing import timer
 from atlas.workflow.current_input_state import CurrentInputState
 from atlas.workflow.handler.cis_handler import CISHandler
 
-DATA_DIR = Path("tests/test_tnr/data/anonymises_light")
+DATA_DIR = Path("tests/dataset/data/")
+PARAMS_DIR = Path("tests/dataset/parameters/")
 
 MODULE_CONFIGS = [
-    (DayAheadOrdersModule, DATA_DIR / "dao_parameters.yml", DATA_DIR / "DAO_light"),
-    (MarketClearingModule, DATA_DIR / "mc_parameters.yml", DATA_DIR / "MC_light"),
-    (PortfolioOptimisationModule, DATA_DIR / "po_parameters.yml", DATA_DIR / "PO_light"),
+    (DayAheadOrdersModule, PARAMS_DIR / "day_ahead.yml", DATA_DIR / "day_ahead_input"),
+    (MarketClearingModule, PARAMS_DIR / "market_clearing.yml", DATA_DIR / "market_clearing_input"),
+    (PortfolioOptimisationModule, PARAMS_DIR / "portfolio_optimisation.yml", DATA_DIR / "portfolio_optimisation_input"),
 ]
 
 
@@ -23,12 +24,9 @@ def run_module(module_class: type[AbstractModule], config_path: Path, dataset_pa
     module = module_class()
     parameters = module.get_parameters_class().from_file(config_path)
     output_dataset = module.run(input_data, parameters)
-    if parameters.output.export_output_dataset:
-        CISHandler.apply(output_dataset.change_sets, cis)
-        cis.data.to_directory(parameters.get_path(parameters.output.output_dir) / "output_dataset")
+    CISHandler.apply(output_dataset.change_sets, cis)
 
 
-@pytest.mark.tnr
 @pytest.mark.parametrize("module_class, config_path, dataset_path", MODULE_CONFIGS)
 def test_module_runs_successfully(
     module_class: type[AbstractModule],

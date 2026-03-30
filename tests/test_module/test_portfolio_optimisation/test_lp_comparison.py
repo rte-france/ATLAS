@@ -18,7 +18,7 @@ from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationMod
 from atlas.solver.solver_helper import SolverHelper
 
 # Test data directories
-THERMAL_COMBINATIONS_DIR = Path("tests/test_module/thermals-dataset")
+THERMAL_COMBINATIONS_DIR = Path("tests/dataset/thermals-dataset")
 REFERENCE_LP_DIR = Path(__file__).parent / "lp_files"
 
 
