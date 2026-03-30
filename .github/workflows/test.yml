@@ -27,11 +27,8 @@ jobs:
         run: uv sync
 
       - name: Test with pytest and coverage
-        run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings
+        run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings -m "not tnr"
 
-      # - name: Upload coverage to Codecov
-      #   uses: codecov/codecov-action@v4
-      #   with:
-      #     token: ${{ secrets.CODECOV_TOKEN }}
-      #     files: coverage.xml
-      #     fail_ci_if_error: true
+      - name: TNR with pytest and coverage
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: uv run pytest -v -s --cov=atlas --cov-report=xml --disable-warnings -m "tnr"

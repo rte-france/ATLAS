@@ -67,9 +67,9 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
             p.name: max(
                 (
                     e.get_optimisation_time_window(
-                        start_date=self.parameters.start_date,
-                        end_date=self.parameters.end_date - self.parameters.timestep,
-                        timestep=self.parameters.timestep,
+                        start_date=self.parameters.temporal.start_date,
+                        end_date=self.parameters.temporal.end_date - self.parameters.temporal.timestep,
+                        timestep=self.parameters.temporal.timestep,
                     )
                     for e in p.equipments.get_all_equipment()
                 ),

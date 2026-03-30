@@ -37,7 +37,7 @@ def test_compare_lp(dataset_name):
 
     mc_module = MarketClearingModule()
     parameters = mc_module.import_parameters(parameters_path)
-    parameters.output_path = "tmp"
+    parameters.output.output_dir = "tmp"
     input_dataset = mc_module.import_data(raw_data, parameters)
 
     market_clearing_results = MarketClearingResults(input_dataset, parameters)

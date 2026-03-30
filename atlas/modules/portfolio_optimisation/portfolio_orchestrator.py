@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from pendulum import DateTime
 
@@ -83,9 +82,9 @@ def optimise_single_portfolio(
     :rtype: tuple[str, PortfolioOptimisationResult]
     """
     solver_options = SolverOptions(
-        presolve=parameters.use_presolve,
-        duality_gap=parameters.solver_duality_gap,
-        time_limit=parameters.solver_timeout,
+        presolve=parameters.solver.use_presolve,
+        duality_gap=parameters.solver.duality_gap,
+        time_limit=parameters.solver.timeout,
     )
     model = PortfolioOptimisationModel(portfolio, parameters, solver_options=solver_options)
 
@@ -93,10 +92,10 @@ def optimise_single_portfolio(
         model.set_direction("minimize")
         model.build(time_window)
 
-        if parameters.export_lp:
-            lp_dir = Path(parameters.export_lp_path)
-            lp_dir.mkdir(parents=True, exist_ok=True)
-            model.export_model(lp_dir / f"po_{portfolio.name}.lp")
+        if parameters.solver.export_lp:
+            output_path = parameters.get_output_dir() / "lp_export"
+            output_path.mkdir(parents=True, exist_ok=True)
+            model.export_model(output_path / f"po_{portfolio.name}.lp")
 
         model.solve()
 
@@ -137,9 +136,9 @@ class PortfolioOptimisationOrchestrator:
         """
         cfg.logger.info(
             "Starting Portfolio Optimisation\n"
-            f"  Start Date:          {self.parameters.start_date}\n"
-            f"  End Date:            {self.parameters.end_date}\n"
-            f"  Execution Date:      {self.parameters.execution_date}\n"
+            f"  Start Date:          {self.parameters.temporal.start_date}\n"
+            f"  End Date:            {self.parameters.temporal.end_date}\n"
+            f"  Execution Date:      {self.parameters.temporal.execution_date}\n"
             f"  Portfolios:          {len(input_dataset.portfolios)}\n"
             f"  Manual Activation:   {len(input_dataset.portfolios_manual_activation)}\n"
             f"  Mode:                {'Portfolio Bidding' if self.parameters.is_portfolio_bidding else 'Individual Equipment'}\n"
@@ -154,7 +153,7 @@ class PortfolioOptimisationOrchestrator:
         else:
             portfolios_with_time_windows = self._prepare_equipment_portfolios(input_dataset)
 
-        if self.parameters.use_multiprocessing:
+        if self.parameters.multiprocessing.use_multiprocessing:
             optimisation_results = self._run_multiprocessing(portfolios_with_time_windows)
         else:
             optimisation_results = self._run_sequential(portfolios_with_time_windows)
@@ -232,7 +231,7 @@ class PortfolioOptimisationOrchestrator:
         """
         optimisation_results: dict[str, PortfolioOptimisationResult] = {}
 
-        with ProcessPoolExecutor(max_workers=self.parameters.max_workers) as executor:
+        with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
             future_to_portfolio = {
                 executor.submit(optimise_single_portfolio, portfolio, time_window, self.parameters): portfolio.name
                 for portfolio, time_window in portfolios_with_time_windows

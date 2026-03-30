@@ -17,9 +17,9 @@ from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
+from atlas.modules.intraday_price_forecast.module import IntradayPriceForecast
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
-from atlas.modules.price_forecast.module import PriceForecastModule
 
 
 class ModuleRegistry(Enum):
@@ -28,7 +28,7 @@ class ModuleRegistry(Enum):
     MarketClearing = MarketClearingModule
     PortfolioOptimisation = PortfolioOptimisationModule
     DayAheadOrders = DayAheadOrdersModule
-    PriceForecast = PriceForecastModule
+    IntradayPriceForecast = IntradayPriceForecast
 
     @classmethod
     def get(cls, name: str) -> type[AbstractModule]:
@@ -37,6 +37,10 @@ class ModuleRegistry(Enum):
         except KeyError:
             valid = [m.name for m in cls]
             raise ValueError(f"Unknown module: '{name}'. Valid modules are: {valid}") from None
+
+    @classmethod
+    def has_name(cls, name: str) -> bool:
+        return name in cls._member_names_
 
 
 class Step(BaseModel):
@@ -80,12 +84,12 @@ class WorkflowStep:
         :type name: str
         :param module: Module to be executed in this step.
         :type module: AbstractModule
-        :param parameters: Parameter dict for the module.
-        :type parameters: dict[str, Any]
+        :param parameters: Parameter for the module.
+        :type parameters: AbstractParameters
         """
         self.name: str = name
         self.module = module()
-        self.parameters = parameters
+        self.parameters = self.module.get_parameters_class().model_validate(parameters)
         self._output_dataset: AbstractModuleOutput | None = None
 
     @property
@@ -111,3 +115,9 @@ class WorkflowStep:
         Stores the resulting dataset as output.
         """
         self._output_dataset = self.module.run(input_dataset, self.parameters)
+
+    def __repr__(self) -> str:
+        """Return a detailed string representation of the workflow step."""
+        module_name = self.module.__class__.__name__
+        has_output = self._output_dataset is not None
+        return f"WorkflowStep(name={self.name!r}, module={module_name}, executed={has_output})"

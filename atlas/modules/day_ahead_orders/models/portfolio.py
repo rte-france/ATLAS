@@ -5,9 +5,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import Portfolio
-from atlas.modules.day_ahead_orders.models.market_area import MarketAreaDAO
+from atlas.models.market.market_area import MarketArea
+from atlas.models.portfolio import Portfolio
 
 
 class PortfolioDAO(Portfolio):
-    market_area: MarketAreaDAO
+    market_area: MarketArea

@@ -190,7 +190,4 @@ data/
 test.ipynb
 
 # scripts
-commit.sh
-test.py
-parameters.yaml
-CLAUDE.md
+scripts/
