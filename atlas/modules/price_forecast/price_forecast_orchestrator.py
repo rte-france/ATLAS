@@ -29,25 +29,23 @@ class PriceForecastOrchestrator:
         """
         # ------ Markers and Parameters
 
-        if self.parameters.verbose:
-            cfg.logger.info(str(self.parameters))
+        cfg.logger.info(str(self.parameters))
 
         index = self.define_orders_time()
 
         for market_area in self.output_dataset.market_area:
-            if self.parameters.verbose:
-                cfg.logger.info(f"Computing forecast for: {market_area.name}")
+            cfg.logger.info(f"Computing forecast for: {market_area.name}")
 
             load_list = [
                 load
-                for load in self.output_dataset.load
+                for load in self.output_dataset.input_data.load
                 if load.portfolio.market_area.name == market_area.name and load.load_type == "BaseLoad"
             ]
             solar_list = [
-                solar for solar in self.output_dataset.solar if solar.portfolio.market_area.name == market_area.name
+                solar for solar in self.output_dataset.input_data.solar if solar.portfolio.market_area.name == market_area.name
             ]
             wind_list = [
-                wind for wind in self.output_dataset.wind if wind.portfolio.market_area.name == market_area.name
+                wind for wind in self.output_dataset.input_data.wind if wind.portfolio.market_area.name == market_area.name
             ]
 
             # ------ ID Price Forecast calculation ------
@@ -166,8 +164,7 @@ class PriceForecastOrchestrator:
                     / prev_ij.slice(self.parameters.start_date, self.parameters.end_date).max()
                 )
 
-                if self.parameters.verbose:
-                    cfg.logger.info(f"ID price forecasts upper capped in area {market_area.name}")
+                cfg.logger.info(f"ID price forecasts upper capped in area {market_area.name}")
 
                 for t in index:
                     prev_ij.set_value(t, prev_ij.get_value(t) * corrective_ratio)
@@ -182,8 +179,7 @@ class PriceForecastOrchestrator:
                     / prev_ij.slice(self.parameters.start_date, self.parameters.end_date).min()
                 )
 
-                if self.parameters.verbose:
-                    cfg.logger.info(f"ID price forecasts lower capped in area {market_area.name}")
+                cfg.logger.info(f"ID price forecasts lower capped in area {market_area.name}")
 
                 for time in index:
                     prev_ij.set_value(time, prev_ij.get_value(time) * corrective_ratio)
