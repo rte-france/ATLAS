@@ -49,8 +49,11 @@ class MarginalFixing:
                 # Get the values of local variables:
                 spot_price = market_prices[market_area_name, time_index]
                 self.update_accepted_power(market_area_name, time, spot_price)
-        if self.parameters.export_lp:
-            with open(self.parameters.output_path / "marginal_fixing_accepted_powers.json", "w") as f:
+        if self.parameters.solver.export_lp:
+            with open(
+                self.parameters.get_output_dir() / "marginal_fixing_accepted_powers.json",
+                "w",
+            ) as f:
                 json.dump([[ma, o, val] for (ma, o), val in self.retrieve_accepted_powers().items()], f)
 
     def update_accepted_power(self, market_area_name: str, current_time: pendulum.DateTime, spot_price: float) -> None:
@@ -127,7 +130,9 @@ class MarginalFixing:
                 continue
             if not mc_order.start_date <= current_time < mc_order.end_date_processed:
                 continue
-            if (mc_order.end_datetime - mc_order.start_date).total_seconds() > self.parameters.timestep.total_seconds():
+            if (
+                mc_order.end_datetime - mc_order.start_date
+            ).total_seconds() > self.parameters.temporal.timestep.total_seconds():
                 continue
             if mc_order.price != spot_price:
                 continue

@@ -75,23 +75,23 @@ class ElectricVehicleModel(StorageModel):
             )
 
             # StoredEnergy tracking constraint, evaluates the stock at each time step
-            if t == self.parameters.start_date:
+            if t == self.parameters.temporal.start_date:
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (
                         initial_stock
                         * (
                             self.storage.maximum_energy.get_value(t)
-                            / self.storage.maximum_energy.get_value(t - self.parameters.timestep)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.temporal.timestep)
                         )
-                        + self.parameters.timestep.total_hours()
+                        + self.parameters.temporal.timestep.total_hours()
                         * (
                             self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
                             - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                         + (
-                            self.storage.displacement_energy.get_value(t)
-                            - self.storage.displacement_energy.get_value(t - self.parameters.timestep)
+                            self.storage.displacement_energy.get_value(t)  # type: ignore [union-attr]
+                            - self.storage.displacement_energy.get_value(t - self.parameters.temporal.timestep)  # type: ignore [union-attr]
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -100,19 +100,19 @@ class ElectricVehicleModel(StorageModel):
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))
                     == (
-                        self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.timestep))
+                        self.get_variable(StorageModel.stored_energy_at_key(t - self.parameters.temporal.timestep))
                         * (
                             self.storage.maximum_energy.get_value(t)
-                            / self.storage.maximum_energy.get_value(t - self.parameters.timestep)
+                            / self.storage.maximum_energy.get_value(t - self.parameters.temporal.timestep)
                         )
-                        + self.parameters.timestep.total_hours()
+                        + self.parameters.temporal.timestep.total_hours()
                         * (
                             self.get_variable(StorageModel.purchased_at_key(t)) * self.storage.charge_efficiency
                             - self.get_variable(StorageModel.sold_at_key(t)) / self.storage.discharge_efficiency
                         )
                         + (
-                            self.storage.displacement_energy.get_value(t)
-                            - self.storage.displacement_energy.get_value(t - self.parameters.timestep)
+                            self.storage.displacement_energy.get_value(t)  # type: ignore [union-attr]
+                            - self.storage.displacement_energy.get_value(t - self.parameters.temporal.timestep)  # type: ignore [union-attr]
                         )
                     ),
                     f"Stock_tracking_at_{t}",
@@ -148,44 +148,20 @@ class ElectricVehicleModel(StorageModel):
                 f"Maximum_storage_level_constraint_at_{t}",
             )
 
-            # Create additional constraints linked with MaximumPower, to represent the fact that a part of the EV fleet
-            # is going to be fully charged / discharged (depending on the ratio between StoredEnergy and MaximumEnergy, and possibly MinimumStateOfCharge),
-            # meaning that it will not be able to purcharse / sell energy.
-            # Explanation note: the ratio that determines the part of the fleet that is fully charged or discharged is evaluated
-            # on the previous time step, since StoredEnergy(t) is unkown prior to the optimization. This is assumed to be a good estimation
-            # of the ratio at t. Every other value is taken at t.
-            # We need to recode this one, the concept is very interesting but solving the optimization
-            # becomes exponentially longer with each additional hour. And currently impossible to solve for 7 days.
-            """
-            if t == p.start_date:
-                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
-                                                                                  (InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.timestep)) -
-                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.timestep))) *
-                                                                                  Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
-                OPPROB += Qa[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.MaximumPower.GetValue(t) *
-                                                                                  (1 - InitialStock/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.timestep))) /
-                                                                                  Equipment.ChargeEfficiency) , "Adjustment_of_Pmax_purchase_at_{}".format(t)
-            else:
-                OPPROB += Qv[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.is_v2g * Equipment.MaximumPower.GetValue(t) *
-                                                                                  (StoredEnergy[t.AddMinutes(-p.timestep)]/Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.timestep)) -
-                                                                                   Equipment.MinimumStateOfCharge.GetValue(t.AddMinutes(-p.timestep))) *
-                                                                                  Equipment.DischargeEfficiency), "Adjustment_of_Pmax_sale_at_{}".format(t)
-                OPPROB += Qa[t] * (1 - Equipment.MinimumStateOfCharge.GetValue(t)) <= (Equipment.MaximumPower.GetValue(t) *
-                                                                                  (1 - StoredEnergy[t.AddMinutes(-p.timestep)]/
-                                                                                   Equipment.MaximumEnergy.GetValue(t.AddMinutes(-p.timestep))) /
-                                                                                  Equipment.ChargeEfficiency) , "Adjustment_of_Pmax_purchase_at_{}".format(t)
-
-            """
-
         # Constraint on Qa to compensate at least the delta of Displacement Energy over the entire optimization time frame
+        assert self.storage.displacement_energy is not None, (
+            f"displacement_energy is required for ElectricVehicle {self.storage.name}"
+        )
         self.add_constraint(
             sum(self.get_variable(StorageModel.purchased_at_key(t)) for t in self.time_frame)
             * self.storage.charge_efficiency
             >= (
                 self.storage.displacement_energy.get_value(
-                    self.parameters.end_date + self.optimization_period - self.parameters.timestep
+                    self.parameters.temporal.end_date + self.optimization_period - self.parameters.temporal.timestep
                 )
-                - self.storage.displacement_energy.get_value(self.parameters.start_date - self.parameters.timestep)
+                - self.storage.displacement_energy.get_value(
+                    self.parameters.temporal.start_date - self.parameters.temporal.timestep
+                )
             )
             * self.parameters.ev_energy_coef,
             f"DisplacementEnergy_compensation_for_{str(self.storage.name)}",

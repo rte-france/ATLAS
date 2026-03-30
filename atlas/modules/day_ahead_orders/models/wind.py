@@ -5,10 +5,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import LazyTimeseries, Timeseries, Wind
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.models.equipment.wind import Wind
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
 
 
 class WindDAO(Wind):
     portfolio: PortfolioDAO
-    maximum_curtailment_ratio: Timeseries | LazyTimeseries
+    maximum_curtailment_ratio: AbstractTimeseries

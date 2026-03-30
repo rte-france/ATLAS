@@ -1,0 +1,10 @@
+dataset_path: DAO_light
+output_dataset_path: workflow-output
+name: workflow
+steps:
+  - module: DayAheadOrders
+    parameters_path: dao_parameters.yml
+  - module: MarketClearing
+    parameters_path: mc_parameters.yml
+  - module: PortfolioOptimisation
+    parameters_path: po_parameters.yml

@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from atlas import MarketArea
+from atlas.custom_errors import ChangeSetApplicationError
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.models.market.order import Order
@@ -103,5 +104,51 @@ class TestCISHandler:
             patch("atlas.config.MODEL_ORDER_INSTANTIATION", [BusinessModelName.ORDER]),
             patch("atlas.config.INVERSE_MODEL_MAPPING_NAME", {Order: BusinessModelName.ORDER}),
         ):
-            with pytest.raises(ValueError):
+            with pytest.raises(ChangeSetApplicationError):
                 CISHandler.apply([delete, add], cis)
+
+    def test_rollback_on_error_restores_state(self, cis):
+        """Test that failed change set application rolls back all changes"""
+        # Add initial objects
+        order1 = Order(name="order_1", price=10.0)
+        order2 = Order(name="order_2", price=20.0)
+        cis.data.order.add(order1)
+        cis.data.order.add(order2)
+
+        # Create change sets: valid add, then invalid update
+        add = AddObject({"name": "order_3", "price": 30.0}, model_type=Order)
+        invalid_update = UpdateObject({"name": "order_999", "price": 99.0}, model_type=Order)
+
+        with (
+            patch("atlas.config.MODEL_ORDER_INSTANTIATION", [BusinessModelName.ORDER]),
+            patch("atlas.config.INVERSE_MODEL_MAPPING_NAME", {Order: BusinessModelName.ORDER}),
+        ):
+            with pytest.raises(ChangeSetApplicationError):
+                CISHandler.apply([add, invalid_update], cis, rollback_on_error=True)
+
+        # Verify order_3 was NOT added (rollback occurred)
+        assert "order_3" not in cis.data.order
+        # Verify original objects still exist
+        assert "order_1" in cis.data.order
+        assert "order_2" in cis.data.order
+
+    def test_no_rollback_keeps_partial_changes(self, cis):
+        """Test that with rollback_on_error=False, partial changes are kept"""
+        # Add initial object
+        order1 = Order(name="order_1", price=10.0)
+        cis.data.order.add(order1)
+
+        # Create change sets: valid add, then invalid update
+        add = AddObject({"name": "order_2", "price": 20.0}, model_type=Order)
+        invalid_update = UpdateObject({"name": "order_999", "price": 99.0}, model_type=Order)
+
+        with (
+            patch("atlas.config.MODEL_ORDER_INSTANTIATION", [BusinessModelName.ORDER]),
+            patch("atlas.config.INVERSE_MODEL_MAPPING_NAME", {Order: BusinessModelName.ORDER}),
+        ):
+            with pytest.raises(ChangeSetApplicationError):
+                CISHandler.apply([add, invalid_update], cis, rollback_on_error=False)
+
+        # Verify order_2 WAS added (no rollback)
+        assert "order_2" in cis.data.order
+        assert cis.data.order.get("order_2").price == 20.0

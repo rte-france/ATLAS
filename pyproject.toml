@@ -101,3 +101,6 @@ omit = ['atlas/io_utils/prometheus_transformer.py']
 [[tool.mypy.overrides]]
 module = ["dictdiffer.*"]
 follow_untyped_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-m 'not tnr'"

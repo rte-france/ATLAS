@@ -444,8 +444,6 @@ class OptimisationModel:
 
         :param filename: Output filename
         :type filename: str
-        :param format_type: Export format ('lp', 'mps')
-        :type format_type: str
         """
         logger.debug(f"Exporting model to '{filename}'")
 

@@ -7,6 +7,7 @@ The Market Clearing module determines market equilibrium by matching supply and 
 ## What It Does
 
 The module:
+
 - **Matches supply and demand**: Finds equilibrium across market areas
 - **Computes clearing prices**: Determines prices for each market area
 - **Optimizes exchanges**: Calculates cross-border flows
@@ -28,6 +29,7 @@ Beyond the standard module lifecycle (see [Module Pattern](../../../concepts/mod
 ## Key Outputs
 
 The module produces:
+
 - **Market clearing prices**: Price per market area and timestep
 - **Accepted quantities**: Accepted portion of each order
 - **Cross-border flows**: Power exchanges between market areas
@@ -35,6 +37,7 @@ The module produces:
 ## Market Mechanism
 
 The module uses an **economic dispatch** approach:
+
 - Maximizes social welfare (consumer surplus + producer surplus)
 - Respects transmission capacity constraints
 - Handles multiple interconnected market areas

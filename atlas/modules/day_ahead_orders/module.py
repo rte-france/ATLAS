@@ -5,11 +5,14 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from collections.abc import Iterable
+
 from pendulum import Duration
 
 import atlas.config as cfg
 from atlas import AtlasDataset, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries
 from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.enums import BusinessModelName
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.orchestrator import DayAheadOrdersOrchestrator
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
@@ -43,7 +46,7 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
         input_dataset: DayAheadOrdersInputDataset,
     ) -> None:
         """Validate that all timeseries data have timestamps consistent with the optimization parameters."""
-        expected_timestep = parameters.timestep
+        expected_timestep = parameters.temporal.timestep
         cfg.logger.debug(f"Expected timestep: {expected_timestep}")
 
         validation_errors = []
@@ -198,3 +201,21 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
         orchestrator = DayAheadOrdersOrchestrator(parameters, dataset)
         output_dataset = orchestrator.execute()
         return output_dataset
+
+    @staticmethod
+    def get_business_model_class_used() -> Iterable[BusinessModelName]:
+        return [
+            BusinessModelName.CONTROL_BLOCK,
+            BusinessModelName.MARKET_AREA,
+            BusinessModelName.MARKET_BORDER,
+            BusinessModelName.NODE,
+            BusinessModelName.PORTFOLIO,
+            BusinessModelName.WIND,
+            BusinessModelName.STORAGE,
+            BusinessModelName.HYDRO,
+            BusinessModelName.SOLAR,
+            BusinessModelName.THERMAL,
+            BusinessModelName.LOAD,
+            BusinessModelName.ORDER,
+            BusinessModelName.ORDER_COUPLING,
+        ]
