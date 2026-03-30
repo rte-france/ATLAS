@@ -15,9 +15,8 @@ from atlas.models.equipment.load import Load
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
-from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForecastInputDataset
-from atlas.modules.price_forecast.price_forecast_orchestrator import PriceForecastOrchestrator
-from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
+from atlas.modules.price_forecast.input_dataset import PriceForecastInputDataset
+from atlas.modules.price_forecast.parameters import PriceForecastParameters
 
 
 class TestIDForecastInputDataset(unittest.TestCase):
@@ -110,7 +109,7 @@ class TestIDForecastInputDataset(unittest.TestCase):
         return solar
 
     @pytest.fixture
-    def mock_load(self):
+    def mock_load(self, mock_portfolio):
         """Create a real base load equipment."""
         load = Load(
             name="load_base",

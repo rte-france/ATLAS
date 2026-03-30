@@ -1,9 +1,9 @@
 import copy
 
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
+from atlas.modules.price_forecast.input_dataset import PriceForecastInputDataset
 from atlas.modules.price_forecast.models.market_area import MarketAreaIDPF
-from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForecastInputDataset
-from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
+from atlas.modules.price_forecast.parameters import PriceForecastParameters
 from atlas.workflow.change_set import ChangeSet
 
 

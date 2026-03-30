@@ -1,11 +1,11 @@
 from loguru import logger
 
-from atlas import AtlasDataset
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForecastInputDataset
-from atlas.modules.price_forecast.price_forecast_orchestrator import PriceForecastOrchestrator
-from atlas.modules.price_forecast.price_forecast_output_dataset import PriceForecastOutputDataset
-from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.modules.price_forecast.input_dataset import PriceForecastInputDataset
+from atlas.modules.price_forecast.orchestrator import PriceForecastOrchestrator
+from atlas.modules.price_forecast.output_dataset import PriceForecastOutputDataset
+from atlas.modules.price_forecast.parameters import PriceForecastParameters
 
 
 class PriceForecastModule(
@@ -15,9 +15,9 @@ class PriceForecastModule(
         """Returns the concrete Parameters class for this module."""
         return PriceForecastParameters
 
-    def import_data(self, raw_data: AtlasDataset, parameters: PriceForecastParameters) -> PriceForecastInputDataset:
+    def import_data(self, input_data: AtlasDataset, parameters: PriceForecastParameters) -> PriceForecastInputDataset:
         """Imports data using business objects and parameters."""
-        input_dataset = PriceForecastInputDataset(raw_data, parameters)
+        input_dataset = PriceForecastInputDataset(input_data, parameters)
         return input_dataset
 
     def validate_data(self, parameters: PriceForecastParameters, input_dataset: PriceForecastInputDataset) -> bool:

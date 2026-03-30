@@ -1,11 +1,12 @@
 import pendulum
 
 import atlas.config as cfg
-from atlas import ForecastingMatrix
+from atlas.enums import LoadType
+from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForecastInputDataset
-from atlas.modules.price_forecast.price_forecast_output_dataset import PriceForecastOutputDataset
-from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
+from atlas.modules.price_forecast.input_dataset import PriceForecastInputDataset
+from atlas.modules.price_forecast.output_dataset import PriceForecastOutputDataset
+from atlas.modules.price_forecast.parameters import PriceForecastParameters
 from atlas.timing import generate_datetimes
 
 
@@ -29,26 +30,23 @@ class PriceForecastOrchestrator:
         """
         # ------ Markers and Parameters
 
-        if self.parameters.verbose:
-            cfg.logger.info(str(self.parameters))
+        time_window = generate_datetimes(
+            self.parameters.start_date, self.parameters.penultimate_date, self.parameters.timestep
+        )
 
-        index = self.define_orders_time()
-
-        for market_area in self.output_dataset.market_area:
+        for market_area in self.input_dataset.market_area:
             if self.parameters.verbose:
                 cfg.logger.info(f"Computing forecast for: {market_area.name}")
 
-            load_list = [
+            loads = [
                 load
-                for load in self.output_dataset.load
-                if load.portfolio.market_area.name == market_area.name and load.load_type == "BaseLoad"
+                for load in self.input_dataset.load
+                if load.portfolio.market_area.name == market_area.name and load.load_type == LoadType.BASE_LOAD
             ]
-            solar_list = [
-                solar for solar in self.output_dataset.solar if solar.portfolio.market_area.name == market_area.name
+            solars = [
+                solar for solar in self.input_dataset.solar if solar.portfolio.market_area.name == market_area.name
             ]
-            wind_list = [
-                wind for wind in self.output_dataset.wind if wind.portfolio.market_area.name == market_area.name
-            ]
+            winds = [wind for wind in self.input_dataset.wind if wind.portfolio.market_area.name == market_area.name]
 
             # ------ ID Price Forecast calculation ------
             # Create a time series that store the differences in price in two scenarios
@@ -66,8 +64,8 @@ class PriceForecastOrchestrator:
 
             # Create a time series that store the differences in consumption in two scenarios
             # The load scenarios are in the Atlas model
-            conso_diff = load_list[0].power_forecast_low - load_list[0].power_forecast_high
-            for load in load_list[1:]:
+            conso_diff = loads[0].power_forecast_low - loads[0].power_forecast_high
+            for load in loads[1:]:
                 if load.power_forecast_high and load.power_forecast_low:
                     conso_diff += load.power_forecast_low - load.power_forecast_high
                 else:
@@ -76,7 +74,7 @@ class PriceForecastOrchestrator:
             # Create a time series that store the ratio between the series above
             ratio = self.generate_empty_timeseries()
             # Set the values for ratio time series within the range of the input parameters
-            for time in index:
+            for time in time_window:
                 try:
                     result_ti = price_diff.get_value(time) / conso_diff.get_value(time)
                 except ZeroDivisionError:
@@ -86,7 +84,7 @@ class PriceForecastOrchestrator:
             # Calculation of residual consumption:
             conso_day_ahead = self.generate_empty_timeseries()
             conso_id = self.generate_empty_timeseries()
-            for load in load_list:
+            for load in loads:
                 conso_day_ahead -= load.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
                     start_date=self.parameters.start_date,
@@ -98,7 +96,7 @@ class PriceForecastOrchestrator:
                     end_date=self.parameters.penultimate_date,
                 )
 
-            for photovoltaic in solar_list:
+            for photovoltaic in solars:
                 conso_day_ahead -= photovoltaic.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
                     start_date=self.parameters.start_date,
@@ -110,7 +108,7 @@ class PriceForecastOrchestrator:
                     end_date=self.parameters.penultimate_date,
                 )
 
-            for wind in wind_list:
+            for wind in winds:
                 conso_day_ahead -= wind.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
                     start_date=self.parameters.start_date,
@@ -125,7 +123,7 @@ class PriceForecastOrchestrator:
             # The difference in consumption is stored in the following time series:
             delta_conso = self.generate_empty_timeseries()
 
-            for time in index:
+            for time in time_window:
                 err = self.get_value_zero_if_empty(conso_id, time) - self.get_value_zero_if_empty(conso_day_ahead, time)
                 delta_conso.set_value(time, err)
 
@@ -135,7 +133,7 @@ class PriceForecastOrchestrator:
                 last_price = market_area.da_price
                 last_price_str = "DA price"
             else:
-                last_id_price = id_prices[id_prices.indexes[len(id_prices) - 1]]
+                last_id_price = id_prices[id_prices.time_windowes[len(id_prices) - 1]]
                 if (
                     self.parameters.start_date not in last_id_price
                     or self.parameters.penultimate_date not in last_id_price
@@ -148,7 +146,7 @@ class PriceForecastOrchestrator:
 
             prev_ij = last_price + ratio * delta_conso
 
-            for time in index:
+            for time in time_window:
                 if prev_ij.get_value(time) < 0.0:
                     prev_ij.set_value(time, 0.0)
 
@@ -169,7 +167,7 @@ class PriceForecastOrchestrator:
                 if self.parameters.verbose:
                     cfg.logger.info(f"ID price forecasts upper capped in area {market_area.name}")
 
-                for t in index:
+                for t in time_window:
                     prev_ij.set_value(t, prev_ij.get_value(t) * corrective_ratio)
 
             # Lower cap
@@ -185,36 +183,17 @@ class PriceForecastOrchestrator:
                 if self.parameters.verbose:
                     cfg.logger.info(f"ID price forecasts lower capped in area {market_area.name}")
 
-                for time in index:
+                for time in time_window:
                     prev_ij.set_value(time, prev_ij.get_value(time) * corrective_ratio)
 
             # Saving the result in the Price Forecast Matrix:
             market_area.id_price_forecast = ForecastingMatrix()
             market_area.id_price_forecast.add(prev_ij, self.parameters.execution_date)
             cfg.logger.info(f"The update of {market_area.name} price has been done using {last_price_str}")
-        return self.output_dataset
-
-    def define_orders_time(self) -> list[pendulum.DateTime]:
-        """
-        This function creates a sequence of timestamps between a start_date and an end_date
-        with frequency matching the timestep parameter.
-        In particular, it makes sure that no time step crosses the end_date boundary.
-
-        :return: a list of DateTime objects
-        :rtype: list[DateTime]
-        """
-        orders_time = []
-        if self.parameters.start_date < self.parameters.end_date:
-            orders_time = generate_datetimes(
-                self.parameters.start_date, self.parameters.penultimate_date, self.parameters.timestep
-            )
-        else:
-            msg = "The end_date parameter must be posterior to the start_date parameter."
-            cfg.logger.error(msg)
-        return orders_time
+        return self.input_dataset
 
     def generate_empty_timeseries(self) -> Timeseries:
-        return Timeseries.from_index(
+        return Timeseries.from_time_window(
             start_date=self.parameters.start_date,
             frequency=self.parameters.timestep,
             end_date=self.parameters.penultimate_date,
