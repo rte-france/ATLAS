@@ -5,7 +5,7 @@ import pytest
 from atlas.timing import timer
 from atlas.workflow.workflow import Workflow
 
-WORKFLOW_CONFIG = Path("tests/test_tnr/dataset/workflow.yml")
+WORKFLOW_CONFIG = Path("tests/dataset/parameters/workflow.yml")
 
 
 @pytest.mark.skipif(
@@ -26,7 +26,6 @@ class TestWorkflowIntegration:
         step_names = [step.name for step in workflow.steps]
         assert len(step_names) == len(set(step_names)), f"Duplicate step names found: {step_names}"
 
-    @pytest.mark.tnr
     def test_workflow_all_steps_produce_output(self):
         with timer() as t:
             workflow = Workflow.from_file(WORKFLOW_CONFIG)
