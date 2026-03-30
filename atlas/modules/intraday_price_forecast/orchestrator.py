@@ -109,7 +109,9 @@ class IntradayPriceForecastOrchestrator:
             default_value=0,
         )
 
-    def _compute_price_sensitivity_ratio(self, market_area: MarketAreaIDPF, loads: list, time_window) -> Timeseries:
+    def _compute_price_sensitivity_ratio(
+        self, market_area: MarketAreaIDPF, loads: list[LoadIDPF], time_window
+    ) -> Timeseries:
         """
         Compute the price sensitivity ratio from high/low price and consumption scenarios.
 
