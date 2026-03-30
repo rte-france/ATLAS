@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from atlas.timing import timer
-from atlas.workflow.workflow import Workflow
+from atlas.orchestrator.workflow import Workflow
 
 WORKFLOW_CONFIG = Path("tests/test_tnr/data/anonymises_light/workflow_parameters.yml")
 

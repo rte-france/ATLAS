@@ -16,7 +16,7 @@ from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.portfolio_orchestrator import PortfolioOptimisationResult
-from atlas.workflow.change_set import UpdateObject
+from atlas.orchestrator.workflow import UpdateObject
 
 
 class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisationParameters]):

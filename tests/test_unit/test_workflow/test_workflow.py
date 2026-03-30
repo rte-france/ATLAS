@@ -12,9 +12,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.workflow.parameters import WorkflowParameters
-from atlas.workflow.step import WorkflowStep
-from atlas.workflow.workflow import Workflow
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
+from atlas.orchestrator.workflow import WorkflowStep
+from atlas.orchestrator.workflow import Workflow
 
 
 def _make_workflow_step(name="step", output=None):

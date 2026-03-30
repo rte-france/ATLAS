@@ -1,6 +1,5 @@
 import json
 import os
-import pickle
 
 import pytest
 import polars as pl
@@ -11,8 +10,8 @@ from atlas.config import EQUIPMENT_MODELS
 from atlas.io_utils.utils import to_snake_case
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
-from atlas.workflow.current_input_state import CurrentInputState
-from atlas.workflow.handler.cis_handler import CISHandler
+from atlas.orchestrator.workflow import CurrentInputState
+from atlas.orchestrator.handler.cis_handler import CISHandler
 from tests.test_module.test_market_clearing.test_market_clearing_local.test_market_data_market_clearing import (
     read_expected_data,
 )

@@ -17,7 +17,7 @@ from atlas.models.portfolio import Portfolio
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.timing import generate_datetimes
-from atlas.workflow.change_set import UpdateObject
+from atlas.orchestrator.workflow import UpdateObject
 
 
 class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]):

@@ -14,47 +14,36 @@ from typing import Any
 import yaml
 
 from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
 from atlas.config import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
+from atlas.orchestrator.actionplan.step import ActionPlanStep
+from atlas.orchestrator.handler.cis_handler import CISHandler
+from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.timing import timer
-from atlas.workflow.current_input_state import CurrentInputState
-from atlas.workflow.handler.cis_handler import CISHandler
-from atlas.workflow.parameters import WorkflowParameters
-from atlas.workflow.step import WorkflowStep
 
-
-class Workflow:
-    """A structure for managing the sequential execution of multiple modules through a list of workflow steps.
+# FIXME this a copy/paste from Workflow class, those two class has many in common that must be refactored in AbstractOrchestrator class
+class ActionPlan(AbstractOrchestrator):
+    """A structure for managing the sequential execution of multiple modules and workflow through a list of action plan steps.
 
     Each step processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, parameters: WorkflowParameters, workflow_path: Path):
+    def __init__(self, parameters: ActionPlanParameters, action_plan_path: Path):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
         :type parameters: WorkflowParameters
-        :param workflow_path: Path.
-        :type workflow_path: WorkflowParameters
         """
         self.parameters = parameters
-        self.workflow_path = workflow_path
-        self.generic_module_parameters: dict[str, Any] = {}
-        self._steps: list[WorkflowStep] = []
-
-        self.build_generic_module_parameters()
+        self.action_plan_path = action_plan_path
         self.build_steps()
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Workflow:
+    def from_file(cls, file_path: str | Path) -> ActionPlan:
         file_path = Path(file_path)
-        parameters = WorkflowParameters.from_file(file_path=file_path)
-        workflow_path = file_path.parent if parameters.path_from_workflow else Path()
-        return cls(parameters=parameters, workflow_path=workflow_path)
-
-    def build_generic_module_parameters(self):
-        if self.parameters.parameters_path:
-            with open(self.workflow_path / self.parameters.parameters_path) as file:
-                self.generic_module_parameters = yaml.safe_load(file)
+        parameters = ActionPlanParameters.from_file(file_path=file_path)
+        return cls(parameters=parameters)
 
     @staticmethod
     def add_index_in_step_name(steps: list) -> None:
@@ -80,13 +69,13 @@ class Workflow:
         self.add_index_in_step_name(self.parameters.steps)
 
         for step in self.parameters.steps:
-            parameters = Workflow.build_module_parameters(
+            parameters = ActionPlan.build_module_parameters(
                 self.generic_module_parameters, self.workflow_path / step.parameters_path
             )
             if "output" not in parameters:
                 parameters["output"] = {}
             parameters["output"]["output_dir"] = self.workflow_path / self.parameters.output_dir / step.name
-            workflow_step = WorkflowStep(step.name, step.module.value, parameters)
+            workflow_step = ActionPlanStep(step.name, step.module.value, parameters)
             self.add_step(workflow_step)
 
     @staticmethod
@@ -98,23 +87,23 @@ class Workflow:
         return parameters
 
     @property
-    def steps(self) -> list[WorkflowStep]:
+    def steps(self) -> list[ActionPlanStep]:
         """
         Access the workflow steps.
 
-        :return: The list of WorkflowStep instances.
+        :return: The list of ActionPlanStep instances.
         """
         return self._steps
 
-    def add_step(self, step: WorkflowStep | list[WorkflowStep]) -> None:
+    def add_step(self, step: ActionPlanStep | list[ActionPlanStep]) -> None:
         """Add one or multiple steps to the end of the workflow."""
         if isinstance(step, list):
-            if not all(isinstance(s, WorkflowStep) for s in step):
-                raise TypeError("All items in the list must be WorkflowStep instances.")
+            if not all(isinstance(s, ActionPlanStep) for s in step):
+                raise TypeError("All items in the list must be ActionPlanStep instances.")
             self._steps.extend(step)
         else:
-            if not isinstance(step, WorkflowStep):
-                raise TypeError(f"Expected a WorkflowStep instance, got {type(step).__name__}.")
+            if not isinstance(step, ActionPlanStep):
+                raise TypeError(f"Expected a ActionPlanStep instance, got {type(step).__name__}.")
             self._steps.append(step)
 
     def get_output_dataset(self) -> AbstractDataset | None:
@@ -135,8 +124,8 @@ class Workflow:
         Each step receives as input the output of the previous step.
         The first step receives the workflow's initial dataset.
         """
-        logger.info(f"Launching workflow : {self.parameters.name}")
-        atlas_dataset = AtlasDataset.from_directory(self.workflow_path / self.parameters.dataset_path)
+        logger.info(f"Launching action plan : {self.parameters.name}")
+        atlas_dataset = AtlasDataset.from_directory(self.action_plan_path / self.parameters.dataset_path)
         cis = CurrentInputState(atlas_dataset)
 
         for step in self.steps:
@@ -159,4 +148,4 @@ class Workflow:
 
             logger.info(f"Finishing step :'{step.name}'")
 
-        cis.to_directory(self.workflow_path / self.parameters.output_dir / "workflow_output")
+        cis.to_directory(self.action_plan_path / self.parameters.output_dir / "action_plan_output")
