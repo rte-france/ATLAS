@@ -14,13 +14,27 @@ class IntradayPriceForecastModule(
     ]
 ):
     def get_parameters_class(self):
-        """Returns the concrete Parameters class for this module."""
+        """
+        Returns the concrete Parameters class for this module.
+
+        :return: The parameters class for this module
+        :rtype: type[IntradayPriceForecastParameters]
+        """
         return IntradayPriceForecastParameters
 
     def import_data(
         self, input_data: AtlasDataset, parameters: IntradayPriceForecastParameters
     ) -> IntradayPriceForecastInputDataset:
-        """Imports data using business objects and parameters."""
+        """
+        Imports data using business objects and parameters.
+
+        :param input_data: Input data containing business objects
+        :type input_data: AtlasDataset
+        :param parameters: Module parameters
+        :type parameters: IntradayPriceForecastParameters
+        :return: Input dataset for the module
+        :rtype: IntradayPriceForecastInputDataset
+        """
         input_dataset = IntradayPriceForecastInputDataset(input_data, parameters)
         return input_dataset
 
@@ -32,7 +46,16 @@ class IntradayPriceForecastModule(
     def execute(
         self, parameters: IntradayPriceForecastParameters, input_dataset: IntradayPriceForecastInputDataset
     ) -> IntradayPriceForecastOutputDataset:
-        """Executes the module's main logic."""
+        """
+        Executes the module's main logic.
+
+        :param parameters: Module parameters
+        :type parameters: IntradayPriceForecastParameters
+        :param input_dataset: Input dataset
+        :type input_dataset: IntradayPriceForecastInputDataset
+        :return: Output dataset with computed results
+        :rtype: IntradayPriceForecastOutputDataset
+        """
         orchestrator = IntradayPriceForecastOrchestrator(parameters, input_dataset)
         output_dataset = orchestrator.execute()
         return output_dataset
@@ -43,7 +66,18 @@ class IntradayPriceForecastModule(
         input_dataset: IntradayPriceForecastInputDataset,
         output_dataset: IntradayPriceForecastOutputDataset,
     ) -> bool:
-        """Validates results"""
+        """
+        Validates results.
+
+        :param parameters: Module parameters
+        :type parameters: IntradayPriceForecastParameters
+        :param input_dataset: Input dataset
+        :type input_dataset: IntradayPriceForecastInputDataset
+        :param output_dataset: Output dataset
+        :type output_dataset: IntradayPriceForecastOutputDataset
+        :return: True if results are valid, False otherwise
+        :rtype: bool
+        """
         for market_area in output_dataset.market_area:
             if market_area.id_price_forecast is None:
                 logger.error(
@@ -63,5 +97,14 @@ class IntradayPriceForecastModule(
         input_dataset: IntradayPriceForecastInputDataset,
         output_dataset: IntradayPriceForecastOutputDataset,
     ) -> None:
-        """Exports results."""
+        """
+        Exports results.
+
+        :param parameters: Module parameters
+        :type parameters: IntradayPriceForecastParameters
+        :param input_dataset: Input dataset
+        :type input_dataset: IntradayPriceForecastInputDataset
+        :param output_dataset: Output dataset
+        :type output_dataset: IntradayPriceForecastOutputDataset
+        """
         return

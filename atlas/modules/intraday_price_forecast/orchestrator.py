@@ -27,9 +27,10 @@ class IntradayPriceForecastOrchestrator:
         """
         Initialize the orchestrator with parameters and input dataset.
 
-        Args:
-            parameters: Configuration parameters for the intraday price forecast module
-            input_dataset: Input data containing loads, solar, wind, and market area information
+        :param parameters: Configuration parameters for the intraday price forecast module
+        :type parameters: IntradayPriceForecastParameters
+        :param input_dataset: Input data containing loads, solar, wind, and market area information
+        :type input_dataset: IntradayPriceForecastInputDataset
         """
         self.parameters = parameters
         self.input_dataset = input_dataset
@@ -46,8 +47,8 @@ class IntradayPriceForecastOrchestrator:
         4. Add the impact to the baseline price (latest intraday or day-ahead)
         5. Apply price caps and store results
 
-        Returns:
-            IntradayPriceForecastOutputDataset: Output dataset with updated price forecasts
+        :return: Output dataset with updated price forecasts
+        :rtype: IntradayPriceForecastOutputDataset
         """
         time_window = generate_datetimes(
             self.parameters.temporal.start_date, self.parameters.penultimate_date, self.parameters.temporal.timestep
@@ -80,11 +81,10 @@ class IntradayPriceForecastOrchestrator:
         """
         Filter loads, solar, and wind assets by market area.
 
-        Args:
-            market_area: The market area to filter assets for
-
-        Returns:
-            Tuple containing lists of (loads, solars, winds) for the specified market area
+        :param market_area: The market area to filter assets for
+        :type market_area: MarketAreaIDPF
+        :return: Tuple containing lists of (loads, solars, winds) for the specified market area
+        :rtype: tuple[list, list, list]
         """
         loads = [
             load
@@ -99,8 +99,8 @@ class IntradayPriceForecastOrchestrator:
         """
         Create an empty timeseries with standard temporal parameters.
 
-        Returns:
-            Timeseries: A timeseries initialized with zeros for the configured time range
+        :return: A timeseries initialized with zeros for the configured time range
+        :rtype: Timeseries
         """
         return Timeseries.from_index(
             start_date=self.parameters.temporal.start_date,
@@ -116,13 +116,13 @@ class IntradayPriceForecastOrchestrator:
         The ratio represents how much the price changes per unit of consumption change,
         calculated as: (price_high - price_low) / (consumption_low - consumption_high)
 
-        Args:
-            market_area: Market area containing price forecast scenarios
-            loads: List of load assets with power forecast scenarios
-            time_window: Time window for computation
-
-        Returns:
-            Timeseries: Price sensitivity ratio over time
+        :param market_area: Market area containing price forecast scenarios
+        :type market_area: MarketAreaIDPF
+        :param loads: List of load assets with power forecast scenarios
+        :type loads: list
+        :param time_window: Time window for computation
+        :return: Price sensitivity ratio over time
+        :rtype: Timeseries
         """
         # Get price difference between high and low scenarios
         price_forecast_high = market_area.price_forecast_high.get_forecast(
@@ -168,14 +168,15 @@ class IntradayPriceForecastOrchestrator:
 
         Residual consumption = load consumption - solar production - wind production
 
-        Args:
-            loads: List of load assets
-            solars: List of solar assets
-            winds: List of wind assets
-            time_window: Time window for computation
-
-        Returns:
-            Timeseries: Consumption delta between intraday and day-ahead forecasts
+        :param loads: List of load assets
+        :type loads: list[LoadIDPF]
+        :param solars: List of solar assets
+        :type solars: list[SolarIDPF]
+        :param winds: List of wind assets
+        :type winds: list[WindIDPF]
+        :param time_window: Time window for computation
+        :return: Consumption delta between intraday and day-ahead forecasts
+        :rtype: Timeseries
         """
         # Calculate day-ahead residual consumption
         residual_consumption_day_ahead = self._create_empty_timeseries()
@@ -214,11 +215,9 @@ class IntradayPriceForecastOrchestrator:
 
         Priority: latest intraday price > day-ahead price
 
-        Args:
-            market_area: Market area containing price data
-
-        Returns:
-            Tuple of (baseline_price, description_label)
+        :param market_area: Market area containing price data
+        :return: Tuple of (baseline_price, description_label)
+        :rtype: tuple[Timeseries, str]
         """
         intraday_prices = market_area.id_price
 
@@ -247,12 +246,12 @@ class IntradayPriceForecastOrchestrator:
         """
         Ensure all price values are non-negative.
 
-        Args:
-            price_forecast: The price forecast timeseries
-            time_window: Time window for the constraint
-
-        Returns:
-            Timeseries: Price forecast with non-negative values
+        :param price_forecast: The price forecast timeseries
+        :type price_forecast: Timeseries
+        :param time_window: Time window for the constraint
+        :type time_window: list[DateTime]
+        :return: Price forecast with non-negative values
+        :rtype: Timeseries
         """
         for time in time_window:
             if price_forecast.get_value(time) < 0.0:
@@ -266,13 +265,13 @@ class IntradayPriceForecastOrchestrator:
         If the forecast exceeds the caps, all values are scaled proportionally
         to bring the extreme value to the cap limit.
 
-        Args:
-            price_forecast: The price forecast timeseries
-            market_area: Market area for logging purposes
-            time_window: Time window for applying caps
-
-        Returns:
-            Timeseries: Capped price forecast
+        :param price_forecast: The price forecast timeseries
+        :type price_forecast: Timeseries
+        :param market_area: Market area for logging purposes
+        :param time_window: Time window for applying caps
+        :type time_window: list[DateTime]
+        :return: Capped price forecast
+        :rtype: Timeseries
         """
         price_slice = price_forecast.slice(self.parameters.temporal.start_date, self.parameters.temporal.end_date)
 
@@ -316,17 +315,22 @@ class IntradayPriceForecastOrchestrator:
         """
         Apply a single price cap (upper or lower) to the forecast.
 
-        Args:
-            price_forecast: The price forecast timeseries
-            extreme_value: The current extreme value (max for upper, min for lower)
-            cap_value: The cap limit
-            cap_type: Type of cap for logging ("upper" or "lower")
-            market_area_name: Market area name for logging
-            time_window: Time window for applying the cap
-            is_upper: True for upper cap, False for lower cap
-
-        Returns:
-            Timeseries: Capped price forecast
+        :param price_forecast: The price forecast timeseries
+        :type price_forecast: Timeseries
+        :param extreme_value: The current extreme value (max for upper, min for lower)
+        :type extreme_value: float
+        :param cap_value: The cap limit
+        :type cap_value: float
+        :param cap_type: Type of cap for logging ("upper" or "lower")
+        :type cap_type: str
+        :param market_area_name: Market area name for logging
+        :type market_area_name: str
+        :param time_window: Time window for applying the cap
+        :type time_window: list[DateTime]
+        :param is_upper: True for upper cap, False for lower cap
+        :type is_upper: bool
+        :return: Capped price forecast
+        :rtype: Timeseries
         """
         condition_met = extreme_value > cap_value if is_upper else extreme_value < cap_value
 
@@ -343,9 +347,10 @@ class IntradayPriceForecastOrchestrator:
         """
         Save the computed price forecast to the market area's forecasting matrix.
 
-        Args:
-            market_area: Market area to update
-            price_forecast: Computed intraday price forecast
+        :param market_area: Market area to update
+        :type market_area: MarketAreaIDPF
+        :param price_forecast: Computed intraday price forecast
+        :type price_forecast: Timeseries
         """
         if market_area.id_price_forecast is None:
             market_area.id_price_forecast = ForecastingMatrix(
