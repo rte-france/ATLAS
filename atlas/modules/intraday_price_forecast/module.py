@@ -3,12 +3,12 @@ from loguru import logger
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
-from atlas.modules.intraday_price_forecast.orchestrator import PriceForecastOrchestrator
+from atlas.modules.intraday_price_forecast.orchestrator import IntradayPriceForecastOrchestrator
 from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
 
 
-class IntradayPriceForecast(
+class IntradayPriceForecastModule(
     AbstractModule[
         IntradayPriceForecastParameters, IntradayPriceForecastInputDataset, IntradayPriceForecastOutputDataset
     ]
@@ -33,7 +33,7 @@ class IntradayPriceForecast(
         self, parameters: IntradayPriceForecastParameters, input_dataset: IntradayPriceForecastInputDataset
     ) -> IntradayPriceForecastOutputDataset:
         """Executes the module's main logic."""
-        orchestrator = PriceForecastOrchestrator(parameters, input_dataset)
+        orchestrator = IntradayPriceForecastOrchestrator(parameters, input_dataset)
         output_dataset = orchestrator.execute()
         return output_dataset
 

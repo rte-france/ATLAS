@@ -10,7 +10,7 @@ from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForeca
 from atlas.timing import generate_datetimes
 
 
-class PriceForecastOrchestrator:
+class IntradayPriceForecastOrchestrator:
     def __init__(self, parameters: IntradayPriceForecastParameters, input_dataset: IntradayPriceForecastInputDataset):
         """
         :param parameters: the parameters
