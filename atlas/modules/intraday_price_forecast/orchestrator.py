@@ -349,7 +349,7 @@ class IntradayPriceForecastOrchestrator:
         """
         if market_area.id_price_forecast is None:
             market_area.id_price_forecast = ForecastingMatrix(
-                price_forecast.dataframe.rename({"value": str(self.parameters.temporal.execution_date)})
+                price_forecast.dataframe.rename({"value": self.parameters.temporal.execution_date.to_datetime_string()})
             )
         else:
             market_area.id_price_forecast.add(price_forecast, self.parameters.temporal.execution_date)
