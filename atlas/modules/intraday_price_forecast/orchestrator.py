@@ -6,6 +6,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
 from atlas.modules.intraday_price_forecast.models.load import LoadIDPF
+from atlas.modules.intraday_price_forecast.models.market_area import MarketAreaIDPF
 from atlas.modules.intraday_price_forecast.models.solar import SolarIDPF
 from atlas.modules.intraday_price_forecast.models.wind import WindIDPF
 from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
@@ -75,7 +76,7 @@ class IntradayPriceForecastOrchestrator:
 
         return self.output_dataset
 
-    def _filter_assets_by_market_area(self, market_area) -> tuple[list, list, list]:
+    def _filter_assets_by_market_area(self, market_area: MarketAreaIDPF) -> tuple[list, list, list]:
         """
         Filter loads, solar, and wind assets by market area.
 
@@ -108,7 +109,7 @@ class IntradayPriceForecastOrchestrator:
             default_value=0,
         )
 
-    def _compute_price_sensitivity_ratio(self, market_area, loads: list, time_window) -> Timeseries:
+    def _compute_price_sensitivity_ratio(self, market_area: MarketAreaIDPF, loads: list, time_window) -> Timeseries:
         """
         Compute the price sensitivity ratio from high/low price and consumption scenarios.
 
@@ -338,7 +339,7 @@ class IntradayPriceForecastOrchestrator:
 
         return price_forecast
 
-    def _save_price_forecast(self, market_area, price_forecast: Timeseries) -> None:
+    def _save_price_forecast(self, market_area: MarketAreaIDPF, price_forecast: Timeseries) -> None:  # noqa: F821
         """
         Save the computed price forecast to the market area's forecasting matrix.
 

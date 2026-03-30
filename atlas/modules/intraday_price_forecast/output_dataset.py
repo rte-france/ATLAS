@@ -4,7 +4,7 @@ from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
 from atlas.modules.intraday_price_forecast.models.market_area import MarketAreaIDPF
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
-from atlas.workflow.change_set import ChangeSet
+from atlas.workflow.change_set import UpdateObject
 
 
 class IntradayPriceForecastOutputDataset(AbstractModuleOutput[IntradayPriceForecastParameters]):
@@ -16,4 +16,12 @@ class IntradayPriceForecastOutputDataset(AbstractModuleOutput[IntradayPriceForec
 
     def build_change_sets(self) -> None:
         for market_area in self.input_data.market_area:
-            self.change_sets.append(ChangeSet.from_object(market_area))
+            self.change_sets.append(
+                UpdateObject(
+                    {
+                        "name": market_area.name,
+                        "id_price_forecast": market_area.id_price_forecast,
+                    },
+                    type(market_area),
+                )
+            )
