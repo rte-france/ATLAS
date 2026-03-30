@@ -53,12 +53,13 @@ class DateParameters(BaseModel):
 
 
 class SolverParameters(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     solver_name: SolverEnum = SolverEnum.XPRESS
     export_lp: bool = False
     use_presolve: bool = False
     duality_gap: float = Field(0.0001, description="duality gap used for the optimization.")
     timeout: Duration = Field(default_factory=lambda: Duration(minutes=4), description="Timeout of the optimization.")
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator("timeout", mode="before")
     @classmethod

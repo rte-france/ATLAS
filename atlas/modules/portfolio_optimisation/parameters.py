@@ -28,9 +28,9 @@ class PortfolioOptimisationParameters(AbstractParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
     temporal: DateParameters
-    solver: SolverParameters = Field(default_factory=lambda: SolverParameters())  # type: ignore[call-arg, arg-type]
-    output: OutputParameters = Field(default_factory=OutputParameters)
-    multiprocessing: MultiProcessingParameters = Field(default_factory=MultiProcessingParameters)
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
+    output: OutputParameters = OutputParameters()
+    multiprocessing: MultiProcessingParameters = MultiProcessingParameters()
 
     is_portfolio_bidding: bool = Field(
         True, description="True if optimization is on portfolios, False for individual units."

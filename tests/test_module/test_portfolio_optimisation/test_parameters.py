@@ -194,10 +194,12 @@ class TestPortfolioOptimisationParametersTargetTimes:
     def test_target_times_one_hour_timestep(self):
         """Test target_times with 1-hour timestep."""
         params = PortfolioOptimisationParameters(
-            temporal=DateParameters(start_date=pendulum.datetime(2024, 1, 1, 0, 0),
-                                    end_date=pendulum.datetime(2024, 1, 1, 3, 0),
-                                    execution_date=pendulum.datetime(2024, 1, 1),
-                                    timestep=duration(hours=1))
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1, 0, 0),
+                end_date=pendulum.datetime(2024, 1, 1, 3, 0),
+                execution_date=pendulum.datetime(2024, 1, 1),
+                timestep=duration(hours=1),
+            )
         )
 
         expected = [
@@ -210,10 +212,12 @@ class TestPortfolioOptimisationParametersTargetTimes:
     def test_target_times_thirty_minute_timestep(self):
         """Test target_times with 30-minute timestep."""
         params = PortfolioOptimisationParameters(
-            temporal=DateParameters(start_date=pendulum.datetime(2024, 1, 1, 0, 0),
-                                    end_date=pendulum.datetime(2024, 1, 1, 1, 0),
-                                    execution_date=pendulum.datetime(2024, 1, 1),
-                                    timestep=duration(minutes=30))
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1, 0, 0),
+                end_date=pendulum.datetime(2024, 1, 1, 1, 0),
+                execution_date=pendulum.datetime(2024, 1, 1),
+                timestep=duration(minutes=30),
+            )
         )
 
         expected = [
@@ -225,10 +229,12 @@ class TestPortfolioOptimisationParametersTargetTimes:
     def test_target_times_closed_left(self):
         """Test that target_times excludes end_date (closed='left')."""
         params = PortfolioOptimisationParameters(
-            temporal=DateParameters(start_date=pendulum.datetime(2024, 1, 1, 0, 0),
-                                    end_date=pendulum.datetime(2024, 1, 1, 2, 0),
-                                    execution_date=pendulum.datetime(2024, 1, 1),
-                                    timestep=duration(hours=1))
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1, 0, 0),
+                end_date=pendulum.datetime(2024, 1, 1, 2, 0),
+                execution_date=pendulum.datetime(2024, 1, 1),
+                timestep=duration(hours=1),
+            )
         )
 
         # Should NOT include the end_date
@@ -242,10 +248,12 @@ class TestPortfolioOptimisationParametersInitBatteryTime:
     def test_init_battery_time_one_hour_timestep(self):
         """Test init_battery_time with 1-hour timestep."""
         params = PortfolioOptimisationParameters(
-            temporal=DateParameters(start_date=pendulum.datetime(2024, 1, 1, 10, 0),
-                                    end_date=pendulum.datetime(2024, 1, 1, 12, 0),
-                                    execution_date=pendulum.datetime(2024, 1, 1),
-                                    timestep=duration(hours=1))
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1, 10, 0),
+                end_date=pendulum.datetime(2024, 1, 1, 12, 0),
+                execution_date=pendulum.datetime(2024, 1, 1),
+                timestep=duration(hours=1),
+            )
         )
 
         assert params.init_battery_time == pendulum.datetime(2024, 1, 1, 9, 0)
@@ -253,10 +261,12 @@ class TestPortfolioOptimisationParametersInitBatteryTime:
     def test_init_battery_time_thirty_minute_timestep(self):
         """Test init_battery_time with 30-minute timestep."""
         params = PortfolioOptimisationParameters(
-            temporal=DateParameters(start_date=pendulum.datetime(2024, 1, 1, 10, 0),
-                                    end_date=pendulum.datetime(2024, 1, 1, 12, 0),
-                                    execution_date=pendulum.datetime(2024, 1, 1),
-                                    timestep=duration(minutes=30))
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1, 10, 0),
+                end_date=pendulum.datetime(2024, 1, 1, 12, 0),
+                execution_date=pendulum.datetime(2024, 1, 1),
+                timestep=duration(minutes=30),
+            )
         )
 
         assert params.init_battery_time == pendulum.datetime(2024, 1, 1, 9, 30)
@@ -264,10 +274,12 @@ class TestPortfolioOptimisationParametersInitBatteryTime:
     def test_init_battery_time_fifteen_minute_timestep(self):
         """Test init_battery_time with 15-minute timestep."""
         params = PortfolioOptimisationParameters(
-            temporal=DateParameters(start_date=pendulum.datetime(2024, 1, 1, 10, 0),
-                                    end_date=pendulum.datetime(2024, 1, 1, 12, 0),
-                                    execution_date=pendulum.datetime(2024, 1, 1),
-                                    timestep=duration(minutes=15))
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1, 10, 0),
+                end_date=pendulum.datetime(2024, 1, 1, 12, 0),
+                execution_date=pendulum.datetime(2024, 1, 1),
+                timestep=duration(minutes=15),
+            )
         )
 
         assert params.init_battery_time == pendulum.datetime(2024, 1, 1, 9, 45)
@@ -279,9 +291,11 @@ class TestPortfolioOptimisationParametersStorageMapping:
     def test_storage_mapping_default_values(self):
         """Test storage_mapping with default parameter values."""
         params = PortfolioOptimisationParameters(
-            temporal=DateParameters(start_date=pendulum.datetime(2024, 1, 1),
-                                    end_date=pendulum.datetime(2024, 1, 2),
-                                    execution_date=pendulum.datetime(2024, 1, 1))
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1),
+                end_date=pendulum.datetime(2024, 1, 2),
+                execution_date=pendulum.datetime(2024, 1, 1),
+            )
         )
 
         storage_mapping = params.storage_mapping
@@ -304,9 +318,11 @@ class TestPortfolioOptimisationParametersStorageMapping:
     def test_storage_mapping_custom_values(self):
         """Test storage_mapping with custom parameter values."""
         params = PortfolioOptimisationParameters(
-            temporal=DateParameters(start_date=pendulum.datetime(2024, 1, 1),
-                                    end_date=pendulum.datetime(2024, 1, 2),
-                                    execution_date=pendulum.datetime(2024, 1, 1)),
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1),
+                end_date=pendulum.datetime(2024, 1, 2),
+                execution_date=pendulum.datetime(2024, 1, 1),
+            ),
             battery_number_of_fragments=5,
             battery_smoothing_factor=0.3,
             pumped_hydraulic_number_of_fragments=4,
@@ -332,9 +348,11 @@ class TestPortfolioOptimisationParametersStorageMapping:
     def test_storage_mapping_has_all_storage_types(self):
         """Test that storage_mapping contains all expected storage types."""
         params = PortfolioOptimisationParameters(
-            temporal=DateParameters(start_date=pendulum.datetime(2024, 1, 1),
-                                    end_date=pendulum.datetime(2024, 1, 2),
-                                    execution_date=pendulum.datetime(2024, 1, 1))
+            temporal=DateParameters(
+                start_date=pendulum.datetime(2024, 1, 1),
+                end_date=pendulum.datetime(2024, 1, 2),
+                execution_date=pendulum.datetime(2024, 1, 1),
+            )
         )
 
         storage_mapping = params.storage_mapping

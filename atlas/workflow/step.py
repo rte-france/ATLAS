@@ -17,6 +17,7 @@ from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
+from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 
@@ -27,6 +28,7 @@ class ModuleRegistry(Enum):
     MarketClearing = MarketClearingModule
     PortfolioOptimisation = PortfolioOptimisationModule
     DayAheadOrders = DayAheadOrdersModule
+    IntradayPriceForecast = IntradayPriceForecastModule
 
     @classmethod
     def get(cls, name: str) -> type[AbstractModule]:

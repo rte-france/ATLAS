@@ -134,6 +134,14 @@ nav:
             - Running: modules/day-ahead-orders/user-guide/running.md
         - Developer:
             - Architecture: modules/day-ahead-orders/developer/architecture.md
+    - Intraday Price Forecast:
+        - Overview: modules/intraday-price-forecast/index.md
+        - User Guide:
+            - Overview: modules/intraday-price-forecast/user-guide/overview.md
+            - Parameters: modules/intraday-price-forecast/user-guide/input-data.md
+            - Running: modules/intraday-price-forecast/user-guide/running.md
+        - Developer:
+            - Architecture: modules/intraday-price-forecast/developer/architecture.md
   - Examples:
     - AtlasDataset: examples/atlas_dataset.md
     - Timeseries: examples/timeseries.md

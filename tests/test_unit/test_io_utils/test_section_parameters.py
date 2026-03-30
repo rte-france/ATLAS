@@ -49,6 +49,7 @@ def test_date_validation_boundary():
     )
     assert params.start_date < params.end_date
 
+
 def test_invalid_timestep_raises():
     with pytest.raises(ValidationError):
         DateParameters(timestep="")

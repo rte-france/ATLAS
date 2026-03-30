@@ -146,7 +146,9 @@ class TestPortfolioOptimisationInputDataset:
         mock_solar_po_class.assert_called_once()
 
     @patch("atlas.modules.portfolio_optimisation.input_dataset.StoragePO")
-    def test_initialization_with_storage_equipment(self, mock_storage_po_class, mock_parameters, mock_storage_equipment):
+    def test_initialization_with_storage_equipment(
+        self, mock_storage_po_class, mock_parameters, mock_storage_equipment
+    ):
         """Test that InputDataset initializes correctly with storage equipment."""
         mock_storage_po_instance = Mock(spec=StoragePO)
         mock_storage_po_instance.portfolio = mock_storage_equipment.portfolio
@@ -195,7 +197,9 @@ class TestPortfolioOptimisationInputDataset:
         assert len(dataset.equipments.non_dispatchable_load) == 0
 
     @patch("atlas.modules.portfolio_optimisation.input_dataset.LoadPO")
-    def test_load_classification_non_dispatchable(self, mock_load_po_class, mock_parameters, mock_non_dispatchable_load):
+    def test_load_classification_non_dispatchable(
+        self, mock_load_po_class, mock_parameters, mock_non_dispatchable_load
+    ):
         """Test that non-dispatchable loads are correctly classified."""
         mock_load_po_instance = Mock(spec=LoadPO)
         mock_load_po_instance.load_type = LoadType.BASE_LOAD
@@ -251,8 +255,12 @@ class TestPortfolioOptimisationInputDataset:
     @patch("atlas.modules.portfolio_optimisation.input_dataset.is_excluded_market_area")
     @patch("atlas.modules.portfolio_optimisation.input_dataset.WindPO")
     def test_portfolio_creation_with_excluded_technology(
-        self, mock_wind_po_class, mock_is_excluded_market, mock_should_manually_activate,
-        mock_parameters, mock_wind_equipment,
+        self,
+        mock_wind_po_class,
+        mock_is_excluded_market,
+        mock_should_manually_activate,
+        mock_parameters,
+        mock_wind_equipment,
     ):
         """Test that equipment excluded by technology is placed in manual activation portfolio."""
         mock_wind_po_instance = Mock(spec=WindPO)
@@ -275,8 +283,12 @@ class TestPortfolioOptimisationInputDataset:
     @patch("atlas.modules.portfolio_optimisation.input_dataset.is_excluded_market_area")
     @patch("atlas.modules.portfolio_optimisation.input_dataset.WindPO")
     def test_portfolio_creation_with_excluded_market_area(
-        self, mock_wind_po_class, mock_is_excluded_market, mock_should_manually_activate,
-        mock_parameters, mock_wind_equipment,
+        self,
+        mock_wind_po_class,
+        mock_is_excluded_market,
+        mock_should_manually_activate,
+        mock_parameters,
+        mock_wind_equipment,
     ):
         """Test that equipment in excluded market area is placed in manual activation portfolio."""
         mock_wind_po_instance = Mock(spec=WindPO)
@@ -298,8 +310,12 @@ class TestPortfolioOptimisationInputDataset:
     @patch("atlas.modules.portfolio_optimisation.input_dataset.is_excluded_market_area")
     @patch("atlas.modules.portfolio_optimisation.input_dataset.WindPO")
     def test_portfolio_creation_with_included_equipment(
-        self, mock_wind_po_class, mock_is_excluded_market, mock_should_manually_activate,
-        mock_parameters, mock_wind_equipment,
+        self,
+        mock_wind_po_class,
+        mock_is_excluded_market,
+        mock_should_manually_activate,
+        mock_parameters,
+        mock_wind_equipment,
     ):
         """Test that non-excluded equipment is placed in normal optimization portfolio."""
         mock_wind_po_instance = Mock(spec=WindPO)
@@ -323,8 +339,14 @@ class TestPortfolioOptimisationInputDataset:
     @patch("atlas.modules.portfolio_optimisation.input_dataset.WindPO")
     @patch("atlas.modules.portfolio_optimisation.input_dataset.SolarPO")
     def test_portfolio_creation_mixed_equipment(
-        self, mock_solar_po_class, mock_wind_po_class, mock_is_excluded_market, mock_should_manually_activate,
-        mock_parameters, mock_wind_equipment, mock_solar_equipment,
+        self,
+        mock_solar_po_class,
+        mock_wind_po_class,
+        mock_is_excluded_market,
+        mock_should_manually_activate,
+        mock_parameters,
+        mock_wind_equipment,
+        mock_solar_equipment,
     ):
         """Test portfolio creation with mixed included and excluded equipment."""
         mock_wind_po_instance = Mock(spec=WindPO)
@@ -356,8 +378,12 @@ class TestPortfolioOptimisationInputDataset:
     @patch("atlas.modules.portfolio_optimisation.input_dataset.is_excluded_market_area")
     @patch("atlas.modules.portfolio_optimisation.input_dataset.WindPO")
     def test_time_window_calculation(
-        self, mock_wind_po_class, mock_is_excluded_market, mock_should_manually_activate,
-        mock_parameters, mock_wind_equipment,
+        self,
+        mock_wind_po_class,
+        mock_is_excluded_market,
+        mock_should_manually_activate,
+        mock_parameters,
+        mock_wind_equipment,
     ):
         """Test that time windows are correctly calculated for portfolios."""
         expected_time_window = [

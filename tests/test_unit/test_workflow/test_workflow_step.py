@@ -172,6 +172,7 @@ class TestWorkflowStepRepresentation:
                 "execution_date": "2028-09-26 12:00:00",
             }
         }
+
     def test_repr_before_execution(self):
         step = WorkflowStep("TestStep", MarketClearingModule, self._make_mc_params())
         result = repr(step)

@@ -115,7 +115,6 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         border_exchanges: dict[tuple[str, int], float],
         market_prices: dict[tuple[str, int], float],
     ):
-        super().__init__()
         self.input_dataset = input_dataset
         self.accepted_powers = accepted_powers
         self.local_balances = local_balances
