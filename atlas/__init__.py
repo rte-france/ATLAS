@@ -37,8 +37,8 @@ from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, S
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
-from atlas.orchestrator.workflow import WorkflowStep
-from atlas.orchestrator.workflow import Workflow
+from atlas.orchestrator.workflow.step import WorkflowStep
+from atlas.orchestrator.workflow.workflow import Workflow
 
 __all__ = [
     "AbstractScenarioMatrix",

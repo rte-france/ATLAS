@@ -1,4 +1,4 @@
-from atlas.orchestrator.workflow import ChangeSet
+from atlas.orchestrator.change_set import ChangeSet
 
 
 class InputLoaderError(Exception):

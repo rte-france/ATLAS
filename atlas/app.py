@@ -10,10 +10,10 @@ from atlas.config import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.timing import timer
-from atlas.orchestrator.workflow import CurrentInputState
+from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
-from atlas.orchestrator.workflow import ModuleRegistry
-from atlas.orchestrator.workflow import Workflow
+from atlas.orchestrator.step import ModuleRegistry
+from atlas.orchestrator.workflow.workflow import Workflow
 
 app = typer.Typer()
 

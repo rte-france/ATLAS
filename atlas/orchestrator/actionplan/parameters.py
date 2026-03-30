@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from atlas.io_utils.parameters import Parameters
 from atlas.orchestrator.actionplan.task import ActionPlanTask
+from atlas.orchestrator.hook.hook import Hook
 
 
 class ActionPlanParameters(Parameters):

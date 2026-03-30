@@ -21,6 +21,9 @@ class ActionPlanStep:
     """
 
     def __init__(self, name: str, parameters: dict[str, Any]):
+        self.name = name
+        self.module = None
+        self.parameters = None
         raise NotImplementedError
 
     @property
@@ -30,7 +33,7 @@ class ActionPlanStep:
 
         :return: An AbstractDataset or None if not yet executed.
         """
-        return self._output_dataset
+        raise NotImplementedError
 
     def get_output_dataset(self) -> AbstractModuleOutput | None:
         """
@@ -38,7 +41,7 @@ class ActionPlanStep:
 
         :return: An AbstractDataset or None if not yet executed.
         """
-        return self._output_dataset
+        raise NotImplementedError
 
     def run(self, input_dataset: AtlasDataset) -> None:
         """
