@@ -17,6 +17,7 @@ import pendulum
 import polars as pl
 from pydantic_core import core_schema
 
+from atlas import AbstractTimeseries
 from atlas.io_utils.utils import read_data_file
 from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
@@ -136,7 +137,7 @@ class ForecastingMatrix(ScenarioMatrix):
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        timeseries: AbstractTimeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
     ) -> None:
         """
