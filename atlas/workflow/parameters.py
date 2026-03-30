@@ -29,4 +29,5 @@ class WorkflowParameters(Parameters):
     output_dataset_path: Path
     parameters_path: Path | None = None
     path_from_workflow: bool = True
+    export_output: bool = True
     output_dir: Path = Path()
