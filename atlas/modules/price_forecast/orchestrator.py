@@ -31,7 +31,9 @@ class PriceForecastOrchestrator:
 
         cfg.logger.info(str(self.parameters))
 
-        index = self.define_orders_time()
+        index = generate_datetimes(
+            self.parameters.temporal.start_date, self.parameters.penultimate_date, self.parameters.temporal.timestep
+        )
 
         for market_area in self.output_dataset.market_area:
             cfg.logger.info(f"Computing forecast for: {market_area.name}")
@@ -42,10 +44,14 @@ class PriceForecastOrchestrator:
                 if load.portfolio.market_area.name == market_area.name and load.load_type == "BaseLoad"
             ]
             solar_list = [
-                solar for solar in self.output_dataset.input_data.solar if solar.portfolio.market_area.name == market_area.name
+                solar
+                for solar in self.output_dataset.input_data.solar
+                if solar.portfolio.market_area.name == market_area.name
             ]
             wind_list = [
-                wind for wind in self.output_dataset.input_data.wind if wind.portfolio.market_area.name == market_area.name
+                wind
+                for wind in self.output_dataset.input_data.wind
+                if wind.portfolio.market_area.name == market_area.name
             ]
 
             # ------ ID Price Forecast calculation ------
@@ -189,25 +195,6 @@ class PriceForecastOrchestrator:
             market_area.id_price_forecast.add(prev_ij, self.parameters.temporal.execution_date)
             cfg.logger.info(f"The update of {market_area.name} price has been done using {last_price_str}")
         return self.output_dataset
-
-    def define_orders_time(self) -> list[pendulum.DateTime]:
-        """
-        This function creates a sequence of timestamps between a start_date and an end_date
-        with frequency matching the timestep parameter.
-        In particular, it makes sure that no time step crosses the end_date boundary.
-
-        :return: a list of DateTime objects
-        :rtype: list[DateTime]
-        """
-        orders_time = []
-        if self.parameters.temporal.start_date < self.parameters.temporal.end_date:
-            orders_time = generate_datetimes(
-                self.parameters.temporal.start_date, self.parameters.penultimate_date, self.parameters.temporal.timestep
-            )
-        else:
-            msg = "The end_date parameter must be posterior to the start_date parameter."
-            cfg.logger.error(msg)
-        return orders_time
 
     def generate_empty_timeseries(self) -> Timeseries:
         return Timeseries.from_index(
