@@ -1,8 +1,8 @@
-from atlas import Solar
 from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.modules.intraday_price_forecast.models.portfolio import PortfolioIDPF
+from atlas.models.equipment.solar import Solar
+from atlas.models.portfolio import Portfolio
 
 
 class SolarIDPF(Solar):
-    portfolio: PortfolioIDPF
+    portfolio: Portfolio
     maximum_power_forecast: ForecastingMatrix

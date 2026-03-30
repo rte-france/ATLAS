@@ -8,11 +8,11 @@ from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForeca
 
 
 class IntradayPriceForecastInputDataset(AbstractDataset[IntradayPriceForecastParameters]):
-    def __init__(self, raw_data: AtlasDataset, parameters: IntradayPriceForecastParameters):
+    def __init__(self, input_data: AtlasDataset, parameters: IntradayPriceForecastParameters):
         self.parameters: IntradayPriceForecastParameters = parameters
-        self.input_data = raw_data
+        self.input_data = input_data
 
-        self.market_area: list[MarketAreaIDPF] = [MarketAreaIDPF(**dict(obj)) for obj in raw_data.market_area]
-        self.solar: list[SolarIDPF] = [SolarIDPF(**dict(obj)) for obj in raw_data.solar]
-        self.wind: list[WindIDPF] = [WindIDPF(**dict(obj)) for obj in raw_data.wind]
-        self.load: list[LoadIDPF] = [LoadIDPF(**dict(obj)) for obj in raw_data.load]
+        self.market_area: list[MarketAreaIDPF] = [MarketAreaIDPF(**dict(obj)) for obj in input_data.market_area]
+        self.solar: list[SolarIDPF] = [SolarIDPF(**dict(obj)) for obj in input_data.solar]
+        self.wind: list[WindIDPF] = [WindIDPF(**dict(obj)) for obj in input_data.wind]
+        self.load: list[LoadIDPF] = [LoadIDPF(**dict(obj)) for obj in input_data.load]

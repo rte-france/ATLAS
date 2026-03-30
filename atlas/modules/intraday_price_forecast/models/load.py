@@ -1,9 +1,8 @@
-from atlas import AbstractTimeseries, LazyForecastingMatrix, Load
-from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.modules.intraday_price_forecast.models.portfolio import PortfolioIDPF
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.models.equipment.load import Load
+from atlas.models.portfolio import Portfolio
 
 
 class LoadIDPF(Load):
-    portfolio: PortfolioIDPF
-    variable_cost: AbstractTimeseries
+    portfolio: Portfolio
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix

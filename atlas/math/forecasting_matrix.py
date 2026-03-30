@@ -17,8 +17,8 @@ import pendulum
 import polars as pl
 from pydantic_core import core_schema
 
-from atlas import AbstractTimeseries
 from atlas.io_utils.utils import read_data_file
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix

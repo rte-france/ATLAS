@@ -1,5 +1,3 @@
-import pendulum
-
 import atlas.config as cfg
 from atlas.enums import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix
@@ -28,16 +26,13 @@ class IntradayPriceForecastOrchestrator:
         :return: the output dataset
         :rtype: IntradayPriceForecastOutputDataset
         """
-        # ------ Markers and Parameters
-
-        cfg.logger.info(str(self.parameters))
 
         time_window = generate_datetimes(
             self.parameters.temporal.start_date, self.parameters.penultimate_date, self.parameters.temporal.timestep
         )
 
         for market_area in self.output_dataset.market_area:
-            cfg.logger.info(f"Computing forecast for: {market_area.name}")
+            cfg.logger.info(f"Computing intraday price forecast for market area: {market_area.name}")
 
             loads = [
                 load
@@ -73,59 +68,60 @@ class IntradayPriceForecastOrchestrator:
                     cfg.logger.error(f"Error, missing PowerForecast high or low for unit {load.name}")
 
             # Create a time series that store the ratio between the series above
-            ratio = self.generate_empty_timeseries()
+            ratio = Timeseries.from_index(
+                start_date=self.parameters.temporal.start_date,
+                frequency=self.parameters.temporal.timestep,
+                end_date=self.parameters.penultimate_date,
+                default_value=0,
+            )
             # Set the values for ratio time series within the range of the input parameters
             for time in time_window:
-                try:
-                    result_ti = price_diff.get_value(time) / conso_diff.get_value(time)
-                except ZeroDivisionError:
-                    result_ti = 0
+                result_ti = (
+                    price_diff.get_value(time) / conso_diff.get_value(time)
+                    if time in price_diff and time in conso_diff and conso_diff.get_value(time) != 0
+                    else 0.0
+                )
+
                 ratio.set_value(time, result_ti)
 
             # Calculation of residual consumption:
-            conso_day_ahead = self.generate_empty_timeseries()
-            conso_id = self.generate_empty_timeseries()
-            for load in loads:
-                conso_day_ahead -= load.maximum_power_forecast.get_forecast(
+            conso_day_ahead = Timeseries.from_index(
+                start_date=self.parameters.temporal.start_date,
+                frequency=self.parameters.temporal.timestep,
+                end_date=self.parameters.penultimate_date,
+                default_value=0,
+            )
+            conso_id = Timeseries.from_index(
+                start_date=self.parameters.temporal.start_date,
+                frequency=self.parameters.temporal.timestep,
+                end_date=self.parameters.penultimate_date,
+                default_value=0,
+            )
+            # Combine all assets (loads, solars, winds) and subtract their forecasts
+            for asset in loads + solars + winds:
+                conso_day_ahead -= asset.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
                     start_date=self.parameters.temporal.start_date,
                     end_date=self.parameters.penultimate_date,
                 )
-                conso_id -= load.maximum_power_forecast.get_forecast(
-                    execution_date=self.parameters.temporal.execution_date,
-                    start_date=self.parameters.temporal.start_date,
-                    end_date=self.parameters.penultimate_date,
-                )
-
-            for photovoltaic in solars:
-                conso_day_ahead -= photovoltaic.maximum_power_forecast.get_forecast(
-                    execution_date=self.parameters.execution_date_day_ahead,
-                    start_date=self.parameters.temporal.start_date,
-                    end_date=self.parameters.penultimate_date,
-                )
-                conso_id -= photovoltaic.maximum_power_forecast.get_forecast(
-                    execution_date=self.parameters.temporal.execution_date,
-                    start_date=self.parameters.temporal.start_date,
-                    end_date=self.parameters.penultimate_date,
-                )
-
-            for wind in winds:
-                conso_day_ahead -= wind.maximum_power_forecast.get_forecast(
-                    execution_date=self.parameters.execution_date_day_ahead,
-                    start_date=self.parameters.temporal.start_date,
-                    end_date=self.parameters.penultimate_date,
-                )
-                conso_id -= wind.maximum_power_forecast.get_forecast(
+                conso_id -= asset.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.temporal.execution_date,
                     start_date=self.parameters.temporal.start_date,
                     end_date=self.parameters.penultimate_date,
                 )
 
             # The difference in consumption is stored in the following time series:
-            delta_conso = self.generate_empty_timeseries()
+            delta_conso = Timeseries.from_index(
+                start_date=self.parameters.temporal.start_date,
+                frequency=self.parameters.temporal.timestep,
+                end_date=self.parameters.penultimate_date,
+                default_value=0,
+            )
 
             for time in time_window:
-                err = self.get_value_zero_if_empty(conso_id, time) - self.get_value_zero_if_empty(conso_day_ahead, time)
+                err = (conso_id.get_value(time) if time in conso_id else 0.0) - (
+                    conso_day_ahead.get_value(time) if time in conso_day_ahead else 0.0
+                )
                 delta_conso.set_value(time, err)
 
             # We can make a price forecast by summing this deltaPrice with the last established price in the MarketClearing:
@@ -134,16 +130,16 @@ class IntradayPriceForecastOrchestrator:
                 last_price = market_area.da_price
                 last_price_str = "DA price"
             else:
-                last_id_price = id_prices[id_prices.time_windowes[len(id_prices) - 1]]
+                last_id_price = id_prices[id_prices.index[len(id_prices) - 1]]
                 if (
                     self.parameters.temporal.start_date not in last_id_price
                     or self.parameters.penultimate_date not in last_id_price
                 ):
                     last_price = market_area.da_price
-                    last_price_str = "DA price"
+                    last_price_str = "Day Ahead price"
                 else:
                     last_price = last_id_price
-                    last_price_str = "ID price"
+                    last_price_str = "Intraday price"
 
             prev_ij = last_price + ratio * delta_conso
 
@@ -186,25 +182,11 @@ class IntradayPriceForecastOrchestrator:
                     prev_ij.set_value(time, prev_ij.get_value(time) * corrective_ratio)
 
             # Saving the result in the Price Forecast Matrix:
-            market_area.id_price_forecast = ForecastingMatrix()
-            market_area.id_price_forecast.add(prev_ij, self.parameters.temporal.execution_date)
+            if market_area.id_price_forecast is None:
+                market_area.id_price_forecast = ForecastingMatrix(
+                    prev_ij.dataframe.rename(columns={"value": self.parameters.temporal.execution_date})
+                )
+            else:
+                market_area.id_price_forecast.add(prev_ij, self.parameters.temporal.execution_date)
             cfg.logger.info(f"The update of {market_area.name} price has been done using {last_price_str}")
         return self.output_dataset
-
-    def generate_empty_timeseries(self) -> Timeseries:
-        return Timeseries.from_index(
-            start_date=self.parameters.temporal.start_date,
-            frequency=self.parameters.temporal.timestep,
-            end_date=self.parameters.penultimate_date,
-            default_value=0,
-        )
-
-    def get_value_zero_if_empty(self, timeseries: Timeseries | None, time: pendulum.DateTime | str) -> float:
-        """
-        Try to get timeseries value, if time series is empty, return 0
-        """
-        value = 0.0
-        if timeseries is not None:
-            if len(timeseries) > 0:
-                value = timeseries.get_value(time)
-        return value

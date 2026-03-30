@@ -1,8 +1,8 @@
 from functools import cached_property
 
 import pendulum
-from pendulum import DateTime
 from pydantic import Field
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.io_utils.section_parameters import DateParameters

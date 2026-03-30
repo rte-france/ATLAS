@@ -609,6 +609,7 @@ class TestAtlasDatasetEq:
         ds2 = AtlasDataset(thermal=[th2])
         assert ds1 == ds2
 
+
 @pytest.fixture()
 def simple_timeseries():
     return Timeseries.from_values(
@@ -742,16 +743,19 @@ class TestDiffOnOtherThanBusinessModel:
         assert AtlasDataset.diff_on_other_than_business_model(simple_timeseries, simple_timeseries) is None
 
     def test_different_timeseries_returns_changed(self):
-        ts1 = Timeseries.from_values(start_date="2024-01-01 00:00:00", frequency="1h", values=[1.0, 2.0],
-                                     timezone="UTC")
-        ts2 = Timeseries.from_values(start_date="2024-01-01 00:00:00", frequency="1h", values=[9.0, 2.0],
-                                     timezone="UTC")
+        ts1 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00", frequency="1h", values=[1.0, 2.0], timezone="UTC"
+        )
+        ts2 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00", frequency="1h", values=[9.0, 2.0], timezone="UTC"
+        )
         assert "changed" in AtlasDataset.diff_on_other_than_business_model(ts1, ts2)
 
     def test_different_custom_object_returns_changed(self):
         class MyObj:
             def __init__(self, v):
                 self.v = v
+
             def __eq__(self, other):
                 return self.v == other.v
 
@@ -762,8 +766,7 @@ class TestDiffOnOtherThanBusinessModel:
             def __eq__(self, other):
                 raise RuntimeError("broken")
 
-        assert (AtlasDataset.diff_on_other_than_business_model(Broken(), Broken()) ==
-                {"error": "Couldn't check diff"})
+        assert AtlasDataset.diff_on_other_than_business_model(Broken(), Broken()) == {"error": "Couldn't check diff"}
 
     def test_none_vs_value_returns_changed(self):
         assert AtlasDataset.diff_on_other_than_business_model(None, 42) is not None
@@ -796,7 +799,6 @@ class TestDiffLists:
         result = AtlasDataset.diff_lists([node, Node(name="node_1")], [node, Node(name="node_2")])
         assert "0" not in result
         assert "1" in result
-
 
 
 @pytest.fixture
@@ -870,14 +872,13 @@ class TestFilterDataset:
         assert len(orders) == 1
         assert orders[0].name == "order_2"
 
+
 def test_filter_equipments_keeps_only_selected():
     t1 = Thermal(name="plant_1")
     t2 = Thermal(name="plant_2")
     t3 = Thermal(name="plant_3")
 
-    dataset = AtlasDataset(
-        thermal=[t1, t2, t3]
-    )
+    dataset = AtlasDataset(thermal=[t1, t2, t3])
 
     filtered = dataset.filter_equipments(["plant_1", "plant_3"])
 
@@ -885,6 +886,7 @@ def test_filter_equipments_keeps_only_selected():
 
     assert set(remaining_names) == {"plant_1", "plant_3"}
     assert "plant_2" not in remaining_names
+
 
 def test_filter_does_not_modify_original_dataset():
     t1 = Thermal(name="plant_1")
