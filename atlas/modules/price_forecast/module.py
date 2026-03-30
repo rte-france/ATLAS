@@ -2,10 +2,10 @@ from loguru import logger
 
 from atlas import AtlasDataset
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForecastInputDataset
-from atlas.modules.price_forecast.price_forecast_orchestrator import PriceForecastOrchestrator
-from atlas.modules.price_forecast.price_forecast_output_dataset import PriceForecastOutputDataset
-from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
+from atlas.modules.price_forecast.input_dataset import PriceForecastInputDataset
+from atlas.modules.price_forecast.orchestrator import PriceForecastOrchestrator
+from atlas.modules.price_forecast.output_dataset import PriceForecastOutputDataset
+from atlas.modules.price_forecast.parameters import PriceForecastParameters
 
 
 class PriceForecastModule(

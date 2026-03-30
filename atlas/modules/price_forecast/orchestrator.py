@@ -3,9 +3,9 @@ import pendulum
 import atlas.config as cfg
 from atlas import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.modules.price_forecast.price_forecast_input_dataset import PriceForecastInputDataset
-from atlas.modules.price_forecast.price_forecast_output_dataset import PriceForecastOutputDataset
-from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
+from atlas.modules.price_forecast.input_dataset import PriceForecastInputDataset
+from atlas.modules.price_forecast.output_dataset import PriceForecastOutputDataset
+from atlas.modules.price_forecast.parameters import PriceForecastParameters
 from atlas.timing import generate_datetimes
 
 

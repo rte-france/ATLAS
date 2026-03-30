@@ -3,7 +3,7 @@ import unittest
 import pendulum
 from pendulum import duration
 
-from atlas.modules.price_forecast.price_forecast_parameters import PriceForecastParameters
+from atlas.modules.price_forecast.parameters import PriceForecastParameters
 
 
 class TestIDPriceForecastParametersDurationValidator(unittest.TestCase):
