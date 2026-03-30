@@ -12,7 +12,7 @@ from __future__ import annotations
 import pickle
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, cast
 
 import pandas as pd
 import pendulum
@@ -265,7 +265,11 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         if index in self.indexes:
             raise KeyError(f"Index {index} already exists in the matrix.")
 
-        df = timeseries.collect() if isinstance(timeseries, LazyTimeseries) else timeseries
+        df = (
+            timeseries.collect()
+            if isinstance(timeseries, LazyTimeseries)
+            else cast(Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict, timeseries)
+        )
         timeseries = Timeseries(df) if not isinstance(timeseries, Timeseries) else timeseries
 
         self.matrix = self.matrix.join(

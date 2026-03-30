@@ -1,6 +1,5 @@
 from functools import cached_property
 
-import pendulum
 from pydantic import Field
 from pydantic_extra_types.pendulum_dt import DateTime
 
@@ -22,11 +21,9 @@ class IntradayPriceForecastParameters(AbstractParameters):
         ge=0,
     )
     execution_date_day_ahead: DateTime = Field(
-        default_factory=lambda: pendulum.datetime(year=2028, month=9, day=26, hour=12),
         description="Reference date from DayAhead market.",
     )
     execution_date_scenarios: DateTime = Field(
-        default_factory=lambda: pendulum.datetime(year=2028, month=7, day=1),
         description="Reference date for the scenarios from price forecast matrix.",
     )
 
