@@ -9,6 +9,8 @@ Module that implements AbstractParameters
 from pathlib import Path
 from typing import TypeVar
 
+from pydantic import ConfigDict
+
 from atlas.io_utils.parameters import Parameters
 
 
@@ -18,6 +20,8 @@ class AbstractParameters(Parameters):
     :param relative_src: Source for the relative path
     :type relative_src: Path
     """
+
+    ConfigDict(arbitrary_types_allowed=True)
 
     relative_src: Path = Path()
 
