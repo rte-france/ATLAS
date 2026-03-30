@@ -12,7 +12,7 @@ class PriceForecastOutputDataset(AbstractModuleOutput[PriceForecastParameters]):
         self.parameters: PriceForecastParameters = copy.deepcopy(parameters)
         self.input_data = input_dataset
 
-        self.market_area: list[MarketAreaIDPF] = copy.deepcopy(input_dataset.market_area)
+        self.market_area: list[MarketAreaIDPF] = input_dataset.market_area
 
     def build_change_sets(self) -> None:
         for market_area in self.input_data.market_area:
