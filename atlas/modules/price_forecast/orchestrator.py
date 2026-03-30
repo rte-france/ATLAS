@@ -52,12 +52,12 @@ class PriceForecastOrchestrator:
             # Create a time series that store the differences in price in two scenarios
             price_high = market_area.price_forecast_high.get_forecast(
                 execution_date=self.parameters.execution_date_scenarios,
-                start_date=self.parameters.start_date,
+                start_date=self.parameters.temporal.start_date,
                 end_date=self.parameters.penultimate_date,
             )
             price_low = market_area.price_forecast_low.get_forecast(
                 execution_date=self.parameters.execution_date_scenarios,
-                start_date=self.parameters.start_date,
+                start_date=self.parameters.temporal.start_date,
                 end_date=self.parameters.penultimate_date,
             )
             price_diff = price_high - price_low
@@ -87,36 +87,36 @@ class PriceForecastOrchestrator:
             for load in load_list:
                 conso_day_ahead -= load.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
-                    start_date=self.parameters.start_date,
+                    start_date=self.parameters.temporal.start_date,
                     end_date=self.parameters.penultimate_date,
                 )
                 conso_id -= load.maximum_power_forecast.get_forecast(
-                    execution_date=self.parameters.execution_date,
-                    start_date=self.parameters.start_date,
+                    execution_date=self.parameters.temporal.execution_date,
+                    start_date=self.parameters.temporal.start_date,
                     end_date=self.parameters.penultimate_date,
                 )
 
             for photovoltaic in solar_list:
                 conso_day_ahead -= photovoltaic.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
-                    start_date=self.parameters.start_date,
+                    start_date=self.parameters.temporal.start_date,
                     end_date=self.parameters.penultimate_date,
                 )
                 conso_id -= photovoltaic.maximum_power_forecast.get_forecast(
-                    execution_date=self.parameters.execution_date,
-                    start_date=self.parameters.start_date,
+                    execution_date=self.parameters.temporal.execution_date,
+                    start_date=self.parameters.temporal.start_date,
                     end_date=self.parameters.penultimate_date,
                 )
 
             for wind in wind_list:
                 conso_day_ahead -= wind.maximum_power_forecast.get_forecast(
                     execution_date=self.parameters.execution_date_day_ahead,
-                    start_date=self.parameters.start_date,
+                    start_date=self.parameters.temporal.start_date,
                     end_date=self.parameters.penultimate_date,
                 )
                 conso_id -= wind.maximum_power_forecast.get_forecast(
-                    execution_date=self.parameters.execution_date,
-                    start_date=self.parameters.start_date,
+                    execution_date=self.parameters.temporal.execution_date,
+                    start_date=self.parameters.temporal.start_date,
                     end_date=self.parameters.penultimate_date,
                 )
 
@@ -135,7 +135,7 @@ class PriceForecastOrchestrator:
             else:
                 last_id_price = id_prices[id_prices.indexes[len(id_prices) - 1]]
                 if (
-                    self.parameters.start_date not in last_id_price
+                    self.parameters.temporal.start_date not in last_id_price
                     or self.parameters.penultimate_date not in last_id_price
                 ):
                     last_price = market_area.da_price
@@ -156,12 +156,12 @@ class PriceForecastOrchestrator:
 
             # Upper cap first
             if (
-                prev_ij.slice(self.parameters.start_date, self.parameters.end_date).max()
+                prev_ij.slice(self.parameters.temporal.start_date, self.parameters.temporal.end_date).max()
                 > self.parameters.intraday_positive_price_cap
             ):
                 corrective_ratio = float(
                     self.parameters.intraday_positive_price_cap
-                    / prev_ij.slice(self.parameters.start_date, self.parameters.end_date).max()
+                    / prev_ij.slice(self.parameters.temporal.start_date, self.parameters.temporal.end_date).max()
                 )
 
                 cfg.logger.info(f"ID price forecasts upper capped in area {market_area.name}")
@@ -171,12 +171,12 @@ class PriceForecastOrchestrator:
 
             # Lower cap
             if (
-                prev_ij.slice(self.parameters.start_date, self.parameters.end_date).min()
+                prev_ij.slice(self.parameters.temporal.start_date, self.parameters.temporal.end_date).min()
                 < self.parameters.intraday_negative_price_cap
             ):
                 corrective_ratio = float(
                     self.parameters.intraday_negative_price_cap
-                    / prev_ij.slice(self.parameters.start_date, self.parameters.end_date).min()
+                    / prev_ij.slice(self.parameters.temporal.start_date, self.parameters.temporal.end_date).min()
                 )
 
                 cfg.logger.info(f"ID price forecasts lower capped in area {market_area.name}")
@@ -186,7 +186,7 @@ class PriceForecastOrchestrator:
 
             # Saving the result in the Price Forecast Matrix:
             market_area.id_price_forecast = ForecastingMatrix()
-            market_area.id_price_forecast.add(prev_ij, self.parameters.execution_date)
+            market_area.id_price_forecast.add(prev_ij, self.parameters.temporal.execution_date)
             cfg.logger.info(f"The update of {market_area.name} price has been done using {last_price_str}")
         return self.output_dataset
 
@@ -200,9 +200,9 @@ class PriceForecastOrchestrator:
         :rtype: list[DateTime]
         """
         orders_time = []
-        if self.parameters.start_date < self.parameters.end_date:
+        if self.parameters.temporal.start_date < self.parameters.temporal.end_date:
             orders_time = generate_datetimes(
-                self.parameters.start_date, self.parameters.penultimate_date, self.parameters.timestep
+                self.parameters.temporal.start_date, self.parameters.penultimate_date, self.parameters.temporal.timestep
             )
         else:
             msg = "The end_date parameter must be posterior to the start_date parameter."
@@ -211,8 +211,8 @@ class PriceForecastOrchestrator:
 
     def generate_empty_timeseries(self) -> Timeseries:
         return Timeseries.from_index(
-            start_date=self.parameters.start_date,
-            frequency=self.parameters.timestep,
+            start_date=self.parameters.temporal.start_date,
+            frequency=self.parameters.temporal.timestep,
             end_date=self.parameters.penultimate_date,
             default_value=0,
         )

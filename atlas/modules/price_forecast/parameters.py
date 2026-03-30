@@ -6,10 +6,12 @@ from pendulum.duration import Duration
 from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.validators import convert_to_duration
+from atlas.io_utils.section_parameters import DateParameters
 
 
 class PriceForecastParameters(AbstractParameters):
+    temporal: DateParameters
+
     intraday_negative_price_cap: int = Field(
         -500,
         description="Lower price cap of the Intraday market, -500 €/MWh in 2024.",
@@ -19,10 +21,6 @@ class PriceForecastParameters(AbstractParameters):
         4000,
         description="Upper price cap of the Intraday market, 4000 €/MWh in 2024.",
         ge=0,
-    )
-    timestep: Duration = Field(
-        default_factory=lambda: duration(minutes=60),
-        description="Time step (in minutes) of the simulated market.",
     )
     execution_date_day_ahead: DateTime = Field(
         default_factory=lambda: pendulum.datetime(year=2028, month=9, day=26, hour=12),
@@ -35,13 +33,4 @@ class PriceForecastParameters(AbstractParameters):
 
     @cached_property
     def penultimate_date(self) -> DateTime:
-        return self.end_date - self.timestep
-
-    @field_validator(
-        "timestep",
-        mode="before",
-    )
-    @classmethod
-    def parse_to_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
+        return self.temporal.end_date - self.temporal.timestep

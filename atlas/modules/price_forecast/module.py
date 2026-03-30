@@ -44,9 +44,9 @@ class PriceForecastModule(
                     f"intraday price forecast missing for Market area {market_area.name} doesn't have negative price cap isn't negative: {parameters.intraday_negative_price_cap}"
                 )
                 return False
-            if parameters.execution_date not in market_area.id_price_forecast:
+            if parameters.temporal.execution_date not in market_area.id_price_forecast:
                 logger.error(
-                    f"Missing timestep {parameters.execution_date} in price forecast for Market area {market_area.name}"
+                    f"Missing timestep {parameters.temporal.execution_date} in price forecast for Market area {market_area.name}"
                 )
                 return False
         return True
