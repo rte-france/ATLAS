@@ -1,8 +1,13 @@
+from pendulum import DateTime
+
 import atlas.config as cfg
 from atlas.enums import LoadType
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
+from atlas.modules.intraday_price_forecast.models.load import LoadIDPF
+from atlas.modules.intraday_price_forecast.models.solar import SolarIDPF
+from atlas.modules.intraday_price_forecast.models.wind import WindIDPF
 from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
 from atlas.timing import generate_datetimes
@@ -154,7 +159,9 @@ class IntradayPriceForecastOrchestrator:
 
         return price_sensitivity_ratio
 
-    def _compute_consumption_delta(self, loads: list, solars: list, winds: list, time_window) -> Timeseries:
+    def _compute_consumption_delta(
+        self, loads: list[LoadIDPF], solars: list[SolarIDPF], winds: list[WindIDPF], time_window
+    ) -> Timeseries:
         """
         Compute the difference between intraday and day-ahead residual consumption forecasts.
 
@@ -235,7 +242,7 @@ class IntradayPriceForecastOrchestrator:
 
         return baseline_price, price_source_label
 
-    def _apply_non_negativity_constraint(self, price_forecast: Timeseries, time_window) -> Timeseries:
+    def _apply_non_negativity_constraint(self, price_forecast: Timeseries, time_window: list[DateTime]) -> Timeseries:
         """
         Ensure all price values are non-negative.
 
@@ -251,7 +258,7 @@ class IntradayPriceForecastOrchestrator:
                 price_forecast.set_value(time, 0.0)
         return price_forecast
 
-    def _apply_price_caps(self, price_forecast: Timeseries, market_area, time_window) -> Timeseries:
+    def _apply_price_caps(self, price_forecast: Timeseries, market_area, time_window: list[DateTime]) -> Timeseries:
         """
         Apply upper and lower price caps to the forecast.
 
@@ -302,7 +309,7 @@ class IntradayPriceForecastOrchestrator:
         cap_value: float,
         cap_type: str,
         market_area_name: str,
-        time_window,
+        time_window: list[DateTime],
         is_upper: bool,
     ) -> Timeseries:
         """
