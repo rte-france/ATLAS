@@ -1,6 +1,7 @@
 dataset_path: tests/dataset/day_ahead_input
 output_dataset_path: workflow-output
 path_from_workflow: false
+export_output: false
 name: workflow
 steps:
   - module: DayAheadOrders
