@@ -12,7 +12,7 @@ class BusinessModel(BaseModel):
 
     name: str = Field(frozen=True)
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __repr__(self):
         return f"{self.__class__.__name__}(name={self.name})"

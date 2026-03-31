@@ -16,6 +16,7 @@ from atlas.modules.intraday_price_forecast.models.wind import WindIDPF
 from atlas.modules.intraday_price_forecast.orchestrator import IntradayPriceForecastOrchestrator
 from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
+from atlas.timing import generate_datetimes
 
 
 @pytest.fixture
@@ -206,8 +207,6 @@ def test_compute_price_sensitivity_ratio(test_parameters, test_input_dataset):
     market_area = test_input_dataset.market_area[0]
     loads, solars, winds = orchestrator._filter_assets_by_market_area(market_area)
 
-    from atlas.timing import generate_datetimes
-
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
     )
@@ -228,8 +227,6 @@ def test_compute_consumption_delta(test_parameters, test_input_dataset):
 
     market_area = test_input_dataset.market_area[0]
     loads, solars, winds = orchestrator._filter_assets_by_market_area(market_area)
-
-    from atlas.timing import generate_datetimes
 
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
@@ -261,8 +258,6 @@ def test_apply_non_negativity_constraint(test_parameters, test_input_dataset):
     """Test applying non-negativity constraint."""
     orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
 
-    from atlas.timing import generate_datetimes
-
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
     )
@@ -283,8 +278,6 @@ def test_apply_non_negativity_constraint(test_parameters, test_input_dataset):
 def test_apply_price_caps_upper(test_parameters, test_input_dataset):
     """Test applying upper price cap."""
     orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
-    from atlas.timing import generate_datetimes
 
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
@@ -308,8 +301,6 @@ def test_apply_price_caps_upper(test_parameters, test_input_dataset):
 def test_apply_price_caps_lower(test_parameters, test_input_dataset):
     """Test applying lower price cap."""
     orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
-    from atlas.timing import generate_datetimes
 
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep

@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from pendulum import Duration
+from pydantic import model_validator
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.models.equipment.thermal import Thermal
@@ -22,3 +23,13 @@ class ThermalDAO(Thermal):
     minimum_stable_power_duration: Duration
     minimum_time_off: Duration
     additional_hours: Duration
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def convert_portfolio(cls, value, handler):
+        if isinstance(value, Thermal):
+            data = dict(value)
+            if value.portfolio:
+                data["portfolio"] = PortfolioDAO(**dict(value.portfolio))
+            return handler(data)
+        return handler(value)

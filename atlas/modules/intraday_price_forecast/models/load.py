@@ -13,7 +13,11 @@ class LoadIDPF(Load):
 
     @model_validator(mode="wrap")
     @classmethod
-    def convert_portfolio(cls, value, handler, info):
+    def convert_portfolio(
+        cls,
+        value,
+        handler,
+    ):
         if isinstance(value, Load):
             data = dict(value)
             if value.portfolio and info.context:

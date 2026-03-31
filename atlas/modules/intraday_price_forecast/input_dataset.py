@@ -12,7 +12,6 @@ class IntradayPriceForecastInputDataset(AbstractDataset[IntradayPriceForecastPar
         self.parameters: IntradayPriceForecastParameters = parameters
         self.input_data = input_data
 
-        # Convert market areas first
         self.market_area: list[MarketAreaIDPF] = [MarketAreaIDPF(**dict(obj)) for obj in input_data.market_area]
 
         context = {"market_area_map": {ma.name: ma for ma in self.market_area}}

@@ -24,9 +24,9 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
     def get_parameters_class(self) -> type[DayAheadOrdersParameters]:
         return DayAheadOrdersParameters
 
-    def import_data(self, raw_data: AtlasDataset, parameters: DayAheadOrdersParameters) -> DayAheadOrdersInputDataset:
+    def import_data(self, input_data: AtlasDataset, parameters: DayAheadOrdersParameters) -> DayAheadOrdersInputDataset:
         """Imports data using business objects and parameters."""
-        return DayAheadOrdersInputDataset(raw_data, parameters)
+        return DayAheadOrdersInputDataset(input_data, parameters)
 
     def validate_data(self, parameters: DayAheadOrdersParameters, input_dataset: DayAheadOrdersInputDataset) -> bool:
         """Validates imported or generated data."""

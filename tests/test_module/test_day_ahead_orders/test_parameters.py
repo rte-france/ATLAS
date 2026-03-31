@@ -19,7 +19,7 @@ def test_default_parameters():
     )
     assert not params.solver.export_lp
     assert not params.solver.use_presolve
-    assert not params.proportional_reserves_penalty
+    assert params.proportional_reserves_penalty
     assert params.automated_unprocured_reserves_penalty == 10000
     assert params.battery_smoothing_factor == 0.1
     assert params.ev_energy_coef == 1.5
