@@ -12,6 +12,7 @@ from typing import TypeVar
 from pydantic import ConfigDict
 
 from atlas.io_utils.parameters import Parameters
+from atlas.io_utils.section_parameters import DateParameters, OutputParameters
 
 
 class AbstractParameters(Parameters):
@@ -24,6 +25,8 @@ class AbstractParameters(Parameters):
     ConfigDict(arbitrary_types_allowed=True)
 
     relative_src: Path = Path()
+    output: OutputParameters = OutputParameters()
+    temporal: DateParameters
 
     def get_path(self, relative_path: Path) -> Path:
         return self.relative_src / relative_path

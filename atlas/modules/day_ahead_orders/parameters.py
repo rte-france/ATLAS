@@ -12,18 +12,11 @@ from pendulum import DateTime
 from pydantic import Field
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.io_utils.section_parameters import (
-    DateParameters,
-    MultiProcessingParameters,
-    OutputParameters,
-    SolverParameters,
-)
+from atlas.io_utils.section_parameters import MultiProcessingParameters, SolverParameters
 
 
 class DayAheadOrdersParameters(AbstractParameters):
-    temporal: DateParameters
     solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
-    output: OutputParameters = OutputParameters()
     multiprocessing: MultiProcessingParameters = MultiProcessingParameters()
 
     proportional_reserves_penalty: bool = Field(
