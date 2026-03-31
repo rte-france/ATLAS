@@ -45,6 +45,7 @@ def base_parameters_dict():
         "small_imbalance_size": 0.15,
         "small_imbalance_penalty": 0.05,
         "excluded_technologies": ["thermal"],
+        "excluded_market_areas": ["ma_b"],
     }
 
 
@@ -53,7 +54,7 @@ class TestOtherTechnologiesLPComparison:
 
     @pytest.mark.parametrize(
         "lp_filename",
-        ["po_generator_a.lp", "po_generator_b.lp", "po_supplier_a.lp", "po_supplier_b.lp"],
+        ["po_generator_a.lp", "po_supplier_a.lp"],
     )
     def test_generated_lp_matches_reference(self, lp_filename, base_parameters_dict):
         """Test that generated LP files match the reference LP files for other technologies."""

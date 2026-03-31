@@ -13,7 +13,7 @@ class IntradayPriceForecastModule(
         IntradayPriceForecastParameters, IntradayPriceForecastInputDataset, IntradayPriceForecastOutputDataset
     ]
 ):
-    def get_parameters_class(self):
+    def get_parameters_class(self) -> type[IntradayPriceForecastParameters]:
         """
         Returns the concrete Parameters class for this module.
 

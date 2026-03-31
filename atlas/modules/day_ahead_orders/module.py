@@ -21,7 +21,7 @@ from atlas.timing import infer_frequency
 
 
 class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrdersInputDataset, DayAheadOrdersOutput]):
-    def get_parameters_class(self):
+    def get_parameters_class(self) -> type[DayAheadOrdersParameters]:
         return DayAheadOrdersParameters
 
     def import_data(self, raw_data: AtlasDataset, parameters: DayAheadOrdersParameters) -> DayAheadOrdersInputDataset:

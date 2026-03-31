@@ -33,7 +33,7 @@ class PortfolioOptimisationModule(
         PortfolioOptimisationOutputDataset,
     ]
 ):
-    def get_parameters_class(self):
+    def get_parameters_class(self) -> type[PortfolioOptimisationParameters]:
         """
         Returns the concrete Parameters class for this module.
 
