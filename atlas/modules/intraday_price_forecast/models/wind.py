@@ -11,11 +11,7 @@ class WindIDPF(Wind):
 
     @model_validator(mode="wrap")
     @classmethod
-    def convert_portfolio(
-        cls,
-        value,
-        handler,
-    ):
+    def convert_portfolio(cls, value, handler, info):
         if isinstance(value, Wind):
             data = dict(value)
             if value.portfolio and info.context:

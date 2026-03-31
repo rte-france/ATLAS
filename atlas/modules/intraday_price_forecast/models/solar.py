@@ -11,11 +11,11 @@ class SolarIDPF(Solar):
 
     @model_validator(mode="wrap")
     @classmethod
-    def convert_portfolio(cls, value, handler):
+    def convert_portfolio(cls, value, handler, info):
         if isinstance(value, Solar):
             data = dict(value)
-            if value.portfolio:
+            if value.portfolio and info.context:
                 # Pass context down to PortfolioIDPF validation
-                data["portfolio"] = PortfolioIDPF.model_validate(value.portfolio)
+                data["portfolio"] = PortfolioIDPF.model_validate(value.portfolio, context=info.context)
             return handler(data)
         return handler(value)

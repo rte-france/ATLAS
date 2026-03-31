@@ -269,7 +269,7 @@ def test_apply_non_negativity_constraint(test_parameters, test_input_dataset):
     ts.set_value(test_parameters.temporal.start_date, -10.0)
     ts.set_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep, 50.0)
 
-    result = orchestrator._apply_non_negativity_constraint(ts, time_window)
+    result = orchestrator._apply_non_negativity_constraint(ts)
 
     assert result.get_value(test_parameters.temporal.start_date) == 0.0
     assert result.get_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep) == 50.0
