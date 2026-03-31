@@ -487,6 +487,18 @@ class OptimisationModel:
         self._objective_direction = None
         self._initialize_solver(self.solver_name)
 
+    def deactivate_constraint(self, constraint_name: str) -> None:
+        """
+        Deactivate a constraint by setting its bounds to (-inf, +inf)
+
+        :param constraint_name: Name of the constraint to deactivate
+        :type constraint_name: str
+        :raises ValueError: If constraint doesn't exist
+        """
+        logger.debug(f"Deactivating constraint '{constraint_name}'")
+        constraint = self.get_constraint(constraint_name)
+        constraint.SetBounds(float("-inf"), float("inf"))
+
     def __repr__(self) -> str:
         """String representation of the model."""
         return f"OptimisationModel(name={self.name},solver={self.solver_name.value})"
