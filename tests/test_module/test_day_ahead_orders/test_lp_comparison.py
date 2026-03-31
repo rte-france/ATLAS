@@ -34,7 +34,7 @@ def base_parameters_dict():
         },
         "solver": {
             "solver_name": "SCIP",
-            "export_lp": False,
+            "export_lp": True,
             "use_presolve": True,
             "duality_gap": 0.0001,
             "timeout": "PT120S",  # ISO 8601 duration format
@@ -62,7 +62,7 @@ def thermal_combination_number(request):
     combination_num = request.param
     combination_name = f"thermal-combination-{combination_num}"
     combination_dir = THERMAL_COMBINATIONS_DIR / combination_name
-    reference_lp = REFERENCE_LP_DIR / f"dao-combination-{combination_num}.lp"
+    reference_lp = REFERENCE_LP_DIR / "thermal" / f"dao-combination-{combination_num}.lp"
 
     if not combination_dir.exists():
         pytest.skip(f"Thermal combination dataset not found: {combination_dir}")

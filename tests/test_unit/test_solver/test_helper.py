@@ -61,12 +61,6 @@ def lp_legacy():
 
 
 @pytest.fixture
-def lp_legacy_match_file():
-    """Path to legacy LP correspondence file."""
-    return TEST_DATA_DIR / "es_battery_lp.lp_correspondance.csv"
-
-
-@pytest.fixture
 def new_lp():
     """Path for new LP file (temporary)."""
     import tempfile
