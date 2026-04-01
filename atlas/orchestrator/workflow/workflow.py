@@ -14,16 +14,17 @@ from typing import Any
 import yaml
 
 from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
 from atlas.config import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.orchestrator.current_input_state import CurrentInputState
+from atlas.orchestrator.handler.cis_handler import CISHandler
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
+from atlas.orchestrator.workflow.step import WorkflowStep
 from atlas.timing import timer
-from atlas.workflow.current_input_state import CurrentInputState
-from atlas.workflow.handler.cis_handler import CISHandler
-from atlas.workflow.parameters import WorkflowParameters
-from atlas.workflow.step import WorkflowStep
 
 
-class Workflow:
+class Workflow(AbstractOrchestrator):
     """A structure for managing the sequential execution of multiple modules through a list of workflow steps.
 
     Each step processes the output of the previous one, starting from the input dataset."""

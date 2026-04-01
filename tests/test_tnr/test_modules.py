@@ -4,9 +4,9 @@ import pytest
 
 from atlas import AtlasDataset, DayAheadOrdersModule, MarketClearingModule, PortfolioOptimisationModule
 from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.orchestrator.current_input_state import CurrentInputState
+from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
-from atlas.workflow.current_input_state import CurrentInputState
-from atlas.workflow.handler.cis_handler import CISHandler
 
 DATA_DIR = Path("tests/test_tnr/data/anonymises_light")
 
