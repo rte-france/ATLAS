@@ -19,7 +19,7 @@ from atlas.modules.day_ahead_orders.models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.models.wind import WindDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.workflow.change_set import AddObject, UpdateObject
+from atlas.orchestrator.change_set import AddObject, UpdateObject
 
 
 class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):

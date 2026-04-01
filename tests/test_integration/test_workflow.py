@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.timing import timer
-from atlas.workflow.workflow import Workflow
 
 WORKFLOW_CONFIG = Path("tests/dataset/parameters/workflow.yml")
 

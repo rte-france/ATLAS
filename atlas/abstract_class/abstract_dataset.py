@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
 from atlas.abstract_class.abstract_parameters import P
-from atlas.workflow.change_set import ChangeSet
+from atlas.orchestrator.change_set import ChangeSet
 
 
 class AbstractDataset(ABC, Generic[P]):

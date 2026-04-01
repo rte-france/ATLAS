@@ -13,9 +13,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.workflow.parameters import WorkflowParameters
-from atlas.workflow.step import WorkflowStep
-from atlas.workflow.workflow import Workflow
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
+from atlas.orchestrator.workflow.step import WorkflowStep
+from atlas.orchestrator.workflow.workflow import Workflow
 
 
 def _make_workflow_step(name="step", output=None):
@@ -202,9 +202,9 @@ class TestWorkflowExecute:
         wf._steps = [step1, step2]
 
         with (
-            patch("atlas.workflow.workflow.AtlasDataset.from_directory", return_value=AtlasDataset()),
-            patch("atlas.workflow.workflow.CISHandler.apply"),
-            patch("atlas.workflow.workflow.CurrentInputState") as MockCIS,
+            patch("atlas.orchestrator.workflow.workflow.AtlasDataset.from_directory", return_value=AtlasDataset()),
+            patch("atlas.orchestrator.workflow.workflow.CISHandler.apply"),
+            patch("atlas.orchestrator.workflow.workflow.CurrentInputState") as MockCIS,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()
@@ -229,8 +229,8 @@ class TestWorkflowExecute:
         wf._steps = [step]
 
         with (
-            patch("atlas.workflow.workflow.AtlasDataset.from_directory", return_value=AtlasDataset()),
-            patch("atlas.workflow.workflow.CurrentInputState") as MockCIS,
+            patch("atlas.orchestrator.workflow.workflow.AtlasDataset.from_directory", return_value=AtlasDataset()),
+            patch("atlas.orchestrator.workflow.workflow.CurrentInputState") as MockCIS,
         ):
             mock_cis_instance = MagicMock()
             mock_cis_instance.filter_dataset.return_value = AtlasDataset()
@@ -258,9 +258,9 @@ class TestWorkflowExecute:
         wf._steps = [step]
 
         with (
-            patch("atlas.workflow.workflow.AtlasDataset.from_directory", return_value=AtlasDataset()),
-            patch("atlas.workflow.workflow.CISHandler.apply") as mock_apply,
-            patch("atlas.workflow.workflow.CurrentInputState") as MockCIS,
+            patch("atlas.orchestrator.workflow.workflow.AtlasDataset.from_directory", return_value=AtlasDataset()),
+            patch("atlas.orchestrator.workflow.workflow.CISHandler.apply") as mock_apply,
+            patch("atlas.orchestrator.workflow.workflow.CurrentInputState") as MockCIS,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()
@@ -374,18 +374,18 @@ class TestWorkflowPathFromWorkflow:
 
         config = tmp_path / "workflow.yaml"
         config.write_text(
-            f"name: test_workflow\n"
-            f"dataset_path: dataset\n"
-            f"output_dataset_path: output\n"
-            f"path_from_workflow: true\n"
-            f"steps: []\n"
+            "name: test_workflow\n"
+            "dataset_path: dataset\n"
+            "output_dataset_path: output\n"
+            "path_from_workflow: true\n"
+            "steps: []\n"
         )
 
         workflow = Workflow.from_file(config)
 
         with (
-            patch("atlas.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir,
-            patch("atlas.workflow.workflow.CurrentInputState"),
+            patch("atlas.orchestrator.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir,
+            patch("atlas.orchestrator.workflow.workflow.CurrentInputState"),
             patch.object(Path, "mkdir", return_value=None),
             patch.object(AtlasDataset, "to_directory"),
         ):
@@ -411,8 +411,8 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow.from_file(config)
 
         with (
-            patch("atlas.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir,
-            patch("atlas.workflow.workflow.CurrentInputState"),
+            patch("atlas.orchestrator.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir,
+            patch("atlas.orchestrator.workflow.workflow.CurrentInputState"),
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_from_dir.return_value = AtlasDataset()
