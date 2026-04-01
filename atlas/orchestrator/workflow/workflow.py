@@ -17,11 +17,11 @@ from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
 from atlas.config import logger
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.timing import timer
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.step import WorkflowStep
+from atlas.timing import timer
 
 
 class Workflow(AbstractOrchestrator):

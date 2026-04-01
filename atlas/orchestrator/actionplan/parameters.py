@@ -25,4 +25,3 @@ class ActionPlanParameters(Parameters):
     name: str | None = None
     tasks: list[ActionPlanTask]
     hooks: list[Hook]
-

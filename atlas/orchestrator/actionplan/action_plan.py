@@ -7,21 +7,13 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import copy
 from pathlib import Path
-from typing import Any
-
-import yaml
 
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
-from atlas.config import logger
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
 from atlas.orchestrator.actionplan.step import ActionPlanStep
-from atlas.orchestrator.handler.cis_handler import CISHandler
-from atlas.orchestrator.current_input_state import CurrentInputState
-from atlas.timing import timer
+
 
 # FIXME this class is similar to Workflow class, common part must be refactored in AbstractOrchestrator class
 class ActionPlan(AbstractOrchestrator):

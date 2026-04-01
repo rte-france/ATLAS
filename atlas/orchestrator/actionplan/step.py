@@ -9,10 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, field_validator, model_validator
-
 from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
+
 
 class ActionPlanStep:
     """
