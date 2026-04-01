@@ -5,13 +5,9 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-import copy
-from typing import cast
-
 import atlas.config as cfg
 from atlas.config import logger
 from atlas.custom_errors import ChangeSetApplicationError
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.change_set import ChangeSet
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.change_set_handler import ChangeSetHandler
@@ -21,6 +17,7 @@ class CISHandler:
     @staticmethod
     def apply(change_sets: list[ChangeSet], cis: CurrentInputState, rollback_on_error: bool = True):
         """Apply a list of change sets to the current input state.
+
 
         :param change_sets: List of change sets to apply
         :type change_set: list[ChangeSet]
@@ -37,9 +34,23 @@ class CISHandler:
         CISHandler._validate_no_duplicates(change_sets)
         logger.debug(f"Applying {len(change_sets)} change sets to CIS")
 
-        # Create backup if rollback is enabled
-        cis_backup = copy.deepcopy(cis.data) if rollback_on_error else None
+        # Use CIS transaction if rollback is enabled
+        if rollback_on_error:
+            with cis.transaction():
+                CISHandler._apply_change_sets(change_sets, cis)
+        else:
+            CISHandler._apply_change_sets(change_sets, cis)
 
+    @staticmethod
+    def _apply_change_sets(change_sets: list[ChangeSet], cis: CurrentInputState) -> None:
+        """Internal method to apply change sets without transaction handling.
+
+        :param change_sets: Ordered list of change sets to apply
+        :type change_sets: list[ChangeSet]
+        :param cis: Current input state to modify
+        :type cis: CurrentInputState
+        :raises ChangeSetApplicationError: If any change set fails to apply
+        """
         try:
             for idx, change_set in enumerate(change_sets):
                 try:
@@ -48,24 +59,15 @@ class CISHandler:
                 except Exception as e:
                     error_msg = f"Failed to apply change set {idx + 1}/{len(change_sets)} ({change_set}): {e}"
                     logger.error(error_msg)
-
-                    if rollback_on_error:
-                        logger.error("Rolling back all changes")
-                        cis.data = cast(AtlasDataset, cis_backup)
-
                     raise ChangeSetApplicationError(error_msg, change_set, e) from e
 
             logger.info(f"Successfully applied {len(change_sets)} change sets to CIS")
 
         except Exception as e:
-            # Catch any unexpected errors
+            # Catch any unexpected errors and re-raise
+            # Transaction will handle rollback if enabled
             error_msg = f"Unexpected error while applying change sets: {type(e).__name__}: {e}"
             logger.error(error_msg)
-
-            if rollback_on_error:
-                logger.error("Rolling back all changes")
-                cis.data = cast(AtlasDataset, cis_backup)
-
             raise
 
     @staticmethod

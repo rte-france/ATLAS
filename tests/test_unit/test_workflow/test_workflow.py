@@ -270,7 +270,8 @@ class TestWorkflowExecute:
 
             wf.execute()
 
-        mock_apply.assert_called_once_with([mock_change_set], mock_cis_instance)
+        # Default rollback_on_step_failure is True
+        mock_apply.assert_called_once_with([mock_change_set], mock_cis_instance, rollback_on_error=True)
 
 
 class TestWorkflowFromFile:

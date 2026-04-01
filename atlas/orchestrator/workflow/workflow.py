@@ -135,29 +135,82 @@ class Workflow(AbstractOrchestrator):
 
         Each step receives as input the output of the previous step.
         The first step receives the workflow's initial dataset.
+
+        If rollback_on_step_failure is enabled, the CIS will be automatically restored
+        to its state before the failed step.
         """
         logger.info(f"Launching workflow : {self.parameters.name}")
         atlas_dataset = AtlasDataset.from_directory(self.workflow_path / self.parameters.dataset_path)
         cis = CurrentInputState(atlas_dataset)
 
-        for step in self.steps:
-            logger.info(f"Launching step :'{step.name}'")
-            input_dataset = cis.filter_dataset(step.module.get_business_model_class_used(), step.module.get_filters())
+        # Create initial snapshot if requested
+        if self.parameters.create_step_snapshots:
+            cis.create_snapshot("workflow_initial")
+            logger.debug("Created initial workflow snapshot")
 
-            with timer() as t:
-                step.run(input_dataset)
-            logger.info(f"Step '{step.name}' completed in {t()} seconds")
+        for step_idx, step in enumerate(self.steps):
+            logger.info(f"Launching step :'{step.name}' ({step_idx + 1}/{len(self.steps)})")
 
-            output_dataset = step.output_dataset
+            # Create snapshot before step if requested
+            if self.parameters.create_step_snapshots:
+                snapshot_name = f"before_{step.name}"
+                cis.create_snapshot(snapshot_name)
+                logger.debug(f"Created snapshot: {snapshot_name}")
 
-            if not output_dataset:
-                raise RuntimeError(f"Step {step.name} did not produce output_dataset")
+            # Execute step - CISHandler will handle rollback internally
+            try:
+                self._execute_step(step, cis)
+            except Exception as e:
+                logger.error(f"Step '{step.name}' failed: {e}")
+                if self.parameters.rollback_on_step_failure:
+                    logger.error(f"CIS automatically rolled back to state before '{step.name}'")
 
-            logger.debug("Applying all change sets to the current input state")
-            CISHandler.apply(output_dataset.change_sets, cis)
-            if step.parameters.output.export_output_dataset:
-                cis.data.to_directory(step.parameters.get_path(step.parameters.output.output_dir) / "output_dataset")
+                # Show available snapshots for debugging
+                if self.parameters.create_step_snapshots:
+                    logger.info(f"Available snapshots: {cis.list_snapshots()}")
+
+                raise RuntimeError(f"Workflow failed at step '{step.name}'") from e
+
+            # Create snapshot after successful step if requested
+            if self.parameters.create_step_snapshots:
+                snapshot_name = f"after_{step.name}"
+                cis.create_snapshot(snapshot_name)
+                logger.debug(f"Created snapshot: {snapshot_name}")
 
             logger.info(f"Finishing step :'{step.name}'")
 
+        # Export final workflow output
+        logger.info("Exporting final workflow output")
         cis.to_directory(self.workflow_path / self.parameters.output_dir / "workflow_output")
+
+        # Show completion message
+        logger.info(f"Workflow '{self.parameters.name}' completed successfully")
+
+        if self.parameters.create_step_snapshots:
+            logger.info(f"Snapshots created: {cis.list_snapshots()}")
+
+    def _execute_step(self, step: WorkflowStep, cis: CurrentInputState) -> None:
+        """Execute a single workflow step.
+
+        :param step: The workflow step to execute
+        :type step: WorkflowStep
+        :param cis: The current input state
+        :type cis: CurrentInputState
+        """
+        input_dataset = cis.filter_dataset(step.module.get_business_model_class_used(), step.module.get_filters())
+
+        with timer() as t:
+            step.run(input_dataset)
+        logger.info(f"Step '{step.name}' completed in {t()} seconds")
+
+        output_dataset = step.output_dataset
+
+        if not output_dataset:
+            raise RuntimeError(f"Step {step.name} did not produce output_dataset")
+
+        logger.debug("Applying all change sets to the current input state")
+        # CISHandler will use transaction internally based on rollback_on_step_failure parameter
+        CISHandler.apply(output_dataset.change_sets, cis, rollback_on_error=self.parameters.rollback_on_step_failure)
+
+        if step.parameters.output.export_output_dataset:
+            cis.to_directory(step.parameters.get_path(step.parameters.output.output_dir) / "output_dataset")
