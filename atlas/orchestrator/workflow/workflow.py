@@ -16,7 +16,6 @@ import yaml
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
 from atlas.config import logger
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
@@ -29,16 +28,13 @@ class Workflow(AbstractOrchestrator):
 
     Each step processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, parameters: WorkflowParameters, workflow_path: Path):
+    def __init__(self, parameters: WorkflowParameters):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
         :type parameters: WorkflowParameters
-        :param workflow_path: Path.
-        :type workflow_path: WorkflowParameters
         """
         self.parameters = parameters
-        self.workflow_path = workflow_path
         self.generic_module_parameters: dict[str, Any] = {}
         self._steps: list[WorkflowStep] = []
 
@@ -49,12 +45,12 @@ class Workflow(AbstractOrchestrator):
     def from_file(cls, file_path: str | Path) -> Workflow:
         file_path = Path(file_path)
         parameters = WorkflowParameters.from_file(file_path=file_path)
-        workflow_path = file_path.parent if parameters.path_from_workflow else Path()
-        return cls(parameters=parameters, workflow_path=workflow_path)
+        parameters._workflow_path = file_path.parent
+        return cls(parameters=parameters)
 
     def build_generic_module_parameters(self):
         if self.parameters.parameters_path:
-            with open(self.workflow_path / self.parameters.parameters_path) as file:
+            with open(self.parameters.resolve_path(self.parameters.parameters_path)) as file:
                 self.generic_module_parameters = yaml.safe_load(file)
 
     @staticmethod
@@ -82,11 +78,11 @@ class Workflow(AbstractOrchestrator):
 
         for step in self.parameters.steps:
             parameters = Workflow.build_module_parameters(
-                self.generic_module_parameters, self.workflow_path / step.parameters_path
+                self.generic_module_parameters, self.parameters.resolve_path(step.parameters_path)
             )
             if "output" not in parameters:
                 parameters["output"] = {}
-            parameters["output"]["output_dir"] = self.workflow_path / self.parameters.output_dir / step.name
+            parameters["output"]["output_dir"] = self.parameters.resolve_path(self.parameters.output_dir) / step.name
             workflow_step = WorkflowStep(step.name, step.module.value, parameters)
             self.add_step(workflow_step)
 
@@ -127,7 +123,7 @@ class Workflow(AbstractOrchestrator):
         step_count = len(self._steps)
         return f"Workflow '{self.parameters.name}' ({step_count} step{'s' if step_count != 1 else ''})"
 
-    def execute(self) -> AtlasDataset:
+    def execute(self) -> CurrentInputState:
         """
         Execute the workflow
 
@@ -140,7 +136,7 @@ class Workflow(AbstractOrchestrator):
         to its state before the failed step.
         """
         logger.info(f"Launching workflow : {self.parameters.name}")
-        cis = CurrentInputState.from_directory(self.workflow_path / self.parameters.dataset_path)
+        cis = CurrentInputState.from_directory(self.parameters.resolve_path(self.parameters.dataset_path))
 
         # Create initial snapshot if requested
         if self.parameters.create_step_snapshots:
@@ -175,15 +171,14 @@ class Workflow(AbstractOrchestrator):
         logger.info("Exporting final workflow output")
 
         if self.parameters.export_output:
-            cis.to_directory(self.workflow_path / self.parameters.output_dir / "workflow_output")
+            cis.to_directory(self.parameters.resolve_path(self.parameters.output_dir) / "workflow_output")
 
-        # Show completion message
         logger.info(f"Workflow '{self.parameters.name}' completed successfully")
 
         if self.parameters.create_step_snapshots:
             logger.info(f"Snapshots created: {cis.list_snapshots()}")
 
-        return cis.data
+        return cis
 
     def _execute_step(self, step: WorkflowStep, cis: CurrentInputState):
         """Execute a single workflow step.
@@ -209,4 +204,4 @@ class Workflow(AbstractOrchestrator):
         CISHandler.apply(output_dataset.change_sets, cis, rollback_on_error=self.parameters.rollback_on_step_failure)
 
         if step.parameters.output.export_output_dataset:
-            cis.to_directory(step.parameters.get_path(step.parameters.output.output_dir) / step.name / "output_dataset")
+            cis.to_directory(self.parameters.resolve_path(step.parameters.output.output_dir) / "output_dataset")

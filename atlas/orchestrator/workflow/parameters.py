@@ -25,6 +25,8 @@ class WorkflowParameters(Parameters):
     :type rollback_on_step_failure: bool
     :param create_step_snapshots: If True, create CIS snapshots before each step for debugging
     :type create_step_snapshots: bool
+    :param path_from_workflow: If True, resolve relative paths from workflow file location
+    :type path_from_workflow: bool
     """
 
     name: str | None = None
@@ -37,3 +39,30 @@ class WorkflowParameters(Parameters):
     rollback_on_step_failure: bool = True
     create_step_snapshots: bool = False
     export_output: bool = True
+
+    _workflow_path: Path = Path()
+
+    @property
+    def base_path(self) -> Path:
+        """Returns the workflow base path if path_from_workflow is True, otherwise empty Path.
+
+        This allows paths in parameters to be either:
+        - Relative (resolved from workflow file location if path_from_workflow=True)
+        - Absolute (used as-is regardless of path_from_workflow)
+
+        :return: Base path for resolving relative paths
+        :rtype: Path
+        """
+        return self._workflow_path if self.path_from_workflow else Path()
+
+    def resolve_path(self, path: Path) -> Path:
+        """Resolve a path based on path_from_workflow setting.
+
+        :param path: Path to resolve (can be relative or absolute)
+        :type path: Path
+        :return: Resolved path (absolute paths returned as-is, relative paths resolved from base_path)
+        :rtype: Path
+        """
+        if path.is_absolute():
+            return path
+        return self.base_path / path
