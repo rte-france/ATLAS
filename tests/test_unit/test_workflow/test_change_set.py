@@ -10,7 +10,7 @@ import pytest
 from atlas import MarketArea, Order
 from atlas.enums import BusinessModelName
 from atlas.models.business_model import BusinessModel
-from atlas.orchestrator.workflow import AddObject, ChangeSet, DeleteObject, UpdateObject
+from atlas.orchestrator.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
 
 
 class _ConcreteChangeSet(ChangeSet):

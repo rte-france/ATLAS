@@ -1,8 +1,8 @@
 import json
 import os
 
-import pytest
 import polars as pl
+import pytest
 
 import atlas.config as cfg
 from atlas import AtlasDataset
@@ -10,7 +10,7 @@ from atlas.config import EQUIPMENT_MODELS
 from atlas.io_utils.utils import to_snake_case
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
-from atlas.orchestrator.workflow import CurrentInputState
+from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from tests.test_module.test_market_clearing.test_market_clearing_local.test_market_data_market_clearing import (
     read_expected_data,
@@ -20,7 +20,7 @@ from tests.test_module.test_market_clearing.test_market_clearing_local.test_mark
 def retrieve_accepted_powers_from_json(
     optim_variable_path: str, market_area_mapping: dict[str, str], orders_mapping: dict[tuple[str, str], str]
 ) -> dict[tuple[str, str], float]:
-    with open(optim_variable_path, "r") as f:
+    with open(optim_variable_path) as f:
         optim_variables = json.load(f)
         accepted_powers = {}
         for area_id, balances in enumerate(optim_variables["accepted_powers"]):
@@ -35,7 +35,7 @@ def retrieve_accepted_powers_from_json(
 def retrieve_market_prices_from_json(
     optim_variable_path: str, market_area_mapping: dict[str, str]
 ) -> dict[tuple[str, int], float]:
-    with open(optim_variable_path, "r") as f:
+    with open(optim_variable_path) as f:
         optim_variables = json.load(f)
         market_prices_dict = {}
         for time_index, market_prices in enumerate(optim_variables["groups_prices"]):
@@ -51,7 +51,7 @@ def retrieve_market_prices_from_json(
 def retrieve_local_balances_from_json(
     optim_variable_path: str, market_area_mapping: dict[str, str]
 ) -> dict[tuple[str, int], float]:
-    with open(optim_variable_path, "r") as f:
+    with open(optim_variable_path) as f:
         optim_variables = json.load(f)
         local_balances = {}
         for time_index, balances in enumerate(optim_variables["local_balances"]):
@@ -63,7 +63,7 @@ def retrieve_local_balances_from_json(
 def retrieve_border_exchanges_from_json(
     optim_variable_path: str, border_mapping: dict[str, str]
 ) -> dict[tuple[str, int], float]:
-    with open(optim_variable_path, "r") as f:
+    with open(optim_variable_path) as f:
         optim_variables = json.load(f)
         borders = {}
         for time_index, balances in enumerate(optim_variables["border_exchanges"]):

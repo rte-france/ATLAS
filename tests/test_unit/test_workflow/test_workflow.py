@@ -14,8 +14,8 @@ import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
-from atlas.orchestrator.workflow import WorkflowStep
-from atlas.orchestrator.workflow import Workflow
+from atlas.orchestrator.workflow.step import WorkflowStep
+from atlas.orchestrator.workflow.workflow import Workflow
 
 
 def _make_workflow_step(name="step", output=None):
@@ -374,11 +374,11 @@ class TestWorkflowPathFromWorkflow:
 
         config = tmp_path / "workflow.yaml"
         config.write_text(
-            f"name: test_workflow\n"
-            f"dataset_path: dataset\n"
-            f"output_dataset_path: output\n"
-            f"path_from_workflow: true\n"
-            f"steps: []\n"
+            "name: test_workflow\n"
+            "dataset_path: dataset\n"
+            "output_dataset_path: output\n"
+            "path_from_workflow: true\n"
+            "steps: []\n"
         )
 
         workflow = Workflow.from_file(config)

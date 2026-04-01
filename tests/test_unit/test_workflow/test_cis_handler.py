@@ -7,8 +7,8 @@ from atlas.custom_errors import ChangeSetApplicationError
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.models.market.order import Order
-from atlas.orchestrator.workflow import AddObject, DeleteObject, UpdateObject
-from atlas.orchestrator.workflow import CurrentInputState
+from atlas.orchestrator.change_set import AddObject, DeleteObject, UpdateObject
+from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 
 
