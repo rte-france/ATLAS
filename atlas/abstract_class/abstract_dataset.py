@@ -20,8 +20,7 @@ class AbstractDataset(ABC, Generic[P]):
 
 
 class AbstractModuleOutput(AbstractDataset[P]):
-    def __init__(self):
-        self.change_sets: list[ChangeSet] = []
+    change_sets: list[ChangeSet] = []
 
     @abstractmethod
     def build_change_sets(self) -> None:

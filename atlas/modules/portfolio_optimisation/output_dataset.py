@@ -26,10 +26,8 @@ class PortfolioOptimisationOutputDataset(AbstractModuleOutput[PortfolioOptimisat
         optimisation_results: dict[str, PortfolioOptimisationResult],
         input_dataset: PortfolioOptimisationInputDataset,
     ):
-        super().__init__()
         self.optimisation_results = optimisation_results
         self.parameters = parameters
-        self.input_dataset = input_dataset
 
     def build_change_sets(self) -> None:
         """Run in-place mutations then export each modified object as an UpdateObject changeset."""

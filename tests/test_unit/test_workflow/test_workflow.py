@@ -6,6 +6,7 @@ This file is part of the ATLAS project.
 
 Unit tests for Workflow.
 """
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -325,8 +326,8 @@ class TestWorkflowRepresentation:
         assert "Workflow 'test_workflow'" in result
         assert "1 step" in result
 
-class TestWorkflowPathFromWorkflow:
 
+class TestWorkflowPathFromWorkflow:
     def test_workflow_path_set_to_parent_when_path_from_workflow_true(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
@@ -382,10 +383,12 @@ class TestWorkflowPathFromWorkflow:
 
         workflow = Workflow.from_file(config)
 
-        with patch("atlas.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir, \
-             patch("atlas.workflow.workflow.CurrentInputState"), \
-             patch.object(Path, "mkdir", return_value=None), \
-             patch.object(AtlasDataset, "to_directory"):
+        with (
+            patch("atlas.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir,
+            patch("atlas.workflow.workflow.CurrentInputState"),
+            patch.object(Path, "mkdir", return_value=None),
+            patch.object(AtlasDataset, "to_directory"),
+        ):
             mock_from_dir.return_value = AtlasDataset()
             workflow.execute()
             mock_from_dir.assert_called_once_with(tmp_path / "dataset")
@@ -407,9 +410,11 @@ class TestWorkflowPathFromWorkflow:
 
         workflow = Workflow.from_file(config)
 
-        with patch("atlas.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir, \
-             patch("atlas.workflow.workflow.CurrentInputState"), \
-             patch.object(AtlasDataset, "to_directory"):
+        with (
+            patch("atlas.workflow.workflow.AtlasDataset.from_directory") as mock_from_dir,
+            patch("atlas.workflow.workflow.CurrentInputState"),
+            patch.object(AtlasDataset, "to_directory"),
+        ):
             mock_from_dir.return_value = AtlasDataset()
             workflow.execute()
             mock_from_dir.assert_called_once_with(Path() / dataset_dir)

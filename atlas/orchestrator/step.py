@@ -18,6 +18,7 @@ from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 
+
 class ModuleRegistry(Enum):
     """Registry mapping module names to their implementation classes."""
 

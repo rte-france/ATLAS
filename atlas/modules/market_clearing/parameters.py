@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pathlib import Path
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enums import Enum, Product
@@ -84,10 +84,9 @@ class MarketClearingParameters(AbstractParameters):
     :type market_area_names: str | list[str]
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     temporal: DateParameters
-    solver: SolverParameters = Field(default_factory=lambda: SolverParameters())  # type: ignore[call-arg, arg-type]
-    output: OutputParameters = Field(default_factory=OutputParameters)
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
+    output: OutputParameters = OutputParameters()
 
     price_modifier_lambda_1: float = Field(
         0, description="Price modifier that allows to alter prices for a better optimization : default value is 0"

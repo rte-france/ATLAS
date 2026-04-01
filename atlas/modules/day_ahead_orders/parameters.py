@@ -9,7 +9,7 @@ from functools import cached_property
 from pathlib import Path
 
 from pendulum import DateTime
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.io_utils.section_parameters import (
@@ -21,12 +21,10 @@ from atlas.io_utils.section_parameters import (
 
 
 class DayAheadOrdersParameters(AbstractParameters):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
     temporal: DateParameters
-    solver: SolverParameters = Field(default_factory=lambda: SolverParameters())  # type: ignore[call-arg, arg-type]
-    output: OutputParameters = Field(default_factory=OutputParameters)
-    multiprocessing: MultiProcessingParameters = Field(default_factory=MultiProcessingParameters)
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
+    output: OutputParameters = OutputParameters()
+    multiprocessing: MultiProcessingParameters = MultiProcessingParameters()
 
     proportional_reserves_penalty: bool = Field(
         True,

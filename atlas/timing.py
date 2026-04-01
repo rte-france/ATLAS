@@ -141,7 +141,7 @@ def build_datetime(dt: str | datetime | pendulum.DateTime, date_format="YYYY-MM-
     if isinstance(dt, datetime):
         return pendulum.instance(dt)
     if isinstance(dt, pendulum.DateTime):
-        return dt
+        return pendulum.parse(dt.to_iso8601_string())
     raise TypeError(f"Unsupported type for dt: {type(dt)}. Expected str, datetime, or pendulum.DateTime.")
 
 

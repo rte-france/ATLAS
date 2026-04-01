@@ -11,11 +11,13 @@ from pathlib import Path
 from typing import Self
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class Parameters(BaseModel):
     """A class to parse parameters from a YAML or JSON file."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> Self:

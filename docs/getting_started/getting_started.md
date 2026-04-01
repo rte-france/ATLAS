@@ -14,9 +14,8 @@ This project is under development. There is no public release yet.
 Clone the repository and set up your environment:
 
 ```bash
-git clone https://github.com/rte-france/ATLAS.git
-cd ATLAS
-uv sync
+git clone https://github.com/rte-france/ATLAS.git && cd ATLAS
+uv sync --all-groups
 ```
 
 ### Future Installation (Planned)
