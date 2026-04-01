@@ -4,14 +4,11 @@ from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 
 from enum import Enum
-from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, field_validator, model_validator
 
-from atlas import AtlasDataset
-from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.abstract_class.abstract_module import AbstractModule
+
 
 class ModuleRegistry(Enum):
     """Registry mapping module names to their implementation classes."""
