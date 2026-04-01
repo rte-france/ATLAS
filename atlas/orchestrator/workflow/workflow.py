@@ -144,7 +144,7 @@ class Workflow(AbstractOrchestrator):
 
         # Create initial snapshot if requested
         if self.parameters.create_step_snapshots:
-            cis.create_snapshot("workflow_initial")
+            cis.create_snapshot("workflow_input")
             logger.debug("Created initial workflow snapshot")
 
         for step_idx, step in enumerate(self.steps):
@@ -152,7 +152,7 @@ class Workflow(AbstractOrchestrator):
 
             # Create snapshot before step if requested
             if self.parameters.create_step_snapshots:
-                snapshot_name = f"before_{step.name}"
+                snapshot_name = f"input_{step.name}"
                 cis.create_snapshot(snapshot_name)
                 logger.debug(f"Created snapshot: {snapshot_name}")
 
@@ -168,12 +168,6 @@ class Workflow(AbstractOrchestrator):
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
 
                 raise RuntimeError(f"Workflow failed at step '{step.name}'") from e
-
-            # Create snapshot after successful step if requested
-            if self.parameters.create_step_snapshots:
-                snapshot_name = f"after_{step.name}"
-                cis.create_snapshot(snapshot_name)
-                logger.debug(f"Created snapshot: {snapshot_name}")
 
             logger.info(f"Finishing step :'{step.name}'")
 
@@ -215,4 +209,4 @@ class Workflow(AbstractOrchestrator):
         CISHandler.apply(output_dataset.change_sets, cis, rollback_on_error=self.parameters.rollback_on_step_failure)
 
         if step.parameters.output.export_output_dataset:
-            cis.to_directory(step.parameters.get_path(step.parameters.output.output_dir) / "output_dataset")
+            cis.to_directory(step.parameters.get_path(step.parameters.output.output_dir) / step.name / "output_dataset")
