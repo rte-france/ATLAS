@@ -26,6 +26,11 @@ class CurrentInputState:
         """Write the current input state to a directory."""
         self.data.to_directory(path)
 
+    @classmethod
+    def from_directory(cls, path: str | Path) -> CurrentInputState:
+        """Load the current input state from a directory."""
+        return cls(AtlasDataset.from_directory(path))
+
     def filter_dataset(
         self,
         included_types: Iterable[str | BusinessModelName] = (),

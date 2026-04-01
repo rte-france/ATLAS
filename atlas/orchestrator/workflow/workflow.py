@@ -127,7 +127,7 @@ class Workflow(AbstractOrchestrator):
         step_count = len(self._steps)
         return f"Workflow '{self.parameters.name}' ({step_count} step{'s' if step_count != 1 else ''})"
 
-    def execute(self) -> None:
+    def execute(self) -> AtlasDataset:
         """
         Execute the workflow
 
@@ -140,8 +140,7 @@ class Workflow(AbstractOrchestrator):
         to its state before the failed step.
         """
         logger.info(f"Launching workflow : {self.parameters.name}")
-        atlas_dataset = AtlasDataset.from_directory(self.workflow_path / self.parameters.dataset_path)
-        cis = CurrentInputState(atlas_dataset)
+        cis = CurrentInputState.from_directory(self.workflow_path / self.parameters.dataset_path)
 
         # Create initial snapshot if requested
         if self.parameters.create_step_snapshots:
@@ -157,7 +156,6 @@ class Workflow(AbstractOrchestrator):
                 cis.create_snapshot(snapshot_name)
                 logger.debug(f"Created snapshot: {snapshot_name}")
 
-            # Execute step - CISHandler will handle rollback internally
             try:
                 self._execute_step(step, cis)
             except Exception as e:
@@ -181,7 +179,9 @@ class Workflow(AbstractOrchestrator):
 
         # Export final workflow output
         logger.info("Exporting final workflow output")
-        cis.to_directory(self.workflow_path / self.parameters.output_dir / "workflow_output")
+
+        if self.parameters.export_output:
+            cis.to_directory(self.workflow_path / self.parameters.output_dir / "workflow_output")
 
         # Show completion message
         logger.info(f"Workflow '{self.parameters.name}' completed successfully")
@@ -189,7 +189,9 @@ class Workflow(AbstractOrchestrator):
         if self.parameters.create_step_snapshots:
             logger.info(f"Snapshots created: {cis.list_snapshots()}")
 
-    def _execute_step(self, step: WorkflowStep, cis: CurrentInputState) -> None:
+        return cis.data
+
+    def _execute_step(self, step: WorkflowStep, cis: CurrentInputState):
         """Execute a single workflow step.
 
         :param step: The workflow step to execute
