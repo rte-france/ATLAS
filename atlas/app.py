@@ -1,11 +1,13 @@
 import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
+from typing import cast
 
 import typer
 from rich import print as rprint
 
 import atlas
+from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.config import logger
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.orchestrator.current_input_state import CurrentInputState
@@ -82,8 +84,10 @@ def run(
             with timer() as t:
                 cis = CurrentInputState.from_directory(dataset_path)
                 module = module_class()
-                parameters = module.get_parameters_class().from_file(config_path)
+                parameters = cast(AbstractParameters, module.get_parameters_class()).from_file(config_path)
+
                 output_dataset = module.run(cis.data, parameters)
+
                 if parameters.output.export_output_dataset:
                     CISHandler.apply(output_dataset.change_sets, cis)
                     cis.to_directory(parameters.get_path(parameters.output.output_dir) / "output_dataset")
