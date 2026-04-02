@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from atlas.io_utils.section_parameters import DateParameters
+from atlas.io_utils.parameters import DateParameters
 
 
 def test_valid_dates():

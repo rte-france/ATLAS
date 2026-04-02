@@ -4,14 +4,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pathlib import Path
-
 import pytest
 from pendulum import DateTime, Duration
 from pydantic import ValidationError
 
 from atlas.enums import SolverEnum
-from atlas.io_utils.section_parameters import DateParameters, SolverParameters
+from atlas.io_utils.parameters import DateParameters, SolverParameters
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
 

@@ -4,7 +4,7 @@ from pydantic import Field
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.io_utils.section_parameters import DateParameters, OutputParameters
+from atlas.io_utils.parameters import DateParameters, OutputParameters
 
 
 class IntradayPriceForecastParameters(AbstractParameters):

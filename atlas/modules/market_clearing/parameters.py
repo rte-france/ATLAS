@@ -10,7 +10,7 @@ from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enums import Enum, Product
-from atlas.io_utils.section_parameters import DateParameters, OutputParameters, SolverParameters
+from atlas.io_utils.parameters import DateParameters, OutputParameters, SolverParameters
 
 
 class ExchangeConstraintsType(str, Enum):

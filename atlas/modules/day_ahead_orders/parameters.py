@@ -12,7 +12,7 @@ from pendulum import DateTime
 from pydantic import Field
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.io_utils.section_parameters import (
+from atlas.io_utils.parameters import (
     DateParameters,
     MultiProcessingParameters,
     OutputParameters,

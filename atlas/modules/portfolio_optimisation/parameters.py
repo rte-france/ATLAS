@@ -14,7 +14,7 @@ from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enums import MarketType, StorageType, ThermalStrategy
-from atlas.io_utils.section_parameters import (
+from atlas.io_utils.parameters import (
     DateParameters,
     MultiProcessingParameters,
     OutputParameters,
