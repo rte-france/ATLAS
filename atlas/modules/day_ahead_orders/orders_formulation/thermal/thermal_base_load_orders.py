@@ -111,9 +111,11 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         # Compute T_traceback
         T_traceback = int(max(T_on + T_start, T_off + T_stop)) + 1
 
-        extended_start_date = self.parameters.start_date - T_traceback * self.parameters.timestep
-        extended_end_date = self.parameters.end_date + T_traceback * self.parameters.timestep
-        extended_time_frame = generate_datetimes(extended_start_date, extended_end_date, self.parameters.timestep)
+        extended_start_date = self.parameters.temporal.start_date - T_traceback * self.parameters.temporal.timestep
+        extended_end_date = self.parameters.temporal.end_date + T_traceback * self.parameters.temporal.timestep
+        extended_time_frame = generate_datetimes(
+            extended_start_date, extended_end_date, self.parameters.temporal.timestep
+        )
 
         # Initialize the output time series
         states_sequence = DAOTimeseries(
