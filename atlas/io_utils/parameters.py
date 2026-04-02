@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Self
 
 import yaml
-from pendulum import DateTime, Duration
+from pendulum import Duration
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import SolverEnum
 from atlas.validators import convert_to_duration

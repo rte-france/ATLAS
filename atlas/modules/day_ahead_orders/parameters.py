@@ -13,17 +13,14 @@ from pydantic import Field
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.io_utils.parameters import (
-    DateParameters,
     MultiProcessingParameters,
-    OutputParameters,
     SolverParameters,
 )
 
 
 class DayAheadOrdersParameters(AbstractParameters):
-    temporal: DateParameters
-    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
-    output: OutputParameters = OutputParameters()
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg]
+
     multiprocessing: MultiProcessingParameters = MultiProcessingParameters()
 
     proportional_reserves_penalty: bool = Field(

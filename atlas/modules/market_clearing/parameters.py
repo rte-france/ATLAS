@@ -10,7 +10,7 @@ from pydantic import Field, field_validator
 
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enums import Enum, Product
-from atlas.io_utils.parameters import DateParameters, OutputParameters, SolverParameters
+from atlas.io_utils.parameters import SolverParameters
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -84,9 +84,7 @@ class MarketClearingParameters(AbstractParameters):
     :type market_area_names: str | list[str]
     """
 
-    temporal: DateParameters
     solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
-    output: OutputParameters = OutputParameters()
 
     price_modifier_lambda_1: float = Field(
         0, description="Price modifier that allows to alter prices for a better optimization : default value is 0"

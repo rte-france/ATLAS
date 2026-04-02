@@ -15,9 +15,7 @@ from pydantic_extra_types.pendulum_dt import Duration
 from atlas.abstract_class.abstract_parameters import AbstractParameters
 from atlas.enums import MarketType, StorageType, ThermalStrategy
 from atlas.io_utils.parameters import (
-    DateParameters,
     MultiProcessingParameters,
-    OutputParameters,
     SolverParameters,
 )
 from atlas.timing import generate_datetimes
@@ -27,9 +25,7 @@ from atlas.validators import convert_to_duration
 class PortfolioOptimisationParameters(AbstractParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
-    temporal: DateParameters
-    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
-    output: OutputParameters = OutputParameters()
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg]
     multiprocessing: MultiProcessingParameters = MultiProcessingParameters()
 
     is_portfolio_bidding: bool = Field(
