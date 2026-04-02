@@ -609,6 +609,7 @@ class TestAtlasDatasetEq:
         ds2 = AtlasDataset(thermal=[th2])
         assert ds1 == ds2
 
+
 @pytest.fixture()
 def simple_timeseries():
     return Timeseries.from_values(
@@ -742,16 +743,19 @@ class TestDiffOnOtherThanBusinessModel:
         assert AtlasDataset.diff_on_other_than_business_model(simple_timeseries, simple_timeseries) is None
 
     def test_different_timeseries_returns_changed(self):
-        ts1 = Timeseries.from_values(start_date="2024-01-01 00:00:00", frequency="1h", values=[1.0, 2.0],
-                                     timezone="UTC")
-        ts2 = Timeseries.from_values(start_date="2024-01-01 00:00:00", frequency="1h", values=[9.0, 2.0],
-                                     timezone="UTC")
+        ts1 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00", frequency="1h", values=[1.0, 2.0], timezone="UTC"
+        )
+        ts2 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00", frequency="1h", values=[9.0, 2.0], timezone="UTC"
+        )
         assert "changed" in AtlasDataset.diff_on_other_than_business_model(ts1, ts2)
 
     def test_different_custom_object_returns_changed(self):
         class MyObj:
             def __init__(self, v):
                 self.v = v
+
             def __eq__(self, other):
                 return self.v == other.v
 
@@ -762,8 +766,7 @@ class TestDiffOnOtherThanBusinessModel:
             def __eq__(self, other):
                 raise RuntimeError("broken")
 
-        assert (AtlasDataset.diff_on_other_than_business_model(Broken(), Broken()) ==
-                {"error": "Couldn't check diff"})
+        assert AtlasDataset.diff_on_other_than_business_model(Broken(), Broken()) == {"error": "Couldn't check diff"}
 
     def test_none_vs_value_returns_changed(self):
         assert AtlasDataset.diff_on_other_than_business_model(None, 42) is not None
@@ -796,3 +799,102 @@ class TestDiffLists:
         result = AtlasDataset.diff_lists([node, Node(name="node_1")], [node, Node(name="node_2")])
         assert "0" not in result
         assert "1" in result
+
+
+@pytest.fixture
+def dataset():
+    ds = AtlasDataset()
+    ds.order.add(Order(name="order_1", price=10))
+    ds.order.add(Order(name="order_2", price=50))
+    ds.market_area.add(MarketArea(name="ma1"))
+    ds.market_area.add(MarketArea(name="ma2"))
+    ds.node.add(Node(name="NodeA"))
+    ds.node.add(Node(name="NodeB"))
+    return ds
+
+
+class TestFilterDataset:
+    def test_include_types_only(self, dataset):
+        subset = dataset.filter_dataset(included_types=["order", "market_area"])
+        data = subset.to_dict()
+        assert "order" in data
+        assert "market_area" in data
+        assert "node" not in data
+        assert len(subset.order) == 2
+        assert len(subset.market_area) == 2
+
+    def test_filter_only(self, dataset):
+        subset = dataset.filter_dataset(filters={"node": lambda n: n.name.startswith("NodeA")})
+        nodes = subset.node.all()
+        assert len(nodes) == 1
+        assert nodes[0].name == "NodeA"
+        # Only node key should be present
+        data_keys = subset.to_dict().keys()
+        assert "node" in data_keys
+        assert "order" not in data_keys
+
+    def test_include_and_filter(self, dataset):
+        subset = dataset.filter_dataset(
+            included_types=["order", "node"], filters={"node": lambda n: n.name.startswith("NodeB")}
+        )
+        data = subset.to_dict()
+        # Orders included fully because node has filter
+        assert "order" in data
+        assert len(subset.order) == 2
+        # Nodes filtered
+        nodes = subset.node.all()
+        assert len(nodes) == 1
+        assert nodes[0].name == "NodeB"
+
+    def test_filter_takes_precedence_over_included(self, dataset):
+        # Node is in included_types but has a filter → should be filtered
+        subset = dataset.filter_dataset(included_types=["node"], filters={"node": lambda n: n.name.startswith("NodeB")})
+        nodes = subset.node.all()
+        assert len(nodes) == 1
+        assert nodes[0].name == "NodeB"
+
+    def test_empty_included_types_and_filters(self, dataset):
+        subset = dataset.filter_dataset()
+        assert subset.to_dict() == {}
+
+    def test_unknown_type_included_types(self, dataset):
+        subset = dataset.filter_dataset(included_types=["unknown_type"])
+        assert subset.to_dict() == {}
+
+    def test_unknown_type_in_filters(self, dataset):
+        subset = dataset.filter_dataset(filters={"unknown_type": lambda x: True})
+        assert subset.to_dict() == {}
+
+    def test_combined_filters_and_included_types(self, dataset):
+        # Include orders, filter orders by price > 20
+        subset = dataset.filter_dataset(included_types=["order"], filters={"order": lambda o: o.price > 20})
+        orders = subset.order.all()
+        assert len(orders) == 1
+        assert orders[0].name == "order_2"
+
+
+def test_filter_equipments_keeps_only_selected():
+    t1 = Thermal(name="plant_1")
+    t2 = Thermal(name="plant_2")
+    t3 = Thermal(name="plant_3")
+
+    dataset = AtlasDataset(thermal=[t1, t2, t3])
+
+    filtered = dataset.filter_equipments(["plant_1", "plant_3"])
+
+    remaining_names = [e.name for e in filtered.thermal]
+
+    assert set(remaining_names) == {"plant_1", "plant_3"}
+    assert "plant_2" not in remaining_names
+
+
+def test_filter_does_not_modify_original_dataset():
+    t1 = Thermal(name="plant_1")
+    t2 = Thermal(name="plant_2")
+
+    dataset = AtlasDataset(thermal=[t1, t2])
+
+    filtered = dataset.filter_equipments(["plant_1"])
+
+    assert len(dataset.thermal) == 2  # original unchanged
+    assert len(filtered.thermal) == 1

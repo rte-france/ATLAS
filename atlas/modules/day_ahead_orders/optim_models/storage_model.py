@@ -54,21 +54,24 @@ class StorageModel(OptimisationModel):
         self.optimization_period: Duration = optimization_period
         # Get the price forecast from the dataset: estimations are at ActionHour, over the optimization period
         # The price forecast is relative to the equipment's market area
-        self.price_forecast: Timeseries = self.storage.portfolio.market_area.price_forecast_medium.get_forecast(
-            self.parameters.execution_date,
-            self.parameters.start_date,
-            self.parameters.end_date + self.optimization_period,
-            self.parameters.timestep,
-        )
+        if self.storage.portfolio.market_area.price_forecast_medium is not None:
+            self.price_forecast: Timeseries = self.storage.portfolio.market_area.price_forecast_medium.get_forecast(
+                self.parameters.temporal.execution_date,
+                self.parameters.temporal.start_date,
+                self.parameters.temporal.end_date + self.optimization_period,
+                self.parameters.temporal.timestep,
+            )
+        else:
+            raise AttributeError(f"{self.storage.portfolio.market_area.name} has no attribute 'price_forecast_medium'")
         # Set-up the time frames
         # Definition of the time_frame time frame: the time frame on which
         # the optimization program will be solved.
-        # Remark: we define the time series until end_date - time_step because
+        # Remark: we define the time series until end_date - timestep because
         # we want all time steps to lie in the [start_date, end_optimization_date] range.
         self.time_frame: list[DateTime] = generate_datetimes(
-            self.parameters.start_date,
-            self.parameters.end_date + self.optimization_period - self.parameters.timestep,
-            self.parameters.timestep,
+            self.parameters.temporal.start_date,
+            self.parameters.temporal.end_date + self.optimization_period - self.parameters.temporal.timestep,
+            self.parameters.temporal.timestep,
         )
 
     @classmethod
@@ -133,10 +136,10 @@ class StorageModel(OptimisationModel):
                 objective_expr=sum(
                     self.price_forecast.get_value(t)
                     * self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, 0))
-                    * self.parameters.timestep.total_hours()
+                    * self.parameters.temporal.timestep.total_hours()
                     - self.price_forecast.get_value(t)
                     * self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, 0))
-                    * self.parameters.timestep.total_hours()
+                    * self.parameters.temporal.timestep.total_hours()
                     for t in self.time_frame
                 )
             )
@@ -147,11 +150,11 @@ class StorageModel(OptimisationModel):
                         self.price_forecast.get_value(t)
                         * (1 - i * smoothing_factor / (nb_fragments - 1))
                         * self.get_variable(StorageModel.amount_sold_in_fragment_at_key(t, i))
-                        * self.parameters.timestep.total_hours()
+                        * self.parameters.temporal.timestep.total_hours()
                         - self.price_forecast.get_value(t)
                         * (1 + i * smoothing_factor / (nb_fragments - 1))
                         * self.get_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i))
-                        * self.parameters.timestep.total_hours()
+                        * self.parameters.temporal.timestep.total_hours()
                         for i in range(nb_fragments)
                     )
                     for t in self.time_frame

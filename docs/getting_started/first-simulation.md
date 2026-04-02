@@ -36,6 +36,10 @@ Each module processes:
 
 Atlas uses a specific dataset format called **AtlasDataset**. For this tutorial, we'll use sample data.
 
+### Test Dataset
+
+For every module, you can find a small dataset in tests/test_tnr/data/anonymises_light
+
 ### Dataset Structure
 
 An AtlasDataset follows a specific directory structure that separates business objects from their associated time-varying data:

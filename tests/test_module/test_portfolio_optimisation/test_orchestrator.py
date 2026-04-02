@@ -80,12 +80,11 @@ class TestOptimiseSinglePortfolio:
     def mock_parameters(self):
         """Create mock parameters."""
         params = Mock()
-        params.use_presolve = False
-        params.solver_duality_gap = 0.0001
-        params.solver_timeout = pendulum.duration(seconds=300)
+        params.solver.use_presolve = False
+        params.solver.duality_gap = 0.0001
+        params.solver.timeout = pendulum.duration(seconds=300)
         params.market = MarketType.dayahead
-        params.export_lp = False
-        params.export_lp_path = "/tmp/lp_files"
+        params.solver.export_lp = False
         return params
 
     @pytest.fixture
@@ -160,9 +159,9 @@ class TestOptimiseSinglePortfolio:
     @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioOptimisationModel")
     def test_solver_options_applied(self, mock_model_class, mock_portfolio, mock_parameters, time_window):
         """Test that solver options from parameters are correctly applied."""
-        mock_parameters.use_presolve = True
-        mock_parameters.solver_duality_gap = 0.001
-        mock_parameters.solver_timeout = pendulum.duration(seconds=600)
+        mock_parameters.solver.use_presolve = True
+        mock_parameters.solver.duality_gap = 0.001
+        mock_parameters.solver.timeout = pendulum.duration(seconds=600)
 
         # Setup mock portfolio with equipments (needed for exception handling)
         mock_portfolio.equipments = Mock()
@@ -190,9 +189,8 @@ class TestOptimiseSinglePortfolio:
     @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioOptimisationModel")
     def test_lp_export_when_enabled(self, mock_model_class, mock_parameters, time_window):
         """Test that LP files are exported when export_lp is True."""
-        # Setup
-        mock_parameters.export_lp = True
-        mock_parameters.export_lp_path = "/tmp/lp_export"
+        mock_parameters.solver.export_lp = True
+        mock_parameters.get_output_dir.return_value = Path("tmp")
 
         # Create a fresh mock portfolio
         test_portfolio = Mock(spec=PortfolioPO)
@@ -207,17 +205,18 @@ class TestOptimiseSinglePortfolio:
         mock_model.solution_info = SolutionInfo(status=SolverStatus.OPTIMAL)
         mock_model_class.return_value = mock_model
 
-        # Call function
-        optimise_single_portfolio(test_portfolio, time_window, mock_parameters)
+        with patch("pathlib.Path.mkdir"):
+            optimise_single_portfolio(test_portfolio, time_window, mock_parameters)
 
         # Verify LP export was called
-        mock_model.export_model.assert_called_once_with(Path("/tmp/lp_export/po_test_portfolio.lp"))
+        mock_model.export_model.assert_called_once_with(Path("tmp/lp_export/po_test_portfolio.lp"))
 
     @patch("atlas.modules.portfolio_optimisation.portfolio_orchestrator.PortfolioOptimisationModel")
     def test_lp_export_when_disabled(self, mock_model_class, mock_portfolio, mock_parameters, time_window):
         """Test that LP files are not exported when export_lp is False."""
         # Setup
-        mock_parameters.export_lp = False
+        mock_parameters.output.output_dir = Path("tmp")
+        mock_parameters.solver.export_lp = False
 
         # Setup mock portfolio with equipments
         mock_portfolio.equipments = Mock()
@@ -245,13 +244,13 @@ class TestPortfolioOptimisationOrchestrator:
         """Create mock parameters."""
         params = Mock()
         params.is_portfolio_bidding = True
-        params.use_multiprocessing = False
-        params.max_workers = None
+        params.multiprocessing.use_multiprocessing = False
+        params.multiprocessing.max_workers = None
         params.market = MarketType.dayahead
         params.use_forecast = False
-        params.start_date = pendulum.datetime(2024, 1, 1)
-        params.end_date = pendulum.datetime(2024, 1, 2)
-        params.execution_date = pendulum.datetime(2024, 1, 1)
+        params.temporal.start_date = pendulum.datetime(2024, 1, 1)
+        params.temporal.end_date = pendulum.datetime(2024, 1, 2)
+        params.temporal.execution_date = pendulum.datetime(2024, 1, 1)
         return params
 
     @pytest.fixture
@@ -297,7 +296,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test running in sequential portfolio bidding mode."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.use_multiprocessing = False
+        mock_parameters.multiprocessing.use_multiprocessing = False
 
         # Mock optimization results
         result1 = PortfolioOptimisationResult(
@@ -334,7 +333,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test running in equipment mode with sequential execution."""
         # Setup
         mock_parameters.is_portfolio_bidding = False
-        mock_parameters.use_multiprocessing = False
+        mock_parameters.multiprocessing.use_multiprocessing = False
 
         # Add equipment to portfolio
         mock_wind = Mock(spec=WindPO)
@@ -378,8 +377,8 @@ class TestPortfolioOptimisationOrchestrator:
         """Test running in multiprocessing portfolio bidding mode."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.use_multiprocessing = True
-        mock_parameters.max_workers = 2
+        mock_parameters.multiprocessing.use_multiprocessing = True
+        mock_parameters.multiprocessing.max_workers = 2
 
         # Mock executor and futures
         mock_executor = MagicMock()
@@ -441,7 +440,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that orchestrator handles optimization errors gracefully."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.use_multiprocessing = False
+        mock_parameters.multiprocessing.use_multiprocessing = False
 
         # First optimization succeeds, second raises exception
         result1 = PortfolioOptimisationResult(
@@ -471,7 +470,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test equipment mode processes manual activation portfolios correctly."""
         # Setup
         mock_parameters.is_portfolio_bidding = False
-        mock_parameters.use_multiprocessing = False
+        mock_parameters.multiprocessing.use_multiprocessing = False
 
         # Setup manual activation portfolio with equipment
         manual_portfolio = mock_input_dataset.portfolios_manual_activation[0]
@@ -507,7 +506,7 @@ class TestPortfolioOptimisationOrchestrator:
         dataset.time_windows = {}
 
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.use_multiprocessing = False
+        mock_parameters.multiprocessing.use_multiprocessing = False
 
         orchestrator = PortfolioOptimisationOrchestrator(mock_parameters)
         results = orchestrator.run(dataset)
@@ -520,8 +519,8 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that multiprocessing respects max_workers parameter."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.use_multiprocessing = True
-        mock_parameters.max_workers = 4
+        mock_parameters.multiprocessing.use_multiprocessing = True
+        mock_parameters.multiprocessing.max_workers = 4
 
         mock_executor = MagicMock()
         mock_executor_class.return_value.__enter__.return_value = mock_executor
@@ -544,7 +543,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test error handling in equipment multiprocessing mode."""
         # Setup
         mock_parameters.is_portfolio_bidding = False
-        mock_parameters.use_multiprocessing = True
+        mock_parameters.multiprocessing.use_multiprocessing = True
 
         # Add equipment to portfolio
         mock_wind = Mock(spec=WindPO)
@@ -580,7 +579,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that sequential mode handles multiple errors gracefully."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.use_multiprocessing = False
+        mock_parameters.multiprocessing.use_multiprocessing = False
 
         # All optimizations fail
         mock_optimise.side_effect = [
@@ -618,7 +617,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that market context is properly set in equipment mode."""
         # Setup
         mock_parameters.is_portfolio_bidding = False
-        mock_parameters.use_multiprocessing = False
+        mock_parameters.multiprocessing.use_multiprocessing = False
         mock_parameters.market = MarketType.intraday
         mock_parameters.use_forecast = True
 
@@ -679,7 +678,7 @@ class TestPortfolioOptimisationOrchestrator:
         dataset.time_windows = {}
 
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.use_multiprocessing = False
+        mock_parameters.multiprocessing.use_multiprocessing = False
 
         orchestrator = PortfolioOptimisationOrchestrator(mock_parameters)
         results = orchestrator.run(dataset)
@@ -695,8 +694,8 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that multiprocessing works with max_workers=None (default CPU count)."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.use_multiprocessing = True
-        mock_parameters.max_workers = None  # Should use default
+        mock_parameters.multiprocessing.use_multiprocessing = True
+        mock_parameters.multiprocessing.max_workers = None  # Should use default
 
         mock_executor = MagicMock()
         mock_executor_class.return_value.__enter__.return_value = mock_executor

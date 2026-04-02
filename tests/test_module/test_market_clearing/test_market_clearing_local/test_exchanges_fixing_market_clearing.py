@@ -39,7 +39,7 @@ def test_if_exchange_fixing_generated_lp_matches_reference(dataset_name):
         try:
             mc_module = MarketClearingModule()
             parameters = mc_module.import_parameters(parameters_path)
-            parameters.output_path = Path(tmpdir)
+            parameters.output.output_dir = Path(tmpdir)
             input_dataset = mc_module.import_data(raw_data, parameters)
 
             with open(local_balances_path, "r") as f:
@@ -50,7 +50,7 @@ def test_if_exchange_fixing_generated_lp_matches_reference(dataset_name):
         except Exception as e:
             pytest.fail(f"Exchange fixing failed for {dataset_name}: {e}")
 
-        exchange_fixing_lp = Path(parameters.output_path) / "exchanges_fixing_model.lp"
+        exchange_fixing_lp = Path(parameters.output.output_dir) / "exchanges_fixing_model.lp"
 
         try:
             generated_lp_data = SolverHelper.read_lp_ortools(str(exchange_fixing_lp))

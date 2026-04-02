@@ -55,16 +55,16 @@ class HydraulicStep:
             # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
             end_date = parameters.penultimate_date
             local_index = generate_datetimes(
-                parameters.start_date,
+                parameters.temporal.start_date,
                 end_date,
-                parameters.timestep,
+                parameters.temporal.timestep,
             )
             submitted_volumes = DAOTimeseries(
-                Timeseries.from_index(parameters.start_date, parameters.timestep, end_date, 0)
+                Timeseries.from_index(parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0)
             )
 
             local_max_energy = (
-                equipment.maximum_energy.set_frequency(parameters.timestep, False)
+                equipment.maximum_energy.set_frequency(parameters.temporal.timestep, False)
                 .filter(item=local_index, inplace=False)
                 .max()
             )
@@ -75,16 +75,18 @@ class HydraulicStep:
             # Assumption for the identification of the "initial" level, see the storage formulation for more details
             if equipment.stored_energy is not None:
                 energy_forecast = equipment.stored_energy.get_forecast(
-                    parameters.execution_date,
-                    parameters.start_date.subtract(days=1),
-                    parameters.start_date - parameters.timestep,
+                    parameters.temporal.execution_date,
+                    parameters.temporal.start_date.subtract(days=1),
+                    parameters.temporal.start_date - parameters.temporal.timestep,
                 )
                 if len(energy_forecast) > 0:
-                    energy_level = energy_forecast.get_value(parameters.start_date - parameters.timestep)
+                    energy_level = energy_forecast.get_value(
+                        parameters.temporal.start_date - parameters.temporal.timestep
+                    )
                 else:
-                    energy_level = equipment.initial_level.get_value(parameters.start_date)
+                    energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
             else:
-                energy_level = equipment.initial_level.get_value(parameters.start_date)
+                energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
 
             xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index)
             xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index)
@@ -105,19 +107,28 @@ class HydraulicStep:
 
             # Create a COMPLEMENT coupling between all orders of the current day to comply with MinimumEnergy constraints
             coupling_instance = OrderCouplingDAO(
-                name=f"COMPLEMENT_{str(equipment.name)}_{parameters.execution_date}",
+                name=f"COMPLEMENT_{str(equipment.name)}_{parameters.temporal.execution_date}",
                 coupling_type=CouplingType.COMPLEMENT,
                 complement_direction=ComplementDirection.GreaterThan,
             )
 
-            if len(equipment.minimum_energy.slice(parameters.start_date, parameters.end_date, "both", False)) > 0:
+            if (
+                len(
+                    equipment.minimum_energy.slice(
+                        parameters.temporal.start_date, parameters.temporal.end_date, "both", False
+                    )
+                )
+                > 0
+            ):
                 coupling_instance.complement_energy = -(
                     energy_level
-                    - equipment.minimum_energy.slice(parameters.start_date, parameters.end_date, "both", False).min()
+                    - equipment.minimum_energy.slice(
+                        parameters.temporal.start_date, parameters.temporal.end_date, "both", False
+                    ).min()
                 )
             else:
                 coupling_instance.complement_energy = -(
-                    energy_level - equipment.minimum_energy.get_value(parameters.start_date)
+                    energy_level - equipment.minimum_energy.get_value(parameters.temporal.start_date)
                 )
 
             # Now we loop over the time stamps for which we want an offer to be made.
@@ -162,9 +173,9 @@ class HydraulicStep:
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
                             is_agent_tso=False,
-                            execution_date=parameters.execution_date,
+                            execution_date=parameters.temporal.execution_date,
                             start_date=t,
-                            end_date=t + parameters.timestep,
+                            end_date=t + parameters.temporal.timestep,
                         )
                         if not xmin:
                             bid_output.price = level_sup.get_value(t) + delta_wu[k][1]

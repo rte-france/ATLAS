@@ -43,10 +43,10 @@ class LoadStep:
             else:
                 # Extract the forecasting matrix of the equipment
                 consumption_forecast = load.maximum_power_forecast.get_forecast(
-                    parameters.execution_date,
-                    parameters.start_date,
+                    parameters.temporal.execution_date,
+                    parameters.temporal.start_date,
                     parameters.penultimate_date,
-                    parameters.timestep,
+                    parameters.temporal.timestep,
                 )
 
                 if load.da_buy_submitted_volume is None:
@@ -74,9 +74,9 @@ class LoadStep:
                                 product=Product.DayAhead,
                                 order_type=OrderType.Buy,
                                 is_agent_tso=False,
-                                execution_date=parameters.execution_date,
+                                execution_date=parameters.temporal.execution_date,
                                 start_date=t,
-                                end_date=t + parameters.timestep,
+                                end_date=t + parameters.temporal.timestep,
                                 price=load.variable_cost.get_value(t)
                                 if load.load_type == LoadType.POWER_TO_GAS
                                 else parameters.load_price,

@@ -38,7 +38,7 @@ class StorageStep:
         Supports both sequential and parallel processing based on use_multiprocessing parameter.
         :return: None
         """
-        if self.parameters.use_multiprocessing:
+        if self.parameters.multiprocessing.use_multiprocessing:
             self._formulate_storage_orders_parallel()
         else:
             self._formulate_storage_orders_sequential()
@@ -49,7 +49,7 @@ class StorageStep:
         """
         cfg.logger.info(f"Starting parallel storage optimization for {len(self.dataset.storage)} units")
 
-        with ProcessPoolExecutor(max_workers=self.parameters.max_workers) as executor:
+        with ProcessPoolExecutor(max_workers=self.parameters.multiprocessing.max_workers) as executor:
             future_to_storage = {
                 executor.submit(optimize_single_storage, storage, self.parameters): storage.name
                 for storage in self.dataset.storage

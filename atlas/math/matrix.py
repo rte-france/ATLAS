@@ -12,7 +12,7 @@ from __future__ import annotations
 import pickle
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, cast
 
 import pandas as pd
 import pendulum
@@ -21,6 +21,8 @@ import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone, get_duration, infer_frequency
 from atlas.type import TimeseriesDict
@@ -249,7 +251,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        timeseries: AbstractTimeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str,
     ) -> None:
         """
@@ -262,7 +264,13 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         """
         if index in self.indexes:
             raise KeyError(f"Index {index} already exists in the matrix.")
-        timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
+
+        df = (
+            timeseries.collect()
+            if isinstance(timeseries, LazyTimeseries)
+            else cast(Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict, timeseries)
+        )
+        timeseries = Timeseries(df) if not isinstance(timeseries, Timeseries) else timeseries
 
         self.matrix = self.matrix.join(
             timeseries.to_frame(engine="polars").rename({"value": index}),  # type: ignore[arg-type]
@@ -270,6 +278,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
             how="full",
             coalesce=True,
         ).sort("time")
+
         self.indexes = self._get_indexes()
 
     def delete(self, index: str) -> None:

@@ -5,22 +5,12 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import (
-    ControlBlock,
-    Hydro,
-    Load,
-    OtherNonDispatchable,
-    Solar,
-    Storage,
-    Thermal,
-    Wind,
-)
+from atlas import ControlBlock, Hydro, Load, MarketArea, OtherNonDispatchable, Solar, Storage, Thermal, Wind
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.models.load import LoadDAO
-from atlas.modules.day_ahead_orders.models.market_area import MarketAreaDAO
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
@@ -29,16 +19,14 @@ from atlas.modules.day_ahead_orders.models.storage import StorageDAO
 from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.models.wind import WindDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.workflow.change_set import AddObject, UpdateObject
+from atlas.orchestrator.change_set import AddObject, UpdateObject
 
 
 class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
     def __init__(self, input_dataset: DayAheadOrdersInputDataset):
-        super().__init__()
-        self.input_dataset = input_dataset
         self.parameters: DayAheadOrdersParameters = input_dataset.parameters
         self.control_block: list[ControlBlock] = input_dataset.control_block
-        self.market_area: list[MarketAreaDAO] = input_dataset.market_area
+        self.market_area: list[MarketArea] = input_dataset.market_area
         self.portfolio: list[PortfolioDAO] = input_dataset.portfolio
         self.other_non_dispatchable: list[OtherNonDispatchable] = input_dataset.other_non_dispatchable
 

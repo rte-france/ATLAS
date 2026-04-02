@@ -46,7 +46,7 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
         input_dataset: DayAheadOrdersInputDataset,
     ) -> None:
         """Validate that all timeseries data have timestamps consistent with the optimization parameters."""
-        expected_timestep = parameters.timestep
+        expected_timestep = parameters.temporal.timestep
         cfg.logger.debug(f"Expected timestep: {expected_timestep}")
 
         validation_errors = []

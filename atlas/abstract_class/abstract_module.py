@@ -95,8 +95,7 @@ class AbstractModule(ABC, Generic[P, ID, OD]):
         validates_results_ok = self.validates_results(params, input_dataset, output_dataset)
         if not validates_results_ok:
             raise AssertionError("Results validation has not passed")
-        if params.export_result:
-            self.export_results(params, input_dataset, output_dataset)
+        self.export_results(params, input_dataset, output_dataset)
         return output_dataset
 
     @staticmethod
