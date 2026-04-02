@@ -20,30 +20,6 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal_worker import opt
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
-##### Etat des lieux au 16.10.2020 ####
-#
-# Base, semi base terminés
-# Semi base : approfondir les tests, mais la formulation d'ordres et la formation des fenêtres
-# temporelles a été testée et fonctionne.
-# Les fonctions qui génèrent les états pour la semi base et celle qui crée les ordres d'exclusion semblent
-# fonctionner correctement aussi.
-#
-# Sur le fonctionnement :
-#
-# startup cost : calculé dans retrieve_online_sequences, du coup détecté uniquement sur le bloc courant
-# et amorti sur celui ci.
-# liens d'exclusion entre les scénarios : définis entre les blocs inflexibles, donc seulement définis si la p_min est positive
-# sur au moins un pas de temps.
-#
-# Pointe à faire
-
-# New improved structure of this file for clarity, organized as follows:
-# . Main function, calling order formulation functions for each strategy
-# . Orders formulation per strategy
-# . Function formulating orders for each individual units (used for Baseload and Intermediate strategies)
-# . Functions used to identify unique cases amongst High, Low and Medium Priceforecasts scenarios
-# . Functions used to extract sequences and states
-
 
 class Coupling:
     def __init__(self, orders: list[Order], coupling_type: str = ""):
