@@ -21,7 +21,12 @@ app = typer.Typer()
 def run(
     config_path: Path = typer.Argument(help="Workflow config YAML (--workflow) or module parameters YAML (default)"),
     workflow: bool = typer.Option(False, "--workflow", "-w", help="Run a workflow instead of a single module"),
-    module_name: str | None = typer.Option(None, "--module", "-m", help="Module name (e.g. PortfolioOptimisation)"),
+    module_name: str | None = typer.Option(
+        None,
+        "--module",
+        "-m",
+        help=f"Module name. Valid modules: {', '.join(ModuleRegistry.get_names())}",
+    ),
     dataset_path: Path | None = typer.Option(None, "--dataset", "-d", help="Path to the Atlas input dataset directory"),
 ) -> None:
     """Run an Atlas module or workflow.
