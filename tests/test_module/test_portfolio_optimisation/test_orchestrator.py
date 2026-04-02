@@ -244,7 +244,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Create mock parameters."""
         params = Mock()
         params.is_portfolio_bidding = True
-        params.multiprocessing.use_multiprocessing = False
+        params.multiprocessing.enable = False
         params.multiprocessing.max_workers = None
         params.market = MarketType.dayahead
         params.use_forecast = False
@@ -296,7 +296,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test running in sequential portfolio bidding mode."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.multiprocessing.use_multiprocessing = False
+        mock_parameters.multiprocessing.enable = False
 
         # Mock optimization results
         result1 = PortfolioOptimisationResult(
@@ -333,7 +333,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test running in equipment mode with sequential execution."""
         # Setup
         mock_parameters.is_portfolio_bidding = False
-        mock_parameters.multiprocessing.use_multiprocessing = False
+        mock_parameters.multiprocessing.enable = False
 
         # Add equipment to portfolio
         mock_wind = Mock(spec=WindPO)
@@ -377,7 +377,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test running in multiprocessing portfolio bidding mode."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.multiprocessing.use_multiprocessing = True
+        mock_parameters.multiprocessing.enable = True
         mock_parameters.multiprocessing.max_workers = 2
 
         # Mock executor and futures
@@ -440,7 +440,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that orchestrator handles optimization errors gracefully."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.multiprocessing.use_multiprocessing = False
+        mock_parameters.multiprocessing.enable = False
 
         # First optimization succeeds, second raises exception
         result1 = PortfolioOptimisationResult(
@@ -470,7 +470,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test equipment mode processes manual activation portfolios correctly."""
         # Setup
         mock_parameters.is_portfolio_bidding = False
-        mock_parameters.multiprocessing.use_multiprocessing = False
+        mock_parameters.multiprocessing.enable = False
 
         # Setup manual activation portfolio with equipment
         manual_portfolio = mock_input_dataset.portfolios_manual_activation[0]
@@ -506,7 +506,7 @@ class TestPortfolioOptimisationOrchestrator:
         dataset.time_windows = {}
 
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.multiprocessing.use_multiprocessing = False
+        mock_parameters.multiprocessing.enable = False
 
         orchestrator = PortfolioOptimisationOrchestrator(mock_parameters)
         results = orchestrator.run(dataset)
@@ -519,7 +519,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that multiprocessing respects max_workers parameter."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.multiprocessing.use_multiprocessing = True
+        mock_parameters.multiprocessing.enable = True
         mock_parameters.multiprocessing.max_workers = 4
 
         mock_executor = MagicMock()
@@ -543,7 +543,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test error handling in equipment multiprocessing mode."""
         # Setup
         mock_parameters.is_portfolio_bidding = False
-        mock_parameters.multiprocessing.use_multiprocessing = True
+        mock_parameters.multiprocessing.enable = True
 
         # Add equipment to portfolio
         mock_wind = Mock(spec=WindPO)
@@ -579,7 +579,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that sequential mode handles multiple errors gracefully."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.multiprocessing.use_multiprocessing = False
+        mock_parameters.multiprocessing.enable = False
 
         # All optimizations fail
         mock_optimise.side_effect = [
@@ -617,7 +617,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that market context is properly set in equipment mode."""
         # Setup
         mock_parameters.is_portfolio_bidding = False
-        mock_parameters.multiprocessing.use_multiprocessing = False
+        mock_parameters.multiprocessing.enable = False
         mock_parameters.market = MarketType.intraday
         mock_parameters.use_forecast = True
 
@@ -678,7 +678,7 @@ class TestPortfolioOptimisationOrchestrator:
         dataset.time_windows = {}
 
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.multiprocessing.use_multiprocessing = False
+        mock_parameters.multiprocessing.enable = False
 
         orchestrator = PortfolioOptimisationOrchestrator(mock_parameters)
         results = orchestrator.run(dataset)
@@ -694,7 +694,7 @@ class TestPortfolioOptimisationOrchestrator:
         """Test that multiprocessing works with max_workers=None (default CPU count)."""
         # Setup
         mock_parameters.is_portfolio_bidding = True
-        mock_parameters.multiprocessing.use_multiprocessing = True
+        mock_parameters.multiprocessing.enable = True
         mock_parameters.multiprocessing.max_workers = None  # Should use default
 
         mock_executor = MagicMock()

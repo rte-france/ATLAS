@@ -90,7 +90,7 @@ def run(
 
                 if parameters.output.export_output_dataset:
                     CISHandler.apply(output_dataset.change_sets, cis)
-                    cis.to_directory(parameters.get_path(parameters.output.output_dir) / "output_dataset")
+                    cis.to_directory(parameters.get_output_dir())
 
             logger.info(f"Module '{module_name}' completed in {t()} seconds")
             rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")

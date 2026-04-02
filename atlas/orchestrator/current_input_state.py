@@ -138,38 +138,15 @@ class CurrentInputState:
         else:
             raise ValueError("Either 'other' or 'label' must be provided")
 
+        atlas_diff = self.data.diff(other_data)
+
         diff_result: dict[str, Any] = {}
-
-        for model_name in BusinessModelName:
-            # Skip model types that don't have containers in AtlasDataset
-            if not hasattr(self.data, model_name.value) or not hasattr(other_data, model_name.value):
-                continue
-
-            container_self = getattr(self.data, model_name.value)
-            container_other = getattr(other_data, model_name.value)
-
-            self_keys = set(container_self._items.keys())
-            other_keys = set(container_other._items.keys())
-
-            added = sorted(self_keys - other_keys)
-            removed = sorted(other_keys - self_keys)
-            common = self_keys & other_keys
-
-            # Find modified objects by comparing their dict representations
-            modified = []
-            for name in sorted(common):
-                obj_self = container_self.get(name)
-                obj_other = container_other.get(name)
-                if obj_self != obj_other:
-                    modified.append(name)
-
-            # Only include model types that have changes
-            if added or removed or modified:
-                diff_result[model_name.value] = {
-                    "added": added,
-                    "removed": removed,
-                    "modified": modified,
-                }
+        for model_name, changes in atlas_diff.items():
+            diff_result[model_name] = {
+                "added": changes["only_in_self"],
+                "removed": changes["only_in_other"],
+                "modified": sorted(changes["modified"].keys()) if changes["modified"] else [],
+            }
 
         return diff_result
 

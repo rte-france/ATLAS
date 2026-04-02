@@ -119,11 +119,11 @@ class SolverParameters(BaseModel):
 
 
 class MultiProcessingParameters(BaseModel):
-    use_multiprocessing: bool = False
+    enable: bool = False
     max_workers: int | None = None
 
 
 class OutputParameters(BaseModel):
     export_result: bool = False
     export_output_dataset: bool = False
-    output_dir: Path = Path()
+    output_dir: Path = Path("output")
