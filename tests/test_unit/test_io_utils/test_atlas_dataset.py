@@ -132,6 +132,83 @@ class TestAtlasDatasetLookup:
         with pytest.raises(ValueError):
             AtlasDataset(node=[Node(name="dup"), Node(name="dup")])
 
+    def test_iter_by_equipments_empty(self):
+        dataset = AtlasDataset()
+        equipments = list(dataset.iter_by_equipments())
+        assert equipments == []
+
+    def test_iter_by_equipments_single_type(self):
+        thermal = Thermal(name="plant1")
+        dataset = AtlasDataset(thermal=[thermal])
+        equipments = list(dataset.iter_by_equipments())
+        assert len(equipments) == 1
+        assert equipments[0] == thermal
+
+    def test_iter_by_equipments_multiple_types(self):
+        thermal = Thermal(name="plant1")
+        solar = Solar(name="solar1")
+        wind = Wind(name="wind1")
+        hydro = Hydro(name="hydro1")
+        load = Load(name="load1")
+        storage = Storage(name="storage1")
+
+        dataset = AtlasDataset(
+            thermal=[thermal],
+            solar=[solar],
+            wind=[wind],
+            hydro=[hydro],
+            load=[load],
+            storage=[storage],
+        )
+
+        equipments = list(dataset.iter_by_equipments())
+        assert len(equipments) == 6
+        equipment_names = {eq.name for eq in equipments}
+        assert equipment_names == {"plant1", "solar1", "wind1", "hydro1", "load1", "storage1"}
+
+    def test_iter_by_equipments_multiple_of_same_type(self):
+        thermal1 = Thermal(name="plant1")
+        thermal2 = Thermal(name="plant2")
+        thermal3 = Thermal(name="plant3")
+        dataset = AtlasDataset(thermal=[thermal1, thermal2, thermal3])
+
+        equipments = list(dataset.iter_by_equipments())
+        assert len(equipments) == 3
+        assert equipments[0] == thermal1
+        assert equipments[1] == thermal2
+        assert equipments[2] == thermal3
+
+    def test_iter_by_equipments_excludes_non_equipment(self):
+        thermal = Thermal(name="plant1")
+        node = Node(name="node1")
+        control_block = ControlBlock(name="cb1")
+        market_area = MarketArea(name="ma1")
+
+        dataset = AtlasDataset(
+            thermal=[thermal],
+            node=[node],
+            control_block=[control_block],
+            market_area=[market_area],
+        )
+
+        equipments = list(dataset.iter_by_equipments())
+        assert len(equipments) == 1
+        assert equipments[0] == thermal
+
+    def test_iter_by_equipments_multiple_times(self):
+        thermal = Thermal(name="plant1")
+        solar = Solar(name="solar1")
+        dataset = AtlasDataset(thermal=[thermal], solar=[solar])
+
+        # First iteration
+        equipments1 = list(dataset.iter_by_equipments())
+        assert len(equipments1) == 2
+
+        # Second iteration should work the same
+        equipments2 = list(dataset.iter_by_equipments())
+        assert len(equipments2) == 2
+        assert equipments1 == equipments2
+
 
 class TestAtlasDatasetConversion:
     def test_to_dict(self):

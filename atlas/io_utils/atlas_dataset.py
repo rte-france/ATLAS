@@ -366,6 +366,26 @@ class AtlasDataset(BaseModel):
             objects = getattr(self, object_type, [])
             yield from objects
 
+    def iter_by_equipments(self):
+        """
+        Iterator over all equipment model objects in the dataset.
+
+        This method iterates over all equipment types (Hydro, Load, Solar, Storage, Thermal, Wind, OtherNonDispatchable).
+
+        :yield: Equipment objects of all equipment types
+        :rtype: Iterator[Equipment]
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[Thermal(name="plant1")], solar=[Solar(name="solar1")])
+            >>> for equipment in dataset.iter_by_equipments():
+            ...     print(equipment.name)
+            plant1
+            solar1
+        """
+        for equipment_type in cfg.EQUIPMENT_MODELS:
+            objects = getattr(self, equipment_type.value, [])
+            yield from objects
+
     def __contains__(self, item: str | BusinessModel) -> bool:
         """
         Check if the dataset contains an object with the given name or instance.
