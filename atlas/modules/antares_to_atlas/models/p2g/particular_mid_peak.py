@@ -154,7 +154,10 @@ def _create_pcomp_equipment(
 ) -> Thermal | None:
     """Create a new Thermal equipment for a pcomp cluster."""
 
-    maximum_power_ts = _get_maximum_power(thermal, parameters)
+    # TODO: Verify how to get ThermalSelectedScenario and Disponibility
+    # In old code:
+    #   sc = antares_instance.ThermalSelectedScenario[p.scenario - 1]
+    #   maximum_power_ts thermal.get_series_matrix()[sc - 1]
 
     minimum_power_ts = Timeseries.from_index(
         start_date=parameters.start_date,
@@ -190,7 +193,7 @@ def _create_pcomp_equipment(
         variable_cost=variable_cost_ts,
         startup_cost=startup_cost_ts,
         co2_emission_factor=thermal.properties.co2,
-        minimum_stable_power_duration=thermal.properties.min_stable_power,  # TODO check all theses propertis not accessible
+        minimum_stable_power_duration=thermal.properties.min_stable_power,  # TODO a recupérer dans csv et pas via antares
         startup_delay_probability=thermal.properties.startup_delay_probability,
         startup_duration=thermal.properties.startup_duration,
         shutdown_duration=thermal.properties.shutdown_duration,
@@ -204,25 +207,6 @@ def _create_pcomp_equipment(
     return equipment
 
 
-def _get_maximum_power(thermal: ThermalCluster, parameters: AntaresToAtlasParameters) -> Timeseries:
-    """Get maximum power from Disponibility or fallback computation."""
-    try:
-        # TODO: Verify how to get ThermalSelectedScenario and Disponibility
-        # In old code:
-        #   sc = antares_instance.ThermalSelectedScenario[p.scenario - 1]
-        #   return antares_instance.Disponibility[sc - 1]
-        raise NotImplementedError("TODO: Get Disponibility from thermal cluster")
-    except Exception:
-        # Fallback: NominalCapacity * UnitCount * CapacityModulation * (1 - FORate) * (1 - PORate)
-        # TODO: Replace with actual computation
-        return Timeseries.from_index(
-            start_date=parameters.start_date,
-            frequency="1h",
-            end_date=parameters.start_date + duration(years=1),
-            default_value=0.0,
-        )
-
-
 def _get_variable_cost(thermal: ThermalCluster) -> Timeseries | None:
     """Get variable cost: MarketBidCost * modulation if > 0, else MarginalCost * modulation."""
 
@@ -231,6 +215,10 @@ def _get_variable_cost(thermal: ThermalCluster) -> Timeseries | None:
     #       return float(antares_instance.MarketBidCost) * antares_instance.MarketBidModulation
     #   else:
     #       return float(antares_instance.MarginalCost) * antares_instance.MarginalCostModulation
+
+    # thermal.get_prepro_modulation_matrix()['<column_name>'] TODO
+    # marginal_cost_modulation : 0
+    # market_bid_modulation : 1
     return (
         thermal.properties.market_bid_cost * thermal.properties.market_bid_modulation
         if thermal.properties.market_bid_cost > 0

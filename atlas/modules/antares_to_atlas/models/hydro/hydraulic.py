@@ -50,12 +50,13 @@ def convert_hydro_units(
         area = areas[area_name]
         logger.debug(f"Processing hydraulic unit for area {area.id}")
 
-        scenario = area.hydro.HydroSelectedScenario[parameters.scenario - 1]  # TODO
+        scenario = area.hydro.HydroSelectedScenario[parameters.scenario - 1]  # TODO make an issue to get scenario
         # if sc_hydro in antares_node.HydroReservoir.CalculatedStorageProduction.Index:
         if area.hydro.get_maxpower().abs().max() == 0:
             logger.debug(f"Skipping hydraulic unit for area {area.id} (max power is 0)")
             continue
         if area_name in hydro_reservoirs and hydro_reservoirs[area_name].get("ReservoirCapacity", 0) == 0:
+            # area.hydro.properties.reservoir_capacity TODO
             logger.debug(f"Skipping hydraulic unit for area {area.id} (reservoir capacity is 0)")
             continue
 
@@ -184,6 +185,8 @@ def _create_hydraulic_equipment(
 
     # TODO: Set daily energy constraints
     # In old code: uses CalculatedStorageProduction to calculate daily min/max energy
+    # calculatedstorageproduction to get from outputs (mc-ind lire l'année parameters.scenario "montecarlo", get_mc_ind_area(mc-year=, frequency=, )['H.ROR'])
+
     hydro.has_daily_energy_constraint = True
     minimum_daily_energy = Timeseries.from_index(
         start_date=parameters.start_date,

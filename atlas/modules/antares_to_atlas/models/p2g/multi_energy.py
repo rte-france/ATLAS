@@ -108,16 +108,15 @@ def _get_yields_from_binding_constraint(study: Study, bc_name: str) -> dict[str,
     binding_constraints = study.get_binding_constraints()
 
     bc = binding_constraints.get(bc_name, None)
-
     if bc is None:
         logger.warning(f"Binding constraint {bc_name} not found")
         return {}
 
     try:
-        # TODO: Extract cluster names and weights from binding constraint terms
-        # In old code:
-        #   list_clusterlist = [cluster.Name for cluster in bc.ClusterList]
-        #   yield = bc.Weights[list_clusterlist.index(thermal_name)]
+        bc.get_terms()
+        for term in bc.get_terms().values():
+            data = term.data
+            if (isinstance(data, ClusterData)) # ou LinkData TODO
         logger.debug(f"TODO: Extract cluster list and weights from binding constraint {bc_name}")
         return {}  # TODO
 

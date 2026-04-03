@@ -95,6 +95,7 @@ def _convert_p2g_base(
 
     try:
         capacity_df = link.get_capacity_direct()  # TODO link.DirectTransferCapacity.GetTimeSeriesByName("1")
+        # refaire le truc de choper l'index du scenario basé sur SelectedScenario
         if capacity_df.abs().max().max() == 0:
             return None
 
@@ -128,14 +129,13 @@ def _convert_p2g_marg(
     """Convert P2G marginal unit (dispatchable load)."""
     link_name = f"{area.id}_z_p2g_marg"
 
-    # TODO: Verify if links are indexed by name or by ID
     link = links.get(link_name, None)
 
     if not link:
         return None
 
     try:
-        capacity_df = link.get_capacity_direct()  # TODO link.DirectTransferCapacity.GetTimeSeriesByName("1")
+        capacity_df = link.get_capacity_direct()  # TODO
         if capacity_df.abs().max().max() == 0:
             return None
 
@@ -184,14 +184,13 @@ def _convert_p2g_methanation(
     """Convert P2G methanation unit (dispatchable load)."""
     link_name = f"{area.id}_z_p2g_methanation"
 
-    # TODO: Verify if links are indexed by name or by ID
     link = links.get(link_name, None)
 
     if not link:
         return None
 
     try:
-        capacity_df = link.get_capacity_direct()  # TODO link.DirectTransferCapacity.GetTimeSeriesByName("1")
+        capacity_df = link.get_capacity_direct()  # TODO
         if capacity_df.abs().max().max() == 0:
             return None
 

@@ -180,7 +180,7 @@ def _create_open_phs(
         term_name = f"{area.id}_phs_open_charge_efficiency"  # TODO define properly
         term = bc_terms.get(term_name, None)
         if term:
-            charge_efficiency = term.weight  # TODO not sure how to access
+            charge_efficiency = term.weight
             discharge_efficiency = term.offset
 
     # TODO: Calculate the split ratio and update hydro equipment

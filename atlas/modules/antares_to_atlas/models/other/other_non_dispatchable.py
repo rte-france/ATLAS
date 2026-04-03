@@ -45,13 +45,11 @@ def convert_other_non_dispatchable_units(
                         else f"portfolio_{area_name}",
                     ),
                     node=atlas_dataset.get("node", area_name),
-                    maximum_power_forecast=ForecastingMatrix().add(
-                        parameters.execution_date, ror
-                    ),  # TODO : ror is not a timeseries-like dataframe
+                    maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, ror),
                 )
             )
 
-            # for source in antares_node.MiscGenProduction.Index: # TODO
+            # for source in antares_node.MiscGenProduction.Index: # TODO get from outputs mc-ind MISC.NDG
             #     prod = antares_node.MiscGenProduction[source]
             #     if prod.Abs().Max() > 0:
 
@@ -67,7 +65,7 @@ def convert_other_non_dispatchable_units(
                     node=atlas_dataset.get("node", area_name),
                     maximum_power_forecast=ForecastingMatrix().add(parameters.execution_date, prod),
                 )
-            )  # TODO : prod is not a timeseries-like dataframe + i don't know where to get
+            )
 
     atlas_dataset.other_non_dispatchable.add(non_disp_units)
 
