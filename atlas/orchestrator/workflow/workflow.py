@@ -157,7 +157,7 @@ class Workflow(AbstractOrchestrator):
             except Exception as e:
                 logger.error(f"Step '{step.name}' failed: {e}")
                 if self.parameters.rollback_on_step_failure:
-                    logger.error(f"CIS automatically rolled back to state before '{step.name}'")
+                    logger.error(f"Current Input State automatically rolled back to state before '{step.name}'")
 
                 # Show available snapshots for debugging
                 if self.parameters.create_step_snapshots:

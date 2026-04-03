@@ -32,7 +32,7 @@ class CISHandler:
 
         change_sets = CISHandler._ordering_change_sets(change_sets)
         CISHandler._validate_no_duplicates(change_sets)
-        logger.debug(f"Applying {len(change_sets)} change sets to CIS")
+        logger.debug(f"Applying {len(change_sets)} change sets to Current Input State")
 
         # Use CIS transaction if rollback is enabled
         if rollback_on_error:
@@ -61,7 +61,7 @@ class CISHandler:
                     logger.error(error_msg)
                     raise ChangeSetApplicationError(error_msg, change_set, e) from e
 
-            logger.info(f"Successfully applied {len(change_sets)} change sets to CIS")
+            logger.info(f"Successfully applied {len(change_sets)} change sets to Current Input State")
 
         except Exception as e:
             # Catch any unexpected errors and re-raise
