@@ -11,44 +11,17 @@ from typing import Any
 
 from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
+from atlas.orchestrator.step import Step
 
 
-class ActionPlanStep:
+class ActionPlanStep(Step):
     """
-    A step in a workflow, responsible for executing a module using provided parameters
+    A step in an action plan is responsible for executing a module using provided parameters
     and producing an output dataset from an input dataset.
     """
 
-    def __init__(self, name: str, parameters: dict[str, Any]):
-        self.name = name
-        self.module = None
-        self.parameters = None
-        raise NotImplementedError
-
-    @property
-    def output_dataset(self) -> AbstractModuleOutput | None:
-        """
-        Output dataset produced after executing the step.
-
-        :return: An AbstractDataset or None if not yet executed.
-        """
-        raise NotImplementedError
-
-    def get_output_dataset(self) -> AbstractModuleOutput | None:
-        """
-        Get the output dataset produced by this workflow step.
-
-        :return: An AbstractDataset or None if not yet executed.
-        """
-        raise NotImplementedError
-
-    def run(self, input_dataset: AtlasDataset) -> None:
-        """
-        Execute the step's module with the given parameters and input dataset.
-        Stores the resulting dataset as output.
-        """
-        raise NotImplementedError
-
     def __repr__(self) -> str:
         """Return a detailed string representation of the workflow step."""
-        raise NotImplementedError
+        module_name = self.module.__class__.__name__
+        has_output = self._output_dataset is not None
+        return f"ActionPlanStep(name={self.name!r}, module={module_name}, executed={has_output})"
