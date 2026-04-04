@@ -39,6 +39,7 @@ class PortfolioOptimisationResult:
     portfolio: PortfolioPO
     solution_info: SolutionInfo | None
     variable_values: dict[str, float] = field(default_factory=dict)
+    is_manual_activation: bool = False
 
     def get_variable_value(self, var_name: str) -> float:
         """
@@ -60,7 +61,7 @@ class PortfolioOptimisationResult:
         return self.portfolio.name
 
     def __repr__(self) -> str:
-        return f"PortfolioOptimisationResult(portfolio={self.portfolio.name}"
+        return f"PortfolioOptimisationResult(portfolio={self.portfolio.name})"
 
 
 def optimise_single_portfolio(
@@ -102,7 +103,10 @@ def optimise_single_portfolio(
         variable_values = {var_name: model.get_variable_value(var_name) for var_name in model._variables_name}
 
         result = PortfolioOptimisationResult(
-            portfolio=model.portfolio, variable_values=variable_values, solution_info=model.solution_info
+            portfolio=model.portfolio,
+            variable_values=variable_values,
+            solution_info=model.solution_info,
+            is_manual_activation=False,
         )
 
         return portfolio.name, result
@@ -114,7 +118,10 @@ def optimise_single_portfolio(
         set_manual_activation(portfolio.equipments.get_all_equipment(), parameters)
 
         result = PortfolioOptimisationResult(
-            portfolio=portfolio, variable_values={}, solution_info=SolutionInfo(status=SolverStatus.NOT_SOLVED)
+            portfolio=portfolio,
+            variable_values={},
+            solution_info=SolutionInfo(status=SolverStatus.NOT_SOLVED),
+            is_manual_activation=True,
         )
 
         return portfolio.name, result
@@ -286,5 +293,8 @@ class PortfolioOptimisationOrchestrator:
         set_manual_activation(portfolio.equipments.get_all_equipment(), self.parameters)
 
         return PortfolioOptimisationResult(
-            portfolio=portfolio, variable_values={}, solution_info=SolutionInfo(status=SolverStatus.NOT_SOLVED)
+            portfolio=portfolio,
+            variable_values={},
+            solution_info=SolutionInfo(status=SolverStatus.NOT_SOLVED),
+            is_manual_activation=True,
         )
