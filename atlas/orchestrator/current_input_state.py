@@ -11,7 +11,7 @@ import copy
 from collections.abc import Iterable
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -22,14 +22,46 @@ class CurrentInputState:
         self.data = data
         self._history: dict[str, AtlasDataset] = {}
 
-    def to_directory(self, path: str | Path):
+    def to_directory(
+        self,
+        path: str | Path,
+        separator: str = ";",
+        timeseries_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
+        matrix_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
+    ):
         """Write the current input state to a directory."""
-        self.data.to_directory(path)
+        self.data.to_directory(
+            path,
+            separator=separator,
+            timeseries_file_extension=timeseries_file_extension,
+            matrix_file_extension=matrix_file_extension,
+        )
 
     @classmethod
-    def from_directory(cls, path: str | Path) -> CurrentInputState:
+    def from_directory(
+        cls,
+        path: str | Path,
+        separator: str = ";",
+        timeseries_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
+        matrix_file_extension: Literal["csv", "parquet", "pickle"] = "parquet",
+        lazy: bool = False,
+        timezone: str = "UTC",
+        date_format_forecasting_matrix: str = "YYYY-MM-DD HH:mm:ss",
+        date_format_input_files: str = "YYYY-MM-DD HH:mm:ss",
+    ) -> CurrentInputState:
         """Load the current input state from a directory."""
-        return cls(AtlasDataset.from_directory(path))
+        return cls(
+            AtlasDataset.from_directory(
+                path,
+                separator=separator,
+                timeseries_file_extension=timeseries_file_extension,
+                matrix_file_extension=matrix_file_extension,
+                lazy=lazy,
+                timezone=timezone,
+                date_format_forecasting_matrix=date_format_forecasting_matrix,
+                date_format_input_files=date_format_input_files,
+            )
+        )
 
     def filter_dataset(
         self,
