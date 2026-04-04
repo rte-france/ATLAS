@@ -154,20 +154,39 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
     :rtype: Timeseries
     """
     if parameters.market == MarketType.dayahead:
-        filtered = cast(AbstractTimeseries, equipment.da_cleared_quantity).filter(
-            parameters.target_times, inplace=False
-        )
-        return cast(Timeseries, filtered)
+        if equipment.da_cleared_quantity is not None:
+            filtered = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+        else:
+            filtered = Timeseries.from_index(
+                parameters.temporal.start_date,
+                parameters.temporal.timestep,
+                parameters.temporal.end_date,
+                default_value=0,
+            )
+        return filtered
 
     elif parameters.market == MarketType.intraday:
-        da_power = cast(AbstractTimeseries, equipment.da_cleared_quantity).filter(
-            parameters.target_times, inplace=False
-        )
-        id_power = cast(AbstractTimeseries, equipment.total_id_cleared_quantity).filter(
-            parameters.target_times, inplace=False
-        )
+        if equipment.da_cleared_quantity is not None:
+            da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+        else:
+            da_power = Timeseries.from_index(
+                parameters.temporal.start_date,
+                parameters.temporal.timestep,
+                parameters.temporal.end_date,
+                default_value=0,
+            )
+
+        if equipment.total_id_cleared_quantity is not None:
+            id_power = equipment.total_id_cleared_quantity.filter(parameters.target_times, inplace=False)
+        else:
+            id_power = Timeseries.from_index(
+                parameters.temporal.start_date,
+                parameters.temporal.timestep,
+                parameters.temporal.end_date,
+                default_value=0,
+            )
         result = da_power + id_power
-        return cast(Timeseries, result)
+        return result
 
     raise ValueError(f"Unsupported market type: {parameters.market}")
 
@@ -184,16 +203,30 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
     :rtype: Timeseries
     """
     if parameters.market == MarketType.dayahead:
-        return cast(AbstractTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times, inplace=False)
+        if equipment.da_cleared_quantity is not None:
+            da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+        else:
+            da_power = Timeseries.from_index(
+                parameters.temporal.start_date,
+                parameters.temporal.timestep,
+                parameters.temporal.end_date,
+                default_value=0,
+            )
+        return da_power
 
     elif parameters.market == MarketType.intraday:
-        return (
-            cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_cleared_quantity)
-            .get_forecast(
+        if equipment.id_cleared_quantity is not None:
+            id_power = equipment.id_cleared_quantity.get_forecast(
                 parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+            ).filter(parameters.target_times, inplace=False)
+            return id_power
+        else:
+            return Timeseries.from_index(
+                parameters.temporal.start_date,
+                parameters.temporal.timestep,
+                parameters.temporal.end_date,
+                default_value=0,
             )
-            .filter(parameters.target_times, inplace=False)
-        )
 
 
 def _should_skip_equipment(
@@ -241,8 +274,8 @@ def _apply_power_constraints(
     :return: None
     :rtype: None
     """
-    # Preload maximum power forecast for certain equipment types
-    max_power_forecast: AbstractTimeseries | None = None
+
+    max_power_forecast = None
     if isinstance(equipment, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
         max_power_forecast = equipment.maximum_power_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
@@ -287,7 +320,7 @@ def _get_max_power(
             return 0
         return max_power_forecast.get_value(time)
     else:
-        if hasattr(equipment, "maximum_power") and equipment.maximum_power and time in equipment.maximum_power:
+        if equipment.maximum_power and time in equipment.maximum_power:
             return equipment.maximum_power.get_value(time)
         return 0
 
