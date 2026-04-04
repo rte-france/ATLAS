@@ -19,7 +19,7 @@ from atlas.solver.solver_helper import SolverHelper
 
 # Test data directories
 THERMAL_COMBINATIONS_DIR = Path("tests/dataset/thermals-dataset")
-REFERENCE_LP_DIR = Path(__file__).parent / "thermal" / "lp_files"
+REFERENCE_LP_DIR = Path(__file__).parent / "lp_files" / "thermal"
 
 
 @pytest.fixture
@@ -30,16 +30,13 @@ def base_parameters_dict():
             "start_date": "2028-09-27 00:00:00",
             "end_date": "2028-09-28 00:00:00",
             "execution_date": "2028-09-26 12:00:00",
-            "timestep": "PT1H",  # ISO 8601 duration format
+            "timestep": "PT1H",
         },
         "solver": {
             "solver_name": "SCIP",
             "use_presolve": False,
-            "export_lp": False,
-            "timeout": "PT120S",  # ISO 8601 duration format
-        },
-        "multiprocessing": {
-            "use_multiprocessing": False,
+            "export_lp": True,
+            "timeout": "PT120S",
         },
         "battery_smoothing_factor": 0.1,
         "small_imbalance_size": 0.15,

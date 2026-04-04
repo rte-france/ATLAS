@@ -400,7 +400,10 @@ def _update_stored_energy(
     """
 
     new_stored_energy = Timeseries.from_index(
-        parameters.temporal.start_date, parameters.temporal.timestep, parameters.temporal.end_date, default_value=0
+        parameters.temporal.start_date,
+        parameters.temporal.timestep,
+        parameters.temporal.end_date + parameters.temporal.timestep,
+        default_value=0,
     )
 
     initial_stored_energy = _get_initial_stored_energy(equipment, parameters)
@@ -414,7 +417,7 @@ def _update_stored_energy(
         new_energy_value = _calculate_new_energy_value(equipment, time, previous_energy, new_power, parameters)
 
         energy_bounds = _get_energy_bounds(equipment, time)
-        corrected_energy, correction = _apply_energy_bounds(new_energy_value, energy_bounds, time, parameters)
+        corrected_energy, correction = _apply_energy_bounds(new_energy_value, energy_bounds, parameters)
 
         new_stored_energy.set_value(time, corrected_energy)
 
@@ -430,7 +433,6 @@ def _update_stored_energy(
         new_stored_energy.get_value(parameters.temporal.end_date),
     )
 
-    # Update equipment stored energy
     if not parameters.use_forecast and equipment.stored_energy:
         stored_energy_matrix = equipment.stored_energy
         if parameters.temporal.execution_date in stored_energy_matrix:
@@ -517,7 +519,6 @@ def _calculate_new_energy_value(
 def _apply_energy_bounds(
     energy_value: float,
     bounds: tuple[float, float],
-    time: DateTime,
     parameters: PortfolioOptimisationParameters,
 ) -> tuple[float, float]:
     """

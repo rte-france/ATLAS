@@ -39,9 +39,6 @@ def generated_lp_files():
                 "export_lp": True,
                 "timeout": "PT120S",
             },
-            "multiprocessing": {
-                "use_multiprocessing": False,
-            },
             "battery_smoothing_factor": 0.1,
             "small_imbalance_size": 0.15,
             "small_imbalance_penalty": 0.05,
