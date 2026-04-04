@@ -20,7 +20,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 class CurrentInputState:
     def __init__(self, data: AtlasDataset):
         self.data = data
-        self._history: list[tuple[str, AtlasDataset]] = []
+        self._history: dict[str, AtlasDataset] = {}
 
     def to_directory(self, path: str | Path):
         """Write the current input state to a directory."""
@@ -49,19 +49,19 @@ class CurrentInputState:
             >>> # ... apply changes ...
             >>> cis.restore_snapshot("before_thermal_module")  # Rollback
         """
-        self._history.append((label, copy.deepcopy(self.data)))
+        self._history[label] = copy.deepcopy(self.data)
 
     def list_snapshots(self) -> list[str]:
         """Return list of all snapshot labels.
 
-        :return: List of snapshot labels in chronological order
+        :return: List of snapshot labels
         :rtype: list[str]
 
         Example:
             >>> cis.list_snapshots()
             ['initial', 'after_step_1', 'after_step_2']
         """
-        return [label for label, _ in self._history]
+        return list(self._history.keys())
 
     def restore_snapshot(self, label: str) -> None:
         """Restore CIS to a previous snapshot.
@@ -73,11 +73,10 @@ class CurrentInputState:
         Example:
             >>> cis.restore_snapshot("after_step_1")
         """
-        for snap_label, snapshot in self._history:
-            if snap_label == label:
-                self.data = copy.deepcopy(snapshot)
-                return
-        raise ValueError(f"Snapshot '{label}' not found. Available: {self.list_snapshots()}")
+        if label in self._history:
+            self.data = copy.deepcopy(self._history[label])
+        else:
+            raise ValueError(f"Snapshot '{label}' not found. Available: {self.list_snapshots()}")
 
     def get_snapshot(self, label: str) -> AtlasDataset:
         """Get a snapshot without modifying current state.
@@ -91,10 +90,22 @@ class CurrentInputState:
         Example:
             >>> snapshot_data = cis.get_snapshot("after_step_1")
         """
-        for snap_label, snapshot in self._history:
-            if snap_label == label:
-                return snapshot
+        if label in self._history:
+            return self._history[label]
         raise ValueError(f"Snapshot '{label}' not found. Available: {self.list_snapshots()}")
+
+    def get_all_snapshots(self) -> dict[str, AtlasDataset]:
+        """Get all snapshots as a dictionary.
+
+        :return: Dictionary mapping snapshot labels to their datasets
+        :rtype: dict[str, AtlasDataset]
+
+        Example:
+            >>> all_snapshots = cis.get_all_snapshots()
+            >>> for label, dataset in all_snapshots.items():
+            ...     print(f"Snapshot {label} has {len(dataset.order)} orders")
+        """
+        return self._history.copy()
 
     def clear_history(self) -> None:
         """Clear all snapshots from history.

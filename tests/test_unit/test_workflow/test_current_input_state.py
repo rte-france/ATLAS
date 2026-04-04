@@ -137,6 +137,50 @@ class TestStateHistoryAndVersioning:
         assert snapshot_order.price == 10.0  # Original price
         assert original_order.price == 999.0  # Modified price
 
+    def test_get_all_snapshots_returns_all_snapshots(self, cis):
+        """Test that get_all_snapshots returns all snapshots as a dictionary."""
+        # Create multiple snapshots
+        cis.create_snapshot("snapshot_1")
+
+        # Modify data
+        order3 = Order(name="order_3", price=30.0)
+        cis.data.order.add(order3)
+        cis.create_snapshot("snapshot_2")
+
+        # Get all snapshots
+        all_snapshots = cis.get_all_snapshots()
+
+        # Verify it's a dictionary with correct keys
+        assert isinstance(all_snapshots, dict)
+        assert set(all_snapshots.keys()) == {"snapshot_1", "snapshot_2"}
+
+        # Verify snapshot_1 doesn't have order_3
+        assert "order_3" not in all_snapshots["snapshot_1"].order
+
+        # Verify snapshot_2 has order_3
+        assert "order_3" in all_snapshots["snapshot_2"].order
+
+    def test_get_all_snapshots_returns_copy(self, cis):
+        """Test that get_all_snapshots returns a copy, not the internal dict."""
+        cis.create_snapshot("snapshot_1")
+
+        # Get all snapshots
+        all_snapshots = cis.get_all_snapshots()
+
+        # Modify the returned dict
+        all_snapshots["fake_snapshot"] = cis.data
+
+        # Verify the internal history wasn't modified
+        assert "fake_snapshot" not in cis.list_snapshots()
+        assert len(cis.list_snapshots()) == 1
+
+    def test_get_all_snapshots_empty(self, cis):
+        """Test that get_all_snapshots returns empty dict when no snapshots exist."""
+        all_snapshots = cis.get_all_snapshots()
+
+        assert isinstance(all_snapshots, dict)
+        assert len(all_snapshots) == 0
+
 
 class TestDiffComparison:
     """Test diff/comparison functionality."""
