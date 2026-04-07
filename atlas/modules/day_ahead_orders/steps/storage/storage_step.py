@@ -8,9 +8,9 @@ This file is part of the ATLAS project.
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import atlas.config as cfg
-from atlas.modules.day_ahead_orders.orders_formulation.storage_worker import optimize_single_storage
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.storage.storage_worker import optimize_single_storage
 
 
 class StorageStep:

@@ -19,10 +19,10 @@ from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.models.storage import StorageDAO
-from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
-from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
-from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.storage.optim.battery import BatteryModel
+from atlas.modules.day_ahead_orders.steps.storage.optim.electric_vehicle import ElectricVehicleModel
+from atlas.modules.day_ahead_orders.steps.storage.optim.storage import StorageModel
 from atlas.solver.models import SolverOptions
 from atlas.timing import generate_datetimes
 

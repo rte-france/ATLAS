@@ -14,10 +14,15 @@ from atlas import AtlasDataset, LazyScenarioMatrix, LazyTimeseries, ScenarioMatr
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.enums import BusinessModelName
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.orchestrator import DayAheadOrdersOrchestrator
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.timing import infer_frequency
+from atlas.modules.day_ahead_orders.steps.hydraulic_step import HydraulicStep
+from atlas.modules.day_ahead_orders.steps.load_step import LoadStep
+from atlas.modules.day_ahead_orders.steps.non_dispatchable_step import NonDispatchableStep
+from atlas.modules.day_ahead_orders.steps.storage.storage_step import StorageStep
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step import ThermalBiddingStep
+from atlas.modules.day_ahead_orders.steps.wind_pv_step import WindPVStep
+from atlas.timing import generate_datetimes, infer_frequency
 
 
 class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrdersInputDataset, DayAheadOrdersOutput]):
@@ -198,8 +203,57 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
         self, parameters: DayAheadOrdersParameters, dataset: DayAheadOrdersInputDataset
     ) -> DayAheadOrdersOutput:
         """Executes the module's main logic."""
-        orchestrator = DayAheadOrdersOrchestrator(parameters, dataset)
-        output_dataset = orchestrator.execute()
+        cfg.logger.info("Initialization of the Day-Ahead Orders module...")
+        output_dataset = DayAheadOrdersOutput(dataset)
+
+        orders_time = generate_datetimes(
+            parameters.temporal.start_date, parameters.penultimate_date, parameters.temporal.timestep
+        )
+
+        # ensure output folder exists
+        if parameters.solver.export_lp:
+            output_path = parameters.get_output_dir() / "lp_export"
+            output_path.mkdir(parents=True, exist_ok=True)
+
+        if len(orders_time) > 0:
+            cfg.logger.info("Extraction completed, now starting the formulation of orders...")
+
+            #### STEP 1 - CONSUMPTION ####
+            cfg.logger.info("Formulation of the load orders...")
+            LoadStep.formulate_load_orders(output_dataset, orders_time, parameters)
+            cfg.logger.info("Consumption orders formulated.")
+
+            #### STEP 2 - NON DISPATCHABLE GENERATION UNITS ####
+            cfg.logger.info("Formulation of the non-dispatchable orders...")
+            NonDispatchableStep.formulate_non_dispatchable_orders(output_dataset, orders_time, parameters)
+            cfg.logger.info("Non-dispatchable orders formulated.")
+
+            #### STEP 3 - STORAGE UNITS ####
+            cfg.logger.info("Formulation of the storage orders...")
+            storage = StorageStep(output_dataset, parameters)
+            storage.formulate_storage_orders()
+            cfg.logger.info("Storage orders formulated.")
+
+            #### STEP 4 - HYDRO RESERVOIR UNITS ####
+            cfg.logger.info("Formulation of the hydraulic orders...")
+            HydraulicStep.formulate_hydraulic_orders(output_dataset, orders_time, parameters)
+            cfg.logger.info("Hydraulic orders formulated.")
+
+            #### STEP 5 - WIND AND PV UNITS ####
+            cfg.logger.info("Formulation of the wind/pv orders...")
+            WindPVStep.formulate_wind_and_pv_orders(output_dataset, orders_time, parameters)
+            cfg.logger.info("wind/pv orders formulated.")
+
+            #### STEP 6 - THERMAL UNITS ####
+            cfg.logger.info("Formulation of the thermic orders...")
+            thermal_bidding = ThermalBiddingStep(output_dataset, orders_time, parameters)
+            thermal_bidding.formulate_thermal_orders()
+            cfg.logger.info("Thermic orders formulated.")
+
+            cfg.logger.info("Formulation of orders successfully completed.")
+        else:
+            cfg.logger.error("orders_time is empty.")
+
         return output_dataset
 
     @staticmethod

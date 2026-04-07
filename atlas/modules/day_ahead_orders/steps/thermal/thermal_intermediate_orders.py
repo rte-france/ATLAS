@@ -19,7 +19,7 @@ from atlas.models.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
+from atlas.modules.day_ahead_orders.steps.thermal import (
     combination_1,
     combination_2,
     combination_3,
@@ -29,10 +29,10 @@ from atlas.modules.day_ahead_orders.orders_formulation.thermal import (
     combination_7,
     combination_8,
 )
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_optimization_model import (
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import (
     ThermalOptimizationModel,
 )
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.solver.models import SolverOptions
