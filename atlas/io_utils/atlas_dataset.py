@@ -367,7 +367,7 @@ class AtlasDataset(BaseModel):
             objects = getattr(self, object_type, [])
             yield from objects
 
-    def iter_by_equipments(self):
+    def iter_by_equipments(self) -> Iterable[Equipment]:
         """
         Iterator over all equipment model objects in the dataset.
 
