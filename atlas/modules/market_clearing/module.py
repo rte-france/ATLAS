@@ -27,8 +27,8 @@ class MarketClearingModule(
         """Returns the concrete Parameters class for this module."""
         return MarketClearingParameters
 
-    def import_data(self, raw_data: AtlasDataset, parameters: MarketClearingParameters) -> MarketClearingInputDataset:
-        input_dataset = MarketClearingInputDataset(raw_data, parameters)
+    def import_data(self, input_data: AtlasDataset, parameters: MarketClearingParameters) -> MarketClearingInputDataset:
+        input_dataset = MarketClearingInputDataset(input_data, parameters)
         return input_dataset
 
     def validate_data(self, parameters: MarketClearingParameters, input_dataset: MarketClearingInputDataset) -> bool:
