@@ -45,7 +45,6 @@ __all__ = [
     "AbstractTimeseries",
     "AtlasDataset",
     "Parameters",
-    "ParametersParser",
     "Workflow",
     "WorkflowParameters",
     "WorkflowStep",
