@@ -14,7 +14,6 @@ import atlas.config as cfg
 from atlas import Thermal, Timeseries
 from atlas.enums import CouplingType, Product, ThermalStrategy
 from atlas.models.market.order import Order
-from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_worker import optimize_single_thermal_unit
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
@@ -113,14 +112,12 @@ class ThermalBiddingStep:
         compute DA sell submitted volumes
         :return: None
         """
-        da_sell_submitted_volumes = {
-            equipment.name: DAOTimeseries(
-                Timeseries.from_index(
-                    self.parameters.temporal.start_date,
-                    self.parameters.temporal.timestep,
-                    self.parameters.temporal.end_date,
-                    default_value=0,
-                )
+        da_sell_submitted_volumes: dict[str, Timeseries] = {
+            equipment.name: Timeseries.from_index(
+                self.parameters.temporal.start_date,
+                self.parameters.temporal.timestep,
+                self.parameters.temporal.end_date,
+                default_value=0,
             )
             for equipment in self.dataset.thermal
         }
@@ -136,9 +133,14 @@ class ThermalBiddingStep:
                 and order.start_date in self.orders_time
             ):
                 if order.equipment.strategy == ThermalStrategy.PEAK or order.equipment.strategy == ThermalStrategy.BASE:
-                    da_sell_submitted_volumes[order.equipment.name].set_or_add_value(
-                        order.start_date, order.qmax if order.qmax is not None else 0
-                    )
+                    if order.start_date in da_sell_submitted_volumes[order.equipment.name]:
+                        da_sell_submitted_volumes[order.equipment.name].set_value(
+                            order.start_date, order.qmax if order.qmax is not None else 0
+                        )
+                    else:
+                        da_sell_submitted_volumes[order.equipment.name].add_index(
+                            order.start_date, order.qmax if order.qmax is not None else 0
+                        )
                 else:
                     relevent_orders_intermediate.append(order)
                     relevant_orders_names.add(order.name)
@@ -201,13 +203,11 @@ class ThermalBiddingStep:
                     programm, list_of_considerer_orders = self.graph_search_of_connected_orders(
                         coupled_order,
                         unit_order_coupling_list,
-                        DAOTimeseries(
-                            Timeseries.from_index(
-                                self.parameters.temporal.start_date,
-                                self.parameters.temporal.timestep,
-                                self.parameters.temporal.end_date,
-                                default_value=0,
-                            )
+                        Timeseries.from_index(
+                            self.parameters.temporal.start_date,
+                            self.parameters.temporal.timestep,
+                            self.parameters.temporal.end_date,
+                            default_value=0,
                         ),
                         [],
                     )
@@ -220,9 +220,14 @@ class ThermalBiddingStep:
         # Uncoupled orders or orders coupled to non-exclusive groups (COMPLEMENT for instance)
         for order in relevent_orders_intermediate:
             if not already_considered_orders[order.name]:
-                da_sell_submitted_volumes[order.equipment.name].set_or_add_value(
-                    order.start_date, order.qmax if order.qmax is not None else 0
-                )
+                if order.start_date in da_sell_submitted_volumes[order.equipment.name]:
+                    da_sell_submitted_volumes[order.equipment.name].set_value(
+                        order.start_date, order.qmax if order.qmax is not None else 0
+                    )
+                else:
+                    da_sell_submitted_volumes[order.equipment.name].add_index(
+                        order.start_date, order.qmax if order.qmax is not None else 0
+                    )
 
         # --- Export ---
         for equipment in self.dataset.thermal:
@@ -231,14 +236,17 @@ class ThermalBiddingStep:
                     "Warning : da_sell_submitted_volumes might not yield the correct result if several internal EXCLUSION are formulated"
                 )
 
-                da_sell_submitted_volume: DAOTimeseries = da_sell_submitted_volumes[equipment.name]
+                da_sell_submitted_volume: Timeseries = da_sell_submitted_volumes[equipment.name]
                 programms: list[Timeseries] = list_of_mutually_exclusive_programms[equipment.name]
 
                 if programms:
                     for t in self.orders_time:
                         # Use generator expression instead of list comprehension for better memory efficiency
                         max_val = max((programm.get_value(t) for programm in programms), default=0)
-                        da_sell_submitted_volume.set_or_add_value(t, max_val)
+                        if t in da_sell_submitted_volume:
+                            da_sell_submitted_volume.set_value(t, max_val)
+                        else:
+                            da_sell_submitted_volume.add_index(t, max_val)
                 equipment.da_sell_submitted_volume = da_sell_submitted_volume
 
             else:
@@ -248,9 +256,9 @@ class ThermalBiddingStep:
         self,
         current_order: Order,
         unit_order_coupling_list: dict[str, Coupling],
-        current_programm: DAOTimeseries,
+        current_programm: Timeseries,
         already_considered_orders_n: list[str],
-    ) -> tuple[DAOTimeseries, list[str]]:
+    ) -> tuple[Timeseries, list[str]]:
         """
         This overcomplexified recursive search is used to make sure that all possible scenarios are returned in case of internal EXCLUSION couplings
         It also prevents from double computation
@@ -262,11 +270,11 @@ class ThermalBiddingStep:
         :param unit_order_coupling_list: a reversed dict of all coupling in which a given order is involved
         :type unit_order_coupling_list: dict[str, Coupling]
         :param current_programm: The current timeseries program
-        :type current_programm: DAOTimeseries
+        :type current_programm: Timeseries
         :param already_considered_orders_n: the list of already considered orders
         :type already_considered_orders_n: list[str]
         :return: the connected orders
-        :rtype: tuple[DAOTimeseries, list[str]]
+        :rtype: tuple[Timeseries, list[str]]
         """
         if current_order.name in already_considered_orders_n:  # This checks prevents cycles and ensures termination
             return current_programm, already_considered_orders_n
@@ -280,9 +288,14 @@ class ThermalBiddingStep:
 
         # Else, we add it to the current programm
         if current_order.start_date is not None:
-            current_programm.set_or_add_value(
-                current_order.start_date, current_order.qmax if current_order.qmax is not None else 0
-            )
+            if current_order.start_date in current_programm:
+                current_programm.set_value(
+                    current_order.start_date, current_order.qmax if current_order.qmax is not None else 0
+                )
+            else:
+                current_programm.add_index(
+                    current_order.start_date, current_order.qmax if current_order.qmax is not None else 0
+                )
         already_considered_orders_n.append(current_order.name)
 
         # Then, we search for connected orders Exclusion orders are already dealt with

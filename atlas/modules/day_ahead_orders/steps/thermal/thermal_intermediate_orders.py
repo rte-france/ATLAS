@@ -16,9 +16,10 @@ from atlas.enums import CouplingType, ThermalStrategy
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.thermal import Thermal
-from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
+from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.modules.day_ahead_orders.steps.thermal import (
     combination_1,
     combination_2,
@@ -29,12 +30,8 @@ from atlas.modules.day_ahead_orders.steps.thermal import (
     combination_7,
     combination_8,
 )
-from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import (
-    ThermalOptimizationModel,
-)
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_optimization_model import ThermalOptimizationModel
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
-from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 from atlas.solver.models import SolverOptions
 
 
@@ -75,7 +72,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             cases = self.get_unique_cases(res, thermal_unit)
 
             # Create a list that will all online time frames across all scenarios
-            online_timeframes = []
+            online_timeframes: list[tuple[Timeseries, str]] = []
             for case in cases:
                 # Encode the outcome as a state sequence
                 states_sequence = self.determine_intermediate_load_states_sequence(thermal_unit, res, case)
@@ -84,9 +81,11 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 list_of_online_timeframes = self.extract_online_sequences(states_sequence, case)
 
                 # Formulate the orders over each online timeframe.
-                for online_timeframe in list_of_online_timeframes:
-                    online_timeframes.append(online_timeframe)  # Add the time frame to the list of time frames
-                    self.formulate_unit_orders(online_timeframe, thermal_unit, case=case)
+                for online_timeframe, case_name in list_of_online_timeframes:
+                    online_timeframes.append(
+                        (online_timeframe, case_name)
+                    )  # Add the time frame to the list of time frames
+                    self.formulate_unit_orders(online_timeframe, thermal_unit, case=case_name)
 
             # Formulate the exclusion links between scenarios
             # Consider only the time frames that are overlapping
@@ -99,10 +98,10 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 if sum(thermal_unit.minimum_power.get_value(t) for t in self.orders_time) > 0.0:
                     # Create a list of order names to retrieve.
                     orders_names = []
-                    for block in overlapping_blocks:
+                    for (ts1, case1), (ts2, case2) in overlapping_blocks:
                         # Get the two start dates of the colliding blocks and their names (i.e. cases)
-                        start_date_order_1, start_date_order_2 = block[0].first_date(), block[1].first_date()
-                        case_order_1, case_order_2 = block[0].name, block[1].name
+                        start_date_order_1, start_date_order_2 = ts1.first_date(), ts2.first_date()
+                        case_order_1, case_order_2 = case1, case2
                         orders_names.append(
                             f"order_at_{start_date_order_1}_for_unit_{thermal_unit.name}_under_price_{case_order_1}"
                         )
@@ -179,35 +178,33 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         # For each price curve, we collapse all ON states. This is why we needed to know whether the unit has
         # two or three ON states. Due to the mutual exclusion constraint, the resulting serie will take values in {0,1} only.
 
-        collapsed_outcomes: list[DAOTimeseries] = []
+        collapsed_outcomes: list[tuple[Timeseries, str]] = []
 
         # consider the two possible cases
         if has_flat:
             for case in scenarios_names:
                 # Aggregate the three ON states
-                isOn_time_serie = DAOTimeseries(
-                    timeseries=results[thermal_unit.name][case]["ON_UP"]
+                isOn_time_serie = (
+                    results[thermal_unit.name][case]["ON_UP"]
                     + results[thermal_unit.name][case]["ON_DOWN"]
-                    + results[thermal_unit.name][case]["ON_FLAT"],
-                    name=case,  # the name of the new time serie, corresponds to the name of the case under consideration.
+                    + results[thermal_unit.name][case]["ON_FLAT"]
                 )
-                collapsed_outcomes.append(isOn_time_serie)
+                collapsed_outcomes.append((isOn_time_serie, case))
         else:
             for case in scenarios_names:
                 # Aggregate the two ON states
-                isOn_time_serie = DAOTimeseries(
-                    timeseries=results[thermal_unit.name][case]["ON_UP"] + results[thermal_unit.name][case]["ON_DOWN"],
-                    name=case,  # the name of the new time serie, corresponds to the name of the case under consideration.
+                isOn_time_serie = (
+                    results[thermal_unit.name][case]["ON_UP"] + results[thermal_unit.name][case]["ON_DOWN"]
                 )
-                collapsed_outcomes.append(isOn_time_serie)
+                collapsed_outcomes.append((isOn_time_serie, case))
 
         # Now based on the collapsed time series, we are able to do pairwise comparisons across all scenarios and determine whether two of them
         # are overlapping or not.
 
         # list of scenarios to be discarded (if already marked as overlapping)
-        to_discard: list[DAOTimeseries] = []
+        to_discard: list[tuple[Timeseries, str]] = []
         for pair in itertools.combinations(collapsed_outcomes, 2):
-            if self.is_overlapping(pair):
+            if self.is_overlapping((pair[0][0], pair[1][0])):
                 # add the first scenario (arbitrarily) to the list of scenarios to be discarded if
                 # the current scenario pair is perfectly overlapping
                 to_discard.append(pair[0])
@@ -222,7 +219,7 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
             collapsed_outcomes = [to_discard[0]]
 
         # Keep the name of the unique scenarios only.
-        cases: list[str] = [item.name for item in collapsed_outcomes]
+        cases: list[str] = [case_name for _, case_name in collapsed_outcomes]
 
         return cases
 
@@ -280,24 +277,25 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
         return states_sequence
 
     def get_overlapping_timeframes(
-        self, online_timeframes: list[DAOTimeseries]
-    ) -> list[tuple[DAOTimeseries, DAOTimeseries]]:
+        self, online_timeframes: list[tuple[Timeseries, str]]
+    ) -> list[tuple[tuple[Timeseries, str], tuple[Timeseries, str]]]:
         """
         Given a list of timeframes, returns the subset of overlapping timeframes.
 
-        :param online_timeframes: a list of time frames.
-        :type online_timeframes: list[DAOTimeseries]
+        :param online_timeframes: a list of time frames with their case names.
+        :type online_timeframes: list[tuple[Timeseries, str]]
         :return: a list of tuples of overlapping blocks
-        :rtype: list[tuple[DAOTimeseries, DAOTimeseries]]
+        :rtype: list[tuple[tuple[Timeseries, str], tuple[Timeseries, str]]]
         """
-        overlapping_blocks: list[tuple[DAOTimeseries, DAOTimeseries]] = []
+        overlapping_blocks: list[tuple[tuple[Timeseries, str], tuple[Timeseries, str]]] = []
 
         # Test the potential overlaps
         for pair in itertools.combinations(online_timeframes, 2):
             # Unwrap the start date and end dates of the pairs
-            name_pair_1, name_pair_2 = pair[0].name, pair[1].name
-            start_pair_1, end_pair_1 = pair[0].first_date(), pair[0].last_date()
-            start_pair_2, end_pair_2 = pair[1].first_date(), pair[1].last_date()
+            ts1, name_pair_1 = pair[0]
+            ts2, name_pair_2 = pair[1]
+            start_pair_1, end_pair_1 = ts1.first_date(), ts1.last_date()
+            start_pair_2, end_pair_2 = ts2.first_date(), ts2.last_date()
 
             # Test whether the dates are overlapping or not.
             is_overlapping = False
@@ -441,41 +439,57 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                 # Store state sequences in the output marker
                 local_time_index = res["OFF"].index
 
-                new_sequence_ts = DAOTimeseries(
-                    Timeseries.from_index(
-                        self.parameters.temporal.start_date,
-                        self.parameters.temporal.timestep,
-                        self.parameters.temporal.end_date,
-                        default_value=0,
-                    )
+                new_sequence_ts = Timeseries.from_index(
+                    self.parameters.temporal.start_date,
+                    self.parameters.temporal.timestep,
+                    self.parameters.temporal.end_date,
+                    default_value=0,
                 )
 
                 for time in local_time_index:
                     if res["ON_UP"].get_value(time) == 1:
-                        new_sequence_ts.set_or_add_value(time, 1)
+                        if time in new_sequence_ts:
+                            new_sequence_ts.set_value(time, 1)
+                        else:
+                            new_sequence_ts.add_index(time, 1)
                         continue
 
                     if res["ON_DOWN"].get_value(time) == 1:
-                        new_sequence_ts.set_or_add_value(time, 2)
+                        if time in new_sequence_ts:
+                            new_sequence_ts.set_value(time, 2)
+                        else:
+                            new_sequence_ts.add_index(time, 2)
                         continue
 
                     if res["OFF"].get_value(time) == 1:
-                        new_sequence_ts.set_or_add_value(time, 3)
+                        if time in new_sequence_ts:
+                            new_sequence_ts.set_value(time, 3)
+                        else:
+                            new_sequence_ts.add_index(time, 3)
                         continue
 
                     if "START" in res.keys():
                         if res["START"].get_value(time) == 1:
-                            new_sequence_ts.set_or_add_value(time, 4)
+                            if time in new_sequence_ts:
+                                new_sequence_ts.set_value(time, 4)
+                            else:
+                                new_sequence_ts.add_index(time, 4)
                             continue
 
                     if "STOP" in res.keys():
                         if res["STOP"].get_value(time) == 1:
-                            new_sequence_ts.set_or_add_value(time, 5)
+                            if time in new_sequence_ts:
+                                new_sequence_ts.set_value(time, 5)
+                            else:
+                                new_sequence_ts.add_index(time, 5)
                             continue
 
                     if "ON_FLAT" in res.keys():
                         if res["ON_FLAT"].get_value(time) == 1:
-                            new_sequence_ts.set_or_add_value(time, 6)
+                            if time in new_sequence_ts:
+                                new_sequence_ts.set_value(time, 6)
+                            else:
+                                new_sequence_ts.add_index(time, 6)
                             continue
 
                 if unit.state_sequence is None:

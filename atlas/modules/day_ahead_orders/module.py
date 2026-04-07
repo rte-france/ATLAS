@@ -29,9 +29,9 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
     def get_parameters_class(self):
         return DayAheadOrdersParameters
 
-    def import_data(self, raw_data: AtlasDataset, parameters: DayAheadOrdersParameters) -> DayAheadOrdersInputDataset:
+    def import_data(self, input_data: AtlasDataset, parameters: DayAheadOrdersParameters) -> DayAheadOrdersInputDataset:
         """Imports data using business objects and parameters."""
-        return DayAheadOrdersInputDataset(raw_data, parameters)
+        return DayAheadOrdersInputDataset(input_data, parameters)
 
     def validate_data(self, parameters: DayAheadOrdersParameters, input_dataset: DayAheadOrdersInputDataset) -> bool:
         """Validates imported or generated data."""
@@ -218,33 +218,27 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
         if len(orders_time) > 0:
             cfg.logger.info("Extraction completed, now starting the formulation of orders...")
 
-            #### STEP 1 - CONSUMPTION ####
             cfg.logger.info("Formulation of the load orders...")
             LoadStep.formulate_load_orders(output_dataset, orders_time, parameters)
             cfg.logger.info("Consumption orders formulated.")
 
-            #### STEP 2 - NON DISPATCHABLE GENERATION UNITS ####
             cfg.logger.info("Formulation of the non-dispatchable orders...")
             NonDispatchableStep.formulate_non_dispatchable_orders(output_dataset, orders_time, parameters)
             cfg.logger.info("Non-dispatchable orders formulated.")
 
-            #### STEP 3 - STORAGE UNITS ####
             cfg.logger.info("Formulation of the storage orders...")
             storage = StorageStep(output_dataset, parameters)
             storage.formulate_storage_orders()
             cfg.logger.info("Storage orders formulated.")
 
-            #### STEP 4 - HYDRO RESERVOIR UNITS ####
             cfg.logger.info("Formulation of the hydraulic orders...")
             HydraulicStep.formulate_hydraulic_orders(output_dataset, orders_time, parameters)
             cfg.logger.info("Hydraulic orders formulated.")
 
-            #### STEP 5 - WIND AND PV UNITS ####
             cfg.logger.info("Formulation of the wind/pv orders...")
             WindPVStep.formulate_wind_and_pv_orders(output_dataset, orders_time, parameters)
             cfg.logger.info("wind/pv orders formulated.")
 
-            #### STEP 6 - THERMAL UNITS ####
             cfg.logger.info("Formulation of the thermic orders...")
             thermal_bidding = ThermalBiddingStep(output_dataset, orders_time, parameters)
             thermal_bidding.formulate_thermal_orders()
@@ -252,7 +246,7 @@ class DayAheadOrdersModule(AbstractModule[DayAheadOrdersParameters, DayAheadOrde
 
             cfg.logger.info("Formulation of orders successfully completed.")
         else:
-            cfg.logger.error("orders_time is empty.")
+            cfg.logger.warning("The time window to formulate orders is empty.")
 
         return output_dataset
 
