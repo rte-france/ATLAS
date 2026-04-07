@@ -10,14 +10,14 @@ from functools import cached_property
 from pendulum import DateTime
 from pydantic import Field
 
-from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
 from atlas.io_utils.parameters import (
     MultiProcessingParameters,
     SolverParameters,
 )
 
 
-class DayAheadOrdersParameters(AbstractParameters):
+class DayAheadOrdersParameters(AbstractModuleParameters):
     solver: SolverParameters = SolverParameters()  # type: ignore[call-arg]
 
     multiprocessing: MultiProcessingParameters = MultiProcessingParameters()

@@ -2,7 +2,7 @@
 
 ## Overview
 
-All ATLAS modules inherit from `AbstractParameters` and share a common set of configuration parameters organized into nested sections.
+All ATLAS modules inherit from `AbstractModuleParameters` and share a common set of configuration parameters organized into nested sections.
 
 
 ## Structure

@@ -40,7 +40,7 @@ Implements `AbstractModule` with methods:
 
 ### IntradayPriceForecastParameters
 
-Pydantic model inheriting from `AbstractParameters`. Defines configuration parameters:
+Pydantic model inheriting from `AbstractModuleParameters`. Defines configuration parameters:
 
 - `temporal`: Time configuration (inherited)
 - `output`: Output configuration (inherited)
