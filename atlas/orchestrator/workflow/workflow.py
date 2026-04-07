@@ -15,8 +15,8 @@ import yaml
 
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
+from atlas.orchestrator.workflow.job import Step, WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
-from atlas.orchestrator.workflow.job import WorkflowJob, Step
 
 
 class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):

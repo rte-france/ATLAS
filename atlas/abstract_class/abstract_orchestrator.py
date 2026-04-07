@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Generic
 
+from atlas.abstract_class.abstract_orchestrator_parameters import PO
+from atlas.abstract_class.abstract_step import AbstractJob, S
 from atlas.config import logger
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
-from atlas.abstract_class.abstract_orchestrator_parameters import PO
-from atlas.abstract_class.abstract_step import S, AbstractJob
 
 
 class AbstractOrchestrator(ABC, Generic[PO, S]):

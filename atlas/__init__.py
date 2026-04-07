@@ -33,9 +33,9 @@ from atlas.models.portfolio import Portfolio
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
+from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
-from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes

@@ -7,14 +7,13 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from enum import Enum
+
+from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
-
-from enum import Enum
-
-from atlas.abstract_class.abstract_module import AbstractModule
 
 
 class ModuleRegistry(Enum):

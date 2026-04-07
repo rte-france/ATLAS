@@ -7,15 +7,11 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, TypeVar
-
-from pydantic import BaseModel, field_validator, model_validator
 
 from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.abstract_class.abstract_module import AbstractModule
-from atlas.orchestrator.module_registry import ModuleRegistry
 
 
 class AbstractJob:
