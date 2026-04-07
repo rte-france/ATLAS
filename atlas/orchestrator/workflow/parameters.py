@@ -39,7 +39,6 @@ class WorkflowParameters(Parameters):
     output_dir: Path = Path()
     rollback_on_step_failure: bool = True
     create_step_snapshots: bool = False
-    export_output: bool = True
 
     _workflow_path: Path = Path()
 

@@ -12,6 +12,7 @@ from pendulum import DateTime
 from atlas.enums import MarketType, StorageType, ThermalStrategy
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
@@ -156,6 +157,8 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
     if parameters.market == MarketType.dayahead:
         if equipment.da_cleared_quantity is not None:
             filtered = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+        if isinstance(filtered, LazyTimeseries):
+            filtered = filtered.collect()
         else:
             filtered = Timeseries.from_index(
                 parameters.temporal.start_date,
@@ -168,6 +171,8 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
     elif parameters.market == MarketType.intraday:
         if equipment.da_cleared_quantity is not None:
             da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+        if isinstance(da_power, LazyTimeseries):
+            da_power = da_power.collect()
         else:
             da_power = Timeseries.from_index(
                 parameters.temporal.start_date,
@@ -178,6 +183,8 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
 
         if equipment.total_id_cleared_quantity is not None:
             id_power = equipment.total_id_cleared_quantity.filter(parameters.target_times, inplace=False)
+        if isinstance(id_power, LazyTimeseries):
+            id_power = id_power.collect()
         else:
             id_power = Timeseries.from_index(
                 parameters.temporal.start_date,

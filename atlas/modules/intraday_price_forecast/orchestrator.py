@@ -1,8 +1,11 @@
+from typing import cast
+
 import polars as pl
 from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import LoadType
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
@@ -215,7 +218,7 @@ class IntradayPriceForecastOrchestrator:
 
         return consumption_delta
 
-    def _get_baseline_price(self, market_area: MarketAreaIDPF) -> tuple[Timeseries, str]:
+    def _get_baseline_price(self, market_area: MarketAreaIDPF) -> tuple[AbstractTimeseries, str]:
         """
         Determine the baseline price to use for the forecast.
 
@@ -247,7 +250,7 @@ class IntradayPriceForecastOrchestrator:
 
         return baseline_price.set_frequency(self.parameters.temporal.timestep), price_source_label
 
-    def _apply_non_negativity_constraint(self, price_forecast: Timeseries) -> Timeseries:
+    def _apply_non_negativity_constraint(self, price_forecast: AbstractTimeseries) -> Timeseries:
         """
         Ensure all price values are non-negative.
 
@@ -260,7 +263,9 @@ class IntradayPriceForecastOrchestrator:
             self.parameters.temporal.start_date, self.parameters.penultimate_date, inplace=False
         ).dataframe.with_columns(pl.when(pl.col("value") < 0.0).then(0.0).otherwise(pl.col("value")).alias("value"))
 
-        price_forecast = Timeseries(df)
+        if isinstance(price_forecast, pl.LazyFrame):
+            df = df.collect()
+        price_forecast = Timeseries(cast(pl.DataFrame, df))
 
         return price_forecast
 
