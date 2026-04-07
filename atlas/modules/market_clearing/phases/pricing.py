@@ -32,8 +32,9 @@ class Pricing(OptimisationModel):
         clearing_local_balances: dict[tuple[str, int], float],
         clearing_accepted_powers: dict[tuple[str, str], float],
     ):
-        solver_option = SolverOptions(presolve=parameters.solver.use_presolve)
-        super().__init__(parameters.solver.solver_name, options=solver_option)
+        solver_options = SolverOptions(presolve=parameters.solver.use_presolve)
+
+        super().__init__(parameters.solver.solver_name, options=solver_options, name="Pricing")
         self.input_dataset = input_dataset
         self.parameters = parameters
         self.saturated_critical_branch = saturated_critical_branch
@@ -48,7 +49,7 @@ class Pricing(OptimisationModel):
         self.second_pricing = None
         self.third_pricing = None
 
-    def run(self):
+    def compute(self):
         self.build_first()
         solver_info = self.solve()
         output_path = self.parameters.get_output_dir() / "lp_export"

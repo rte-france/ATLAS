@@ -94,7 +94,7 @@ class AddObject(ChangeSet):
 
     @classmethod
     def _build_from_obj(cls, obj: BusinessModel, model_type):
-        return cls(obj.model_dump(), model_type)
+        return cls(dict(obj), model_type)
 
     @staticmethod
     def _validate_data(data):
@@ -119,7 +119,7 @@ class UpdateObject(ChangeSet):
 
     @classmethod
     def _build_from_obj(cls, obj: BusinessModel, model_type):
-        return cls(obj.model_dump(), model_type)
+        return cls(dict(obj), model_type)
 
     @staticmethod
     def _validate_data(data):

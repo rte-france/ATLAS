@@ -5,7 +5,7 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas import AtlasDataset, ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
+from atlas import ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.enums import Product
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -120,7 +120,6 @@ class MarketClearingOutputDataset(AbstractModuleOutput[MarketClearingParameters]
         self.local_balances = local_balances
         self.border_exchanges = border_exchanges
         self.market_prices = market_prices
-        self.raw_data: AtlasDataset = input_dataset.raw_data.model_copy(deep=True)
 
     def build_change_sets(self) -> None:
         self.update_orders()
