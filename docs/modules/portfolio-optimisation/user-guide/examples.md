@@ -67,7 +67,7 @@ params = {
 
 **Multiprocessing**:
 ```python
-params = {"use_multiprocessing": True, "max_workers": 4, ...}
+params = {"enable": True, "max_workers": 4, ...}
 ```
 
 **Solver options**:

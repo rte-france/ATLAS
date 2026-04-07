@@ -116,7 +116,7 @@ output:
   export_result: True
   export_output_dataset: True
 multiprocessing:
-  use_multiprocessing: True
+  enable: True
   max_workers: 4
 market: DayAhead
 is_portfolio_bidding: True
