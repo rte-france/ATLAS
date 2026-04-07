@@ -23,12 +23,11 @@ class HydroDAO(Hydro):
     fragment_prices: list[float]
     fragment_volumes: list[float]
 
-    @model_validator(mode="wrap")
+    @model_validator(mode="before")
     @classmethod
-    def convert_portfolio(cls, value, handler):
-        if isinstance(value, Hydro):
+    def convert_portfolio(cls, value):
+        if isinstance(value, Hydro) and value.portfolio:
             data = dict(value)
-            if value.portfolio:
-                data["portfolio"] = PortfolioDAO(**dict(value.portfolio))
-            return handler(data)
-        return handler(value)
+            data["portfolio"] = PortfolioDAO(**dict(value.portfolio))
+            return data
+        return value

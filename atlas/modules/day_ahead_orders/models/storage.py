@@ -25,15 +25,14 @@ class StorageDAO(Storage):
     minimum_state_of_charge: AbstractTimeseries
     additional_hours: Duration
 
-    @model_validator(mode="wrap")
+    @model_validator(mode="before")
     @classmethod
-    def convert_portfolio(cls, value, handler):
-        if isinstance(value, Storage):
+    def convert_portfolio(cls, value):
+        if isinstance(value, Storage) and value.portfolio:
             data = dict(value)
-            if value.portfolio:
-                data["portfolio"] = PortfolioDAO(**dict(value.portfolio))
-            return handler(data)
-        return handler(value)
+            data["portfolio"] = PortfolioDAO(**dict(value.portfolio))
+            return data
+        return value
 
     @model_validator(mode="after")
     def validate_displacement_energy_for_ev(self) -> Self:

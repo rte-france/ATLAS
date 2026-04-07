@@ -16,12 +16,11 @@ class SolarDAO(Solar):
     portfolio: PortfolioDAO
     maximum_curtailment_ratio: AbstractTimeseries
 
-    @model_validator(mode="wrap")
+    @model_validator(mode="before")
     @classmethod
-    def convert_portfolio(cls, value, handler):
-        if isinstance(value, Solar):
+    def convert_portfolio(cls, value):
+        if isinstance(value, Solar) and value.portfolio:
             data = dict(value)
-            if value.portfolio:
-                data["portfolio"] = PortfolioDAO(**dict(value.portfolio))
-            return handler(data)
-        return handler(value)
+            data["portfolio"] = PortfolioDAO(**dict(value.portfolio))
+            return data
+        return value

@@ -240,6 +240,6 @@ class MarketClearingInputDataset(AbstractDataset[MarketClearingParameters]):
     @staticmethod
     def shallow_dump(model: BaseModel) -> dict[str, Any]:
         result = {}
-        for name, value in model.__dict__.items():
+        for name, value in dict(model).items():
             result[name] = value
         return result

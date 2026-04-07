@@ -94,12 +94,16 @@ class AddObject(ChangeSet):
 
     @classmethod
     def _build_from_obj(cls, obj: BusinessModel, model_type):
-        return cls(obj.__dict__.copy(), model_type)
+        return cls(obj.model_dump(), model_type)
 
     @staticmethod
     def _validate_data(data):
         if "name" not in data:
             raise KeyError("AddObject requires 'name' in data")
+
+    def __repr__(self) -> str:
+        name = self.data.get("name", "unknown")
+        return f"{self.__class__.__name__}(model_type={self.model_type.value!r}, name={name!r})"
 
 
 class UpdateObject(ChangeSet):
@@ -115,12 +119,16 @@ class UpdateObject(ChangeSet):
 
     @classmethod
     def _build_from_obj(cls, obj: BusinessModel, model_type):
-        return cls(obj.__dict__.copy(), model_type)
+        return cls(obj.model_dump(), model_type)
 
     @staticmethod
     def _validate_data(data):
         if "name" not in data:
             raise KeyError("UpdateObject requires 'name' in data")
+
+    def __repr__(self) -> str:
+        name = self.data.get("name", "unknown")
+        return f"{self.__class__.__name__}(model_type={self.model_type.value!r}, name={name!r})"
 
 
 class DeleteObject(ChangeSet):
@@ -136,3 +144,6 @@ class DeleteObject(ChangeSet):
     @classmethod
     def _build_from_obj(cls, obj: BusinessModel, model_type):
         return cls(obj.name, model_type)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(model_type={self.model_type.value!r}, name={self.name!r})"
