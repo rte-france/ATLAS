@@ -6,24 +6,20 @@ This file is part of the ATLAS project.
 """
 
 from functools import cached_property
-from pathlib import Path
 
 from pendulum import DateTime
 from pydantic import Field
 
-from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.io_utils.section_parameters import (
-    DateParameters,
+from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
+from atlas.io_utils.parameters import (
     MultiProcessingParameters,
-    OutputParameters,
     SolverParameters,
 )
 
 
-class DayAheadOrdersParameters(AbstractParameters):
-    temporal: DateParameters
-    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
-    output: OutputParameters = OutputParameters()
+class DayAheadOrdersParameters(AbstractModuleParameters):
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg]
+
     multiprocessing: MultiProcessingParameters = MultiProcessingParameters()
 
     proportional_reserves_penalty: bool = Field(
@@ -95,9 +91,6 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="List of available PriceForecasts in the input data, separated by ';'. The default value should "
         "always include 'Medium'.",
     )
-
-    def get_output_dir(self) -> Path:
-        return self.get_path(self.output.output_dir)
 
     @cached_property
     def penultimate_date(self) -> DateTime:

@@ -37,8 +37,9 @@ class ModuleRegistry(Enum):
             raise ValueError(f"Unknown module: '{name}'. Valid modules are: {valid}") from None
 
     @classmethod
-    def has_name(cls, name: str) -> bool:
-        return name in cls._member_names_
+    def get_names(cls) -> list[str]:
+        """Return list of valid module names for CLI choices."""
+        return [m.name for m in cls]
 
 
 class Step(BaseModel):

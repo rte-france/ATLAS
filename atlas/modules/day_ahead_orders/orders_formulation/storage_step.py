@@ -38,7 +38,7 @@ class StorageStep:
         Supports both sequential and parallel processing based on use_multiprocessing parameter.
         :return: None
         """
-        if self.parameters.multiprocessing.use_multiprocessing:
+        if self.parameters.multiprocessing.enable:
             self._formulate_storage_orders_parallel()
         else:
             self._formulate_storage_orders_sequential()
