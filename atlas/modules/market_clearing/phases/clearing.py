@@ -25,12 +25,13 @@ DEFAULT_MIN_FLOW = -10000.0
 
 class Clearing(OptimisationModel):
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
-        solver_option = SolverOptions(presolve=parameters.solver.use_presolve)
-        super().__init__(parameters.solver.solver_name, options=solver_option)
+        solver_options = SolverOptions(presolve=parameters.solver.use_presolve)
+
+        super().__init__(parameters.solver.solver_name, options=solver_options, name="Clearing")
         self.input_dataset = input_dataset
         self.parameters = parameters
 
-    def run(self):
+    def compute(self):
         self.build()
         self.solve()
         if self.parameters.solver.export_lp:
