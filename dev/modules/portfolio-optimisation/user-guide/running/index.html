@@ -1270,17 +1270,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#performance-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Performance Options
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -3676,17 +3665,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#performance-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Performance Options
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -3737,9 +3715,6 @@
 <p><strong><code>excluded_market_areas</code></strong> (list of strings): Market areas to exclude from optimization</p>
 <p><strong><code>excluded_technologies</code></strong> (list of strings): Technology types to exclude (e.g., <code>["THERMAL", "HYDRO"]</code>)</p>
 <p><strong><code>excluded_thermal_strategy</code></strong> (list of strings): Thermal strategies to exclude (e.g., <code>["MUST_RUN"]</code>)</p>
-<h3 id="performance-options">Performance Options<a class="headerlink" href="#performance-options" title="Permanent link">&para;</a></h3>
-<p><strong><code>use_multiprocessing</code></strong> (boolean, default: <code>false</code>): Enable parallel processing of portfolios</p>
-<p><strong><code>max_workers</code></strong> (integer): Maximum number of parallel workers (requires <code>use_multiprocessing=true</code>)</p>
 <h2 id="example-configuration">Example Configuration<a class="headerlink" href="#example-configuration" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
 <span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
@@ -3759,9 +3734,7 @@
 <span class="normal"><a href="#__codelineno-0-16">16</a></span>
 <span class="normal"><a href="#__codelineno-0-17">17</a></span>
 <span class="normal"><a href="#__codelineno-0-18">18</a></span>
-<span class="normal"><a href="#__codelineno-0-19">19</a></span>
-<span class="normal"><a href="#__codelineno-0-20">20</a></span>
-<span class="normal"><a href="#__codelineno-0-21">21</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">atlas</span><span class="w"> </span><span class="kn">import</span> <span class="n">AtlasDataset</span><span class="p">,</span> <span class="n">PortfolioOptimisationModule</span>
+<span class="normal"><a href="#__codelineno-0-19">19</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">atlas</span><span class="w"> </span><span class="kn">import</span> <span class="n">AtlasDataset</span><span class="p">,</span> <span class="n">PortfolioOptimisationModule</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="c1"># Common parameters</span>
@@ -3774,14 +3747,12 @@
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a>    <span class="c1"># Module-specific parameters</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a>    <span class="s2">&quot;is_portfolio_bidding&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a>    <span class="s2">&quot;use_multiprocessing&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15"></a>    <span class="s2">&quot;max_workers&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16"></a>    <span class="s2">&quot;excluded_technologies&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;LOAD&quot;</span><span class="p">]</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="p">}</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18"></a>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="n">module</span> <span class="o">=</span> <span class="n">PortfolioOptimisationModule</span><span class="p">()</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="n">input_data</span> <span class="o">=</span> <span class="n">AtlasDataset</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="s2">&quot;path/to/dataset&quot;</span><span class="p">)</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="n">module</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a>    <span class="s2">&quot;excluded_technologies&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;load&quot;</span><span class="p">]</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="p">}</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16"></a>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="n">module</span> <span class="o">=</span> <span class="n">PortfolioOptimisationModule</span><span class="p">()</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="n">input_data</span> <span class="o">=</span> <span class="n">AtlasDataset</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="s2">&quot;path/to/dataset&quot;</span><span class="p">)</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="n">module</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
 <p>See <a href="../input-data/">Parameters</a> for the complete list of module-specific parameters.</p>
 

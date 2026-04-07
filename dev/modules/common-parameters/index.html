@@ -3789,7 +3789,7 @@
 
 <h1 id="common-module-parameters">Common Module Parameters<a class="headerlink" href="#common-module-parameters" title="Permanent link">&para;</a></h1>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>All ATLAS modules inherit from <code>AbstractParameters</code> and share a common set of configuration parameters organized into nested sections.</p>
+<p>All ATLAS modules inherit from <code>AbstractModuleParameters</code> and share a common set of configuration parameters organized into nested sections.</p>
 <h2 id="structure">Structure<a class="headerlink" href="#structure" title="Permanent link">&para;</a></h2>
 <p>Common parameters are organized into four sections:
 <div class="language-yaml highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span>
@@ -3930,7 +3930,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>use_multiprocessing</code></td>
+<td><code>enable</code></td>
 <td>boolean</td>
 <td><code>false</code></td>
 <td>Enable parallel execution</td>
@@ -3984,7 +3984,7 @@
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17"></a><span class="w">  </span><span class="nt">output_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;results/&quot;</span>
 </span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18"></a>
 </span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19"></a><span class="nt">multiprocessing</span><span class="p">:</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20"></a><span class="w">  </span><span class="nt">use_multiprocessing</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20"></a><span class="w">  </span><span class="nt">enable</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21"></a><span class="w">  </span><span class="nt">max_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
 </span></code></pre></div></td></tr></table></div>
 <hr />
