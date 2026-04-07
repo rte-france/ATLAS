@@ -27,6 +27,7 @@ from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
+from atlas.models.market.market_area_ptdf import MarketAreaPtdf
 from atlas.models.market.market_border import MarketBorder
 from atlas.models.market.node_ptdf import NodePtdf
 from atlas.models.market.order import Order
@@ -1179,8 +1180,6 @@ class TestFilterZones:
 
     def test_filter_zone_market_area_ptdf(self):
         """Test that market_area_ptdf objects are correctly filtered."""
-        from atlas.models.market.critical_branch import CriticalBranch
-        from atlas.models.market.market_area_ptdf import MarketAreaPtdf
 
         cb = ControlBlock(name="CB1")
         cb2 = ControlBlock(name="CB2")
