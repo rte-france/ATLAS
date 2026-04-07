@@ -21,3 +21,23 @@ class WorkflowStep(AbsractStep):
         module_name = self.module.__class__.__name__
         has_output = self._output_dataset is not None
         return f"WorkflowStep(name={self.name!r}, module={module_name}, executed={has_output})"
+
+    @staticmethod
+    def add_index_in_step_name(steps: list) -> None:
+        """Append a numeric index suffix to duplicate step names, in-place.
+
+        Steps whose name is unique are left unchanged. Steps sharing a name are
+        renamed '<name>_1', '<name>_2', etc., in the order they appear.
+
+        :param steps: List of step parameter objects exposing a 'name' attribute.
+        :type steps: list
+        """
+        name_counts: dict[str, int] = {}
+        for step in steps:
+            name_counts[step.name] = name_counts.get(step.name, 0) + 1
+
+        name_index: dict[str, int] = {}
+        for step in steps:
+            if name_counts[step.name] > 1:
+                name_index[step.name] = name_index.get(step.name, 0) + 1
+                step.name = f"{step.name}_{name_index[step.name]}"
