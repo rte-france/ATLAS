@@ -59,12 +59,8 @@ class WindPVStep:
                 if equipment.variable_cost is not None:
                     variable_costs = equipment.variable_cost.filter(orders_time, inplace=False)
 
-                # Now we loop over the time stamps for which we want an offer to be made.
-                # We formulate as many offers as there are time stamps in orders_time.
                 for t in orders_time:
-                    # Assign a unique name. FC: I simplfiy this part, given the loop we're in the equipment has to be Wind or Solar.
-                    # In addition these is no need to add wind or solar in the name as the equipment name already contains this information.
-                    bid_name = "order_at_{t}_for_unit_{equipment.name}"
+                    bid_name = f"order_at_{t}_for_unit_{equipment.name}"
 
                     # Extract the available generation level range
                     max_production_value = production_forecast.get_value(t)
