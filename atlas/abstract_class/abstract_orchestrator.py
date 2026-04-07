@@ -44,9 +44,7 @@ class AbstractOrchestrator(ABC, Generic[PO, S]):
         # TODO pass this log into the orchestrator
         # or just use the class running this execute
         # logger.info(f"Launching workflow : {self.parameters.name}")
-        atlas_dataset = AtlasDataset.from_directory(
-            self.orchestrator_path / self.parameters.dataset_path
-        )
+        atlas_dataset = AtlasDataset.from_directory(self.orchestrator_path / self.parameters.dataset_path)
         cis = CurrentInputState(atlas_dataset)
 
         for step in self.steps:
