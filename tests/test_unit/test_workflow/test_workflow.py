@@ -258,19 +258,19 @@ class TestWorkflowExecute:
         wf._steps = [step]
 
         with (
-            patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
             patch("atlas.orchestrator.handler.cis_handler.CISHandler.apply") as mock_apply,
-            patch("atlas.abstract_class.abstract_orchestrator.CurrentInputState") as MockCIS,
+            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as MockFromDir,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()
             mock_cis_instance.filter_dataset.return_value = AtlasDataset()
             mock_cis_instance.data = AtlasDataset()
-            MockCIS.return_value = mock_cis_instance
+            MockFromDir.return_value = mock_cis_instance
 
             wf.execute()
 
-        mock_apply.assert_called_once_with([mock_change_set], mock_cis_instance)
+        # Default rollback_on_step_failure is True
+        mock_apply.assert_called_once_with([mock_change_set], mock_cis_instance, rollback_on_error=True)
 
 
 class TestWorkflowFromFile:
@@ -328,44 +328,6 @@ class TestWorkflowRepresentation:
 
 
 class TestWorkflowPathFromWorkflow:
-    def test_workflow_path_set_to_parent_when_path_from_workflow_true(self, tmp_path):
-        dataset_dir = tmp_path / "dataset"
-        dataset_dir.mkdir()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
-
-        config = tmp_path / "workflow.yaml"
-        config.write_text(
-            f"name: test_workflow\n"
-            f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
-            f"path_from_orchestrator: true\n"
-            f"steps: []\n"
-        )
-
-        workflow = Workflow.from_file(config)
-
-        assert workflow.workflow_path == tmp_path
-
-    def test_workflow_path_empty_when_path_from_workflow_false(self, tmp_path):
-        dataset_dir = tmp_path / "dataset"
-        dataset_dir.mkdir()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
-
-        config = tmp_path / "workflow.yaml"
-        config.write_text(
-            f"name: test_workflow\n"
-            f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
-            f"path_from_orchestrator: false\n"
-            f"steps: []\n"
-        )
-
-        workflow = Workflow.from_file(config)
-
-        assert workflow.workflow_path == Path()
-
     def test_dataset_loaded_relative_to_workflow_when_path_from_workflow_true(self, tmp_path):
         dataset_dir = tmp_path / "dataset"
         dataset_dir.mkdir()
@@ -384,12 +346,13 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow.from_file(config)
 
         with (
-            patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory") as mock_from_dir,
-            patch("atlas.orchestrator.current_input_state.CurrentInputState"),
+            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as mock_from_dir,
             patch.object(Path, "mkdir", return_value=None),
             patch.object(AtlasDataset, "to_directory"),
         ):
-            mock_from_dir.return_value = AtlasDataset()
+            mock_cis = MagicMock()
+            mock_cis.data = AtlasDataset()
+            mock_from_dir.return_value = mock_cis
             workflow.execute()
             mock_from_dir.assert_called_once_with(tmp_path / "dataset")
 
@@ -411,13 +374,14 @@ class TestWorkflowPathFromWorkflow:
         workflow = Workflow.from_file(config)
 
         with (
-            patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory") as mock_from_dir,
-            patch("atlas.orchestrator.current_input_state.CurrentInputState"),
+            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as mock_from_dir,
             patch.object(AtlasDataset, "to_directory"),
         ):
-            mock_from_dir.return_value = AtlasDataset()
+            mock_cis = MagicMock()
+            mock_cis.data = AtlasDataset()
+            mock_from_dir.return_value = mock_cis
             workflow.execute()
-            mock_from_dir.assert_called_once_with(Path() / dataset_dir)
+            mock_from_dir.assert_called_once_with(dataset_dir)
 
     def test_step_output_dir_resolved_relative_to_workflow(self, tmp_path):
         dataset_dir = tmp_path / "dataset"

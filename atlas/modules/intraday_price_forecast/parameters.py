@@ -3,14 +3,10 @@ from functools import cached_property
 from pydantic import Field
 from pydantic_extra_types.pendulum_dt import DateTime
 
-from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.io_utils.section_parameters import DateParameters, OutputParameters
+from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
 
 
-class IntradayPriceForecastParameters(AbstractParameters):
-    temporal: DateParameters
-    output: OutputParameters = OutputParameters()
-
+class IntradayPriceForecastParameters(AbstractModuleParameters):
     intraday_negative_price_cap: int = Field(
         -500,
         description="Lower price cap of the Intraday market, -500 €/MWh in 2024.",

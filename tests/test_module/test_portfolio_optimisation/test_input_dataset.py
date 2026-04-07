@@ -11,16 +11,14 @@ import pytest
 
 from atlas.enums import LoadType, MarketType
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.section_parameters import DateParameters
+from atlas.io_utils.parameters import DateParameters
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.models.equipment.solar import Solar
 from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
 from atlas.models.portfolio import Portfolio

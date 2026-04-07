@@ -80,7 +80,7 @@ output:
   export_result: True
   export_output_dataset: True
 multiprocessing:
-  use_multiprocessing: True
+  enable: True
   max_workers: 4
 proportional_reserves_penalty: True
 automated_unprocured_reserves_penalty: 10000

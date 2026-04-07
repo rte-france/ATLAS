@@ -24,16 +24,13 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
 
     Each step processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, parameters: WorkflowParameters, workflow_path: Path):
+    def __init__(self, parameters: WorkflowParameters):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
         :type parameters: WorkflowParameters
-        :param workflow_path: Path.
-        :type workflow_path: WorkflowParameters
         """
         self.parameters = parameters
-        self.workflow_path = workflow_path
         self.generic_module_parameters: dict[str, Any] = {}
         self._steps: list[WorkflowStep] = []
 
@@ -44,12 +41,12 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
     def from_file(cls, file_path: str | Path) -> Workflow:
         file_path = Path(file_path)
         parameters = WorkflowParameters.from_file(file_path=file_path)
-        workflow_path = file_path.parent if parameters.path_from_orchestrator else Path()
-        return cls(parameters=parameters, workflow_path=workflow_path)
+        parameters._orchestrator_path = file_path.parent
+        return cls(parameters=parameters)
 
     def build_generic_module_parameters(self):
         if self.parameters.parameters_path:
-            with open(self.workflow_path / self.parameters.parameters_path) as file:
+            with open(self.parameters.resolve_path(self.parameters.parameters_path)) as file:
                 self.generic_module_parameters = yaml.safe_load(file)
 
     def build_steps(self):
@@ -57,11 +54,11 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
 
         for step in self.parameters.steps:
             parameters = Workflow.build_module_parameters(
-                self.generic_module_parameters, self.workflow_path / step.parameters_path
+                self.generic_module_parameters, self.parameters.resolve_path(step.parameters_path)
             )
             if "output" not in parameters:
                 parameters["output"] = {}
-            parameters["output"]["output_dir"] = self.workflow_path / self.parameters.output_dir / step.name
+            parameters["output"]["output_dir"] = self.parameters.resolve_path(self.parameters.output_dir) / step.name
             workflow_step = WorkflowStep(step.name, step.module.value, parameters)
             self.add_step(workflow_step)
 
@@ -74,18 +71,11 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
         return parameters
 
     @property
-    def orchestrator_path(self) -> Path:
-        """
-        Return the path to the current orchestrator.
-        """
-        return self.workflow_path
-
-    @property
     def steps(self) -> list[WorkflowStep]:
         """
         Access the workflow steps.
 
-        :return: The list of Step instances.
+        :return: The list of WorkflowStep instances.
         """
         return self._steps
 
@@ -93,11 +83,11 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
         """Add one or multiple steps to the end of the workflow."""
         if isinstance(step, list):
             if not all(isinstance(s, WorkflowStep) for s in step):
-                raise TypeError("All items in the list must be Step instances.")
+                raise TypeError("All items in the list must be WorkflowStep instances.")
             self._steps.extend(step)
         else:
             if not isinstance(step, WorkflowStep):
-                raise TypeError(f"Expected a Step instance, got {type(step).__name__}.")
+                raise TypeError(f"Expected a WorkflowStep instance, got {type(step).__name__}.")
             self._steps.append(step)
 
     def get_output_dataset(self) -> AbstractDataset | None:

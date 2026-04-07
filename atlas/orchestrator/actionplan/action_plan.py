@@ -13,6 +13,7 @@ from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
 from atlas.orchestrator.actionplan.step import ActionPlanStep
+from atlas.orchestrator.current_input_state import CurrentInputState
 
 
 # FIXME this class is similar to Workflow class, common part must be refactored in AbstractOrchestrator class
@@ -45,5 +46,5 @@ class ActionPlan(AbstractOrchestrator):
     def __repr__(self) -> str:
         raise NotImplementedError
 
-    def execute(self) -> None:
+    def execute(self) -> CurrentInputState:
         raise NotImplementedError

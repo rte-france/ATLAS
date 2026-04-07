@@ -1,11 +1,18 @@
+"""
+Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+"""
+
+from __future__ import annotations
+
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 
 from enum import Enum
-
-from pydantic import BaseModel, field_validator, model_validator
 
 from atlas.abstract_class.abstract_module import AbstractModule
 
@@ -27,5 +34,6 @@ class ModuleRegistry(Enum):
             raise ValueError(f"Unknown module: '{name}'. Valid modules are: {valid}") from None
 
     @classmethod
-    def has_name(cls, name: str) -> bool:
-        return name in cls._member_names_
+    def get_names(cls) -> list[str]:
+        """Return list of valid module names for CLI choices."""
+        return [m.name for m in cls]

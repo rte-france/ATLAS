@@ -6,30 +6,24 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from pendulum import DateTime, duration
 from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
-from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
 from atlas.enums import MarketType, StorageType, ThermalStrategy
-from atlas.io_utils.section_parameters import (
-    DateParameters,
+from atlas.io_utils.parameters import (
     MultiProcessingParameters,
-    OutputParameters,
     SolverParameters,
 )
 from atlas.timing import generate_datetimes
 from atlas.validators import convert_to_duration
 
 
-class PortfolioOptimisationParameters(AbstractParameters):
+class PortfolioOptimisationParameters(AbstractModuleParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
-    temporal: DateParameters
-    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg, arg-type]
-    output: OutputParameters = OutputParameters()
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg]
     multiprocessing: MultiProcessingParameters = MultiProcessingParameters()
 
     is_portfolio_bidding: bool = Field(
@@ -129,9 +123,6 @@ class PortfolioOptimisationParameters(AbstractParameters):
         MarketType.dayahead,
         description='Market during which the Portfolio Optimization is run. Possible values: "DayAhead", "Intraday", "RRActivation", "MFRRActivation".',
     )
-
-    def get_output_dir(self) -> Path:
-        return self.get_path(self.output.output_dir)
 
     @field_validator(
         "battery_automated_reserve_duration",

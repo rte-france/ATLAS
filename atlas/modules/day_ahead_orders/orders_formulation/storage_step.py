@@ -27,14 +27,18 @@ class StorageStep:
 
     def formulate_storage_orders(self) -> None:
         """
-        Formulates storage bids on the spot market.
-        Uses the parameters specified by the user and the dataset to create bids based on the forecast
-        stored in the Power forecasting matrix of a "Storage" equipment.
+        Formulates storage orders on the spot market, for each storage equipment in the dataset.
+        The determination of the quantities and prices of the orders is done through an optimization problem,
+        which is solved for each storage unit independently:
+            _ The price reference used in the objective function to compute potential revenues from selling
+              and buying energy is extracted from the price_forecast_medium of the market_area containing the storage unit.
+            _ The optimization time frame is defined as the sum of 'orders_time' and the attribute optimization_additional_hours
+              of the studied equipment.
 
         Supports both sequential and parallel processing based on use_multiprocessing parameter.
         :return: None
         """
-        if self.parameters.multiprocessing.use_multiprocessing:
+        if self.parameters.multiprocessing.enable:
             self._formulate_storage_orders_parallel()
         else:
             self._formulate_storage_orders_sequential()

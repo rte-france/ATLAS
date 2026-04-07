@@ -39,7 +39,7 @@ def base_parameters_dict():
             "timeout": "PT120S",  # ISO 8601 duration format
         },
         "multiprocessing": {
-            "use_multiprocessing": False,
+            "enable": False,
         },
         "battery_smoothing_factor": 0.1,
         "small_imbalance_size": 0.15,
