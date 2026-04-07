@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, field_validator, model_validator
 
-from atlas.abstract_class.abstract_step import AbstractJob
+from atlas.abstract_class.abstract_job import AbstractJob
 from atlas.orchestrator.module_registry import ModuleRegistry
 
 

@@ -4,14 +4,14 @@ from abc import ABC, abstractmethod
 from typing import Generic
 
 from atlas.abstract_class.abstract_orchestrator_parameters import PO
-from atlas.abstract_class.abstract_step import AbstractJob, S
+from atlas.abstract_class.abstract_job import AbstractJob, J
 from atlas.config import logger
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
 
 
-class AbstractOrchestrator(ABC, Generic[PO, S]):
+class AbstractOrchestrator(ABC, Generic[PO, J]):
     """Placeholder abstract class for orchestrator."""
 
     parameters: PO

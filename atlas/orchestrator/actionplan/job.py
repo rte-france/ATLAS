@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from atlas.abstract_class.abstract_step import AbstractJob
+from atlas.abstract_class.abstract_job import AbstractJob
 
 
 class ActionPlanJob(AbstractJob):

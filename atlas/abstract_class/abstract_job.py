@@ -61,4 +61,4 @@ class AbstractJob:
         self._output_dataset = self.module.run(input_dataset, self.parameters)
 
 
-S = TypeVar("S", bound=AbstractJob)
+J = TypeVar("J", bound=AbstractJob)
