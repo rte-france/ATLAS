@@ -154,33 +154,22 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
     :return: New power timeseries
     :rtype: Timeseries
     """
+    if equipment.da_cleared_quantity is not None:
+        da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+    if isinstance(da_power, LazyTimeseries):
+        da_power = da_power.collect()
+    else:
+        da_power = Timeseries.from_index(
+            parameters.temporal.start_date,
+            parameters.temporal.timestep,
+            parameters.temporal.end_date,
+            default_value=0,
+        )
+
     if parameters.market == MarketType.dayahead:
-        if equipment.da_cleared_quantity is not None:
-            filtered = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
-        if isinstance(filtered, LazyTimeseries):
-            filtered = filtered.collect()
-        else:
-            filtered = Timeseries.from_index(
-                parameters.temporal.start_date,
-                parameters.temporal.timestep,
-                parameters.temporal.end_date,
-                default_value=0,
-            )
-        return filtered
+        return da_power
 
     elif parameters.market == MarketType.intraday:
-        if equipment.da_cleared_quantity is not None:
-            da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
-        if isinstance(da_power, LazyTimeseries):
-            da_power = da_power.collect()
-        else:
-            da_power = Timeseries.from_index(
-                parameters.temporal.start_date,
-                parameters.temporal.timestep,
-                parameters.temporal.end_date,
-                default_value=0,
-            )
-
         if equipment.total_id_cleared_quantity is not None:
             id_power = equipment.total_id_cleared_quantity.filter(parameters.target_times, inplace=False)
         if isinstance(id_power, LazyTimeseries):

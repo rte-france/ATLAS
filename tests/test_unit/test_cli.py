@@ -88,7 +88,7 @@ class TestRunCommandModuleMode:
         assert result.exit_code == 1
         assert "Unknown module" in result.stdout
 
-    @patch("atlas.app.AtlasDataset")
+    @patch("atlas.app.CurrentInputState")
     @patch("atlas.app.ModuleRegistry")
     def test_run_module_with_valid_inputs(self, mock_registry, mock_dataset, tmp_path):
         """Test that run succeeds with valid inputs (mocked execution)."""
