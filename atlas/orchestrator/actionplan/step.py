@@ -11,10 +11,11 @@ from typing import Any
 
 from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
-from atlas.orchestrator.step import Step
+
+from atlas.abstract_class.abstract_step import AbsractStep
 
 
-class ActionPlanStep(Step):
+class ActionPlanStep(AbsractStep):
     """
     A step in an action plan is responsible for executing a module using provided parameters
     and producing an output dataset from an input dataset.

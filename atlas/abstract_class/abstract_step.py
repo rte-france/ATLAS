@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -18,7 +18,7 @@ from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.orchestrator.module_registry import ModuleRegistry
 
 
-class Step(BaseModel):
+class AbsractStep:
     """Definition of a single step
 
     :param name: Name identifying the step. Defaults to the module name if not provided.
@@ -79,7 +79,10 @@ class Step(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def set_default_name(self) -> Step:
+    def set_default_name(self) -> AbsractStep:
         if self.name is None:
             self.name = self.module.__class__.__name__
         return self
+
+
+S = TypeVar("S", bound=AbsractStep)

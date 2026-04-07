@@ -7,10 +7,10 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from atlas.orchestrator.step import Step
+from atlas.abstract_class.abstract_step import AbsractStep
 
 
-class WorkflowStep(Step):
+class WorkflowStep(AbsractStep):
     """
     A step in a workflow, responsible for executing a module using provided parameters
     and producing an output dataset from an input dataset.
