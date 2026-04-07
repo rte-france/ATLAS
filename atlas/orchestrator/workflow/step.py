@@ -29,7 +29,7 @@ class WorkflowStep:
         :param module: Module to be executed in this step.
         :type module: AbstractModule
         :param parameters: Parameter for the module.
-        :type parameters: AbstractParameters
+        :type parameters: AbstractModuleParameters
         """
         self.name: str = name
         self.module = module()
