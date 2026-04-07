@@ -32,20 +32,13 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
         :param workflow_path: Path.
         :type workflow_path: WorkflowParameters
         """
-        self._parameters = parameters
+        self.parameters = parameters
         self.workflow_path = workflow_path
         self.generic_module_parameters: dict[str, Any] = {}
         self._steps: list[WorkflowStep] = []
 
         self.build_generic_module_parameters()
         self.build_steps()
-
-    @property
-    def parameters(self) -> WorkflowParameters:
-        """
-        Return this orchestrator parameters.
-        """
-        return self._parameters
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> Workflow:
@@ -60,9 +53,9 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
                 self.generic_module_parameters = yaml.safe_load(file)
 
     def build_steps(self):
-        WorkflowStep.add_index_in_step_name(self._parameters.steps)
+        WorkflowStep.add_index_in_step_name(self.parameters.steps)
 
-        for step in self._parameters.steps:
+        for step in self.parameters.steps:
             parameters = Workflow.build_module_parameters(
                 self.generic_module_parameters, self.workflow_path / step.parameters_path
             )
@@ -79,6 +72,13 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
             custom_parameters = yaml.safe_load(file)
         parameters.update(custom_parameters)
         return parameters
+
+    @property
+    def orchestrator_path(self) -> Path:
+        """
+        Return the path to the current orchestrator.
+        """
+        return self.workflow_path
 
     @property
     def steps(self) -> list[WorkflowStep]:

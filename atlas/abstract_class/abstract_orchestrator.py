@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Generic
 
 from atlas import AtlasDataset
@@ -15,11 +16,13 @@ from atlas.abstract_class.abstract_step import S
 class AbstractOrchestrator(ABC, Generic[PO, S]):
     """Placeholder abstract class for orchestrator."""
 
+    parameters: PO
+
     @property
     @abstractmethod
-    def parameters(self) -> PO:
+    def orchestrator_path(self) -> Path:
         """
-        Return this orchestrator parameters.
+        Return the path to the current orchestrator.
         """
 
     @property
@@ -42,7 +45,7 @@ class AbstractOrchestrator(ABC, Generic[PO, S]):
         # or just use the class running this execute
         # logger.info(f"Launching workflow : {self.parameters.name}")
         atlas_dataset = AtlasDataset.from_directory(
-            self.parameters.path_from_orchestrator / self.parameters.dataset_path
+            self.orchestrator_path / self.parameters.dataset_path
         )
         cis = CurrentInputState(atlas_dataset)
 
@@ -67,4 +70,4 @@ class AbstractOrchestrator(ABC, Generic[PO, S]):
             logger.info(f"Finishing step :'{step.name}'")
 
         # TODO change name
-        cis.to_directory(self.parameters.path_from_orchestrator / self.parameters.output_dir / "workflow_output")
+        cis.to_directory(self.orchestrator_path / self.parameters.output_dir / "workflow_output")

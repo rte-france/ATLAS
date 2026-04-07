@@ -17,6 +17,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.orchestrator.module_registry import ModuleRegistry
+from atlas.orchestrator.workflow.step import Step
 from atlas.orchestrator.workflow.step import WorkflowStep
 
 
