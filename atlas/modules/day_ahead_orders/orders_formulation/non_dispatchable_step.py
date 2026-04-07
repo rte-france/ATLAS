@@ -20,9 +20,9 @@ class NonDispatchableStep:
         dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
-        This function formulates orders for all non dispatchable equipments, for each time step in orders_time.
+        This function formulates orders for all non dispatchable equipments, for each time job in orders_time.
         For each order:
-            _ Qmin = 0 and Qmax corresponds to the generation forecast at the associated time step,
+            _ Qmin = 0 and Qmax corresponds to the generation forecast at the associated time job,
               which is stored in the maximum_power_forecast matrix of the equipment.
               As we deal with non_dispatchable generation, the volume is assumed to be non curtailable.
             _ The price is extracted from the variable_cost attribute of the equipment.

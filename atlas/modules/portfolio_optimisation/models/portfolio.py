@@ -204,7 +204,7 @@ class PortfolioPO(Portfolio):
         :type large_imbalance_price_down: float
         :param large_imbalance_price_up: Price for upward large imbalance
         :type large_imbalance_price_up: float
-        :param timestep: Time step duration
+        :param timestep: Time job duration
         :type timestep: Duration
         """
 

@@ -9,7 +9,7 @@ from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
 from atlas.abstract_class.abstract_orchestrator_parameters import PO
-from atlas.abstract_class.abstract_step import S, AbsractStep
+from atlas.abstract_class.abstract_step import S, AbstractJob
 
 
 class AbstractOrchestrator(ABC, Generic[PO, S]):
@@ -19,7 +19,7 @@ class AbstractOrchestrator(ABC, Generic[PO, S]):
 
     @property
     @abstractmethod
-    def steps(self) -> list[S]:
+    def jobs(self) -> list[S]:
         """
         Return steps to execute.
         """
@@ -31,11 +31,11 @@ class AbstractOrchestrator(ABC, Generic[PO, S]):
 
         Execute all workflow steps sequentially.
 
-        Each step receives as input the output of the previous step.
-        The first step receives the workflow's initial dataset.
+        Each job receives as input the output of the previous job.
+        The first job receives the workflow's initial dataset.
 
         If rollback_on_step_failure is enabled, the CIS will be automatically restored
-        to its state before the failed step.
+        to its state before the failed job.
         """
         logger.info(f"Launching workflow : {self.parameters.name}")
         cis = CurrentInputState.from_directory(self.parameters.resolve_path(self.parameters.dataset_path))
@@ -45,10 +45,10 @@ class AbstractOrchestrator(ABC, Generic[PO, S]):
             cis.create_snapshot("workflow_input")
             logger.debug("Created initial workflow snapshot")
 
-        for step_idx, step in enumerate(self.steps):
-            logger.info(f"Launching step :'{step.name}' ({step_idx + 1}/{len(self.steps)})")
+        for step_idx, step in enumerate(self.jobs):
+            logger.info(f"Launching job :'{step.name}' ({step_idx + 1}/{len(self.jobs)})")
 
-            # Create snapshot before step if requested
+            # Create snapshot before job if requested
             if self.parameters.create_step_snapshots:
                 snapshot_name = f"input_{step.name}"
                 cis.create_snapshot(snapshot_name)
@@ -65,9 +65,9 @@ class AbstractOrchestrator(ABC, Generic[PO, S]):
                 if self.parameters.create_step_snapshots:
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
 
-                raise RuntimeError(f"Workflow failed at step '{step.name}'") from e
+                raise RuntimeError(f"Workflow failed at job '{step.name}'") from e
 
-            logger.info(f"Finishing step :'{step.name}'")
+            logger.info(f"Finishing job :'{step.name}'")
 
         # Export final workflow output
         logger.info("Exporting final workflow output")
@@ -82,11 +82,11 @@ class AbstractOrchestrator(ABC, Generic[PO, S]):
 
         return cis
 
-    def _execute_step(self, step: AbsractStep, cis: CurrentInputState):
-        """Execute a single step.
+    def _execute_step(self, step: AbstractJob, cis: CurrentInputState):
+        """Execute a single job.
 
-        :param step: The step to execute
-        :type step: AbsractStep
+        :param step: The job to execute
+        :type step: AbstractJob
         :param cis: The current input state
         :type cis: CurrentInputState
         """

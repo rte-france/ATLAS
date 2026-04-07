@@ -31,7 +31,7 @@ def initialize_day_zero_core(
 
     :param obj: The thermal unit to initialize
     :type obj: ThermalPO
-    :param time: The current time step
+    :param time: The current time job
     :type time: DateTime
     """
 
@@ -52,7 +52,7 @@ def initialize_day_zero_on_states(
 
     :param obj: The thermal unit to initialize
     :type obj: ThermalPO
-    :param time: The current time step
+    :param time: The current time job
     :type time: DateTime
     """
 
@@ -71,7 +71,7 @@ def initialize_day_zero_gradient_vars(
 
     :param obj: The thermal unit to initialize
     :type obj: ThermalPO
-    :param time: The current time step
+    :param time: The current time job
     :type time: DateTime
     """
     obj.up_grad_var.set_extended(time, 0)
@@ -91,7 +91,7 @@ def initialize_day_zero_stable_vars(
 
     :param obj: The thermal unit to initialize
     :type obj: ThermalPO
-    :param time: The current time step
+    :param time: The current time job
     :type time: DateTime
     """
 

@@ -247,7 +247,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         for t in model.gradients_time_frame:  # The gradients are defined only up to T-1.
             # NB. The downward gradient implemented here requires the unit to be at most at deltaQ in order to be able to enter the stop state.
             # The resulting constraint set is considerably more constraining than if the gradient was relaxed.
-            t_next = t + model.parameters.temporal.timestep  # Get the next time step
+            t_next = t + model.parameters.temporal.timestep  # Get the next time job
 
             # Upward constrained gradient (eq. (35))
             model.add_constraint(
@@ -270,7 +270,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
     elif model.delta_q == 0:  # Case where the gradient is 'infinite'
         for t in model.gradients_time_frame:
-            t_next = t + model.parameters.temporal.timestep  # Get the next time step
+            t_next = t + model.parameters.temporal.timestep  # Get the next time job
 
             # Upward unconstrained gradient (eq. (36))
             model.add_constraint(

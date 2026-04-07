@@ -74,7 +74,7 @@ class DateParameters(BaseModel):
     end_date: DateTime
     execution_date: DateTime
     timestep: Duration = Field(
-        default_factory=lambda: Duration(minutes=60), description="Discretization step of the simulated time interval"
+        default_factory=lambda: Duration(minutes=60), description="Discretization job of the simulated time interval"
     )
 
     @model_validator(mode="after")

@@ -1023,7 +1023,7 @@ class Pricing(OptimisationModel):
             max_accepted_sale_price = max_rejected_purchase_price = mc_market_area.min_price.get_value(time)
             min_rejected_sale_price = min_accepted_purchase_price = mc_market_area.max_price.get_value(time)
 
-            # Select orders involved during the current time step (generator):
+            # Select orders involved during the current time job (generator):
             current_orders = (
                 mc_order
                 for mc_order in mc_market_area.mc_orders.values()

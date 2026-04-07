@@ -35,7 +35,7 @@ from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
-from atlas.orchestrator.workflow.step import WorkflowStep
+from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
@@ -47,7 +47,7 @@ __all__ = [
     "Parameters",
     "Workflow",
     "WorkflowParameters",
-    "WorkflowStep",
+    "WorkflowJob",
     "BusinessModel",
     "ControlBlock",
     "CriticalBranch",

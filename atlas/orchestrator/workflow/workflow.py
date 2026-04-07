@@ -16,13 +16,13 @@ import yaml
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
-from atlas.orchestrator.workflow.step import WorkflowStep
+from atlas.orchestrator.workflow.job import WorkflowJob, Step
 
 
-class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
-    """A structure for managing the sequential execution of multiple modules through a list of workflow steps.
+class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
+    """A structure for managing the sequential execution of multiple modules through a list of workflow jobs.
 
-    Each step processes the output of the previous one, starting from the input dataset."""
+    Each job processes the output of the previous one, starting from the input dataset."""
 
     def __init__(self, parameters: WorkflowParameters):
         """Initialize a Workflow instance.
@@ -32,10 +32,10 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
         """
         self.parameters = parameters
         self.generic_module_parameters: dict[str, Any] = {}
-        self._steps: list[WorkflowStep] = []
+        self._jobs: list[WorkflowJob] = []
 
         self.build_generic_module_parameters()
-        self.build_steps()
+        self.build_jobs()
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> Workflow:
@@ -49,8 +49,8 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
             with open(self.parameters.resolve_path(self.parameters.parameters_path)) as file:
                 self.generic_module_parameters = yaml.safe_load(file)
 
-    def build_steps(self):
-        WorkflowStep.add_index_in_step_name(self.parameters.steps)
+    def build_jobs(self):
+        Step.add_index_in_step_name(self.parameters.steps)
 
         for step in self.parameters.steps:
             parameters = Workflow.build_module_parameters(
@@ -59,8 +59,8 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
             if "output" not in parameters:
                 parameters["output"] = {}
             parameters["output"]["output_dir"] = self.parameters.resolve_path(self.parameters.output_dir) / step.name
-            workflow_step = WorkflowStep(step.name, step.module.value, parameters)
-            self.add_step(workflow_step)
+            workflow_job = WorkflowJob(step.name, step.module.value, parameters)
+            self.add_job(workflow_job)
 
     @staticmethod
     def build_module_parameters(parameters: dict[str, Any], parameters_path: Path) -> dict[str, Any]:
@@ -71,30 +71,30 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowStep]):
         return parameters
 
     @property
-    def steps(self) -> list[WorkflowStep]:
+    def jobs(self) -> list[WorkflowJob]:
         """
-        Access the workflow steps.
+        Access the workflow jobs.
 
-        :return: The list of WorkflowStep instances.
+        :return: The list of WorkflowJob instances.
         """
-        return self._steps
+        return self._jobs
 
-    def add_step(self, step: WorkflowStep | list[WorkflowStep]) -> None:
-        """Add one or multiple steps to the end of the workflow."""
-        if isinstance(step, list):
-            if not all(isinstance(s, WorkflowStep) for s in step):
-                raise TypeError("All items in the list must be WorkflowStep instances.")
-            self._steps.extend(step)
+    def add_job(self, job: WorkflowJob | list[WorkflowJob]) -> None:
+        """Add one or multiple jobs to the end of the workflow."""
+        if isinstance(job, list):
+            if not all(isinstance(s, WorkflowJob) for s in job):
+                raise TypeError("All items in the list must be WorkflowJob instances.")
+            self._jobs.extend(job)
         else:
-            if not isinstance(step, WorkflowStep):
-                raise TypeError(f"Expected a WorkflowStep instance, got {type(step).__name__}.")
-            self._steps.append(step)
+            if not isinstance(job, WorkflowJob):
+                raise TypeError(f"Expected a WorkflowJob instance, got {type(job).__name__}.")
+            self._jobs.append(job)
 
     def get_output_dataset(self) -> AbstractDataset | None:
         """Returns the final dataset of the workflow"""
-        return self.steps[-1].get_output_dataset()
+        return self.jobs[-1].get_output_dataset()
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
-        step_count = len(self._steps)
+        step_count = len(self._jobs)
         return f"Workflow '{self.parameters.name}' ({step_count} step{'s' if step_count != 1 else ''})"

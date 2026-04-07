@@ -152,7 +152,7 @@ class ThermalOptimizationModel(OptimisationModel):
             lambda t: self.get_variable(self.stable_at(t)),
             lambda t: self.add_continuous_variable(self.stable_at(t), 0, 1),
         )
-        # This variable replaces ON_UP in the definition of the gradient and will bound the gradient for only one time step
+        # This variable replaces ON_UP in the definition of the gradient and will bound the gradient for only one time job
         self.entered_up = ModelVar(
             lambda t: self.get_variable(self.entered_up_at(t)),
             lambda t: self.add_continuous_variable(self.entered_up_at(t), 0, 1),
@@ -410,7 +410,7 @@ class ThermalOptimizationModel(OptimisationModel):
         #    minimum_stable_power_duration = thermal_unit.minimum_stable_power_duration
         minimum_stable_power_duration = self.thermal_unit.minimum_stable_power_duration
 
-        # Conversion of the equipment-specific parameters in terms of time step.
+        # Conversion of the equipment-specific parameters in terms of time job.
         # All T_.'s are integers (by definition).
         if self.thermal_unit.minimum_time_on.total_hours() > 0:
             self.T_on = (
@@ -590,7 +590,7 @@ class ThermalOptimizationModel(OptimisationModel):
         # 1.2.1. Initialization of the state variables that are always defined :
         # OFF, ON_UP, ON_FLAT and ON_DOWN
 
-        # Create the state variables for each time step over the extended time frame.
+        # Create the state variables for each time job over the extended time frame.
         for t in self.time_frame:
             self.OFF.set_model_var(t)
             self.ON_UP.set_model_var(t)
@@ -618,7 +618,7 @@ class ThermalOptimizationModel(OptimisationModel):
             for t in self.time_frame:
                 self.ON_FLAT.set_model_var(t)
 
-            # For the time step start_date - 1, create optimization avariables for ON_FLAT, ON_UP and ON_DOWN
+            # For the time job start_date - 1, create optimization avariables for ON_FLAT, ON_UP and ON_DOWN
             self.ON_FLAT.set_model_var(self.start_date_minus_one)
 
             self.ON_DOWN.set_model_var(self.start_date_minus_one)
@@ -640,7 +640,7 @@ class ThermalOptimizationModel(OptimisationModel):
         # Variable indicating that the unit is stable at t (sec. 6.1.3)
         # and variables to constrain the gradient U[t], D[t] and tilde_U[t], tilde_D[t] (defined in sec 6.2.4.)
         if self.T_stable >= 1:
-            # Define the time_frame_union_minus_one which includes the start_date_minus_one time step.
+            # Define the time_frame_union_minus_one which includes the start_date_minus_one time job.
             self.time_frame_union_minus_one = generate_datetimes(
                 self.parameters.temporal.start_date - self.parameters.temporal.timestep,
                 self.parameters.temporal.end_date
@@ -774,7 +774,7 @@ class ThermalOptimizationModel(OptimisationModel):
         """STEP 5 : Return the results"""
 
         # Export the results
-        # Final step : export the results of the program. We initialize a dictionnary that will store the results.
+        # Final job : export the results of the program. We initialize a dictionnary that will store the results.
         # This dictionnary is returned to the user.
         results: dict[str, Timeseries] = {}
 
@@ -801,7 +801,7 @@ class ThermalOptimizationModel(OptimisationModel):
 
         # contractedDifference.
         # This variable is returned as together with the procuredReserves it allows to know the exact amount
-        # of reserves supplied (and unsupplied) for each time step. the reserves variables can take inexact values on the time steps
+        # of reserves supplied (and unsupplied) for each time job. the reserves variables can take inexact values on the time steps
         # where there is no reserve to provide due to the fill up constraints.
         # Create the time series
         contracted_difference_up_star = DAOTimeseries(

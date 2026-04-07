@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from atlas.abstract_class.abstract_orchestrator_parameters import AbstractOrchestratorParameters
-from atlas.orchestrator.workflow.step import Step
+from atlas.orchestrator.workflow.job import Step
 
 
 class WorkflowParameters(AbstractOrchestratorParameters):

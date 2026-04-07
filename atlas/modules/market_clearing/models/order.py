@@ -53,9 +53,9 @@ class OrderMC(Order):
     def is_sale(self) -> bool:
         return self.production_sign == 1
 
-    # Deduce duration from list of DataTime and the parameter time step (the end datetime may have to be modified so that
+    # Deduce duration from list of DataTime and the parameter time job (the end datetime may have to be modified so that
     # everything stays consistent).
-    # NB: by convention, self.end_date are actually starts of a last time step:
+    # NB: by convention, self.end_date are actually starts of a last time job:
     @property
     def duration(self) -> pendulum.Duration:
         minutes = (

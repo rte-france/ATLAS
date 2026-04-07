@@ -314,7 +314,7 @@ class HydroPO(BaseEquipmentPO, Hydro):
 
         :param execution_date: Execution date for forecasts
         :type execution_date: DateTime
-        :param timestep: Time step duration
+        :param timestep: Time job duration
         :type timestep: Duration
         :param start_date: Start date for optimization
         :type start_date: DateTime

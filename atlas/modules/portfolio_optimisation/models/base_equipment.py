@@ -22,7 +22,7 @@ class BaseEquipmentPO:
         :type start_date: DateTime
         :param end_date: End date for optimization window
         :type end_date: DateTime
-        :param timestep: Time step duration
+        :param timestep: Time job duration
         :type timestep: Duration
         :return: List of datetime objects representing the optimization time window
         :rtype: list[DateTime]

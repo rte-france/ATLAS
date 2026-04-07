@@ -18,19 +18,19 @@ from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.orchestrator.module_registry import ModuleRegistry
 
 
-class AbsractStep:
+class AbstractJob:
     """
-    A step in an orchestrator, responsible for executing a module using provided parameters
+    A job in an orchestrator, responsible for executing a module using provided parameters
     and producing an output dataset from an input dataset.
     """
 
     def __init__(self, name: str, module: type[AbstractModule], parameters: dict[str, Any]):
         """
-        Initialize an AbstractStep.
+        Initialize an AbstractJob.
 
-        :param name: Name of the step.
+        :param name: Name of the job.
         :type name: str
-        :param module: Module to be executed in this step.
+        :param module: Module to be executed in this job.
         :type module: AbstractModule
         :param parameters: Parameter for the module.
         :type parameters: AbstractModuleParameters
@@ -43,7 +43,7 @@ class AbsractStep:
     @property
     def output_dataset(self) -> AbstractModuleOutput | None:
         """
-        Output dataset produced after executing the step.
+        Output dataset produced after executing the job.
 
         :return: An AbstractDataset or None if not yet executed.
         """
@@ -51,7 +51,7 @@ class AbsractStep:
 
     def get_output_dataset(self) -> AbstractModuleOutput | None:
         """
-        Get the output dataset produced by this orchestrator step.
+        Get the output dataset produced by this orchestrator job.
 
         :return: An AbstractDataset or None if not yet executed.
         """
@@ -59,10 +59,10 @@ class AbsractStep:
 
     def run(self, input_dataset: AtlasDataset) -> None:
         """
-        Execute the step's module with the given parameters and input dataset.
+        Execute the job's module with the given parameters and input dataset.
         Stores the resulting dataset as output.
         """
         self._output_dataset = self.module.run(input_dataset, self.parameters)
 
 
-S = TypeVar("S", bound=AbsractStep)
+S = TypeVar("S", bound=AbstractJob)
