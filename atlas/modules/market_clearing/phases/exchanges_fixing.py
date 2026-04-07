@@ -16,13 +16,14 @@ from atlas.solver.solver_interface import OptimisationModel
 
 class ExchangesFixing(OptimisationModel):
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
-        solver_option = SolverOptions(presolve=parameters.solver.use_presolve)
-        super().__init__(parameters.solver.solver_name, options=solver_option)
+        solver_options = SolverOptions(presolve=parameters.solver.use_presolve)
+
+        super().__init__(parameters.solver.solver_name, options=solver_options, name="ExchangesFixing")
         self.input_dataset = input_dataset
         self.parameters = parameters
         self.exchange_fixing = None
 
-    def run(self, clearing_local_balances: dict[tuple[str, int], float]):
+    def compute(self, clearing_local_balances: dict[tuple[str, int], float]):
         self.build(clearing_local_balances)
         self.solve()
         if self.parameters.solver.export_lp:

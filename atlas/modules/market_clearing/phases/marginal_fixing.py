@@ -33,7 +33,9 @@ class MarginalFixing:
         self.parameters = parameters
         self.accepted_powers: dict[tuple[str, str], float] = {}
 
-    def run(self, accepted_powers: dict[tuple[str, str], float], market_prices: dict[tuple[str, int], float]) -> None:
+    def compute(
+        self, accepted_powers: dict[tuple[str, str], float], market_prices: dict[tuple[str, int], float]
+    ) -> None:
         """
 
         :param accepted_powers: Result of optimization
