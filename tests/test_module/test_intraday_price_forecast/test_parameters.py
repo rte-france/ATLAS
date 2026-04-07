@@ -2,7 +2,7 @@ import pendulum
 import pytest
 from pydantic import ValidationError
 
-from atlas.io_utils.section_parameters import DateParameters
+from atlas.io_utils.parameters import DateParameters
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
 
 

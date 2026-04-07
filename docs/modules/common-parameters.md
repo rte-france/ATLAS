@@ -2,7 +2,7 @@
 
 ## Overview
 
-All ATLAS modules inherit from `AbstractParameters` and share a common set of configuration parameters organized into nested sections.
+All ATLAS modules inherit from `AbstractModuleParameters` and share a common set of configuration parameters organized into nested sections.
 
 
 ## Structure
@@ -56,7 +56,7 @@ multiprocessing: # Parallel execution (optional, has defaults)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `use_multiprocessing` | boolean | `false` | Enable parallel execution |
+| `enable` | boolean | `false` | Enable parallel execution |
 | `max_workers` | int or null | `null` | Number of workers (null = CPU count) |
 
 ---
@@ -82,7 +82,7 @@ output:
   output_dir: "results/"
 
 multiprocessing:
-  use_multiprocessing: false
+  enable: false
   max_workers: null
 ```
 

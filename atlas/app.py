@@ -7,9 +7,8 @@ import typer
 from rich import print as rprint
 
 import atlas
-from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
 from atlas.config import logger
-from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
@@ -24,7 +23,12 @@ app = typer.Typer()
 def run(
     config_path: Path = typer.Argument(help="Workflow config YAML (--workflow) or module parameters YAML (default)"),
     workflow: bool = typer.Option(False, "--workflow", "-w", help="Run a workflow instead of a single module"),
-    module_name: str | None = typer.Option(None, "--module", "-m", help="Module name (e.g. PortfolioOptimisation)"),
+    module_name: str | None = typer.Option(
+        None,
+        "--module",
+        "-m",
+        help=f"Module name. Valid modules: {', '.join(ModuleRegistry.get_names())}",
+    ),
     dataset_path: Path | None = typer.Option(None, "--dataset", "-d", help="Path to the Atlas input dataset directory"),
 ) -> None:
     """Run an Atlas module or workflow.
@@ -78,14 +82,15 @@ def run(
 
         try:
             with timer() as t:
-                input_data = AtlasDataset.from_directory(dataset_path)
-                cis = CurrentInputState(input_data)
+                cis = CurrentInputState.from_directory(dataset_path)
                 module = module_class()
-                parameters = cast(AbstractParameters, module.get_parameters_class()).from_file(config_path)
-                output_dataset = module.run(input_data, parameters)
+                parameters = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(config_path)
+
+                output_dataset = module.run(cis.data, parameters)
+
                 if parameters.output.export_output_dataset:
                     CISHandler.apply(output_dataset.change_sets, cis)
-                    cis.data.to_directory(parameters.get_path(parameters.output.output_dir) / "output_dataset")
+                    cis.to_directory(parameters.get_output_dir())
 
             logger.info(f"Module '{module_name}' completed in {t()} seconds")
             rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")

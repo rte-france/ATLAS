@@ -4,13 +4,11 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pathlib import Path
-
 from pydantic import Field, field_validator
 
-from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
 from atlas.enums import Enum, Product
-from atlas.io_utils.section_parameters import SolverParameters
+from atlas.io_utils.parameters import SolverParameters
 
 
 class ExchangeConstraintsType(str, Enum):
@@ -25,7 +23,7 @@ class ExchangeConstraintsType(str, Enum):
     FB = "FB"
 
 
-class MarketClearingParameters(AbstractParameters):
+class MarketClearingParameters(AbstractModuleParameters):
     """Parameters of for Market Clearing module
 
     :param price_modifier_lambda_1: Price modifier that allows to alter prices for a better optimization :
@@ -182,9 +180,6 @@ class MarketClearingParameters(AbstractParameters):
         -int(1e8),
         description="Min price : default value is - 100 000 000",
     )
-
-    def get_output_dir(self) -> Path:
-        return self.get_path(self.output.output_dir)
 
     @field_validator("market_area_names", "control_block_names", mode="before")
     @classmethod

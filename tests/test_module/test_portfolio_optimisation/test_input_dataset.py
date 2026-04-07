@@ -11,7 +11,7 @@ import pytest
 
 from atlas.enums import LoadType, MarketType
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.io_utils.section_parameters import DateParameters
+from atlas.io_utils.parameters import DateParameters
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock

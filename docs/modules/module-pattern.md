@@ -20,7 +20,7 @@ module.run(input_data, "path/to/parameters.yml")
 
 The `run()` method executes these standard steps:
 
-1. **Import Parameters**: Load module-specific parameters (inherits from `AbstractParameters`)
+1. **Import Parameters**: Load module-specific parameters (inherits from `AbstractModuleParameters`)
 2. **Import Data**: Convert `AtlasDataset` to module-specific input dataset
 3. **Validate**: Perform data validation (typically timestep consistency checks)
 4. **Execute**: Run the module's core logic

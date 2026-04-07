@@ -36,7 +36,10 @@ def base_parameters_dict():
             "solver_name": "SCIP",
             "use_presolve": False,
             "export_lp": True,
-            "timeout": "PT120S",
+            "timeout": "PT120S",  # ISO 8601 duration format
+        },
+        "multiprocessing": {
+            "enable": False,
         },
         "battery_smoothing_factor": 0.1,
         "small_imbalance_size": 0.15,

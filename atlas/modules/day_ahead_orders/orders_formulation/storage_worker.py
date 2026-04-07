@@ -162,7 +162,13 @@ def optimize_single_storage(
 
 
 def _initiate_stock(storage: StorageDAO, parameters: DayAheadOrdersParameters) -> float | None:
-    """Initialize stock for storage unit."""
+    """
+    Initialize stock for storage unit. If stored_energy is available, use it to determine initial stock.
+    Otherwise, use storage_initial_level. The 'availability' of stored_energy is defined as follow:
+    - If stored_energy is completely empty, then it is not available.
+    - If stored_energy is not empty, but it does not contain data shortly before start_date (shortly being
+      arbitrarily defined as two days before start_date), then it is also not available.
+    """
     if storage.stored_energy is None:
         initial_stock = storage.storage_initial_level * storage.maximum_energy.get_value(parameters.temporal.start_date)
     else:

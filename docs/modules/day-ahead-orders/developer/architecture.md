@@ -57,7 +57,7 @@ Implements `AbstractModule` with methods:
 
 ### **`DayAheadOrdersParameters`**
 
-Pydantic model inheriting from `AbstractParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
+Pydantic model inheriting from `AbstractModuleParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
 
 ### **`DayAheadOrdersInputDataset`**
 

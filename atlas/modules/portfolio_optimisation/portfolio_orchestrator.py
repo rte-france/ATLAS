@@ -160,7 +160,7 @@ class PortfolioOptimisationOrchestrator:
         else:
             portfolios_with_time_windows = self._prepare_equipment_portfolios(input_dataset)
 
-        if self.parameters.multiprocessing.use_multiprocessing:
+        if self.parameters.multiprocessing.enable:
             optimisation_results = self._run_multiprocessing(portfolios_with_time_windows)
         else:
             optimisation_results = self._run_sequential(portfolios_with_time_windows)
