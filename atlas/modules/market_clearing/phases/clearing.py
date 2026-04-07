@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 import json
 
 import atlas.modules.market_clearing.constants as constants
-from atlas import SolverOptions
 from atlas.config import logger
 from atlas.enums import ComplementDirection, CouplingType, OrderType
 from atlas.models.control_block import ControlBlock
@@ -16,6 +15,7 @@ from atlas.modules.market_clearing.models.market_area import MarketAreaMC
 from atlas.modules.market_clearing.models.order import OrderMC
 from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel
 
 # Static definition of default bounds on exchanges (can be changed at will):
@@ -25,16 +25,17 @@ DEFAULT_MIN_FLOW = -10000.0
 
 class Clearing(OptimisationModel):
     def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
-        solver_option = SolverOptions(presolve=parameters.use_presolve)
-        super().__init__(parameters.solver_name, options=solver_option)
+        solver_options = SolverOptions(presolve=parameters.solver.use_presolve)
+
+        super().__init__(parameters.solver.solver_name, options=solver_options, name="Clearing")
         self.input_dataset = input_dataset
         self.parameters = parameters
 
-    def run(self):
+    def compute(self):
         self.build()
         self.solve()
-        if self.parameters.export_lp:
-            output_path = self.parameters.output_path
+        if self.parameters.solver.export_lp:
+            output_path = self.parameters.output.output_dir / "lp_export"
             output_path.mkdir(parents=True, exist_ok=True)
             self.export_model(str(output_path / "clearing_model.lp"))
             with open(output_path / "clearing_accepted_powers.json", "w") as f:
@@ -277,14 +278,16 @@ class Clearing(OptimisationModel):
     def create_exchange_across_border_constraints(self):
         for time_index, time in enumerate(self.input_dataset.times):
             for border_name, mc_border in self.input_dataset.mc_market_borders.items():
-                if mc_border.time_resolution > self.parameters.timestep.total_minutes():
-                    time_elapsed = time - self.parameters.start_date
+                if mc_border.time_resolution > self.parameters.temporal.timestep.total_minutes():
+                    time_elapsed = time - self.parameters.temporal.start_date
                     # % and / have same precedence => parsed left to right
                     res_offset = (
-                        time_elapsed.minutes % mc_border.time_resolution / self.parameters.timestep.total_minutes()
+                        time_elapsed.minutes
+                        % mc_border.time_resolution
+                        / self.parameters.temporal.timestep.total_minutes()
                     )
                     if res_offset != 0:
-                        precedent_time_index = res_offset * self.parameters.timestep.total_minutes()
+                        precedent_time_index = res_offset * self.parameters.temporal.timestep.total_minutes()
                         self.add_constraint(
                             self.get_variable(constants.border_exchange_variable_name(border_name, time_index))
                             == self.get_variable(
@@ -472,7 +475,7 @@ class Clearing(OptimisationModel):
                     f"'{order.name}' because the order type '{mc_order.order_type.value}' is not implemented"
                 )
         aggregated_proportion_accepted_power = (
-            sum(aggregated_accepted_power) * self.parameters.timestep.total_minutes() / 60
+            sum(aggregated_accepted_power) * self.parameters.temporal.timestep.total_minutes() / 60
         )
         constraint_name = constants.constraint_3_9_constraint_name(order_coupling.name)
         if order_coupling.complement_direction == ComplementDirection.EqualTo:

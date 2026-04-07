@@ -1,10 +1,10 @@
-# 📋 Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
 ---
 
-## 📌 Versioning
+## Versioning
 
 - `MAJOR` version when you make incompatible API changes,
 - `MINOR` version when you add functionality in a backwards compatible manner,
@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 🕘 Release History Legend
+## Release History Legend
 
 - ✨ Feature
 - 🐛 Fix

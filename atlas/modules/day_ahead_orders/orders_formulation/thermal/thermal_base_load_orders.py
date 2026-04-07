@@ -10,14 +10,14 @@ import math
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas import generate_datetimes
 from atlas.enums import ThermalStrategy
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
-from atlas.modules.day_ahead_orders.data_models.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.timing import generate_datetimes
 
 
 class ThermalBaseLoadOrders(ThermalUnitOrders):
@@ -39,7 +39,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
     def formulate_thermal_baseload_orders(self) -> None:
         """
         This function formulates offers for the thermic baseload units.
-        Baseload units are identified thanks to an attribute of the thermic class.
+        Baseload units are identified based on the attribute "strategy", specific to the thermal class.
 
         Returns None
         """
@@ -54,9 +54,9 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
 
         # Start the formulation of the orders
         for unit in equipments_list:
-            # Get the states sequence and the inconsistency status of the unit.
+            # Get the state sequence and the inconsistency status of the unit.
             states_sequence, inconsistent = self.determine_baseload_states_sequence(unit)
-            if inconsistent:  # skip the unit if its states sequence is inconsistent.
+            if inconsistent:  # skip the unit if its state sequence is inconsistent.
                 cfg.logger.warning(
                     f"Equipment {unit.name}'s states sequence is inconsistent. "
                     "No orders have been formulated for this unit"
@@ -75,13 +75,13 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         Computes the sequence of states on a single time frame for the baseload unit passed as input.
 
         The encoding of the states is the following:
-        - 0 if the unit is offline at t
+        - 0 if the unit is offline at t, i.e. if its maximum power is equal to 0 at t.
         - 1 if the unit is online at t
         - 2 if the unit is in its start up phase at t
         - 3 if the unit is in its shutdown phase at t
 
         The sequence of states is computed over the extended time frame, retrieved with the input parameters.
-        For the baseload unit, the extentedTimeFrame corresponds to start_date - T_traceback * time_step , ... , end_date + T_traceback * time_step
+        For the baseload unit, the extentedTimeFrame corresponds to start_date - T_traceback * timestep , ... , end_date + T_traceback * timestep
 
         REMARK : if there are more than one start up and one shutdown over the period, the program will be considered as inconsistent.
 
@@ -92,40 +92,42 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         :rtype: tuple[Timeseries, bool]
         """
 
-        # Intialize the value of the boolean inconsistent
+        # Initialize the value of the boolean inconsistent
         inconsistent = False
 
-        # Sanity check : see whether the unit passed as an input is a baselaod unit. Otherwise raise an error.
+        # Sanity check: see whether the unit passed as an input is a baselaod unit. Otherwise raise an error.
         if not unit.strategy == ThermalStrategy.BASE:
             cfg.logger.error(f"Equipement {unit.name} is not of strategy 'Base'.")
             raise ValueError("Wrong equipment type for the thermic optimization program.")
 
         # Parameters from the unit
-        T_on = int(max(1, math.ceil(unit.minimum_time_on / self.parameters.timestep)))
-        T_off = int(max(1, math.ceil(unit.minimum_time_off / self.parameters.timestep)))
-        T_start = int(math.floor(unit.startup_duration / self.parameters.timestep))
-        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.timestep))
+        T_on = int(max(1, math.ceil(unit.minimum_time_on / self.parameters.temporal.timestep)))
+        T_off = int(max(1, math.ceil(unit.minimum_time_off / self.parameters.temporal.timestep)))
+        T_start = int(math.floor(unit.startup_duration / self.parameters.temporal.timestep))
+        T_stop = int(math.floor(unit.shutdown_duration / self.parameters.temporal.timestep))
 
         maximum_power = unit.maximum_power
 
         # Compute T_traceback
         T_traceback = int(max(T_on + T_start, T_off + T_stop)) + 1
 
-        extended_start_date = self.parameters.start_date - T_traceback * self.parameters.timestep
-        extended_end_date = self.parameters.end_date - T_traceback * self.parameters.timestep
-        extended_time_frame = generate_datetimes(extended_start_date, extended_end_date, self.parameters.timestep)
+        extended_start_date = self.parameters.temporal.start_date - T_traceback * self.parameters.temporal.timestep
+        extended_end_date = self.parameters.temporal.end_date + T_traceback * self.parameters.temporal.timestep
+        extended_time_frame = generate_datetimes(
+            extended_start_date, extended_end_date, self.parameters.temporal.timestep
+        )
 
         # Initialize the output time series
         states_sequence = DAOTimeseries(
             Timeseries.from_index(
                 start_date=extended_start_date,
-                frequency=self.parameters.timestep,
+                frequency=self.parameters.temporal.timestep,
                 end_date=extended_end_date,
                 default_value=0,
             )
         )
 
-        # Iterate through the unit's maximum_power and based on the current value, determine whether the unit
+        # Iterate through the unit's maximum_power and based on the current value
         for t in extended_time_frame:
             if maximum_power is not None and t in maximum_power and maximum_power.get_value(t) > 0:
                 states_sequence.set_or_add_value(t, 1)
@@ -134,7 +136,7 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         # the program will be considered as inconsistent.
         startup_count, shutdown_count = 0, 0
         for t in extended_time_frame[1:]:
-            t_prev = t - self.parameters.timestep
+            t_prev = t - self.parameters.temporal.timestep
             if states_sequence.get_value(t) - states_sequence.get_value(t_prev) == 1:
                 startup_count += 1
             elif states_sequence.get_value(t_prev) - states_sequence.get_value(t) == 1:
@@ -149,17 +151,19 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         if T_start > 0 or T_stop > 0:  # Do this only if relevant
             # Reconstruction of the start ups
             for t in extended_time_frame[1:]:
-                t_prev = t - self.parameters.timestep
+                t_prev = t - self.parameters.temporal.timestep
                 if states_sequence.get_value(t) - states_sequence.get_value(t_prev) == 1:
                     # Reconstruction of the start up phase which begins at t
                     started_at_t = t
                     # Determine the end of the start up phase
-                    end_of_start_up = started_at_t + T_start * self.parameters.timestep
+                    end_of_start_up = started_at_t + T_start * self.parameters.temporal.timestep
                     # Instanciate the startup time Frame
-                    # En end is shifted of une time step because the unit ends its start-up and the beginning of the time step
-                    # end_of_start_up.
+                    # The end of the startup time frame is shifted by one time step because the unit ends its start-up at
+                    # the beginning of the time step 'end_of_start_up'.
                     startup_time_frame = generate_datetimes(
-                        started_at_t, end_of_start_up - self.parameters.timestep, self.parameters.timestep
+                        started_at_t,
+                        end_of_start_up - self.parameters.temporal.timestep,
+                        self.parameters.temporal.timestep,
                     )
                     break  # Interrupt when the first startup is found.
                 else:
@@ -167,17 +171,19 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
 
             # Reconstruction of the shutdowns
             for t in extended_time_frame[1:]:
-                t_prev = t - self.parameters.timestep
+                t_prev = t - self.parameters.temporal.timestep
                 if states_sequence.get_value(t_prev) - states_sequence.get_value(t) == 1:
                     # Reconstruction of the shutdown phase which ends at t-1
                     end_of_shutdown = t
                     # Determine the beginning of the shutdown
-                    stopped_at_t = end_of_shutdown - T_stop * self.parameters.timestep
+                    stopped_at_t = end_of_shutdown - T_stop * self.parameters.temporal.timestep
                     # Instanciate the shutdown time frame
                     # The beginning is shifted by one time step because the unit formally end its shutdown at the end of the
                     # time step end_of_shutdown
                     shutdown_time_frame = generate_datetimes(
-                        stopped_at_t, end_of_shutdown - self.parameters.timestep, self.parameters.timestep
+                        stopped_at_t,
+                        end_of_shutdown - self.parameters.temporal.timestep,
+                        self.parameters.temporal.timestep,
                     )
                     break  # Interrupt when the first startup is found.
                 else:
@@ -193,13 +199,13 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
 
                 # See if the spell between the end of the start up and the beginning of the shutdown is greater than T_on
                 if (end_of_shutdown - started_at_t).total_minutes() >= 0 and int(
-                    math.floor((stopped_at_t - end_of_start_up) / self.parameters.timestep)
+                    math.floor((stopped_at_t - end_of_start_up) / self.parameters.temporal.timestep)
                 ) < T_on:
                     inconsistent = True
                     return states_sequence, inconsistent
                 # See if the spell between the end of the shutdown and the beginning of the shutdown is greater than T_off
                 elif (end_of_shutdown - started_at_t).total_minutes() < 0 and int(
-                    math.floor((started_at_t - end_of_shutdown) / self.parameters.timestep)
+                    math.floor((started_at_t - end_of_shutdown) / self.parameters.temporal.timestep)
                 ) < T_off:
                     inconsistent = True
                     return states_sequence, inconsistent

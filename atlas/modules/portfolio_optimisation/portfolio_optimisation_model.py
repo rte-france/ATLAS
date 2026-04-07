@@ -28,7 +28,7 @@ class PortfolioOptimisationModel(OptimisationModel):
     def __init__(
         self, portfolio: PortfolioPO, parameters: PortfolioOptimisationParameters, solver_options: SolverOptions
     ):
-        super().__init__(solver_name=parameters.solver_name, name=portfolio.name, options=solver_options)
+        super().__init__(solver_name=parameters.solver.solver_name, name=portfolio.name, options=solver_options)
         self.portfolio = portfolio
         self.parameters = parameters
 
@@ -37,21 +37,23 @@ class PortfolioOptimisationModel(OptimisationModel):
         cfg.logger.debug("Pre-fetching forecasts for all equipment...")
 
         for wind in self.portfolio.equipments.wind:
-            wind.prefetch_forecasts(self.parameters.execution_date)
+            wind.prefetch_forecasts(self.parameters.temporal.execution_date)
 
         for solar in self.portfolio.equipments.solar:
-            solar.prefetch_forecasts(self.parameters.execution_date)
+            solar.prefetch_forecasts(self.parameters.temporal.execution_date)
 
         for load in [*self.portfolio.equipments.dispatchable_load, *self.portfolio.equipments.non_dispatchable_load]:
-            load.prefetch_forecasts(self.parameters.execution_date)
+            load.prefetch_forecasts(self.parameters.temporal.execution_date)
 
         for hydro in self.portfolio.equipments.hydro:
             hydro.prefetch_forecasts(
-                self.parameters.execution_date, self.parameters.timestep, self.parameters.start_date
+                self.parameters.temporal.execution_date,
+                self.parameters.temporal.timestep,
+                self.parameters.temporal.start_date,
             )
 
         for storage in self.portfolio.equipments.storage:
-            storage.prefetch_forecasts(self.parameters.execution_date, self.parameters.init_battery_time)
+            storage.prefetch_forecasts(self.parameters.temporal.execution_date, self.parameters.init_battery_time)
 
         cfg.logger.debug("Completed pre-fetching forecasts.")
 
@@ -87,7 +89,7 @@ class PortfolioOptimisationModel(OptimisationModel):
             self.portfolio.add_objective(self, time, self.parameters)
 
         for thermal in self.portfolio.equipments.thermal:
-            thermal.add_daily_energy_constraint(model=self, timestep=self.parameters.timestep)
+            thermal.add_daily_energy_constraint(model=self, timestep=self.parameters.temporal.timestep)
 
         for storage in self.portfolio.equipments.storage:
             storage.add_cycle_balance_constraint(model=self)

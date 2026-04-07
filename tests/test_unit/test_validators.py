@@ -101,7 +101,7 @@ def test_serializer_business_model_invalid():
 def test_serializer_list_float_valid():
     """Test serializer_list_float with valid list of floats."""
     result = serializer_list_float([1.0, 2.5, 3.7])
-    assert result == "1.0:2.5:3.7"
+    assert result == "1.0|2.5|3.7"
 
     result = serializer_list_float([0.0])
     assert result == "0.0"
@@ -132,7 +132,7 @@ def test_serializer_list_business_model_valid():
     bm3 = BusinessModel(name="model_3")
 
     result = serializer_list_business_model([bm1, bm2, bm3])
-    assert result == "model_1:model_2:model_3"
+    assert result == "model_1|model_2|model_3"
 
     result = serializer_list_business_model([bm1])
     assert result == "model_1"

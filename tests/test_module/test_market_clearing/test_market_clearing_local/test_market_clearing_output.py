@@ -1,17 +1,17 @@
 import json
 import os
-import pickle
 
-import pytest
 import polars as pl
+import pytest
 
 import atlas.config as cfg
 from atlas import AtlasDataset
 from atlas.config import EQUIPMENT_MODELS
 from atlas.io_utils.utils import to_snake_case
-from atlas.models.portfolio import Portfolio
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
+from atlas.orchestrator.current_input_state import CurrentInputState
+from atlas.orchestrator.handler.cis_handler import CISHandler
 from tests.test_module.test_market_clearing.test_market_clearing_local.test_market_data_market_clearing import (
     read_expected_data,
 )
@@ -20,7 +20,7 @@ from tests.test_module.test_market_clearing.test_market_clearing_local.test_mark
 def retrieve_accepted_powers_from_json(
     optim_variable_path: str, market_area_mapping: dict[str, str], orders_mapping: dict[tuple[str, str], str]
 ) -> dict[tuple[str, str], float]:
-    with open(optim_variable_path, "r") as f:
+    with open(optim_variable_path) as f:
         optim_variables = json.load(f)
         accepted_powers = {}
         for area_id, balances in enumerate(optim_variables["accepted_powers"]):
@@ -35,7 +35,7 @@ def retrieve_accepted_powers_from_json(
 def retrieve_market_prices_from_json(
     optim_variable_path: str, market_area_mapping: dict[str, str]
 ) -> dict[tuple[str, int], float]:
-    with open(optim_variable_path, "r") as f:
+    with open(optim_variable_path) as f:
         optim_variables = json.load(f)
         market_prices_dict = {}
         for time_index, market_prices in enumerate(optim_variables["groups_prices"]):
@@ -51,7 +51,7 @@ def retrieve_market_prices_from_json(
 def retrieve_local_balances_from_json(
     optim_variable_path: str, market_area_mapping: dict[str, str]
 ) -> dict[tuple[str, int], float]:
-    with open(optim_variable_path, "r") as f:
+    with open(optim_variable_path) as f:
         optim_variables = json.load(f)
         local_balances = {}
         for time_index, balances in enumerate(optim_variables["local_balances"]):
@@ -63,7 +63,7 @@ def retrieve_local_balances_from_json(
 def retrieve_border_exchanges_from_json(
     optim_variable_path: str, border_mapping: dict[str, str]
 ) -> dict[tuple[str, int], float]:
-    with open(optim_variable_path, "r") as f:
+    with open(optim_variable_path) as f:
         optim_variables = json.load(f)
         borders = {}
         for time_index, balances in enumerate(optim_variables["border_exchanges"]):
@@ -85,53 +85,26 @@ def retrieve_orders_mapping(market_area) -> dict[tuple[str, str], str]:
     "dataset_name",
     [
         "atc-1",
+        "atc-2",
+        "fb-1",
+        "fb-2",
     ],
 )
 def test_market_clearing_output(dataset_name):
-    path = os.path.join("data", "market_clearing_prometheus", "datasets-market-clearing", dataset_name)
+    path = os.path.join("data", "market_clearing_prometheus", "test_clearing", dataset_name)
     parameters_path = os.path.join(path, "parameters.yml")
     dataset_path = os.path.join(path, "atlas-dataset")
     pkl_path = os.path.join(path, "raw_data.pkl")
-    expected_dataset_path = os.path.join("data", "market_clearing_prometheus", "portfolio-optimisation")
-    expected_pkl_path = os.path.join(path, "expected_raw_data.pkl")
+    expected_dataset_path = os.path.join("data", "market_clearing_prometheus", "test_clearing", "output", dataset_name)
     # last variables come from marginal_fixing
     optim_variables_path = os.path.join(path, "optimization_data", "marginal_fixing", "optim_variables.json")
 
-    if os.path.exists(pkl_path):
-        print("Chargement rapide depuis un pickle...")
-        with open(pkl_path, "rb") as f:
-            raw_data = pickle.load(f)
-    else:
-        print("Chargement long des données...")
-        raw_data = AtlasDataset.from_directory(dataset_path)
-        print("Création d'un pickle...")
-        with open(pkl_path, "wb") as f:
-            pickle.dump(raw_data, f)
-
+    raw_data = AtlasDataset.from_directory(dataset_path)
+    cis = CurrentInputState(raw_data)
+    raw_data = cis.filter_dataset(cfg.MODEL_MAPPING_NAME.keys())
     mc_module = MarketClearingModule()
     parameters = mc_module.import_parameters(parameters_path)
     input_dataset = mc_module.import_data(raw_data, parameters)
-
-    if os.path.exists(expected_pkl_path):
-        print("Chargement rapide depuis un pickle...")
-        with open(expected_pkl_path, "rb") as f:
-            expected_raw_data = pickle.load(f)
-    else:
-        print("Chargement long des données...")
-        expected_raw_data = AtlasDataset.from_directory(expected_dataset_path)
-        print("Création d'un pickle...")
-        with open(expected_pkl_path, "wb") as f:
-            pickle.dump(expected_raw_data, f)
-
-    expected_equipments = {}
-    for equipment_type in EQUIPMENT_MODELS:
-        expected_equipments[equipment_type] = {}
-        for equipment in expected_raw_data[equipment_type]:
-            expected_equipments[equipment_type][equipment.name] = equipment
-
-    expected_portfolios = {}
-    for portfolio in expected_raw_data["portfolio"]:
-        expected_portfolios[portfolio.name] = portfolio
 
     market_data_export_path = os.path.join(path, "market_data_export")
     expected_data = read_expected_data(market_data_export_path)
@@ -145,13 +118,33 @@ def test_market_clearing_output(dataset_name):
     border_exchanges = retrieve_border_exchanges_from_json(optim_variables_path, market_borders_mapping)
     market_prices = retrieve_market_prices_from_json(optim_variables_path, market_areas_mapping)
 
-    market_clearing_output_dataset = MarketClearingOutputDataset(input_dataset)
-    market_clearing_output_dataset.run(accepted_powers, local_balances, border_exchanges, market_prices)
+    market_clearing_output_dataset = MarketClearingOutputDataset(
+        input_dataset, accepted_powers, local_balances, border_exchanges, market_prices
+    )
+    market_clearing_output_dataset.run()
+
+    CISHandler.apply(market_clearing_output_dataset.change_sets, cis)
+
+    raw_data = cis.data
+    cis.data.to_directory(expected_dataset_path)
+    expected_raw_data = AtlasDataset.from_directory(expected_dataset_path)
+
+    expected_equipments = {}
+    for equipment_type in EQUIPMENT_MODELS:
+        expected_equipments[equipment_type] = {}
+        for equipment in getattr(expected_raw_data, equipment_type):
+            expected_equipments[equipment_type][equipment.name] = equipment
+
+    expected_portfolios = {}
+    for portfolio in expected_raw_data.portfolio:
+        expected_portfolios[portfolio.name] = portfolio
 
     # Test on equipments
     for equipment_type in EQUIPMENT_MODELS:
-        for output_equipment in market_clearing_output_dataset.raw_data[equipment_type]:
+        for output_equipment in getattr(raw_data, equipment_type):
             expected_equipment = expected_equipments[equipment_type][output_equipment.name]
+            print(output_equipment.da_cleared_quantity)
+            print(expected_equipment.da_cleared_quantity)
             if output_equipment.da_cleared_quantity is None:
                 if expected_equipment.da_cleared_quantity is not None:
                     assert False
@@ -175,8 +168,8 @@ def test_market_clearing_output(dataset_name):
                     print(output_df)
 
     # Test on portfolios
-    for output_portfolio in market_clearing_output_dataset.raw_data[cfg.INVERSE_MODEL_MAPPING_NAME[Portfolio]]:
-        expected_portfolio = expected_portfolios[cfg.INVERSE_MODEL_MAPPING_NAME[Portfolio]][output_portfolio.name]
+    for output_portfolio in raw_data.portfolio:
+        expected_portfolio = expected_portfolios[output_portfolio.name]
         if output_portfolio.da_cleared_quantity is None:
             if expected_portfolio.da_cleared_quantity is not None:
                 assert False
@@ -195,6 +188,6 @@ def test_market_clearing_output(dataset_name):
             try:
                 assert abs(expected_value - output_value) <= 1e-6
             except:
-                print(expected_equipment.name)
+                print(expected_portfolio.name)
                 print(expected_df)
                 print(output_df)

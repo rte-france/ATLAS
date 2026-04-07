@@ -6,30 +6,26 @@ This file is part of the ATLAS project.
 """
 
 from functools import cached_property
-from pathlib import Path
 
-from pendulum import DateTime, duration
-from pendulum.duration import Duration
-from pydantic import Field, field_validator
+from pendulum import DateTime
+from pydantic import Field
 
-from atlas.abstract_class.abstract_parameters import AbstractParameters
-from atlas.validators import convert_to_duration
+from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
+from atlas.io_utils.parameters import (
+    MultiProcessingParameters,
+    SolverParameters,
+)
 
 
-class DayAheadOrdersParameters(AbstractParameters):
-    output_folder: Path = Field(
-        Path("DAO_lp_exports"),
-        description="Optional parameter to choose an output folder in the folder where the LPs will be exported.",
-    )
-    export_lp: bool = Field(False, description="Boolean indicating if the LP model should be exported to a file.")
+class DayAheadOrdersParameters(AbstractModuleParameters):
+    solver: SolverParameters = SolverParameters()  # type: ignore[call-arg]
+
+    multiprocessing: MultiProcessingParameters = MultiProcessingParameters()
+
     proportional_reserves_penalty: bool = Field(
         True,
         description="A boolean indicating whether the amount of reserves offered is flexible, resulting in a "
         "proportional penalty priced to the market",
-    )
-    use_presolve: bool = Field(
-        True,
-        description="Boolean indicating if a presolve step is desired or not before solving the optimization program.",
     )
     automated_unprocured_reserves_penalty: float = Field(
         10000,
@@ -75,46 +71,20 @@ class DayAheadOrdersParameters(AbstractParameters):
         description="Coefficient used to determine the extra cost of each power fragment in the optimization problem "
         "related to the Storage instances with the type PumpedHydraulicStorage.",
     )
-    solver_duality_gap: float = Field(0.0001, description="duality gap used for the optimization.")
-    thermal_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=12),
-        description="Number of extra hours after end date for the optimization programs applied to Thermic instances.",
-    )
-    battery_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=48),
-        description="Number of extra hours after end date for the optimization programs applied to Storage instances "
-        "with the type Battery.",
-    )
     battery_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type Battery.",
-    )
-    ev_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=144),
-        description="Number of extra hours after end date for the optimization programs applied to Storage instances "
-        "with the type ElectricVehicle.",
     )
     ev_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type ElectricVehicle.",
     )
-    phs_additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=144),
-        description="Number of extra hours after end date for the optimization programs applied to Storage instances "
-        "with the type PumpedHydraulicStorage.",
-    )
     phs_nb_fragments: int = Field(
         3,
         description="Number of orders that can be formulated at one timestep for the optimization problem related to "
         "the Storage instances with the type PumpedHydraulicStorage.",
-    )
-    solver_timeout: Duration = Field(
-        default_factory=lambda: duration(minutes=4), description="Timeout of the optimization."
-    )
-    timestep: Duration = Field(
-        default_factory=lambda: duration(minutes=60), description="Discretization step of the simulated time interval"
     )
     price_forecasts_types: list[str] = Field(
         ["Medium", "High", "Low"],
@@ -124,22 +94,4 @@ class DayAheadOrdersParameters(AbstractParameters):
 
     @cached_property
     def penultimate_date(self) -> DateTime:
-        return self.end_date - self.timestep
-
-    @cached_property
-    def end_optimization_date(self) -> DateTime:
-        return self.end_date + self.thermal_additional_hours
-
-    @field_validator(
-        "phs_additional_hours",
-        "ev_additional_hours",
-        "battery_additional_hours",
-        "thermal_additional_hours",
-        "timestep",
-        "solver_timeout",
-        mode="before",
-    )
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
+        return self.temporal.end_date - self.temporal.timestep

@@ -18,6 +18,7 @@ import polars as pl
 from pydantic_core import core_schema
 
 from atlas.io_utils.utils import read_data_file
+from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
@@ -30,7 +31,7 @@ from atlas.timing import (
     infer_frequency,
     pendulum_to_datetime,
 )
-from atlas.typing import TimeseriesDict
+from atlas.type import TimeseriesDict
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -136,7 +137,7 @@ class ForecastingMatrix(ScenarioMatrix):
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        timeseries: AbstractTimeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str | datetime | pendulum.DateTime,
     ) -> None:
         """

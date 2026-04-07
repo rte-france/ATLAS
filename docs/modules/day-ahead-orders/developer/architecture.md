@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Day-Ahead orders module follows ATLAS's `AbstractModule` pattern, implementing standard lifecycle methods for data import, validation, execution, and export.
+The Day-Ahead Orders module follows ATLAS's `AbstractModule` pattern. See [Module Pattern](../../../concepts/module-pattern.md) for details on the standard module architecture.
+
+This document describes the module-specific architecture and components.
 
 ## Module Structure
 
@@ -15,7 +17,7 @@ atlas/modules/day_ahead_orders/
 ├── output_dataset.py                    # Output data structure
 ├── orchestrator.py                      # Orchestrates the mains steps of the module execution
 ├── parameters.py                        # Module parameters
-├── data_models/                         # Equipment-specific models
+├── models/                         # Equipment-specific models
 │   ├── hydro.py
 │   ├── load.py
 │   ├── market_area.py
@@ -55,7 +57,7 @@ Implements `AbstractModule` with methods:
 
 ### **`DayAheadOrdersParameters`**
 
-Pydantic model inheriting from `AbstractParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
+Pydantic model inheriting from `AbstractModuleParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
 
 ### **`DayAheadOrdersInputDataset`**
 
@@ -91,10 +93,12 @@ validates_results()
 export_results() → update order, order_coupling
 ```
 
-## Key Design Patterns
+## Module-Specific Design Patterns
 
-**Module Pattern**: Follows `AbstractModule` for consistent lifecycle
+For common ATLAS patterns (module lifecycle, Pydantic models, solver interface), see [Module Pattern](../../../concepts/module-pattern.md).
 
-**Pydantic Models**: Parameters and data validated via Pydantic
+**Step-based Execution**: Orders are formulated in 6 distinct steps, one for each asset type
 
-**Solver Interface**: Uses ATLAS `OptimisationModel` for solver abstraction
+**Optimization Models**: Three specialized optimization models handle storage and thermal intermediate load orders
+
+**Order Types**: Different order types (thermal, hydraulic, storage, non-dispatchable, load) are generated based on equipment type

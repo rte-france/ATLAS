@@ -169,3 +169,33 @@ def test_contains_unrelated_type():
     assert 123 not in c
     assert None not in c
     assert [] not in c
+
+
+def test_eq_with_not_object_inside():
+    c_1 = Container([])
+    c_2 = Container([])
+    assert c_1 == c_2
+
+
+def test_not_eq_with_different_object_with_same_name():
+    a = DummyBM("a")
+    b = DummyBM("b")
+    c_1 = Container([a])
+    c_2 = Container([b])
+    assert c_1 != c_2
+
+
+def test_eq_with_object_inside():
+    a_1 = DummyBM("a")
+    a_2 = DummyBM("a")
+    c_1 = Container([a_1])
+    c_2 = Container([a_2])
+    assert c_1 == c_2
+
+
+def test_not_eq_when_one_as_more_item():
+    a = DummyBM("a")
+    b = DummyBM("b")
+    c_1 = Container([a])
+    c_2 = Container([a, b])
+    assert c_1 != c_2

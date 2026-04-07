@@ -12,7 +12,7 @@ from __future__ import annotations
 import pickle
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, cast
 
 import pandas as pd
 import pendulum
@@ -21,9 +21,11 @@ import polars as pl
 
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.timing import check_timezone, get_duration, infer_frequency
-from atlas.typing import TimeseriesDict
+from atlas.type import TimeseriesDict
 
 
 class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
@@ -145,6 +147,37 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         """
         return self.matrix.select(pl.selectors.numeric()).columns
 
+    def _trim_null_extremities(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        Remove rows at the beginning and end where all value columns are null.
+        This is called after delete and select operations to clean up the matrix edges.
+        """
+        if len(df) == 0:
+            return df
+
+        # Get value columns (all except time)
+        value_columns = [col for col in df.columns if col != "time"]
+
+        if len(value_columns) == 0:
+            return df
+
+        # Create boolean mask: True where all value columns are null
+        all_null_mask = df.select(pl.all_horizontal([pl.col(idx).is_null() for idx in value_columns])).to_series()
+
+        # Find indices where at least one value column is not null
+        valid_indices = (~all_null_mask).arg_true()
+
+        if len(valid_indices) == 0:
+            # All rows are null, keep only time column with no data
+            return df
+
+        # Get first and last valid indices
+        first_valid_idx = valid_indices[0]
+        last_valid_idx = valid_indices[-1]
+
+        # Trim the matrix
+        return df.slice(first_valid_idx, last_valid_idx - first_valid_idx + 1)
+
     def __len__(self) -> int:
         """
         Number of timeseries in the matrix.
@@ -177,7 +210,8 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         """
         if index not in self.indexes:
             raise KeyError(f"No timeseries found for index: {index}")
-        return Timeseries(self.matrix.select("time", index))
+        df = self._trim_null_extremities(self.matrix.select(["time", index]))
+        return Timeseries(df)
 
     def select(self, index: str) -> Timeseries:
         """
@@ -217,7 +251,7 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
 
     def add(
         self,
-        timeseries: Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
+        timeseries: AbstractTimeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict,
         index: str,
     ) -> None:
         """
@@ -230,14 +264,21 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         """
         if index in self.indexes:
             raise KeyError(f"Index {index} already exists in the matrix.")
-        timeseries = Timeseries(timeseries) if not isinstance(timeseries, Timeseries) else timeseries
+
+        df = (
+            timeseries.collect()
+            if isinstance(timeseries, LazyTimeseries)
+            else cast(Timeseries | pl.DataFrame | pd.DataFrame | TimeseriesDict, timeseries)
+        )
+        timeseries = Timeseries(df) if not isinstance(timeseries, Timeseries) else timeseries
 
         self.matrix = self.matrix.join(
             timeseries.to_frame(engine="polars").rename({"value": index}),  # type: ignore[arg-type]
             on="time",
             how="full",
             coalesce=True,
-        )
+        ).sort("time")
+
         self.indexes = self._get_indexes()
 
     def delete(self, index: str) -> None:
@@ -251,8 +292,10 @@ class ScenarioMatrix(AbstractScenarioMatrix[pl.DataFrame]):
         if index not in self.indexes:
             raise KeyError(f"No timeseries to delete at index: {index}")
 
-        self.matrix = self.matrix.drop(index)
+        self.matrix = self.matrix.drop(index).sort("time")
         self.indexes = self._get_indexes()
+
+        self.matrix = self._trim_null_extremities(self.matrix)
 
     def replace(
         self,

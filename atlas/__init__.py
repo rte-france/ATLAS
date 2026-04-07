@@ -3,7 +3,7 @@ from importlib.metadata import version
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.parameters import Parameters
 from atlas.io_utils.utils import get_metadata_from_file, get_metadata_from_frame
-from atlas.logging import Logger
+from atlas.log import Logger
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
@@ -31,13 +31,15 @@ from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
 from atlas.modules.antares_to_atlas.antares_to_atlas import AntaresToAtlas, AntaresToAtlasParameters
+from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
+from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
+from atlas.orchestrator.workflow.step import WorkflowStep
+from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
 from atlas.timing import generate_datetimes
-from atlas.workflow.workflow import Workflow
-from atlas.workflow.workflow_parameters_parser import WorkflowParameters, WorkflowParametersParser
-from atlas.workflow.workflow_step import WorkflowStep
 
 __all__ = [
     "AntaresToAtlas",
@@ -50,7 +52,6 @@ __all__ = [
     "Workflow",
     "WorkflowStep",
     "WorkflowParameters",
-    "WorkflowParametersParser",
     "BusinessModel",
     "ControlBlock",
     "CriticalBranch",
@@ -85,6 +86,8 @@ __all__ = [
     "Timeseries",
     "Wind",
     "PortfolioOptimisationModule",
+    "DayAheadOrdersModule",
+    "MarketClearingModule",
 ]
 
 __version__ = version("atlas")

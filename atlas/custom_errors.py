@@ -1,5 +1,8 @@
+from atlas.orchestrator.change_set import ChangeSet
+
+
 class InputLoaderError(Exception):
-    """Base exception for InputLoader errors."""
+    """Base exception for AtlasDataset errors."""
 
     pass
 
@@ -26,3 +29,12 @@ class DataValidationError(InputLoaderError):
     """Raised when data validation fails."""
 
     pass
+
+
+class ChangeSetApplicationError(Exception):
+    """Raised when a change set fails to apply."""
+
+    def __init__(self, message: str, change_set: ChangeSet, original_error: Exception):
+        super().__init__(message)
+        self.change_set = change_set
+        self.original_error = original_error

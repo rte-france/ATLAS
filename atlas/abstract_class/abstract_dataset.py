@@ -9,17 +9,23 @@ Module that implements AbstractDataset
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
-from atlas import BusinessModel
-from atlas.abstract_class.abstract_parameters import module_parameters_type_var
+from atlas.abstract_class.abstract_parameters import P
+from atlas.orchestrator.change_set import ChangeSet
 
 
-class AbstractDataset(ABC, Generic[module_parameters_type_var]):
+class AbstractDataset(ABC, Generic[P]):
     """Placeholder abstract class for input datasets."""
 
+    pass
+
+
+class AbstractModuleOutput(AbstractDataset[P]):
+    change_sets: list[ChangeSet] = []
+
     @abstractmethod
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        """Get the list of Business model class present in this Dataset"""
+    def build_change_sets(self) -> None:
+        """Populate self.change_sets with the ChangeSet objects produced by this module."""
 
 
-input_dataset_type_var = TypeVar("input_dataset_type_var", bound=AbstractDataset)
-output_dataset_type_var = TypeVar("output_dataset_type_var", bound=AbstractDataset)
+ID = TypeVar("ID", bound=AbstractDataset)
+OD = TypeVar("OD", bound=AbstractModuleOutput)

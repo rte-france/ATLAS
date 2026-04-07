@@ -3,7 +3,7 @@
 Thanks for taking the time to contribute!
 We welcome bug reports, feature suggestions, and pull requests.
 
-## 🛠️ Project Setup
+## Project Setup
 
 This project uses [`uv`](https://github.com/astral-sh/uv/#installation) for dependency management and Python environment isolation.
 
@@ -31,7 +31,7 @@ If you're contributing new dependencies, install them with:
 uv add package-name
 ```
 
-## 🧪 Running Tests
+## Running Tests
 
 We use pytest for testing. To run the tests:
 
@@ -41,7 +41,15 @@ uv run pytest .
 
 > Make sure all tests pass before submitting a PR.
 
-## 🧹 Code Style
+### TNR
+
+Some test are mark as TNR, They are longer and are mandatory when merging into main.
+
+```bash
+uv run pytest -v -s --cov=atlas --cov-report=xml --disable-warnings -m "tnr"
+```
+
+## Code Style
 
 We use `ruff` to format and lint the code:
 
@@ -56,14 +64,23 @@ We also use `mypy` for typing analysis :
 uv run mypy atlas
 ```
 
-## 🧩 Making a Pull Request
+## Build the documentation website
+
+We use `zensical` to build our documentation website, run the command below and visit [http://localhost:8000](http://localhost:8000) :
+
+```bash
+uv sync --all-groups
+uv run zensical serve
+```
+
+## Making a Pull Request
 
 Before contributing code, make sure you've:
 
 - Synced with the latest version of the `develop` branch.
 - Created a **descriptive branch name** using one of the following conventions:
 
-### 🔖 Branch Naming Conventions
+### Branch Naming Conventions
 
 - `feat/your-feature-name` or `feature/your-feature-name` – for new features
 

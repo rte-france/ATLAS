@@ -1,14 +1,102 @@
 import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
+from typing import cast
 
 import typer
 from rich import print as rprint
 
 import atlas
+from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
+from atlas.config import logger
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
+from atlas.orchestrator.current_input_state import CurrentInputState
+from atlas.orchestrator.handler.cis_handler import CISHandler
+from atlas.orchestrator.step import ModuleRegistry
+from atlas.orchestrator.workflow.workflow import Workflow
+from atlas.timing import timer
 
 app = typer.Typer()
+
+
+@app.command()
+def run(
+    config_path: Path = typer.Argument(help="Workflow config YAML (--workflow) or module parameters YAML (default)"),
+    workflow: bool = typer.Option(False, "--workflow", "-w", help="Run a workflow instead of a single module"),
+    module_name: str | None = typer.Option(
+        None,
+        "--module",
+        "-m",
+        help=f"Module name. Valid modules: {', '.join(ModuleRegistry.get_names())}",
+    ),
+    dataset_path: Path | None = typer.Option(None, "--dataset", "-d", help="Path to the Atlas input dataset directory"),
+) -> None:
+    """Run an Atlas module or workflow.
+
+    \b
+    Module mode (default):
+      atlas run parameters.yaml --module PortfolioOptimisation --dataset ./data/
+
+    \b
+    Workflow mode:
+      atlas run workflow.yaml --workflow
+    """
+    if workflow:
+        if not config_path.exists():
+            rprint(f"[bold red]Error[/bold red]: Workflow configuration file not found: {config_path}")
+            raise typer.Exit(code=1)
+
+        logger.info(f"Running workflow: {config_path}")
+        with timer() as t:
+            wf = Workflow.from_file(config_path)
+            wf.execute()
+        logger.info(f"Workflow completed in {t()} seconds")
+        logger.info("✓ Workflow completed successfully.")
+
+    else:
+        if module_name is None:
+            rprint("Error: --module is required in module mode.")
+            raise typer.Exit(code=1)
+
+        if dataset_path is None:
+            rprint("Error: --dataset is required in module mode.")
+            raise typer.Exit(code=1)
+
+        if not dataset_path.exists() or not dataset_path.is_dir():
+            rprint(f"Error: Dataset directory not found: {dataset_path}")
+            raise typer.Exit(code=1)
+
+        if not config_path.exists():
+            rprint(f"Error: Parameters file not found: {config_path}")
+            raise typer.Exit(code=1)
+
+        try:
+            module_class = ModuleRegistry.get(module_name)
+        except ValueError as e:
+            rprint(f"Error: {e}")
+            raise typer.Exit(code=1) from e
+
+        logger.info(f"Running module: {module_name}")
+        logger.info(f"  Dataset   : {dataset_path}")
+        logger.info(f"  Parameters: {config_path}")
+
+        try:
+            with timer() as t:
+                cis = CurrentInputState.from_directory(dataset_path)
+                module = module_class()
+                parameters = cast(AbstractModuleParameters, module.get_parameters_class()).from_file(config_path)
+
+                output_dataset = module.run(cis.data, parameters)
+
+                if parameters.output.export_output_dataset:
+                    CISHandler.apply(output_dataset.change_sets, cis)
+                    cis.to_directory(parameters.get_output_dir())
+
+            logger.info(f"Module '{module_name}' completed in {t()} seconds")
+            rprint(f"[bold green]✓[/bold green] Module '{module_name}' completed successfully.")
+        except Exception as e:
+            logger.exception(f"✗ Module '{module_name}' failed: {e}")
+            raise typer.Exit(code=1) from e
 
 
 @app.command()
@@ -31,11 +119,11 @@ def prometheus_to_atlas(
     """Convert Prometheus format data to Atlas dataset format."""
 
     if not timeseries_folder_path.exists():
-        rprint(f"[bold red]Error:[/bold red] Timeseries folder not found: {timeseries_folder_path}")
+        rprint(f"Error: Timeseries folder not found: {timeseries_folder_path}")
         raise typer.Exit(code=1)
 
     if not hdf5_path.exists():
-        rprint(f"[bold red]Error:[/bold red] HDF5 file not found: {hdf5_path}")
+        rprint(f"Error: HDF5 file not found: {hdf5_path}")
         raise typer.Exit(code=1)
 
     transformer = PrometheusToAtlasDataParser(
@@ -85,14 +173,14 @@ def prometheus_to_atlas_recursive(
         └── uuid-file.hdf5
     """
     if not root_dir.exists():
-        rprint(f"[bold red]Error:[/bold red] Root directory not found: {root_dir}")
+        rprint(f"[bold red]Error[/bold red]: Root directory not found: {root_dir}")
         raise typer.Exit(code=1)
 
     if not root_dir.is_dir():
-        rprint(f"[bold red]Error:[/bold red] Path is not a directory: {root_dir}")
+        rprint(f"[bold red]Error[/bold red]: Path is not a directory: {root_dir}")
         raise typer.Exit(code=1)
 
-    rprint(f"\n[bold cyan]Scanning directory:[/bold cyan] {root_dir}")
+    logger.info(f"Scanning directory:{root_dir}")
 
     module_dirs = []
     for module_dir in sorted(root_dir.iterdir()):
@@ -100,14 +188,14 @@ def prometheus_to_atlas_recursive(
             module_dirs.append(module_dir)
 
     if not module_dirs:
-        rprint("[bold yellow]No valid module directories found.[/bold yellow]")
+        logger.error("No valid module directories found.")
         raise typer.Exit(code=1)
 
-    rprint(f"Found {len(module_dirs)} module(s) to process")
+    logger.info(f"Found {len(module_dirs)} module(s) to process")
 
     if use_mp and len(module_dirs) > 1:
         n_workers = n_workers or min(os.cpu_count() or 1, len(module_dirs))
-        rprint(f"[bold cyan]Processing modules in parallel using {n_workers} workers[/bold cyan]")
+        logger.info(f"Processing modules in parallel using {n_workers} workers")
 
         # Process modules in parallel using ProcessPoolExecutor
         with ProcessPoolExecutor(max_workers=n_workers) as executor:
@@ -127,11 +215,11 @@ def prometheus_to_atlas_recursive(
             results = [future.result() for future in futures]
     else:
         if not use_mp:
-            rprint("[bold cyan]Processing modules sequentially (multiprocessing disabled)[/bold cyan]")
+            logger.info("Processing modules sequentially (multiprocessing disabled)")
 
         results = []
         for module_dir in module_dirs:
-            rprint(f"\n[bold green]Processing module:[/bold green] {module_dir.name}")
+            logger.info(f"Processing module: {module_dir.name}")
             result = _process_single_module(
                 module_dir,
                 output_root_dir,
@@ -146,19 +234,19 @@ def prometheus_to_atlas_recursive(
     modules_processed = 0
     modules_failed = 0
 
-    rprint("\n[bold cyan]Results:[/bold cyan]")
+    logger.info("\nResults:")
     for module_name, success, error_msg in results:
         if success:
-            rprint(f"[bold green]✓[/bold green] {module_name}: Successfully processed")
+            logger.info(f"✓ {module_name}: Successfully processed")
             modules_processed += 1
         else:
-            rprint(f"[bold red]✗[/bold red] {module_name}: {error_msg}")
+            logger.info(f"✗ {module_name}: {error_msg}")
             modules_failed += 1
 
-    rprint("\n[bold cyan]Summary:[/bold cyan]")
-    rprint(f"  Processed: [green]{modules_processed}[/green]")
-    rprint(f"  Failed: [red]{modules_failed}[/red]")
-    rprint(f"  Total: {modules_processed + modules_failed}")
+    logger.info("Summary:")
+    logger.info(f"  Processed: {modules_processed}")
+    logger.info(f"  Failed: {modules_failed}")
+    logger.info(f"  Total: {modules_processed + modules_failed}")
 
     if modules_processed == 0:
         rprint("\n[bold yellow]No modules were processed.[/bold yellow]")

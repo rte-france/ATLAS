@@ -26,11 +26,20 @@ REFERENCE_LP_DIR = Path(__file__).parent / "lp_files"
 def base_parameters_dict():
     """Create base day-ahead orders parameters dictionary for testing."""
     return {
-        "start_date": "2028-09-27 00:00:00",
-        "execution_date": "2028-09-26 12:00:00",
-        "end_date": "2028-09-28 00:00:00",
+        "temporal": {
+            "start_date": "2028-09-27 00:00:00",
+            "execution_date": "2028-09-26 12:00:00",
+            "end_date": "2028-09-28 00:00:00",
+            "timestep": "PT1H",  # ISO 8601 duration format
+        },
+        "solver": {
+            "solver_name": "SCIP",
+            "export_lp": True,
+            "use_presolve": True,
+            "duality_gap": 0.0001,
+            "timeout": "PT120S",  # ISO 8601 duration format
+        },
         "proportional_reserves_penalty": True,
-        "use_presolve": True,
         "automated_unprocured_reserves_penalty": 10000,
         "battery_smoothing_factor": 0.1,
         "ev_energy_coef": 1.5,
@@ -40,16 +49,9 @@ def base_parameters_dict():
         "load_price": 3000,
         "manual_unprocured_reserves_penalty": 100,
         "phs_smoothing_factor": 0.2,
-        "solver_duality_gap": 0.0001,
-        "thermal_additional_hours": "12h",
-        "battery_additional_hours": "48h",
         "battery_nb_fragments": 3,
-        "ev_additional_hours": "144h",
         "ev_nb_fragments": 3,
-        "phs_additional_hours": "144h",
         "phs_nb_fragments": 3,
-        "solver_timeout": "240s",
-        "timestep": "1h",
         "price_forecasts_types": ["Medium"],
     }
 
@@ -80,9 +82,9 @@ class TestThermalCombinationLPComparison:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             params_dict = base_parameters_dict.copy()
-            params_dict["export_lp"] = True
-            params_dict["output_folder"] = tmpdir
-            params_dict["solver_name"] = "SCIP"
+            params_dict["output"] = {
+                "output_dir": tmpdir,
+            }
 
             input_data = AtlasDataset.from_directory(combination_dir)
 
@@ -90,7 +92,7 @@ class TestThermalCombinationLPComparison:
 
             module.run(input_data, params_dict)
 
-            lp_files = list(Path(tmpdir).glob("*.lp"))
+            lp_files = list((Path(tmpdir) / "lp_export").glob("*.lp"))
             assert len(lp_files) > 0, f"No LP files generated for {combination_name}"
 
             generated_lp = lp_files[0]

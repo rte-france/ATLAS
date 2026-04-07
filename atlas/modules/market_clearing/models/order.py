@@ -9,7 +9,7 @@ from pendulum import Duration
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import OrderType, Product
-from atlas.logging import logger
+from atlas.log import logger
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
@@ -102,21 +102,21 @@ class OrderMC(Order):
             return False
 
         # Check that the end datetime also does, but to within 1 minute:
-        if order.end_date > parameters.end_date:
+        if order.end_date > parameters.temporal.end_date:
             return False
 
         # For overlapping markets, such as (Intraday or Balancing), we need to only
         # consider orders that have an ExecutionDate close to the Clearing execution_date
         # The concept of "close" is here defined by the execution_date_tolerance parameter
         tolerance = parameters.execution_datetime_tolerance
-        if (parameters.execution_date - order.execution_date).total_seconds() / 60 > float(tolerance):
+        if (parameters.temporal.execution_date - order.execution_date).total_seconds() / 60 > float(tolerance):
             return False
 
         # MS
         duration_span = order.end_date.diff(order.start_date).as_duration()
-        if parameters.timestep > duration_span:
+        if parameters.temporal.timestep > duration_span:
             logger.info(
-                f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.timestep} min"
+                f"Order {order.name} is not considered because not long enough. Duration {duration_span} min while clearing is timestep {parameters.temporal.timestep} min"
             )
             return False
 

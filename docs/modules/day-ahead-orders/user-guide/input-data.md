@@ -4,34 +4,16 @@
 
 The Day-Ahead Orders module is configured through `DayAheadOrdersParameters`. Parameters can be provided as a dictionary or loaded from a JSON/YAML file.
 
-## Required Parameters
+## Common Parameters
 
-These parameters are inherited from `AbstractParameters`:
+The common section are :
+```yaml
+temporal:       # Time configuration (required)
+output:         # Output configuration (optional, has defaults)
+solver:         # Solver configuration (optional, has defaults)
+multiprocessing: # Parallel execution (optional, has defaults)
+```
 
-- **`start_date`** (DateTime): Start of the optimization period
-- **`end_date`** (DateTime): End of the optimization period
-- **`execution_date`** (DateTime): Date when the optimization is executed
-
-## Execution Parameters
-
-- **`output_folder`** (str, default: ""): Path where the lp exports outputs are exported.
-
-## Optimization Parameters
-
-### Solver configuration
-
-- **`timestep`** (Duration, default: 1 hour): Discretization step of the simulated time interval
-
-- **`solver_name`** (SolverEnum, default: `XPRESS`): Optimization solver to use
-    * Options: `"XPRESS"`, `"PNE"`, `"GLOP"`, `"SCIP"`, `"CP-SAT"`
-
-- **`export_lp`** (bool, default: False): Export solver LP files for debugging and analysis.
-
-- **`solver_timeout`** (Duration, default: 4 minutes): Maximum solve time
-
-- **`solver_duality_gap`** (float, default: 0.0001): Duality gap for optimization
-
-- **`use_presolve`** (bool, default: False): Enable solver presolve mode
 
 ## Penalties & Pricing
 
@@ -51,8 +33,6 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`battery_smoothing_factor`** (float, default: 0.1): Coefficient used to determine the extra cost of each power fragment in the optimization problem related to the Storage instances with the type Battery.
 
-- **`battery_additional_hours`** (Duration, default: 48 hours): Number of extra hours after end date for the optimization programs applied to Storage instances with the type Battery.
-
 ### Pumped Hydraulic Storage
 
 - **`phs_nb_fragments`** (int, default: 3): Number of orders that can be formulated at one time-step for the optimization problem related to the Storage instances with the type PumpedHydraulicStorage.
@@ -61,7 +41,6 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`hydraulic_minimal_fragment_size`** (int, default: 100): Minimal amount of power for an offer to be formulated. If for one particular time-step, the quantity Qmax of an offer is less than this threshold, the associated fragment is removed. Then the Qmax values of the other fragments are renormalized.
 
-- **`phs_additional_hours`** (Duration, default: 144 hours): Number of extra hours after end date for the optimization programs applied to Storage instances with the type PumpedHydraulicStorage.
 
 ### Electric Vehicle
 
@@ -71,7 +50,6 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`ev_energy_coef`** (float, default: 1.5): Coefficient multiplied to the delta of DisplacementEnergy to compensate for over the entire EV optimization time frame, used to generate enough Buy offers.
 
-- **`ev_additional_hours`** (Duration, default: 144 hours): Number of extra hours after end date for the optimization programs applied to Storage instances with the type ElectricVehicle.
 
 ### Load
 
@@ -85,15 +63,26 @@ These parameters are inherited from `AbstractParameters`:
 
 - **`thermal_additional_hours`** (Duration, default: 12 hours): Number of extra hours after end date for the optimization programs applied to Thermic instances.
 
+
 ## Example Configuration
 
 ```yml
-start_date: "2028-09-27 00:00:00"
-execution_date: "2028-09-26 12:00:00"
-end_date: "2028-09-28 00:00:00"
-output_folder: "./lp_exports"
+temporal:
+  start_date:  "2028-09-27 00:00:00"
+  end_date: "2028-09-28 00:00:00"
+  execution_date: "2028-09-26 12:00:00"
+  timestep: "1h"
+solver:
+  solver_name: "SCIP"
+  use_presolve: True
+  export_lp: True
+output:
+  export_result: True
+  export_output_dataset: True
+multiprocessing:
+  enable: True
+  max_workers: 4
 proportional_reserves_penalty: True
-use_presolve: True
 automated_unprocured_reserves_penalty: 10000
 battery_smoothing_factor: 0.1
 ev_energy_coef: 1.5
@@ -103,19 +92,10 @@ hydraulic_minimal_fragment_size: 100
 load_price: 3000
 manual_unprocured_reserves_penalty: 100
 phs_smoothing_factor: 0.2
-solver_duality_gap: 0.0001
-thermal_additional_hours: 12h
-battery_additional_hours: 48h
 battery_nb_fragments: 3
-ev_additional_hours: 144h
 ev_nb_fragments: 3
-phs_additional_hours: 144h
 phs_nb_fragments: 3
-solver_timeout: 240s
-timestep: 1h
 price_forecasts_types: ["Medium"]
-solver_name: "SCIP"
-export_lp: True
 ```
 
 ## Next Steps

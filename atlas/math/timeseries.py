@@ -25,7 +25,7 @@ import polars as pl
 from atlas.io_utils.utils import get_metadata_from_frame, read_data_file
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.timing import build_datetime, check_timezone, generate_datetimes, get_duration, infer_frequency
-from atlas.typing import TimeseriesDict
+from atlas.type import TimeseriesDict
 
 
 class Timeseries(AbstractTimeseries[pl.DataFrame]):
@@ -174,7 +174,7 @@ class Timeseries(AbstractTimeseries[pl.DataFrame]):
         return cls(df, timezone)
 
     @classmethod
-    def from_timeseries(cls, timeseries: Timeseries, default_value: float | None = None) -> Timeseries:
+    def from_timeseries(cls, timeseries: AbstractTimeseries, default_value: float | None = None) -> Timeseries:
         """Create a Timeseries from another, using its structure.
 
         :param timeseries: The input timeseries object

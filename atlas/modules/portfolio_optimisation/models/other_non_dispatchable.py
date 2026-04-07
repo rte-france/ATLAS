@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
@@ -15,6 +15,7 @@ from atlas.solver.solver_interface import OptimisationModel
 
 class OtherNonDispatchablePO(BaseEquipmentPO, OtherNonDispatchable):
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
+    additional_hours: Duration
 
     optimisation_time_window: list[DateTime] = []
 

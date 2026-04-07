@@ -9,7 +9,7 @@ from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import OrderType, Product
-from atlas.modules.day_ahead_orders.data_models.order import OrderDAO
+from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
 
@@ -20,16 +20,14 @@ class NonDispatchableStep:
         dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
     ) -> None:
         """
-        This function formulates non dispatchable offers. Offers are priced at the variable cost
-        `PropCost`, which is an attribute of these non dispatchable units. This can be assimilated
-        to a `plug-in` strategy implied by a "à la Bertrand" market structure (competition through prices)
+        This function formulates orders for all non dispatchable equipments, for each time step in orders_time.
+        For each order:
+            _ Qmin = 0 and Qmax corresponds to the generation forecast at the associated time step,
+              which is stored in the maximum_power_forecast matrix of the equipment.
+              As we deal with non_dispatchable generation, the volume is assumed to be non curtailable.
+            _ The price is extracted from the variable_cost attribute of the equipment.
 
-        For all bids, Qmin = 0 and Qmax corresponds to the production forecast at the time for wich
-        the offer is made.
-
-        If for example one wants to see the impact of having both negative and null prices on the offers,
-        then one should create a unit with a negative `PropCost` and another with a `PropCost` equal to zero.
-
+        The function takes the following arguments:
         :param dataset: the dataset
         :type dataset: DayAheadOrdersOutput
         :param orders_time: a list of dates over which orders will be formulated.
@@ -39,17 +37,17 @@ class NonDispatchableStep:
         :return: None
         """
 
-        # Loop over the market players first.
+        # Loop over all other non dispatchable equipments first
         for unit in dataset.other_non_dispatchable:
-            # Extract the forecasting matrix of the current actor.
+            # Extract the generation forecast of the current equipment
             if unit.maximum_power_forecast is None:
                 cfg.logger.warning(f"maximum_power_forecast is None for other_non_dispatchable {unit.name}")
             else:
                 production_forecast = unit.maximum_power_forecast.get_forecast(
-                    parameters.execution_date,
-                    parameters.start_date,
+                    parameters.temporal.execution_date,
+                    parameters.temporal.start_date,
                     parameters.penultimate_date,
-                    parameters.timestep,
+                    parameters.temporal.timestep,
                 )
 
                 if unit.da_sell_submitted_volume is None:
@@ -62,8 +60,7 @@ class NonDispatchableStep:
                 if unit.variable_cost is not None:
                     variable_costs = unit.variable_cost.filter(item=orders_time, inplace=False)
 
-                # Now we loop over the time stamps for which we want an offer to be made.
-                # We formulate as many offers as there are time stamps in orders_time.
+                # Loop over the time steps of orders_time, and formulate a separate orders for each one
                 for t in orders_time:
                     bid_output = OrderDAO(
                         name=f"otherND_order_at_{t}_for_unit_{unit.name}",  # Assign a unique name.
@@ -76,8 +73,8 @@ class NonDispatchableStep:
                         product=Product.DayAhead,
                         order_type=OrderType.Sell,
                         is_agent_tso=False,
-                        execution_date=parameters.execution_date,
+                        execution_date=parameters.temporal.execution_date,
                         start_date=t,
-                        end_date=t + parameters.timestep,
+                        end_date=t + parameters.temporal.timestep,
                     )
                     dataset.order.append(bid_output)

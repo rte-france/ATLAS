@@ -15,6 +15,7 @@ from pendulum import DateTime, Duration, Timezone
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, ThermalStrategy
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
+from atlas.io_utils.utils import diff_business_model, diff_lists, diff_on_other_than_business_model
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
@@ -131,6 +132,83 @@ class TestAtlasDatasetLookup:
     def test_duplicate_names_validation(self):
         with pytest.raises(ValueError):
             AtlasDataset(node=[Node(name="dup"), Node(name="dup")])
+
+    def test_iter_by_equipments_empty(self):
+        dataset = AtlasDataset()
+        equipments = list(dataset.iter_by_equipments())
+        assert equipments == []
+
+    def test_iter_by_equipments_single_type(self):
+        thermal = Thermal(name="plant1")
+        dataset = AtlasDataset(thermal=[thermal])
+        equipments = list(dataset.iter_by_equipments())
+        assert len(equipments) == 1
+        assert equipments[0] == thermal
+
+    def test_iter_by_equipments_multiple_types(self):
+        thermal = Thermal(name="plant1")
+        solar = Solar(name="solar1")
+        wind = Wind(name="wind1")
+        hydro = Hydro(name="hydro1")
+        load = Load(name="load1")
+        storage = Storage(name="storage1")
+
+        dataset = AtlasDataset(
+            thermal=[thermal],
+            solar=[solar],
+            wind=[wind],
+            hydro=[hydro],
+            load=[load],
+            storage=[storage],
+        )
+
+        equipments = list(dataset.iter_by_equipments())
+        assert len(equipments) == 6
+        equipment_names = {eq.name for eq in equipments}
+        assert equipment_names == {"plant1", "solar1", "wind1", "hydro1", "load1", "storage1"}
+
+    def test_iter_by_equipments_multiple_of_same_type(self):
+        thermal1 = Thermal(name="plant1")
+        thermal2 = Thermal(name="plant2")
+        thermal3 = Thermal(name="plant3")
+        dataset = AtlasDataset(thermal=[thermal1, thermal2, thermal3])
+
+        equipments = list(dataset.iter_by_equipments())
+        assert len(equipments) == 3
+        assert equipments[0] == thermal1
+        assert equipments[1] == thermal2
+        assert equipments[2] == thermal3
+
+    def test_iter_by_equipments_excludes_non_equipment(self):
+        thermal = Thermal(name="plant1")
+        node = Node(name="node1")
+        control_block = ControlBlock(name="cb1")
+        market_area = MarketArea(name="ma1")
+
+        dataset = AtlasDataset(
+            thermal=[thermal],
+            node=[node],
+            control_block=[control_block],
+            market_area=[market_area],
+        )
+
+        equipments = list(dataset.iter_by_equipments())
+        assert len(equipments) == 1
+        assert equipments[0] == thermal
+
+    def test_iter_by_equipments_multiple_times(self):
+        thermal = Thermal(name="plant1")
+        solar = Solar(name="solar1")
+        dataset = AtlasDataset(thermal=[thermal], solar=[solar])
+
+        # First iteration
+        equipments1 = list(dataset.iter_by_equipments())
+        assert len(equipments1) == 2
+
+        # Second iteration should work the same
+        equipments2 = list(dataset.iter_by_equipments())
+        assert len(equipments2) == 2
+        assert equipments1 == equipments2
 
 
 class TestAtlasDatasetConversion:
@@ -549,3 +627,352 @@ class TestAtlasDatasetContainerValidator:
     def test_container_validator_rejects_invalid_type(self):
         with pytest.raises(TypeError, match="node must be a Container or a list"):
             AtlasDataset(node="not a container")  # type: ignore[arg-type]
+
+
+class TestAtlasDatasetEq:
+    def test_two_empty_datasets_are_equal(self):
+        assert AtlasDataset() == AtlasDataset()
+
+    def test_same_objects_are_equal(self):
+        node_1 = Node(name="node")
+        node_2 = Node(name="node")
+        ds1 = AtlasDataset(node=[node_1])
+        ds2 = AtlasDataset(node=[node_2])
+        assert ds1 == ds2
+
+    def test_different_node_names_are_not_equal(self):
+        node_1 = Node(name="node1")
+        node_2 = Node(name="node2")
+        ds1 = AtlasDataset(node=[node_1])
+        ds2 = AtlasDataset(node=[node_2])
+        assert ds1 != ds2
+
+    def test_different_counts_are_not_equal(self):
+        node_1 = Node(name="node1")
+        node_2 = Node(name="node2")
+        ds1 = AtlasDataset(node=[node_1])
+        ds2 = AtlasDataset(node=[node_1, node_2])
+        assert ds1 != ds2
+
+    def test_extra_object_type_makes_not_equal(self):
+        node = Node(name="node")
+        thermal = Node(name="thermal")
+        ds1 = AtlasDataset(node=[node])
+        ds2 = AtlasDataset(node=[node], thermal=[thermal])
+        assert ds1 != ds2
+
+    def test_eq_with_non_atlas_dataset_returns_not_implemented(self):
+        ds = AtlasDataset()
+        result = ds.__eq__("not a dataset")
+        assert result is NotImplemented
+
+    def test_eq_is_symmetric(self):
+        node = Node(name="node")
+        ds1 = AtlasDataset(node=[node])
+        ds2 = AtlasDataset(node=[node])
+        assert ds1 == ds2
+        assert ds2 == ds1
+
+    def test_eq_with_same_name_different_attributes(self):
+        th1 = Thermal(name="th", installed_capacity=100)
+        th2 = Thermal(name="th", installed_capacity=990)
+        ds1 = AtlasDataset(thermal=[th1])
+        ds2 = AtlasDataset(thermal=[th2])
+        assert ds1 != ds2
+
+    def test_eq_with_same_name_same_attribute(self):
+        th1 = Thermal(name="th", installed_capacity=100)
+        th2 = Thermal(name="th", installed_capacity=100)
+        ds1 = AtlasDataset(thermal=[th1])
+        ds2 = AtlasDataset(thermal=[th2])
+        assert ds1 == ds2
+
+
+@pytest.fixture()
+def simple_timeseries():
+    return Timeseries.from_values(
+        start_date="2024-01-01 00:00:00",
+        frequency="1h",
+        values=[10.0, 20.0, 30.0],
+        timezone="UTC",
+    )
+
+
+class TestAtlasDatasetDiff:
+    def test_identical_datasets_produce_empty_diff(self):
+        ds = AtlasDataset(node=[Node(name="node")])
+        assert ds.diff(ds) == {}
+
+    def test_object_only_in_self(self):
+        ds1 = AtlasDataset(node=[Node(name="node")])
+        ds2 = AtlasDataset()
+        result = ds1.diff(ds2)
+        assert "node" in result["node"]["only_in_self"]
+        assert result["node"]["only_in_other"] == []
+
+    def test_object_only_in_other(self):
+        ds1 = AtlasDataset()
+        ds2 = AtlasDataset(node=[Node(name="node")])
+        result = ds1.diff(ds2)
+        assert "node" in result["node"]["only_in_other"]
+        assert result["node"]["only_in_self"] == []
+
+    def test_modified_scalar_attribute(self):
+        th1 = Thermal(name="th", installed_capacity=100)
+        th2 = Thermal(name="th", installed_capacity=999)
+        result = AtlasDataset(thermal=[th1]).diff(AtlasDataset(thermal=[th2]))
+        assert result["thermal"]["modified"]["th"]["installed_capacity"] == {"self": 100, "other": 999}
+
+    def test_modified_timeseries_attribute(self, simple_timeseries):
+        ts_other = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00", frequency="1h", values=[99.0, 99.0, 99.0], timezone="UTC"
+        )
+        result = AtlasDataset(hydro=[Hydro(name="h", inflows=simple_timeseries)]).diff(
+            AtlasDataset(hydro=[Hydro(name="h", inflows=ts_other)])
+        )
+        assert "inflows" in result["hydro"]["modified"]["h"]
+
+    def test_modified_enum_field(self):
+        th1 = Thermal(name="th", strategy=ThermalStrategy.BASE)
+        th2 = Thermal(name="th", strategy=ThermalStrategy.PEAK)
+        result = AtlasDataset(thermal=[th1]).diff(AtlasDataset(thermal=[th2]))
+        assert "strategy" in result["thermal"]["modified"]["th"]
+
+    def test_modified_duration_field(self):
+        th1 = Thermal(name="th", minimum_time_on=Duration(hours=1))
+        th2 = Thermal(name="th", minimum_time_on=Duration(hours=6))
+        result = AtlasDataset(thermal=[th1]).diff(AtlasDataset(thermal=[th2]))
+        assert "minimum_time_on" in result["thermal"]["modified"]["th"]
+
+    def test_multiple_types_reported_simultaneously(self):
+        atlas_1 = AtlasDataset(node=[Node(name="n_1")], thermal=[Thermal(name="th", installed_capacity=100)])
+        atlas_2 = AtlasDataset(node=[Node(name="n_2")], thermal=[Thermal(name="th", installed_capacity=500)])
+        result = atlas_1.diff(atlas_2)
+        assert "node" in result
+        assert "thermal" in result
+
+    def test_common_unchanged_object_not_in_modified(self):
+        n_1 = Node(name="n_1")
+        n_2 = Node(name="n_2")
+        result = AtlasDataset(node=[n_1, n_2]).diff(AtlasDataset(node=[n_1]))
+        assert "n_1" not in result.get("node", {}).get("modified", {})
+        assert "n_2" in result["node"]["only_in_self"]
+
+
+class TestDiffBusinessModel:
+    def test_identical_objects_return_empty_dict(self):
+        node = Node(name="node")
+        assert diff_business_model(node, node) == {}
+
+    def test_scalar_field_difference_detected(self):
+        th1 = Thermal(name="th", installed_capacity=100)
+        th2 = Thermal(name="th", installed_capacity=500)
+        result = diff_business_model(th1, th2)
+        assert result["installed_capacity"] == {"self": 100, "other": 500}
+
+    def test_nested_business_model_difference(self):
+        th1 = Thermal(name="th", node=Node(name="node_1"))
+        th2 = Thermal(name="th", node=Node(name="node_2"))
+        result = diff_business_model(th1, th2)
+        assert result["node"]["type"] == "nested"
+        assert result["node"]["object_name"] in ("node_1", "node_2")
+
+    def test_circular_reference_does_not_loop(self):
+        node = Node(name="node")
+        visited: set[tuple[int, int]] = {(id(node), id(node))}
+        assert diff_business_model(node, node, _visited=visited) == {}
+
+    def test_timeseries_field_difference_detected(self, simple_timeseries):
+        ts_other = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00", frequency="1h", values=[0.0, 0.0, 0.0], timezone="UTC"
+        )
+        result = diff_business_model(
+            Hydro(name="h", inflows=simple_timeseries),
+            Hydro(name="h", inflows=ts_other),
+        )
+        assert "inflows" in result
+
+    def test_only_differing_fields_are_returned(self):
+        th1 = Thermal(name="th", installed_capacity=100, outage_probability=0.05)
+        th2 = Thermal(name="th", installed_capacity=999, outage_probability=0.05)
+        result = diff_business_model(th1, th2)
+        assert "installed_capacity" in result
+        assert "outage_probability" not in result
+
+
+class TestDiffOnOtherThanBusinessModel:
+    def test_equal_scalar_returns_none(self):
+        assert diff_on_other_than_business_model(42, 42) is None
+
+    def test_different_int_returns_diff(self):
+        assert diff_on_other_than_business_model(1, 2) == {"self": 1, "other": 2}
+
+    def test_different_str_returns_diff(self):
+        assert diff_on_other_than_business_model("a", "b") == {"self": "a", "other": "b"}
+
+    def test_different_bool_returns_diff(self):
+        assert diff_on_other_than_business_model(True, False) == {"self": True, "other": False}
+
+    def test_different_lists_delegates_to_diff_lists(self):
+        result = diff_on_other_than_business_model([1, 2], [1, 99])
+        assert "1" in result
+
+    def test_equal_timeseries_returns_none(self, simple_timeseries):
+        assert diff_on_other_than_business_model(simple_timeseries, simple_timeseries) is None
+
+    def test_different_timeseries_returns_changed(self):
+        ts1 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00", frequency="1h", values=[1.0, 2.0], timezone="UTC"
+        )
+        ts2 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00", frequency="1h", values=[9.0, 2.0], timezone="UTC"
+        )
+        assert "changed" in diff_on_other_than_business_model(ts1, ts2)
+
+    def test_different_custom_object_returns_changed(self):
+        class MyObj:
+            def __init__(self, v):
+                self.v = v
+
+            def __eq__(self, other):
+                return self.v == other.v
+
+        assert diff_on_other_than_business_model(MyObj(1), MyObj(2)) == {"changed": "not-serializable yet"}
+
+    def test_exception_in_eq_returns_error(self):
+        class Broken:
+            def __eq__(self, other):
+                raise RuntimeError("broken")
+
+        assert diff_on_other_than_business_model(Broken(), Broken()) == {"error": "Couldn't check diff"}
+
+    def test_none_vs_value_returns_changed(self):
+        assert diff_on_other_than_business_model(None, 42) is not None
+
+
+class TestDiffLists:
+    def test_different_lengths_returns_list_length_diff(self):
+        result = diff_lists([1, 2, 3], [1, 2])
+        assert result == {"type": "list_length", "self": 3, "other": 2}
+
+    def test_equal_lists_returns_none(self):
+        assert diff_lists([1, 2, 3], [1, 2, 3]) is None
+
+    def test_single_differing_element(self):
+        result = diff_lists([1, 2, 3], [1, 99, 3])
+        assert result["1"] == {"self": 2, "other": 99}
+        assert "0" not in result
+        assert "2" not in result
+
+    def test_business_model_elements_identical_returns_none(self):
+        node = Node(name="node")
+        assert diff_lists([node], [node]) is None
+
+    def test_business_model_elements_different_detected(self):
+        result = diff_lists([Node(name="node_1")], [Node(name="node_2")])
+        assert result["0"]["type"] == "nested"
+
+    def test_only_differing_element_reported(self):
+        node = Node(name="node")
+        result = diff_lists([node, Node(name="node_1")], [node, Node(name="node_2")])
+        assert "0" not in result
+        assert "1" in result
+
+
+@pytest.fixture
+def dataset():
+    ds = AtlasDataset()
+    ds.order.add(Order(name="order_1", price=10))
+    ds.order.add(Order(name="order_2", price=50))
+    ds.market_area.add(MarketArea(name="ma1"))
+    ds.market_area.add(MarketArea(name="ma2"))
+    ds.node.add(Node(name="NodeA"))
+    ds.node.add(Node(name="NodeB"))
+    return ds
+
+
+class TestFilterDataset:
+    def test_include_types_only(self, dataset):
+        subset = dataset.filter_dataset(included_types=["order", "market_area"])
+        data = subset.to_dict()
+        assert "order" in data
+        assert "market_area" in data
+        assert "node" not in data
+        assert len(subset.order) == 2
+        assert len(subset.market_area) == 2
+
+    def test_filter_only(self, dataset):
+        subset = dataset.filter_dataset(filters={"node": lambda n: n.name.startswith("NodeA")})
+        nodes = subset.node.all()
+        assert len(nodes) == 1
+        assert nodes[0].name == "NodeA"
+        # Only node key should be present
+        data_keys = subset.to_dict().keys()
+        assert "node" in data_keys
+        assert "order" not in data_keys
+
+    def test_include_and_filter(self, dataset):
+        subset = dataset.filter_dataset(
+            included_types=["order", "node"], filters={"node": lambda n: n.name.startswith("NodeB")}
+        )
+        data = subset.to_dict()
+        # Orders included fully because node has filter
+        assert "order" in data
+        assert len(subset.order) == 2
+        # Nodes filtered
+        nodes = subset.node.all()
+        assert len(nodes) == 1
+        assert nodes[0].name == "NodeB"
+
+    def test_filter_takes_precedence_over_included(self, dataset):
+        # Node is in included_types but has a filter → should be filtered
+        subset = dataset.filter_dataset(included_types=["node"], filters={"node": lambda n: n.name.startswith("NodeB")})
+        nodes = subset.node.all()
+        assert len(nodes) == 1
+        assert nodes[0].name == "NodeB"
+
+    def test_empty_included_types_and_filters(self, dataset):
+        subset = dataset.filter_dataset()
+        assert subset.to_dict() == {}
+
+    def test_unknown_type_included_types(self, dataset):
+        subset = dataset.filter_dataset(included_types=["unknown_type"])
+        assert subset.to_dict() == {}
+
+    def test_unknown_type_in_filters(self, dataset):
+        subset = dataset.filter_dataset(filters={"unknown_type": lambda x: True})
+        assert subset.to_dict() == {}
+
+    def test_combined_filters_and_included_types(self, dataset):
+        # Include orders, filter orders by price > 20
+        subset = dataset.filter_dataset(included_types=["order"], filters={"order": lambda o: o.price > 20})
+        orders = subset.order.all()
+        assert len(orders) == 1
+        assert orders[0].name == "order_2"
+
+
+def test_filter_equipments_keeps_only_selected():
+    t1 = Thermal(name="plant_1")
+    t2 = Thermal(name="plant_2")
+    t3 = Thermal(name="plant_3")
+
+    dataset = AtlasDataset(thermal=[t1, t2, t3])
+
+    filtered = dataset.filter_equipments(["plant_1", "plant_3"])
+
+    remaining_names = [e.name for e in filtered.thermal]
+
+    assert set(remaining_names) == {"plant_1", "plant_3"}
+    assert "plant_2" not in remaining_names
+
+
+def test_filter_does_not_modify_original_dataset():
+    t1 = Thermal(name="plant_1")
+    t2 = Thermal(name="plant_2")
+
+    dataset = AtlasDataset(thermal=[t1, t2])
+
+    filtered = dataset.filter_equipments(["plant_1"])
+
+    assert len(dataset.thermal) == 2  # original unchanged
+    assert len(filtered.thermal) == 1

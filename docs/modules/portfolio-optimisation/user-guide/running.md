@@ -2,63 +2,51 @@
 
 ## Basic Usage
 
-```python
-from atlas.modules.portfolio_optimisation import PortfolioOptimisationModule
+See [Running Modules](../../../concepts/running-modules.md) for the standard ATLAS module execution pattern and parameter formats.
 
-module = PortfolioOptimisationModule()
-module.run(raw_data, raw_params)
-```
+For common parameters (dates, solver, timestep, etc.), see [Common Parameters](../../../concepts/common-parameters.md).
 
-## Input Data Structure
+## Module-Specific Parameters
 
-Input data is basically a dictionary of business model objects by type, obtained by a call to `InputLoader.from_directory`:
+This module adds the following parameters beyond the common ones:
 
-```python
-raw_data = {
-    "portfolio": [portfolio1, portfolio2, ...],
-    "thermal": [thermal_unit1, ...],
-    "hydro": [hydro_unit1, ...],
-    "storage": [storage1, ...],
-    "solar": [solar1, ...],
-    "wind": [wind1, ...],
-    "load": [load1, ...],
-    "other_non_dispatchable": [...],
-    "market_area": [...],
-    "control_block": [...]
-}
-```
+### Optimization Mode
 
-## Parameters
+**`is_portfolio_bidding`** (boolean, default: `true`):
+- `true`: Optimize entire portfolios with imbalance penalties and coordination
+- `false`: Optimize each unit independently
 
-Provide as dictionary or file path:
+### Equipment Selection
+
+**`excluded_market_areas`** (list of strings): Market areas to exclude from optimization
+
+**`excluded_technologies`** (list of strings): Technology types to exclude (e.g., `["THERMAL", "HYDRO"]`)
+
+**`excluded_thermal_strategy`** (list of strings): Thermal strategies to exclude (e.g., `["MUST_RUN"]`)
+
+
+## Example Configuration
 
 ```python
-# Dictionary
+from atlas import AtlasDataset, PortfolioOptimisationModule
+
 params = {
+    # Common parameters
     "start_date": "2024-01-01T00:00:00",
     "end_date": "2024-01-02T00:00:00",
     "execution_date": "2023-12-31T12:00:00",
-    "export_result": true,
+    "timestep": "PT1H",
     "solver_name": "XPRESS",
-    "timestep": "PT1H"
+    "export_result": true,
+
+    # Module-specific parameters
+    "is_portfolio_bidding": true,
+    "excluded_technologies": ["load"]
 }
 
-# Or JSON file
-module.run(raw_data, "config/parameters.json")
+module = PortfolioOptimisationModule()
+input_data = AtlasDataset.from_directory("path/to/dataset")
+module.run(input_data, params)
 ```
 
-See [Parameters](input-data.md) for full list.
-
-## Execution Modes
-
-**Portfolio-level** (`is_portfolio_bidding=true`): Optimizes portfolios with imbalance penalties
-
-**Individual units** (`is_portfolio_bidding=false`): Optimizes each unit independently
-
-## Key Options
-
-**Multiprocessing**: Set `use_multiprocessing=true` and `max_workers` to parallelize portfolio optimization
-
-**Manual activation**: Use `excluded_market_areas`, `excluded_technologies`, or `excluded_thermal_strategy` to exclude equipment from optimization
-
-**Solver**: Choose solver with `solver_name` parameter and configure `solver_timeout`, `solver_duality_gap`, `use_presolve`
+See [Parameters](input-data.md) for the complete list of module-specific parameters.

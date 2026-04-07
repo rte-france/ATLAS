@@ -1,4 +1,9 @@
-"""Prometheus HDF5 data transformer for Atlas datasets.
+"""Copyright (c) 2025, RTE (www.rte-france.com)
+
+SPDX-License-Identifier: MPL-2.0
+This file is part of the ATLAS project.
+
+Prometheus HDF5 data transformer for Atlas datasets.
 
 This module handles the conversion of Prometheus HDF5 data files into Atlas-compatible
 datasets, including objects, timeseries, scenario matrices, and forecasting matrices.
@@ -6,6 +11,7 @@ datasets, including objects, timeseries, scenario matrices, and forecasting matr
 
 import os
 import shutil
+import tempfile
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -17,13 +23,15 @@ import numpy.typing as npt
 import pendulum
 import polars as pl
 from pydantic_extra_types.pendulum_dt import DateTime, Duration
+from rich import print as rprint
 
 import atlas.config as cfg
+from atlas import AtlasDataset
 from atlas.config import DEFAULT_VALUE_IO, logger
-from atlas.enums import BusinessModelName
+from atlas.enums import BusinessModelName, CouplingType, StorageType
 from atlas.io_utils.utils import to_snake_case
 from atlas.timing import get_most_frequent_timestep, infer_frequency, pendulum_to_datetime
-from atlas.typing import get_class_inheritance_chain, get_type_attribute
+from atlas.type import get_class_inheritance_chain, get_type_attribute
 
 # Constants
 MAPPING_OBJECTS_TO_ATLAS = {"hydraulic": "hydro", "thermic": "thermal", "photovoltaic": "solar"}
@@ -70,6 +78,7 @@ class PrometheusToAtlasDataParser:
         date_format_forecasting: str = DEFAULT_DATE_FORMAT_FORECASTING,
         date_format_input_files: str = DEFAULT_DATE_FORMAT_INPUT,
         date_format_timestep: str = DEFAULT_DATE_FORMAT_TIMESTEP,
+        default_value: bool = True,
     ) -> None:
         self.hdf5_path = Path(hdf5_path)
         self.output_dir = Path(output_dir)
@@ -77,6 +86,10 @@ class PrometheusToAtlasDataParser:
         self.date_format_forecasting = date_format_forecasting
         self.date_format_input_files = date_format_input_files
         self.date_format_timestep = date_format_timestep
+        self.default_value = default_value
+
+        tmp_dir = tempfile.mkdtemp()
+        self.tmp_dir = Path(tmp_dir)
 
         logger.info(f"Initialized parser with HDF5 path: {self.hdf5_path} and output root: {self.output_dir}")
 
@@ -108,13 +121,76 @@ class PrometheusToAtlasDataParser:
             object_types = list(hdf5_file.keys())
             logger.info(f"Found object types: {object_types}")
 
-            objects_dir = self.output_dir / "objects"
+            objects_dir = self.tmp_dir / "objects"
             _ensure_directory(objects_dir)
 
             for object_type in object_types:
                 self._process_object_type(hdf5_file, object_type, objects_dir, use_multiprocessing, n_workers)
 
-        logger.success(f"Export done to Atlas dataset - {self.output_dir}!")
+        dataset = AtlasDataset.from_directory(self.tmp_dir)
+        if self.default_value:
+            self.add_default_value(dataset)
+        shutil.rmtree(self.tmp_dir)
+        dataset.to_directory(self.output_dir)
+        rprint("\n[bold green]✓[/bold green] Export completed successfully!")
+        rprint(f"[bold cyan]→[/bold cyan] Atlas dataset saved to: [yellow]{self.output_dir}[/yellow]\n")
+
+    @staticmethod
+    def add_default_value(dataset: AtlasDataset):
+        for equipment_name in cfg.EQUIPMENT_MODELS:
+            for equipment in dataset.get_container_by_type(equipment_name):
+                equipment.maximum_afrr = 0 if equipment.maximum_afrr is None else equipment.maximum_afrr
+                equipment.maximum_fcr = 0 if equipment.maximum_fcr is None else equipment.maximum_fcr
+                equipment.setup_delay = 0 if equipment.setup_delay is None else equipment.setup_delay
+                equipment.unit_count = 1 if equipment.unit_count is None else equipment.unit_count
+                equipment.maximum_gradient = 0 if equipment.maximum_gradient is None else equipment.maximum_gradient
+
+        for load in dataset.load:
+            load.additional_hours = Duration(hours=0) if load.additional_hours is None else load.additional_hours
+
+        for other_non_dispatchable in dataset.other_non_dispatchable:
+            other_non_dispatchable.additional_hours = (
+                Duration(hours=0)
+                if other_non_dispatchable.additional_hours is None
+                else other_non_dispatchable.additional_hours
+            )
+
+        for solar in dataset.solar:
+            solar.additional_hours = Duration(hours=0) if solar.additional_hours is None else solar.additional_hours
+
+        for wind in dataset.wind:
+            wind.additional_hours = Duration(hours=0) if wind.additional_hours is None else wind.additional_hours
+
+        for hydro in dataset.hydro:
+            hydro.additional_hours = Duration(hours=12) if hydro.additional_hours is None else hydro.additional_hours
+
+        for thermal in dataset.thermal:
+            thermal.additional_hours = (
+                Duration(hours=12) if thermal.additional_hours is None else thermal.additional_hours
+            )
+
+        for storage in dataset.storage:
+            storage.transition_duration = (
+                pendulum.Duration(hours=0) if storage.transition_duration is None else storage.transition_duration  # type: ignore
+            )
+
+            if storage.additional_hours is None:
+                if storage.storage_type == StorageType.PUMPED_HYDRAULIC_STORAGE:
+                    storage.additional_hours = Duration(hours=144)
+                elif storage.storage_type == StorageType.BATTERY:
+                    storage.additional_hours = Duration(hours=48)
+                elif storage.storage_type == StorageType.ELECTRIC_VEHICLE:
+                    storage.additional_hours = Duration(hours=24)
+                else:
+                    storage.additional_hours = Duration(hours=48)
+
+        for market_border in dataset.market_border:
+            market_border.coupling_type = (
+                CouplingType.ATC if market_border.coupling_type is None else market_border.coupling_type
+            )
+            market_border.time_resolution = (
+                0.0 if market_border.time_resolution is None else market_border.time_resolution
+            )
 
     def _process_object_type(
         self,
@@ -159,7 +235,7 @@ class PrometheusToAtlasDataParser:
 
         # Create matrix directories
         for matrix_type in MATRIX_TYPES:
-            _ensure_directory(self.output_dir / matrix_type / object_type_snake)
+            _ensure_directory(self.tmp_dir / matrix_type / object_type_snake)
 
         # Process instances in parallel or sequentially
         if use_multiprocessing and len(instances) > 1:
@@ -480,7 +556,7 @@ class PrometheusToAtlasDataParser:
             attrs[attr_name_snake] = None
             return
 
-        parquet_path = self.output_dir / matrix_type / object_type_snake / f"{instance_snake}.parquet"
+        parquet_path = self.tmp_dir / matrix_type / object_type_snake / f"{instance_snake}.parquet"
 
         if parquet_path.exists():
             # Concatenate with existing data
@@ -638,7 +714,7 @@ class PrometheusToAtlasDataParser:
             except (IndexError, TypeError):
                 pass
 
-        return ":".join(map(str, items))
+        return "|".join(map(str, items))
 
     def _apply_default_values(self, attrs: dict[str, Any], object_type_snake: str) -> None:
         """Apply default values based on class inheritance chain.

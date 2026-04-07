@@ -176,11 +176,13 @@ cython_debug/
 # VS Code settings
 .vscode/
 
+# Atlas site dir
+public/
+
 # Data files
 data/
 *.pickle
 *.pkl
-*.yml
 *.yaml
 *.txt
 
@@ -188,7 +190,4 @@ data/
 test.ipynb
 
 # scripts
-commit.sh
-test.py
-parameters.yaml
-CLAUDE.md
+scripts/

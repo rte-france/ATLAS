@@ -6,14 +6,13 @@ This file is part of the ATLAS project.
 
 from typing import Any
 
-from pendulum import Duration, duration
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from atlas.enums import InflowFrequency
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.models.equipment.equipment import Equipment
-from atlas.validators import convert_to_duration, parse_list_float, serializer_list_float
+from atlas.validators import parse_list_float, serializer_list_float
 
 
 class FragmentData(BaseModel):
@@ -76,17 +75,6 @@ class Hydro(Equipment):
     minimum_energy: AbstractTimeseries | None = None
     maximum_power: AbstractTimeseries | None = None
     minimum_power: AbstractTimeseries | None = None
-
-    additional_hours: Duration = Field(
-        default_factory=lambda: duration(hours=12),
-        description="Optimization period in hours for hydraulic group.",
-    )
-
-    @field_validator("additional_hours", mode="before")
-    @classmethod
-    def parse_duration(cls, v):
-        """Convert various duration formats to Duration objects."""
-        return convert_to_duration(v)
 
     @field_validator("fragment_prices", "fragment_volumes", mode="before")
     @classmethod

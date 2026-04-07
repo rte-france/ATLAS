@@ -62,7 +62,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             model.turned_off.set_extended(t, 0)
             if not t == model.extended_start_date:
                 # Reconstruct potential switches using the state variables
-                t_prev = t - model.parameters.timestep
+                t_prev = t - model.parameters.temporal.timestep
                 # See if the unit has been turned off
                 if model.OFF.get_extended_value(t) - model.OFF.get_extended_value(t_prev) == 1:
                     model.turned_off.set_extended(t, 1)
@@ -82,18 +82,24 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # Enforces equation (3)
     for t in model.time_frame:
         model.add_constraint(model.turned_on.get_value(t) <= 1 - model.OFF.get_value(t))
-        model.add_constraint(model.turned_on.get_value(t) <= model.OFF.get_value(t - model.parameters.timestep))
         model.add_constraint(
-            model.turned_on.get_value(t) >= model.OFF.get_value(t - model.parameters.timestep) - model.OFF.get_value(t)
+            model.turned_on.get_value(t) <= model.OFF.get_value(t - model.parameters.temporal.timestep)
+        )
+        model.add_constraint(
+            model.turned_on.get_value(t)
+            >= model.OFF.get_value(t - model.parameters.temporal.timestep) - model.OFF.get_value(t)
         )
 
         # Constraints on turned_off
     # STOP is not defined in this case, so we enforce equation (4)
     for t in model.time_frame:
-        model.add_constraint(model.turned_off.get_value(t) <= 1 - model.OFF.get_value(t - model.parameters.timestep))
+        model.add_constraint(
+            model.turned_off.get_value(t) <= 1 - model.OFF.get_value(t - model.parameters.temporal.timestep)
+        )
         model.add_constraint(model.turned_off.get_value(t) <= model.OFF.get_value(t))
         model.add_constraint(
-            model.turned_off.get_value(t) >= model.OFF.get_value(t) - model.OFF.get_value(t - model.parameters.timestep)
+            model.turned_off.get_value(t)
+            >= model.OFF.get_value(t) - model.OFF.get_value(t - model.parameters.temporal.timestep)
         )
 
     # C. CONSTRAINTS ON THE STATE VARIABLES
@@ -113,7 +119,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         for t in model.time_frame:
             time_steps = range(1, model.T_on)  # Corresponds to the set {1, ..., model.T_on -1}
             for s in time_steps:  # Add the constraints given by eq. (31), here T_start = 0 so t - s - T_start = t - s
-                t_minus_s = t - s * model.parameters.timestep
+                t_minus_s = t - s * model.parameters.temporal.timestep
                 model.add_constraint(
                     model.turned_on.get_value(t_minus_s) <= model.ON_UP.get_value(t) + model.ON_DOWN.get_value(t),
                     f"minimum_time_ON_{model.thermal_unit.name}_at_{t_minus_s}_for_{t}",
@@ -123,7 +129,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
         for t in model.time_frame:
             time_steps = range(1, model.T_off)  # Corresponds to the set {1, ..., model.T_off -1}
             for s in time_steps:  # Add the constraints given by eq. (32), here T_stop = 0 so t - s - T_stop = t - s
-                t_minus_s = t - s * model.parameters.timestep
+                t_minus_s = t - s * model.parameters.temporal.timestep
                 model.add_constraint(
                     model.turned_off.get_value(t_minus_s) <= model.OFF.get_value(t),
                     f"minimum_time_OFF_{model.thermal_unit.name}_at_{t_minus_s}_for_{t}",
@@ -189,7 +195,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
     if model.delta_q > 0:  # Case where the gradient is finite.
         for t in model.gradients_time_frame:  # The gradients are defined only up to T-1.
-            t_next = t + model.parameters.timestep  # Get the next time step
+            t_next = t + model.parameters.temporal.timestep  # Get the next time step
 
             # Upward constrained gradient (eq. 35):
             model.add_constraint(
@@ -209,7 +215,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
     elif model.delta_q == 0:  # Case where the gradient is 'infinite'
         for t in model.gradients_time_frame:
-            t_next = t + model.parameters.timestep  # Get the next time step
+            t_next = t + model.parameters.temporal.timestep  # Get the next time step
 
             # Upward unconstrained gradient (eq. 36)
             model.add_constraint(
@@ -230,5 +236,3 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
             "Please check the value of `maximum_gradient`."
         )
         raise ValueError("Missing gradients for thermic units.")
-
-    model.create_daily_energy_constraint(model.thermal_unit, model.time_frame, model.parameters.timestep, model.q)

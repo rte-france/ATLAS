@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from pendulum import DateTime
+from pendulum import DateTime, Duration
 
 import atlas.config as cfg
 from atlas.math.abstract_timeseries import AbstractTimeseries
@@ -23,6 +23,7 @@ class WindPO(BaseEquipmentPO, Wind):
     maximum_afrr: float
     maximum_power_forecast: ForecastingMatrix | LazyForecastingMatrix
     maximum_curtailment_ratio: AbstractTimeseries
+    additional_hours: Duration
 
     optimisation_time_window: list[DateTime] = []
     _cached_forecast: Timeseries | None = None
@@ -116,7 +117,7 @@ class WindPO(BaseEquipmentPO, Wind):
             cfg.logger.debug(f"Adding objective for wind unit {self.name} at time {time}")
             power_level_var = model.get_variable(f"{self.name}_power_level_{time}")
             model.add_objective(
-                get_variable_cost(self, time) * power_level_var * parameters.timestep.total_hours(),
+                get_variable_cost(self, time) * power_level_var * parameters.temporal.timestep.total_hours(),
             )
         else:
             cfg.logger.debug(f"Skipping objective for wind unit {self.name} at non-target time {time}")

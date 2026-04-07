@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Market Clearing module follows ATLAS's `AbstractModule` pattern, implementing standard lifecycle methods for data import, validation, execution, and export.
+The Market Clearing module follows ATLAS's `AbstractModule` pattern. See [Module Pattern](../../../concepts/module-pattern.md) for details on the standard module architecture.
+
+This document describes the module-specific architecture and components.
 
 ## Module Structure
 
@@ -37,6 +39,7 @@ market_clearing/
 ### MarketClearingModule
 
 Implements `AbstractModule` with methods:
+
 - `get_parameters_class()`: Returns `MarketClearingParameters`
 - `import_data()`: Creates `MarketClearingInputDataset`
 - `validate_data()`: Nothing is done
@@ -46,7 +49,7 @@ Implements `AbstractModule` with methods:
 
 ### MarketClearingParameters
 
-Pydantic model inheriting from `AbstractParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
+Pydantic model inheriting from `AbstractModuleParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
 
 ### MarketClearingInputDataset
 
@@ -67,10 +70,11 @@ Update dataset with the result of MarketClearing : All modification of attribute
 ### OrderCouplingMC
 
 - Test if the OrderCoupling is feasible
--
+
 ### PriceGroup
 
 Keep information of price for every timestep :
+
 - Min/Max price
 - List of MarketArea with the same price
 
@@ -97,10 +101,12 @@ validates_results()
 export_results() → update price value of equipments/portfolios and flow value
 ```
 
-## Key Design Patterns
+## Module-Specific Design Patterns
 
-**Module Pattern**: Follows `AbstractModule` for consistent lifecycle
+For common ATLAS patterns (module lifecycle, Pydantic models, solver interface), see [Module Pattern](../../../concepts/module-pattern.md).
 
-**Pydantic Models**: Parameters and data validated via Pydantic
+**Four-phase Execution**: Market clearing is performed in 4 sequential phases (Clearing, Exchange Fixing, Pricing, Marginal Fixing)
 
-**Solver Interface**: Uses ATLAS `OptimisationModel` for solver abstraction
+**Price Groups**: Market areas with identical prices are grouped together for efficiency
+
+**Network Constraints**: PTDF (Power Transfer Distribution Factors) model transmission constraints

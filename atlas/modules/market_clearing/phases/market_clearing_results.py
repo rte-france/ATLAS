@@ -24,14 +24,20 @@ class MarketClearingResults:
     finding such orders, called "marginal", and maximizing the volumes they can trade.
     """
 
-    def __init__(self, input_dataset: MarketClearingInputDataset, parameters: MarketClearingParameters):
+    def __init__(
+        self,
+        input_dataset: MarketClearingInputDataset,
+        parameters: MarketClearingParameters,
+        accepted_powers: dict[tuple[str, str], float],
+    ):
         self.input_dataset = input_dataset
         self.parameters = parameters
+        self.accepted_powers = accepted_powers
 
-    def run(self) -> None:
-        if self.parameters.export_csv:
-            if not self.parameters.output_path.exists():
-                self.parameters.output_path.mkdir(parents=True, exist_ok=True)
+    def compute(self) -> None:
+        if self.parameters.output.export_result:
+            if not self.parameters.get_output_dir().exists():
+                self.parameters.get_output_dir().mkdir(parents=True, exist_ok=True)
             self.export_offers()
             self.export_market_areas_data()
             self.export_couplings_data()
@@ -71,14 +77,14 @@ class MarketClearingResults:
                 "Qmin": mc_order.qmin,
                 "Qmax": mc_order.qmax,
                 "Price": mc_order.price,
-                "AcceptedPower": mc_order.accepted_power,
+                "AcceptedPower": self.accepted_powers[mc_order.market_area.name, order_name],
             }
             offer = pl.DataFrame({k: [v] for k, v in order_dict.items()}, schema=offers.schema)
             if offers is None:
                 offers = offer
             else:
                 offers.extend(offer)
-        offers.write_csv(self.parameters.output_path / "offers.csv")
+        offers.write_csv(self.parameters.get_output_dir() / "offers.csv")
 
     def export_market_areas_data(self):
         if self.parameters.market == Product.DayAhead:
@@ -90,7 +96,7 @@ class MarketClearingResults:
         else:
             # Consider only MFRRActivation
             market_area_data = self.create_mfrr_market_areas_data()
-        market_area_data.write_csv(self.parameters.output_path / "market_area_data.csv")
+        market_area_data.write_csv(self.parameters.get_output_dir() / "market_area_data.csv")
 
     def create_day_ahead_market_areas_data(self) -> pl.DataFrame:
         market_areas_data = pl.DataFrame(
@@ -138,15 +144,17 @@ class MarketClearingResults:
             if isinstance(id_balance_forecast, LazyForecastingMatrix):
                 id_balance_forecast = id_balance_forecast.collect()
 
-            id_price_ts = id_price_forecast.select(self.parameters.execution_date)
-            id_balance_ts = id_balance_forecast.select(self.parameters.execution_date)
+            id_price_ts = id_price_forecast.select(self.parameters.temporal.execution_date)
+            id_balance_ts = id_balance_forecast.select(self.parameters.temporal.execution_date)
 
             if id_price_ts is not None:
-                id_price_ts = id_price_ts.set_frequency(self.input_dataset.parameters.timestep, False).filter(
+                id_price_ts = id_price_ts.set_frequency(self.input_dataset.parameters.temporal.timestep, False).filter(
                     self.input_dataset.times  # type: ignore[arg-type]
                 )
             if id_balance_ts is not None:
-                id_balance_ts = id_balance_ts.set_frequency(self.input_dataset.parameters.timestep, False).filter(
+                id_balance_ts = id_balance_ts.set_frequency(
+                    self.input_dataset.parameters.temporal.timestep, False
+                ).filter(
                     self.input_dataset.times  # type: ignore[arg-type]
                 )
 
@@ -231,11 +239,11 @@ class MarketClearingResults:
             coupling_dict = {
                 "Name": order_coupling_name,
                 "Type": mc_order_coupling.coupling_type.value,
-                "OrderList": ":".join([order.name for order in mc_order_coupling.orders]),
+                "OrderList": "|".join([order.name for order in mc_order_coupling.orders]),
             }
             coupling_data = pl.DataFrame({k: [v] for k, v in coupling_dict.items()}, schema=couplings_data.schema)
             couplings_data.extend(coupling_data)
-        couplings_data.write_csv(self.parameters.output_path / "coupling_data.csv")
+        couplings_data.write_csv(self.parameters.get_output_dir() / "coupling_data.csv")
 
     def export_borders_data(self):
         if self.parameters.market == Product.DayAhead:
@@ -248,7 +256,7 @@ class MarketClearingResults:
             # Consider only MFRRActivation
             borders_data = self.create_mfrr_borders_data()
 
-        borders_data.write_csv(self.parameters.output_path / "border.csv")
+        borders_data.write_csv(self.parameters.get_output_dir() / "border.csv")
 
     def create_day_ahead_borders_data(self) -> pl.DataFrame:
         market_borders_data = pl.DataFrame(

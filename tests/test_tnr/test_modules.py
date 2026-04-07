@@ -1,0 +1,44 @@
+from pathlib import Path
+
+import pytest
+
+from atlas import AtlasDataset, DayAheadOrdersModule, MarketClearingModule, PortfolioOptimisationModule
+from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.orchestrator.current_input_state import CurrentInputState
+from atlas.orchestrator.handler.cis_handler import CISHandler
+from atlas.timing import timer
+
+DATA_DIR = Path("tests/test_tnr/data/anonymises_light")
+
+MODULE_CONFIGS = [
+    (DayAheadOrdersModule, DATA_DIR / "dao_parameters.yml", DATA_DIR / "DAO_light"),
+    (MarketClearingModule, DATA_DIR / "mc_parameters.yml", DATA_DIR / "MC_light"),
+    (PortfolioOptimisationModule, DATA_DIR / "po_parameters.yml", DATA_DIR / "PO_light"),
+]
+
+
+def run_module(module_class: type[AbstractModule], config_path: Path, dataset_path: Path) -> None:
+    input_data = AtlasDataset.from_directory(dataset_path)
+    cis = CurrentInputState(input_data)
+    module = module_class()
+    parameters = module.get_parameters_class().from_file(config_path)
+    output_dataset = module.run(input_data, parameters)
+    if parameters.output.export_output_dataset:
+        CISHandler.apply(output_dataset.change_sets, cis)
+        cis.data.to_directory(parameters.get_path(parameters.output.output_dir) / "output_dataset")
+
+
+@pytest.mark.tnr
+@pytest.mark.parametrize("module_class, config_path, dataset_path", MODULE_CONFIGS)
+def test_module_runs_successfully(
+    module_class: type[AbstractModule],
+    config_path: Path,
+    dataset_path: Path,
+):
+    if not config_path.exists():
+        pytest.skip(f"Module config not found: {config_path}")
+
+    with timer() as t:
+        run_module(module_class, config_path, dataset_path)
+
+    print(f"\n⏱ {module_class.__name__}: {t()}s")

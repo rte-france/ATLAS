@@ -9,19 +9,10 @@ from itertools import groupby
 
 from pendulum import DateTime
 
-from atlas import BusinessModel, Portfolio
+from atlas import Portfolio
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.models.control_block import ControlBlock
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
-from atlas.models.equipment.wind import Wind
-from atlas.models.market.market_area import MarketArea
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
@@ -76,9 +67,9 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
             p.name: max(
                 (
                     e.get_optimisation_time_window(
-                        start_date=self.parameters.start_date,
-                        end_date=self.parameters.end_date - self.parameters.timestep,
-                        timestep=self.parameters.timestep,
+                        start_date=self.parameters.temporal.start_date,
+                        end_date=self.parameters.temporal.end_date - self.parameters.temporal.timestep,
+                        timestep=self.parameters.temporal.timestep,
                     )
                     for e in p.equipments.get_all_equipment()
                 ),
@@ -143,7 +134,3 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                     self.parameters.market, self.parameters.use_forecast
                 )
                 self.portfolios_manual_activation.append(portfolio_po_manual)
-
-    def get_business_model_class_used(self) -> list[type[BusinessModel]]:
-        """Return list of business model classes used in this dataset."""
-        return [Thermal, Load, Hydro, Storage, Wind, Solar, Portfolio, MarketArea, ControlBlock, OtherNonDispatchable]

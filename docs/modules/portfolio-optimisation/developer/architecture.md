@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Portfolio Optimisation module follows ATLAS's `AbstractModule` pattern, implementing standard lifecycle methods for data import, validation, execution, and export.
+The Portfolio Optimisation module follows ATLAS's `AbstractModule` pattern. See [Module Pattern](../../../concepts/module-pattern.md) for details on the standard module architecture.
+
+This document describes the module-specific architecture and components.
 
 ## Module Structure
 
@@ -37,7 +39,7 @@ Implements `AbstractModule` with methods:
 
 ### **`PortfolioOptimisationParameters`**
 
-Pydantic model inheriting from `AbstractParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
+Pydantic model inheriting from `AbstractModuleParameters`. Defines all configuration parameters (see [Parameters](../user-guide/input-data.md)).
 
 ### **`PortfolioOptimisationInputDataset`**
 
@@ -102,12 +104,12 @@ validates_results()
 export_results() → update equipment.power, portfolio.imbalance
 ```
 
-## Key Design Patterns
+## Module-Specific Design Patterns
 
-**Module Pattern**: Follows `AbstractModule` for consistent lifecycle
+For common ATLAS patterns (module lifecycle, Pydantic models, solver interface), see [Module Pattern](../../../concepts/module-pattern.md).
 
-**Pydantic Models**: Parameters and data validated via Pydantic
+**Multiprocessing**: Portfolios can be optimized in parallel when `use_multiprocessing=true`
 
-**Multiprocessing**: Portfolios optimized in parallel when enabled
+**Equipment Models**: Each asset type (thermal, hydro, etc.) has a specialized model implementing optimization variables, constraints, and objectives
 
-**Solver Interface**: Uses ATLAS `OptimisationModel` for solver abstraction
+**Portfolio-level Coordination**: Imbalance penalties and portfolio constraints coordinate assets within a portfolio

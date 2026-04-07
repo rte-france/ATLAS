@@ -41,27 +41,27 @@ def test_if_pricing_generated_lp_matches_reference(dataset_name):
     expected_pricing_3_path = dataset_path / "expected_results" / "pricing_3_model.lp"
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        raw_data = InputLoader.from_directory(dataset_data_path)
+        raw_data = AtlasDataset.from_directory(dataset_data_path)
 
         try:
             mc_module = MarketClearingModule()
             parameters = mc_module.import_parameters(parameters_path)
-            parameters.output_path = Path(tmpdir)
+            parameters.output.output_dir = Path(tmpdir)
             input_dataset = mc_module.import_data(raw_data, parameters)
 
-            with open(saturated_critical_branches_path, "r") as f:
+            with open(saturated_critical_branches_path) as f:
                 saturated_critical_branches = {}
                 for cb, time_index, val in json.load(f):
                     saturated_critical_branches[cb, time_index] = val
-            with open(exchanges_fixing_border_exchanges_path, "r") as f:
+            with open(exchanges_fixing_border_exchanges_path) as f:
                 exchanges_fixing_border_exchanges = {}
                 for b, time_index, val in json.load(f):
                     exchanges_fixing_border_exchanges[b, time_index] = val
-            with open(clearing_local_balances_path, "r") as f:
+            with open(clearing_local_balances_path) as f:
                 clearing_local_balances = {}
                 for ma, t, val in json.load(f):
                     clearing_local_balances[ma, t] = val
-            with open(clearing_accepted_powers_path, "r") as f:
+            with open(clearing_accepted_powers_path) as f:
                 clearing_accepted_powers = {}
                 for ma, o, val in json.load(f):
                     clearing_accepted_powers[ma, o] = val
@@ -79,7 +79,7 @@ def test_if_pricing_generated_lp_matches_reference(dataset_name):
         except Exception as e:
             pytest.fail(f"Clearing failed for {dataset_name}: {e}")
 
-        pricing_1_lp = Path(parameters.output_path) / "pricing_1_model.lp"
+        pricing_1_lp = Path(parameters.output.output_dir) / "pricing_1_model.lp"
 
         try:
             generated_lp_data_1 = SolverHelper.read_lp_ortools(str(pricing_1_lp))
@@ -124,7 +124,7 @@ def test_if_pricing_generated_lp_matches_reference(dataset_name):
                     f"{category.capitalize()} only in generated LP for {dataset_name}"
                 )
 
-        pricing_2_lp = Path(parameters.output_path) / "pricing_2_model.lp"
+        pricing_2_lp = Path(parameters.output.output_dir) / "pricing_2_model.lp"
         if pricing_2_lp.exists():
             try:
                 generated_lp_data_2 = SolverHelper.read_lp_ortools(str(pricing_2_lp))
@@ -173,7 +173,7 @@ def test_if_pricing_generated_lp_matches_reference(dataset_name):
                         f"{category.capitalize()} only in generated LP for {dataset_name}"
                     )
 
-        pricing_3_lp = Path(parameters.output_path) / "pricing_3_model.lp"
+        pricing_3_lp = Path(parameters.output.output_dir) / "pricing_3_model.lp"
         if pricing_3_lp.exists():
             try:
                 generated_lp_data_3 = SolverHelper.read_lp_ortools(str(pricing_3_lp))
