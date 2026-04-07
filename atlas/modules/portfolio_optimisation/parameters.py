@@ -10,7 +10,7 @@ from pendulum import DateTime, duration
 from pydantic import Field, field_validator
 from pydantic_extra_types.pendulum_dt import Duration
 
-from atlas.abstract_class.abstract_parameters import AbstractParameters
+from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
 from atlas.enums import MarketType, StorageType, ThermalStrategy
 from atlas.io_utils.parameters import (
     MultiProcessingParameters,
@@ -20,7 +20,7 @@ from atlas.timing import generate_datetimes
 from atlas.validators import convert_to_duration
 
 
-class PortfolioOptimisationParameters(AbstractParameters):
+class PortfolioOptimisationParameters(AbstractModuleParameters):
     """Pydantic model for module parameters with documentation and defaults."""
 
     solver: SolverParameters = SolverParameters()  # type: ignore[call-arg]

@@ -82,8 +82,8 @@ class DateParameters(BaseModel):
         """Validation of start, end and execution date
 
         :raises ValueError: If the start, end and execution date are not coherent
-        :return: The AbstractParameters if dates are validate
-        :rtype: AbstractParameters
+        :return: The AbstractModuleParameters if dates are validate
+        :rtype: AbstractModuleParameters
         """
         if self.end_date < self.start_date:
             raise ValueError(
