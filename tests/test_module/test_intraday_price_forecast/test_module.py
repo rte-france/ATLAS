@@ -13,9 +13,10 @@ from atlas.modules.intraday_price_forecast.models.market_area import MarketAreaI
 from atlas.modules.intraday_price_forecast.models.portfolio import PortfolioIDPF
 from atlas.modules.intraday_price_forecast.models.solar import SolarIDPF
 from atlas.modules.intraday_price_forecast.models.wind import WindIDPF
-from atlas.modules.intraday_price_forecast.orchestrator import IntradayPriceForecastOrchestrator
+from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
 from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
+from atlas.timing import generate_datetimes
 
 
 @pytest.fixture
@@ -164,21 +165,15 @@ def test_input_dataset(test_parameters, test_market_area, test_load, test_solar,
     return IntradayPriceForecastInputDataset(atlas_dataset, test_parameters)
 
 
-def test_orchestrator_initialization(test_parameters, test_input_dataset):
-    """Test that orchestrator initializes correctly."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
-    assert orchestrator.parameters == test_parameters
-    assert orchestrator.input_dataset == test_input_dataset
-    assert isinstance(orchestrator.output_dataset, IntradayPriceForecastOutputDataset)
+@pytest.fixture
+def module():
+    return IntradayPriceForecastModule()
 
 
-def test_filter_assets_by_market_area(test_parameters, test_input_dataset):
+def test_filter_assets_by_market_area(module, test_parameters, test_input_dataset):
     """Test filtering assets by market area."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
     market_area = test_input_dataset.market_area[0]
-    loads, solars, winds = orchestrator._filter_assets_by_market_area(market_area)
+    loads, solars, winds = module._filter_assets_by_market_area(market_area, test_input_dataset)
 
     assert len(loads) == 1
     assert len(solars) == 1
@@ -188,31 +183,25 @@ def test_filter_assets_by_market_area(test_parameters, test_input_dataset):
     assert winds[0].name == "test_wind"
 
 
-def test_create_empty_timeseries(test_parameters, test_input_dataset):
+def test_create_empty_timeseries(module, test_parameters, test_input_dataset):
     """Test creating an empty timeseries."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
-    ts = orchestrator._create_empty_timeseries()
+    ts = module._create_empty_timeseries(test_parameters)
 
     assert isinstance(ts, Timeseries)
     assert ts.get_value(test_parameters.temporal.start_date) == 0
     assert test_parameters.temporal.start_date in ts
 
 
-def test_compute_price_sensitivity_ratio(test_parameters, test_input_dataset):
+def test_compute_price_sensitivity_ratio(module, test_parameters, test_input_dataset):
     """Test computing price sensitivity ratio."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
     market_area = test_input_dataset.market_area[0]
-    loads, solars, winds = orchestrator._filter_assets_by_market_area(market_area)
-
-    from atlas.timing import generate_datetimes
+    loads, solars, winds = module._filter_assets_by_market_area(market_area, test_input_dataset)
 
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
     )
 
-    ratio = orchestrator._compute_price_sensitivity_ratio(market_area, loads, time_window)
+    ratio = module._compute_price_sensitivity_ratio(market_area, loads, time_window, test_parameters)
 
     assert isinstance(ratio, Timeseries)
     # Price diff = 100 - 50 = 50
@@ -222,20 +211,16 @@ def test_compute_price_sensitivity_ratio(test_parameters, test_input_dataset):
     assert ratio.get_value(test_parameters.temporal.start_date) == pytest.approx(expected_ratio, abs=0.001)
 
 
-def test_compute_consumption_delta(test_parameters, test_input_dataset):
+def test_compute_consumption_delta(module, test_parameters, test_input_dataset):
     """Test computing consumption delta."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
     market_area = test_input_dataset.market_area[0]
-    loads, solars, winds = orchestrator._filter_assets_by_market_area(market_area)
-
-    from atlas.timing import generate_datetimes
+    loads, solars, winds = module._filter_assets_by_market_area(market_area, test_input_dataset)
 
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
     )
 
-    delta = orchestrator._compute_consumption_delta(loads, solars, winds, time_window)
+    delta = module._compute_consumption_delta(loads, solars, winds, test_parameters)
 
     assert isinstance(delta, Timeseries)
     # Intraday residual: -(1100 - 180 - 280) = -640
@@ -245,27 +230,18 @@ def test_compute_consumption_delta(test_parameters, test_input_dataset):
     assert delta.get_value(test_parameters.temporal.start_date) == pytest.approx(expected_delta, abs=0.001)
 
 
-def test_get_baseline_price_da_price(test_parameters, test_input_dataset):
+def test_get_baseline_price_da_price(module, test_parameters, test_input_dataset):
     """Test getting baseline price when only day-ahead price is available."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
     market_area = test_input_dataset.market_area[0]
-    baseline_price, label = orchestrator._get_baseline_price(market_area)
+    baseline_price, label = module._get_baseline_price(market_area, test_parameters)
 
     assert isinstance(baseline_price, Timeseries)
     assert label == "Day Ahead price"
     assert baseline_price.get_value(test_parameters.temporal.start_date) == 75.0
 
 
-def test_apply_non_negativity_constraint(test_parameters, test_input_dataset):
+def test_apply_non_negativity_constraint(module, test_parameters, test_input_dataset):
     """Test applying non-negativity constraint."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
-    from atlas.timing import generate_datetimes
-
-    time_window = generate_datetimes(
-        test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
-    )
 
     # Create timeseries with negative values
     ts = Timeseries.from_index(
@@ -274,18 +250,14 @@ def test_apply_non_negativity_constraint(test_parameters, test_input_dataset):
     ts.set_value(test_parameters.temporal.start_date, -10.0)
     ts.set_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep, 50.0)
 
-    result = orchestrator._apply_non_negativity_constraint(ts, time_window)
+    result = module._apply_non_negativity_constraint(ts, test_parameters)
 
     assert result.get_value(test_parameters.temporal.start_date) == 0.0
     assert result.get_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep) == 50.0
 
 
-def test_apply_price_caps_upper(test_parameters, test_input_dataset):
+def test_apply_price_caps_upper(module, test_parameters, test_input_dataset):
     """Test applying upper price cap."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
-    from atlas.timing import generate_datetimes
-
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
     )
@@ -298,19 +270,15 @@ def test_apply_price_caps_upper(test_parameters, test_input_dataset):
     ts.set_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep, 5000.0)
 
     market_area = test_input_dataset.market_area[0]
-    result = orchestrator._apply_price_caps(ts, market_area, time_window)
+    result = module._apply_price_caps(ts, market_area, time_window, test_parameters)
 
     # All values should be scaled down proportionally
     assert result.get_value(test_parameters.temporal.start_date) <= 4000.0
     assert result.get_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep) <= 4000.0
 
 
-def test_apply_price_caps_lower(test_parameters, test_input_dataset):
+def test_apply_price_caps_lower(module, test_parameters, test_input_dataset):
     """Test applying lower price cap."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
-    from atlas.timing import generate_datetimes
-
     time_window = generate_datetimes(
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
     )
@@ -323,18 +291,16 @@ def test_apply_price_caps_lower(test_parameters, test_input_dataset):
     ts.set_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep, -600.0)
 
     market_area = test_input_dataset.market_area[0]
-    result = orchestrator._apply_price_caps(ts, market_area, time_window)
+    result = module._apply_price_caps(ts, market_area, time_window, test_parameters)
 
     # All values should be scaled up proportionally
     assert result.get_value(test_parameters.temporal.start_date) >= -500.0
     assert result.get_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep) >= -500.0
 
 
-def test_execute(test_parameters, test_input_dataset):
-    """Test full execution of orchestrator."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
-
-    output_dataset = orchestrator.execute()
+def test_execute(module, test_parameters, test_input_dataset):
+    """Test full execution of the module."""
+    output_dataset = module.execute(test_parameters, test_input_dataset)
 
     assert isinstance(output_dataset, IntradayPriceForecastOutputDataset)
     assert len(output_dataset.market_area) == 1
@@ -344,11 +310,11 @@ def test_execute(test_parameters, test_input_dataset):
     assert test_parameters.temporal.execution_date in market_area.id_price_forecast
 
 
-def test_save_price_forecast(test_parameters, test_input_dataset):
+def test_save_price_forecast(module, test_parameters, test_input_dataset):
     """Test saving price forecast to market area."""
-    orchestrator = IntradayPriceForecastOrchestrator(test_parameters, test_input_dataset)
+    output_dataset = IntradayPriceForecastOutputDataset(test_parameters, test_input_dataset)
+    market_area = output_dataset.market_area[0]
 
-    market_area = orchestrator.output_dataset.market_area[0]
     price_forecast = Timeseries.from_index(
         test_parameters.temporal.start_date,
         test_parameters.temporal.timestep,
@@ -356,7 +322,7 @@ def test_save_price_forecast(test_parameters, test_input_dataset):
         default_value=100.0,
     )
 
-    orchestrator._save_price_forecast(market_area, price_forecast)
+    module._save_price_forecast(market_area, price_forecast, test_parameters)
 
     assert market_area.id_price_forecast is not None
     assert test_parameters.temporal.execution_date in market_area.id_price_forecast
