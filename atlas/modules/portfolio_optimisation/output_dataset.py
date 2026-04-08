@@ -15,7 +15,7 @@ from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.portfolio_orchestrator import PortfolioOptimisationResult
+from atlas.modules.portfolio_optimisation.utils.orchestration import PortfolioOptimisationResult
 from atlas.orchestrator.change_set import UpdateObject
 
 
