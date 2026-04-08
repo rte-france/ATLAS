@@ -21,7 +21,7 @@ from atlas.models.equipment.storage import Storage
 from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
 from atlas.models.network_operator.control_block import ControlBlock
-from atlas.models.portfolio import Portfolio
+from atlas.models.market_operator.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO

@@ -29,7 +29,7 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.network.node import Node
 from atlas.models.network_operator.control_block import ControlBlock
-from atlas.models.portfolio import Portfolio
+from atlas.models.market_operator.portfolio import Portfolio
 
 
 class TestAtlasDatasetBasic:

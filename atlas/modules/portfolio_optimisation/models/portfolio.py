@@ -13,8 +13,8 @@ import atlas.config as cfg
 from atlas.enums import MarketType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.models.market_operator.portfolio import Portfolio
 from atlas.models.network_operator.control_block import ControlBlock
-from atlas.models.portfolio import Portfolio
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO

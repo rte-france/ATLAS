@@ -12,7 +12,7 @@ from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.network.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas.models.market_operator.portfolio import Portfolio
 
 
 @pytest.fixture

@@ -4,7 +4,7 @@ from pendulum import duration
 from atlas.models.business_model import BusinessModel
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.network.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas.models.market_operator.portfolio import Portfolio
 from atlas.validators import (
     convert_to_duration,
     serializer_business_model,

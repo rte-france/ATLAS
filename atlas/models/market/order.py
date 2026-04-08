@@ -11,7 +11,7 @@ from atlas.enums import OrderType, Product
 from atlas.models.business_model import BusinessModel
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.market.market_area import MarketArea
-from atlas.models.portfolio import Portfolio
+from atlas.models.market_operator.portfolio import Portfolio
 from atlas.validators import serializer_business_model
 
 

@@ -22,9 +22,9 @@ from atlas.models.market.market_border import MarketBorder
 from atlas.models.market.node_ptdf import NodePtdf
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
+from atlas.models.market_operator.portfolio import Portfolio
 from atlas.models.network.node import Node
 from atlas.models.network_operator.control_block import ControlBlock
-from atlas.models.portfolio import Portfolio
 
 logger = Logger().get_logger()
 

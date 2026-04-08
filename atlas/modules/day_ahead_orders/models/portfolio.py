@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from atlas.models.market.market_area import MarketArea
-from atlas.models.portfolio import Portfolio
+from atlas.models.market_operator.portfolio import Portfolio
 
 
 class PortfolioDAO(Portfolio):
