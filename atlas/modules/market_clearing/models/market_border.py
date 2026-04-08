@@ -10,7 +10,7 @@ from pendulum import Duration
 from atlas import MarketArea, Timeseries
 from atlas.config import logger
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.models.market.market_border import MarketBorder
+from atlas.objects.market.market_border import MarketBorder
 
 # Static definition of default bounds on exchanges (can be changed at will):
 DEFAULT_MAX_FLOW = 10000.0

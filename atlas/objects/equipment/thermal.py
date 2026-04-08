@@ -12,7 +12,7 @@ from pydantic import Field, field_validator
 from atlas.enums import ThermalStrategy
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.models.equipment.equipment import Equipment
+from atlas.objects.equipment.equipment import Equipment
 from atlas.validators import convert_to_duration
 
 

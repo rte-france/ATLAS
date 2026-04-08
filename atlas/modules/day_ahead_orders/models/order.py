@@ -7,8 +7,8 @@ This file is part of the ATLAS project.
 
 from pendulum import DateTime
 
-from atlas.models.equipment.equipment import Equipment
-from atlas.models.market.order import Order
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.market.order import Order
 
 
 class OrderDAO(Order):

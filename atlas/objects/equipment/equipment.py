@@ -10,9 +10,9 @@ from pydantic import Field, field_serializer, field_validator
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.models.business_model import BusinessModel
-from atlas.models.market_operator.portfolio import Portfolio
-from atlas.models.network.node import Node
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
 from atlas.validators import convert_to_duration, serializer_business_model
 
 

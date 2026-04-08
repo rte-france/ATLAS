@@ -8,8 +8,8 @@ from pydantic import field_serializer
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.models.business_model import BusinessModel
-from atlas.models.network.node import Node
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.network.node import Node
 from atlas.validators import serializer_business_model
 
 

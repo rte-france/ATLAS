@@ -9,7 +9,7 @@ from typing import TypeVar
 
 from atlas import AtlasDataset, ControlBlock, MarketArea
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.modules.day_ahead_orders.models.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.models.load import LoadDAO
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO

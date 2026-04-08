@@ -16,7 +16,7 @@ from pydantic import model_validator
 import atlas.config as cfg
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.thermal import Thermal
+from atlas.objects.equipment.thermal import Thermal
 from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.models.thermal import (
     combination_1,

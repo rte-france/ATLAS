@@ -18,18 +18,18 @@ from atlas.io_utils.container import Container
 from atlas.io_utils.utils import diff_business_model, diff_lists, diff_on_other_than_business_model
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
-from atlas.models.equipment.wind import Wind
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.order import Order
-from atlas.models.market.order_coupling import OrderCoupling
-from atlas.models.network.node import Node
-from atlas.models.network_operator.control_block import ControlBlock
-from atlas.models.market_operator.portfolio import Portfolio
+from atlas.objects.equipment.hydro import Hydro
+from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.solar import Solar
+from atlas.objects.equipment.storage import Storage
+from atlas.objects.equipment.thermal import Thermal
+from atlas.objects.equipment.wind import Wind
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
+from atlas.objects.market_operator.portfolio import Portfolio
 
 
 class TestAtlasDatasetBasic:

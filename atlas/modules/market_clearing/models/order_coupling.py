@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from atlas import Order
 from atlas.enums import ComplementDirection, CouplingType
-from atlas.models.market.order_coupling import OrderCoupling
+from atlas.objects.market.order_coupling import OrderCoupling
 
 
 class OrderCouplingMC(OrderCoupling):

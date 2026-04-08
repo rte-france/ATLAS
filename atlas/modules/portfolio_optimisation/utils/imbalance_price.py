@@ -11,7 +11,7 @@ from pendulum import DateTime
 from atlas.enums import MarketType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.models.network_operator.control_block import ControlBlock
+from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 

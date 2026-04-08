@@ -10,7 +10,7 @@ from pydantic_extra_types.pendulum_dt import Duration
 from atlas.enums import StorageType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.models.equipment.equipment import Equipment
+from atlas.objects.equipment.equipment import Equipment
 from atlas.validators import convert_to_duration
 
 

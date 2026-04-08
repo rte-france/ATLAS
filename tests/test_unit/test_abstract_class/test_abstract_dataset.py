@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 import pytest
 
 from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 
 
 # Concrete subclass of AbstractDataset for testing

@@ -13,7 +13,7 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas import Thermal, Timeseries
 from atlas.enums import CouplingType, Product, ThermalStrategy
-from atlas.models.market.order import Order
+from atlas.objects.market.order import Order
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters

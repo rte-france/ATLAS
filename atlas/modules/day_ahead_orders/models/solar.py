@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 """
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.models.equipment.solar import Solar
+from atlas.objects.equipment.solar import Solar
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
 
 

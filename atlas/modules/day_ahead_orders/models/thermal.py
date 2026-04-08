@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from pendulum import Duration
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.models.equipment.thermal import Thermal
+from atlas.objects.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
 
 

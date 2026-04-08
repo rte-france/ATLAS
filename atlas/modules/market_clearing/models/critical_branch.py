@@ -9,7 +9,7 @@ from pendulum import Duration
 
 from atlas import MarketAreaPtdf
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.models.market.critical_branch import CriticalBranch
+from atlas.objects.market.critical_branch import CriticalBranch
 
 
 class CriticalBranchMC(CriticalBranch):

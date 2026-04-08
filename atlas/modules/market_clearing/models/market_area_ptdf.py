@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 from pendulum import DateTime, Duration
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.models.market.market_area_ptdf import MarketAreaPtdf
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
 
 
 class MarketAreaPtdfMC(MarketAreaPtdf):
