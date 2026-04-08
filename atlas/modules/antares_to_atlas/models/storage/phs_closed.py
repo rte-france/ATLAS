@@ -121,33 +121,23 @@ def _find_link_to_virtual_node(links: dict[str, Link], area_id: str, virtual_nod
     return None
 
 
-def _get_binding_constraint_for_phs(study: Study, link: Link, area_id: str) -> tuple[float, float]:
+def _get_binding_constraint_for_phs(study: Study, area_id: str) -> tuple[float, float]:
     """Get charge and discharge efficiency from binding constraint.
 
     Returns:
         tuple: (charge_efficiency, discharge_efficiency)
     """
+
     binding_constraints = study.get_binding_constraints()
-
-    # TODO: Verify how to find the correct binding constraint for PHS
-    # In old code: find_binding_constraint_phs(antares_dataset, link)
-    # This searches for constraints that reference the link
-    charge_efficiency = 1.0
-    discharge_efficiency = 1.0
-
-    for bc_id, bc_obj in binding_constraints.items():
-        # TODO: Verify how to check if a binding constraint references a link
-        # and how to extract weights from it
-        # In old code: binding_constraint.Weights[0] (pump) and Weights[1] (turb)
-        if "phs" in bc_id.lower() and area_id.lower() in bc_id.lower():
-            try:
-                terms = bc_obj.get_terms()
-                # TODO: Extract weights from terms
-                # charge_efficiency = abs(weights[0])  # pump
-                # discharge_efficiency = abs(weights[1])  # turb
-                break
-            except Exception as e:
-                logger.warning(f"Could not extract efficiency from binding constraint {bc_id}: {e}")
+    bc_name = f"{area_id}_phs_closed"  # TODO define properly
+    bc_obj = binding_constraints.get(bc_name, None)
+    if bc_obj:
+        bc_terms = bc_obj.get_terms()
+        term_name = f"{area_id}_phs_closed_charge_efficiency"  # TODO define properly
+        term = bc_terms.get(term_name, None)
+        if term:
+            charge_efficiency = term.weight  # TODO not sure how to access
+            discharge_efficiency = term.offset
 
     return charge_efficiency, discharge_efficiency
 

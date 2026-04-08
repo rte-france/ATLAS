@@ -41,6 +41,9 @@ def update_variable_cost_for_gas_units(
     ch4_yields = _get_yields_from_binding_constraint(study, "me_prod_ch4")
     h2_yields = _get_yields_from_binding_constraint(study, "me_prod_h2")
 
+    # TODO check how to get these lists like in old code obtained from binding constraint list:
+    #     list_clusterlist_h2 = [cluster.Name for cluster in bc_h2.ClusterList]
+    #     list_clusterlist_ch4 = [cluster.Name for cluster in bc_ch4.ClusterList]
     # Update CH4 thermal units
     if marginal_price_ch4 is not None:
         for thermal_name in ch4_yields:
@@ -50,9 +53,8 @@ def update_variable_cost_for_gas_units(
                 continue
 
             logger.info(f"Adding CH4 variable cost to thermal: {thermal_name}")
-            # TODO: Verify multiplication of Timeseries by scalar
-            # In old code: marginal_price_ch4 * yield_ch4 (Timeseries * float)
-            # equipment.variable_cost = marginal_price_ch4 * ch4_yields[thermal_name]
+
+            equipment.variable_cost = marginal_price_ch4 * ch4_yields[thermal_name]
 
     # Update H2 thermal units
     if marginal_price_h2 is not None:
@@ -62,18 +64,7 @@ def update_variable_cost_for_gas_units(
                 continue
 
             logger.info(f"Adding H2 variable cost to thermal: {thermal_name}")
-            # TODO: Verify multiplication of Timeseries by scalar
-            # In old code: marginal_price_h2 * yield_h2 (Timeseries * float)
-            # equipment.variable_cost = marginal_price_h2 * h2_yields[thermal_name]
-
-    # TODO: Update variable cost for P2G units
-    # For p2g_marg units:
-    #   yield = get_yield_electrolysers(study, area_name)  (from p2g.py)
-    #   p2g_marg.variable_cost = marginal_price_h2 * yield
-    # For p2g_methanation units:
-    #   yield = get_yield_methanation(study, area_name)    (from p2g.py)
-    #   p2g_methanation.variable_cost = marginal_price_ch4 * yield
-    # See old code comment lines 58-65 and p2g_main.py
+            equipment.variable_cost = marginal_price_h2 * h2_yields[thermal_name]
 
     logger.info("Variable cost update for gas units done")
     return atlas_dataset
@@ -99,7 +90,6 @@ def _get_marginal_price(
     try:
         # TODO: Verify how to get CalculatedMarginalPrice from an area
         # In old code: antares_dataset.Node.GetInstanceByName(node_name).CalculatedMarginalPrice[str(p.scenario)]
-        # May need: areas[node_name].get_calculated_marginal_price(str(parameters.scenario))
         logger.debug(f"TODO: Get CalculatedMarginalPrice for {node_name}, scenario {parameters.scenario}")
         return None  # TODO
 
@@ -128,8 +118,6 @@ def _get_yields_from_binding_constraint(study: Study, bc_name: str) -> dict[str,
         # In old code:
         #   list_clusterlist = [cluster.Name for cluster in bc.ClusterList]
         #   yield = bc.Weights[list_clusterlist.index(thermal_name)]
-        # May need to use bc.get_terms() and look for cluster-type terms
-        # terms = bc.get_terms()
         logger.debug(f"TODO: Extract cluster list and weights from binding constraint {bc_name}")
         return {}  # TODO
 

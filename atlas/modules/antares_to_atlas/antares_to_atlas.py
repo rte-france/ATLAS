@@ -54,7 +54,7 @@ class AntaresToAtlas:
         converter = AntaresToAtlas.from_file("parameters.yaml")
 
         # Execute conversion
-        converter.convert()
+        converter.convert(study_path="data/antares")
         ```
 
     :param parameters: Conversion parameters
@@ -155,7 +155,6 @@ class AntaresToAtlas:
         :rtype: AtlasDataset
         """
         logger.info("Starting Antares to Atlas conversion")
-        logger.info(f"Study Path: {study_path}")
         logger.info(f"Hypothesis: {self.parameters.hypothesis}")
         logger.info(f"Scenario: {self.parameters.scenario}")
 
