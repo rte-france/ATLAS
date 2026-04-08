@@ -33,8 +33,8 @@ from atlas.models.portfolio import Portfolio
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
+from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
-from atlas.orchestrator.workflow.step import WorkflowStep
 from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.solver.models import ConstraintBounds, SolutionInfo, SolverOptions, SolverStatus
 from atlas.solver.solver_interface import OptimisationModel
@@ -45,10 +45,9 @@ __all__ = [
     "AbstractTimeseries",
     "AtlasDataset",
     "Parameters",
-    "ParametersParser",
     "Workflow",
-    "WorkflowStep",
     "WorkflowParameters",
+    "WorkflowJob",
     "BusinessModel",
     "ControlBlock",
     "CriticalBranch",

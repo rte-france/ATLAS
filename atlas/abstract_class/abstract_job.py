@@ -7,26 +7,26 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeVar
 
 from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.abstract_class.abstract_module import AbstractModule
 
 
-class WorkflowStep:
+class AbstractJob:
     """
-    A step in a workflow, responsible for executing a module using provided parameters
+    A job in an orchestrator, responsible for executing a module using provided parameters
     and producing an output dataset from an input dataset.
     """
 
     def __init__(self, name: str, module: type[AbstractModule], parameters: dict[str, Any]):
         """
-        Initialize a WorkflowStep.
+        Initialize an AbstractJob.
 
-        :param name: Name of the workflow step.
+        :param name: Name of the job.
         :type name: str
-        :param module: Module to be executed in this step.
+        :param module: Module to be executed in this job.
         :type module: AbstractModule
         :param parameters: Parameter for the module.
         :type parameters: AbstractModuleParameters
@@ -39,7 +39,7 @@ class WorkflowStep:
     @property
     def output_dataset(self) -> AbstractModuleOutput | None:
         """
-        Output dataset produced after executing the step.
+        Output dataset produced after executing the job.
 
         :return: An AbstractDataset or None if not yet executed.
         """
@@ -47,7 +47,7 @@ class WorkflowStep:
 
     def get_output_dataset(self) -> AbstractModuleOutput | None:
         """
-        Get the output dataset produced by this workflow step.
+        Get the output dataset produced by this orchestrator job.
 
         :return: An AbstractDataset or None if not yet executed.
         """
@@ -55,13 +55,10 @@ class WorkflowStep:
 
     def run(self, input_dataset: AtlasDataset) -> None:
         """
-        Execute the step's module with the given parameters and input dataset.
+        Execute the job's module with the given parameters and input dataset.
         Stores the resulting dataset as output.
         """
         self._output_dataset = self.module.run(input_dataset, self.parameters)
 
-    def __repr__(self) -> str:
-        """Return a detailed string representation of the workflow step."""
-        module_name = self.module.__class__.__name__
-        has_output = self._output_dataset is not None
-        return f"WorkflowStep(name={self.name!r}, module={module_name}, executed={has_output})"
+
+J = TypeVar("J", bound=AbstractJob)

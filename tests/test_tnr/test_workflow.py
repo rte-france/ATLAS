@@ -18,12 +18,12 @@ class TestWorkflowIntegration:
 
         assert workflow is not None
         assert workflow.parameters.name is not None
-        assert len(workflow.steps) > 0
+        assert len(workflow.jobs) > 0
 
     def test_workflow_step_names_are_unique(self):
         workflow = Workflow.from_file(WORKFLOW_CONFIG)
 
-        step_names = [step.name for step in workflow.steps]
+        step_names = [step.name for step in workflow.jobs]
         assert len(step_names) == len(set(step_names)), f"Duplicate step names found: {step_names}"
 
     @pytest.mark.tnr
@@ -34,6 +34,6 @@ class TestWorkflowIntegration:
 
             assert workflow.get_output_dataset() is not None
 
-            for step in workflow.steps:
+            for step in workflow.jobs:
                 assert step.output_dataset is not None, f"Step '{step.name}' did not produce output"
             print(f"Workflow completed in {t()} seconds")

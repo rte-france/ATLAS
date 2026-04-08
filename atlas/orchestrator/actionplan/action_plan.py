@@ -11,15 +11,16 @@ from pathlib import Path
 
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
+from atlas.orchestrator.actionplan.job import ActionPlanJob
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
-from atlas.orchestrator.actionplan.step import ActionPlanStep
+from atlas.orchestrator.current_input_state import CurrentInputState
 
 
 # FIXME this class is similar to Workflow class, common part must be refactored in AbstractOrchestrator class
 class ActionPlan(AbstractOrchestrator):
     """A structure for managing the sequential execution of multiple modules and workflow through a list of action plan steps.
 
-    Each step processes the output of the previous one, starting from the input dataset."""
+    Each job processes the output of the previous one, starting from the input dataset."""
 
     def __init__(self, parameters: ActionPlanParameters, action_plan_path: Path):
         """Initialize a Workflow instance.
@@ -33,10 +34,10 @@ class ActionPlan(AbstractOrchestrator):
         raise NotImplementedError
 
     @property
-    def steps(self) -> list[ActionPlanStep]:
+    def jobs(self) -> list[ActionPlanJob]:
         raise NotImplementedError
 
-    def add_step(self, step: ActionPlanStep | list[ActionPlanStep]) -> None:
+    def add_step(self, step: ActionPlanJob | list[ActionPlanJob]) -> None:
         raise NotImplementedError
 
     def get_output_dataset(self) -> AbstractDataset | None:
@@ -45,5 +46,5 @@ class ActionPlan(AbstractOrchestrator):
     def __repr__(self) -> str:
         raise NotImplementedError
 
-    def execute(self) -> None:
+    def execute(self) -> CurrentInputState:
         raise NotImplementedError

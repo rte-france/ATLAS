@@ -8,10 +8,6 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from enum import Enum
-from pathlib import Path
-from typing import Any
-
-from pydantic import BaseModel, field_validator, model_validator
 
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
@@ -40,30 +36,3 @@ class ModuleRegistry(Enum):
     def get_names(cls) -> list[str]:
         """Return list of valid module names for CLI choices."""
         return [m.name for m in cls]
-
-
-class Step(BaseModel):
-    """Definition of a single step
-
-    :param name: Name identifying the step. Defaults to the module name if not provided.
-    :type name: str
-    :param parameters_path: Path to the parameters file for the step.
-    :type parameters_path: str
-    """
-
-    name: str | None = None
-    module: ModuleRegistry
-    parameters_path: Path
-
-    @field_validator("module", mode="before")
-    @classmethod
-    def coerce_module(cls, v: Any) -> ModuleRegistry:
-        if isinstance(v, str):
-            return ModuleRegistry(ModuleRegistry.get(v))
-        return v
-
-    @model_validator(mode="after")
-    def set_default_name(self) -> Step:
-        if self.name is None:
-            self.name = self.module.name
-        return self

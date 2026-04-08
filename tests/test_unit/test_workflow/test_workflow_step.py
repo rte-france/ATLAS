@@ -4,7 +4,7 @@ Copyright (c) 2025, RTE (www.rte-france.com)
 SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 
-Unit tests for WorkflowStep, Step, and ModuleRegistry.
+Unit tests for WorkflowJob, Step, and ModuleRegistry.
 """
 
 from pathlib import Path
@@ -16,8 +16,9 @@ from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
-from atlas.orchestrator.step import ModuleRegistry, Step
-from atlas.orchestrator.workflow.step import WorkflowStep
+from atlas.orchestrator.module_registry import ModuleRegistry
+from atlas.orchestrator.workflow.job import Step
+from atlas.orchestrator.workflow.job import WorkflowJob
 
 
 def _make_mock_module_class(output=None):
@@ -87,31 +88,31 @@ class TestStep:
         assert isinstance(step.parameters_path, Path)
 
 
-class TestWorkflowStepInit:
+class TestWorkflowJobInit:
     def test_init_sets_name(self):
         mock_class, _ = _make_mock_module_class()
-        ws = WorkflowStep("my_step", mock_class, {})
+        ws = WorkflowJob("my_step", mock_class, {})
         assert ws.name == "my_step"
 
     def test_init_instantiates_module(self):
         mock_class, mock_instance = _make_mock_module_class()
-        ws = WorkflowStep("step", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         mock_class.assert_called_once()
         assert ws.module is mock_instance
 
     def test_output_dataset_is_none_before_run(self):
         mock_class, _ = _make_mock_module_class()
-        ws = WorkflowStep("step", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         assert ws.output_dataset is None
         assert ws.get_output_dataset() is None
 
 
-class TestWorkflowStepRun:
+class TestWorkflowJobRun:
     def test_run_calls_module_run(self, atlas_dataset):
         mock_output = MagicMock()
         mock_class, mock_instance = _make_mock_module_class(output=mock_output)
 
-        ws = WorkflowStep("step", mock_class, {"param": 1})
+        ws = WorkflowJob("step", mock_class, {"param": 1})
         ws.run(atlas_dataset)
 
         mock_instance.run.assert_called_once_with(atlas_dataset, ws.parameters)
@@ -120,7 +121,7 @@ class TestWorkflowStepRun:
         mock_output = MagicMock()
         mock_class, _ = _make_mock_module_class(output=mock_output)
 
-        ws = WorkflowStep("step", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
 
         assert ws.output_dataset is mock_output
@@ -128,7 +129,7 @@ class TestWorkflowStepRun:
 
     def test_run_with_none_output_stores_none(self, atlas_dataset):
         mock_class, _ = _make_mock_module_class(output=None)
-        ws = WorkflowStep("step", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
         assert ws.output_dataset is None
 
@@ -139,7 +140,7 @@ class TestWorkflowStepRun:
         mock_class, mock_instance = _make_mock_module_class()
         mock_instance.run.side_effect = [first_output, second_output]
 
-        ws = WorkflowStep("step", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
         assert ws.output_dataset is first_output
 
@@ -150,7 +151,7 @@ class TestWorkflowStepRun:
         mock_class, mock_instance = _make_mock_module_class()
         mock_instance.run.side_effect = RuntimeError("module crashed")
 
-        ws = WorkflowStep("step", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         with pytest.raises(RuntimeError, match="module crashed"):
             ws.run(atlas_dataset)
 
@@ -158,13 +159,13 @@ class TestWorkflowStepRun:
         mock_output = MagicMock()
         mock_class, _ = _make_mock_module_class(output=mock_output)
 
-        ws = WorkflowStep("step", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
 
         assert ws.output_dataset is ws.get_output_dataset()
 
 
-class TestWorkflowStepRepresentation:
+class TestWorkflowJobRepresentation:
     def _make_mc_params(self):
         return {
             "temporal": {
@@ -175,14 +176,14 @@ class TestWorkflowStepRepresentation:
         }
 
     def test_repr_before_execution(self):
-        step = WorkflowStep("TestStep", MarketClearingModule, self._make_mc_params())
+        step = WorkflowJob("TestStep", MarketClearingModule, self._make_mc_params())
         result = repr(step)
         assert "WorkflowStep(" in result
         assert "name='TestStep'" in result
         assert "executed=False" in result
 
     def test_repr_after_execution(self):
-        step = WorkflowStep("TestStep", MarketClearingModule, self._make_mc_params())
+        step = WorkflowJob("TestStep", MarketClearingModule, self._make_mc_params())
         step._output_dataset = MagicMock()
         result = repr(step)
         assert "executed=True" in result

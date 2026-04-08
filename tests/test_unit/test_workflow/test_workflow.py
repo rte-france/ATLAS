@@ -14,19 +14,19 @@ import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
-from atlas.orchestrator.workflow.step import WorkflowStep
+from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.workflow import Workflow
 
 
 def _make_workflow_step(name="step", output=None):
-    """Return a WorkflowStep with a mock module that returns *output*."""
+    """Return a WorkflowJob with a mock module that returns *output*."""
     mock_instance = MagicMock()
     mock_instance.run.return_value = output
     mock_instance.get_business_model_class_used.return_value = []
     mock_instance.get_filters.return_value = None
 
     mock_class = MagicMock(return_value=mock_instance)
-    return WorkflowStep(name, mock_class, {})
+    return WorkflowJob(name, mock_class, {})
 
 
 def _make_workflow_parameters(tmp_path, steps_yaml="", dataset_path=None, output_path=None):
@@ -50,26 +50,26 @@ class TestWorkflowAddStep:
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf.generic_module_parameters = {}
-        wf._steps = []
+        wf._jobs = []
 
         step = _make_workflow_step("s1")
-        wf.add_step(step)
+        wf.add_job(step)
 
-        assert len(wf.steps) == 1
-        assert wf.steps[0] is step
+        assert len(wf.jobs) == 1
+        assert wf.jobs[0] is step
 
     def test_add_list_of_steps(self, tmp_path):
         params = _make_workflow_parameters(tmp_path)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf.generic_module_parameters = {}
-        wf._steps = []
+        wf._jobs = []
 
         steps = [_make_workflow_step(f"s{i}") for i in range(3)]
-        wf.add_step(steps)
+        wf.add_job(steps)
 
-        assert len(wf.steps) == 3
-        for original, stored in zip(steps, wf.steps):
+        assert len(wf.jobs) == 3
+        for original, stored in zip(steps, wf.jobs):
             assert stored is original
 
     def test_add_invalid_type_raises_type_error(self, tmp_path):
@@ -77,36 +77,36 @@ class TestWorkflowAddStep:
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf.generic_module_parameters = {}
-        wf._steps = []
+        wf._jobs = []
 
         with pytest.raises(TypeError):
-            wf.add_step("not_a_step")
+            wf.add_job("not_a_step")
 
     def test_add_list_with_invalid_item_raises_type_error(self, tmp_path):
         params = _make_workflow_parameters(tmp_path)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf.generic_module_parameters = {}
-        wf._steps = []
+        wf._jobs = []
 
         valid_step = _make_workflow_step("s1")
         with pytest.raises(TypeError):
-            wf.add_step([valid_step, "not_a_step"])
+            wf.add_job([valid_step, "not_a_step"])
 
     def test_steps_appended_in_order(self, tmp_path):
         params = _make_workflow_parameters(tmp_path)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf.generic_module_parameters = {}
-        wf._steps = []
+        wf._jobs = []
 
         s1 = _make_workflow_step("first")
         s2 = _make_workflow_step("second")
-        wf.add_step(s1)
-        wf.add_step(s2)
+        wf.add_job(s1)
+        wf.add_job(s2)
 
-        assert wf.steps[0] is s1
-        assert wf.steps[1] is s2
+        assert wf.jobs[0] is s1
+        assert wf.jobs[1] is s2
 
 
 class TestWorkflowGetOutputDataset:
@@ -115,13 +115,13 @@ class TestWorkflowGetOutputDataset:
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf.generic_module_parameters = {}
-        wf._steps = []
+        wf._jobs = []
 
         mock_output = MagicMock()
         step1 = _make_workflow_step("s1", output=MagicMock())
         step2 = _make_workflow_step("s2", output=mock_output)
 
-        wf._steps = [step1, step2]
+        wf._jobs = [step1, step2]
         # Simulate steps having been run
         step1._output_dataset = MagicMock()
         step2._output_dataset = mock_output
@@ -175,7 +175,7 @@ class TestWorkflowExecute:
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf.generic_module_parameters = {}
-        wf._steps = []
+        wf._jobs = []
         wf.workflow_path = Path()
 
         call_order = []
@@ -199,12 +199,12 @@ class TestWorkflowExecute:
         step2.module.run = MagicMock(side_effect=lambda ds, params: output2)
         step2.run = run2
 
-        wf._steps = [step1, step2]
+        wf._jobs = [step1, step2]
 
         with (
             patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
-            patch("atlas.orchestrator.workflow.workflow.CISHandler.apply"),
-            patch("atlas.orchestrator.workflow.workflow.CurrentInputState") as MockCIS,
+            patch("atlas.orchestrator.handler.cis_handler.CISHandler.apply"),
+            patch("atlas.orchestrator.current_input_state.CurrentInputState") as MockCIS,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()
@@ -221,16 +221,16 @@ class TestWorkflowExecute:
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf.generic_module_parameters = {}
-        wf._steps = []
+        wf._jobs = []
         wf.workflow_path = Path()
 
         step = _make_workflow_step("bad_step", output=None)
-        # step.run will set _output_dataset = None (the default)
-        wf._steps = [step]
+        # job.run will set _output_dataset = None (the default)
+        wf._jobs = [step]
 
         with (
             patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
-            patch("atlas.orchestrator.workflow.workflow.CurrentInputState") as MockCIS,
+            patch("atlas.orchestrator.current_input_state.CurrentInputState") as MockCIS,
         ):
             mock_cis_instance = MagicMock()
             mock_cis_instance.filter_dataset.return_value = AtlasDataset()
@@ -244,7 +244,7 @@ class TestWorkflowExecute:
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
         wf.generic_module_parameters = {}
-        wf._steps = []
+        wf._jobs = []
         wf.workflow_path = Path()
 
         mock_change_set = MagicMock()
@@ -255,11 +255,11 @@ class TestWorkflowExecute:
         step._output_dataset = output
         step.run = lambda ds: None  # run is a no-op; _output_dataset is pre-set
 
-        wf._steps = [step]
+        wf._jobs = [step]
 
         with (
-            patch("atlas.orchestrator.workflow.workflow.CISHandler.apply") as mock_apply,
-            patch("atlas.orchestrator.workflow.workflow.CurrentInputState.from_directory") as MockFromDir,
+            patch("atlas.orchestrator.handler.cis_handler.CISHandler.apply") as mock_apply,
+            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as MockFromDir,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()
@@ -269,7 +269,7 @@ class TestWorkflowExecute:
 
             wf.execute()
 
-        # Default rollback_on_step_failure is True
+        # Default rollback_on_job_failure is True
         mock_apply.assert_called_once_with([mock_change_set], mock_cis_instance, rollback_on_error=True)
 
 
@@ -339,14 +339,14 @@ class TestWorkflowPathFromWorkflow:
             "name: test_workflow\n"
             "dataset_path: dataset\n"
             "output_dataset_path: output\n"
-            "path_from_workflow: true\n"
+            "path_from_orchestrator: true\n"
             "steps: []\n"
         )
 
         workflow = Workflow.from_file(config)
 
         with (
-            patch("atlas.orchestrator.workflow.workflow.CurrentInputState.from_directory") as mock_from_dir,
+            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as mock_from_dir,
             patch.object(Path, "mkdir", return_value=None),
             patch.object(AtlasDataset, "to_directory"),
         ):
@@ -367,14 +367,14 @@ class TestWorkflowPathFromWorkflow:
             f"name: test_workflow\n"
             f"dataset_path: {dataset_dir}\n"
             f"output_dataset_path: {output_dir}\n"
-            f"path_from_workflow: false\n"
+            f"path_from_orchestrator: false\n"
             f"steps: []\n"
         )
 
         workflow = Workflow.from_file(config)
 
         with (
-            patch("atlas.orchestrator.workflow.workflow.CurrentInputState.from_directory") as mock_from_dir,
+            patch("atlas.orchestrator.current_input_state.CurrentInputState.from_directory") as mock_from_dir,
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis = MagicMock()
@@ -401,7 +401,7 @@ class TestWorkflowPathFromWorkflow:
             f"name: test_workflow\n"
             f"dataset_path: {dataset_dir}\n"
             f"output_dataset_path: {output_dir}\n"
-            f"path_from_workflow: true\n"
+            f"path_from_orchestrator: true\n"
             f"output_dir: results\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
@@ -409,7 +409,7 @@ class TestWorkflowPathFromWorkflow:
         )
 
         workflow = Workflow.from_file(config)
-        step = workflow.steps[0]
+        step = workflow.jobs[0]
 
         assert step.parameters.output.output_dir == tmp_path / "results" / "MarketClearing"
 
@@ -426,7 +426,7 @@ class TestWorkflowPathFromWorkflow:
             f"name: test_workflow\n"
             f"dataset_path: {dataset_dir}\n"
             f"output_dataset_path: {output_dir}\n"
-            f"path_from_workflow: true\n"
+            f"path_from_orchestrator: true\n"
             f"parameters_path: generic.yaml\n"
             f"steps: []\n"
         )
