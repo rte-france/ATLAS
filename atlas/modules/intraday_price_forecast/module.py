@@ -1,3 +1,5 @@
+from typing import cast
+
 from loguru import logger
 from pendulum import DateTime
 
@@ -5,7 +7,8 @@ import atlas.config as cfg
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
 from atlas.modules.intraday_price_forecast.models.load import LoadIDPF
@@ -192,25 +195,20 @@ class IntradayPriceForecastModule(
     ) -> tuple[Timeseries, str]:
         intraday_prices = market_area.id_price
 
-        if intraday_prices is None or len(intraday_prices) == 0:
-            baseline_price = (
-                market_area.da_price.collect() if isinstance(market_area.da_price, Timeseries) else market_area.da_price
-            )
-            price_source_label = "Day Ahead price"
-        else:
-            latest_intraday_price = intraday_prices[intraday_prices.index[len(intraday_prices) - 1]]
-
+        if intraday_prices:
+            if isinstance(intraday_prices, LazyForecastingMatrix):
+                intraday_prices = intraday_prices.collect()
+            latest_intraday_price = intraday_prices[intraday_prices.index[-1]]
             if (
-                parameters.temporal.start_date not in latest_intraday_price
-                or parameters.penultimate_date not in latest_intraday_price
+                parameters.temporal.start_date in latest_intraday_price
+                and parameters.penultimate_date in latest_intraday_price
             ):
-                baseline_price = market_area.da_price
-                price_source_label = "Day Ahead price"
-            else:
-                baseline_price = latest_intraday_price
-                price_source_label = "Intraday price"
+                return latest_intraday_price, "Intraday price"
 
-        return baseline_price, price_source_label
+        da_price = market_area.da_price
+        return (
+            da_price.collect() if isinstance(da_price, LazyTimeseries) else cast(Timeseries, da_price)
+        ), "Day Ahead price"
 
     def _apply_non_negativity_constraint(self, price_forecast: Timeseries, time_window: list[DateTime]) -> Timeseries:
         for time in time_window:
