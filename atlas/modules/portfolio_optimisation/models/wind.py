@@ -10,11 +10,11 @@ import atlas.config as cfg
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.objects.equipment.wind import Wind
 from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated, get_variable_cost
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
+from atlas.objects.equipment.wind import Wind
 from atlas.solver.solver_interface import OptimisationModel
 
 

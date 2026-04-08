@@ -1,6 +1,6 @@
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.objects.equipment.load import Load
 from atlas.modules.intraday_price_forecast.models.portfolio import PortfolioIDPF
+from atlas.objects.equipment.load import Load
 
 
 class LoadIDPF(Load):

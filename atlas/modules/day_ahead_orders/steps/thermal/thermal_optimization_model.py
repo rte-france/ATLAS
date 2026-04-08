@@ -13,9 +13,9 @@ from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.math.timeseries import Timeseries
-from atlas.objects.equipment.thermal import Thermal
 from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.objects.equipment.thermal import Thermal
 from atlas.solver.model_var import ModelVar
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel

@@ -10,8 +10,8 @@ from pendulum import Duration
 from atlas import ControlBlock
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.objects.market.market_area import MarketArea
 from atlas.modules.market_clearing.models.order import OrderMC
+from atlas.objects.market.market_area import MarketArea
 
 INITIAL_MAX_PRICE = 1.0e8
 INITIAL_MIN_PRICE = -1.0e8

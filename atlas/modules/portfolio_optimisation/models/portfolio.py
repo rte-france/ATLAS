@@ -13,8 +13,6 @@ import atlas.config as cfg
 from atlas.enums import MarketType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.objects.market_operator.portfolio import Portfolio
-from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
@@ -27,6 +25,8 @@ from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalP
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.imbalance_price import estimate_imbalance_prices
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.solver.solver_interface import OptimisationModel
 
 

@@ -6,8 +6,8 @@ This file is part of the ATLAS project.
 """
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.objects.equipment.wind import Wind
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
+from atlas.objects.equipment.wind import Wind
 
 
 class WindDAO(Wind):

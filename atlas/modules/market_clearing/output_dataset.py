@@ -9,13 +9,13 @@ from atlas import ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Time
 from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
 from atlas.enums import Product
 from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
+from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.objects.market.critical_branch import CriticalBranch
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market.market_border import MarketBorder
 from atlas.objects.market.order import Order
 from atlas.objects.market_operator.portfolio import Portfolio
-from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.orchestrator.change_set import UpdateObject
 from atlas.timing import generate_datetimes
 

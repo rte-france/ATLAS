@@ -12,8 +12,8 @@ from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enums import StorageType
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.objects.equipment.storage import Storage
 from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
+from atlas.objects.equipment.storage import Storage
 
 
 class StorageDAO(Storage):

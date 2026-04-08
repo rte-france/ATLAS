@@ -11,6 +11,9 @@ from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
+from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
+from atlas.modules.market_clearing.module import MarketClearingModule
+from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
 from atlas.objects.equipment.hydro import Hydro
@@ -30,9 +33,6 @@ from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
-from atlas.modules.market_clearing.module import MarketClearingModule
-from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow

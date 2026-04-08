@@ -16,7 +16,6 @@ from pydantic import model_validator
 import atlas.config as cfg
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.objects.equipment.thermal import Thermal
 from atlas.modules.portfolio_optimisation.models.base_equipment import BaseEquipmentPO
 from atlas.modules.portfolio_optimisation.models.thermal import (
     combination_1,
@@ -31,6 +30,7 @@ from atlas.modules.portfolio_optimisation.models.thermal import (
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.getters import get_maximum_automated
 from atlas.modules.portfolio_optimisation.utils.variable_utils import add_reserve_variables
+from atlas.objects.equipment.thermal import Thermal
 from atlas.solver.model_var import ModelVar
 from atlas.solver.solver_interface import OptimisationModel
 
