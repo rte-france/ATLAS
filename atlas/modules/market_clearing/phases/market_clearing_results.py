@@ -34,7 +34,7 @@ class MarketClearingResults:
         self.parameters = parameters
         self.accepted_powers = accepted_powers
 
-    def run(self) -> None:
+    def compute(self) -> None:
         if self.parameters.output.export_result:
             if not self.parameters.get_output_dir().exists():
                 self.parameters.get_output_dir().mkdir(parents=True, exist_ok=True)

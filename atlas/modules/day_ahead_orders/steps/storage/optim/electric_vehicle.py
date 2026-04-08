@@ -6,8 +6,8 @@ This file is part of the ATLAS project.
 """
 
 from atlas.modules.day_ahead_orders.models.storage import StorageDAO
-from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.storage.optim.storage import StorageModel
 from atlas.solver.models import SolverOptions
 
 

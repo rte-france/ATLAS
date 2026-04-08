@@ -16,13 +16,11 @@ from atlas.enums import ThermalStrategy
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_base_load_orders import ThermalBaseLoadOrders
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_intermediate_load_orders import (
-    ThermalIntermediateLoadOrders,
-)
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_peak_load_orders import ThermalPeakLoadOrders
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_base_orders import ThermalBaseLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_intermediate_orders import ThermalIntermediateLoadOrders
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_peak_orders import ThermalPeakLoadOrders
 
 
 @dataclass

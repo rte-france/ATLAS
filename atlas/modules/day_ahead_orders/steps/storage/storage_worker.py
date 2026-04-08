@@ -8,26 +8,21 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product, StorageType
 from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.order import OrderDAO
 from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
 from atlas.modules.day_ahead_orders.models.storage import StorageDAO
-from atlas.modules.day_ahead_orders.optim_models.battery_model import BatteryModel
-from atlas.modules.day_ahead_orders.optim_models.electric_vehicle_model import ElectricVehicleModel
-from atlas.modules.day_ahead_orders.optim_models.storage_model import StorageModel
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.storage.optim.battery import BatteryModel
+from atlas.modules.day_ahead_orders.steps.storage.optim.electric_vehicle import ElectricVehicleModel
+from atlas.modules.day_ahead_orders.steps.storage.optim.storage import StorageModel
 from atlas.solver.models import SolverOptions
 from atlas.timing import generate_datetimes
-
-if TYPE_CHECKING:
-    from atlas.enums import OrderType
 
 
 @dataclass
@@ -100,11 +95,11 @@ def optimize_single_storage(
         cfg.logger.debug(f"Optimizing storage equipment {str(storage.name)}")
 
         # Initialize result timeseries
-        buy_submitted_volumes = DAOTimeseries(
-            Timeseries.from_index(parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0)
+        buy_submitted_volumes = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0
         )
-        sell_submitted_volumes = DAOTimeseries(
-            Timeseries.from_index(parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0)
+        sell_submitted_volumes = Timeseries.from_index(
+            parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0
         )
 
         # Get initial stock
@@ -331,8 +326,8 @@ def _create_orders_with_couplings(
     Qv: dict[DateTime, float],
     Ppurchase: float,
     Psale: float,
-    buy_submitted_volumes: DAOTimeseries,
-    sell_submitted_volumes: DAOTimeseries,
+    buy_submitted_volumes: Timeseries,
+    sell_submitted_volumes: Timeseries,
     parameters: DayAheadOrdersParameters,
 ) -> tuple[list[OrderDAO], list[OrderCouplingDAO]]:
     """Create orders and order couplings for the storage unit."""
@@ -363,13 +358,19 @@ def _create_orders_with_couplings(
             order = _create_spot_order(OrderType.Buy, storage, t, Qa[t], Ppurchase, parameters)
             orders.append(order)
             coupling_instance.orders.append(order)
-            buy_submitted_volumes.set_or_add_value(t, Qa[t])
+            if t in buy_submitted_volumes:
+                buy_submitted_volumes.set_value(t, Qa[t])
+            else:
+                buy_submitted_volumes.add_index(t, Qa[t])
 
         for t in [i for i, e in Qv.items()]:
             order = _create_spot_order(OrderType.Sell, storage, t, Qv[t], Psale, parameters)
             orders.append(order)
             coupling_instance.orders.append(order)
-            sell_submitted_volumes.set_or_add_value(t, Qv[t])
+            if t in sell_submitted_volumes:
+                sell_submitted_volumes.set_value(t, Qv[t])
+            else:
+                sell_submitted_volumes.add_index(t, Qv[t])
 
         order_couplings.append(coupling_instance)
     else:
@@ -382,13 +383,19 @@ def _create_orders_with_couplings(
             order = _create_spot_order(OrderType.Buy, storage, t, Qa[t], Ppurchase, parameters)
             orders.append(order)
             coupling_instance.orders.append(order)
-            buy_submitted_volumes.set_or_add_value(t, Qa[t])
+            if t in buy_submitted_volumes:
+                buy_submitted_volumes.set_value(t, Qa[t])
+            else:
+                buy_submitted_volumes.add_index(t, Qa[t])
 
         for t in [i for i, e in Qv.items()]:
             order = _create_spot_order(OrderType.Sell, storage, t, Qv[t], Psale, parameters)
             orders.append(order)
             coupling_instance.orders.append(order)
-            sell_submitted_volumes.set_or_add_value(t, Qv[t])
+            if t in sell_submitted_volumes:
+                sell_submitted_volumes.set_value(t, Qv[t])
+            else:
+                sell_submitted_volumes.add_index(t, Qv[t])
 
         coupling_instance.coupling_type = CouplingType.COMPLEMENT
         coupling_instance.complement_direction = ComplementDirection.EqualTo
