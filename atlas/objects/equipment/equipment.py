@@ -108,8 +108,8 @@ class Equipment(BusinessModel):
     :type variable_cost: AbstractTimeseries
     """
 
-    node: Node | None = Field(None, description="Class Business model Node")
-    portfolio: Portfolio | None = Field(None, description="Class Business model Portfolio")
+    node: Node
+    portfolio: Portfolio
     co2_emission_factor: float | None = Field(None, description="COE2 emission factor")
     has_daily_energy_constraint: bool | None = None
     maximum_afrr: float | None = None

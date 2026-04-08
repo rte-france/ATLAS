@@ -51,9 +51,9 @@ class Order(BusinessModel):
     :type q_min: float
     """
 
-    equipment: Equipment | None = None
-    market_area: MarketArea | None = None
-    portfolio: Portfolio | None = None
+    equipment: Equipment
+    market_area: MarketArea
+    portfolio: Portfolio
     accepted_power: float | None = None
     execution_date: DateTime | None = None
     start_date: DateTime | None = None

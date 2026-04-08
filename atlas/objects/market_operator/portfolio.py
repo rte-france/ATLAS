@@ -54,8 +54,8 @@ class Portfolio(BusinessModel):
     :type total_id_cleared_quantity: Timeseries
     """
 
-    control_block: ControlBlock | None = None
-    market_area: MarketArea | None = None
+    control_block: ControlBlock
+    market_area: MarketArea
     id_cleared_quantity: ForecastingMatrix | LazyForecastingMatrix | None = None
     imbalance: ForecastingMatrix | LazyForecastingMatrix | None = None
     power: ForecastingMatrix | LazyForecastingMatrix | None = None
