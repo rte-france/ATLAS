@@ -42,7 +42,7 @@ def test_if_exchange_fixing_generated_lp_matches_reference(dataset_name):
             parameters.output.output_dir = Path(tmpdir)
             input_dataset = mc_module.import_data(raw_data, parameters)
 
-            with open(local_balances_path, "r") as f:
+            with open(local_balances_path) as f:
                 local_balances = {(ma, t): val for ma, t, val in json.load(f)}
 
             exchange_fixing = ExchangesFixing(input_dataset, parameters)

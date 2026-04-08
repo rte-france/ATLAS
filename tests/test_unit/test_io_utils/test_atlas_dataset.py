@@ -27,9 +27,9 @@ from atlas.objects.equipment.wind import Wind
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
-from atlas.objects.market_operator.portfolio import Portfolio
 
 
 class TestAtlasDatasetBasic:

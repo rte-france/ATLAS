@@ -11,8 +11,8 @@ from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.objects.equipment.equipment import Equipment
-from atlas.objects.network.node import Node
 from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
 
 
 @pytest.fixture
