@@ -7,7 +7,6 @@ This file is part of the ATLAS project.
 from atlas.enums import BusinessModelName
 from atlas.log import Logger
 from atlas.models.business_model import BusinessModel
-from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
@@ -23,6 +22,7 @@ from atlas.models.market.market_border import MarketBorder
 from atlas.models.market.node_ptdf import NodePtdf
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
+from atlas.models.network_operator.control_block import ControlBlock
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
 

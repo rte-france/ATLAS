@@ -23,7 +23,6 @@ from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
 from atlas.io_utils.utils import diff_business_model
 from atlas.models.business_model import BusinessModel
-from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
@@ -39,6 +38,7 @@ from atlas.models.market.market_border import MarketBorder
 from atlas.models.market.node_ptdf import NodePtdf
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
+from atlas.models.network_operator.control_block import ControlBlock
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
 

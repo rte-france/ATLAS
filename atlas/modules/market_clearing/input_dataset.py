@@ -13,13 +13,13 @@ from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import logger
 from atlas.enums import CouplingType
-from atlas.models.control_block import ControlBlock
 from atlas.models.market.critical_branch import CriticalBranch
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.market_area_ptdf import MarketAreaPtdf
 from atlas.models.market.market_border import MarketBorder
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
+from atlas.models.network_operator.control_block import ControlBlock
 from atlas.modules.market_clearing.models.critical_branch import CriticalBranchMC
 from atlas.modules.market_clearing.models.market_area import MarketAreaMC
 from atlas.modules.market_clearing.models.market_area_ptdf import MarketAreaPtdfMC

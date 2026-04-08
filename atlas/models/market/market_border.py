@@ -10,8 +10,8 @@ from atlas.enums import CouplingType
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.models.business_model import BusinessModel
-from atlas.models.control_block import ControlBlock
 from atlas.models.market.market_area import MarketArea
+from atlas.models.network_operator.control_block import ControlBlock
 from atlas.validators import serializer_business_model
 
 
