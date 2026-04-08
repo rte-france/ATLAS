@@ -12,11 +12,10 @@ from pendulum import DateTime
 import atlas.config as cfg
 from atlas.enums import ThermalStrategy
 from atlas.math.timeseries import Timeseries
-from atlas.modules.day_ahead_orders.dao_timeseries import DAOTimeseries
 from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.orders_formulation.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.thermal.thermal_unit_orders import ThermalUnitOrders
 from atlas.timing import generate_datetimes
 
 
@@ -67,8 +66,8 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             list_of_online_timeframes = self.extract_online_sequences(states_sequence)
 
             # Formulate the orders over each online timeframe.
-            for online_timeframe in list_of_online_timeframes:
-                self.formulate_unit_orders(online_timeframe, unit)
+            for online_timeframe, case_name in list_of_online_timeframes:
+                self.formulate_unit_orders(online_timeframe, unit, case=case_name)
 
     def determine_baseload_states_sequence(self, unit: ThermalDAO) -> tuple[Timeseries, bool]:
         """
@@ -118,19 +117,20 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
         )
 
         # Initialize the output time series
-        states_sequence = DAOTimeseries(
-            Timeseries.from_index(
-                start_date=extended_start_date,
-                frequency=self.parameters.temporal.timestep,
-                end_date=extended_end_date,
-                default_value=0,
-            )
+        states_sequence = Timeseries.from_index(
+            start_date=extended_start_date,
+            frequency=self.parameters.temporal.timestep,
+            end_date=extended_end_date,
+            default_value=0,
         )
 
         # Iterate through the unit's maximum_power and based on the current value
         for t in extended_time_frame:
             if maximum_power is not None and t in maximum_power and maximum_power.get_value(t) > 0:
-                states_sequence.set_or_add_value(t, 1)
+                if t in states_sequence:
+                    states_sequence.set_value(t, 1)
+                else:
+                    states_sequence.add_index(t, 1)
 
         # See if there is only one startup or shutdown over the time frame. If it is not the case,
         # the program will be considered as inconsistent.
@@ -214,9 +214,15 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
             if not inconsistent:
                 if startup_time_frame:
                     for t in startup_time_frame:
-                        states_sequence.set_or_add_value(t, 2)
+                        if t in states_sequence:
+                            states_sequence.set_value(t, 2)
+                        else:
+                            states_sequence.add_index(t, 2)
                 if shutdown_time_frame:
                     for t in shutdown_time_frame:
-                        states_sequence.set_or_add_value(t, 3)
+                        if t in states_sequence:
+                            states_sequence.set_value(t, 3)
+                        else:
+                            states_sequence.add_index(t, 3)
 
         return states_sequence, inconsistent
