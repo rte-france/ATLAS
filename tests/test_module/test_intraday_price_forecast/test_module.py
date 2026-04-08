@@ -242,9 +242,6 @@ def test_get_baseline_price_da_price(module, test_parameters, test_input_dataset
 
 def test_apply_non_negativity_constraint(module, test_parameters, test_input_dataset):
     """Test applying non-negativity constraint."""
-    time_window = generate_datetimes(
-        test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
-    )
 
     # Create timeseries with negative values
     ts = Timeseries.from_index(

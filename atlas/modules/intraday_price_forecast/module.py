@@ -42,6 +42,19 @@ class IntradayPriceForecastModule(
     def execute(
         self, parameters: IntradayPriceForecastParameters, input_dataset: IntradayPriceForecastInputDataset
     ) -> IntradayPriceForecastOutputDataset:
+        """
+        Execute the intraday price forecast computation for all market areas.
+
+        The algorithm follows these steps for each market area:
+        1. Calculate price sensitivity ratio from high/low scenarios
+        2. Compute consumption differences between day-ahead and intraday forecasts
+        3. Apply the ratio to consumption differences to estimate price impact
+        4. Add the impact to the baseline price (latest intraday or day-ahead)
+        5. Apply price caps and store results
+
+        :return: Output dataset with updated price forecasts
+        :rtype: IntradayPriceForecastOutputDataset
+        """
         output_dataset = IntradayPriceForecastOutputDataset(parameters, input_dataset)
 
         time_window = generate_datetimes(
@@ -101,6 +114,14 @@ class IntradayPriceForecastModule(
     def _filter_assets_by_market_area(
         self, market_area: MarketAreaIDPF, input_dataset: IntradayPriceForecastInputDataset
     ) -> tuple[list, list, list]:
+        """
+        Filter loads, solar, and wind assets by market area.
+
+        :param market_area: The market area to filter assets for
+        :type market_area: MarketAreaIDPF
+        :return: Tuple containing lists of (loads, solars, winds) for the specified market area
+        :rtype: tuple[list, list, list]
+        """
         loads = [
             load
             for load in input_dataset.load
@@ -125,6 +146,20 @@ class IntradayPriceForecastModule(
         time_window,
         parameters: IntradayPriceForecastParameters,
     ) -> Timeseries:
+        """
+        Compute the price sensitivity ratio from high/low price and consumption scenarios.
+
+        The ratio represents how much the price changes per unit of consumption change,
+        calculated as: (price_high - price_low) / (consumption_low - consumption_high)
+
+        :param market_area: Market area containing price forecast scenarios
+        :type market_area: MarketAreaIDPF
+        :param loads: List of load assets with power forecast scenarios
+        :type loads: list
+        :param time_window: Time window for computation
+        :return: Price sensitivity ratio over time
+        :rtype: Timeseries
+        """
         price_forecast_high = market_area.price_forecast_high.get_forecast(
             execution_date=parameters.execution_date_scenarios,
             start_date=parameters.temporal.start_date,
@@ -164,6 +199,22 @@ class IntradayPriceForecastModule(
         winds: list[WindIDPF],
         parameters: IntradayPriceForecastParameters,
     ) -> Timeseries:
+        """
+        Compute the difference between intraday and day-ahead residual consumption forecasts.
+
+        Residual consumption = load consumption - solar production - wind production
+
+        :param loads: List of load assets
+        :type loads: list[LoadIDPF]
+        :param solars: List of solar assets
+        :type solars: list[SolarIDPF]
+        :param winds: List of wind assets
+        :type winds: list[WindIDPF]
+        :param parameters: Module Parameters
+        :type parameters: IntradayPriceForecastParameters
+        :return: Consumption delta between intraday and day-ahead forecasts
+        :rtype: Timeseries
+        """
         residual_consumption_day_ahead = self._create_empty_timeseries(parameters)
         for asset in loads + solars + winds:
             residual_consumption_day_ahead -= asset.maximum_power_forecast.get_forecast(
@@ -195,6 +246,18 @@ class IntradayPriceForecastModule(
     def _get_baseline_price(
         self, market_area: MarketAreaIDPF, parameters: IntradayPriceForecastParameters
     ) -> tuple[Timeseries, str]:
+        """
+        Determine the baseline price to use for the forecast.
+
+        Priority: latest intraday price > day-ahead price
+
+        :param market_area: Market area containing price data
+        :type market_area: MarketAreaIDPF
+        :param parameters: Module Parameters
+        :type parameters: IntradayPriceForecastParameters
+        :return: Tuple of (baseline_price, description_label)
+        :rtype: tuple[Timeseries, str]
+        """
         intraday_prices = market_area.id_price
 
         if intraday_prices:
@@ -215,6 +278,16 @@ class IntradayPriceForecastModule(
     def _apply_non_negativity_constraint(
         self, price_forecast: Timeseries, parameters: IntradayPriceForecastParameters
     ) -> Timeseries:
+        """
+        Ensure all price values are non-negative.
+
+        :param price_forecast: The price forecast timeseries
+        :type price_forecast: Timeseries
+        :param parameters: Module Parameters
+        :type parameters: IntradayPriceForecastParameters
+        :return: Price forecast with non-negative values
+        :rtype: Timeseries
+        """
         df = price_forecast.slice(
             parameters.temporal.start_date, parameters.penultimate_date, inplace=False
         ).dataframe.with_columns(pl.when(pl.col("value") < 0.0).then(0.0).otherwise(pl.col("value")).alias("value"))
@@ -232,6 +305,22 @@ class IntradayPriceForecastModule(
         time_window: list[DateTime],
         parameters: IntradayPriceForecastParameters,
     ) -> Timeseries:
+        """
+        Apply upper and lower price caps to the forecast.
+
+        If the forecast exceeds the caps, all values are scaled proportionally
+        to bring the extreme value to the cap limit.
+
+        :param price_forecast: The price forecast timeseries
+        :type price_forecast: Timeseries
+        :param market_area: Market area for logging purposes
+        :param time_window: Time window for applying caps
+        :type time_window: list[DateTime]
+        :param parameters: Module Parameters
+        :type parameters: IntradayPriceForecastParameters
+        :return: Capped price forecast
+        :rtype: Timeseries
+        """
         price_slice = price_forecast.slice(parameters.temporal.start_date, parameters.temporal.end_date)
 
         price_forecast = self._apply_single_price_cap(
@@ -268,6 +357,26 @@ class IntradayPriceForecastModule(
         time_window: list[DateTime],
         is_upper: bool,
     ) -> Timeseries:
+        """
+        Apply a single price cap (upper or lower) to the forecast.
+
+        :param price_forecast: The price forecast timeseries
+        :type price_forecast: Timeseries
+        :param extreme_value: The current extreme value (max for upper, min for lower)
+        :type extreme_value: float
+        :param cap_value: The cap limit
+        :type cap_value: float
+        :param cap_type: Type of cap for logging ("upper" or "lower")
+        :type cap_type: str
+        :param market_area_name: Market area name for logging
+        :type market_area_name: str
+        :param time_window: Time window for applying the cap
+        :type time_window: list[DateTime]
+        :param is_upper: True for upper cap, False for lower cap
+        :type is_upper: bool
+        :return: Capped price forecast
+        :rtype: Timeseries
+        """
         condition_met = extreme_value > cap_value if is_upper else extreme_value < cap_value
 
         if condition_met:
@@ -285,6 +394,14 @@ class IntradayPriceForecastModule(
         price_forecast: Timeseries,
         parameters: IntradayPriceForecastParameters,
     ) -> None:
+        """
+        Save the computed price forecast to the market area's forecasting matrix.
+
+        :param market_area: Market area to update
+        :type market_area: MarketAreaIDPF
+        :param price_forecast: Computed intraday price forecast
+        :type price_forecast: Timeseries
+        """
         if market_area.id_price_forecast is None:
             market_area.id_price_forecast = ForecastingMatrix(
                 price_forecast.dataframe.rename({"value": parameters.temporal.execution_date.to_datetime_string()})
