@@ -26,7 +26,7 @@ class WorkflowJob(AbstractJob):
         """Return a detailed string representation of the workflow job."""
         module_name = self.module.__class__.__name__
         has_output = self._output_dataset is not None
-        return f"WorkflowJob(name={self.name!r}, module={module_name}, executed={has_output})"
+        return f"WorkflowStep(name={self.name!r}, module={module_name}, executed={has_output})"
 
 
 class Step(BaseModel):

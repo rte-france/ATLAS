@@ -23,7 +23,6 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         Return jobs to execute.
         """
 
-    # FIXME change log so Workflow doesn't appear
     def execute(self) -> CurrentInputState:
         """
         Execute the orchestrator
@@ -36,16 +35,16 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         If rollback_on_job_failure is enabled, the CIS will be automatically restored
         to its state before the failed job.
         """
-        logger.info(f"Launching workflow : {self.parameters.name}")
+        logger.info(f"Launching {self.__class__.__name__} : {self.parameters.name}")
         cis = CurrentInputState.from_directory(self.parameters.resolve_path(self.parameters.dataset_path))
 
         # Create initial snapshot if requested
         if self.parameters.create_job_snapshots:
-            cis.create_snapshot("workflow_input")
-            logger.debug("Created initial workflow snapshot")
+            cis.create_snapshot(f"{self.__class__.__name__}_input")
+            logger.debug(f"Created initial {self.__class__.__name__} snapshot")
 
         for job_idx, job in enumerate(self.jobs):
-            logger.info(f"Launching job :'{job.name}' ({job_idx + 1}/{len(self.jobs)})")
+            logger.info(f"Launching :'{job.name}' ({job_idx + 1}/{len(self.jobs)})")
 
             # Create snapshot before job if requested
             if self.parameters.create_job_snapshots:
@@ -56,25 +55,27 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
             try:
                 self._execute_job(job, cis)
             except Exception as e:
-                logger.error(f"Job '{job.name}' failed: {e}")
+                logger.error(f"{job}' failed: {e}")
                 if self.parameters.rollback_on_job_failure:
-                    logger.error(f"Current Input State automatically rolled back to state before '{job.name}'")
+                    logger.error(f"Current Input State automatically rolled back to state before '{job}'")
 
                 # Show available snapshots for debugging
                 if self.parameters.create_job_snapshots:
                     logger.info(f"Available snapshots: {cis.list_snapshots()}")
 
-                raise RuntimeError(f"Workflow failed at job '{job.name}'") from e
+                raise RuntimeError(f"{self.__class__.__name__} failed at job '{job}'") from e
 
             logger.info(f"Finishing job :'{job.name}'")
 
         # Export final orchestrator output
-        logger.info("Exporting final workflow output")
+        logger.info(f"Exporting final {self.__class__.__name__} output")
 
         if self.parameters.export_output:
-            cis.to_directory(self.parameters.resolve_path(self.parameters.output_dir) / "workflow_output")
+            cis.to_directory(
+                self.parameters.resolve_path(self.parameters.output_dir) / f"{self.__class__.__name__}_output"
+            )
 
-        logger.info(f"Workflow '{self.parameters.name}' completed successfully")
+        logger.info(f"{self.__class__.__name__} '{self.parameters.name}' completed successfully")
 
         if self.parameters.create_job_snapshots:
             logger.info(f"Snapshots created: {cis.list_snapshots()}")
@@ -93,12 +94,12 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
 
         with timer() as t:
             job.run(input_dataset)
-        logger.info(f"Job '{job.name}' completed in {t()} seconds")
+        logger.info(f"'{job.name}' completed in {t()} seconds")
 
         output_dataset = job.output_dataset
 
         if not output_dataset:
-            raise RuntimeError(f"Job {job.name} did not produce output_dataset")
+            raise RuntimeError(f"{job} did not produce output_dataset")
 
         logger.debug("Applying all change sets to the current input state")
         # CISHandler will use transaction internally based on rollback_on_job_failure parameter

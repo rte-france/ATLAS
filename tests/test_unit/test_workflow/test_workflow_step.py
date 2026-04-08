@@ -178,7 +178,7 @@ class TestWorkflowJobRepresentation:
     def test_repr_before_execution(self):
         step = WorkflowJob("TestStep", MarketClearingModule, self._make_mc_params())
         result = repr(step)
-        assert "WorkflowJob(" in result
+        assert "WorkflowStep(" in result
         assert "name='TestStep'" in result
         assert "executed=False" in result
 
