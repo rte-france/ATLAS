@@ -269,7 +269,7 @@ class TestWorkflowExecute:
 
             wf.execute()
 
-        # Default rollback_on_step_failure is True
+        # Default rollback_on_job_failure is True
         mock_apply.assert_called_once_with([mock_change_set], mock_cis_instance, rollback_on_error=True)
 
 
@@ -324,7 +324,7 @@ class TestWorkflowRepresentation:
         workflow = Workflow.from_file(config)
         result = repr(workflow)
         assert "Workflow 'test_workflow'" in result
-        assert "1 step" in result
+        assert "1 job" in result
 
 
 class TestWorkflowPathFromWorkflow:

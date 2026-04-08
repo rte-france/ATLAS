@@ -19,10 +19,10 @@ class AbstractOrchestratorParameters(Parameters):
     :type name: str
     :param dataset_path: Path of the Dataset to use in the orchestrator
     :type dataset_path: str
-    :param rollback_on_step_failure: If True, rollback CIS to previous job state when a job fails
-    :type rollback_on_step_failure: bool
-    :param create_step_snapshots: If True, create CIS snapshots before each job for debugging
-    :type create_step_snapshots: bool
+    :param rollback_on_job_failure: If True, rollback CIS to previous job state when a job fails
+    :type rollback_on_job_failure: bool
+    :param create_job_snapshots: If True, create CIS snapshots before each job for debugging
+    :type create_job_snapshots: bool
     :param path_from_orchestrator: If True, resolve relative paths from orchestrator file location
     :type path_from_orchestrator: bool
     TODO add missing parameters
@@ -34,8 +34,8 @@ class AbstractOrchestratorParameters(Parameters):
     parameters_path: Path | None = None
     path_from_orchestrator: bool = True
     output_dir: Path = Path()
-    rollback_on_step_failure: bool = True
-    create_step_snapshots: bool = False
+    rollback_on_job_failure: bool = True
+    create_job_snapshots: bool = False
     export_output: bool = True
     _orchestrator_path: Path = Path()
 
