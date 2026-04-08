@@ -18,13 +18,13 @@ from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
 class MarginalFixing:
     """
-    Module storing the fourth and last job of the Market Clearing process: maximizing the accepted volumes of marginal
+    Module storing the fourth and last step of the Market Clearing process: maximizing the accepted volumes of marginal
     orders.
 
     The previous steps have determined which orders could be associated with each others in order to maximize the
     social welfare, which exchanges it induced at borders and what were the resulting market prices. However, some
     orders which price is equal to the market price might remain unaccepted, whereas their price is equal to the market
-    price. Indeed, their acceptance would not modify the overall social welfare. The present job is dedicated to
+    price. Indeed, their acceptance would not modify the overall social welfare. The present step is dedicated to
     finding such orders, called "marginal", and maximizing the volumes they can trade.
     """
 

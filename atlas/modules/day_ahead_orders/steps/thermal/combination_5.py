@@ -199,7 +199,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
                 )
             )
 
-    # Initialize the gradient auxiliaries. This is only required for the last time job of the
+    # Initialize the gradient auxiliaries. This is only required for the last time step of the
     # previous_time_frame. Only ON_UP[start_date_minus_one] and ON_DOWN[start_date_minus_one] are decision variables
     # in the expressions below.
     model.U.set_extended(
@@ -564,7 +564,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
     # Power gradients
     if model.delta_q > 0:  # Case where the gradient is finite.
         for t in model.gradients_time_frame:  # The gradients are defined only up to T-1.
-            t_next = t + model.parameters.temporal.timestep  # Get the next time job
+            t_next = t + model.parameters.temporal.timestep  # Get the next time step
 
             # Upward constrained gradient (eq. (35))
             model.add_constraint(
@@ -598,7 +598,7 @@ def execute(model: ThermalOptimizationModel, day_zero: bool) -> None:
 
     elif model.delta_q == 0:  # Case where the gradient is 'infinite'
         for t in model.gradients_time_frame:
-            t_next = t + model.parameters.temporal.timestep  # Get the next time job
+            t_next = t + model.parameters.temporal.timestep  # Get the next time step
 
             # Upward unconstrained gradient (eq. (36))
             model.add_constraint(

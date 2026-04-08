@@ -96,13 +96,13 @@ class TestWorkflowJobInit:
 
     def test_init_instantiates_module(self):
         mock_class, mock_instance = _make_mock_module_class()
-        ws = WorkflowJob("job", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         mock_class.assert_called_once()
         assert ws.module is mock_instance
 
     def test_output_dataset_is_none_before_run(self):
         mock_class, _ = _make_mock_module_class()
-        ws = WorkflowJob("job", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         assert ws.output_dataset is None
         assert ws.get_output_dataset() is None
 
@@ -112,7 +112,7 @@ class TestWorkflowJobRun:
         mock_output = MagicMock()
         mock_class, mock_instance = _make_mock_module_class(output=mock_output)
 
-        ws = WorkflowJob("job", mock_class, {"param": 1})
+        ws = WorkflowJob("step", mock_class, {"param": 1})
         ws.run(atlas_dataset)
 
         mock_instance.run.assert_called_once_with(atlas_dataset, ws.parameters)
@@ -121,7 +121,7 @@ class TestWorkflowJobRun:
         mock_output = MagicMock()
         mock_class, _ = _make_mock_module_class(output=mock_output)
 
-        ws = WorkflowJob("job", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
 
         assert ws.output_dataset is mock_output
@@ -129,7 +129,7 @@ class TestWorkflowJobRun:
 
     def test_run_with_none_output_stores_none(self, atlas_dataset):
         mock_class, _ = _make_mock_module_class(output=None)
-        ws = WorkflowJob("job", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
         assert ws.output_dataset is None
 
@@ -140,7 +140,7 @@ class TestWorkflowJobRun:
         mock_class, mock_instance = _make_mock_module_class()
         mock_instance.run.side_effect = [first_output, second_output]
 
-        ws = WorkflowJob("job", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
         assert ws.output_dataset is first_output
 
@@ -151,7 +151,7 @@ class TestWorkflowJobRun:
         mock_class, mock_instance = _make_mock_module_class()
         mock_instance.run.side_effect = RuntimeError("module crashed")
 
-        ws = WorkflowJob("job", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         with pytest.raises(RuntimeError, match="module crashed"):
             ws.run(atlas_dataset)
 
@@ -159,7 +159,7 @@ class TestWorkflowJobRun:
         mock_output = MagicMock()
         mock_class, _ = _make_mock_module_class(output=mock_output)
 
-        ws = WorkflowJob("job", mock_class, {})
+        ws = WorkflowJob("step", mock_class, {})
         ws.run(atlas_dataset)
 
         assert ws.output_dataset is ws.get_output_dataset()

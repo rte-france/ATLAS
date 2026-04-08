@@ -61,7 +61,7 @@ class ThermalUnitOrders:
         """
 
         # Determine if the unit is offline or not. A sufficient condition is that the online_timeframe doesn't contain a 1
-        # since by construction the unit is ON for at least one time job.
+        # since by construction the unit is ON for at least one time step.
         # JL excludes an online sequence with an incomplete start-up ramp. For now, we will leave it as such.
         offline = True if 0 in online_timeframe.values else False
 
@@ -180,7 +180,7 @@ class ThermalUnitOrders:
 
         ## Definition of the time frames.
         ### Ramping timeframes: by construction, the associated start_time_frame and stop_time_frame
-        # will be one time job longer than the usual start-up and shutdown periods.
+        # will be one time step longer than the usual start-up and shutdown periods.
 
         # Getting the starting date of the time frames.
         if K_start > 0 or K_stop > 0:
@@ -199,8 +199,8 @@ class ThermalUnitOrders:
                 begin_of_startTimeFrame + K_start * self.parameters.temporal.timestep,
                 self.parameters.temporal.timestep,
             )
-        if K_stop > 0:  # Shift by one time job because the time frame encompasses the last time job in the ON state
-            # and remove one index because the last time job (null power) is formally excluded.
+        if K_stop > 0:  # Shift by one time step because the time frame encompasses the last time step in the ON state
+            # and remove one index because the last time step (null power) is formally excluded.
             stop_time_frame = generate_datetimes(
                 begin_of_stopTimeFrame - self.parameters.temporal.timestep,
                 begin_of_stopTimeFrame + (K_stop - 1) * self.parameters.temporal.timestep,
@@ -215,7 +215,7 @@ class ThermalUnitOrders:
 
         ### FlexibleTimeFrame : all time indexes labelled with a 1 that are not in the start_time_frame or stop_time_frame
         # The potential overlapping is due to the fact that, by convention, the start and stop timeFrames are one time
-        # job longer than the usual start-up and shutdown periods.
+        # step longer than the usual start-up and shutdown periods.
         # In case of startup: the last startup timestep, at Pmin, is the first one of the stable state sequence (state = 1),
         # to be removed from the flexible_time_frame.
         # In case of shutdown: the first shutdown timestep, at Pmin, is the last one of the previous stable state sequence,
@@ -234,8 +234,8 @@ class ThermalUnitOrders:
         if K_stop > 0:
             flexible_time_frame = [t for t in flexible_time_frame if t not in stop_time_frame]
             if K_start > 0:
-                # Deal with the last corner case where the unit remains online for one time job. In this case, the overlapping time steps
-                # between the start_time_frame and stop_time_frame is a singleton and by convention we remove this time job from the shutdown time frame.
+                # Deal with the last corner case where the unit remains online for one time step. In this case, the overlapping time steps
+                # between the start_time_frame and stop_time_frame is a singleton and by convention we remove this time step from the shutdown time frame.
                 overlapping_time_steps = set(start_time_frame) & set(stop_time_frame)
                 if len(overlapping_time_steps) == 1:
                     stop_time_frame = [t for t in stop_time_frame if t not in overlapping_time_steps]

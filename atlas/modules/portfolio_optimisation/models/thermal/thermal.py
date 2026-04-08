@@ -83,7 +83,7 @@ class ThermalPO(BaseEquipmentPO, Thermal):
 
     def _compute_time_parameters(self, parameters: PortfolioOptimisationParameters):
         """
-        Compute time job parameters from duration constraints.
+        Compute time step parameters from duration constraints.
 
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters

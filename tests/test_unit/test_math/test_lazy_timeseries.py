@@ -1118,7 +1118,7 @@ class TestFromValues:
         )
         index = lt.index
         assert len(index) == 4
-        # Check job is 1 hour
+        # Check step is 1 hour
         assert lt.timestep == pendulum.duration(hours=1)
 
 

@@ -747,7 +747,7 @@ class TestIntegrationScenarios:
         # Set direction first
         integration_model.set_direction("maximize")
 
-        # Build objective job by job
+        # Build objective step by step
         integration_model.add_objective(x)  # profit from x
         integration_model.add_objective(2 * y)  # double profit from y
         integration_model.add_objective(-0.5 * z)  # cost of z

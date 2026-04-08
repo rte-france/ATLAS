@@ -102,15 +102,15 @@ class StorageModel(OptimisationModel):
         """Creation of decision variables"""
 
         for t in self.time_frame:
-            # Total quantities bought and purchased in the market at each time job
+            # Total quantities bought and purchased in the market at each time step
             self.add_continuous_variable(StorageModel.sold_at_key(t), 0)
             self.add_continuous_variable(StorageModel.purchased_at_key(t), 0)
-            # Binary variable that represents the state of sale at each time job: 1 if selling, 0 if not
+            # Binary variable that represents the state of sale at each time step: 1 if selling, 0 if not
             self.add_boolean_variable(StorageModel.is_sell_at_key(t))
-            # Energy stored in battery at each time job
+            # Energy stored in battery at each time step
             # StoredEnergy[t] corresponds to the energy stord in battery at t + 1
             self.add_continuous_variable(StorageModel.stored_energy_at_key(t), 0)
-            # Quantities bought and purchased in each fragment of power i at each time job
+            # Quantities bought and purchased in each fragment of power i at each time step
             for i in range(nb_fragments):
                 self.add_continuous_variable(StorageModel.amount_sold_in_fragment_at_key(t, i), 0)
                 self.add_continuous_variable(StorageModel.amount_purchased_in_fragment_at_key(t, i), 0)

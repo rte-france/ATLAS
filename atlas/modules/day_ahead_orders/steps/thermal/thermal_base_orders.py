@@ -158,8 +158,8 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
                     # Determine the end of the start up phase
                     end_of_start_up = started_at_t + T_start * self.parameters.temporal.timestep
                     # Instanciate the startup time Frame
-                    # The end of the startup time frame is shifted by one time job because the unit ends its start-up at
-                    # the beginning of the time job 'end_of_start_up'.
+                    # The end of the startup time frame is shifted by one time step because the unit ends its start-up at
+                    # the beginning of the time step 'end_of_start_up'.
                     startup_time_frame = generate_datetimes(
                         started_at_t,
                         end_of_start_up - self.parameters.temporal.timestep,
@@ -178,8 +178,8 @@ class ThermalBaseLoadOrders(ThermalUnitOrders):
                     # Determine the beginning of the shutdown
                     stopped_at_t = end_of_shutdown - T_stop * self.parameters.temporal.timestep
                     # Instanciate the shutdown time frame
-                    # The beginning is shifted by one time job because the unit formally end its shutdown at the end of the
-                    # time job end_of_shutdown
+                    # The beginning is shifted by one time step because the unit formally end its shutdown at the end of the
+                    # time step end_of_shutdown
                     shutdown_time_frame = generate_datetimes(
                         stopped_at_t,
                         end_of_shutdown - self.parameters.temporal.timestep,

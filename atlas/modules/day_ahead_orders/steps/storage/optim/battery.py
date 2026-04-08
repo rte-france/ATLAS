@@ -58,7 +58,7 @@ class BatteryModel(StorageModel):
                     f"Respect_of_purchase_power_fragment_{i}_limit_at_{t}",
                 )
 
-            # Total bought/sold energy at each time job is the sum of the fragments at time job
+            # Total bought/sold energy at each time step is the sum of the fragments at time step
             self.add_constraint(
                 self.get_variable(StorageModel.sold_at_key(t))
                 == sum(
@@ -75,7 +75,7 @@ class BatteryModel(StorageModel):
                 f"Evaluation_of_quantity_purchased_at_{t}",
             )
 
-            # StoredEnergy tracking constraint, evaluates the stock at each time job
+            # StoredEnergy tracking constraint, evaluates the stock at each time step
             if t == self.parameters.temporal.start_date:
                 self.add_constraint(
                     self.get_variable(StorageModel.stored_energy_at_key(t))

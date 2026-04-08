@@ -18,7 +18,7 @@ from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.workflow import Workflow
 
 
-def _make_workflow_step(name="job", output=None):
+def _make_workflow_step(name="step", output=None):
     """Return a WorkflowJob with a mock module that returns *output*."""
     mock_instance = MagicMock()
     mock_instance.run.return_value = output

@@ -409,7 +409,7 @@ class TestIntegrationScenarios:
 
     def test_workflow_step_debugging_scenario(self, cis):
         """Test a realistic workflow debugging scenario with snapshots and diffs."""
-        # Snapshot before job 1
+        # Snapshot before step 1
         cis.create_snapshot("before_step_1")
 
         # Step 1: Add new order
@@ -422,11 +422,11 @@ class TestIntegrationScenarios:
         CISHandler.apply(change_sets_2, cis)
         cis.create_snapshot("after_step_2")
 
-        # Debug: What changed in job 1?
+        # Debug: What changed in step 1?
         step_1_diff = cis.diff(label="before_step_1")
         assert "order_3" in step_1_diff["order"]["added"]
 
-        # Debug: What changed in job 2?
+        # Debug: What changed in step 2?
         before_step_2 = cis.get_snapshot("after_step_1")
         after_step_2 = cis.data
         cis_after_step_2 = CurrentInputState(after_step_2)
