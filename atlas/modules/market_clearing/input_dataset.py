@@ -9,10 +9,10 @@ from typing import Any, cast
 import pendulum
 from pydantic import BaseModel
 
-from atlas import AtlasDataset
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.config import logger
 from atlas.enums import CouplingType
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.models.critical_branch import CriticalBranchMC
 from atlas.modules.market_clearing.models.market_area import MarketAreaMC
 from atlas.modules.market_clearing.models.market_area_ptdf import MarketAreaPtdfMC

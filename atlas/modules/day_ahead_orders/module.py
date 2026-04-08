@@ -10,9 +10,13 @@ from collections.abc import Iterable
 from pendulum import Duration
 
 import atlas.config as cfg
-from atlas import AtlasDataset, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries
 from atlas.abstract_class.abstract_module import AbstractModule
 from atlas.enums import BusinessModelName
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.lazy_matrix import LazyScenarioMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.matrix import ScenarioMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters

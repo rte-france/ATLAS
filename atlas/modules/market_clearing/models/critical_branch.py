@@ -7,9 +7,9 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import Duration
 
-from atlas import MarketAreaPtdf
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
 
 
 class CriticalBranchMC(CriticalBranch):
