@@ -9,7 +9,6 @@ from itertools import groupby
 
 from pendulum import DateTime
 
-from atlas import Portfolio
 from atlas.abstract_class.abstract_dataset import AbstractDataset
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
@@ -28,6 +27,7 @@ from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     is_excluded_market_area,
     should_manually_activate,
 )
+from atlas.objects.market_operator.portfolio import Portfolio
 
 
 class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationParameters]):

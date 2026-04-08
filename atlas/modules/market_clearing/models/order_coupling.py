@@ -4,8 +4,8 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import Order
 from atlas.enums import ComplementDirection, CouplingType
+from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 
 

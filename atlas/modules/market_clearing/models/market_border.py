@@ -7,9 +7,10 @@ This file is part of the ATLAS project.
 import pendulum
 from pendulum import Duration
 
-from atlas import MarketArea, Timeseries
 from atlas.config import logger
 from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.timeseries import Timeseries
+from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market.market_border import MarketBorder
 
 # Static definition of default bounds on exchanges (can be changed at will):
