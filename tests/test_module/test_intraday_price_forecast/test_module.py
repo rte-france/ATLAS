@@ -220,7 +220,7 @@ def test_compute_consumption_delta(module, test_parameters, test_input_dataset):
         test_parameters.temporal.start_date, test_parameters.penultimate_date, test_parameters.temporal.timestep
     )
 
-    delta = module._compute_consumption_delta(loads, solars, winds, time_window, test_parameters)
+    delta = module._compute_consumption_delta(loads, solars, winds, test_parameters)
 
     assert isinstance(delta, Timeseries)
     # Intraday residual: -(1100 - 180 - 280) = -640
@@ -253,7 +253,7 @@ def test_apply_non_negativity_constraint(module, test_parameters, test_input_dat
     ts.set_value(test_parameters.temporal.start_date, -10.0)
     ts.set_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep, 50.0)
 
-    result = module._apply_non_negativity_constraint(ts, time_window)
+    result = module._apply_non_negativity_constraint(ts, test_parameters)
 
     assert result.get_value(test_parameters.temporal.start_date) == 0.0
     assert result.get_value(test_parameters.temporal.start_date + test_parameters.temporal.timestep) == 50.0
