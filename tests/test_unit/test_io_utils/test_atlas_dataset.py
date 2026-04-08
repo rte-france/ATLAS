@@ -18,7 +18,6 @@ from atlas.io_utils.container import Container
 from atlas.io_utils.utils import diff_business_model, diff_lists, diff_on_other_than_business_model
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.network_operator.control_block import ControlBlock
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
 from atlas.models.equipment.solar import Solar
@@ -28,7 +27,8 @@ from atlas.models.equipment.wind import Wind
 from atlas.models.market.market_area import MarketArea
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.models.node import Node
+from atlas.models.network.node import Node
+from atlas.models.network_operator.control_block import ControlBlock
 from atlas.models.portfolio import Portfolio
 
 

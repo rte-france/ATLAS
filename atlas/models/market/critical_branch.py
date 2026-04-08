@@ -11,7 +11,7 @@ from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatr
 from atlas.models.business_model import BusinessModel
 from atlas.models.market.market_area_ptdf import MarketAreaPtdf
 from atlas.models.market.node_ptdf import NodePtdf
-from atlas.models.node import Node
+from atlas.models.network.node import Node
 from atlas.validators import serializer_business_model, serializer_list_business_model
 
 

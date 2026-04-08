@@ -12,7 +12,6 @@ from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.business_model import BusinessModel
-from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
 from atlas.models.equipment.hydro import Hydro
 from atlas.models.equipment.load import Load
@@ -28,7 +27,8 @@ from atlas.models.market.market_border import MarketBorder
 from atlas.models.market.node_ptdf import NodePtdf
 from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
-from atlas.models.node import Node
+from atlas.models.network.node import Node
+from atlas.models.network_operator.control_block import ControlBlock
 from atlas.models.portfolio import Portfolio
 from atlas.modules.day_ahead_orders.module import DayAheadOrdersModule
 from atlas.modules.market_clearing.module import MarketClearingModule
