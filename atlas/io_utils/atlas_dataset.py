@@ -639,13 +639,11 @@ class AtlasDataset(BaseModel):
             )
             uphill_in_zone = border.uphill_control_block is not None and border.uphill_control_block.name in zone_set
 
-            if include_external_borders:
+            if downhill_in_zone and uphill_in_zone:
+                dataset.market_border.add(border)
+            elif include_external_borders:
                 # Include if ANY endpoint is in filtered zones
                 if downhill_in_zone or uphill_in_zone:
-                    dataset.market_border.add(border)
-            else:
-                # Include only if BOTH endpoints are in filtered zones
-                if downhill_in_zone and uphill_in_zone:
                     dataset.market_border.add(border)
 
         # Filter market area PTDFs
@@ -679,13 +677,11 @@ class AtlasDataset(BaseModel):
                 and critical_branch.downhill_node.control_block.name in zone_set
             )
 
-            if include_external_borders:
+            if downhill_in_zone and uphill_in_zone:
+                dataset.critical_branch.add(critical_branch)
+            elif include_external_borders:
                 # Include if ANY endpoint is in filtered zones
-                if uphill_in_zone or downhill_in_zone:
-                    dataset.critical_branch.add(critical_branch)
-            else:
-                # Include only if BOTH endpoints are in filtered zones
-                if uphill_in_zone and downhill_in_zone:
+                if downhill_in_zone or uphill_in_zone:
                     dataset.critical_branch.add(critical_branch)
 
         # Filter orders
@@ -703,14 +699,13 @@ class AtlasDataset(BaseModel):
             if order_coupling.orders is None:
                 continue
 
-            for coupled_order in order_coupling.orders:
-                if (
-                    coupled_order.market_area is not None
-                    and coupled_order.market_area.control_block is not None
-                    and coupled_order.market_area.control_block.name in zone_set
-                ):
-                    dataset.order_coupling.add(order_coupling)
-                    break
+            if any(
+                coupled_order.market_area is not None
+                and coupled_order.market_area.control_block is not None
+                and coupled_order.market_area.control_block.name in zone_set
+                for coupled_order in order_coupling.orders
+            ):
+                dataset.order_coupling.add(order_coupling)
 
         # Filter portfolios
         for portfolio in self.portfolio:
