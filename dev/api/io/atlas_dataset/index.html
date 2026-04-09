@@ -5762,11 +5762,113 @@
 <a href="#atlas.AtlasDataset.filter_zones" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">filter_zones</span><span class="p">(</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">control_block_names</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">],</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">equipment_names</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">include_external_borders</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            atlas.AtlasDataset (atlas.io_utils.atlas_dataset.AtlasDataset)" href="#atlas.AtlasDataset">AtlasDataset</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
+
+        <p>Filter the dataset to include only objects associated with specified control blocks (zones).</p>
+<p>This method creates a new dataset containing only the business objects that belong to or are connected
+to the specified control blocks. It maintains referential integrity across related objects.</p>
+<p>For market borders and critical branches:
+- If include_external_borders is False (default), only includes borders/branches where both endpoints
+  are in the filtered zones, creating an isolated network
+- If include_external_borders is True, includes borders/branches where at least one endpoint is in
+  the filtered zones, allowing connections to external zones</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>control_block_names</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of control block names to include in the filtered dataset</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>include_external_borders</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to include borders/branches with at least one endpoint in filtered zones</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>AtlasDataset</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A new AtlasDataset containing only the filtered objects (deep copy)</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>ValueError</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If any control block name in control_block_names does not exist in the dataset</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
             <details class="mkdocstrings-source">
@@ -5852,88 +5954,210 @@
 <span class="normal"><a href="#__codelineno-0-683">683</a></span>
 <span class="normal"><a href="#__codelineno-0-684">684</a></span>
 <span class="normal"><a href="#__codelineno-0-685">685</a></span>
-<span class="normal"><a href="#__codelineno-0-686">686</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-605"><a id="__codelineno-0-605" name="__codelineno-0-605"></a><span class="k">def</span><span class="w"> </span><span class="nf">filter_zones</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">control_block_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">equipment_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AtlasDataset</span><span class="p">:</span>
-</span><span id="__span-0-606"><a id="__codelineno-0-606" name="__codelineno-0-606"></a>    <span class="n">dataset</span> <span class="o">=</span> <span class="n">AtlasDataset</span><span class="p">()</span>
-</span><span id="__span-0-607"><a id="__codelineno-0-607" name="__codelineno-0-607"></a>
-</span><span id="__span-0-608"><a id="__codelineno-0-608" name="__codelineno-0-608"></a>    <span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">control_block</span><span class="p">:</span>
-</span><span id="__span-0-609"><a id="__codelineno-0-609" name="__codelineno-0-609"></a>        <span class="k">if</span> <span class="n">cb</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span><span class="p">:</span>
-</span><span id="__span-0-610"><a id="__codelineno-0-610" name="__codelineno-0-610"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span>
-</span><span id="__span-0-611"><a id="__codelineno-0-611" name="__codelineno-0-611"></a>    <span class="k">for</span> <span class="n">ma</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">market_area</span><span class="p">:</span>
-</span><span id="__span-0-612"><a id="__codelineno-0-612" name="__codelineno-0-612"></a>        <span class="k">if</span> <span class="n">ma</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">ma</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span><span class="p">:</span>
-</span><span id="__span-0-613"><a id="__codelineno-0-613" name="__codelineno-0-613"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ma</span><span class="p">)</span>
-</span><span id="__span-0-614"><a id="__codelineno-0-614" name="__codelineno-0-614"></a>    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="p">:</span>
-</span><span id="__span-0-615"><a id="__codelineno-0-615" name="__codelineno-0-615"></a>        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span><span class="p">:</span>
-</span><span id="__span-0-616"><a id="__codelineno-0-616" name="__codelineno-0-616"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-</span><span id="__span-0-617"><a id="__codelineno-0-617" name="__codelineno-0-617"></a>    <span class="k">for</span> <span class="n">border</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">market_border</span><span class="p">:</span>
-</span><span id="__span-0-618"><a id="__codelineno-0-618" name="__codelineno-0-618"></a>        <span class="k">if</span> <span class="p">(</span>
-</span><span id="__span-0-619"><a id="__codelineno-0-619" name="__codelineno-0-619"></a>            <span class="n">border</span><span class="o">.</span><span class="n">downhill_control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-620"><a id="__codelineno-0-620" name="__codelineno-0-620"></a>            <span class="ow">and</span> <span class="n">border</span><span class="o">.</span><span class="n">downhill_control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span>
-</span><span id="__span-0-621"><a id="__codelineno-0-621" name="__codelineno-0-621"></a>            <span class="ow">and</span> <span class="n">border</span><span class="o">.</span><span class="n">uphill_control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-622"><a id="__codelineno-0-622" name="__codelineno-0-622"></a>            <span class="ow">and</span> <span class="n">border</span><span class="o">.</span><span class="n">uphill_control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span>
-</span><span id="__span-0-623"><a id="__codelineno-0-623" name="__codelineno-0-623"></a>        <span class="p">):</span>
-</span><span id="__span-0-624"><a id="__codelineno-0-624" name="__codelineno-0-624"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">market_border</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">border</span><span class="p">)</span>
-</span><span id="__span-0-625"><a id="__codelineno-0-625" name="__codelineno-0-625"></a>    <span class="k">for</span> <span class="n">ma_ptdf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">market_area_ptdf</span><span class="p">:</span>
-</span><span id="__span-0-626"><a id="__codelineno-0-626" name="__codelineno-0-626"></a>        <span class="k">if</span> <span class="p">(</span>
-</span><span id="__span-0-627"><a id="__codelineno-0-627" name="__codelineno-0-627"></a>            <span class="n">ma_ptdf</span><span class="o">.</span><span class="n">market_area</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-628"><a id="__codelineno-0-628" name="__codelineno-0-628"></a>            <span class="ow">and</span> <span class="n">ma_ptdf</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-629"><a id="__codelineno-0-629" name="__codelineno-0-629"></a>            <span class="ow">and</span> <span class="n">ma_ptdf</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span>
-</span><span id="__span-0-630"><a id="__codelineno-0-630" name="__codelineno-0-630"></a>        <span class="p">):</span>
-</span><span id="__span-0-631"><a id="__codelineno-0-631" name="__codelineno-0-631"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">market_area_ptdf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ma_ptdf</span><span class="p">)</span>
-</span><span id="__span-0-632"><a id="__codelineno-0-632" name="__codelineno-0-632"></a>    <span class="k">for</span> <span class="n">node_ptdf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_ptdf</span><span class="p">:</span>
-</span><span id="__span-0-633"><a id="__codelineno-0-633" name="__codelineno-0-633"></a>        <span class="k">if</span> <span class="p">(</span>
-</span><span id="__span-0-634"><a id="__codelineno-0-634" name="__codelineno-0-634"></a>            <span class="n">node_ptdf</span><span class="o">.</span><span class="n">node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-635"><a id="__codelineno-0-635" name="__codelineno-0-635"></a>            <span class="ow">and</span> <span class="n">node_ptdf</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-636"><a id="__codelineno-0-636" name="__codelineno-0-636"></a>            <span class="ow">and</span> <span class="n">node_ptdf</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span>
-</span><span id="__span-0-637"><a id="__codelineno-0-637" name="__codelineno-0-637"></a>        <span class="p">):</span>
-</span><span id="__span-0-638"><a id="__codelineno-0-638" name="__codelineno-0-638"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">node_ptdf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node_ptdf</span><span class="p">)</span>
-</span><span id="__span-0-639"><a id="__codelineno-0-639" name="__codelineno-0-639"></a>    <span class="k">for</span> <span class="n">critical_branch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">critical_branch</span><span class="p">:</span>
-</span><span id="__span-0-640"><a id="__codelineno-0-640" name="__codelineno-0-640"></a>        <span class="k">if</span> <span class="p">(</span>
-</span><span id="__span-0-641"><a id="__codelineno-0-641" name="__codelineno-0-641"></a>            <span class="n">critical_branch</span><span class="o">.</span><span class="n">uphill_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-642"><a id="__codelineno-0-642" name="__codelineno-0-642"></a>            <span class="ow">and</span> <span class="n">critical_branch</span><span class="o">.</span><span class="n">uphill_node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-643"><a id="__codelineno-0-643" name="__codelineno-0-643"></a>            <span class="ow">and</span> <span class="n">critical_branch</span><span class="o">.</span><span class="n">uphill_node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span>
-</span><span id="__span-0-644"><a id="__codelineno-0-644" name="__codelineno-0-644"></a>            <span class="ow">and</span> <span class="n">critical_branch</span><span class="o">.</span><span class="n">downhill_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-645"><a id="__codelineno-0-645" name="__codelineno-0-645"></a>            <span class="ow">and</span> <span class="n">critical_branch</span><span class="o">.</span><span class="n">downhill_node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-646"><a id="__codelineno-0-646" name="__codelineno-0-646"></a>            <span class="ow">and</span> <span class="n">critical_branch</span><span class="o">.</span><span class="n">downhill_node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span>
-</span><span id="__span-0-647"><a id="__codelineno-0-647" name="__codelineno-0-647"></a>        <span class="p">):</span>
-</span><span id="__span-0-648"><a id="__codelineno-0-648" name="__codelineno-0-648"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">critical_branch</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">critical_branch</span><span class="p">)</span>
-</span><span id="__span-0-649"><a id="__codelineno-0-649" name="__codelineno-0-649"></a>    <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">:</span>
-</span><span id="__span-0-650"><a id="__codelineno-0-650" name="__codelineno-0-650"></a>        <span class="k">if</span> <span class="p">(</span>
-</span><span id="__span-0-651"><a id="__codelineno-0-651" name="__codelineno-0-651"></a>            <span class="n">order</span><span class="o">.</span><span class="n">market_area</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-652"><a id="__codelineno-0-652" name="__codelineno-0-652"></a>            <span class="ow">and</span> <span class="n">order</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-653"><a id="__codelineno-0-653" name="__codelineno-0-653"></a>            <span class="ow">and</span> <span class="n">order</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span>
-</span><span id="__span-0-654"><a id="__codelineno-0-654" name="__codelineno-0-654"></a>        <span class="p">):</span>
-</span><span id="__span-0-655"><a id="__codelineno-0-655" name="__codelineno-0-655"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
-</span><span id="__span-0-656"><a id="__codelineno-0-656" name="__codelineno-0-656"></a>    <span class="c1"># Hypothesis that every Order in OrderCoupling has the same MarketArea</span>
-</span><span id="__span-0-657"><a id="__codelineno-0-657" name="__codelineno-0-657"></a>    <span class="k">for</span> <span class="n">order_coupling</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">order_coupling</span><span class="p">:</span>
-</span><span id="__span-0-658"><a id="__codelineno-0-658" name="__codelineno-0-658"></a>        <span class="n">keep_coupling</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span id="__span-0-659"><a id="__codelineno-0-659" name="__codelineno-0-659"></a>        <span class="k">if</span> <span class="n">order_coupling</span><span class="o">.</span><span class="n">orders</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-660"><a id="__codelineno-0-660" name="__codelineno-0-660"></a>            <span class="k">continue</span>
-</span><span id="__span-0-661"><a id="__codelineno-0-661" name="__codelineno-0-661"></a>        <span class="k">for</span> <span class="n">coupled_order</span> <span class="ow">in</span> <span class="n">order_coupling</span><span class="o">.</span><span class="n">orders</span><span class="p">:</span>
-</span><span id="__span-0-662"><a id="__codelineno-0-662" name="__codelineno-0-662"></a>            <span class="k">if</span> <span class="p">(</span>
-</span><span id="__span-0-663"><a id="__codelineno-0-663" name="__codelineno-0-663"></a>                <span class="n">coupled_order</span><span class="o">.</span><span class="n">market_area</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-664"><a id="__codelineno-0-664" name="__codelineno-0-664"></a>                <span class="ow">and</span> <span class="n">coupled_order</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-665"><a id="__codelineno-0-665" name="__codelineno-0-665"></a>                <span class="ow">and</span> <span class="n">coupled_order</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span>
-</span><span id="__span-0-666"><a id="__codelineno-0-666" name="__codelineno-0-666"></a>            <span class="p">):</span>
-</span><span id="__span-0-667"><a id="__codelineno-0-667" name="__codelineno-0-667"></a>                <span class="n">keep_coupling</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span id="__span-0-668"><a id="__codelineno-0-668" name="__codelineno-0-668"></a>                <span class="k">break</span>
-</span><span id="__span-0-669"><a id="__codelineno-0-669" name="__codelineno-0-669"></a>        <span class="k">if</span> <span class="n">keep_coupling</span><span class="p">:</span>
-</span><span id="__span-0-670"><a id="__codelineno-0-670" name="__codelineno-0-670"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">order_coupling</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">order_coupling</span><span class="p">)</span>
-</span><span id="__span-0-671"><a id="__codelineno-0-671" name="__codelineno-0-671"></a>    <span class="k">for</span> <span class="n">portfolio</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">portfolio</span><span class="p">:</span>
-</span><span id="__span-0-672"><a id="__codelineno-0-672" name="__codelineno-0-672"></a>        <span class="k">if</span> <span class="n">portfolio</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">portfolio</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span><span class="p">:</span>
-</span><span id="__span-0-673"><a id="__codelineno-0-673" name="__codelineno-0-673"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">portfolio</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">portfolio</span><span class="p">)</span>
-</span><span id="__span-0-674"><a id="__codelineno-0-674" name="__codelineno-0-674"></a>
-</span><span id="__span-0-675"><a id="__codelineno-0-675" name="__codelineno-0-675"></a>    <span class="k">for</span> <span class="n">equipment_type</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">EQUIPMENT_MODELS</span><span class="p">:</span>
-</span><span id="__span-0-676"><a id="__codelineno-0-676" name="__codelineno-0-676"></a>        <span class="n">equipments</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get_container_by_type</span><span class="p">(</span><span class="n">equipment_type</span><span class="p">)</span>
-</span><span id="__span-0-677"><a id="__codelineno-0-677" name="__codelineno-0-677"></a>        <span class="k">for</span> <span class="n">equipment</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_items_by_type</span><span class="p">(</span><span class="n">equipment_type</span><span class="p">):</span>
-</span><span id="__span-0-678"><a id="__codelineno-0-678" name="__codelineno-0-678"></a>            <span class="n">equipment_node</span><span class="p">:</span> <span class="n">Node</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Equipment</span><span class="p">,</span> <span class="n">equipment</span><span class="p">)</span><span class="o">.</span><span class="n">node</span>
-</span><span id="__span-0-679"><a id="__codelineno-0-679" name="__codelineno-0-679"></a>            <span class="k">if</span> <span class="p">(</span>
-</span><span id="__span-0-680"><a id="__codelineno-0-680" name="__codelineno-0-680"></a>                <span class="n">equipment_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-681"><a id="__codelineno-0-681" name="__codelineno-0-681"></a>                <span class="ow">and</span> <span class="n">equipment_node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span id="__span-0-682"><a id="__codelineno-0-682" name="__codelineno-0-682"></a>                <span class="ow">and</span> <span class="n">equipment_node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">control_block_names</span>
-</span><span id="__span-0-683"><a id="__codelineno-0-683" name="__codelineno-0-683"></a>            <span class="p">):</span>
-</span><span id="__span-0-684"><a id="__codelineno-0-684" name="__codelineno-0-684"></a>                <span class="k">if</span> <span class="n">equipment_names</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">equipment</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">equipments</span><span class="p">:</span>
-</span><span id="__span-0-685"><a id="__codelineno-0-685" name="__codelineno-0-685"></a>                    <span class="n">equipments</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">equipment</span><span class="p">)</span>
-</span><span id="__span-0-686"><a id="__codelineno-0-686" name="__codelineno-0-686"></a>    <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-686">686</a></span>
+<span class="normal"><a href="#__codelineno-0-687">687</a></span>
+<span class="normal"><a href="#__codelineno-0-688">688</a></span>
+<span class="normal"><a href="#__codelineno-0-689">689</a></span>
+<span class="normal"><a href="#__codelineno-0-690">690</a></span>
+<span class="normal"><a href="#__codelineno-0-691">691</a></span>
+<span class="normal"><a href="#__codelineno-0-692">692</a></span>
+<span class="normal"><a href="#__codelineno-0-693">693</a></span>
+<span class="normal"><a href="#__codelineno-0-694">694</a></span>
+<span class="normal"><a href="#__codelineno-0-695">695</a></span>
+<span class="normal"><a href="#__codelineno-0-696">696</a></span>
+<span class="normal"><a href="#__codelineno-0-697">697</a></span>
+<span class="normal"><a href="#__codelineno-0-698">698</a></span>
+<span class="normal"><a href="#__codelineno-0-699">699</a></span>
+<span class="normal"><a href="#__codelineno-0-700">700</a></span>
+<span class="normal"><a href="#__codelineno-0-701">701</a></span>
+<span class="normal"><a href="#__codelineno-0-702">702</a></span>
+<span class="normal"><a href="#__codelineno-0-703">703</a></span>
+<span class="normal"><a href="#__codelineno-0-704">704</a></span>
+<span class="normal"><a href="#__codelineno-0-705">705</a></span>
+<span class="normal"><a href="#__codelineno-0-706">706</a></span>
+<span class="normal"><a href="#__codelineno-0-707">707</a></span>
+<span class="normal"><a href="#__codelineno-0-708">708</a></span>
+<span class="normal"><a href="#__codelineno-0-709">709</a></span>
+<span class="normal"><a href="#__codelineno-0-710">710</a></span>
+<span class="normal"><a href="#__codelineno-0-711">711</a></span>
+<span class="normal"><a href="#__codelineno-0-712">712</a></span>
+<span class="normal"><a href="#__codelineno-0-713">713</a></span>
+<span class="normal"><a href="#__codelineno-0-714">714</a></span>
+<span class="normal"><a href="#__codelineno-0-715">715</a></span>
+<span class="normal"><a href="#__codelineno-0-716">716</a></span>
+<span class="normal"><a href="#__codelineno-0-717">717</a></span>
+<span class="normal"><a href="#__codelineno-0-718">718</a></span>
+<span class="normal"><a href="#__codelineno-0-719">719</a></span>
+<span class="normal"><a href="#__codelineno-0-720">720</a></span>
+<span class="normal"><a href="#__codelineno-0-721">721</a></span>
+<span class="normal"><a href="#__codelineno-0-722">722</a></span>
+<span class="normal"><a href="#__codelineno-0-723">723</a></span>
+<span class="normal"><a href="#__codelineno-0-724">724</a></span>
+<span class="normal"><a href="#__codelineno-0-725">725</a></span>
+<span class="normal"><a href="#__codelineno-0-726">726</a></span>
+<span class="normal"><a href="#__codelineno-0-727">727</a></span>
+<span class="normal"><a href="#__codelineno-0-728">728</a></span>
+<span class="normal"><a href="#__codelineno-0-729">729</a></span>
+<span class="normal"><a href="#__codelineno-0-730">730</a></span>
+<span class="normal"><a href="#__codelineno-0-731">731</a></span>
+<span class="normal"><a href="#__codelineno-0-732">732</a></span>
+<span class="normal"><a href="#__codelineno-0-733">733</a></span>
+<span class="normal"><a href="#__codelineno-0-734">734</a></span>
+<span class="normal"><a href="#__codelineno-0-735">735</a></span>
+<span class="normal"><a href="#__codelineno-0-736">736</a></span>
+<span class="normal"><a href="#__codelineno-0-737">737</a></span>
+<span class="normal"><a href="#__codelineno-0-738">738</a></span>
+<span class="normal"><a href="#__codelineno-0-739">739</a></span>
+<span class="normal"><a href="#__codelineno-0-740">740</a></span>
+<span class="normal"><a href="#__codelineno-0-741">741</a></span>
+<span class="normal"><a href="#__codelineno-0-742">742</a></span>
+<span class="normal"><a href="#__codelineno-0-743">743</a></span>
+<span class="normal"><a href="#__codelineno-0-744">744</a></span>
+<span class="normal"><a href="#__codelineno-0-745">745</a></span>
+<span class="normal"><a href="#__codelineno-0-746">746</a></span>
+<span class="normal"><a href="#__codelineno-0-747">747</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-605"><a id="__codelineno-0-605" name="__codelineno-0-605"></a><span class="k">def</span><span class="w"> </span><span class="nf">filter_zones</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">control_block_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">include_external_borders</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AtlasDataset</span><span class="p">:</span>
+</span><span id="__span-0-606"><a id="__codelineno-0-606" name="__codelineno-0-606"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="__span-0-607"><a id="__codelineno-0-607" name="__codelineno-0-607"></a><span class="sd">    Filter the dataset to include only objects associated with specified control blocks (zones).</span>
+</span><span id="__span-0-608"><a id="__codelineno-0-608" name="__codelineno-0-608"></a>
+</span><span id="__span-0-609"><a id="__codelineno-0-609" name="__codelineno-0-609"></a><span class="sd">    This method creates a new dataset containing only the business objects that belong to or are connected</span>
+</span><span id="__span-0-610"><a id="__codelineno-0-610" name="__codelineno-0-610"></a><span class="sd">    to the specified control blocks. It maintains referential integrity across related objects.</span>
+</span><span id="__span-0-611"><a id="__codelineno-0-611" name="__codelineno-0-611"></a>
+</span><span id="__span-0-612"><a id="__codelineno-0-612" name="__codelineno-0-612"></a><span class="sd">    For market borders and critical branches:</span>
+</span><span id="__span-0-613"><a id="__codelineno-0-613" name="__codelineno-0-613"></a><span class="sd">    - If include_external_borders is False (default), only includes borders/branches where both endpoints</span>
+</span><span id="__span-0-614"><a id="__codelineno-0-614" name="__codelineno-0-614"></a><span class="sd">      are in the filtered zones, creating an isolated network</span>
+</span><span id="__span-0-615"><a id="__codelineno-0-615" name="__codelineno-0-615"></a><span class="sd">    - If include_external_borders is True, includes borders/branches where at least one endpoint is in</span>
+</span><span id="__span-0-616"><a id="__codelineno-0-616" name="__codelineno-0-616"></a><span class="sd">      the filtered zones, allowing connections to external zones</span>
+</span><span id="__span-0-617"><a id="__codelineno-0-617" name="__codelineno-0-617"></a>
+</span><span id="__span-0-618"><a id="__codelineno-0-618" name="__codelineno-0-618"></a><span class="sd">    :param control_block_names: List of control block names to include in the filtered dataset</span>
+</span><span id="__span-0-619"><a id="__codelineno-0-619" name="__codelineno-0-619"></a><span class="sd">    :type control_block_names: list[str]</span>
+</span><span id="__span-0-620"><a id="__codelineno-0-620" name="__codelineno-0-620"></a><span class="sd">    :param include_external_borders: Whether to include borders/branches with at least one endpoint in filtered zones</span>
+</span><span id="__span-0-621"><a id="__codelineno-0-621" name="__codelineno-0-621"></a><span class="sd">    :type include_external_borders: bool</span>
+</span><span id="__span-0-622"><a id="__codelineno-0-622" name="__codelineno-0-622"></a>
+</span><span id="__span-0-623"><a id="__codelineno-0-623" name="__codelineno-0-623"></a><span class="sd">    :return: A new AtlasDataset containing only the filtered objects (deep copy)</span>
+</span><span id="__span-0-624"><a id="__codelineno-0-624" name="__codelineno-0-624"></a><span class="sd">    :rtype: AtlasDataset</span>
+</span><span id="__span-0-625"><a id="__codelineno-0-625" name="__codelineno-0-625"></a>
+</span><span id="__span-0-626"><a id="__codelineno-0-626" name="__codelineno-0-626"></a><span class="sd">    :raises ValueError: If any control block name in control_block_names does not exist in the dataset</span>
+</span><span id="__span-0-627"><a id="__codelineno-0-627" name="__codelineno-0-627"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-628"><a id="__codelineno-0-628" name="__codelineno-0-628"></a>
+</span><span id="__span-0-629"><a id="__codelineno-0-629" name="__codelineno-0-629"></a>    <span class="c1"># Validate that all control blocks exist</span>
+</span><span id="__span-0-630"><a id="__codelineno-0-630" name="__codelineno-0-630"></a>    <span class="n">existing_cb_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">cb</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">control_block</span><span class="p">}</span>
+</span><span id="__span-0-631"><a id="__codelineno-0-631" name="__codelineno-0-631"></a>    <span class="n">invalid_zones</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">control_block_names</span><span class="p">)</span> <span class="o">-</span> <span class="n">existing_cb_names</span>
+</span><span id="__span-0-632"><a id="__codelineno-0-632" name="__codelineno-0-632"></a>    <span class="k">if</span> <span class="n">invalid_zones</span><span class="p">:</span>
+</span><span id="__span-0-633"><a id="__codelineno-0-633" name="__codelineno-0-633"></a>        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Control blocks not found in dataset: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">invalid_zones</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="__span-0-634"><a id="__codelineno-0-634" name="__codelineno-0-634"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</span><span id="__span-0-635"><a id="__codelineno-0-635" name="__codelineno-0-635"></a>
+</span><span id="__span-0-636"><a id="__codelineno-0-636" name="__codelineno-0-636"></a>    <span class="c1"># Convert to set for O(1) lookups</span>
+</span><span id="__span-0-637"><a id="__codelineno-0-637" name="__codelineno-0-637"></a>    <span class="n">zone_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">control_block_names</span><span class="p">)</span>
+</span><span id="__span-0-638"><a id="__codelineno-0-638" name="__codelineno-0-638"></a>
+</span><span id="__span-0-639"><a id="__codelineno-0-639" name="__codelineno-0-639"></a>    <span class="n">dataset</span> <span class="o">=</span> <span class="n">AtlasDataset</span><span class="p">()</span>
+</span><span id="__span-0-640"><a id="__codelineno-0-640" name="__codelineno-0-640"></a>
+</span><span id="__span-0-641"><a id="__codelineno-0-641" name="__codelineno-0-641"></a>    <span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">control_block</span><span class="p">:</span>
+</span><span id="__span-0-642"><a id="__codelineno-0-642" name="__codelineno-0-642"></a>        <span class="k">if</span> <span class="n">cb</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span><span class="p">:</span>
+</span><span id="__span-0-643"><a id="__codelineno-0-643" name="__codelineno-0-643"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span>
+</span><span id="__span-0-644"><a id="__codelineno-0-644" name="__codelineno-0-644"></a>
+</span><span id="__span-0-645"><a id="__codelineno-0-645" name="__codelineno-0-645"></a>    <span class="c1"># Filter market areas</span>
+</span><span id="__span-0-646"><a id="__codelineno-0-646" name="__codelineno-0-646"></a>    <span class="k">for</span> <span class="n">ma</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">market_area</span><span class="p">:</span>
+</span><span id="__span-0-647"><a id="__codelineno-0-647" name="__codelineno-0-647"></a>        <span class="k">if</span> <span class="n">ma</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">ma</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span><span class="p">:</span>
+</span><span id="__span-0-648"><a id="__codelineno-0-648" name="__codelineno-0-648"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ma</span><span class="p">)</span>
+</span><span id="__span-0-649"><a id="__codelineno-0-649" name="__codelineno-0-649"></a>
+</span><span id="__span-0-650"><a id="__codelineno-0-650" name="__codelineno-0-650"></a>    <span class="c1"># Filter nodes</span>
+</span><span id="__span-0-651"><a id="__codelineno-0-651" name="__codelineno-0-651"></a>    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="p">:</span>
+</span><span id="__span-0-652"><a id="__codelineno-0-652" name="__codelineno-0-652"></a>        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span><span class="p">:</span>
+</span><span id="__span-0-653"><a id="__codelineno-0-653" name="__codelineno-0-653"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span id="__span-0-654"><a id="__codelineno-0-654" name="__codelineno-0-654"></a>
+</span><span id="__span-0-655"><a id="__codelineno-0-655" name="__codelineno-0-655"></a>    <span class="c1"># Filter market borders (with configurable logic)</span>
+</span><span id="__span-0-656"><a id="__codelineno-0-656" name="__codelineno-0-656"></a>    <span class="k">for</span> <span class="n">border</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">market_border</span><span class="p">:</span>
+</span><span id="__span-0-657"><a id="__codelineno-0-657" name="__codelineno-0-657"></a>        <span class="n">downhill_in_zone</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="__span-0-658"><a id="__codelineno-0-658" name="__codelineno-0-658"></a>            <span class="n">border</span><span class="o">.</span><span class="n">downhill_control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">border</span><span class="o">.</span><span class="n">downhill_control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span>
+</span><span id="__span-0-659"><a id="__codelineno-0-659" name="__codelineno-0-659"></a>        <span class="p">)</span>
+</span><span id="__span-0-660"><a id="__codelineno-0-660" name="__codelineno-0-660"></a>        <span class="n">uphill_in_zone</span> <span class="o">=</span> <span class="n">border</span><span class="o">.</span><span class="n">uphill_control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">border</span><span class="o">.</span><span class="n">uphill_control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span>
+</span><span id="__span-0-661"><a id="__codelineno-0-661" name="__codelineno-0-661"></a>
+</span><span id="__span-0-662"><a id="__codelineno-0-662" name="__codelineno-0-662"></a>        <span class="k">if</span> <span class="n">downhill_in_zone</span> <span class="ow">and</span> <span class="n">uphill_in_zone</span><span class="p">:</span>
+</span><span id="__span-0-663"><a id="__codelineno-0-663" name="__codelineno-0-663"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">market_border</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">border</span><span class="p">)</span>
+</span><span id="__span-0-664"><a id="__codelineno-0-664" name="__codelineno-0-664"></a>        <span class="k">elif</span> <span class="n">include_external_borders</span><span class="p">:</span>
+</span><span id="__span-0-665"><a id="__codelineno-0-665" name="__codelineno-0-665"></a>            <span class="c1"># Include if ANY endpoint is in filtered zones</span>
+</span><span id="__span-0-666"><a id="__codelineno-0-666" name="__codelineno-0-666"></a>            <span class="k">if</span> <span class="n">downhill_in_zone</span> <span class="ow">or</span> <span class="n">uphill_in_zone</span><span class="p">:</span>
+</span><span id="__span-0-667"><a id="__codelineno-0-667" name="__codelineno-0-667"></a>                <span class="n">dataset</span><span class="o">.</span><span class="n">market_border</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">border</span><span class="p">)</span>
+</span><span id="__span-0-668"><a id="__codelineno-0-668" name="__codelineno-0-668"></a>
+</span><span id="__span-0-669"><a id="__codelineno-0-669" name="__codelineno-0-669"></a>    <span class="c1"># Filter market area PTDFs</span>
+</span><span id="__span-0-670"><a id="__codelineno-0-670" name="__codelineno-0-670"></a>    <span class="k">for</span> <span class="n">ma_ptdf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">market_area_ptdf</span><span class="p">:</span>
+</span><span id="__span-0-671"><a id="__codelineno-0-671" name="__codelineno-0-671"></a>        <span class="k">if</span> <span class="p">(</span>
+</span><span id="__span-0-672"><a id="__codelineno-0-672" name="__codelineno-0-672"></a>            <span class="n">ma_ptdf</span><span class="o">.</span><span class="n">market_area</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-673"><a id="__codelineno-0-673" name="__codelineno-0-673"></a>            <span class="ow">and</span> <span class="n">ma_ptdf</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-674"><a id="__codelineno-0-674" name="__codelineno-0-674"></a>            <span class="ow">and</span> <span class="n">ma_ptdf</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span>
+</span><span id="__span-0-675"><a id="__codelineno-0-675" name="__codelineno-0-675"></a>        <span class="p">):</span>
+</span><span id="__span-0-676"><a id="__codelineno-0-676" name="__codelineno-0-676"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">market_area_ptdf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ma_ptdf</span><span class="p">)</span>
+</span><span id="__span-0-677"><a id="__codelineno-0-677" name="__codelineno-0-677"></a>
+</span><span id="__span-0-678"><a id="__codelineno-0-678" name="__codelineno-0-678"></a>    <span class="c1"># Filter node PTDFs</span>
+</span><span id="__span-0-679"><a id="__codelineno-0-679" name="__codelineno-0-679"></a>    <span class="k">for</span> <span class="n">node_ptdf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_ptdf</span><span class="p">:</span>
+</span><span id="__span-0-680"><a id="__codelineno-0-680" name="__codelineno-0-680"></a>        <span class="k">if</span> <span class="p">(</span>
+</span><span id="__span-0-681"><a id="__codelineno-0-681" name="__codelineno-0-681"></a>            <span class="n">node_ptdf</span><span class="o">.</span><span class="n">node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-682"><a id="__codelineno-0-682" name="__codelineno-0-682"></a>            <span class="ow">and</span> <span class="n">node_ptdf</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-683"><a id="__codelineno-0-683" name="__codelineno-0-683"></a>            <span class="ow">and</span> <span class="n">node_ptdf</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span>
+</span><span id="__span-0-684"><a id="__codelineno-0-684" name="__codelineno-0-684"></a>        <span class="p">):</span>
+</span><span id="__span-0-685"><a id="__codelineno-0-685" name="__codelineno-0-685"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">node_ptdf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node_ptdf</span><span class="p">)</span>
+</span><span id="__span-0-686"><a id="__codelineno-0-686" name="__codelineno-0-686"></a>
+</span><span id="__span-0-687"><a id="__codelineno-0-687" name="__codelineno-0-687"></a>    <span class="c1"># Filter critical branches (with configurable logic)</span>
+</span><span id="__span-0-688"><a id="__codelineno-0-688" name="__codelineno-0-688"></a>    <span class="k">for</span> <span class="n">critical_branch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">critical_branch</span><span class="p">:</span>
+</span><span id="__span-0-689"><a id="__codelineno-0-689" name="__codelineno-0-689"></a>        <span class="n">uphill_in_zone</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="__span-0-690"><a id="__codelineno-0-690" name="__codelineno-0-690"></a>            <span class="n">critical_branch</span><span class="o">.</span><span class="n">uphill_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-691"><a id="__codelineno-0-691" name="__codelineno-0-691"></a>            <span class="ow">and</span> <span class="n">critical_branch</span><span class="o">.</span><span class="n">uphill_node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-692"><a id="__codelineno-0-692" name="__codelineno-0-692"></a>            <span class="ow">and</span> <span class="n">critical_branch</span><span class="o">.</span><span class="n">uphill_node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span>
+</span><span id="__span-0-693"><a id="__codelineno-0-693" name="__codelineno-0-693"></a>        <span class="p">)</span>
+</span><span id="__span-0-694"><a id="__codelineno-0-694" name="__codelineno-0-694"></a>        <span class="n">downhill_in_zone</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="__span-0-695"><a id="__codelineno-0-695" name="__codelineno-0-695"></a>            <span class="n">critical_branch</span><span class="o">.</span><span class="n">downhill_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-696"><a id="__codelineno-0-696" name="__codelineno-0-696"></a>            <span class="ow">and</span> <span class="n">critical_branch</span><span class="o">.</span><span class="n">downhill_node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-697"><a id="__codelineno-0-697" name="__codelineno-0-697"></a>            <span class="ow">and</span> <span class="n">critical_branch</span><span class="o">.</span><span class="n">downhill_node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span>
+</span><span id="__span-0-698"><a id="__codelineno-0-698" name="__codelineno-0-698"></a>        <span class="p">)</span>
+</span><span id="__span-0-699"><a id="__codelineno-0-699" name="__codelineno-0-699"></a>
+</span><span id="__span-0-700"><a id="__codelineno-0-700" name="__codelineno-0-700"></a>        <span class="k">if</span> <span class="n">downhill_in_zone</span> <span class="ow">and</span> <span class="n">uphill_in_zone</span><span class="p">:</span>
+</span><span id="__span-0-701"><a id="__codelineno-0-701" name="__codelineno-0-701"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">critical_branch</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">critical_branch</span><span class="p">)</span>
+</span><span id="__span-0-702"><a id="__codelineno-0-702" name="__codelineno-0-702"></a>        <span class="k">elif</span> <span class="n">include_external_borders</span><span class="p">:</span>
+</span><span id="__span-0-703"><a id="__codelineno-0-703" name="__codelineno-0-703"></a>            <span class="c1"># Include if ANY endpoint is in filtered zones</span>
+</span><span id="__span-0-704"><a id="__codelineno-0-704" name="__codelineno-0-704"></a>            <span class="k">if</span> <span class="n">downhill_in_zone</span> <span class="ow">or</span> <span class="n">uphill_in_zone</span><span class="p">:</span>
+</span><span id="__span-0-705"><a id="__codelineno-0-705" name="__codelineno-0-705"></a>                <span class="n">dataset</span><span class="o">.</span><span class="n">critical_branch</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">critical_branch</span><span class="p">)</span>
+</span><span id="__span-0-706"><a id="__codelineno-0-706" name="__codelineno-0-706"></a>
+</span><span id="__span-0-707"><a id="__codelineno-0-707" name="__codelineno-0-707"></a>    <span class="c1"># Filter orders</span>
+</span><span id="__span-0-708"><a id="__codelineno-0-708" name="__codelineno-0-708"></a>    <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">:</span>
+</span><span id="__span-0-709"><a id="__codelineno-0-709" name="__codelineno-0-709"></a>        <span class="k">if</span> <span class="p">(</span>
+</span><span id="__span-0-710"><a id="__codelineno-0-710" name="__codelineno-0-710"></a>            <span class="n">order</span><span class="o">.</span><span class="n">market_area</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-711"><a id="__codelineno-0-711" name="__codelineno-0-711"></a>            <span class="ow">and</span> <span class="n">order</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-712"><a id="__codelineno-0-712" name="__codelineno-0-712"></a>            <span class="ow">and</span> <span class="n">order</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span>
+</span><span id="__span-0-713"><a id="__codelineno-0-713" name="__codelineno-0-713"></a>        <span class="p">):</span>
+</span><span id="__span-0-714"><a id="__codelineno-0-714" name="__codelineno-0-714"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+</span><span id="__span-0-715"><a id="__codelineno-0-715" name="__codelineno-0-715"></a>
+</span><span id="__span-0-716"><a id="__codelineno-0-716" name="__codelineno-0-716"></a>    <span class="c1"># Filter order couplings</span>
+</span><span id="__span-0-717"><a id="__codelineno-0-717" name="__codelineno-0-717"></a>    <span class="c1"># Note: Includes coupling if ANY order in the coupling belongs to filtered zones</span>
+</span><span id="__span-0-718"><a id="__codelineno-0-718" name="__codelineno-0-718"></a>    <span class="k">for</span> <span class="n">order_coupling</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">order_coupling</span><span class="p">:</span>
+</span><span id="__span-0-719"><a id="__codelineno-0-719" name="__codelineno-0-719"></a>        <span class="k">if</span> <span class="n">order_coupling</span><span class="o">.</span><span class="n">orders</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-720"><a id="__codelineno-0-720" name="__codelineno-0-720"></a>            <span class="k">continue</span>
+</span><span id="__span-0-721"><a id="__codelineno-0-721" name="__codelineno-0-721"></a>
+</span><span id="__span-0-722"><a id="__codelineno-0-722" name="__codelineno-0-722"></a>        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+</span><span id="__span-0-723"><a id="__codelineno-0-723" name="__codelineno-0-723"></a>            <span class="n">coupled_order</span><span class="o">.</span><span class="n">market_area</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-724"><a id="__codelineno-0-724" name="__codelineno-0-724"></a>            <span class="ow">and</span> <span class="n">coupled_order</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-725"><a id="__codelineno-0-725" name="__codelineno-0-725"></a>            <span class="ow">and</span> <span class="n">coupled_order</span><span class="o">.</span><span class="n">market_area</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span>
+</span><span id="__span-0-726"><a id="__codelineno-0-726" name="__codelineno-0-726"></a>            <span class="k">for</span> <span class="n">coupled_order</span> <span class="ow">in</span> <span class="n">order_coupling</span><span class="o">.</span><span class="n">orders</span>
+</span><span id="__span-0-727"><a id="__codelineno-0-727" name="__codelineno-0-727"></a>        <span class="p">):</span>
+</span><span id="__span-0-728"><a id="__codelineno-0-728" name="__codelineno-0-728"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">order_coupling</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">order_coupling</span><span class="p">)</span>
+</span><span id="__span-0-729"><a id="__codelineno-0-729" name="__codelineno-0-729"></a>
+</span><span id="__span-0-730"><a id="__codelineno-0-730" name="__codelineno-0-730"></a>    <span class="c1"># Filter portfolios</span>
+</span><span id="__span-0-731"><a id="__codelineno-0-731" name="__codelineno-0-731"></a>    <span class="k">for</span> <span class="n">portfolio</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">portfolio</span><span class="p">:</span>
+</span><span id="__span-0-732"><a id="__codelineno-0-732" name="__codelineno-0-732"></a>        <span class="k">if</span> <span class="n">portfolio</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">portfolio</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span><span class="p">:</span>
+</span><span id="__span-0-733"><a id="__codelineno-0-733" name="__codelineno-0-733"></a>            <span class="n">dataset</span><span class="o">.</span><span class="n">portfolio</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">portfolio</span><span class="p">)</span>
+</span><span id="__span-0-734"><a id="__codelineno-0-734" name="__codelineno-0-734"></a>
+</span><span id="__span-0-735"><a id="__codelineno-0-735" name="__codelineno-0-735"></a>    <span class="c1"># Filter equipment (all types)</span>
+</span><span id="__span-0-736"><a id="__codelineno-0-736" name="__codelineno-0-736"></a>    <span class="k">for</span> <span class="n">equipment_type</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">EQUIPMENT_MODELS</span><span class="p">:</span>
+</span><span id="__span-0-737"><a id="__codelineno-0-737" name="__codelineno-0-737"></a>        <span class="n">equipments</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get_container_by_type</span><span class="p">(</span><span class="n">equipment_type</span><span class="p">)</span>
+</span><span id="__span-0-738"><a id="__codelineno-0-738" name="__codelineno-0-738"></a>        <span class="k">for</span> <span class="n">equipment</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_items_by_type</span><span class="p">(</span><span class="n">equipment_type</span><span class="p">):</span>
+</span><span id="__span-0-739"><a id="__codelineno-0-739" name="__codelineno-0-739"></a>            <span class="n">equipment_node</span><span class="p">:</span> <span class="n">Node</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Equipment</span><span class="p">,</span> <span class="n">equipment</span><span class="p">)</span><span class="o">.</span><span class="n">node</span>
+</span><span id="__span-0-740"><a id="__codelineno-0-740" name="__codelineno-0-740"></a>            <span class="k">if</span> <span class="p">(</span>
+</span><span id="__span-0-741"><a id="__codelineno-0-741" name="__codelineno-0-741"></a>                <span class="n">equipment_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-742"><a id="__codelineno-0-742" name="__codelineno-0-742"></a>                <span class="ow">and</span> <span class="n">equipment_node</span><span class="o">.</span><span class="n">control_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-0-743"><a id="__codelineno-0-743" name="__codelineno-0-743"></a>                <span class="ow">and</span> <span class="n">equipment_node</span><span class="o">.</span><span class="n">control_block</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">zone_set</span>
+</span><span id="__span-0-744"><a id="__codelineno-0-744" name="__codelineno-0-744"></a>            <span class="p">):</span>
+</span><span id="__span-0-745"><a id="__codelineno-0-745" name="__codelineno-0-745"></a>                <span class="n">equipments</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">equipment</span><span class="p">)</span>
+</span><span id="__span-0-746"><a id="__codelineno-0-746" name="__codelineno-0-746"></a>
+</span><span id="__span-0-747"><a id="__codelineno-0-747" name="__codelineno-0-747"></a>    <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
