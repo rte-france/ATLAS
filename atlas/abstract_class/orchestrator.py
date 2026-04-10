@@ -3,8 +3,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Generic
 
-from atlas.abstract_class.abstract_job import AbstractJob, J
-from atlas.abstract_class.abstract_orchestrator_parameters import PO
+from atlas.abstract_class.job import AbstractJob, J
+from atlas.abstract_class.orchestrator_parameters import PO
 from atlas.config import logger
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler

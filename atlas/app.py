@@ -7,7 +7,7 @@ import typer
 from rich import print as rprint
 
 import atlas
-from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.config import logger
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.orchestrator.current_input_state import CurrentInputState

@@ -9,7 +9,7 @@ from typing import Any, cast
 import pendulum
 from pydantic import BaseModel
 
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.dataset import AbstractDataset
 from atlas.config import logger
 from atlas.enums import CouplingType
 from atlas.io_utils.atlas_dataset import AtlasDataset

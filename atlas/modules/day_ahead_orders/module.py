@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from pendulum import Duration
 
 import atlas.config as cfg
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.lazy_matrix import LazyScenarioMatrix

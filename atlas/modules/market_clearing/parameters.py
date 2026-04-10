@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from pydantic import Field, field_validator
 
-from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.enums import Enum, Product
 from atlas.io_utils.parameters import SolverParameters
 
