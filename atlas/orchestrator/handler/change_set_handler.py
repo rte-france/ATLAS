@@ -58,14 +58,14 @@ class ChangeSetHandler:
 
         logger.debug(f"Adding new {change_set.model_type} object: {obj_name}")
 
-        # Create minimal object with just the name for validation
-        try:
-            obj = model_class.model_validate({"name": obj_name})
-        except ValidationError as e:
-            raise ValueError(f"Invalid name for {change_set.model_type} object '{obj_name}': {e}") from e
+        # Resolve references before creating the object (needed for required fields)
+        ChangeSetHandler._resolve_reference_static(data, cis, model_class)
 
-        ChangeSetHandler._resolve_reference(obj, data, cis)
-        ChangeSetHandler._fill_object(obj, data)
+        # Create object with all data after references are resolved
+        try:
+            obj = model_class.model_validate(data)
+        except ValidationError as e:
+            raise ValueError(f"Invalid data for {change_set.model_type} object '{obj_name}': {e}") from e
 
         # Add the object to the container
         container.add(obj)
@@ -107,6 +107,38 @@ class ChangeSetHandler:
         ChangeSetHandler._resolve_reference(obj, data, cis)
         ChangeSetHandler._fill_object(obj, data)
         logger.debug(f"Successfully updated {change_set.model_type} object: {obj_name}")
+
+    @staticmethod
+    def _resolve_reference_static(data: dict[str, Any], cis: CurrentInputState, model_class: type[BusinessModel]):
+        """Resolve BusinessModel references in data without needing an existing object instance."""
+        for key, value in data.items():
+            if key == "name":
+                continue  # do not update the name
+
+            if isinstance(value, BusinessModel):
+                # Already an instance, see if it exists in CIS
+                ref_container = cis.data.get_container_by_type(type(value))
+                try:
+                    existing = ref_container.get(value.name)
+                    data[key] = existing
+                except KeyError:
+                    raise ValueError(
+                        f"Trying to set '{model_class}' attribute '{key}' "
+                        f"with '{value.name}' but it is not present in CurrentInputState"
+                    ) from None
+
+            elif isinstance(value, str):
+                attr_type = get_type_attribute(cfg.INVERSE_MODEL_MAPPING_NAME[model_class], key)
+                if attr_type and isinstance(attr_type, type) and issubclass(attr_type, BusinessModel):
+                    ref_container = cis.data.get_container_by_type(attr_type)
+                    try:
+                        existing = ref_container.get(value)
+                        data[key] = existing
+                    except KeyError:
+                        raise ValueError(
+                            f"Trying to set '{model_class}' attribute '{key}' "
+                            f"with '{value}' but it is not present in CurrentInputState"
+                        ) from None
 
     @staticmethod
     def _resolve_reference(obj: BusinessModel, data: dict[str, Any], cis: CurrentInputState):

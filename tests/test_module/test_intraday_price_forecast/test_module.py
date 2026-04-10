@@ -16,6 +16,7 @@ from atlas.modules.intraday_price_forecast.models.wind import WindIDPF
 from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
 from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
+from atlas.objects.network.node import Node
 from atlas.timing import generate_datetimes
 
 
@@ -72,7 +73,17 @@ def test_market_area(test_parameters):
 
 
 @pytest.fixture
-def test_load(test_market_area, test_parameters):
+def test_node(test_market_area):
+    """Create a test node."""
+    return Node(
+        name="test_node",
+        control_block=test_market_area.control_block,
+        market_area=test_market_area,
+    )
+
+
+@pytest.fixture
+def test_load(test_market_area, test_node, test_parameters):
     """Create a test load."""
     start_date = test_parameters.temporal.start_date
     end_date = test_parameters.temporal.end_date
@@ -102,6 +113,7 @@ def test_load(test_market_area, test_parameters):
     load = LoadIDPF(
         name="test_load",
         load_type=LoadType.BASE_LOAD,
+        node=test_node,
         portfolio=portfolio,
         maximum_power_forecast=max_power_forecast,
         power_forecast_high=power_forecast_high,
@@ -111,7 +123,7 @@ def test_load(test_market_area, test_parameters):
 
 
 @pytest.fixture
-def test_solar(test_market_area, test_parameters):
+def test_solar(test_market_area, test_node, test_parameters):
     """Create a test solar unit."""
     start_date = test_parameters.temporal.start_date
     end_date = test_parameters.temporal.end_date
@@ -130,12 +142,12 @@ def test_solar(test_market_area, test_parameters):
     ts_id = Timeseries.from_index(start_date, timestep, end_date, default_value=-180.0)
     max_power_forecast.add(ts_id, exec_date_id)
 
-    solar = SolarIDPF(name="test_solar", portfolio=portfolio, maximum_power_forecast=max_power_forecast)
+    solar = SolarIDPF(name="test_solar", node=test_node, portfolio=portfolio, maximum_power_forecast=max_power_forecast)
     return solar
 
 
 @pytest.fixture
-def test_wind(test_market_area, test_parameters):
+def test_wind(test_market_area, test_node, test_parameters):
     """Create a test wind unit."""
     start_date = test_parameters.temporal.start_date
     end_date = test_parameters.temporal.end_date
@@ -154,7 +166,7 @@ def test_wind(test_market_area, test_parameters):
     ts_id = Timeseries.from_index(start_date, timestep, end_date, default_value=-280.0)
     max_power_forecast.add(ts_id, exec_date_id)
 
-    wind = WindIDPF(name="test_wind", portfolio=portfolio, maximum_power_forecast=max_power_forecast)
+    wind = WindIDPF(name="test_wind", node=test_node, portfolio=portfolio, maximum_power_forecast=max_power_forecast)
     return wind
 
 
