@@ -5,7 +5,7 @@ from typing import Any, ClassVar
 
 import atlas.config as cfg
 from atlas.enums import BusinessModelName
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 
 
 class ChangeSet(ABC):

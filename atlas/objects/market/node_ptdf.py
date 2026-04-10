@@ -8,26 +8,26 @@ from pydantic import field_serializer
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.models.business_model import BusinessModel
-from atlas.models.market.market_area import MarketArea
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.network.node import Node
 from atlas.validators import serializer_business_model
 
 
-class MarketAreaPtdf(BusinessModel):
+class NodePtdf(BusinessModel):
     """
-    :param market_area: Associated MarketArea
-    :type market_area: MarketArea
-    :param id_ptdf: Zonal PTDF (Power Transfer Distribution Factor) for Flow Based Intraday Market(s)
+    :param node: Associated Node
+    :type node: Node
+    :param id_ptdf: Nodal PTDF (Power Transfer Distribution Factor) for Flow Based Intraday Market(s)
     :type id_ptdf: ForecastingMatrix
-    :param da_ptdf: Zonal PTDF (Power Transfer Distribution Factor) for Flow Based Day-Ahead Market
-    :type da_ptdf: Timeseries
+    :param da_ptdf: Nodal PTDF (Power Transfer Distribution Factor) for Flow Based Day-Ahead Market
+    :type da_ptdf: ForecastingMatrix
     """
 
-    market_area: MarketArea | None = None
+    node: Node | None = None
     id_ptdf: ForecastingMatrix | LazyForecastingMatrix | None = None
     da_ptdf: AbstractTimeseries | None = None
 
-    @field_serializer("market_area", mode="plain")
+    @field_serializer("node", mode="plain")
     def serializer_bmo(self, value: BusinessModel | None) -> str | None:
         """Serialize BusinessModel attributes to string."""
         return serializer_business_model(value)

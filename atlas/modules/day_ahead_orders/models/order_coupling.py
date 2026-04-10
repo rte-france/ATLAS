@@ -6,8 +6,8 @@ This file is part of the ATLAS project.
 """
 
 from atlas.enums import CouplingType
-from atlas.models.market.order import Order
-from atlas.models.market.order_coupling import OrderCoupling
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
 
 
 class OrderCouplingDAO(OrderCoupling):

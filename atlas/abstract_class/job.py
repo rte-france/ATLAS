@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import Any, TypeVar
 
-from atlas import AtlasDataset
-from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.dataset import AbstractModuleOutput
+from atlas.abstract_class.module import AbstractModule
+from atlas.io_utils.atlas_dataset import AtlasDataset
 
 
 class AbstractJob:

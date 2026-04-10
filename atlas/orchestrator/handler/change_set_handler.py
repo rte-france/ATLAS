@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 import atlas.config as cfg
 from atlas.config import logger
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 from atlas.orchestrator.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.type import get_type_attribute

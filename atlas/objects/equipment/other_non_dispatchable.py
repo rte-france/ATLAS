@@ -6,7 +6,7 @@ This file is part of the ATLAS project.
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.models.equipment.equipment import Equipment
+from atlas.objects.equipment.equipment import Equipment
 
 
 class OtherNonDispatchable(Equipment):

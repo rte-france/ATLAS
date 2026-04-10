@@ -13,7 +13,7 @@ from loguru import logger
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset

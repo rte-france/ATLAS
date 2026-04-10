@@ -9,7 +9,7 @@ import pytest
 
 from atlas import MarketArea, Order
 from atlas.enums import BusinessModelName
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 from atlas.orchestrator.change_set import AddObject, ChangeSet, DeleteObject, UpdateObject
 
 

@@ -13,7 +13,6 @@ from atlas.enums import MarketType, StorageType, ThermalStrategy
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.equipment import Equipment
 from atlas.modules.portfolio_optimisation.models import EquipmentPO
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
 from atlas.modules.portfolio_optimisation.models.load import LoadPO
@@ -23,6 +22,7 @@ from atlas.modules.portfolio_optimisation.models.storage import StoragePO
 from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
 from atlas.modules.portfolio_optimisation.models.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
+from atlas.objects.equipment.equipment import Equipment
 
 
 def set_manual_activation(equipments: list[EquipmentPO], parameters: PortfolioOptimisationParameters):

@@ -9,17 +9,10 @@ from typing import Any, cast
 import pendulum
 from pydantic import BaseModel
 
-from atlas import AtlasDataset
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.dataset import AbstractDataset
 from atlas.config import logger
 from atlas.enums import CouplingType
-from atlas.models.control_block import ControlBlock
-from atlas.models.market.critical_branch import CriticalBranch
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.market_area_ptdf import MarketAreaPtdf
-from atlas.models.market.market_border import MarketBorder
-from atlas.models.market.order import Order
-from atlas.models.market.order_coupling import OrderCoupling
+from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.models.critical_branch import CriticalBranchMC
 from atlas.modules.market_clearing.models.market_area import MarketAreaMC
 from atlas.modules.market_clearing.models.market_area_ptdf import MarketAreaPtdfMC
@@ -27,6 +20,13 @@ from atlas.modules.market_clearing.models.market_border import MarketBorderMC
 from atlas.modules.market_clearing.models.order import OrderMC
 from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
+from atlas.objects.market.market_border import MarketBorder
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.timing import generate_datetimes
 
 

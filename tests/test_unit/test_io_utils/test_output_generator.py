@@ -10,9 +10,9 @@ from atlas.io_utils.output_writer import save_to_directory
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.equipment import Equipment
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
 
 
 @pytest.fixture
@@ -318,7 +318,7 @@ class TestOutputGeneratorToDirectory:
 
     def test_to_directory_csv_file_extension(self, temp_output_dir, simple_timeseries):
         """Test exporting timeseries with CSV file extension."""
-        from atlas.models.equipment.equipment import Equipment
+        from atlas.objects.equipment.equipment import Equipment
 
         equipment = Equipment(name="test_equipment", variable_cost=simple_timeseries)
 

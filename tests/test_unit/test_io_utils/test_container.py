@@ -1,7 +1,7 @@
 import pytest
 
 from atlas.io_utils.container import Container
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 
 
 class DummyBM(BusinessModel):

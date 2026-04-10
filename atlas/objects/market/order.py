@@ -8,10 +8,10 @@ from pydantic import field_serializer
 from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas.enums import OrderType, Product
-from atlas.models.business_model import BusinessModel
-from atlas.models.equipment.equipment import Equipment
-from atlas.models.market.market_area import MarketArea
-from atlas.models.portfolio import Portfolio
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.validators import serializer_business_model
 
 
