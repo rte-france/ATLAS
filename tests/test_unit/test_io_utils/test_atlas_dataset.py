@@ -24,7 +24,11 @@ from atlas.objects.equipment.solar import Solar
 from atlas.objects.equipment.storage import Storage
 from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.equipment.wind import Wind
+from atlas.objects.market.critical_branch import CriticalBranch
 from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
+from atlas.objects.market.market_border import MarketBorder
+from atlas.objects.market.node_ptdf import NodePtdf
 from atlas.objects.market.order import Order
 from atlas.objects.market.order_coupling import OrderCoupling
 from atlas.objects.market_operator.portfolio import Portfolio
@@ -976,3 +980,353 @@ def test_filter_does_not_modify_original_dataset():
 
     assert len(dataset.thermal) == 2  # original unchanged
     assert len(filtered.thermal) == 1
+
+
+class TestFilterZones:
+    """Test suite for the filter_zones method covering bug fixes and new features."""
+
+    @pytest.fixture
+    def multi_zone_dataset(self):
+        """Create a dataset with multiple zones and various interconnected objects."""
+        # Control blocks (zones)
+        cb_fr = ControlBlock(name="FR")
+        cb_de = ControlBlock(name="DE")
+        cb_be = ControlBlock(name="BE")
+
+        ma_fr = MarketArea(name="ma_FR", control_block=cb_fr)
+        ma_de = MarketArea(name="ma_DE", control_block=cb_de)
+        ma_be = MarketArea(name="ma_BE", control_block=cb_be)
+
+        node_fr1 = Node(name="node_FR1", control_block=cb_fr, market_area=ma_fr)
+        node_fr2 = Node(name="node_FR2", control_block=cb_fr, market_area=ma_fr)
+        node_de = Node(name="node_DE", control_block=cb_de, market_area=ma_de)
+        node_be = Node(name="node_BE", control_block=cb_be, market_area=ma_be)
+
+        border_fr_de = MarketBorder(
+            name="border_FR_DE",
+            uphill_control_block=cb_fr,
+            downhill_control_block=cb_de,
+        )
+        border_de_be = MarketBorder(
+            name="border_DE_BE",
+            uphill_control_block=cb_de,
+            downhill_control_block=cb_be,
+        )
+        border_fr_be = MarketBorder(
+            name="border_FR_BE",
+            uphill_control_block=cb_fr,
+            downhill_control_block=cb_be,
+        )
+
+        cb_fr_de = CriticalBranch(
+            name="cb_FR_DE",
+            uphill_node=node_fr1,
+            downhill_node=node_de,
+        )
+        cb_de_be = CriticalBranch(
+            name="cb_DE_BE",
+            uphill_node=node_de,
+            downhill_node=node_be,
+        )
+
+        portfolio_fr = Portfolio(name="portfolio_FR", control_block=cb_fr, market_area=ma_fr)
+        portfolio_de = Portfolio(name="portfolio_DE", control_block=cb_de, market_area=ma_de)
+
+        thermal_fr = Thermal(name="thermal_FR", node=node_fr1, portfolio=portfolio_fr)
+        hydro_fr = Hydro(name="hydro_FR", node=node_fr2, portfolio=portfolio_fr)
+        thermal_de = Thermal(name="thermal_DE", node=node_de, portfolio=portfolio_de)
+        solar_be = Solar(name="solar_BE", node=node_be)
+
+        order_fr = Order(name="order_FR", market_area=ma_fr, portfolio=portfolio_fr, price=50)
+        order_de = Order(name="order_DE", market_area=ma_de, portfolio=portfolio_de, price=60)
+
+        coupling_1 = OrderCoupling(
+            name="coupling_1",
+            orders=[order_fr, order_de],
+            coupling_type=CouplingType.COMPLEMENT,
+        )
+
+        dataset = AtlasDataset(
+            control_block=[cb_fr, cb_de, cb_be],
+            market_area=[ma_fr, ma_de, ma_be],
+            node=[node_fr1, node_fr2, node_de, node_be],
+            market_border=[border_fr_de, border_de_be, border_fr_be],
+            critical_branch=[cb_fr_de, cb_de_be],
+            portfolio=[portfolio_fr, portfolio_de],
+            thermal=[thermal_fr, thermal_de],
+            hydro=[hydro_fr],
+            solar=[solar_be],
+            order=[order_fr, order_de],
+            order_coupling=[coupling_1],
+        )
+
+        return dataset
+
+    def test_filter_single_zone_basic(self, multi_zone_dataset):
+        """Test filtering to a single zone includes correct objects."""
+        filtered = multi_zone_dataset.filter_zones(["FR"])
+
+        # Should include FR control block
+        assert len(filtered.control_block) == 1
+        assert "FR" in filtered.control_block
+
+        # Should include FR market area
+        assert len(filtered.market_area) == 1
+        assert "ma_FR" in filtered.market_area
+
+        # Should include FR nodes
+        assert len(filtered.node) == 2
+        assert "node_FR1" in filtered.node
+        assert "node_FR2" in filtered.node
+
+        # Should not include DE or BE nodes
+        assert "node_DE" not in filtered.node
+        assert "node_BE" not in filtered.node
+
+    def test_filter_zone_equipment_filtering(self, multi_zone_dataset):
+        """Test that equipment is correctly filtered based on node's control block."""
+        filtered = multi_zone_dataset.filter_zones(["FR"])
+
+        # Should include FR equipment
+        assert len(filtered.thermal) == 1
+        assert "thermal_FR" in filtered.thermal
+        assert len(filtered.hydro) == 1
+        assert "hydro_FR" in filtered.hydro
+
+        # Should not include DE or BE equipment
+        assert "thermal_DE" not in filtered.thermal
+        assert "solar_BE" not in filtered.solar
+
+    def test_filter_zone_portfolios(self, multi_zone_dataset):
+        """Test that portfolios are correctly filtered."""
+        filtered = multi_zone_dataset.filter_zones(["FR"])
+
+        assert len(filtered.portfolio) == 1
+        assert "portfolio_FR" in filtered.portfolio
+        assert "portfolio_DE" not in filtered.portfolio
+
+    def test_filter_zone_orders(self, multi_zone_dataset):
+        """Test that orders are correctly filtered by market area's control block."""
+        filtered = multi_zone_dataset.filter_zones(["FR"])
+
+        assert len(filtered.order) == 1
+        assert "order_FR" in filtered.order
+        assert "order_DE" not in filtered.order
+
+    def test_filter_zone_order_couplings(self, multi_zone_dataset):
+        """Test that order couplings are included if ANY order belongs to filtered zones."""
+        filtered = multi_zone_dataset.filter_zones(["FR"])
+
+        # Should include coupling because order_FR is in the coupling
+        assert len(filtered.order_coupling) == 1
+        assert "coupling_1" in filtered.order_coupling
+
+    def test_filter_zone_borders_default_both_endpoints(self, multi_zone_dataset):
+        """Test that borders are only included when BOTH endpoints are in filtered zones (default behavior)."""
+        filtered = multi_zone_dataset.filter_zones(["FR"])
+
+        # No borders should be included because no border has both endpoints in FR
+        assert len(filtered.market_border) == 0
+
+        # Filter for FR and DE
+        filtered_fr_de = multi_zone_dataset.filter_zones(["FR", "DE"])
+        assert len(filtered_fr_de.market_border) == 1
+        assert "border_FR_DE" in filtered_fr_de.market_border
+
+    def test_filter_zone_borders_include_external(self, multi_zone_dataset):
+        """Test that borders are included when ANY endpoint is in filtered zones with include_external_borders=True."""
+        filtered = multi_zone_dataset.filter_zones(["FR"], include_external_borders=True)
+
+        # Should include borders where FR is one endpoint
+        assert len(filtered.market_border) == 2
+        assert "border_FR_DE" in filtered.market_border
+        assert "border_FR_BE" in filtered.market_border
+        assert "border_DE_BE" not in filtered.market_border
+
+    def test_filter_zone_critical_branches_default(self, multi_zone_dataset):
+        """Test that critical branches follow same logic as borders by default."""
+        filtered = multi_zone_dataset.filter_zones(["FR"])
+
+        # No critical branches should be included with only FR
+        assert len(filtered.critical_branch) == 0
+
+        # Filter for FR and DE
+        filtered_fr_de = multi_zone_dataset.filter_zones(["FR", "DE"])
+        assert len(filtered_fr_de.critical_branch) == 1
+        assert "cb_FR_DE" in filtered_fr_de.critical_branch
+
+    def test_filter_zone_critical_branches_include_external(self, multi_zone_dataset):
+        """Test critical branches with include_external_borders=True."""
+        filtered = multi_zone_dataset.filter_zones(["FR"], include_external_borders=True)
+
+        # Should include critical branch where FR node is one endpoint
+        assert len(filtered.critical_branch) == 1
+        assert "cb_FR_DE" in filtered.critical_branch
+
+    def test_filter_zone_validation_nonexistent_zone(self, multi_zone_dataset):
+        """Test that ValueError is raised for non-existent control block names."""
+        with pytest.raises(ValueError, match="Control blocks not found in dataset"):
+            multi_zone_dataset.filter_zones(["NONEXISTENT"])
+
+        with pytest.raises(ValueError, match="Control blocks not found in dataset"):
+            multi_zone_dataset.filter_zones(["FR", "INVALID_ZONE"])
+
+    def test_filter_zone_multiple_zones(self, multi_zone_dataset):
+        """Test filtering with multiple zones."""
+        filtered = multi_zone_dataset.filter_zones(["FR", "DE"])
+
+        assert len(filtered.control_block) == 2
+        assert "FR" in filtered.control_block
+        assert "DE" in filtered.control_block
+        assert "BE" not in filtered.control_block
+
+        assert len(filtered.node) == 3
+        assert len(filtered.thermal) == 2
+        assert len(filtered.hydro) == 1
+
+    def test_filter_zone_returns_deep_copy(self, multi_zone_dataset):
+        """Test that filter_zones returns a deep copy and doesn't modify original."""
+        original_cb_count = len(multi_zone_dataset.control_block)
+        original_node_count = len(multi_zone_dataset.node)
+
+        filtered = multi_zone_dataset.filter_zones(["FR"])
+
+        # Original should be unchanged
+        assert len(multi_zone_dataset.control_block) == original_cb_count
+        assert len(multi_zone_dataset.node) == original_node_count
+
+        # Filtered should have fewer items
+        assert len(filtered.control_block) < original_cb_count
+        assert len(filtered.node) < original_node_count
+
+    def test_filter_zone_empty_list(self):
+        """Test filtering with empty control_block_names list."""
+        cb = ControlBlock(name="CB1")
+        node = Node(name="node1", control_block=cb)
+        dataset = AtlasDataset(control_block=[cb], node=[node])
+
+        filtered = dataset.filter_zones([])
+
+        # Should return empty dataset
+        assert len(filtered.control_block) == 0
+        assert len(filtered.node) == 0
+
+    def test_filter_zone_all_equipment_types(self):
+        """Test that all equipment types are correctly filtered."""
+        cb_zone1 = ControlBlock(name="ZONE1")
+        cb_zone2 = ControlBlock(name="ZONE2")
+        node1 = Node(name="node1", control_block=cb_zone1)
+        node2 = Node(name="node2", control_block=cb_zone2)
+
+        # Create one of each equipment type
+        thermal = Thermal(name="thermal1", node=node1)
+        hydro = Hydro(name="hydro1", node=node1)
+        solar = Solar(name="solar1", node=node1)
+        wind = Wind(name="wind1", node=node1)
+        storage = Storage(name="storage1", node=node1)
+        load = Load(name="load1", node=node1)
+
+        thermal2 = Thermal(name="thermal2", node=node2)
+        wind2 = Wind(name="wind2", node=node2)
+
+        dataset = AtlasDataset(
+            control_block=[cb_zone1, cb_zone2],
+            node=[node1, node2],
+            thermal=[thermal, thermal2],
+            hydro=[hydro],
+            solar=[solar],
+            wind=[wind, wind2],
+            storage=[storage],
+            load=[load],
+        )
+
+        filtered = dataset.filter_zones(["ZONE1"])
+
+        # Check ZONE1 equipment is included
+        assert len(filtered.thermal) == 1
+        assert "thermal1" in filtered.thermal
+        assert len(filtered.hydro) == 1
+        assert len(filtered.solar) == 1
+        assert len(filtered.wind) == 1
+        assert len(filtered.storage) == 1
+        assert len(filtered.load) == 1
+
+        # Check ZONE2 equipment is excluded
+        assert "thermal2" not in filtered.thermal
+        assert "wind2" not in filtered.wind
+
+    def test_filter_zone_market_area_ptdf(self):
+        """Test that market_area_ptdf objects are correctly filtered."""
+
+        cb = ControlBlock(name="CB1")
+        cb2 = ControlBlock(name="CB2")
+        ma = MarketArea(name="ma1", control_block=cb)
+        ma2 = MarketArea(name="ma2", control_block=cb2)
+
+        # Create a critical branch for the PTDFs
+        node1 = Node(name="node1", control_block=cb)
+        node2 = Node(name="node2", control_block=cb2)
+        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2)
+
+        ma_ptdf1 = MarketAreaPtdf(
+            name="ma_ptdf1",
+            market_area=ma,
+            critical_branch=critical_branch,
+            ptdf_value=0.5,
+        )
+        ma_ptdf2 = MarketAreaPtdf(
+            name="ma_ptdf2",
+            market_area=ma2,
+            critical_branch=critical_branch,
+            ptdf_value=0.3,
+        )
+
+        dataset = AtlasDataset(
+            control_block=[cb, cb2],
+            market_area=[ma, ma2],
+            node=[node1, node2],
+            critical_branch=[critical_branch],
+            market_area_ptdf=[ma_ptdf1, ma_ptdf2],
+        )
+
+        filtered = dataset.filter_zones(["CB1"])
+
+        assert len(filtered.market_area_ptdf) == 1
+        assert "ma_ptdf1" in filtered.market_area_ptdf
+        assert "ma_ptdf2" not in filtered.market_area_ptdf
+
+    def test_filter_zone_node_ptdf(self):
+        """Test that node_ptdf objects are correctly filtered."""
+
+        cb = ControlBlock(name="CB1")
+        cb2 = ControlBlock(name="CB2")
+        node1 = Node(name="node1", control_block=cb)
+        node2 = Node(name="node2", control_block=cb2)
+
+        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2)
+
+        node_ptdf1 = NodePtdf(
+            name="node_ptdf1",
+            node=node1,
+            critical_branch=critical_branch,
+            ptdf_value=0.7,
+        )
+        node_ptdf2 = NodePtdf(
+            name="node_ptdf2",
+            node=node2,
+            critical_branch=critical_branch,
+            ptdf_value=0.2,
+        )
+
+        dataset = AtlasDataset(
+            control_block=[cb, cb2],
+            node=[node1, node2],
+            critical_branch=[critical_branch],
+            node_ptdf=[node_ptdf1, node_ptdf2],
+        )
+
+        filtered = dataset.filter_zones(["CB1"])
+
+        assert len(filtered.node_ptdf) == 1
+        assert "node_ptdf1" in filtered.node_ptdf
+        assert "node_ptdf2" not in filtered.node_ptdf
