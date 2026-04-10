@@ -14,6 +14,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal, cast, get_origin
 
+import pendulum
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 import atlas.config as cfg
@@ -22,6 +23,9 @@ from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
 from atlas.io_utils.utils import diff_business_model
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.models.business_model import BusinessModel
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.equipment import Equipment
@@ -41,6 +45,7 @@ from atlas.models.market.order import Order
 from atlas.models.market.order_coupling import OrderCoupling
 from atlas.models.node import Node
 from atlas.models.portfolio import Portfolio
+from atlas.timing import get_duration
 
 
 class AtlasDataset(BaseModel):
@@ -745,3 +750,82 @@ class AtlasDataset(BaseModel):
                     equipments.add(equipment)
 
         return copy.deepcopy(dataset)
+
+    def set_frequency_all(
+        self,
+        frequency: str | pendulum.Duration,
+        inplace: bool = True,
+        object_types: Iterable[str | BusinessModelName] | None = None,
+    ) -> AtlasDataset:
+        """
+        Set the frequency of all timeseries and matrices in the dataset to a target frequency.
+
+        This method recursively inspects all business objects in the dataset and applies
+        the `set_frequency()` method to any timeseries or matrix attributes found.
+
+        :param frequency: Target frequency for all timeseries/matrices (e.g., "1h", Duration(hours=1))
+        :type frequency: str | pendulum.Duration
+        :param inplace: If True, modifies objects in place. If False, returns a deep copy with modified frequencies.
+        :type inplace: bool
+        :param object_types: Optional list of object types to process. If None, processes all types.
+        :type object_types: Iterable[str | BusinessModelName] | None
+        :return: The dataset with modified frequencies (self if inplace=True, copy otherwise)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> # Set all timeseries to 1 hour frequency
+            >>> dataset.set_frequency_all(Duration(hours=1))
+            >>>
+            >>> # Create a new dataset with 15-minute frequency for specific types
+            >>> new_dataset = dataset.set_frequency_all("15m", inplace=False, object_types=["hydro", "wind"])
+        """
+        target_frequency = get_duration(frequency)
+
+        # Determine which object types to process
+        types_to_process = (
+            [obj_type.value if isinstance(obj_type, BusinessModelName) else obj_type for obj_type in object_types]
+            if object_types
+            else list(cfg.MODEL_ORDER_INSTANTIATION)
+        )
+
+        dataset = self if inplace else copy.deepcopy(self)
+
+        for object_type in types_to_process:
+            if object_type not in cfg.MODEL_MAPPING_NAME:
+                cfg.logger.warning(f"Skipping unknown object type: {object_type}")
+                continue
+
+            container: Container = dataset.get_container_by_type(object_type)
+
+            for business_object in container:
+                dataset._set_frequency_on_object(business_object, target_frequency)
+
+        return dataset
+
+    def _set_frequency_on_object(self, obj: BusinessModel, target_frequency: pendulum.Duration) -> None:
+        """
+        Set frequency on all timeseries/matrix attributes of a single business object.
+
+        :param obj: Business object to process
+        :type obj: BusinessModel
+        :param target_frequency: Target frequency to apply
+        :type target_frequency: pendulum.Duration
+        """
+        # Iterate over all pydantic model fields
+        for field_name in obj.__class__.model_fields.keys():
+            attr_value = getattr(obj, field_name, None)
+
+            if attr_value is None:
+                continue
+
+            # Check if the attribute is a timeseries or matrix type
+            if isinstance(
+                attr_value,
+                AbstractTimeseries | AbstractScenarioMatrix | ForecastingMatrix | LazyForecastingMatrix,
+            ):
+                try:
+                    # Apply set_frequency and update the attribute
+                    updated_value = attr_value.set_frequency(target_frequency, inplace=True)
+                    setattr(obj, field_name, updated_value)
+                except Exception as e:
+                    cfg.logger.warning(f"Failed to set frequency on {obj.name}.{field_name}: {e!s}")
