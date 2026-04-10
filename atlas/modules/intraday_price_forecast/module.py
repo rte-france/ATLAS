@@ -5,7 +5,7 @@ from loguru import logger
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix

@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any, Generic
 
 import atlas.config as cfg
-from atlas.abstract_class.abstract_dataset import ID, OD
-from atlas.abstract_class.abstract_parameters import P
+from atlas.abstract_class.dataset import ID, OD
+from atlas.abstract_class.parameters import P
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 

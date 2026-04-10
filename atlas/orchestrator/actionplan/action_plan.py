@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.abstract_class.abstract_orchestrator import AbstractOrchestrator
+from atlas.abstract_class.dataset import AbstractDataset
+from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.actionplan.job import ActionPlanJob
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
 from atlas.orchestrator.current_input_state import CurrentInputState

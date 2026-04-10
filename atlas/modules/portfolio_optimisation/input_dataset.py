@@ -9,7 +9,7 @@ from itertools import groupby
 
 from pendulum import DateTime
 
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.dataset import AbstractDataset
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.models.hydro import HydroPO

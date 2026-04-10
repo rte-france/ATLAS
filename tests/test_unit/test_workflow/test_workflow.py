@@ -13,8 +13,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.job import WorkflowJob
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
 
 

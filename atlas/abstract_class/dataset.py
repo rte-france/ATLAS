@@ -9,7 +9,7 @@ Module that implements AbstractDataset
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
-from atlas.abstract_class.abstract_parameters import P
+from atlas.abstract_class.parameters import P
 from atlas.orchestrator.change_set import ChangeSet
 
 

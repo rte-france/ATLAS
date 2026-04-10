@@ -5,7 +5,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries

@@ -3,7 +3,7 @@ from functools import cached_property
 from pydantic import Field
 from pydantic_extra_types.pendulum_dt import DateTime
 
-from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
+from atlas.abstract_class.parameters import AbstractModuleParameters
 
 
 class IntradayPriceForecastParameters(AbstractModuleParameters):

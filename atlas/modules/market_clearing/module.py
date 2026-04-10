@@ -4,7 +4,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.output_dataset import MarketClearingOutputDataset
