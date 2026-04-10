@@ -55,8 +55,7 @@ def convert_hydro_units(
         if area.hydro.get_maxpower().abs().max() == 0:
             logger.debug(f"Skipping hydraulic unit for area {area.id} (max power is 0)")
             continue
-        if area_name in hydro_reservoirs and hydro_reservoirs[area_name].get("ReservoirCapacity", 0) == 0:
-            # area.hydro.properties.reservoir_capacity TODO
+        if area_name in hydro_reservoirs and area.hydro.properties.reservoir_capacity == 0:
             logger.debug(f"Skipping hydraulic unit for area {area.id} (reservoir capacity is 0)")
             continue
 

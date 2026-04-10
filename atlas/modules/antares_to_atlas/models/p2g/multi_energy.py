@@ -3,6 +3,7 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from antares.craft import ClusterData
 from antares.craft.model.study import Study
 from loguru import logger
 
@@ -113,12 +114,16 @@ def _get_yields_from_binding_constraint(study: Study, bc_name: str) -> dict[str,
         return {}
 
     try:
+        yields: dict[str, float] = {}
         bc.get_terms()
         for term in bc.get_terms().values():
             data = term.data
-            if (isinstance(data, ClusterData)) # ou LinkData TODO
-        logger.debug(f"TODO: Extract cluster list and weights from binding constraint {bc_name}")
-        return {}  # TODO
+            if isinstance(data, ClusterData):
+                yields[data.cluster] = term.weight
+            else:
+                continue
+
+        return yields
 
     except Exception as e:
         logger.warning(f"Could not get yields from binding constraint {bc_name}: {e}")

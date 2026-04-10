@@ -106,9 +106,7 @@ def _convert_dsr_fr(
         if bc_name:
             bc = binding_constraints.get(bc_name, None)
             if bc is not None:
-                maximum_daily_energy = Timeseries(
-                    bc.get_less_term_matrix()
-                )  # TODO antares_input_marker.BindingConstraint.GetInstanceByName("cluster_name").LessThan
+                maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
 
         thermal_name = dsr_config["thermal_name"]
         if thermal_name not in thermals:
@@ -163,9 +161,7 @@ def _convert_dsr_other_country(
     bc = binding_constraints.get(bc_name, None)
 
     if bc is not None:
-        maximum_daily_energy = Timeseries(
-            bc.get_less_term_matrix()
-        )  # TODO antares_input_marker.BindingConstraint.GetInstanceByName("cluster_name").LessThan
+        maximum_daily_energy = Timeseries(bc.get_less_term_matrix())
 
     thermal_name = f"{area.id}_{area.upper()}_DSR_0"
 
