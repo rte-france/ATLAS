@@ -1330,3 +1330,282 @@ class TestFilterZones:
         assert len(filtered.node_ptdf) == 1
         assert "node_ptdf1" in filtered.node_ptdf
         assert "node_ptdf2" not in filtered.node_ptdf
+
+
+class TestSetFrequencyAll:
+    """Test suite for the set_frequency_all method."""
+
+    def test_set_frequency_all_basic_timeseries(self):
+        """Test that set_frequency_all changes frequency of basic timeseries."""
+        # Create timeseries with 1h frequency
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0, 400.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Verify initial frequency is 1h
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(hours=1)
+
+        # Change to 30 minutes
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True)
+
+        # Verify frequency changed to 30m
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+
+    def test_set_frequency_all_forecasting_matrix(self):
+        """Test that set_frequency_all works with forecasting matrices."""
+        # Create forecasting matrix with 1h frequency
+        matrix = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 3),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [1.0, 2.0, 3.0, 4.0],
+                }
+            ),
+            date_format="YYYY-MM-DD HH:mm:ss",
+        )
+
+        hydro = Hydro(name="hydro1", stored_energy=matrix)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Change frequency to 2h
+        dataset.set_frequency_all(Duration(hours=2), inplace=True)
+
+        # Verify the matrix frequency changed
+        # The matrix should now have fewer rows (upsampled to 2h)
+        updated_matrix = dataset.hydro.get("hydro1").stored_energy
+        assert len(updated_matrix.matrix) == 2  # 4 hours / 2h intervals = 2 rows
+
+    def test_set_frequency_all_multiple_equipment_types(self):
+        """Test that set_frequency_all works across multiple equipment types."""
+        ts1 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[10.0, 20.0, 30.0],
+            timezone="UTC",
+        )
+        ts2 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=ts1)
+        thermal = Thermal(name="thermal1", variable_cost=ts2)
+
+        dataset = AtlasDataset(hydro=[hydro], thermal=[thermal])
+
+        # Change to 15 minutes
+        dataset.set_frequency_all(Duration(minutes=15), inplace=True)
+
+        # Verify both equipment types have updated frequencies
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=15)
+        assert dataset.thermal.get("thermal1").variable_cost.timestep == Duration(minutes=15)
+
+    def test_set_frequency_all_inplace_false(self):
+        """Test that set_frequency_all with inplace=False returns a new dataset."""
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows)
+        original_dataset = AtlasDataset(hydro=[hydro])
+
+        # Create a new dataset with different frequency
+        new_dataset = original_dataset.set_frequency_all(Duration(minutes=30), inplace=False)
+
+        # Verify original dataset is unchanged
+        assert original_dataset.hydro.get("hydro1").inflows.timestep == Duration(hours=1)
+
+        # Verify new dataset has updated frequency
+        assert new_dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+
+    def test_set_frequency_all_with_object_types_filter(self):
+        """Test that set_frequency_all can filter specific object types."""
+        ts_hydro = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[10.0, 20.0, 30.0],
+            timezone="UTC",
+        )
+        ts_thermal = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=ts_hydro)
+        thermal = Thermal(name="thermal1", maximum_power=ts_thermal)
+
+        dataset = AtlasDataset(hydro=[hydro], thermal=[thermal])
+
+        # Only change frequency for hydro
+        dataset.set_frequency_all(Duration(minutes=15), inplace=True, object_types=["hydro"])
+
+        # Verify only hydro frequency changed
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=15)
+        # Thermal should remain at 1h
+        assert dataset.thermal.get("thermal1").maximum_power.timestep == Duration(hours=1)
+
+    def test_set_frequency_all_with_string_frequency(self):
+        """Test that set_frequency_all accepts string frequency."""
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Use string frequency
+        dataset.set_frequency_all("30m", inplace=True)
+
+        # Verify frequency changed
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+
+    def test_set_frequency_all_empty_dataset(self):
+        """Test that set_frequency_all works on empty dataset without errors."""
+        dataset = AtlasDataset()
+
+        # Should not raise any error
+        dataset.set_frequency_all(Duration(hours=1), inplace=True)
+
+        assert len(dataset) == 0
+
+    def test_set_frequency_all_objects_without_timeseries(self):
+        """Test that set_frequency_all handles objects without timeseries gracefully."""
+        # Create objects without any timeseries attributes
+        node = Node(name="node1")
+        cb = ControlBlock(name="cb1")
+
+        dataset = AtlasDataset(node=[node], control_block=[cb])
+
+        # Should not raise any error
+        dataset.set_frequency_all(Duration(hours=1), inplace=True)
+
+        # Objects should still exist
+        assert len(dataset.node) == 1
+        assert len(dataset.control_block) == 1
+
+    def test_set_frequency_all_mixed_objects(self):
+        """Test with mix of objects with and without timeseries."""
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows)
+        node = Node(name="node1")
+        cb = ControlBlock(name="cb1")
+
+        dataset = AtlasDataset(hydro=[hydro], node=[node], control_block=[cb])
+
+        dataset.set_frequency_all(Duration(minutes=15), inplace=True)
+
+        # Verify only hydro's timeseries changed
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=15)
+        # Other objects should be unchanged
+        assert len(dataset.node) == 1
+        assert len(dataset.control_block) == 1
+
+    def test_set_frequency_all_downsampling(self):
+        """Test downsampling (reducing frequency - fewer data points)."""
+        # Create timeseries with 15min frequency (high frequency)
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="15m",
+            values=[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Store original length before modification
+        original_length = len(inflows)
+
+        # Downsample to 1h (lower frequency - fewer points)
+        dataset.set_frequency_all(Duration(hours=1), inplace=True)
+
+        updated_inflows = dataset.hydro.get("hydro1").inflows
+        assert updated_inflows.timestep == Duration(hours=1)
+        # Should have fewer points now (aggregated)
+        assert len(updated_inflows) < original_length
+
+    def test_set_frequency_all_upsampling(self):
+        """Test upsampling (increasing frequency - more data points)."""
+        # Create timeseries with 1h frequency (low frequency)
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Store original length before modification
+        original_length = len(inflows)
+
+        # Upsample to 15min (higher frequency - more points)
+        dataset.set_frequency_all(Duration(minutes=15), inplace=True)
+
+        updated_inflows = dataset.hydro.get("hydro1").inflows
+        assert updated_inflows.timestep == Duration(minutes=15)
+        # Should have more points now (interpolated)
+        assert len(updated_inflows) > original_length
+
+    def test_set_frequency_all_multiple_attributes_per_object(self):
+        """Test object with multiple timeseries attributes."""
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        matrix = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [1.0, 2.0, 3.0],
+                }
+            )
+        )
+
+        # Hydro has both inflows (Timeseries) and stored_energy (ForecastingMatrix)
+        hydro = Hydro(name="hydro1", inflows=inflows, stored_energy=matrix)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True)
+
+        # Verify both attributes changed
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+        # Matrix should also be resampled
+        updated_matrix = dataset.hydro.get("hydro1").stored_energy
+        assert len(updated_matrix.matrix) > 3  # Should have more rows after upsampling
