@@ -17,6 +17,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 from atlas.io_utils.utils import diff_business_model, diff_lists, diff_on_other_than_business_model
 from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.models.control_block import ControlBlock
 from atlas.models.equipment.hydro import Hydro
@@ -1609,3 +1610,207 @@ class TestSetFrequencyAll:
         # Matrix should also be resampled
         updated_matrix = dataset.hydro.get("hydro1").stored_energy
         assert len(updated_matrix.matrix) > 3  # Should have more rows after upsampling
+
+    def test_set_frequency_all_scenario_matrix(self):
+        """Test that set_frequency_all works with ScenarioMatrix."""
+        # Create a ScenarioMatrix with 1h frequency
+        scenario_matrix = ScenarioMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 3),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "scenario1": [10.0, 20.0, 30.0, 40.0],
+                    "scenario2": [15.0, 25.0, 35.0, 45.0],
+                }
+            )
+        )
+
+        # Use state_sequence which accepts ScenarioMatrix
+        thermal = Thermal(name="thermal1", state_sequence=scenario_matrix)
+        dataset = AtlasDataset(thermal=[thermal])
+
+        # Verify initial frequency
+        original_length = len(scenario_matrix.matrix)
+        assert original_length == 4
+
+        # Change to 2h frequency (downsampling)
+        dataset.set_frequency_all(Duration(hours=2), inplace=True)
+
+        # Verify the matrix frequency changed
+        updated_matrix = dataset.thermal.get("thermal1").state_sequence
+        assert len(updated_matrix.matrix) < original_length  # Should have fewer rows
+
+    def test_set_frequency_all_scenario_matrix_upsampling(self):
+        """Test upsampling with ScenarioMatrix."""
+        # Create a ScenarioMatrix with 1h frequency
+        scenario_matrix = ScenarioMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "scenario1": [100.0, 200.0, 300.0],
+                    "scenario2": [150.0, 250.0, 350.0],
+                }
+            )
+        )
+
+        thermal = Thermal(name="thermal1", state_sequence=scenario_matrix)
+        dataset = AtlasDataset(thermal=[thermal])
+
+        # Store original length
+        original_length = len(scenario_matrix.matrix)
+        assert original_length == 3
+
+        # Upsample to 30min (higher frequency - more points)
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True)
+
+        # Verify the matrix has more rows
+        updated_matrix = dataset.thermal.get("thermal1").state_sequence
+        assert len(updated_matrix.matrix) > original_length
+
+    def test_set_frequency_all_mixed_timeseries_and_matrices(self):
+        """Test with equipment having both timeseries and matrices."""
+        # Create timeseries
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[10.0, 20.0, 30.0, 40.0],
+            timezone="UTC",
+        )
+
+        # Create ForecastingMatrix
+        forecasting_matrix = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 3),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [1.0, 2.0, 3.0, 4.0],
+                }
+            )
+        )
+
+        # Create ScenarioMatrix
+        scenario_matrix = ScenarioMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 3),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "scenario1": [100.0, 200.0, 300.0, 400.0],
+                }
+            )
+        )
+
+        # Create thermal with state_sequence (ScenarioMatrix)
+        thermal = Thermal(name="thermal1", state_sequence=scenario_matrix, maximum_power=inflows)
+
+        # Create hydro with inflows (Timeseries) and stored_energy (ForecastingMatrix)
+        hydro = Hydro(name="hydro1", inflows=inflows, stored_energy=forecasting_matrix)
+
+        dataset = AtlasDataset(thermal=[thermal], hydro=[hydro])
+
+        # Change to 30min frequency
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True)
+
+        # Verify all three types of math objects changed
+        # 1. Timeseries (inflows and maximum_power)
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+        assert dataset.thermal.get("thermal1").maximum_power.timestep == Duration(minutes=30)
+
+        # 2. ForecastingMatrix (stored_energy)
+        updated_forecasting = dataset.hydro.get("hydro1").stored_energy
+        assert len(updated_forecasting.matrix) > 4  # Should have more rows after upsampling
+
+        # 3. ScenarioMatrix (state_sequence)
+        updated_scenario = dataset.thermal.get("thermal1").state_sequence
+        assert len(updated_scenario.matrix) > 4  # Should have more rows after upsampling
+
+    def test_set_frequency_all_forecasting_matrix_with_multiple_scenarios(self):
+        """Test ForecastingMatrix with multiple forecast scenarios."""
+        # Create a ForecastingMatrix with multiple forecast dates
+        forecasting_matrix = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [10.0, 20.0, 30.0],
+                    "2024-01-01 06:00:00": [15.0, 25.0, 35.0],
+                }
+            )
+        )
+
+        hydro = Hydro(name="hydro1", stored_energy=forecasting_matrix)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        original_length = len(forecasting_matrix.matrix)
+
+        # Downsample to 2h
+        dataset.set_frequency_all(Duration(hours=2), inplace=True)
+
+        # Verify the matrix was resampled
+        updated_matrix = dataset.hydro.get("hydro1").stored_energy
+        assert len(updated_matrix.matrix) < original_length
+
+    def test_set_frequency_all_matrices_with_object_types_filter(self):
+        """Test that object_types filter works correctly with matrices."""
+        # Create matrices for different equipment types
+        matrix_hydro = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [10.0, 20.0, 30.0],
+                }
+            )
+        )
+
+        matrix_thermal = ScenarioMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "scenario1": [100.0, 200.0, 300.0],
+                }
+            )
+        )
+
+        hydro = Hydro(name="hydro1", stored_energy=matrix_hydro)
+        thermal = Thermal(name="thermal1", state_sequence=matrix_thermal)
+
+        dataset = AtlasDataset(hydro=[hydro], thermal=[thermal])
+
+        # Only change frequency for hydro
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True, object_types=["hydro"])
+
+        # Verify only hydro matrix changed (more rows after upsampling)
+        assert len(dataset.hydro.get("hydro1").stored_energy.matrix) > 3
+
+        # Thermal should remain at 1h (3 rows)
+        assert len(dataset.thermal.get("thermal1").state_sequence.matrix) == 3
