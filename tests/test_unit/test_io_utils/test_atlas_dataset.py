@@ -1140,36 +1140,47 @@ class TestFilterZones:
             name="border_FR_DE",
             uphill_control_block=cb_fr,
             downhill_control_block=cb_de,
+            uphill_market_area=ma_fr,
+            downhill_market_area=ma_de,
         )
         border_de_be = MarketBorder(
             name="border_DE_BE",
             uphill_control_block=cb_de,
             downhill_control_block=cb_be,
+            uphill_market_area=ma_de,
+            downhill_market_area=ma_be,
         )
         border_fr_be = MarketBorder(
             name="border_FR_BE",
             uphill_control_block=cb_fr,
             downhill_control_block=cb_be,
+            uphill_market_area=ma_fr,
+            downhill_market_area=ma_be,
         )
 
         cb_fr_de = CriticalBranch(
             name="cb_FR_DE",
             uphill_node=node_fr1,
             downhill_node=node_de,
+            market_area_ptdf=[],
+            node_ptdf=[],
         )
         cb_de_be = CriticalBranch(
             name="cb_DE_BE",
             uphill_node=node_de,
             downhill_node=node_be,
+            market_area_ptdf=[],
+            node_ptdf=[],
         )
 
         portfolio_fr = Portfolio(name="portfolio_FR", control_block=cb_fr, market_area=ma_fr)
         portfolio_de = Portfolio(name="portfolio_DE", control_block=cb_de, market_area=ma_de)
+        portfolio_be = Portfolio(name="portfolio_BE", control_block=cb_be, market_area=ma_be)
 
         thermal_fr = Thermal(name="thermal_FR", node=node_fr1, portfolio=portfolio_fr)
         hydro_fr = Hydro(name="hydro_FR", node=node_fr2, portfolio=portfolio_fr)
         thermal_de = Thermal(name="thermal_DE", node=node_de, portfolio=portfolio_de)
-        solar_be = Solar(name="solar_BE", node=node_be)
+        solar_be = Solar(name="solar_BE", node=node_be, portfolio=portfolio_be)
 
         order_fr = Order(name="order_FR", market_area=ma_fr, portfolio=portfolio_fr, price=50)
         order_de = Order(name="order_DE", market_area=ma_de, portfolio=portfolio_de, price=60)
@@ -1186,7 +1197,7 @@ class TestFilterZones:
             node=[node_fr1, node_fr2, node_de, node_be],
             market_border=[border_fr_de, border_de_be, border_fr_be],
             critical_branch=[cb_fr_de, cb_de_be],
-            portfolio=[portfolio_fr, portfolio_de],
+            portfolio=[portfolio_fr, portfolio_de, portfolio_be],
             thermal=[thermal_fr, thermal_de],
             hydro=[hydro_fr],
             solar=[solar_be],
@@ -1336,8 +1347,9 @@ class TestFilterZones:
     def test_filter_zone_empty_list(self):
         """Test filtering with empty control_block_names list."""
         cb = ControlBlock(name="CB1")
-        node = Node(name="node1", control_block=cb)
-        dataset = AtlasDataset(control_block=[cb], node=[node])
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        dataset = AtlasDataset(control_block=[cb], market_area=[ma], node=[node])
 
         filtered = dataset.filter_zones([])
 
@@ -1349,23 +1361,29 @@ class TestFilterZones:
         """Test that all equipment types are correctly filtered."""
         cb_zone1 = ControlBlock(name="ZONE1")
         cb_zone2 = ControlBlock(name="ZONE2")
-        node1 = Node(name="node1", control_block=cb_zone1)
-        node2 = Node(name="node2", control_block=cb_zone2)
+        ma_zone1 = MarketArea(name="ma_zone1", control_block=cb_zone1)
+        ma_zone2 = MarketArea(name="ma_zone2", control_block=cb_zone2)
+        node1 = Node(name="node1", control_block=cb_zone1, market_area=ma_zone1)
+        node2 = Node(name="node2", control_block=cb_zone2, market_area=ma_zone2)
+        portfolio1 = Portfolio(name="portfolio1", control_block=cb_zone1, market_area=ma_zone1)
+        portfolio2 = Portfolio(name="portfolio2", control_block=cb_zone2, market_area=ma_zone2)
 
         # Create one of each equipment type
-        thermal = Thermal(name="thermal1", node=node1)
-        hydro = Hydro(name="hydro1", node=node1)
-        solar = Solar(name="solar1", node=node1)
-        wind = Wind(name="wind1", node=node1)
-        storage = Storage(name="storage1", node=node1)
-        load = Load(name="load1", node=node1)
+        thermal = Thermal(name="thermal1", node=node1, portfolio=portfolio1)
+        hydro = Hydro(name="hydro1", node=node1, portfolio=portfolio1)
+        solar = Solar(name="solar1", node=node1, portfolio=portfolio1)
+        wind = Wind(name="wind1", node=node1, portfolio=portfolio1)
+        storage = Storage(name="storage1", node=node1, portfolio=portfolio1)
+        load = Load(name="load1", node=node1, portfolio=portfolio1)
 
-        thermal2 = Thermal(name="thermal2", node=node2)
-        wind2 = Wind(name="wind2", node=node2)
+        thermal2 = Thermal(name="thermal2", node=node2, portfolio=portfolio2)
+        wind2 = Wind(name="wind2", node=node2, portfolio=portfolio2)
 
         dataset = AtlasDataset(
             control_block=[cb_zone1, cb_zone2],
+            market_area=[ma_zone1, ma_zone2],
             node=[node1, node2],
+            portfolio=[portfolio1, portfolio2],
             thermal=[thermal, thermal2],
             hydro=[hydro],
             solar=[solar],
@@ -1398,9 +1416,9 @@ class TestFilterZones:
         ma2 = MarketArea(name="ma2", control_block=cb2)
 
         # Create a critical branch for the PTDFs
-        node1 = Node(name="node1", control_block=cb)
-        node2 = Node(name="node2", control_block=cb2)
-        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2)
+        node1 = Node(name="node1", control_block=cb, market_area=ma)
+        node2 = Node(name="node2", control_block=cb2, market_area=ma2)
+        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2, market_area_ptdf=[], node_ptdf=[])
 
         ma_ptdf1 = MarketAreaPtdf(
             name="ma_ptdf1",
@@ -1434,10 +1452,12 @@ class TestFilterZones:
 
         cb = ControlBlock(name="CB1")
         cb2 = ControlBlock(name="CB2")
-        node1 = Node(name="node1", control_block=cb)
-        node2 = Node(name="node2", control_block=cb2)
+        ma = MarketArea(name="ma1", control_block=cb)
+        ma2 = MarketArea(name="ma2", control_block=cb2)
+        node1 = Node(name="node1", control_block=cb, market_area=ma)
+        node2 = Node(name="node2", control_block=cb2, market_area=ma2)
 
-        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2)
+        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2, market_area_ptdf=[], node_ptdf=[])
 
         node_ptdf1 = NodePtdf(
             name="node_ptdf1",
