@@ -3,8 +3,10 @@ from pendulum import duration
 
 from atlas.objects.business_model import BusinessModel
 from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.validators import (
     convert_to_duration,
     serializer_business_model,
@@ -159,9 +161,11 @@ def test_serializer_list_business_model_invalid():
 def test_field_serializer_integration():
     """Test that field serializers work correctly with model_dump(mode='json')."""
 
-    # Create test instances
-    node = Node(name="test_node")
-    portfolio = Portfolio(name="test_portfolio")
+    # Create test instances with required nested objects
+    control_block = ControlBlock(name="test_cb")
+    market_area = MarketArea(name="test_ma", control_block=control_block)
+    node = Node(name="test_node", control_block=control_block, market_area=market_area)
+    portfolio = Portfolio(name="test_portfolio", control_block=control_block, market_area=market_area)
 
     equipment = Equipment(
         name="test_equipment",
@@ -176,8 +180,3 @@ def test_field_serializer_integration():
     assert dumped["node"] == "test_node"
     assert dumped["portfolio"] == "test_portfolio"
     assert dumped["co2_emission_factor"] == 0.5
-
-    equipment_no_node = Equipment(name="test_no_node", node=None, portfolio=None)
-    dumped_no_node = equipment_no_node.model_dump(mode="json")
-    assert dumped_no_node["node"] is None
-    assert dumped_no_node["portfolio"] is None

@@ -23,7 +23,7 @@ class MarketAreaPtdf(BusinessModel):
     :type da_ptdf: Timeseries
     """
 
-    market_area: MarketArea | None = None
+    market_area: MarketArea
     id_ptdf: ForecastingMatrix | LazyForecastingMatrix | None = None
     da_ptdf: AbstractTimeseries | None = None
 

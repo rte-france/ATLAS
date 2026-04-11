@@ -11,8 +11,10 @@ from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
 
 
 @pytest.fixture
@@ -75,14 +77,38 @@ def simple_scenario_matrix():
     return ScenarioMatrix(matrix=df)
 
 
+@pytest.fixture
+def test_control_block():
+    """Create a test ControlBlock."""
+    return ControlBlock(name="cb_test")
+
+
+@pytest.fixture
+def test_market_area(test_control_block):
+    """Create a test MarketArea."""
+    return MarketArea(name="ma_test", control_block=test_control_block)
+
+
+@pytest.fixture
+def test_node(test_control_block, test_market_area):
+    """Create a test Node."""
+    return Node(name="node_test", control_block=test_control_block, market_area=test_market_area)
+
+
+@pytest.fixture
+def test_portfolio(test_control_block, test_market_area):
+    """Create a test Portfolio."""
+    return Portfolio(name="portfolio_test", control_block=test_control_block, market_area=test_market_area)
+
+
 class TestOutputGeneratorToDirectory:
     """Test the to_directory method of save_to_directory."""
 
-    def test_to_directory_simple_objects(self, temp_output_dir):
+    def test_to_directory_simple_objects(self, temp_output_dir, test_control_block, test_market_area):
         """Test exporting simple BusinessModel objects without math fields."""
         # Create simple business models
-        node1 = Node(name="node_1")
-        node2 = Node(name="node_2")
+        node1 = Node(name="node_1", control_block=test_control_block, market_area=test_market_area)
+        node2 = Node(name="node_2", control_block=test_control_block, market_area=test_market_area)
 
         dataset = {"node": [node1, node2]}
 
@@ -105,15 +131,15 @@ class TestOutputGeneratorToDirectory:
         assert "node_1" in lines[1]
         assert "node_2" in lines[2]
 
-    def test_to_directory_with_none_values(self, temp_output_dir):
+    def test_to_directory_with_none_values(self, temp_output_dir, test_node, test_portfolio):
         """Test that None values are exported as empty strings in CSV."""
 
-        # Create equipment with some None values
+        # Create equipment with some None values for optional fields
         equipment = Equipment(
             name="test_equipment",
-            node=None,
-            portfolio=None,
-            co2_emission_factor=None,
+            node=test_node,
+            portfolio=test_portfolio,
+            co2_emission_factor=None,  # Optional field set to None
             maximum_afrr=100.0,
         )
 
@@ -138,12 +164,14 @@ class TestOutputGeneratorToDirectory:
         assert "" in fields  # At least one empty field for None values
         assert "None" not in data_row  # Should not contain the string "None"
 
-    def test_to_directory_with_timeseries(self, temp_output_dir, simple_timeseries):
+    def test_to_directory_with_timeseries(self, temp_output_dir, simple_timeseries, test_node, test_portfolio):
         """Test exporting objects with Timeseries fields."""
 
         # Create equipment with timeseries
         equipment = Equipment(
             name="test_equipment",
+            node=test_node,
+            portfolio=test_portfolio,
             variable_cost=simple_timeseries,
         )
 
@@ -172,12 +200,14 @@ class TestOutputGeneratorToDirectory:
         assert "variable_cost" in df["attribute"].to_list()
         assert len(df) == 3
 
-    def test_to_directory_with_forecasting_matrix(self, temp_output_dir, simple_forecasting_matrix):
+    def test_to_directory_with_forecasting_matrix(self, temp_output_dir, simple_forecasting_matrix, test_node, test_portfolio):
         """Test exporting objects with ForecastingMatrix fields."""
 
         # Create equipment with forecasting matrix
         equipment = Equipment(
             name="test_equipment",
+            node=test_node,
+            portfolio=test_portfolio,
             power=simple_forecasting_matrix,
         )
 
@@ -202,12 +232,14 @@ class TestOutputGeneratorToDirectory:
         assert "attribute" in df.columns
         assert "power" in df["attribute"].to_list()
 
-    def test_to_directory_with_scenario_matrix(self, temp_output_dir, simple_scenario_matrix):
+    def test_to_directory_with_scenario_matrix(self, temp_output_dir, simple_scenario_matrix, test_node, test_portfolio):
         """Test exporting objects with ScenarioMatrix fields."""
 
         # Create equipment with scenario matrix
         equipment = Equipment(
             name="test_equipment",
+            node=test_node,
+            portfolio=test_portfolio,
             storage_marginal_value=simple_scenario_matrix,
         )
 
@@ -232,12 +264,12 @@ class TestOutputGeneratorToDirectory:
         assert "attribute" in df.columns
         assert "storage_marginal_value" in df["attribute"].to_list()
 
-    def test_to_directory_multiple_objects(self, temp_output_dir, simple_timeseries):
+    def test_to_directory_multiple_objects(self, temp_output_dir, simple_timeseries, test_node, test_portfolio):
         """Test exporting multiple objects of the same type."""
 
         # Create multiple equipment objects
-        equipment1 = Equipment(name="equipment_1", co2_emission_factor=0.5)
-        equipment2 = Equipment(name="equipment_2", co2_emission_factor=0.8, variable_cost=simple_timeseries)
+        equipment1 = Equipment(name="equipment_1", node=test_node, portfolio=test_portfolio, co2_emission_factor=0.5)
+        equipment2 = Equipment(name="equipment_2", node=test_node, portfolio=test_portfolio, co2_emission_factor=0.8, variable_cost=simple_timeseries)
 
         dataset = {"equipment": [equipment1, equipment2]}
 
@@ -253,10 +285,10 @@ class TestOutputGeneratorToDirectory:
         assert "equipment_1" in csv_content
         assert "equipment_2" in csv_content
 
-    def test_to_directory_multiple_object_types(self, temp_output_dir):
+    def test_to_directory_multiple_object_types(self, temp_output_dir, test_control_block, test_market_area):
         """Test exporting multiple different object types."""
-        node = Node(name="test_node")
-        portfolio = Portfolio(name="test_portfolio")
+        node = Node(name="test_node", control_block=test_control_block, market_area=test_market_area)
+        portfolio = Portfolio(name="test_portfolio", control_block=test_control_block, market_area=test_market_area)
 
         dataset = {"node": [node], "portfolio": [portfolio]}
 
@@ -274,12 +306,12 @@ class TestOutputGeneratorToDirectory:
         portfolio_csv = (temp_output_dir / "objects" / "portfolio.csv").read_text()
         assert "test_portfolio" in portfolio_csv
 
-    def test_to_directory_with_business_model_references(self, temp_output_dir):
+    def test_to_directory_with_business_model_references(self, temp_output_dir, test_control_block, test_market_area):
         """Test exporting objects with BusinessModel reference fields."""
 
         # Create related business models
-        node = Node(name="test_node")
-        portfolio = Portfolio(name="test_portfolio")
+        node = Node(name="test_node", control_block=test_control_block, market_area=test_market_area)
+        portfolio = Portfolio(name="test_portfolio", control_block=test_control_block, market_area=test_market_area)
 
         # Create equipment referencing them
         equipment = Equipment(
@@ -301,9 +333,9 @@ class TestOutputGeneratorToDirectory:
         assert "test_node" in csv_content
         assert "test_portfolio" in csv_content
 
-    def test_to_directory_custom_separator(self, temp_output_dir):
+    def test_to_directory_custom_separator(self, temp_output_dir, test_control_block, test_market_area):
         """Test exporting with custom CSV separator."""
-        node = Node(name="test_node")
+        node = Node(name="test_node", control_block=test_control_block, market_area=test_market_area)
 
         dataset = {"node": [node]}
 
@@ -316,11 +348,11 @@ class TestOutputGeneratorToDirectory:
         # Verify separator is used (header should have commas)
         assert "," in csv_content.split("\n")[0]
 
-    def test_to_directory_csv_file_extension(self, temp_output_dir, simple_timeseries):
+    def test_to_directory_csv_file_extension(self, temp_output_dir, simple_timeseries, test_node, test_portfolio):
         """Test exporting timeseries with CSV file extension."""
         from atlas.objects.equipment.equipment import Equipment
 
-        equipment = Equipment(name="test_equipment", variable_cost=simple_timeseries)
+        equipment = Equipment(name="test_equipment", node=test_node, portfolio=test_portfolio, variable_cost=simple_timeseries)
 
         dataset = {"equipment": [equipment]}
 
@@ -340,9 +372,9 @@ class TestOutputGeneratorToDirectory:
         # Objects directory should still be created
         assert (temp_output_dir / "objects").exists()
 
-    def test_to_directory_creates_nested_directories(self, temp_output_dir):
+    def test_to_directory_creates_nested_directories(self, temp_output_dir, test_control_block, test_market_area):
         """Test that all required directories are created."""
-        node = Node(name="test_node")
+        node = Node(name="test_node", control_block=test_control_block, market_area=test_market_area)
         dataset = {"node": [node]}
 
         # Export to directory

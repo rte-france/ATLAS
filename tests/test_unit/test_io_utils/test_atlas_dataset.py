@@ -45,7 +45,9 @@ class TestAtlasDatasetBasic:
         assert "any_object_name" not in dataset
 
     def test_dataset_with_objects(self):
-        nodes = [Node(name="node1"), Node(name="node2")]
+        cb = ControlBlock(name="cb")
+        ma = MarketArea(name="ma", control_block=cb)
+        nodes = [Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)]
         dataset = AtlasDataset(node=nodes)
 
         assert len(dataset) == 2
@@ -56,7 +58,8 @@ class TestAtlasDatasetBasic:
 
     def test_attribute_access_empty_attribute(self):
         control_blocks = [ControlBlock(name="cb1")]
-        nodes = [Node(name="node1")]
+        ma = MarketArea(name="ma1", control_block=control_blocks[0])
+        nodes = [Node(name="node1", control_block=control_blocks[0], market_area=ma)]
 
         dataset = AtlasDataset(control_block=control_blocks, node=nodes)
 
@@ -64,7 +67,8 @@ class TestAtlasDatasetBasic:
 
     def test_contains_operator(self):
         control_blocks = [ControlBlock(name="cb1")]
-        nodes = [Node(name="node1"), Node(name="node2")]
+        ma = MarketArea(name="ma1", control_block=control_blocks[0])
+        nodes = [Node(name="node1", control_block=control_blocks[0], market_area=ma), Node(name="node2", control_block=control_blocks[0], market_area=ma)]
         dataset = AtlasDataset(node=nodes, control_block=control_blocks)
 
         assert "node1" in dataset
@@ -74,27 +78,33 @@ class TestAtlasDatasetBasic:
         assert "node3" not in dataset
         assert "nonexistent" not in dataset
 
-        assert Node(name="node1") not in dataset
+        assert Node(name="node1", control_block=control_blocks[0], market_area=ma) not in dataset
         assert 123 not in dataset
         assert None not in dataset
 
     def test_len_operator(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
         dataset = AtlasDataset(
-            node=[Node(name="node1"), Node(name="node2")],
-            control_block=[ControlBlock(name="cb1")],
+            node=[Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)],
+            control_block=[cb],
         )
         assert len(dataset) == 3
 
     def test_repr_and_str(self):
-        dataset = AtlasDataset(node=[Node(name="node1")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        dataset = AtlasDataset(node=[Node(name="node1", control_block=cb, market_area=ma)])
         assert "AtlasDataset" in repr(dataset)
         assert "node=1" in repr(dataset)
         assert str(dataset) == repr(dataset)
 
     def test_iter_operator(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
         dataset = AtlasDataset(
-            node=[Node(name="node1"), Node(name="node2")],
-            control_block=[ControlBlock(name="cb1")],
+            node=[Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)],
+            control_block=[cb],
         )
 
         objects = list(dataset)
@@ -105,23 +115,30 @@ class TestAtlasDatasetBasic:
         assert list(AtlasDataset()) == []
 
     def test_iter_operator_multiple_times(self):
-        dataset = AtlasDataset(node=[Node(name="node1"), Node(name="node2")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        dataset = AtlasDataset(node=[Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)])
         assert sum(1 for _ in dataset) == 2
         assert sum(1 for _ in dataset) == 2
 
 
 class TestAtlasDatasetLookup:
     def test_get_nonexistent_name(self):
-        dataset = AtlasDataset(node=[Node(name="node1")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        dataset = AtlasDataset(node=[Node(name="node1", control_block=cb, market_area=ma)])
         assert dataset.get("node", "nope") is None
 
     def test_get_nonexistent_type(self):
-        dataset = AtlasDataset(node=[Node(name="node1")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        dataset = AtlasDataset(node=[Node(name="node1", control_block=cb, market_area=ma)])
         assert dataset.get("thermal", "x") is None
 
     def test_iter_by_types(self):
-        nodes = [Node(name="n1"), Node(name="n2")]
         control_blocks = [ControlBlock(name="cb1")]
+        ma = MarketArea(name="ma1", control_block=control_blocks[0])
+        nodes = [Node(name="n1", control_block=control_blocks[0], market_area=ma), Node(name="n2", control_block=control_blocks[0], market_area=ma)]
 
         dataset = AtlasDataset(node=nodes, control_block=control_blocks)
 
@@ -134,8 +151,10 @@ class TestAtlasDatasetLookup:
             list(AtlasDataset().iter_by_types("invalid"))
 
     def test_duplicate_names_validation(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
         with pytest.raises(ValueError):
-            AtlasDataset(node=[Node(name="dup"), Node(name="dup")])
+            AtlasDataset(node=[Node(name="dup", control_block=cb, market_area=ma), Node(name="dup", control_block=cb, market_area=ma)])
 
     def test_iter_by_equipments_empty(self):
         dataset = AtlasDataset()
@@ -143,19 +162,27 @@ class TestAtlasDatasetLookup:
         assert equipments == []
 
     def test_iter_by_equipments_single_type(self):
-        thermal = Thermal(name="plant1")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        thermal = Thermal(name="plant1", node=node, portfolio=portfolio)
         dataset = AtlasDataset(thermal=[thermal])
         equipments = list(dataset.iter_by_equipments())
         assert len(equipments) == 1
         assert equipments[0] == thermal
 
     def test_iter_by_equipments_multiple_types(self):
-        thermal = Thermal(name="plant1")
-        solar = Solar(name="solar1")
-        wind = Wind(name="wind1")
-        hydro = Hydro(name="hydro1")
-        load = Load(name="load1")
-        storage = Storage(name="storage1")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        thermal = Thermal(name="plant1", node=node, portfolio=portfolio)
+        solar = Solar(name="solar1", node=node, portfolio=portfolio)
+        wind = Wind(name="wind1", node=node, portfolio=portfolio)
+        hydro = Hydro(name="hydro1", node=node, portfolio=portfolio)
+        load = Load(name="load1", node=node, portfolio=portfolio)
+        storage = Storage(name="storage1", node=node, portfolio=portfolio)
 
         dataset = AtlasDataset(
             thermal=[thermal],
@@ -172,9 +199,13 @@ class TestAtlasDatasetLookup:
         assert equipment_names == {"plant1", "solar1", "wind1", "hydro1", "load1", "storage1"}
 
     def test_iter_by_equipments_multiple_of_same_type(self):
-        thermal1 = Thermal(name="plant1")
-        thermal2 = Thermal(name="plant2")
-        thermal3 = Thermal(name="plant3")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        thermal1 = Thermal(name="plant1", node=node, portfolio=portfolio)
+        thermal2 = Thermal(name="plant2", node=node, portfolio=portfolio)
+        thermal3 = Thermal(name="plant3", node=node, portfolio=portfolio)
         dataset = AtlasDataset(thermal=[thermal1, thermal2, thermal3])
 
         equipments = list(dataset.iter_by_equipments())
@@ -184,16 +215,17 @@ class TestAtlasDatasetLookup:
         assert equipments[2] == thermal3
 
     def test_iter_by_equipments_excludes_non_equipment(self):
-        thermal = Thermal(name="plant1")
-        node = Node(name="node1")
-        control_block = ControlBlock(name="cb1")
-        market_area = MarketArea(name="ma1")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        thermal = Thermal(name="plant1", node=node, portfolio=portfolio)
 
         dataset = AtlasDataset(
             thermal=[thermal],
             node=[node],
-            control_block=[control_block],
-            market_area=[market_area],
+            control_block=[cb],
+            market_area=[ma],
         )
 
         equipments = list(dataset.iter_by_equipments())
@@ -201,8 +233,12 @@ class TestAtlasDatasetLookup:
         assert equipments[0] == thermal
 
     def test_iter_by_equipments_multiple_times(self):
-        thermal = Thermal(name="plant1")
-        solar = Solar(name="solar1")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        thermal = Thermal(name="plant1", node=node, portfolio=portfolio)
+        solar = Solar(name="solar1", node=node, portfolio=portfolio)
         dataset = AtlasDataset(thermal=[thermal], solar=[solar])
 
         # First iteration
@@ -217,8 +253,9 @@ class TestAtlasDatasetLookup:
 
 class TestAtlasDatasetConversion:
     def test_to_dict(self):
-        nodes = [Node(name="node1")]
         control_blocks = [ControlBlock(name="cb1")]
+        ma = MarketArea(name="ma1", control_block=control_blocks[0])
+        nodes = [Node(name="node1", control_block=control_blocks[0], market_area=ma)]
 
         dataset = AtlasDataset(node=nodes, control_block=control_blocks)
         result = dataset.to_dict()
@@ -228,7 +265,9 @@ class TestAtlasDatasetConversion:
         assert "thermal" not in result
 
     def test_from_dict(self):
-        nodes = [Node(name="node1")]
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        nodes = [Node(name="node1", control_block=cb, market_area=ma)]
         dataset = AtlasDataset.from_dict({"node": nodes})
 
         assert isinstance(dataset.node, Container)
@@ -292,14 +331,19 @@ class TestAtlasDatasetIO:
         test_dir = tmp_path / "data"
         (test_dir / "objects").mkdir(parents=True)
 
-        pl.DataFrame([{"name": "node1"}]).write_csv(test_dir / "objects" / "node.csv", separator=";")
+        # Create control_block and market_area CSVs first
+        pl.DataFrame([{"name": "cb1"}]).write_csv(test_dir / "objects" / "control_block.csv", separator=";")
+        pl.DataFrame([{"name": "ma1", "control_block": "cb1"}]).write_csv(test_dir / "objects" / "market_area.csv", separator=";")
+        pl.DataFrame([{"name": "node1", "control_block": "cb1", "market_area": "ma1"}]).write_csv(test_dir / "objects" / "node.csv", separator=";")
 
         dataset = AtlasDataset.from_directory(test_dir)
         assert len(dataset.node) == 1
         assert dataset.node.get("node1")
 
     def test_to_directory(self, tmp_path):
-        dataset = AtlasDataset(node=[Node(name="node1")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        dataset = AtlasDataset(node=[Node(name="node1", control_block=cb, market_area=ma)])
         dataset.to_directory(tmp_path)
 
         df = pl.read_csv(tmp_path / "objects" / "node.csv", separator=";")
@@ -611,7 +655,9 @@ class TestAtlasDatasetComplexRoundtrip:
 
 class TestAtlasDatasetContainerValidator:
     def test_container_validator_accepts_container(self):
-        nodes = Container([Node(name="node1")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        nodes = Container([Node(name="node1", control_block=cb, market_area=ma)])
 
         dataset = AtlasDataset(node=nodes)
 
@@ -619,7 +665,9 @@ class TestAtlasDatasetContainerValidator:
         assert dataset.node.get("node1")
 
     def test_container_validator_wraps_list_into_container(self):
-        nodes = [Node(name="node1"), Node(name="node2")]
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        nodes = [Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)]
 
         dataset = AtlasDataset(node=nodes)  # type: ignore[arg-type]
 
@@ -638,29 +686,39 @@ class TestAtlasDatasetEq:
         assert AtlasDataset() == AtlasDataset()
 
     def test_same_objects_are_equal(self):
-        node_1 = Node(name="node")
-        node_2 = Node(name="node")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node_1 = Node(name="node", control_block=cb, market_area=ma)
+        node_2 = Node(name="node", control_block=cb, market_area=ma)
         ds1 = AtlasDataset(node=[node_1])
         ds2 = AtlasDataset(node=[node_2])
         assert ds1 == ds2
 
     def test_different_node_names_are_not_equal(self):
-        node_1 = Node(name="node1")
-        node_2 = Node(name="node2")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node_1 = Node(name="node1", control_block=cb, market_area=ma)
+        node_2 = Node(name="node2", control_block=cb, market_area=ma)
         ds1 = AtlasDataset(node=[node_1])
         ds2 = AtlasDataset(node=[node_2])
         assert ds1 != ds2
 
     def test_different_counts_are_not_equal(self):
-        node_1 = Node(name="node1")
-        node_2 = Node(name="node2")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node_1 = Node(name="node1", control_block=cb, market_area=ma)
+        node_2 = Node(name="node2", control_block=cb, market_area=ma)
         ds1 = AtlasDataset(node=[node_1])
         ds2 = AtlasDataset(node=[node_1, node_2])
         assert ds1 != ds2
 
     def test_extra_object_type_makes_not_equal(self):
-        node = Node(name="node")
-        thermal = Node(name="thermal")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node", control_block=cb, market_area=ma)
+        thermal_node = Node(name="thermal_node", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        thermal = Thermal(name="thermal", node=thermal_node, portfolio=portfolio)
         ds1 = AtlasDataset(node=[node])
         ds2 = AtlasDataset(node=[node], thermal=[thermal])
         assert ds1 != ds2
@@ -671,22 +729,32 @@ class TestAtlasDatasetEq:
         assert result is NotImplemented
 
     def test_eq_is_symmetric(self):
-        node = Node(name="node")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node", control_block=cb, market_area=ma)
         ds1 = AtlasDataset(node=[node])
         ds2 = AtlasDataset(node=[node])
         assert ds1 == ds2
         assert ds2 == ds1
 
     def test_eq_with_same_name_different_attributes(self):
-        th1 = Thermal(name="th", installed_capacity=100)
-        th2 = Thermal(name="th", installed_capacity=990)
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        th1 = Thermal(name="th", installed_capacity=100, node=node, portfolio=portfolio)
+        th2 = Thermal(name="th", installed_capacity=990, node=node, portfolio=portfolio)
         ds1 = AtlasDataset(thermal=[th1])
         ds2 = AtlasDataset(thermal=[th2])
         assert ds1 != ds2
 
     def test_eq_with_same_name_same_attribute(self):
-        th1 = Thermal(name="th", installed_capacity=100)
-        th2 = Thermal(name="th", installed_capacity=100)
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        th1 = Thermal(name="th", installed_capacity=100, node=node, portfolio=portfolio)
+        th2 = Thermal(name="th", installed_capacity=100, node=node, portfolio=portfolio)
         ds1 = AtlasDataset(thermal=[th1])
         ds2 = AtlasDataset(thermal=[th2])
         assert ds1 == ds2
@@ -704,60 +772,88 @@ def simple_timeseries():
 
 class TestAtlasDatasetDiff:
     def test_identical_datasets_produce_empty_diff(self):
-        ds = AtlasDataset(node=[Node(name="node")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        ds = AtlasDataset(node=[Node(name="node", control_block=cb, market_area=ma)])
         assert ds.diff(ds) == {}
 
     def test_object_only_in_self(self):
-        ds1 = AtlasDataset(node=[Node(name="node")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        ds1 = AtlasDataset(node=[Node(name="node", control_block=cb, market_area=ma)])
         ds2 = AtlasDataset()
         result = ds1.diff(ds2)
         assert "node" in result["node"]["only_in_self"]
         assert result["node"]["only_in_other"] == []
 
     def test_object_only_in_other(self):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
         ds1 = AtlasDataset()
-        ds2 = AtlasDataset(node=[Node(name="node")])
+        ds2 = AtlasDataset(node=[Node(name="node", control_block=cb, market_area=ma)])
         result = ds1.diff(ds2)
         assert "node" in result["node"]["only_in_other"]
         assert result["node"]["only_in_self"] == []
 
     def test_modified_scalar_attribute(self):
-        th1 = Thermal(name="th", installed_capacity=100)
-        th2 = Thermal(name="th", installed_capacity=999)
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        th1 = Thermal(name="th", installed_capacity=100, node=node, portfolio=portfolio)
+        th2 = Thermal(name="th", installed_capacity=999, node=node, portfolio=portfolio)
         result = AtlasDataset(thermal=[th1]).diff(AtlasDataset(thermal=[th2]))
         assert result["thermal"]["modified"]["th"]["installed_capacity"] == {"self": 100, "other": 999}
 
     def test_modified_timeseries_attribute(self, simple_timeseries):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
         ts_other = Timeseries.from_values(
             start_date="2024-01-01 00:00:00", frequency="1h", values=[99.0, 99.0, 99.0], timezone="UTC"
         )
-        result = AtlasDataset(hydro=[Hydro(name="h", inflows=simple_timeseries)]).diff(
-            AtlasDataset(hydro=[Hydro(name="h", inflows=ts_other)])
+        result = AtlasDataset(hydro=[Hydro(name="h", inflows=simple_timeseries, node=node, portfolio=portfolio)]).diff(
+            AtlasDataset(hydro=[Hydro(name="h", inflows=ts_other, node=node, portfolio=portfolio)])
         )
         assert "inflows" in result["hydro"]["modified"]["h"]
 
     def test_modified_enum_field(self):
-        th1 = Thermal(name="th", strategy=ThermalStrategy.BASE)
-        th2 = Thermal(name="th", strategy=ThermalStrategy.PEAK)
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        th1 = Thermal(name="th", strategy=ThermalStrategy.BASE, node=node, portfolio=portfolio)
+        th2 = Thermal(name="th", strategy=ThermalStrategy.PEAK, node=node, portfolio=portfolio)
         result = AtlasDataset(thermal=[th1]).diff(AtlasDataset(thermal=[th2]))
         assert "strategy" in result["thermal"]["modified"]["th"]
 
     def test_modified_duration_field(self):
-        th1 = Thermal(name="th", minimum_time_on=Duration(hours=1))
-        th2 = Thermal(name="th", minimum_time_on=Duration(hours=6))
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        th1 = Thermal(name="th", minimum_time_on=Duration(hours=1), node=node, portfolio=portfolio)
+        th2 = Thermal(name="th", minimum_time_on=Duration(hours=6), node=node, portfolio=portfolio)
         result = AtlasDataset(thermal=[th1]).diff(AtlasDataset(thermal=[th2]))
         assert "minimum_time_on" in result["thermal"]["modified"]["th"]
 
     def test_multiple_types_reported_simultaneously(self):
-        atlas_1 = AtlasDataset(node=[Node(name="n_1")], thermal=[Thermal(name="th", installed_capacity=100)])
-        atlas_2 = AtlasDataset(node=[Node(name="n_2")], thermal=[Thermal(name="th", installed_capacity=500)])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        atlas_1 = AtlasDataset(node=[Node(name="n_1", control_block=cb, market_area=ma)], thermal=[Thermal(name="th", installed_capacity=100, node=node, portfolio=portfolio)])
+        atlas_2 = AtlasDataset(node=[Node(name="n_2", control_block=cb, market_area=ma)], thermal=[Thermal(name="th", installed_capacity=500, node=node, portfolio=portfolio)])
         result = atlas_1.diff(atlas_2)
         assert "node" in result
         assert "thermal" in result
 
     def test_common_unchanged_object_not_in_modified(self):
-        n_1 = Node(name="n_1")
-        n_2 = Node(name="n_2")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        n_1 = Node(name="n_1", control_block=cb, market_area=ma)
+        n_2 = Node(name="n_2", control_block=cb, market_area=ma)
         result = AtlasDataset(node=[n_1, n_2]).diff(AtlasDataset(node=[n_1]))
         assert "n_1" not in result.get("node", {}).get("modified", {})
         assert "n_2" in result["node"]["only_in_self"]
@@ -765,40 +861,61 @@ class TestAtlasDatasetDiff:
 
 class TestDiffBusinessModel:
     def test_identical_objects_return_empty_dict(self):
-        node = Node(name="node")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node", control_block=cb, market_area=ma)
         assert diff_business_model(node, node) == {}
 
     def test_scalar_field_difference_detected(self):
-        th1 = Thermal(name="th", installed_capacity=100)
-        th2 = Thermal(name="th", installed_capacity=500)
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        th1 = Thermal(name="th", installed_capacity=100, node=node, portfolio=portfolio)
+        th2 = Thermal(name="th", installed_capacity=500, node=node, portfolio=portfolio)
         result = diff_business_model(th1, th2)
         assert result["installed_capacity"] == {"self": 100, "other": 500}
 
     def test_nested_business_model_difference(self):
-        th1 = Thermal(name="th", node=Node(name="node_1"))
-        th2 = Thermal(name="th", node=Node(name="node_2"))
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node_1 = Node(name="node_1", control_block=cb, market_area=ma)
+        node_2 = Node(name="node_2", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        th1 = Thermal(name="th", node=node_1, portfolio=portfolio)
+        th2 = Thermal(name="th", node=node_2, portfolio=portfolio)
         result = diff_business_model(th1, th2)
         assert result["node"]["type"] == "nested"
         assert result["node"]["object_name"] in ("node_1", "node_2")
 
     def test_circular_reference_does_not_loop(self):
-        node = Node(name="node")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node", control_block=cb, market_area=ma)
         visited: set[tuple[int, int]] = {(id(node), id(node))}
         assert diff_business_model(node, node, _visited=visited) == {}
 
     def test_timeseries_field_difference_detected(self, simple_timeseries):
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
         ts_other = Timeseries.from_values(
             start_date="2024-01-01 00:00:00", frequency="1h", values=[0.0, 0.0, 0.0], timezone="UTC"
         )
         result = diff_business_model(
-            Hydro(name="h", inflows=simple_timeseries),
-            Hydro(name="h", inflows=ts_other),
+            Hydro(name="h", inflows=simple_timeseries, node=node, portfolio=portfolio),
+            Hydro(name="h", inflows=ts_other, node=node, portfolio=portfolio),
         )
         assert "inflows" in result
 
     def test_only_differing_fields_are_returned(self):
-        th1 = Thermal(name="th", installed_capacity=100, outage_probability=0.05)
-        th2 = Thermal(name="th", installed_capacity=999, outage_probability=0.05)
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+        th1 = Thermal(name="th", installed_capacity=100, outage_probability=0.05, node=node, portfolio=portfolio)
+        th2 = Thermal(name="th", installed_capacity=999, outage_probability=0.05, node=node, portfolio=portfolio)
         result = diff_business_model(th1, th2)
         assert "installed_capacity" in result
         assert "outage_probability" not in result
@@ -869,16 +986,22 @@ class TestDiffLists:
         assert "2" not in result
 
     def test_business_model_elements_identical_returns_none(self):
-        node = Node(name="node")
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node", control_block=cb, market_area=ma)
         assert diff_lists([node], [node]) is None
 
     def test_business_model_elements_different_detected(self):
-        result = diff_lists([Node(name="node_1")], [Node(name="node_2")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        result = diff_lists([Node(name="node_1", control_block=cb, market_area=ma)], [Node(name="node_2", control_block=cb, market_area=ma)])
         assert result["0"]["type"] == "nested"
 
     def test_only_differing_element_reported(self):
-        node = Node(name="node")
-        result = diff_lists([node, Node(name="node_1")], [node, Node(name="node_2")])
+        cb = ControlBlock(name="cb1")
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node", control_block=cb, market_area=ma)
+        result = diff_lists([node, Node(name="node_1", control_block=cb, market_area=ma)], [node, Node(name="node_2", control_block=cb, market_area=ma)])
         assert "0" not in result
         assert "1" in result
 
@@ -886,12 +1009,15 @@ class TestDiffLists:
 @pytest.fixture
 def dataset():
     ds = AtlasDataset()
-    ds.order.add(Order(name="order_1", price=10))
-    ds.order.add(Order(name="order_2", price=50))
-    ds.market_area.add(MarketArea(name="ma1"))
-    ds.market_area.add(MarketArea(name="ma2"))
-    ds.node.add(Node(name="NodeA"))
-    ds.node.add(Node(name="NodeB"))
+    cb = ControlBlock(name="cb1")
+    ma1 = MarketArea(name="ma1", control_block=cb)
+    ma2 = MarketArea(name="ma2", control_block=cb)
+    ds.order.add(Order(name="order_1", price=10, market_area=ma1))
+    ds.order.add(Order(name="order_2", price=50, market_area=ma2))
+    ds.market_area.add(ma1)
+    ds.market_area.add(ma2)
+    ds.node.add(Node(name="NodeA", control_block=cb, market_area=ma1))
+    ds.node.add(Node(name="NodeB", control_block=cb, market_area=ma2))
     return ds
 
 
@@ -956,9 +1082,13 @@ class TestFilterDataset:
 
 
 def test_filter_equipments_keeps_only_selected():
-    t1 = Thermal(name="plant_1")
-    t2 = Thermal(name="plant_2")
-    t3 = Thermal(name="plant_3")
+    cb = ControlBlock(name="cb1")
+    ma = MarketArea(name="ma1", control_block=cb)
+    node = Node(name="node1", control_block=cb, market_area=ma)
+    portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+    t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
+    t2 = Thermal(name="plant_2", node=node, portfolio=portfolio)
+    t3 = Thermal(name="plant_3", node=node, portfolio=portfolio)
 
     dataset = AtlasDataset(thermal=[t1, t2, t3])
 
@@ -971,8 +1101,12 @@ def test_filter_equipments_keeps_only_selected():
 
 
 def test_filter_does_not_modify_original_dataset():
-    t1 = Thermal(name="plant_1")
-    t2 = Thermal(name="plant_2")
+    cb = ControlBlock(name="cb1")
+    ma = MarketArea(name="ma1", control_block=cb)
+    node = Node(name="node1", control_block=cb, market_area=ma)
+    portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
+    t1 = Thermal(name="plant_1", node=node, portfolio=portfolio)
+    t2 = Thermal(name="plant_2", node=node, portfolio=portfolio)
 
     dataset = AtlasDataset(thermal=[t1, t2])
 
@@ -1006,36 +1140,47 @@ class TestFilterZones:
             name="border_FR_DE",
             uphill_control_block=cb_fr,
             downhill_control_block=cb_de,
+            uphill_market_area=ma_fr,
+            downhill_market_area=ma_de,
         )
         border_de_be = MarketBorder(
             name="border_DE_BE",
             uphill_control_block=cb_de,
             downhill_control_block=cb_be,
+            uphill_market_area=ma_de,
+            downhill_market_area=ma_be,
         )
         border_fr_be = MarketBorder(
             name="border_FR_BE",
             uphill_control_block=cb_fr,
             downhill_control_block=cb_be,
+            uphill_market_area=ma_fr,
+            downhill_market_area=ma_be,
         )
 
         cb_fr_de = CriticalBranch(
             name="cb_FR_DE",
             uphill_node=node_fr1,
             downhill_node=node_de,
+            market_area_ptdf=[],
+            node_ptdf=[],
         )
         cb_de_be = CriticalBranch(
             name="cb_DE_BE",
             uphill_node=node_de,
             downhill_node=node_be,
+            market_area_ptdf=[],
+            node_ptdf=[],
         )
 
         portfolio_fr = Portfolio(name="portfolio_FR", control_block=cb_fr, market_area=ma_fr)
         portfolio_de = Portfolio(name="portfolio_DE", control_block=cb_de, market_area=ma_de)
+        portfolio_be = Portfolio(name="portfolio_BE", control_block=cb_be, market_area=ma_be)
 
         thermal_fr = Thermal(name="thermal_FR", node=node_fr1, portfolio=portfolio_fr)
         hydro_fr = Hydro(name="hydro_FR", node=node_fr2, portfolio=portfolio_fr)
         thermal_de = Thermal(name="thermal_DE", node=node_de, portfolio=portfolio_de)
-        solar_be = Solar(name="solar_BE", node=node_be)
+        solar_be = Solar(name="solar_BE", node=node_be, portfolio=portfolio_be)
 
         order_fr = Order(name="order_FR", market_area=ma_fr, portfolio=portfolio_fr, price=50)
         order_de = Order(name="order_DE", market_area=ma_de, portfolio=portfolio_de, price=60)
@@ -1052,7 +1197,7 @@ class TestFilterZones:
             node=[node_fr1, node_fr2, node_de, node_be],
             market_border=[border_fr_de, border_de_be, border_fr_be],
             critical_branch=[cb_fr_de, cb_de_be],
-            portfolio=[portfolio_fr, portfolio_de],
+            portfolio=[portfolio_fr, portfolio_de, portfolio_be],
             thermal=[thermal_fr, thermal_de],
             hydro=[hydro_fr],
             solar=[solar_be],
@@ -1202,8 +1347,9 @@ class TestFilterZones:
     def test_filter_zone_empty_list(self):
         """Test filtering with empty control_block_names list."""
         cb = ControlBlock(name="CB1")
-        node = Node(name="node1", control_block=cb)
-        dataset = AtlasDataset(control_block=[cb], node=[node])
+        ma = MarketArea(name="ma1", control_block=cb)
+        node = Node(name="node1", control_block=cb, market_area=ma)
+        dataset = AtlasDataset(control_block=[cb], market_area=[ma], node=[node])
 
         filtered = dataset.filter_zones([])
 
@@ -1215,23 +1361,29 @@ class TestFilterZones:
         """Test that all equipment types are correctly filtered."""
         cb_zone1 = ControlBlock(name="ZONE1")
         cb_zone2 = ControlBlock(name="ZONE2")
-        node1 = Node(name="node1", control_block=cb_zone1)
-        node2 = Node(name="node2", control_block=cb_zone2)
+        ma_zone1 = MarketArea(name="ma_zone1", control_block=cb_zone1)
+        ma_zone2 = MarketArea(name="ma_zone2", control_block=cb_zone2)
+        node1 = Node(name="node1", control_block=cb_zone1, market_area=ma_zone1)
+        node2 = Node(name="node2", control_block=cb_zone2, market_area=ma_zone2)
+        portfolio1 = Portfolio(name="portfolio1", control_block=cb_zone1, market_area=ma_zone1)
+        portfolio2 = Portfolio(name="portfolio2", control_block=cb_zone2, market_area=ma_zone2)
 
         # Create one of each equipment type
-        thermal = Thermal(name="thermal1", node=node1)
-        hydro = Hydro(name="hydro1", node=node1)
-        solar = Solar(name="solar1", node=node1)
-        wind = Wind(name="wind1", node=node1)
-        storage = Storage(name="storage1", node=node1)
-        load = Load(name="load1", node=node1)
+        thermal = Thermal(name="thermal1", node=node1, portfolio=portfolio1)
+        hydro = Hydro(name="hydro1", node=node1, portfolio=portfolio1)
+        solar = Solar(name="solar1", node=node1, portfolio=portfolio1)
+        wind = Wind(name="wind1", node=node1, portfolio=portfolio1)
+        storage = Storage(name="storage1", node=node1, portfolio=portfolio1)
+        load = Load(name="load1", node=node1, portfolio=portfolio1)
 
-        thermal2 = Thermal(name="thermal2", node=node2)
-        wind2 = Wind(name="wind2", node=node2)
+        thermal2 = Thermal(name="thermal2", node=node2, portfolio=portfolio2)
+        wind2 = Wind(name="wind2", node=node2, portfolio=portfolio2)
 
         dataset = AtlasDataset(
             control_block=[cb_zone1, cb_zone2],
+            market_area=[ma_zone1, ma_zone2],
             node=[node1, node2],
+            portfolio=[portfolio1, portfolio2],
             thermal=[thermal, thermal2],
             hydro=[hydro],
             solar=[solar],
@@ -1264,9 +1416,9 @@ class TestFilterZones:
         ma2 = MarketArea(name="ma2", control_block=cb2)
 
         # Create a critical branch for the PTDFs
-        node1 = Node(name="node1", control_block=cb)
-        node2 = Node(name="node2", control_block=cb2)
-        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2)
+        node1 = Node(name="node1", control_block=cb, market_area=ma)
+        node2 = Node(name="node2", control_block=cb2, market_area=ma2)
+        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2, market_area_ptdf=[], node_ptdf=[])
 
         ma_ptdf1 = MarketAreaPtdf(
             name="ma_ptdf1",
@@ -1300,10 +1452,12 @@ class TestFilterZones:
 
         cb = ControlBlock(name="CB1")
         cb2 = ControlBlock(name="CB2")
-        node1 = Node(name="node1", control_block=cb)
-        node2 = Node(name="node2", control_block=cb2)
+        ma = MarketArea(name="ma1", control_block=cb)
+        ma2 = MarketArea(name="ma2", control_block=cb2)
+        node1 = Node(name="node1", control_block=cb, market_area=ma)
+        node2 = Node(name="node2", control_block=cb2, market_area=ma2)
 
-        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2)
+        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2, market_area_ptdf=[], node_ptdf=[])
 
         node_ptdf1 = NodePtdf(
             name="node_ptdf1",

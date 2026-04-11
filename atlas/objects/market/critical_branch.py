@@ -44,10 +44,10 @@ class CriticalBranch(BusinessModel):
 
     """
 
-    downhill_node: Node | None = None
-    uphill_node: Node | None = None
-    market_area_ptdf: list[MarketAreaPtdf] | None = None
-    node_ptdf: list[NodePtdf] | None = None
+    downhill_node: Node
+    uphill_node: Node
+    market_area_ptdf: list[MarketAreaPtdf]
+    node_ptdf: list[NodePtdf]
     id_flow: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_shadow_price: ForecastingMatrix | LazyForecastingMatrix | None = None
     da_flow: AbstractTimeseries | None = None

@@ -60,7 +60,7 @@ class MarketArea(BusinessModel):
     :type total_id_balance: Timeseries
     """
 
-    control_block: ControlBlock | None = None
+    control_block: ControlBlock
     co2_emissions: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_balance: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_price: ForecastingMatrix | LazyForecastingMatrix | None = None
