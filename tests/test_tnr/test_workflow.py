@@ -26,7 +26,7 @@ class TestWorkflowIntegration:
         step_names = [step.name for step in workflow.jobs]
         assert len(step_names) == len(set(step_names)), f"Duplicate step names found: {step_names}"
 
-    # @pytest.mark.tnr
+    @pytest.mark.tnr
     def test_workflow_all_steps_produce_output(self):
         with timer() as t:
             workflow = Workflow.from_file(WORKFLOW_CONFIG)
