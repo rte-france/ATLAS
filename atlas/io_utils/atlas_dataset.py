@@ -592,6 +592,21 @@ class AtlasDataset(BaseModel):
         return AtlasDataset.from_dict(filtered_data)
 
     def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
+        """
+        Filter the dataset to include only specified equipment by name.
+
+        :param equipment_names: List of equipment names to include. If None or empty, returns a copy of the full dataset.
+        :type equipment_names: list[str] | None
+
+        :return: A new AtlasDataset containing only the specified equipment (deep copy)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
+            >>> filtered = dataset.filter_equipments(["plant1", "plant3"])
+            >>> len(filtered.thermal)
+            2
+        """
         copy_dataset = copy.deepcopy(self)
         if not equipment_names:
             return copy_dataset
@@ -605,9 +620,6 @@ class AtlasDataset(BaseModel):
     def filter_zones(self, control_block_names: list[str], include_external_borders: bool = False) -> AtlasDataset:
         """
         Filter the dataset to include only objects associated with specified control blocks (zones).
-
-        This method creates a new dataset containing only the business objects that belong to or are connected
-        to the specified control blocks. It maintains referential integrity across related objects.
 
         For market borders and critical branches:
         - If include_external_borders is False (default), only includes borders/branches where both endpoints
