@@ -51,7 +51,7 @@ class TestChangeSetSharedBehavior:
         # Test that string reference gets resolved
         data = {"market_area": "ma1"}
 
-        ChangeSetHandler._resolve_reference(order, data, cis_with_market_area)
+        ChangeSetHandler._resolve_reference(data, cis_with_market_area, obj=order)
 
         assert data["market_area"] is ma
 
@@ -61,7 +61,7 @@ class TestChangeSetSharedBehavior:
         order = Order.model_validate({"name": "o1", "market_area": ma})
         data = {"market_area": MarketArea(name="ma1", control_block=cb)}
 
-        ChangeSetHandler._resolve_reference(order, data, cis_with_market_area)
+        ChangeSetHandler._resolve_reference(data, cis_with_market_area, obj=order)
 
         assert data["market_area"] is ma
 
@@ -71,7 +71,7 @@ class TestChangeSetSharedBehavior:
         data = {"market_area": "missing"}
 
         with pytest.raises(ValueError):
-            ChangeSetHandler._resolve_reference(order, data, cis_with_market_area)
+            ChangeSetHandler._resolve_reference(data, cis_with_market_area, obj=order)
 
     def test_fill_object_valid(self, cis_with_market_area):
         ma = cis_with_market_area.data.market_area.get("ma1")
