@@ -616,42 +616,24 @@ class AtlasDataset(BaseModel):
                 dataset.node.add(node)
         for border in self.market_border:
             if (
-                border.downhill_control_block is not None
-                and border.downhill_control_block.name in control_block_names
-                and border.uphill_control_block is not None
+                border.downhill_control_block.name in control_block_names
                 and border.uphill_control_block.name in control_block_names
             ):
                 dataset.market_border.add(border)
         for ma_ptdf in self.market_area_ptdf:
-            if (
-                ma_ptdf.market_area is not None
-                and ma_ptdf.market_area.control_block is not None
-                and ma_ptdf.market_area.control_block.name in control_block_names
-            ):
+            if ma_ptdf.market_area.control_block.name in control_block_names:
                 dataset.market_area_ptdf.add(ma_ptdf)
         for node_ptdf in self.node_ptdf:
-            if (
-                node_ptdf.node is not None
-                and node_ptdf.node.control_block is not None
-                and node_ptdf.node.control_block.name in control_block_names
-            ):
+            if node_ptdf.node.control_block.name in control_block_names:
                 dataset.node_ptdf.add(node_ptdf)
         for critical_branch in self.critical_branch:
             if (
-                critical_branch.uphill_node is not None
-                and critical_branch.uphill_node.control_block is not None
-                and critical_branch.uphill_node.control_block.name in control_block_names
-                and critical_branch.downhill_node is not None
-                and critical_branch.downhill_node.control_block is not None
+                critical_branch.uphill_node.control_block.name in control_block_names
                 and critical_branch.downhill_node.control_block.name in control_block_names
             ):
                 dataset.critical_branch.add(critical_branch)
         for order in self.order:
-            if (
-                order.market_area is not None
-                and order.market_area.control_block is not None
-                and order.market_area.control_block.name in control_block_names
-            ):
+            if order.market_area.control_block.name in control_block_names:
                 dataset.order.add(order)
         # Hypothesis that every Order in OrderCoupling has the same MarketArea
         for order_coupling in self.order_coupling:
@@ -659,11 +641,7 @@ class AtlasDataset(BaseModel):
             if order_coupling.orders is None:
                 continue
             for coupled_order in order_coupling.orders:
-                if (
-                    coupled_order.market_area is not None
-                    and coupled_order.market_area.control_block is not None
-                    and coupled_order.market_area.control_block.name in control_block_names
-                ):
+                if coupled_order.market_area.control_block.name in control_block_names:
                     keep_coupling = True
                     break
             if keep_coupling:
@@ -675,12 +653,8 @@ class AtlasDataset(BaseModel):
         for equipment_type in cfg.EQUIPMENT_MODELS:
             equipments = dataset.get_container_by_type(equipment_type)
             for equipment in self.get_items_by_type(equipment_type):
-                equipment_node: Node | None = cast(Equipment, equipment).node
-                if (
-                    equipment_node is not None
-                    and equipment_node.control_block is not None
-                    and equipment_node.control_block.name in control_block_names
-                ):
+                equipment_node = cast(Equipment, equipment).node
+                if equipment_node.control_block.name in control_block_names:
                     if equipment_names is None or equipment.name in equipments:
                         equipments.add(equipment)
         return copy.deepcopy(dataset)
