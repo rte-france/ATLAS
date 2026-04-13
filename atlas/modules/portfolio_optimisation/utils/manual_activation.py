@@ -12,6 +12,7 @@ from pendulum import DateTime
 from atlas.enums import MarketType, StorageType, ThermalStrategy
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_objects import EquipmentPO
 from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
@@ -153,21 +154,35 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
     :return: New power timeseries
     :rtype: Timeseries
     """
-    if parameters.market == MarketType.dayahead:
-        filtered = cast(AbstractTimeseries, equipment.da_cleared_quantity).filter(
-            parameters.target_times, inplace=False
+    if equipment.da_cleared_quantity is not None:
+        da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+        if isinstance(da_power, LazyTimeseries):
+            da_power = da_power.collect()
+    else:
+        da_power = Timeseries.from_index(
+            parameters.temporal.start_date,
+            parameters.temporal.timestep,
+            parameters.temporal.end_date,
+            default_value=0,
         )
-        return cast(Timeseries, filtered)
+
+    if parameters.market == MarketType.dayahead:
+        return da_power
 
     elif parameters.market == MarketType.intraday:
-        da_power = cast(AbstractTimeseries, equipment.da_cleared_quantity).filter(
-            parameters.target_times, inplace=False
-        )
-        id_power = cast(AbstractTimeseries, equipment.total_id_cleared_quantity).filter(
-            parameters.target_times, inplace=False
-        )
+        if equipment.total_id_cleared_quantity is not None:
+            id_power = equipment.total_id_cleared_quantity.filter(parameters.target_times, inplace=False)
+            if isinstance(id_power, LazyTimeseries):
+                id_power = id_power.collect()
+        else:
+            id_power = Timeseries.from_index(
+                parameters.temporal.start_date,
+                parameters.temporal.timestep,
+                parameters.temporal.end_date,
+                default_value=0,
+            )
         result = da_power + id_power
-        return cast(Timeseries, result)
+        return result
 
     raise ValueError(f"Unsupported market type: {parameters.market}")
 
@@ -184,16 +199,30 @@ def _calculate_activated_power(equipment: Equipment, parameters: PortfolioOptimi
     :rtype: Timeseries
     """
     if parameters.market == MarketType.dayahead:
-        return cast(AbstractTimeseries, equipment.da_cleared_quantity).filter(parameters.target_times, inplace=False)
+        if equipment.da_cleared_quantity is not None:
+            da_power = equipment.da_cleared_quantity.filter(parameters.target_times, inplace=False)
+        else:
+            da_power = Timeseries.from_index(
+                parameters.temporal.start_date,
+                parameters.temporal.timestep,
+                parameters.temporal.end_date,
+                default_value=0,
+            )
+        return da_power
 
     elif parameters.market == MarketType.intraday:
-        return (
-            cast(ForecastingMatrix | LazyForecastingMatrix, equipment.id_cleared_quantity)
-            .get_forecast(
+        if equipment.id_cleared_quantity is not None:
+            id_power = equipment.id_cleared_quantity.get_forecast(
                 parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
+            ).filter(parameters.target_times, inplace=False)
+            return id_power
+        else:
+            return Timeseries.from_index(
+                parameters.temporal.start_date,
+                parameters.temporal.timestep,
+                parameters.temporal.end_date,
+                default_value=0,
             )
-            .filter(parameters.target_times, inplace=False)
-        )
 
 
 def _should_skip_equipment(
@@ -241,8 +270,8 @@ def _apply_power_constraints(
     :return: None
     :rtype: None
     """
-    # Preload maximum power forecast for certain equipment types
-    max_power_forecast: AbstractTimeseries | None = None
+
+    max_power_forecast = None
     if isinstance(equipment, LoadPO | WindPO | SolarPO | OtherNonDispatchablePO):
         max_power_forecast = equipment.maximum_power_forecast.get_forecast(
             parameters.temporal.execution_date, parameters.temporal.start_date, parameters.temporal.end_date
@@ -287,7 +316,7 @@ def _get_max_power(
             return 0
         return max_power_forecast.get_value(time)
     else:
-        if hasattr(equipment, "maximum_power") and equipment.maximum_power and time in equipment.maximum_power:
+        if equipment.maximum_power and time in equipment.maximum_power:
             return equipment.maximum_power.get_value(time)
         return 0
 
@@ -367,7 +396,10 @@ def _update_stored_energy(
     """
 
     new_stored_energy = Timeseries.from_index(
-        parameters.temporal.start_date, parameters.temporal.timestep, parameters.temporal.end_date, default_value=0
+        parameters.temporal.start_date,
+        parameters.temporal.timestep,
+        parameters.temporal.end_date + parameters.temporal.timestep,
+        default_value=0,
     )
 
     initial_stored_energy = _get_initial_stored_energy(equipment, parameters)
@@ -381,7 +413,7 @@ def _update_stored_energy(
         new_energy_value = _calculate_new_energy_value(equipment, time, previous_energy, new_power, parameters)
 
         energy_bounds = _get_energy_bounds(equipment, time)
-        corrected_energy, correction = _apply_energy_bounds(new_energy_value, energy_bounds, time, parameters)
+        corrected_energy, correction = _apply_energy_bounds(new_energy_value, energy_bounds, parameters)
 
         new_stored_energy.set_value(time, corrected_energy)
 
@@ -397,7 +429,6 @@ def _update_stored_energy(
         new_stored_energy.get_value(parameters.temporal.end_date),
     )
 
-    # Update equipment stored energy
     if not parameters.use_forecast and equipment.stored_energy:
         stored_energy_matrix = equipment.stored_energy
         if parameters.temporal.execution_date in stored_energy_matrix:
@@ -484,7 +515,6 @@ def _calculate_new_energy_value(
 def _apply_energy_bounds(
     energy_value: float,
     bounds: tuple[float, float],
-    time: DateTime,
     parameters: PortfolioOptimisationParameters,
 ) -> tuple[float, float]:
     """

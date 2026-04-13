@@ -92,7 +92,7 @@ class PortfolioOptimisationModel(OptimisationModel):
             thermal.add_daily_energy_constraint(model=self, timestep=self.parameters.temporal.timestep)
 
         for storage in self.portfolio.equipments.storage:
-            storage.add_cycle_balance_constraint(model=self)
+            storage.add_cycle_balance_constraint(model=self, time_window=time_window)
 
             cfg.logger.debug(f"Completed optimisation model at time: {time}")
 
