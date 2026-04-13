@@ -10,9 +10,9 @@ import atlas.modules.market_clearing.constants as constants
 from atlas.config import logger
 from atlas.enums import ComplementDirection, CouplingType, OrderType
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.models.market_area import MarketAreaMC
-from atlas.modules.market_clearing.models.order import OrderMC
-from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
+from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
+from atlas.modules.market_clearing.input_objects.order import OrderMC
+from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.solver.models import SolverOptions

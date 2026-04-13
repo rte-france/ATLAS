@@ -8,11 +8,11 @@ from atlas.io_utils.parameters import DateParameters
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
-from atlas.modules.intraday_price_forecast.models.load import LoadIDPF
-from atlas.modules.intraday_price_forecast.models.market_area import MarketAreaIDPF
-from atlas.modules.intraday_price_forecast.models.portfolio import PortfolioIDPF
-from atlas.modules.intraday_price_forecast.models.solar import SolarIDPF
-from atlas.modules.intraday_price_forecast.models.wind import WindIDPF
+from atlas.modules.intraday_price_forecast.input_objects.load import LoadIDPF
+from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF
+from atlas.modules.intraday_price_forecast.input_objects.portfolio import PortfolioIDPF
+from atlas.modules.intraday_price_forecast.input_objects.solar import SolarIDPF
+from atlas.modules.intraday_price_forecast.input_objects.wind import WindIDPF
 from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
 from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters

@@ -13,7 +13,7 @@ from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import SolverStatus
-from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.optim import PortfolioOptimisationModel
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import set_manual_activation

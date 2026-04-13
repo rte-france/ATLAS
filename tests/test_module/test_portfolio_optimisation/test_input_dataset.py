@@ -15,11 +15,11 @@ from atlas.io_utils.parameters import DateParameters
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
-from atlas.modules.portfolio_optimisation.models.load import LoadPO
-from atlas.modules.portfolio_optimisation.models.solar import SolarPO
-from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.models.wind import WindPO
+from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
+from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
+from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
+from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.equipment.hydro import Hydro
 from atlas.objects.equipment.load import Load
@@ -118,7 +118,9 @@ class TestPortfolioOptimisationInputDataset:
     @pytest.fixture
     def mock_non_dispatchable_load(self, mock_portfolio, mock_node):
         """Create a real non-dispatchable Load equipment."""
-        return Load(name="load_non_dispatchable", load_type=LoadType.BASE_LOAD, portfolio=mock_portfolio, node=mock_node)
+        return Load(
+            name="load_non_dispatchable", load_type=LoadType.BASE_LOAD, portfolio=mock_portfolio, node=mock_node
+        )
 
     @patch("atlas.modules.portfolio_optimisation.input_dataset.WindPO")
     def test_initialization_with_wind_equipment(self, mock_wind_po_class, mock_parameters, mock_wind_equipment):

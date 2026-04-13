@@ -1,10 +1,10 @@
 from atlas.abstract_class.dataset import AbstractDataset
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.modules.intraday_price_forecast.models.load import LoadIDPF
-from atlas.modules.intraday_price_forecast.models.market_area import MarketAreaIDPF
-from atlas.modules.intraday_price_forecast.models.portfolio import PortfolioIDPF
-from atlas.modules.intraday_price_forecast.models.solar import SolarIDPF
-from atlas.modules.intraday_price_forecast.models.wind import WindIDPF
+from atlas.modules.intraday_price_forecast.input_objects.load import LoadIDPF
+from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF
+from atlas.modules.intraday_price_forecast.input_objects.portfolio import PortfolioIDPF
+from atlas.modules.intraday_price_forecast.input_objects.solar import SolarIDPF
+from atlas.modules.intraday_price_forecast.input_objects.wind import WindIDPF
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
 
 

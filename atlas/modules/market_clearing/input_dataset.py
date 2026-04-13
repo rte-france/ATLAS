@@ -13,12 +13,12 @@ from atlas.abstract_class.dataset import AbstractDataset
 from atlas.config import logger
 from atlas.enums import CouplingType
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.modules.market_clearing.models.critical_branch import CriticalBranchMC
-from atlas.modules.market_clearing.models.market_area import MarketAreaMC
-from atlas.modules.market_clearing.models.market_area_ptdf import MarketAreaPtdfMC
-from atlas.modules.market_clearing.models.market_border import MarketBorderMC
-from atlas.modules.market_clearing.models.order import OrderMC
-from atlas.modules.market_clearing.models.order_coupling import OrderCouplingMC
+from atlas.modules.market_clearing.input_objects.critical_branch import CriticalBranchMC
+from atlas.modules.market_clearing.input_objects.market_area import MarketAreaMC
+from atlas.modules.market_clearing.input_objects.market_area_ptdf import MarketAreaPtdfMC
+from atlas.modules.market_clearing.input_objects.market_border import MarketBorderMC
+from atlas.modules.market_clearing.input_objects.order import OrderMC
+from atlas.modules.market_clearing.input_objects.order_coupling import OrderCouplingMC
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
 from atlas.objects.market.critical_branch import CriticalBranch
 from atlas.objects.market.market_area import MarketArea
