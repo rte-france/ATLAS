@@ -7,13 +7,13 @@ market: "DayAhead"
 solver:
   solver_name: "SCIP"
   timeout: "PT10S"
-  export_lp: true
+  export_lp: false
 multiprocessing:
-  use_multiprocessing: false
+  enable: false
 is_portfolio_bidding: true
 use_forecast: false
 small_imbalance_penalty: 0.05
 battery_smoothing_factor: 0.1
-electric_vehicle_number_of_fragments: 1
-pumped_hydraulic_number_of_fragments: 1
-excluded_thermal_strategies_: "Base"
+small_imbalance_size: 0.15
+excluded_technologies:
+  - 'thermal'

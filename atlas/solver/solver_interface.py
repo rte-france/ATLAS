@@ -378,7 +378,10 @@ class OptimisationModel:
         }
 
         mapped_status = status_map.get(status, SolverStatus.NOT_SOLVED)
-        logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        if not self.name:
+            logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        else:
+            logger.info(f"{self.name} optimisation finished in {solve_time} with status: {mapped_status.name}")
 
         objective_value = None
 

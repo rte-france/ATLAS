@@ -20,6 +20,6 @@ solver:
   use_presolve: True
   timeout: "PT10S"
   solver_name: "SCIP"
-  export_lp: True
+  export_lp: false
   duality_gap: 0.0001
 price_forecasts_types: ["Medium", "High", "Low"]
