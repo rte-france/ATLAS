@@ -28,7 +28,7 @@ from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 from atlas.type import get_type_attribute
 
 

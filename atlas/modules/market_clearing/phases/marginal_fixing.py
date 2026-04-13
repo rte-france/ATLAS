@@ -12,7 +12,7 @@ import pendulum
 
 from atlas.enums import OrderType
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
-from atlas.modules.market_clearing.models.order import OrderMC
+from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
 
 

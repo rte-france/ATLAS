@@ -13,7 +13,7 @@ from loguru import logger
 from pendulum import DateTime, Duration
 
 import atlas.config as cfg
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
@@ -23,8 +23,8 @@ from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
-from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
-from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
+from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.orchestration import (

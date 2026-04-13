@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.solver.models import SolverOptions
 from atlas.solver.solver_interface import OptimisationModel

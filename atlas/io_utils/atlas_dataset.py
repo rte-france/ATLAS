@@ -22,25 +22,25 @@ from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
 from atlas.io_utils.utils import diff_business_model
-from atlas.models.business_model import BusinessModel
-from atlas.models.control_block import ControlBlock
-from atlas.models.equipment.equipment import Equipment
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
-from atlas.models.equipment.wind import Wind
-from atlas.models.market.critical_branch import CriticalBranch
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.market_area_ptdf import MarketAreaPtdf
-from atlas.models.market.market_border import MarketBorder
-from atlas.models.market.node_ptdf import NodePtdf
-from atlas.models.market.order import Order
-from atlas.models.market.order_coupling import OrderCoupling
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.equipment.hydro import Hydro
+from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.objects.equipment.solar import Solar
+from atlas.objects.equipment.storage import Storage
+from atlas.objects.equipment.thermal import Thermal
+from atlas.objects.equipment.wind import Wind
+from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
+from atlas.objects.market.market_border import MarketBorder
+from atlas.objects.market.node_ptdf import NodePtdf
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
 
 
 class AtlasDataset(BaseModel):
@@ -592,6 +592,21 @@ class AtlasDataset(BaseModel):
         return AtlasDataset.from_dict(filtered_data)
 
     def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
+        """
+        Filter the dataset to include only specified equipment by name.
+
+        :param equipment_names: List of equipment names to include. If None or empty, returns a copy of the full dataset.
+        :type equipment_names: list[str] | None
+
+        :return: A new AtlasDataset containing only the specified equipment (deep copy)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
+            >>> filtered = dataset.filter_equipments(["plant1", "plant3"])
+            >>> len(filtered.thermal)
+            2
+        """
         copy_dataset = copy.deepcopy(self)
         if not equipment_names:
             return copy_dataset
@@ -605,9 +620,6 @@ class AtlasDataset(BaseModel):
     def filter_zones(self, control_block_names: list[str], include_external_borders: bool = False) -> AtlasDataset:
         """
         Filter the dataset to include only objects associated with specified control blocks (zones).
-
-        This method creates a new dataset containing only the business objects that belong to or are connected
-        to the specified control blocks. It maintains referential integrity across related objects.
 
         For market borders and critical branches:
         - If include_external_borders is False (default), only includes borders/branches where both endpoints
@@ -644,20 +656,18 @@ class AtlasDataset(BaseModel):
 
         # Filter market areas
         for ma in self.market_area:
-            if ma.control_block is not None and ma.control_block.name in zone_set:
+            if ma.control_block.name in zone_set:
                 dataset.market_area.add(ma)
 
         # Filter nodes
         for node in self.node:
-            if node.control_block is not None and node.control_block.name in zone_set:
+            if node.control_block.name in zone_set:
                 dataset.node.add(node)
 
         # Filter market borders (with configurable logic)
         for border in self.market_border:
-            downhill_in_zone = (
-                border.downhill_control_block is not None and border.downhill_control_block.name in zone_set
-            )
-            uphill_in_zone = border.uphill_control_block is not None and border.uphill_control_block.name in zone_set
+            downhill_in_zone = border.downhill_control_block.name in zone_set
+            uphill_in_zone = border.uphill_control_block.name in zone_set
 
             if downhill_in_zone and uphill_in_zone:
                 dataset.market_border.add(border)
@@ -666,36 +676,19 @@ class AtlasDataset(BaseModel):
                 if downhill_in_zone or uphill_in_zone:
                     dataset.market_border.add(border)
 
-        # Filter market area PTDFs
         for ma_ptdf in self.market_area_ptdf:
-            if (
-                ma_ptdf.market_area is not None
-                and ma_ptdf.market_area.control_block is not None
-                and ma_ptdf.market_area.control_block.name in zone_set
-            ):
+            if ma_ptdf.market_area.control_block.name in zone_set:
                 dataset.market_area_ptdf.add(ma_ptdf)
 
         # Filter node PTDFs
         for node_ptdf in self.node_ptdf:
-            if (
-                node_ptdf.node is not None
-                and node_ptdf.node.control_block is not None
-                and node_ptdf.node.control_block.name in zone_set
-            ):
+            if node_ptdf.node.control_block.name in zone_set:
                 dataset.node_ptdf.add(node_ptdf)
 
         # Filter critical branches (with configurable logic)
         for critical_branch in self.critical_branch:
-            uphill_in_zone = (
-                critical_branch.uphill_node is not None
-                and critical_branch.uphill_node.control_block is not None
-                and critical_branch.uphill_node.control_block.name in zone_set
-            )
-            downhill_in_zone = (
-                critical_branch.downhill_node is not None
-                and critical_branch.downhill_node.control_block is not None
-                and critical_branch.downhill_node.control_block.name in zone_set
-            )
+            uphill_in_zone = critical_branch.uphill_node.control_block.name in zone_set
+            downhill_in_zone = critical_branch.downhill_node.control_block.name in zone_set
 
             if downhill_in_zone and uphill_in_zone:
                 dataset.critical_branch.add(critical_branch)
@@ -706,11 +699,7 @@ class AtlasDataset(BaseModel):
 
         # Filter orders
         for order in self.order:
-            if (
-                order.market_area is not None
-                and order.market_area.control_block is not None
-                and order.market_area.control_block.name in zone_set
-            ):
+            if order.market_area.control_block.name in zone_set:
                 dataset.order.add(order)
 
         # Filter order couplings
@@ -729,19 +718,15 @@ class AtlasDataset(BaseModel):
 
         # Filter portfolios
         for portfolio in self.portfolio:
-            if portfolio.control_block is not None and portfolio.control_block.name in zone_set:
+            if portfolio.control_block.name in zone_set:
                 dataset.portfolio.add(portfolio)
 
         # Filter equipment (all types)
         for equipment_type in cfg.EQUIPMENT_MODELS:
             equipments = dataset.get_container_by_type(equipment_type)
             for equipment in self.get_items_by_type(equipment_type):
-                equipment_node: Node | None = cast(Equipment, equipment).node
-                if (
-                    equipment_node is not None
-                    and equipment_node.control_block is not None
-                    and equipment_node.control_block.name in zone_set
-                ):
+                equipment_node = cast(Equipment, equipment).node
+                if equipment_node.control_block.name in zone_set:
                     equipments.add(equipment)
 
         return copy.deepcopy(dataset)

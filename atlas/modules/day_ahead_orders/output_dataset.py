@@ -5,20 +5,28 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
-from atlas import ControlBlock, Hydro, Load, MarketArea, OtherNonDispatchable, Solar, Storage, Thermal, Wind
-from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import ThermalStrategy
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
-from atlas.modules.day_ahead_orders.models.hydro import HydroDAO
-from atlas.modules.day_ahead_orders.models.load import LoadDAO
-from atlas.modules.day_ahead_orders.models.order import OrderDAO
-from atlas.modules.day_ahead_orders.models.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
-from atlas.modules.day_ahead_orders.models.solar import SolarDAO
-from atlas.modules.day_ahead_orders.models.storage import StorageDAO
-from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.models.wind import WindDAO
+from atlas.modules.day_ahead_orders.input_objects.hydro import HydroDAO
+from atlas.modules.day_ahead_orders.input_objects.load import LoadDAO
+from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
+from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
+from atlas.modules.day_ahead_orders.input_objects.portfolio import PortfolioDAO
+from atlas.modules.day_ahead_orders.input_objects.solar import SolarDAO
+from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
+from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.input_objects.wind import WindDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.objects.equipment.hydro import Hydro
+from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.objects.equipment.solar import Solar
+from atlas.objects.equipment.storage import Storage
+from atlas.objects.equipment.thermal import Thermal
+from atlas.objects.equipment.wind import Wind
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.orchestrator.change_set import AddObject, UpdateObject
 
 

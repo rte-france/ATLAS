@@ -7,7 +7,7 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from atlas.abstract_class.abstract_orchestrator_parameters import AbstractOrchestratorParameters
+from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.orchestrator.workflow.job import Step
 
 

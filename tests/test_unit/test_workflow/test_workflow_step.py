@@ -12,13 +12,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.market_clearing.module import MarketClearingModule
 from atlas.modules.portfolio_optimisation.module import PortfolioOptimisationModule
 from atlas.orchestrator.module_registry import ModuleRegistry
-from atlas.orchestrator.workflow.job import Step
-from atlas.orchestrator.workflow.job import WorkflowJob
+from atlas.orchestrator.workflow.job import Step, WorkflowJob
 
 
 def _make_mock_module_class(output=None):

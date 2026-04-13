@@ -13,8 +13,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.job import WorkflowJob
+from atlas.orchestrator.workflow.parameters import WorkflowParameters
 from atlas.orchestrator.workflow.workflow import Workflow
 
 
@@ -339,7 +339,7 @@ class TestWorkflowPathFromWorkflow:
             "name: test_workflow\n"
             "dataset_path: dataset\n"
             "output_dataset_path: output\n"
-            "path_from_orchestrator: true\n"
+            "path_from_workflow: true\n"
             "steps: []\n"
         )
 
@@ -367,7 +367,7 @@ class TestWorkflowPathFromWorkflow:
             f"name: test_workflow\n"
             f"dataset_path: {dataset_dir}\n"
             f"output_dataset_path: {output_dir}\n"
-            f"path_from_orchestrator: false\n"
+            f"path_from_workflow: false\n"
             f"steps: []\n"
         )
 
@@ -401,7 +401,7 @@ class TestWorkflowPathFromWorkflow:
             f"name: test_workflow\n"
             f"dataset_path: {dataset_dir}\n"
             f"output_dataset_path: {output_dir}\n"
-            f"path_from_orchestrator: true\n"
+            f"path_from_workflow: true\n"
             f"output_dir: results\n"
             f"steps:\n"
             f"  - module: MarketClearing\n"
@@ -426,7 +426,7 @@ class TestWorkflowPathFromWorkflow:
             f"name: test_workflow\n"
             f"dataset_path: {dataset_dir}\n"
             f"output_dataset_path: {output_dir}\n"
-            f"path_from_orchestrator: true\n"
+            f"path_from_workflow: true\n"
             f"parameters_path: generic.yaml\n"
             f"steps: []\n"
         )

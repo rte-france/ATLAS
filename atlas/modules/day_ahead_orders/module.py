@@ -10,18 +10,22 @@ from collections.abc import Iterable
 from pendulum import Duration
 
 import atlas.config as cfg
-from atlas import AtlasDataset, LazyScenarioMatrix, LazyTimeseries, ScenarioMatrix, Timeseries
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
 from atlas.enums import BusinessModelName
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.math.lazy_matrix import LazyScenarioMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.matrix import ScenarioMatrix
+from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_dataset import DayAheadOrdersInputDataset
 from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
-from atlas.modules.day_ahead_orders.steps.hydraulic_step import HydraulicStep
-from atlas.modules.day_ahead_orders.steps.load_step import LoadStep
-from atlas.modules.day_ahead_orders.steps.non_dispatchable_step import NonDispatchableStep
+from atlas.modules.day_ahead_orders.steps.hydro import HydraulicStep
+from atlas.modules.day_ahead_orders.steps.load import LoadStep
+from atlas.modules.day_ahead_orders.steps.non_dispatchable import NonDispatchableStep
+from atlas.modules.day_ahead_orders.steps.renewables import WindPVStep
 from atlas.modules.day_ahead_orders.steps.storage.storage_step import StorageStep
 from atlas.modules.day_ahead_orders.steps.thermal.thermal_bidding_step import ThermalBiddingStep
-from atlas.modules.day_ahead_orders.steps.wind_pv_step import WindPVStep
 from atlas.timing import generate_datetimes, infer_frequency
 
 

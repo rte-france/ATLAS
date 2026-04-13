@@ -5,17 +5,17 @@ from loguru import logger
 from pendulum import DateTime
 
 import atlas.config as cfg
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
-from atlas.modules.intraday_price_forecast.models.load import LoadIDPF
-from atlas.modules.intraday_price_forecast.models.market_area import MarketAreaIDPF
-from atlas.modules.intraday_price_forecast.models.solar import SolarIDPF
-from atlas.modules.intraday_price_forecast.models.wind import WindIDPF
+from atlas.modules.intraday_price_forecast.input_objects.load import LoadIDPF
+from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF
+from atlas.modules.intraday_price_forecast.input_objects.solar import SolarIDPF
+from atlas.modules.intraday_price_forecast.input_objects.wind import WindIDPF
 from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
 from atlas.timing import generate_datetimes
