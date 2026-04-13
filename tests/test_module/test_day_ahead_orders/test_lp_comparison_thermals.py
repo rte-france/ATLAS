@@ -30,14 +30,14 @@ def base_parameters_dict():
             "start_date": "2028-09-27 00:00:00",
             "execution_date": "2028-09-26 12:00:00",
             "end_date": "2028-09-28 00:00:00",
-            "timestep": "PT1H",  # ISO 8601 duration format
+            "timestep": "PT1H",
         },
         "solver": {
             "solver_name": "SCIP",
             "export_lp": True,
             "use_presolve": True,
             "duality_gap": 0.0001,
-            "timeout": "PT120S",  # ISO 8601 duration format
+            "timeout": "PT120S",
         },
         "proportional_reserves_penalty": True,
         "automated_unprocured_reserves_penalty": 10000,
@@ -52,7 +52,7 @@ def base_parameters_dict():
         "battery_nb_fragments": 3,
         "ev_nb_fragments": 3,
         "phs_nb_fragments": 3,
-        "price_forecasts_types": ["Medium", "Low", "High"],
+        "price_forecasts_types": ["Medium"],
     }
 
 
