@@ -18,7 +18,7 @@ class TestWorkflowIntegration:
 
         assert workflow is not None
         assert workflow.parameters.name is not None
-        assert len(workflow.jobs) > 0
+        assert workflow.jobs_count > 0
 
     def test_workflow_step_names_are_unique(self):
         workflow = Workflow.from_file(WORKFLOW_CONFIG)

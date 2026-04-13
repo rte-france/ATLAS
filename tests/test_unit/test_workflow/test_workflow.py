@@ -55,8 +55,8 @@ class TestWorkflowAddStep:
         step = _make_workflow_step("s1")
         wf.add_job(step)
 
-        assert len(wf.jobs) == 1
-        assert wf.jobs[0] is step
+        assert wf.jobs_count == 1
+        assert next(wf.jobs) is step
 
     def test_add_list_of_steps(self, tmp_path):
         params = _make_workflow_parameters(tmp_path)
@@ -68,7 +68,7 @@ class TestWorkflowAddStep:
         steps = [_make_workflow_step(f"s{i}") for i in range(3)]
         wf.add_job(steps)
 
-        assert len(wf.jobs) == 3
+        assert wf.jobs_count == 3
         for original, stored in zip(steps, wf.jobs):
             assert stored is original
 
@@ -105,28 +105,9 @@ class TestWorkflowAddStep:
         wf.add_job(s1)
         wf.add_job(s2)
 
-        assert wf.jobs[0] is s1
-        assert wf.jobs[1] is s2
-
-
-class TestWorkflowGetOutputDataset:
-    def test_returns_last_step_output(self, tmp_path):
-        params = _make_workflow_parameters(tmp_path)
-        wf = Workflow.__new__(Workflow)
-        wf.parameters = params
-        wf.generic_module_parameters = {}
-        wf._jobs = []
-
-        mock_output = MagicMock()
-        step1 = _make_workflow_step("s1", output=MagicMock())
-        step2 = _make_workflow_step("s2", output=mock_output)
-
-        wf._jobs = [step1, step2]
-        # Simulate steps having been run
-        step1._output_dataset = MagicMock()
-        step2._output_dataset = mock_output
-
-        assert wf.get_output_dataset() is mock_output
+        jobs = wf.jobs
+        assert next(jobs) is s1
+        assert next(jobs) is s2
 
 
 class TestWorkflowBuildModuleParameters:
@@ -272,6 +253,35 @@ class TestWorkflowExecute:
         # Default rollback_on_job_failure is True
         mock_apply.assert_called_once_with([mock_change_set], mock_cis_instance, rollback_on_error=True)
 
+    def test_execute_save_last_step_output(self, tmp_path):
+        params = _make_workflow_parameters(tmp_path)
+        wf = Workflow.__new__(Workflow)
+        wf.parameters = params
+        wf.generic_module_parameters = {}
+        wf._jobs = []
+        wf.workflow_path = Path()
+
+        mock_output = MagicMock()
+        step1 = _make_workflow_step("s1", output=MagicMock())
+        step2 = _make_workflow_step("s2", output=mock_output)
+        wf._jobs = [step1, step2]
+
+        assert wf.get_output_dataset() is None
+
+        with (
+            patch("atlas.io_utils.atlas_dataset.AtlasDataset.from_directory", return_value=AtlasDataset()),
+            patch("atlas.orchestrator.handler.cis_handler.CISHandler.apply"),
+            patch("atlas.orchestrator.current_input_state.CurrentInputState") as MockCIS,
+            patch.object(AtlasDataset, "to_directory"),
+        ):
+            mock_cis_instance = MagicMock()
+            mock_cis_instance.filter_dataset.return_value = AtlasDataset()
+            mock_cis_instance.data = AtlasDataset()
+            MockCIS.return_value = mock_cis_instance
+
+            wf.execute()
+
+        assert wf.get_output_dataset() is mock_output
 
 class TestWorkflowFromFile:
     def test_from_file_raises_if_steps_reference_nonexistent_params(self, tmp_path):
@@ -409,7 +419,7 @@ class TestWorkflowPathFromWorkflow:
         )
 
         workflow = Workflow.from_file(config)
-        step = workflow.jobs[0]
+        step = next(workflow.jobs)
 
         assert step.parameters.output.output_dir == tmp_path / "results" / "MarketClearing"
 

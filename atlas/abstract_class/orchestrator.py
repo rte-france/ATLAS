@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from typing import Generic
 
+from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.job import AbstractJob, J
 from atlas.abstract_class.orchestrator_parameters import PO
 from atlas.config import logger
@@ -15,13 +17,27 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
     """Placeholder abstract class for orchestrator."""
 
     parameters: PO
+    final_dataset: AbstractDataset | None = None
 
     @property
     @abstractmethod
-    def jobs(self) -> list[J]:
+    def jobs(self) -> Iterator[J]:
         """
         Return jobs to execute.
         """
+
+    @property
+    @abstractmethod
+    def jobs_count(self) -> int:
+        """
+        Return the number of jobs to execute.
+        """
+
+    def get_output_dataset(self) -> AbstractDataset | None:
+        """
+        Returns the final dataset of the workflow, return None if the orchestrator hasn't been executed to the end.
+        """
+        return self.final_dataset
 
     def execute(self) -> CurrentInputState:
         """
@@ -44,7 +60,7 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
             logger.debug(f"Created initial {self.__class__.__name__} snapshot")
 
         for job_idx, job in enumerate(self.jobs):
-            logger.info(f"Launching :'{job.name}' ({job_idx + 1}/{len(self.jobs)})")
+            logger.info(f"Launching :'{job.name}' ({job_idx + 1}/{self.jobs_count})")
 
             # Create snapshot before job if requested
             if self.parameters.create_job_snapshots:
@@ -66,6 +82,9 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
                 raise RuntimeError(f"{self.__class__.__name__} failed at job '{job}'") from e
 
             logger.info(f"Finishing job :'{job.name}'")
+
+            if job_idx + 1 == self.jobs_count:
+                self.final_dataset = job.output_dataset
 
         # Export final orchestrator output
         logger.info(f"Exporting final {self.__class__.__name__} output")

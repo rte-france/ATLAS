@@ -8,12 +8,12 @@ This file is part of the ATLAS project.
 from __future__ import annotations
 
 import copy
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.workflow.job import Step, WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
@@ -71,13 +71,17 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         return parameters
 
     @property
-    def jobs(self) -> list[WorkflowJob]:
+    def jobs(self) -> Iterator[WorkflowJob]:
         """
         Access the workflow jobs.
 
         :return: The list of WorkflowJob instances.
         """
-        return self._jobs
+        return self._jobs.__iter__()
+
+    @property
+    def jobs_count(self) -> int:
+        return len(self._jobs)
 
     def add_job(self, job: WorkflowJob | list[WorkflowJob]) -> None:
         """Add one or multiple jobs to the end of the workflow."""
@@ -89,10 +93,6 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
             if not isinstance(job, WorkflowJob):
                 raise TypeError(f"Expected a WorkflowJob instance, got {type(job).__name__}.")
             self._jobs.append(job)
-
-    def get_output_dataset(self) -> AbstractDataset | None:
-        """Returns the final dataset of the workflow"""
-        return self.jobs[-1].get_output_dataset()
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
