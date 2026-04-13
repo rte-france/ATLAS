@@ -7,9 +7,15 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+from pendulum import DateTime, Duration
+from pydantic import BaseModel, field_validator, model_validator
+
+from atlas import Workflow
 from atlas.abstract_class.job import AbstractJob
+from atlas.orchestrator.module_registry import ModuleRegistry
 
 
 class ActionPlanJob(AbstractJob):
@@ -25,40 +31,62 @@ class ActionPlanJob(AbstractJob):
         return f"ActionPlanStep(name={self.name!r}, module={module_name}, executed={has_output})"
 
 
-class Task:
+class Task(BaseModel):
+    """Definition of a single job
+
+    :param name: Name of the action plan job.
+    :type name: str
+    :param module: Module to be executed (if any) in this job.
+    :type module: AbstractModule | None
+    :param parameters: Parameters of the module or the workflow associated with this task.
+    :type parameters: str | None
+    :param workflow: Workflow to be executed (if any) in this job.
+    :type workflow: string | None
+    :param priority: Priority of the action plan job.
+    :type priority: int
+    :param from_: First date time to execute this job.
+    :type from_: DateTime
+    :param until: Last date time to execute this job.
+    :type until: DateTime
+    :param frequency: Frequency of the action plan job.
+    :type frequency: Duration
     """
-    A task in a workflow
-    """
 
-    def __init__(self, parameters: dict[str, Any]):
-        """
-        Initialize an ActionPlanJob.
+    name: str | None = None
+    module: ModuleRegistry | None = None
+    workflow: Workflow | None = None
+    parameters: Path | None = None
+    priority: int
+    from_: DateTime  # FIXME change name, "from" isn't available in python
+    until: DateTime
+    frequency: Duration
 
-        :param name: Name of the action plan job.
-        :type name: str
-        :param module: Module to be executed (if any) in this job.
-        :type module: AbstractModule
-        :param workflow: Workflow to be executed (if any) in this job.
-        :type workflow: string
-        :param priority: Priority of the action plan job.
-        :type priority: int
-        :param from_: First date time to execute this job.
-        :type from_: DateTime
-        :param until: Last date time to execute this job.
-        :type until: DateTime
-        :param frequency: Frequency of the action plan job.
-        :type frequency: Duration
-        """
-        raise NotImplementedError
+    @field_validator("workflow", mode="before")
+    @classmethod
+    def coerce_workflow(cls, v: Any) -> Workflow | None:
+        if v is not None and isinstance(v, str):
+            return Workflow.from_file(v)
+        return v
 
-    def generate_steps(self) -> list[ActionPlanJob]:
-        """
-        Associated job to the given task.
+    @field_validator("module", mode="before")
+    @classmethod
+    def coerce_module(cls, v: Any) -> ModuleRegistry | None:
+        if v is not None and isinstance(v, str):
+            return ModuleRegistry(ModuleRegistry.get(v))
+        return v
 
-        :return: The list of steps the task require to execute.
-        """
-        raise NotImplementedError
-
-    def __repr__(self) -> str:
-        """Return a detailed string representation of the workflow task."""
-        raise NotImplementedError
+    @model_validator(mode="after")
+    def module_or_workflow(self) -> Task:  # FIXME better function name? Can we overide validate()
+        if self.module is None and self.workflow is None:
+            raise ValueError(
+                f"Task {self.name} doesn't contains either a module or a workflow, expected exactly once of them"
+            )  # FIXME More appropriate exception name?
+        if self.module is not None and self.workflow is not None:
+            raise ValueError(
+                f"Task {self.name} contains both a module or a workflow, expected exactly once of them"
+            )  # FIXME More appropriate exception name?
+        if self.until <= self.from_:
+            raise ValueError(
+                f"Task {self.name} must have an end date before {self.from_}, current value is {self.until}"
+            )
+        return self
