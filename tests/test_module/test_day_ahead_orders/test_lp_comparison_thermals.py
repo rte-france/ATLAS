@@ -52,7 +52,7 @@ def base_parameters_dict():
         "battery_nb_fragments": 3,
         "ev_nb_fragments": 3,
         "phs_nb_fragments": 3,
-        "price_forecasts_types": ["Medium"],
+        "price_forecasts_types": ["Medium", "Low", "High"],
     }
 
 
