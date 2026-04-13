@@ -795,7 +795,9 @@ class ThermalOptimizationModel(OptimisationModel):
             default_value=0,
         )
         for t in self.time_frame:
-            q_star.set_value(t, self.q.get_model_var(t).solution_value())
+            q_star.set_value(t, self.q.get_model_var(t).solution_value()) if t in q_star else q_star.add_index(
+                t, self.q.get_model_var(t).solution_value()
+            )
 
         # inform the user if the optimal program is such that the unit
         # provides no output
@@ -810,7 +812,7 @@ class ThermalOptimizationModel(OptimisationModel):
         # This variable is returned as together with the procuredReserves it allows to know the exact amount
         # of reserves supplied (and unsupplied) for each time step. the reserves variables can take inexact values on the time steps
         # where there is no reserve to provide due to the fill up constraints.
-        # Create the time series
+
         contracted_difference_up_star = Timeseries.from_index(
             self.parameters.temporal.start_date,
             self.parameters.temporal.timestep,
@@ -825,7 +827,7 @@ class ThermalOptimizationModel(OptimisationModel):
         )
 
         # Add the automatedDifference
-        # Create the time series
+
         automated_contracted_difference_up_star = Timeseries.from_index(
             self.parameters.temporal.start_date,
             self.parameters.temporal.timestep,
@@ -843,16 +845,23 @@ class ThermalOptimizationModel(OptimisationModel):
         for t in self.time_frame:
             contracted_difference_up_star.set_value(
                 t, self.get_variable(self.contracted_difference_up_at(t)).solution_value()
+            ) if t in contracted_difference_up_star else contracted_difference_up_star.add_index(
+                t, self.get_variable(self.contracted_difference_up_at(t)).solution_value()
             )
             contracted_difference_down_star.set_value(
                 t, self.get_variable(self.contracted_difference_down_at(t)).solution_value()
+            ) if t in contracted_difference_down_star else contracted_difference_down_star.add_index(
+                t, self.get_variable(self.contracted_difference_down_at(t)).solution_value()
             )
-        # Populate the automatedDifference time series
-        for t in self.time_frame:
+
             automated_contracted_difference_up_star.set_value(
+                t, self.get_variable(self.automated_contracted_difference_up_at(t)).solution_value()
+            ) if t in automated_contracted_difference_up_star else automated_contracted_difference_up_star.add_index(
                 t, self.get_variable(self.automated_contracted_difference_up_at(t)).solution_value()
             )
             automated_contracted_difference_down_star.set_value(
+                t, self.get_variable(self.automated_contracted_difference_down_at(t)).solution_value()
+            ) if t in automated_contracted_difference_down_star else automated_contracted_difference_down_star.add_index(
                 t, self.get_variable(self.automated_contracted_difference_down_at(t)).solution_value()
             )
 
@@ -887,9 +896,15 @@ class ThermalOptimizationModel(OptimisationModel):
 
         # Populate the time series
         for t in self.time_frame:
-            ON_UP_star.set_value(t, self.ON_UP.get_model_var(t).solution_value())
-            ON_DOWN_star.set_value(t, self.ON_DOWN.get_model_var(t).solution_value())
-            OFF_star.set_value(t, self.OFF.get_model_var(t).solution_value())
+            ON_UP_star.set_value(
+                t, self.ON_UP.get_model_var(t).solution_value()
+            ) if t in ON_UP_star else ON_UP_star.add_index(t, self.ON_UP.get_model_var(t).solution_value())
+            ON_DOWN_star.set_value(
+                t, self.ON_DOWN.get_model_var(t).solution_value()
+            ) if t in ON_DOWN_star else ON_DOWN_star.add_index(t, self.ON_DOWN.get_model_var(t).solution_value())
+            OFF_star.set_value(t, self.OFF.get_model_var(t).solution_value()) if t in OFF_star else OFF_star.add_index(
+                t, self.OFF.get_model_var(t).solution_value()
+            )
 
         # Populate the dictionnary
         results["ON_UP"] = ON_UP_star
@@ -905,7 +920,9 @@ class ThermalOptimizationModel(OptimisationModel):
                 default_value=0,
             )
             for t in self.time_frame:
-                START_star.set_value(t, self.START.get_model_var(t).solution_value())
+                START_star.set_value(
+                    t, self.START.get_model_var(t).solution_value()
+                ) if t in START_star else START_star.add_index(t, self.START.get_model_var(t).solution_value())
                 # Add the time series to the dictionnary.
             results["START"] = START_star
         if self.T_stop >= 1:
@@ -916,7 +933,9 @@ class ThermalOptimizationModel(OptimisationModel):
                 default_value=0,
             )
             for t in self.time_frame:
-                STOP_star.set_value(t, self.STOP.get_model_var(t).solution_value())
+                STOP_star.set_value(
+                    t, self.STOP.get_model_var(t).solution_value()
+                ) if t in STOP_star else STOP_star.add_index(t, self.STOP.get_model_var(t).solution_value())
             # Add the time series to the dictionnary.
             results["STOP"] = STOP_star
         if self.T_stable >= 1:
@@ -927,7 +946,9 @@ class ThermalOptimizationModel(OptimisationModel):
                 default_value=0,
             )
             for t in self.time_frame:
-                ON_FLAT_star.set_value(t, self.ON_FLAT.get_model_var(t).solution_value())
+                ON_FLAT_star.set_value(
+                    t, self.ON_FLAT.get_model_var(t).solution_value()
+                ) if t in ON_FLAT_star else ON_FLAT_star.add_index(t, self.ON_FLAT.get_model_var(t).solution_value())
             results["ON_FLAT"] = ON_FLAT_star
 
         return results
