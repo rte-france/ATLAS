@@ -7,21 +7,18 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-from atlas.io_utils.parameters import Parameters
+from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.orchestrator.actionplan.job import Task
 from atlas.orchestrator.hook.hook import Hook
 
 
-class ActionPlanParameters(Parameters):
+class ActionPlanParameters(AbstractOrchestratorParameters):
     """Parameters for the action plan.
-    :param name: Name of the action plan
-    :type name: str
     :param tasks: List of tasks to execute
     :type tasks: list[Task]
     :param hooks: List of hooks in the workflow
     :type hooks: list[Hook]
     """
 
-    name: str | None = None
     tasks: list[Task]
     hooks: list[Hook]
