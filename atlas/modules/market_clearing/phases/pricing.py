@@ -19,7 +19,6 @@ from atlas.modules.market_clearing.parameters import MarketClearingParameters
 from atlas.modules.market_clearing.price_group import PriceGroup
 from atlas.objects.market.order import Order
 from atlas.solver.models import SolverOptions
-from atlas.solver.solver_helper import SolverHelper
 from atlas.solver.solver_interface import OptimisationModel
 
 
@@ -670,7 +669,7 @@ class Pricing(OptimisationModel):
                             constraint_name = constants.null_marginal_order_constraint_name(
                                 mc_order.name, equipment_name, mc_order.market_area.name, time_index
                             )
-                            SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                            self.deactivate_constraint(constraint_name)
 
     def create_min_surplus_rejected_sale_constraints(self):
         for time_index, price_groups in self.price_groups.items():
@@ -759,7 +758,7 @@ class Pricing(OptimisationModel):
         for index_lo in self.dict_linked_orders:
             constraint_name = constants.linked_bids_surplus_constraint_name(index_lo)
             if constraint_name:
-                SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                self.deactivate_constraint(constraint_name)
 
     def deactivate_negative_surplus_pc_constraints(self):
         for index_pc in self.dict_parent_child_orders:
@@ -767,7 +766,7 @@ class Pricing(OptimisationModel):
             if constraint_name:
                 # If there is surplus
                 if constraint_name in self.constraints:
-                    SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                    self.deactivate_constraint(constraint_name)
                 else:
                     logger.debug(f"No surplus for {index_pc}")
 
@@ -782,7 +781,7 @@ class Pricing(OptimisationModel):
                     constraint_name = constants.positive_parent_child_surplus_constraint_name(
                         index_child, index_pc, time_index
                     )
-                    SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                    self.deactivate_constraint(constraint_name)
                     index_child += 1
 
     def deactivate_positive_surplus_order_constraints(self):
@@ -797,7 +796,7 @@ class Pricing(OptimisationModel):
                             mc_order.name, equipment_name, mc_order.market_area.name, mc_order.time_index
                         )
                         if constraint_name:
-                            SolverHelper.deactivate_constraint(self.get_constraint(constraint_name))
+                            self.deactivate_constraint(constraint_name)
 
     def create_paradoxical_delta_price_order_constraints(self):
         for mc_order in self.input_dataset.mc_orders.values():
