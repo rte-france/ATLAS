@@ -167,7 +167,7 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
         )
 
     if parameters.market == MarketType.dayahead:
-        return da_power
+        return cast(Timeseries, da_power)
 
     elif parameters.market == MarketType.intraday:
         if equipment.total_id_cleared_quantity is not None:
@@ -181,7 +181,7 @@ def _calculate_new_power(equipment: EquipmentPO, parameters: PortfolioOptimisati
                 parameters.temporal.end_date,
                 default_value=0,
             )
-        result = da_power + id_power
+        result = cast(Timeseries, da_power) + cast(Timeseries, id_power)
         return result
 
     raise ValueError(f"Unsupported market type: {parameters.market}")
