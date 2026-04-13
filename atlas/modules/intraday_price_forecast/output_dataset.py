@@ -1,6 +1,6 @@
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
-from atlas.modules.intraday_price_forecast.models.market_area import MarketAreaIDPF
+from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
 from atlas.orchestrator.change_set import UpdateObject
 

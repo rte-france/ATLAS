@@ -69,10 +69,10 @@ class MarketBorder(BusinessModel):
     :type total_id_flow: Timeseries
     """
 
-    downhill_control_block: ControlBlock | None = None
-    uphill_control_block: ControlBlock | None = None
-    downhill_market_area: MarketArea | None = None
-    uphill_market_area: MarketArea | None = None
+    downhill_control_block: ControlBlock
+    uphill_control_block: ControlBlock
+    downhill_market_area: MarketArea
+    uphill_market_area: MarketArea
     coupling_type: CouplingType | None = None
     loss_factor: float | None = None
     time_resolution: float | None = None

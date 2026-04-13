@@ -31,8 +31,8 @@ class Node(BusinessModel):
     :type reference_balance: Timeseries
     """
 
-    control_block: ControlBlock | None = None
-    market_area: MarketArea | None = None
+    control_block: ControlBlock
+    market_area: MarketArea
     balance_forecast: ForecastingMatrix | LazyForecastingMatrix | None = None
     id_power_injection: ForecastingMatrix | LazyForecastingMatrix | None = None
     da_power_injection: AbstractTimeseries | None = None

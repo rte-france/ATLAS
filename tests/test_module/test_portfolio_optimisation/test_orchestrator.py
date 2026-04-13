@@ -11,7 +11,7 @@ import pendulum
 import pytest
 
 from atlas.enums import MarketType, SolverStatus
-from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
 from atlas.modules.portfolio_optimisation.utils.orchestration import (
     PortfolioOptimisationResult,
     optimise_portfolio_manual_activated,

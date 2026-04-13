@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pendulum
@@ -53,6 +54,9 @@ class DummyReferenced(BusinessModel):
 class DummyEquipment(Equipment):
     name: str
     type: str = "dummy"
+    # Override required fields from Equipment to make them optional for testing
+    node: Any = None  # type: ignore[assignment]
+    portfolio: Any = None  # type: ignore[assignment]
 
     def __eq__(self, other):
         return isinstance(other, DummyEquipment) and self.name == other.name

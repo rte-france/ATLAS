@@ -17,8 +17,8 @@ from atlas.abstract_class.module import AbstractModule
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
-from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
-from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
+from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.orchestration import (

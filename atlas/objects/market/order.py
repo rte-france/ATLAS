@@ -52,7 +52,7 @@ class Order(BusinessModel):
     """
 
     equipment: Equipment | None = None
-    market_area: MarketArea | None = None
+    market_area: MarketArea
     portfolio: Portfolio | None = None
     accepted_power: float | None = None
     execution_date: DateTime | None = None

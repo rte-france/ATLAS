@@ -4,6 +4,7 @@ from pydantic_core._pydantic_core import ValidationError
 from atlas import MarketArea
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.objects.market.order import Order
+from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.orchestrator.change_set import AddObject, DeleteObject, UpdateObject
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.change_set_handler import ChangeSetHandler
@@ -25,77 +26,92 @@ def cis(dataset):
 
 
 @pytest.fixture
-def cis_with_order(cis):
-    order = Order(name="order_1", price=10.0)
-    cis.data.order.add(order)
+def cis_with_market_area(cis):
+    """CIS with a MarketArea already added."""
+    cb = ControlBlock(name="cb1")
+    ma = MarketArea(name="ma1", control_block=cb)
+    cis.data.market_area.add(ma)
     return cis
 
 
-class TestChangeSetSharedBehavior:
-    def test_resolve_reference_str(self, cis):
-        ma = MarketArea(name="ma1")
-        cis.data.market_area.add(ma)
+@pytest.fixture
+def cis_with_order(cis_with_market_area):
+    """CIS with both MarketArea and Order."""
+    ma = cis_with_market_area.data.market_area.get("ma1")
+    order = Order(name="order_1", price=10.0, market_area=ma)
+    cis_with_market_area.data.order.add(order)
+    return cis_with_market_area
 
-        order = Order.model_validate({"name": "o1"})
+
+class TestChangeSetSharedBehavior:
+    def test_resolve_reference_str(self, cis_with_market_area):
+        ma = cis_with_market_area.data.market_area.get("ma1")
+        # Create order with the actual ma object initially
+        order = Order.model_validate({"name": "o1", "market_area": ma})
+        # Test that string reference gets resolved
         data = {"market_area": "ma1"}
 
-        ChangeSetHandler._resolve_reference(order, data, cis)
+        ChangeSetHandler._resolve_reference(data, cis_with_market_area, obj=order)
 
         assert data["market_area"] is ma
 
-    def test_resolve_reference_obj(self, cis):
-        ma = MarketArea(name="ma1")
-        cis.data.market_area.add(ma)
+    def test_resolve_reference_obj(self, cis_with_market_area):
+        ma = cis_with_market_area.data.market_area.get("ma1")
+        cb = ControlBlock(name="cb1")
+        order = Order.model_validate({"name": "o1", "market_area": ma})
+        data = {"market_area": MarketArea(name="ma1", control_block=cb)}
 
-        order = Order.model_validate({"name": "o1"})
-        data = {"market_area": MarketArea(name="ma1")}
-
-        ChangeSetHandler._resolve_reference(order, data, cis)
+        ChangeSetHandler._resolve_reference(data, cis_with_market_area, obj=order)
 
         assert data["market_area"] is ma
 
-    def test_resolve_reference_missing_raises(self, cis):
-        order = Order.model_validate({"name": "o1"})
+    def test_resolve_reference_missing_raises(self, cis_with_market_area):
+        ma = cis_with_market_area.data.market_area.get("ma1")
+        order = Order.model_validate({"name": "o1", "market_area": ma})
         data = {"market_area": "missing"}
 
         with pytest.raises(ValueError):
-            ChangeSetHandler._resolve_reference(order, data, cis)
+            ChangeSetHandler._resolve_reference(data, cis_with_market_area, obj=order)
 
-    def test_fill_object_valid(self):
-        order = Order(name="o1", price=10.0)
+    def test_fill_object_valid(self, cis_with_market_area):
+        ma = cis_with_market_area.data.market_area.get("ma1")
+        order = Order(name="o1", price=10.0, market_area=ma)
 
         ChangeSetHandler._fill_object(order, {"price": 20.0})
 
         assert order.price == 20.0
 
-    def test_fill_object_invalid_type_raises(self):
-        order = Order(name="o1", price=10.0)
+    def test_fill_object_invalid_type_raises(self, cis_with_market_area):
+        ma = cis_with_market_area.data.market_area.get("ma1")
+        order = Order(name="o1", price=10.0, market_area=ma)
 
         with pytest.raises(ValidationError):
             ChangeSetHandler._fill_object(order, {"price": "invalid"})
 
 
 class TestAddChangeSetHandler:
-    def test_add_creates_object(self, cis):
-        add = AddObject({"name": "o1"}, model_type=Order)
-        ChangeSetHandler.apply(add, cis)
+    def test_add_creates_object(self, cis_with_market_area):
+        add = AddObject({"name": "o1", "market_area": "ma1"}, model_type=Order)
+        ChangeSetHandler.apply(add, cis_with_market_area)
 
-        assert "o1" in cis.data.order
+        assert "o1" in cis_with_market_area.data.order
 
-    def test_add_duplicate_raises(self, cis):
-        add = AddObject({"name": "o1"}, model_type=Order)
-        ChangeSetHandler.apply(add, cis)
+    def test_add_duplicate_raises(self, cis_with_market_area):
+        add = AddObject({"name": "o1", "market_area": "ma1"}, model_type=Order)
+        ChangeSetHandler.apply(add, cis_with_market_area)
 
         with pytest.raises(ValueError):
-            ChangeSetHandler.apply(add, cis)
+            ChangeSetHandler.apply(add, cis_with_market_area)
 
-    def test_add_failure_does_not_pollute_container(self, cis):
-        add = AddObject({"name": "o1", "foo": "bar"}, model_type=Order)
+    def test_add_failure_does_not_pollute_container(self, cis_with_market_area):
+        # Use an invalid price type to trigger validation error
+        add = AddObject({"name": "o1", "market_area": "ma1", "price": "invalid_string"}, model_type=Order)
 
-        with pytest.raises(ValidationError):
-            ChangeSetHandler.apply(add, cis)
+        # Now raises ValueError wrapping ValidationError
+        with pytest.raises(ValueError):
+            ChangeSetHandler.apply(add, cis_with_market_area)
 
-        assert "o1" not in cis.data.order
+        assert "o1" not in cis_with_market_area.data.order
 
 
 class TestUpdateChangeSetHandler:
@@ -133,22 +149,23 @@ class TestDeleteChangeSetHandler:
 
         assert "order_1" not in cis_with_order.data.order
 
-    def test_remove_preserves_other_objects(self, cis):
-        order1 = Order(name="order_1", price=10.0)
-        order2 = Order(name="order_2", price=20.0)
+    def test_remove_preserves_other_objects(self, cis_with_market_area):
+        ma = cis_with_market_area.data.market_area.get("ma1")
+        order1 = Order(name="order_1", price=10.0, market_area=ma)
+        order2 = Order(name="order_2", price=20.0, market_area=ma)
 
-        cis.data.order.add(order1)
-        cis.data.order.add(order2)
+        cis_with_market_area.data.order.add(order1)
+        cis_with_market_area.data.order.add(order2)
 
         remove = DeleteObject(
             "order_1",
             model_type=Order,
         )
 
-        ChangeSetHandler.apply(remove, cis)
+        ChangeSetHandler.apply(remove, cis_with_market_area)
 
-        assert "order_1" not in cis.data.order
-        assert "order_2" in cis.data.order
+        assert "order_1" not in cis_with_market_area.data.order
+        assert "order_2" in cis_with_market_area.data.order
 
     def test_remove_non_existing_object_raises(self, cis):
         remove = DeleteObject(
@@ -159,19 +176,17 @@ class TestDeleteChangeSetHandler:
         with pytest.raises(ValueError):
             ChangeSetHandler.apply(remove, cis)
 
-    def test_remove_does_not_touch_other_collections(self, cis):
-        ma = MarketArea(name="ma1")
-        cis.data.market_area.add(ma)
-
-        order = Order(name="order_1", price=10.0)
-        cis.data.order.add(order)
+    def test_remove_does_not_touch_other_collections(self, cis_with_market_area):
+        ma = cis_with_market_area.data.market_area.get("ma1")
+        order = Order(name="order_1", price=10.0, market_area=ma)
+        cis_with_market_area.data.order.add(order)
 
         remove = DeleteObject(
             "order_1",
             model_type=Order,
         )
 
-        ChangeSetHandler.apply(remove, cis)
+        ChangeSetHandler.apply(remove, cis_with_market_area)
 
-        assert "order_1" not in cis.data.order
-        assert "ma1" in cis.data.market_area
+        assert "order_1" not in cis_with_market_area.data.order
+        assert "ma1" in cis_with_market_area.data.market_area

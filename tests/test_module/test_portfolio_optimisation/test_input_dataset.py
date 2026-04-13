@@ -15,11 +15,11 @@ from atlas.io_utils.parameters import DateParameters
 from atlas.math.forecasting_matrix import ForecastingMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
-from atlas.modules.portfolio_optimisation.models.load import LoadPO
-from atlas.modules.portfolio_optimisation.models.solar import SolarPO
-from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.models.wind import WindPO
+from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
+from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
+from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
+from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.objects.equipment.hydro import Hydro
 from atlas.objects.equipment.load import Load
@@ -28,6 +28,7 @@ from atlas.objects.equipment.storage import Storage
 from atlas.objects.equipment.wind import Wind
 from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
 from atlas.objects.network_operator.control_block import ControlBlock
 
 
@@ -67,6 +68,7 @@ class TestPortfolioOptimisationInputDataset:
 
         market_area = MarketArea(
             name="test_market",
+            control_block=control_block,
             price_forecast_medium=price_forecast,
             da_price=da_price,
         )
@@ -80,34 +82,45 @@ class TestPortfolioOptimisationInputDataset:
         return portfolio
 
     @pytest.fixture
-    def mock_wind_equipment(self, mock_portfolio):
+    def mock_node(self, mock_portfolio):
+        """Create a real Node object."""
+        return Node(
+            name="test_node",
+            control_block=mock_portfolio.control_block,
+            market_area=mock_portfolio.market_area,
+        )
+
+    @pytest.fixture
+    def mock_wind_equipment(self, mock_portfolio, mock_node):
         """Create a real Wind equipment."""
-        return Wind(name="wind_1", portfolio=mock_portfolio)
+        return Wind(name="wind_1", portfolio=mock_portfolio, node=mock_node)
 
     @pytest.fixture
-    def mock_solar_equipment(self, mock_portfolio):
+    def mock_solar_equipment(self, mock_portfolio, mock_node):
         """Create a real Solar equipment."""
-        return Solar(name="solar_1", portfolio=mock_portfolio)
+        return Solar(name="solar_1", portfolio=mock_portfolio, node=mock_node)
 
     @pytest.fixture
-    def mock_storage_equipment(self, mock_portfolio):
+    def mock_storage_equipment(self, mock_portfolio, mock_node):
         """Create a real Storage equipment."""
-        return Storage(name="storage_1", portfolio=mock_portfolio)
+        return Storage(name="storage_1", portfolio=mock_portfolio, node=mock_node)
 
     @pytest.fixture
-    def mock_hydro_equipment(self, mock_portfolio):
+    def mock_hydro_equipment(self, mock_portfolio, mock_node):
         """Create a real Hydro equipment."""
-        return Hydro(name="hydro_1", portfolio=mock_portfolio)
+        return Hydro(name="hydro_1", portfolio=mock_portfolio, node=mock_node)
 
     @pytest.fixture
-    def mock_dispatchable_load(self, mock_portfolio):
+    def mock_dispatchable_load(self, mock_portfolio, mock_node):
         """Create a real dispatchable Load equipment (Power to Gas)."""
-        return Load(name="load_dispatchable", load_type=LoadType.POWER_TO_GAS, portfolio=mock_portfolio)
+        return Load(name="load_dispatchable", load_type=LoadType.POWER_TO_GAS, portfolio=mock_portfolio, node=mock_node)
 
     @pytest.fixture
-    def mock_non_dispatchable_load(self, mock_portfolio):
+    def mock_non_dispatchable_load(self, mock_portfolio, mock_node):
         """Create a real non-dispatchable Load equipment."""
-        return Load(name="load_non_dispatchable", load_type=LoadType.BASE_LOAD, portfolio=mock_portfolio)
+        return Load(
+            name="load_non_dispatchable", load_type=LoadType.BASE_LOAD, portfolio=mock_portfolio, node=mock_node
+        )
 
     @patch("atlas.modules.portfolio_optimisation.input_dataset.WindPO")
     def test_initialization_with_wind_equipment(self, mock_wind_po_class, mock_parameters, mock_wind_equipment):

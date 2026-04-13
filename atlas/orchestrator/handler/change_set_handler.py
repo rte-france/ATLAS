@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from pydantic import ValidationError
 
@@ -58,14 +58,14 @@ class ChangeSetHandler:
 
         logger.debug(f"Adding new {change_set.model_type} object: {obj_name}")
 
-        # Create minimal object with just the name for validation
-        try:
-            obj = model_class.model_validate({"name": obj_name})
-        except ValidationError as e:
-            raise ValueError(f"Invalid name for {change_set.model_type} object '{obj_name}': {e}") from e
+        # Resolve references before creating the object (needed for required fields)
+        ChangeSetHandler._resolve_reference(data, cis, model_class=model_class)
 
-        ChangeSetHandler._resolve_reference(obj, data, cis)
-        ChangeSetHandler._fill_object(obj, data)
+        # Create object with all data after references are resolved
+        try:
+            obj = model_class.model_validate(data)
+        except ValidationError as e:
+            raise ValueError(f"Invalid data for {change_set.model_type} object '{obj_name}': {e}") from e
 
         # Add the object to the container
         container.add(obj)
@@ -104,13 +104,36 @@ class ChangeSetHandler:
             if invalid_fields:
                 logger.warning(f"Updating {change_set.model_type} '{obj_name}' with non-model fields: {invalid_fields}")
 
-        ChangeSetHandler._resolve_reference(obj, data, cis)
+        ChangeSetHandler._resolve_reference(data, cis, obj=obj)
         ChangeSetHandler._fill_object(obj, data)
         logger.debug(f"Successfully updated {change_set.model_type} object: {obj_name}")
 
     @staticmethod
-    def _resolve_reference(obj: BusinessModel, data: dict[str, Any], cis: CurrentInputState):
-        # Resolve BusinessModel references in data
+    def _resolve_reference(
+        data: dict[str, Any],
+        cis: CurrentInputState,
+        model_class: type[BusinessModel] | None = None,
+        obj: BusinessModel | None = None,
+    ):
+        """Resolve BusinessModel references in data.
+
+        Can be used either with a model_class (for static resolution during object creation)
+        or with an obj instance (for resolution during object updates).
+
+        :param data: Dictionary containing the data to resolve references in
+        :param cis: Current input state containing the reference objects
+        :param model_class: Model class for static resolution (used in AddObject)
+        :param obj: Object instance for resolution (used in UpdateObject)
+        :raises ValueError: If neither model_class nor obj is provided, or if references are invalid
+        """
+        if model_class is None and obj is None:
+            raise ValueError("Either model_class or obj must be provided")
+
+        # Determine which class to use for type lookup
+        target_class = cast(type[BusinessModel], model_class if model_class is not None else obj.__class__)
+        # Determine operation type for error messages
+        operation = "set" if model_class is not None else "update"
+
         for key, value in data.items():
             if key == "name":
                 continue  # do not update the name
@@ -123,12 +146,12 @@ class ChangeSetHandler:
                     data[key] = existing
                 except KeyError:
                     raise ValueError(
-                        f"Trying to update '{obj.__class__}' attribute '{key}' "
+                        f"Trying to {operation} '{target_class}' attribute '{key}' "
                         f"with '{value.name}' but it is not present in CurrentInputState"
                     ) from None
 
             elif isinstance(value, str):
-                attr_type = get_type_attribute(cfg.INVERSE_MODEL_MAPPING_NAME[obj.__class__], key)
+                attr_type = get_type_attribute(cfg.INVERSE_MODEL_MAPPING_NAME[target_class], key)
                 if attr_type and isinstance(attr_type, type) and issubclass(attr_type, BusinessModel):
                     ref_container = cis.data.get_container_by_type(attr_type)
                     try:
@@ -136,7 +159,7 @@ class ChangeSetHandler:
                         data[key] = existing
                     except KeyError:
                         raise ValueError(
-                            f"Trying to update '{obj.__class__}' attribute '{key}' "
+                            f"Trying to {operation} '{target_class}' attribute '{key}' "
                             f"with '{value}' but it is not present in CurrentInputState"
                         ) from None
 

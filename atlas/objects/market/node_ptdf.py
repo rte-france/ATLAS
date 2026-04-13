@@ -23,7 +23,7 @@ class NodePtdf(BusinessModel):
     :type da_ptdf: ForecastingMatrix
     """
 
-    node: Node | None = None
+    node: Node
     id_ptdf: ForecastingMatrix | LazyForecastingMatrix | None = None
     da_ptdf: AbstractTimeseries | None = None
 
