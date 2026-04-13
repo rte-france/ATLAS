@@ -7,44 +7,51 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
-from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.orchestrator.actionplan.job import ActionPlanJob
+from atlas.orchestrator.actionplan.job import ActionPlanJob, Task
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters
-from atlas.orchestrator.current_input_state import CurrentInputState
+from atlas.orchestrator.actionplan.task_manager import TaskListIterator
 
 
-# FIXME this class is similar to Workflow class, common part must be refactored in AbstractOrchestrator class
-class ActionPlan(AbstractOrchestrator):
+class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
     """A structure for managing the sequential execution of multiple modules and workflow through a list of action plan steps.
 
     Each job processes the output of the previous one, starting from the input dataset."""
 
-    def __init__(self, parameters: ActionPlanParameters, action_plan_path: Path):
+    def __init__(self, parameters: ActionPlanParameters):
         """Initialize a Workflow instance.
 
         :param parameters: Name of the workflow.
         :type parameters: WorkflowParameters
         """
-        raise NotImplementedError
+        self.parameters = parameters
+        self.tasks: list[Task] = parameters.tasks
 
-    def build_steps(self):
-        raise NotImplementedError
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> ActionPlan:
+        file_path = Path(file_path)
+        parameters = ActionPlanParameters.from_file(file_path=file_path)
+        parameters._orchestrator_path = file_path.parent
+        return cls(parameters=parameters)
 
     @property
-    def jobs(self) -> list[ActionPlanJob]:
-        raise NotImplementedError
+    def jobs(self) -> Iterator[ActionPlanJob]:
+        """
+        Access the action plan jobs.
 
-    def add_step(self, step: ActionPlanJob | list[ActionPlanJob]) -> None:
-        raise NotImplementedError
+        :return: The list of ActionPlanJob instances.
+        """
+        for task, datetime in TaskListIterator(self.tasks):
+            yield from task.associated_jobs_with_execution_date(datetime)
 
-    def get_output_dataset(self) -> AbstractDataset | None:
+    @property
+    def jobs_count(self) -> int:
         raise NotImplementedError
 
     def __repr__(self) -> str:
-        raise NotImplementedError
-
-    def execute(self) -> CurrentInputState:
-        raise NotImplementedError
+        """Return a human-readable string representation of the workflow."""
+        task_count = 0  # FIXME
+        return f"ActionPlan '{self.parameters.name}' ({task_count} task{'s' if task_count != 1 else ''} with a total of {self.jobs_count()} step{'s' if len(self.jobs_count()) != 1 else ''})"

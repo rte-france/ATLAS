@@ -61,6 +61,12 @@ class Task(BaseModel):
     until: DateTime
     frequency: Duration
 
+    def associated_jobs_with_execution_date(self, execution_date: DateTime) -> list[ActionPlanJob]:
+        """
+        Return the list of job executed by an iteration of this task with the given execution date.
+        """
+        raise NotImplementedError
+
     @field_validator("workflow", mode="before")
     @classmethod
     def coerce_workflow(cls, v: Any) -> Workflow | None:
