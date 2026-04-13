@@ -10,6 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TypeVar
 
+from pydantic import AliasChoices, Field
+
 from atlas.io_utils.parameters import Parameters
 
 
@@ -23,8 +25,8 @@ class AbstractOrchestratorParameters(Parameters):
     :type rollback_on_job_failure: bool
     :param create_job_snapshots: If True, create CIS snapshots before each job for debugging
     :type create_job_snapshots: bool
-    :param path_from_orchestrator: If True, resolve relative paths from orchestrator file location
-    :type path_from_orchestrator: bool
+    :param path_from_workflow: If True, resolve relative paths from workflow file location
+    :type path_from_workflow: bool
     TODO add missing parameters
     """
 
@@ -32,7 +34,10 @@ class AbstractOrchestratorParameters(Parameters):
     dataset_path: Path
     output_dataset_path: Path
     parameters_path: Path | None = None
-    path_from_orchestrator: bool = True
+    path_from_workflow: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("path_from_workflow", "path_from_orchestrator"),
+    )
     output_dir: Path = Path()
     rollback_on_job_failure: bool = True
     create_job_snapshots: bool = False
@@ -41,19 +46,19 @@ class AbstractOrchestratorParameters(Parameters):
 
     @property
     def base_path(self) -> Path:
-        """Returns the workflow base path if path_from_orchestrator is True, otherwise empty Path.
+        """Returns the workflow base path if path_from_workflow is True, otherwise empty Path.
 
         This allows paths in parameters to be either:
-        - Relative (resolved from workflow file location if path_from_orchestrator=True)
-        - Absolute (used as-is regardless of path_from_orchestrator)
+        - Relative (resolved from workflow file location if path_from_workflow=True)
+        - Absolute (used as-is regardless of path_from_workflow)
 
         :return: Base path for resolving relative paths
         :rtype: Path
         """
-        return self._orchestrator_path if self.path_from_orchestrator else Path()
+        return self._orchestrator_path if self.path_from_workflow else Path()
 
     def resolve_path(self, path: Path) -> Path:
-        """Resolve a path based on path_from_orchestrator setting.
+        """Resolve a path based on path_from_workflow setting.
 
         :param path: Path to resolve (can be relative or absolute)
         :type path: Path
