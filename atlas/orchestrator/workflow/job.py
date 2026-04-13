@@ -30,11 +30,11 @@ class WorkflowJob(AbstractJob):
 
 
 class Step(BaseModel):
-    """Definition of a single job
+    """Definition of a single step
 
-    :param name: Name identifying the job. Defaults to the module name if not provided.
+    :param name: Name identifying the step. Defaults to the module name if not provided.
     :type name: str
-    :param parameters_path: Path to the parameters file for the job.
+    :param parameters_path: Path to the parameters file for the step.
     :type parameters_path: str
     """
 
@@ -57,12 +57,12 @@ class Step(BaseModel):
 
     @staticmethod
     def add_index_in_step_name(steps: list) -> None:
-        """Append a numeric index suffix to duplicate job names, in-place.
+        """Append a numeric index suffix to duplicate step names, in-place.
 
         Steps whose name is unique are left unchanged. Steps sharing a name are
         renamed '<name>_1', '<name>_2', etc., in the order they appear.
 
-        :param steps: List of job parameter objects exposing a 'name' attribute.
+        :param steps: List of step parameter objects exposing a 'name' attribute.
         :type steps: list
         """
         name_counts: dict[str, int] = {}
