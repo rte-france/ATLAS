@@ -15,7 +15,6 @@ class IntradayPriceForecastInputDataset(AbstractDataset[IntradayPriceForecastPar
 
         self.market_area: list[MarketAreaIDPF] = [MarketAreaIDPF(**dict(obj)) for obj in input_data.market_area]
 
-        # Create a mapping of market area names to MarketAreaIDPF objects
         market_area_map = {ma.name: ma for ma in self.market_area}
 
         self.solar: list[SolarIDPF] = []
