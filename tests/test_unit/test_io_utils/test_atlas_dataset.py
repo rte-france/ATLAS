@@ -1107,7 +1107,7 @@ class TestFilterDataset:
         assert nodes[0].name == "NodeB"
 
     def test_empty_included_types_and_filters(self, dataset):
-        subset = dataset.filter_dataset()
+        subset = dataset.filter_dataset(included_types=[])
         assert subset.to_dict() == {}
 
     def test_unknown_type_included_types(self, dataset):
@@ -1115,7 +1115,7 @@ class TestFilterDataset:
         assert subset.to_dict() == {}
 
     def test_unknown_type_in_filters(self, dataset):
-        subset = dataset.filter_dataset(filters={"unknown_type": lambda x: True})
+        subset = dataset.filter_dataset(included_types=["unknown_type"], filters={"unknown_type": lambda x: True})
         assert subset.to_dict() == {}
 
     def test_combined_filters_and_included_types(self, dataset):

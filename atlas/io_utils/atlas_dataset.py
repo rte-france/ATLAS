@@ -570,7 +570,7 @@ class AtlasDataset(BaseModel):
 
     def filter_dataset(
         self,
-        included_types: Iterable[str | BusinessModelName] = (),
+        included_types: Iterable[str | BusinessModelName],
         filters: dict[str | BusinessModelName, Callable[[BusinessModel], bool]] | None = None,
     ) -> AtlasDataset:
         """
