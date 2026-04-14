@@ -17,6 +17,7 @@ from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.io_utils.container import Container
 from atlas.io_utils.utils import diff_business_model, diff_lists, diff_on_other_than_business_model
 from atlas.math.forecasting_matrix import ForecastingMatrix
+from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
 from atlas.objects.equipment.hydro import Hydro
 from atlas.objects.equipment.load import Load
@@ -47,7 +48,10 @@ class TestAtlasDatasetBasic:
     def test_dataset_with_objects(self):
         cb = ControlBlock(name="cb")
         ma = MarketArea(name="ma", control_block=cb)
-        nodes = [Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)]
+        nodes = [
+            Node(name="node1", control_block=cb, market_area=ma),
+            Node(name="node2", control_block=cb, market_area=ma),
+        ]
         dataset = AtlasDataset(node=nodes)
 
         assert len(dataset) == 2
@@ -68,7 +72,10 @@ class TestAtlasDatasetBasic:
     def test_contains_operator(self):
         control_blocks = [ControlBlock(name="cb1")]
         ma = MarketArea(name="ma1", control_block=control_blocks[0])
-        nodes = [Node(name="node1", control_block=control_blocks[0], market_area=ma), Node(name="node2", control_block=control_blocks[0], market_area=ma)]
+        nodes = [
+            Node(name="node1", control_block=control_blocks[0], market_area=ma),
+            Node(name="node2", control_block=control_blocks[0], market_area=ma),
+        ]
         dataset = AtlasDataset(node=nodes, control_block=control_blocks)
 
         assert "node1" in dataset
@@ -86,7 +93,10 @@ class TestAtlasDatasetBasic:
         cb = ControlBlock(name="cb1")
         ma = MarketArea(name="ma1", control_block=cb)
         dataset = AtlasDataset(
-            node=[Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)],
+            node=[
+                Node(name="node1", control_block=cb, market_area=ma),
+                Node(name="node2", control_block=cb, market_area=ma),
+            ],
             control_block=[cb],
         )
         assert len(dataset) == 3
@@ -103,7 +113,10 @@ class TestAtlasDatasetBasic:
         cb = ControlBlock(name="cb1")
         ma = MarketArea(name="ma1", control_block=cb)
         dataset = AtlasDataset(
-            node=[Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)],
+            node=[
+                Node(name="node1", control_block=cb, market_area=ma),
+                Node(name="node2", control_block=cb, market_area=ma),
+            ],
             control_block=[cb],
         )
 
@@ -117,7 +130,12 @@ class TestAtlasDatasetBasic:
     def test_iter_operator_multiple_times(self):
         cb = ControlBlock(name="cb1")
         ma = MarketArea(name="ma1", control_block=cb)
-        dataset = AtlasDataset(node=[Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)])
+        dataset = AtlasDataset(
+            node=[
+                Node(name="node1", control_block=cb, market_area=ma),
+                Node(name="node2", control_block=cb, market_area=ma),
+            ]
+        )
         assert sum(1 for _ in dataset) == 2
         assert sum(1 for _ in dataset) == 2
 
@@ -138,7 +156,10 @@ class TestAtlasDatasetLookup:
     def test_iter_by_types(self):
         control_blocks = [ControlBlock(name="cb1")]
         ma = MarketArea(name="ma1", control_block=control_blocks[0])
-        nodes = [Node(name="n1", control_block=control_blocks[0], market_area=ma), Node(name="n2", control_block=control_blocks[0], market_area=ma)]
+        nodes = [
+            Node(name="n1", control_block=control_blocks[0], market_area=ma),
+            Node(name="n2", control_block=control_blocks[0], market_area=ma),
+        ]
 
         dataset = AtlasDataset(node=nodes, control_block=control_blocks)
 
@@ -154,7 +175,12 @@ class TestAtlasDatasetLookup:
         cb = ControlBlock(name="cb1")
         ma = MarketArea(name="ma1", control_block=cb)
         with pytest.raises(ValueError):
-            AtlasDataset(node=[Node(name="dup", control_block=cb, market_area=ma), Node(name="dup", control_block=cb, market_area=ma)])
+            AtlasDataset(
+                node=[
+                    Node(name="dup", control_block=cb, market_area=ma),
+                    Node(name="dup", control_block=cb, market_area=ma),
+                ]
+            )
 
     def test_iter_by_equipments_empty(self):
         dataset = AtlasDataset()
@@ -333,8 +359,12 @@ class TestAtlasDatasetIO:
 
         # Create control_block and market_area CSVs first
         pl.DataFrame([{"name": "cb1"}]).write_csv(test_dir / "objects" / "control_block.csv", separator=";")
-        pl.DataFrame([{"name": "ma1", "control_block": "cb1"}]).write_csv(test_dir / "objects" / "market_area.csv", separator=";")
-        pl.DataFrame([{"name": "node1", "control_block": "cb1", "market_area": "ma1"}]).write_csv(test_dir / "objects" / "node.csv", separator=";")
+        pl.DataFrame([{"name": "ma1", "control_block": "cb1"}]).write_csv(
+            test_dir / "objects" / "market_area.csv", separator=";"
+        )
+        pl.DataFrame([{"name": "node1", "control_block": "cb1", "market_area": "ma1"}]).write_csv(
+            test_dir / "objects" / "node.csv", separator=";"
+        )
 
         dataset = AtlasDataset.from_directory(test_dir)
         assert len(dataset.node) == 1
@@ -667,7 +697,10 @@ class TestAtlasDatasetContainerValidator:
     def test_container_validator_wraps_list_into_container(self):
         cb = ControlBlock(name="cb1")
         ma = MarketArea(name="ma1", control_block=cb)
-        nodes = [Node(name="node1", control_block=cb, market_area=ma), Node(name="node2", control_block=cb, market_area=ma)]
+        nodes = [
+            Node(name="node1", control_block=cb, market_area=ma),
+            Node(name="node2", control_block=cb, market_area=ma),
+        ]
 
         dataset = AtlasDataset(node=nodes)  # type: ignore[arg-type]
 
@@ -843,8 +876,14 @@ class TestAtlasDatasetDiff:
         ma = MarketArea(name="ma1", control_block=cb)
         node = Node(name="node1", control_block=cb, market_area=ma)
         portfolio = Portfolio(name="portfolio1", control_block=cb, market_area=ma)
-        atlas_1 = AtlasDataset(node=[Node(name="n_1", control_block=cb, market_area=ma)], thermal=[Thermal(name="th", installed_capacity=100, node=node, portfolio=portfolio)])
-        atlas_2 = AtlasDataset(node=[Node(name="n_2", control_block=cb, market_area=ma)], thermal=[Thermal(name="th", installed_capacity=500, node=node, portfolio=portfolio)])
+        atlas_1 = AtlasDataset(
+            node=[Node(name="n_1", control_block=cb, market_area=ma)],
+            thermal=[Thermal(name="th", installed_capacity=100, node=node, portfolio=portfolio)],
+        )
+        atlas_2 = AtlasDataset(
+            node=[Node(name="n_2", control_block=cb, market_area=ma)],
+            thermal=[Thermal(name="th", installed_capacity=500, node=node, portfolio=portfolio)],
+        )
         result = atlas_1.diff(atlas_2)
         assert "node" in result
         assert "thermal" in result
@@ -994,14 +1033,20 @@ class TestDiffLists:
     def test_business_model_elements_different_detected(self):
         cb = ControlBlock(name="cb1")
         ma = MarketArea(name="ma1", control_block=cb)
-        result = diff_lists([Node(name="node_1", control_block=cb, market_area=ma)], [Node(name="node_2", control_block=cb, market_area=ma)])
+        result = diff_lists(
+            [Node(name="node_1", control_block=cb, market_area=ma)],
+            [Node(name="node_2", control_block=cb, market_area=ma)],
+        )
         assert result["0"]["type"] == "nested"
 
     def test_only_differing_element_reported(self):
         cb = ControlBlock(name="cb1")
         ma = MarketArea(name="ma1", control_block=cb)
         node = Node(name="node", control_block=cb, market_area=ma)
-        result = diff_lists([node, Node(name="node_1", control_block=cb, market_area=ma)], [node, Node(name="node_2", control_block=cb, market_area=ma)])
+        result = diff_lists(
+            [node, Node(name="node_1", control_block=cb, market_area=ma)],
+            [node, Node(name="node_2", control_block=cb, market_area=ma)],
+        )
         assert "0" not in result
         assert "1" in result
 
@@ -1418,7 +1463,9 @@ class TestFilterZones:
         # Create a critical branch for the PTDFs
         node1 = Node(name="node1", control_block=cb, market_area=ma)
         node2 = Node(name="node2", control_block=cb2, market_area=ma2)
-        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2, market_area_ptdf=[], node_ptdf=[])
+        critical_branch = CriticalBranch(
+            name="branch1", uphill_node=node1, downhill_node=node2, market_area_ptdf=[], node_ptdf=[]
+        )
 
         ma_ptdf1 = MarketAreaPtdf(
             name="ma_ptdf1",
@@ -1457,7 +1504,9 @@ class TestFilterZones:
         node1 = Node(name="node1", control_block=cb, market_area=ma)
         node2 = Node(name="node2", control_block=cb2, market_area=ma2)
 
-        critical_branch = CriticalBranch(name="branch1", uphill_node=node1, downhill_node=node2, market_area_ptdf=[], node_ptdf=[])
+        critical_branch = CriticalBranch(
+            name="branch1", uphill_node=node1, downhill_node=node2, market_area_ptdf=[], node_ptdf=[]
+        )
 
         node_ptdf1 = NodePtdf(
             name="node_ptdf1",
@@ -1484,3 +1533,516 @@ class TestFilterZones:
         assert len(filtered.node_ptdf) == 1
         assert "node_ptdf1" in filtered.node_ptdf
         assert "node_ptdf2" not in filtered.node_ptdf
+
+
+class TestSetFrequencyAll:
+    """Test suite for the set_frequency_all method."""
+
+    def setup_method(self):
+        self.cb = ControlBlock(name="cb1")
+        self.ma = MarketArea(name="ma1", control_block=self.cb)
+        self.node = Node(name="node1", control_block=self.cb, market_area=self.ma)
+        self.portfolio = Portfolio(name="portfolio1", control_block=self.cb, market_area=self.ma)
+
+    def test_set_frequency_all_basic_timeseries(self):
+        """Test that set_frequency_all changes frequency of basic timeseries."""
+        # Create timeseries with 1h frequency
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0, 400.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Verify initial frequency is 1h
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(hours=1)
+
+        # Change to 30 minutes
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True)
+
+        # Verify frequency changed to 30m
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+
+    def test_set_frequency_all_basic_timeseries_wrong_object_types(self):
+        """Test that set_frequency_all changes frequency of basic timeseries."""
+        # Create timeseries with 1h frequency
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0, 400.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Verify initial frequency is 1h
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(hours=1)
+
+        # Change to 30 minutes
+        dataset.set_frequency_all(Duration(minutes=30), object_types=["test"])
+
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(hours=1)
+
+    def test_set_frequency_all_forecasting_matrix(self):
+        """Test that set_frequency_all works with forecasting matrices."""
+        # Create forecasting matrix with 1h frequency
+        matrix = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 3),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [1.0, 2.0, 3.0, 4.0],
+                }
+            ),
+            date_format="YYYY-MM-DD HH:mm:ss",
+        )
+
+        hydro = Hydro(name="hydro1", stored_energy=matrix, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Change frequency to 2h
+        dataset.set_frequency_all(Duration(hours=2), inplace=True)
+
+        # Verify the matrix frequency changed
+        # The matrix should now have fewer rows (upsampled to 2h)
+        updated_matrix = dataset.hydro.get("hydro1").stored_energy
+        assert len(updated_matrix.matrix) == 2  # 4 hours / 2h intervals = 2 rows
+
+    def test_set_frequency_all_multiple_equipment_types(self):
+        """Test that set_frequency_all works across multiple equipment types."""
+        ts1 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[10.0, 20.0, 30.0],
+            timezone="UTC",
+        )
+        ts2 = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=ts1, node=self.node, portfolio=self.portfolio)
+        thermal = Thermal(name="thermal1", variable_cost=ts2, node=self.node, portfolio=self.portfolio)
+
+        dataset = AtlasDataset(hydro=[hydro], thermal=[thermal])
+
+        # Change to 15 minutes
+        dataset.set_frequency_all(Duration(minutes=15), inplace=True)
+
+        # Verify both equipment types have updated frequencies
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=15)
+        assert dataset.thermal.get("thermal1").variable_cost.timestep == Duration(minutes=15)
+
+    def test_set_frequency_all_inplace_false(self):
+        """Test that set_frequency_all with inplace=False returns a new dataset."""
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows, node=self.node, portfolio=self.portfolio)
+        original_dataset = AtlasDataset(hydro=[hydro])
+
+        # Create a new dataset with different frequency
+        new_dataset = original_dataset.set_frequency_all(Duration(minutes=30), inplace=False)
+
+        # Verify original dataset is unchanged
+        assert original_dataset.hydro.get("hydro1").inflows.timestep == Duration(hours=1)
+
+        # Verify new dataset has updated frequency
+        assert new_dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+
+    def test_set_frequency_all_with_object_types_filter(self):
+        """Test that set_frequency_all can filter specific object types."""
+        ts_hydro = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[10.0, 20.0, 30.0],
+            timezone="UTC",
+        )
+        ts_thermal = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=ts_hydro, node=self.node, portfolio=self.portfolio)
+        thermal = Thermal(name="thermal1", maximum_power=ts_thermal, node=self.node, portfolio=self.portfolio)
+
+        dataset = AtlasDataset(hydro=[hydro], thermal=[thermal])
+
+        # Only change frequency for hydro
+        dataset.set_frequency_all(Duration(minutes=15), inplace=True, object_types=["hydro"])
+
+        # Verify only hydro frequency changed
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=15)
+        # Thermal should remain at 1h
+        assert dataset.thermal.get("thermal1").maximum_power.timestep == Duration(hours=1)
+
+    def test_set_frequency_all_with_string_frequency(self):
+        """Test that set_frequency_all accepts string frequency."""
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Use string frequency
+        dataset.set_frequency_all("30m", inplace=True)
+
+        # Verify frequency changed
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+
+    def test_set_frequency_all_empty_dataset(self):
+        """Test that set_frequency_all works on empty dataset without errors."""
+        dataset = AtlasDataset()
+
+        # Should not raise any error
+        dataset.set_frequency_all(Duration(hours=1), inplace=True)
+
+        assert len(dataset) == 0
+
+    def test_set_frequency_all_objects_without_timeseries(self):
+        """Test that set_frequency_all handles objects without timeseries gracefully."""
+        # Create objects without any timeseries attributes
+        dataset = AtlasDataset(node=[self.node], control_block=[self.cb])
+
+        # Should not raise any error
+        dataset.set_frequency_all(Duration(hours=1), inplace=True)
+
+        # Objects should still exist
+        assert len(dataset.node) == 1
+        assert len(dataset.control_block) == 1
+
+    def test_set_frequency_all_mixed_objects(self):
+        """Test with mix of objects with and without timeseries."""
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows, node=self.node, portfolio=self.portfolio)
+
+        dataset = AtlasDataset(hydro=[hydro], node=[self.node], control_block=[self.cb])
+
+        dataset.set_frequency_all(Duration(minutes=15), inplace=True)
+
+        # Verify only hydro's timeseries changed
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=15)
+        # Other objects should be unchanged
+        assert len(dataset.node) == 1
+        assert len(dataset.control_block) == 1
+
+    def test_set_frequency_all_downsampling(self):
+        """Test downsampling (reducing frequency - fewer data points)."""
+        # Create timeseries with 15min frequency (high frequency)
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="15m",
+            values=[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Store original length before modification
+        original_length = len(inflows)
+
+        # Downsample to 1h (lower frequency - fewer points)
+        dataset.set_frequency_all(Duration(hours=1), inplace=True)
+
+        updated_inflows = dataset.hydro.get("hydro1").inflows
+        assert updated_inflows.timestep == Duration(hours=1)
+        # Should have fewer points now (aggregated)
+        assert len(updated_inflows) < original_length
+
+    def test_set_frequency_all_upsampling(self):
+        """Test upsampling (increasing frequency - more data points)."""
+        # Create timeseries with 1h frequency (low frequency)
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Store original length before modification
+        original_length = len(inflows)
+
+        # Upsample to 15min (higher frequency - more points)
+        dataset.set_frequency_all(Duration(minutes=15), inplace=True)
+
+        updated_inflows = dataset.hydro.get("hydro1").inflows
+        assert updated_inflows.timestep == Duration(minutes=15)
+        # Should have more points now (interpolated)
+        assert len(updated_inflows) > original_length
+
+    def test_set_frequency_all_multiple_attributes_per_object(self):
+        """Test object with multiple timeseries attributes."""
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0],
+            timezone="UTC",
+        )
+
+        matrix = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [1.0, 2.0, 3.0],
+                }
+            )
+        )
+
+        # Hydro has both inflows (Timeseries) and stored_energy (ForecastingMatrix)
+        hydro = Hydro(name="hydro1", inflows=inflows, stored_energy=matrix, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True)
+
+        # Verify both attributes changed
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+        # Matrix should also be resampled
+        updated_matrix = dataset.hydro.get("hydro1").stored_energy
+        assert len(updated_matrix.matrix) > 3  # Should have more rows after upsampling
+
+    def test_set_frequency_all_scenario_matrix(self):
+        """Test that set_frequency_all works with ScenarioMatrix."""
+        # Create a ScenarioMatrix with 1h frequency
+        scenario_matrix = ScenarioMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 3),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "scenario1": [10.0, 20.0, 30.0, 40.0],
+                    "scenario2": [15.0, 25.0, 35.0, 45.0],
+                }
+            )
+        )
+
+        # Use state_sequence which accepts ScenarioMatrix
+        thermal = Thermal(name="thermal1", state_sequence=scenario_matrix, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(thermal=[thermal])
+
+        # Verify initial frequency
+        original_length = len(scenario_matrix.matrix)
+        assert original_length == 4
+
+        # Change to 2h frequency (downsampling)
+        dataset.set_frequency_all(Duration(hours=2), inplace=True)
+
+        # Verify the matrix frequency changed
+        updated_matrix = dataset.thermal.get("thermal1").state_sequence
+        assert len(updated_matrix.matrix) < original_length  # Should have fewer rows
+
+    def test_set_frequency_all_scenario_matrix_upsampling(self):
+        """Test upsampling with ScenarioMatrix."""
+        # Create a ScenarioMatrix with 1h frequency
+        scenario_matrix = ScenarioMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "scenario1": [100.0, 200.0, 300.0],
+                    "scenario2": [150.0, 250.0, 350.0],
+                }
+            )
+        )
+
+        thermal = Thermal(name="thermal1", state_sequence=scenario_matrix, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(thermal=[thermal])
+
+        # Store original length
+        original_length = len(scenario_matrix.matrix)
+        assert original_length == 3
+
+        # Upsample to 30min (higher frequency - more points)
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True)
+
+        # Verify the matrix has more rows
+        updated_matrix = dataset.thermal.get("thermal1").state_sequence
+        assert len(updated_matrix.matrix) > original_length
+
+    def test_set_frequency_all_mixed_timeseries_and_matrices(self):
+        """Test with equipment having both timeseries and matrices."""
+        # Create timeseries
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[10.0, 20.0, 30.0, 40.0],
+            timezone="UTC",
+        )
+
+        # Create ForecastingMatrix
+        forecasting_matrix = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 3),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [1.0, 2.0, 3.0, 4.0],
+                }
+            )
+        )
+
+        # Create ScenarioMatrix
+        scenario_matrix = ScenarioMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 3),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "scenario1": [100.0, 200.0, 300.0, 400.0],
+                }
+            )
+        )
+
+        # Create thermal with state_sequence (ScenarioMatrix)
+        thermal = Thermal(
+            name="thermal1",
+            state_sequence=scenario_matrix,
+            maximum_power=inflows,
+            node=self.node,
+            portfolio=self.portfolio,
+        )
+
+        # Create hydro with inflows (Timeseries) and stored_energy (ForecastingMatrix)
+        hydro = Hydro(
+            name="hydro1", inflows=inflows, stored_energy=forecasting_matrix, node=self.node, portfolio=self.portfolio
+        )
+
+        dataset = AtlasDataset(thermal=[thermal], hydro=[hydro])
+
+        # Change to 30min frequency
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True)
+
+        # Verify all three types of math objects changed
+        # 1. Timeseries (inflows and maximum_power)
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
+        assert dataset.thermal.get("thermal1").maximum_power.timestep == Duration(minutes=30)
+
+        # 2. ForecastingMatrix (stored_energy)
+        updated_forecasting = dataset.hydro.get("hydro1").stored_energy
+        assert len(updated_forecasting.matrix) > 4  # Should have more rows after upsampling
+
+        # 3. ScenarioMatrix (state_sequence)
+        updated_scenario = dataset.thermal.get("thermal1").state_sequence
+        assert len(updated_scenario.matrix) > 4  # Should have more rows after upsampling
+
+    def test_set_frequency_all_forecasting_matrix_with_multiple_scenarios(self):
+        """Test ForecastingMatrix with multiple forecast scenarios."""
+        # Create a ForecastingMatrix with multiple forecast dates
+        forecasting_matrix = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [10.0, 20.0, 30.0],
+                    "2024-01-01 06:00:00": [15.0, 25.0, 35.0],
+                }
+            )
+        )
+
+        hydro = Hydro(name="hydro1", stored_energy=forecasting_matrix, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        original_length = len(forecasting_matrix.matrix)
+
+        # Downsample to 2h
+        dataset.set_frequency_all(Duration(hours=2), inplace=True)
+
+        # Verify the matrix was resampled
+        updated_matrix = dataset.hydro.get("hydro1").stored_energy
+        assert len(updated_matrix.matrix) < original_length
+
+    def test_set_frequency_all_matrices_with_object_types_filter(self):
+        """Test that object_types filter works correctly with matrices."""
+        # Create matrices for different equipment types
+        matrix_hydro = ForecastingMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "2024-01-01 00:00:00": [10.0, 20.0, 30.0],
+                }
+            )
+        )
+
+        matrix_thermal = ScenarioMatrix(
+            pl.DataFrame(
+                {
+                    "time": pl.datetime_range(
+                        start=datetime(2024, 1, 1),
+                        end=datetime(2024, 1, 1, 2),
+                        interval="1h",
+                        eager=True,
+                    ),
+                    "scenario1": [100.0, 200.0, 300.0],
+                }
+            )
+        )
+
+        hydro = Hydro(name="hydro1", stored_energy=matrix_hydro, node=self.node, portfolio=self.portfolio)
+        thermal = Thermal(name="thermal1", state_sequence=matrix_thermal, node=self.node, portfolio=self.portfolio)
+
+        dataset = AtlasDataset(hydro=[hydro], thermal=[thermal])
+
+        # Only change frequency for hydro
+        dataset.set_frequency_all(Duration(minutes=30), inplace=True, object_types=["hydro"])
+
+        # Verify only hydro matrix changed (more rows after upsampling)
+        assert len(dataset.hydro.get("hydro1").stored_energy.matrix) > 3
+
+        # Thermal should remain at 1h (3 rows)
+        assert len(dataset.thermal.get("thermal1").state_sequence.matrix) == 3
