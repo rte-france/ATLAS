@@ -1566,6 +1566,27 @@ class TestSetFrequencyAll:
         # Verify frequency changed to 30m
         assert dataset.hydro.get("hydro1").inflows.timestep == Duration(minutes=30)
 
+    def test_set_frequency_all_basic_timeseries_wrong_object_types(self):
+        """Test that set_frequency_all changes frequency of basic timeseries."""
+        # Create timeseries with 1h frequency
+        inflows = Timeseries.from_values(
+            start_date="2024-01-01 00:00:00",
+            frequency="1h",
+            values=[100.0, 200.0, 300.0, 400.0],
+            timezone="UTC",
+        )
+
+        hydro = Hydro(name="hydro1", inflows=inflows, node=self.node, portfolio=self.portfolio)
+        dataset = AtlasDataset(hydro=[hydro])
+
+        # Verify initial frequency is 1h
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(hours=1)
+
+        # Change to 30 minutes
+        dataset.set_frequency_all(Duration(minutes=30), object_types=["test"])
+
+        assert dataset.hydro.get("hydro1").inflows.timestep == Duration(hours=1)
+
     def test_set_frequency_all_forecasting_matrix(self):
         """Test that set_frequency_all works with forecasting matrices."""
         # Create forecasting matrix with 1h frequency
