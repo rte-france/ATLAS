@@ -3721,14 +3721,14 @@
 <a href="#atlas.WorkflowJob" class="headerlink" title="Permanent link">&para;</a></h2>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">WorkflowJob</span><span class="p">(</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">module</span><span class="p">:</span> <span class="n"><span title="atlas.type">type</span></span><span class="p">[</span><span class="n"><span title="atlas.abstract_class.abstract_module.AbstractModule">AbstractModule</span></span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">module</span><span class="p">:</span> <span class="n"><span title="atlas.type">type</span></span><span class="p">[</span><span class="n"><span title="atlas.abstract_class.module.AbstractModule">AbstractModule</span></span><span class="p">],</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">parameters</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="atlas.abstract_class.abstract_job.AbstractJob">AbstractJob</span></code></p>
+              Bases: <code><span title="atlas.abstract_class.job.AbstractJob">AbstractJob</span></code></p>
 
 
 
@@ -3770,7 +3770,7 @@ and producing an output dataset from an input dataset.</p>
                 <code>module</code>
             </td>
             <td>
-                  <code><span title="atlas.type">type</span>[<span title="atlas.abstract_class.abstract_module.AbstractModule">AbstractModule</span>]</code>
+                  <code><span title="atlas.type">type</span>[<span title="atlas.abstract_class.module.AbstractModule">AbstractModule</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3808,7 +3808,7 @@ and producing an output dataset from an input dataset.</p>
 
 
                   <details class="mkdocstrings-source">
-                    <summary>Source code in <code>atlas/abstract_class/abstract_job.py</code></summary>
+                    <summary>Source code in <code>atlas/abstract_class/job.py</code></summary>
                     <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-23">23</a></span>
 <span class="normal"><a href="#__codelineno-0-24">24</a></span>
 <span class="normal"><a href="#__codelineno-0-25">25</a></span>
@@ -3864,7 +3864,7 @@ and producing an output dataset from an input dataset.</p>
   </span>
 
 <a href="#atlas.WorkflowJob.output_dataset" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">output_dataset</span><span class="p">:</span> <span class="n"><span title="atlas.abstract_class.abstract_dataset.AbstractModuleOutput">AbstractModuleOutput</span></span> <span class="o">|</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">output_dataset</span><span class="p">:</span> <span class="n"><span title="atlas.abstract_class.dataset.AbstractModuleOutput">AbstractModuleOutput</span></span> <span class="o">|</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3883,7 +3883,7 @@ and producing an output dataset from an input dataset.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="atlas.abstract_class.abstract_dataset.AbstractModuleOutput">AbstractModuleOutput</span> | None</code>
+                  <code><span title="atlas.abstract_class.dataset.AbstractModuleOutput">AbstractModuleOutput</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3942,7 +3942,7 @@ and producing an output dataset from an input dataset.</p>
 
 
 <a href="#atlas.WorkflowJob.get_output_dataset" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_output_dataset</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="atlas.abstract_class.abstract_dataset.AbstractModuleOutput">AbstractModuleOutput</span></span> <span class="o">|</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_output_dataset</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="atlas.abstract_class.dataset.AbstractModuleOutput">AbstractModuleOutput</span></span> <span class="o">|</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3961,7 +3961,7 @@ and producing an output dataset from an input dataset.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="atlas.abstract_class.abstract_dataset.AbstractModuleOutput">AbstractModuleOutput</span> | None</code>
+                  <code><span title="atlas.abstract_class.dataset.AbstractModuleOutput">AbstractModuleOutput</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3974,7 +3974,7 @@ and producing an output dataset from an input dataset.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>atlas/abstract_class/abstract_job.py</code></summary>
+              <summary>Source code in <code>atlas/abstract_class/job.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-48">48</a></span>
 <span class="normal"><a href="#__codelineno-0-49">49</a></span>
 <span class="normal"><a href="#__codelineno-0-50">50</a></span>
@@ -4002,7 +4002,7 @@ and producing an output dataset from an input dataset.</p>
 
 
 <a href="#atlas.WorkflowJob.run" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">input_dataset</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            atlas.AtlasDataset" href="../../io/atlas_dataset/#atlas.AtlasDataset">AtlasDataset</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">input_dataset</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            atlas.AtlasDataset (atlas.io_utils.atlas_dataset.AtlasDataset)" href="../../io/atlas_dataset/#atlas.AtlasDataset">AtlasDataset</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4012,7 +4012,7 @@ Stores the resulting dataset as output.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>atlas/abstract_class/abstract_job.py</code></summary>
+              <summary>Source code in <code>atlas/abstract_class/job.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-56">56</a></span>
 <span class="normal"><a href="#__codelineno-0-57">57</a></span>
 <span class="normal"><a href="#__codelineno-0-58">58</a></span>
