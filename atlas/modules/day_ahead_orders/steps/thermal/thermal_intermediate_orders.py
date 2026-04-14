@@ -133,14 +133,13 @@ class ThermalIntermediateLoadOrders(ThermalUnitOrders):
                         for exclusion_combination in exclusion_combinations:  # Create the exclusion links between cases
                             # Unwrap the two orders
                             order_1, order_2 = exclusion_combination[0], exclusion_combination[1]
-                            # Create the coupling and add the two orders.
-                            coupling = OrderCouplingDAO(
-                                name=f"EXCLUSION_link_between_orders_{order_1.name}_and_{order_2.name}",
-                                coupling_type=CouplingType.EXCLUSION,
+                            self.dataset.order_coupling.append(
+                                OrderCouplingDAO(
+                                    name=f"EXCLUSION_link_between_orders_{order_1.name}_and_{order_2.name}",
+                                    coupling_type=CouplingType.EXCLUSION,
+                                    orders=[order_1, order_2],  # type: ignore [arg-type]
+                                )
                             )
-                            coupling.orders.append(order_1)
-                            coupling.orders.append(order_2)
-                            self.dataset.order_coupling.append(coupling)
 
     def get_unique_cases(
         self, results: dict[str, dict[str, dict[str, Timeseries]]], thermal_unit: ThermalDAO

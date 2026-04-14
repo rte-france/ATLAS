@@ -298,9 +298,10 @@ class ThermalPeakLoadOrders:
 
         if inflexible_order is not None:
             # Parent-children link between the flexible and inflexible parts
-            link = OrderCouplingDAO(name=link_name, coupling_type=CouplingType.PARENT_CHILDREN)
-            link.coupling_type = CouplingType.PARENT_CHILDREN
-            # add the two orders
-            link.orders.append(inflexible_order)  # add the parent
-            link.orders.append(order)  # add the child
-            self.dataset.order_coupling.append(link)
+            self.dataset.order_coupling.append(
+                OrderCouplingDAO(
+                    name=link_name,
+                    coupling_type=CouplingType.PARENT_CHILDREN,
+                    orders=[inflexible_order, order],
+                )
+            )
