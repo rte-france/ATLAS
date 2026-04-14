@@ -1077,7 +1077,7 @@ class TestFilterDataset:
         assert len(subset.market_area) == 2
 
     def test_filter_only(self, dataset):
-        subset = dataset.filter_dataset(filters={"node": lambda n: n.name.startswith("NodeA")})
+        subset = dataset.filter_dataset(included_types=["node"], filters={"node": lambda n: n.name.startswith("NodeA")})
         nodes = subset.node.all()
         assert len(nodes) == 1
         assert nodes[0].name == "NodeA"

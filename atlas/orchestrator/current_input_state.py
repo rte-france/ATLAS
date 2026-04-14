@@ -65,7 +65,7 @@ class CurrentInputState:
 
     def filter_dataset(
         self,
-        included_types: Iterable[str | BusinessModelName] = (),
+        included_types: Iterable[str | BusinessModelName],
         filters: dict[str | BusinessModelName, Any] | None = None,
     ) -> AtlasDataset:
         return self.data.filter_dataset(included_types=included_types, filters=filters)
