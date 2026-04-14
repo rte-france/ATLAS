@@ -101,8 +101,10 @@ class AbstractModule(ABC, Generic[P, ID, OD]):
 
     @staticmethod
     def get_business_model_class_used() -> Iterable[BusinessModelName]:
+        """Returns the business model names used by this module."""
         return cfg.MODEL_MAPPING_NAME.keys()
 
     @staticmethod
     def get_filters():
+        """Returns filters to apply on the dataset. Override to restrict data scope."""
         return None

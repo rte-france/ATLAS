@@ -56,7 +56,7 @@ class Step(BaseModel):
         return self
 
     @staticmethod
-    def add_index_in_step_name(steps: list) -> None:
+    def add_index_in_step_name(steps: list[Step]) -> None:
         """Append a numeric index suffix to duplicate job names, in-place.
 
         Steps whose name is unique are left unchanged. Steps sharing a name are

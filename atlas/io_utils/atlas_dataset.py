@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import copy
 import pickle
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, Literal, cast, get_origin
 
@@ -571,28 +571,45 @@ class AtlasDataset(BaseModel):
     def filter_dataset(
         self,
         included_types: Iterable[str | BusinessModelName] = (),
-        filters: dict[str | BusinessModelName, Any] | None = None,
+        filters: dict[str | BusinessModelName, Callable[[BusinessModel], bool]] | None = None,
     ) -> AtlasDataset:
+        """
+        Filter the dataset to a subset of object types, with optional per-type predicates.
+
+        :param included_types: Object types to include in the output dataset. Types absent from the
+            current dataset are silently skipped.
+        :type included_types: Iterable[str | BusinessModelName]
+        :param filters: Optional mapping from object type to a predicate function. For each type,
+            only objects for which the predicate returns ``True`` are kept. Types present in
+            ``included_types`` but absent from ``filters`` are included without further filtering.
+        :type filters: dict[str | BusinessModelName, Callable[[BusinessModel], bool]] | None
+
+        :return: A new AtlasDataset containing deep copies of the matching objects.
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1, plant2], hydro=[hydro1])
+            >>> filtered = dataset.filter_dataset(
+            ...     included_types=["thermal"],
+            ...     filters={"thermal": lambda p: p.pmax > 100},
+            ... )
+            >>> # Only thermal plants with pmax > 100 are included; hydro is excluded entirely.
+        """
+        normalized_filters: dict[str, Callable[[BusinessModel], bool]] = (
+            {k.value if isinstance(k, BusinessModelName) else k: v for k, v in filters.items()} if filters else {}
+        )
+
         filtered_data: dict[str, list[BusinessModel]] = {}
         for object_type in included_types:
             object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
-            if not filters or object_type_str not in filters:
-                try:
-                    container: Container[BusinessModel] = self.get_container_by_type(object_type_str)
-                    filtered_data[object_type_str] = [copy.deepcopy(obj) for obj in container]
-                except ValueError:
-                    continue
-
-        if filters:
-            for object_type, filter_fn in filters.items():
-                object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
-                try:
-                    filtered_container: Container[BusinessModel] = self.get_container_by_type(object_type_str)
-                    filtered_data[object_type_str] = [
-                        copy.deepcopy(obj) for obj in filtered_container if filter_fn(obj)
-                    ]
-                except ValueError:
-                    continue
+            try:
+                container: Container[BusinessModel] = self.get_container_by_type(object_type_str)
+            except ValueError:
+                continue
+            filter_fn = normalized_filters.get(object_type_str)
+            filtered_data[object_type_str] = [
+                copy.deepcopy(obj) for obj in container if filter_fn is None or filter_fn(obj)
+            ]
 
         return AtlasDataset.from_dict(filtered_data)
 
