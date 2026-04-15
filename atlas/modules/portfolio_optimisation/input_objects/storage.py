@@ -314,11 +314,11 @@ class StoragePO(BaseEquipmentPO, Storage):
                 f"Skipping objective for storage unit {self.name} at time {time} - not in optimization times or target times"
             )
 
-    def add_cycle_balance_constraint(self, model: OptimisationModel, time_window: list[DateTime]):
+    def add_cycle_balance_constraint(self, model: OptimisationModel):
         model.add_constraint(
-            sum(-model.get_variable(f"{self.name}_power_level_buy_{time}") for time in time_window)
+            sum(-model.get_variable(f"{self.name}_power_level_buy_{time}") for time in self.optimisation_time_window)
             * self.charge_efficiency
-            == sum(model.get_variable(f"{self.name}_power_level_sell_{time}") for time in time_window)
+            == sum(model.get_variable(f"{self.name}_power_level_sell_{time}") for time in self.optimisation_time_window)
             / self.discharge_efficiency,
             f"cycle_balance_{self.name}",
         )
