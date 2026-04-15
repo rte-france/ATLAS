@@ -3,7 +3,7 @@ from typing import cast
 
 from pendulum import DateTime
 
-from atlas.orchestrator.actionplan.job import Task
+from atlas.orchestrator.actionplan.parameters import Task
 
 
 class TaskIterator:
