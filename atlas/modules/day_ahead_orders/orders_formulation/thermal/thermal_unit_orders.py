@@ -466,7 +466,7 @@ class ThermalUnitOrders:
 
             # Part 3: inflexible orders at Pmin
             # TODO: should be inflexible_time_frame, but not working currently for format reasons
-            for t in flexible_time_frame:
+            for t in inflexible_time_frame:
                 bid_output = OrderDAO(
                     name=f"order_at_{t}_for_unit_{unit.name}_under_price_{case}",
                     market_area=unit.portfolio.market_area if unit.portfolio is not None else None,
