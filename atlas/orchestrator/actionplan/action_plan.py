@@ -7,13 +7,15 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
+import heapq
 from collections.abc import Iterator
 from pathlib import Path
+from typing import cast
 
+from atlas import WorkflowParameters
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.orchestrator.actionplan.job import ActionPlanJob
+from atlas.orchestrator.actionplan.job import ActionPlanJob, ModuleTaskIterator, TaskIterator, WorkflowTaskIterator
 from atlas.orchestrator.actionplan.parameters import ActionPlanParameters, Task
-from atlas.orchestrator.actionplan.task_manager import TaskListIterator
 
 
 class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
@@ -28,7 +30,10 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         :type parameters: WorkflowParameters
         """
         self.parameters = parameters
-        self.tasks: list[Task] = parameters.tasks
+        self.priority_queue: list[TaskIterator] = []
+
+        self.build_priority_queue()
+        self.build_generic_module_parameters()
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> ActionPlan:
@@ -37,6 +42,27 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         parameters._orchestrator_path = file_path.parent
         return cls(parameters=parameters)
 
+    def add_task(self, task: Task):
+        root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
+
+        if task.module is not None:
+            module_parameters = self.build_module_parameters(self.parameters.resolve_path(task.parameters_path))
+            self._push_iterator(ModuleTaskIterator(task, module_parameters, root_output_dir))
+
+        if task.workflow is not None:
+            workflow_parameters = WorkflowParameters.from_file(self.parameters.resolve_path(task.parameters_path))
+            self._push_iterator(WorkflowTaskIterator(task, workflow_parameters, root_output_dir))
+
+    def _push_iterator(self, iterator: TaskIterator):
+        heapq.heappush(self.priority_queue, iterator)
+
+    def _pop_iterator(self) -> TaskIterator:
+        return heapq.heappop(self.priority_queue)
+
+    def build_priority_queue(self) -> None:
+        for task in self.parameters.tasks:
+            self.add_task(task)
+
     @property
     def jobs(self) -> Iterator[ActionPlanJob]:
         """
@@ -44,8 +70,14 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
         :return: The list of ActionPlanJob instances.
         """
-        for task, datetime in TaskListIterator(self.tasks):
-            yield from task.associated_jobs_with_execution_date(datetime)
+        while len(self.priority_queue) > 0:
+            priority_task_itr = self._pop_iterator()
+            job = next(priority_task_itr, None)
+            if job is not None:
+                self._push_iterator(priority_task_itr)
+                yield cast(ActionPlanJob, job)
+
+        raise StopIteration
 
     @property
     def jobs_count(self) -> int:
