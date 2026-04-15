@@ -7,13 +7,11 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import copy
-from collections.abc import Iterable
+import copy as copy_module
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Literal
 
-from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
 
 
@@ -21,6 +19,10 @@ class CurrentInputState:
     def __init__(self, data: AtlasDataset):
         self.data = data
         self._history: dict[str, AtlasDataset] = {}
+
+    def get_data(self, copy: bool = True) -> AtlasDataset:
+        """Return the underlying dataset, optionally as a deep copy."""
+        return copy_module.deepcopy(self.data) if copy else self.data
 
     def to_directory(
         self,
@@ -63,13 +65,6 @@ class CurrentInputState:
             )
         )
 
-    def filter_dataset(
-        self,
-        included_types: Iterable[str | BusinessModelName],
-        filters: dict[str | BusinessModelName, Any] | None = None,
-    ) -> AtlasDataset:
-        return self.data.filter_dataset(included_types=included_types, filters=filters)
-
     def create_snapshot(self, label: str) -> None:
         """Create a named snapshot of current state for debugging/rollback.
 
@@ -81,7 +76,7 @@ class CurrentInputState:
             >>> # ... apply changes ...
             >>> cis.restore_snapshot("before_thermal_module")  # Rollback
         """
-        self._history[label] = copy.deepcopy(self.data)
+        self._history[label] = copy_module.deepcopy(self.data)
 
     def list_snapshots(self) -> list[str]:
         """Return list of all snapshot labels.
@@ -106,7 +101,7 @@ class CurrentInputState:
             >>> cis.restore_snapshot("after_step_1")
         """
         if label in self._history:
-            self.data = copy.deepcopy(self._history[label])
+            self.data = copy_module.deepcopy(self._history[label])
         else:
             raise ValueError(f"Snapshot '{label}' not found. Available: {self.list_snapshots()}")
 
@@ -206,7 +201,7 @@ class CurrentInputState:
             >>> cis_copy = cis.clone()
             >>> # Modify cis_copy without affecting original cis
         """
-        return CurrentInputState(copy.deepcopy(self.data))
+        return CurrentInputState(copy_module.deepcopy(self.data))
 
     @contextmanager
     def transaction(self):
@@ -228,7 +223,7 @@ class CurrentInputState:
             ...     # Make changes to transactional_cis
             ...     module.run(transactional_cis.data, params)
         """
-        backup = copy.deepcopy(self.data)
+        backup = copy_module.deepcopy(self.data)
         try:
             yield self
         except Exception:

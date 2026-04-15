@@ -90,9 +90,7 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         :param cis: The current input state
         :type cis: CurrentInputState
         """
-        input_dataset = cis.filter_dataset(
-            included_types=job.module.get_business_model_class_used(), filters=job.module.get_filters()
-        )
+        input_dataset = cis.get_data(copy=True)
 
         with timer() as t:
             job.run(input_dataset)

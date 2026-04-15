@@ -4,7 +4,6 @@ import os
 import polars as pl
 import pytest
 
-import atlas.config as cfg
 from atlas import AtlasDataset
 from atlas.config import EQUIPMENT_MODELS
 from atlas.io_utils.utils import to_snake_case
@@ -101,7 +100,6 @@ def test_market_clearing_output(dataset_name):
 
     raw_data = AtlasDataset.from_directory(dataset_path)
     cis = CurrentInputState(raw_data)
-    raw_data = cis.filter_dataset(cfg.MODEL_MAPPING_NAME.keys())
     mc_module = MarketClearingModule()
     parameters = mc_module.import_parameters(parameters_path)
     input_dataset = mc_module.import_data(raw_data, parameters)

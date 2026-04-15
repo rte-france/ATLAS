@@ -174,7 +174,6 @@ class TestWorkflowExecute:
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()
-            mock_cis_instance.filter_dataset.return_value = AtlasDataset()
             mock_cis_instance.data = AtlasDataset()
             MockCIS.return_value = mock_cis_instance
 
@@ -199,7 +198,6 @@ class TestWorkflowExecute:
             patch("atlas.orchestrator.current_input_state.CurrentInputState") as MockCIS,
         ):
             mock_cis_instance = MagicMock()
-            mock_cis_instance.filter_dataset.return_value = AtlasDataset()
             MockCIS.return_value = mock_cis_instance
 
             with pytest.raises(RuntimeError, match="bad_step"):
@@ -229,7 +227,6 @@ class TestWorkflowExecute:
             patch.object(AtlasDataset, "to_directory"),
         ):
             mock_cis_instance = MagicMock()
-            mock_cis_instance.filter_dataset.return_value = AtlasDataset()
             mock_cis_instance.data = AtlasDataset()
             MockFromDir.return_value = mock_cis_instance
 
