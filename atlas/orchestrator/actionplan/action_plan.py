@@ -53,5 +53,4 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
 
     def __repr__(self) -> str:
         """Return a human-readable string representation of the workflow."""
-        task_count = 0  # FIXME
-        return f"ActionPlan '{self.parameters.name}' ({task_count} task{'s' if task_count != 1 else ''} with a total of {self.jobs_count()} step{'s' if len(self.jobs_count()) != 1 else ''})"
+        return f"ActionPlan '{self.parameters.name}' ({len(self.tasks)} task{'s' if self.tasks != 1 else ''} with a total of {self.jobs_count()} step{'s' if len(self.jobs_count()) != 1 else ''})"

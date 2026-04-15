@@ -32,23 +32,23 @@ class ActionPlanParameters(AbstractOrchestratorParameters):
 
 
 class Task(BaseModel):
-    """Definition of a single job
+    """Definition of a single task
 
-    :param name: Name of the action plan job.
+    :param name: Name of the action plan task.
     :type name: str
-    :param module: Module to be executed (if any) in this job.
+    :param module: Module to be executed (if any) in this task.
     :type module: AbstractModule | None
     :param parameters_path: Parameters of the module or the workflow associated with this task.
     :type parameters_path: str | None
-    :param workflow: Workflow to be executed (if any) in this job.
+    :param workflow: Workflow to be executed (if any) in this task.
     :type workflow: string | None
-    :param priority: Priority of the action plan job.
+    :param priority: Priority of the action plan task.
     :type priority: int
-    :param from_: First date time to execute this job.
+    :param from_: First date time to execute this task.
     :type from_: DateTime
-    :param until: Last date time to execute this job.
+    :param until: Last date time to execute this task.
     :type until: DateTime
-    :param frequency: Frequency of the action plan job.
+    :param frequency: Frequency of the action plan task.
     :type frequency: Duration
     """
 

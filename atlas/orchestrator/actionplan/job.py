@@ -15,7 +15,7 @@ from atlas.abstract_class.job import AbstractJob
 
 class ActionPlanJob(AbstractJob):
     """
-    A job in an action plan is responsible for executing a module using provided parameters
+    A job in an action plan, responsible for executing a module using provided parameters plus an execution date
     and producing an output dataset from an input dataset.
     """
 
