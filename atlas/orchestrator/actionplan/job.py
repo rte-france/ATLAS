@@ -38,8 +38,8 @@ class Task(BaseModel):
     :type name: str
     :param module: Module to be executed (if any) in this job.
     :type module: AbstractModule | None
-    :param parameters: Parameters of the module or the workflow associated with this task.
-    :type parameters: str | None
+    :param parameters_path: Parameters of the module or the workflow associated with this task.
+    :type parameters_path: str | None
     :param workflow: Workflow to be executed (if any) in this job.
     :type workflow: string | None
     :param priority: Priority of the action plan job.
@@ -55,7 +55,7 @@ class Task(BaseModel):
     name: str | None = None
     module: ModuleRegistry | None = None
     workflow: Workflow | None = None
-    parameters: Path | None = None
+    parameters_path: Path | None = None
     priority: int
     from_: DateTime  # FIXME change name, "from" isn't available in python
     until: DateTime
