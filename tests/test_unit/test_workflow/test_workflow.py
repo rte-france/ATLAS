@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
@@ -110,13 +111,14 @@ class TestWorkflowAddStep:
         assert next(jobs) is s2
 
 
+# FIXME This class should test AbstractOrchestrator function instead
 class TestWorkflowBuildModuleParameters:
     def test_merges_generic_and_custom_parameters(self, tmp_path):
         custom_file = tmp_path / "custom.yaml"
         custom_file.write_text("solver: GLOP\ntimeout: 60\n")
 
         generic = {"timeout": 30, "log_level": "INFO"}
-        result = Workflow.build_module_parameters(generic, custom_file)
+        result = AbstractOrchestrator.static_build_module_parameters(generic, custom_file)
 
         # custom overrides generic
         assert result["timeout"] == 60
@@ -129,7 +131,7 @@ class TestWorkflowBuildModuleParameters:
         custom_file.write_text("key: new_value\n")
 
         generic = {"key": "original"}
-        Workflow.build_module_parameters(generic, custom_file)
+        AbstractOrchestrator.static_build_module_parameters(generic, custom_file)
 
         assert generic["key"] == "original"
 
@@ -138,7 +140,7 @@ class TestWorkflowBuildModuleParameters:
         custom_file.write_text("{}\n")
 
         generic = {"a": 1, "b": 2}
-        result = Workflow.build_module_parameters(generic, custom_file)
+        result = AbstractOrchestrator.static_build_module_parameters(generic, custom_file)
 
         assert result == generic
         assert result is not generic

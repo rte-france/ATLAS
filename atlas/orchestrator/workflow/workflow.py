@@ -7,12 +7,8 @@ This file is part of the ATLAS project.
 
 from __future__ import annotations
 
-import copy
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
-
-import yaml
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.orchestrator.workflow.job import WorkflowJob
@@ -31,10 +27,9 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         :type parameters: WorkflowParameters
         """
         self.parameters = parameters
-        self.generic_module_parameters: dict[str, Any] = {}
         self._jobs: list[WorkflowJob] = []
 
-        self.build_generic_module_parameters()
+        self.build_generic_module_parameters()  # FIXME we have to run this function in any __init__() that inherit the class AbstractOrchestrator, any way to ensure that is done? super().__init()__ seems impossible
         self.build_jobs()
 
     @classmethod
@@ -44,31 +39,16 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         parameters._orchestrator_path = file_path.parent
         return cls(parameters=parameters)
 
-    def build_generic_module_parameters(self):
-        if self.parameters.parameters_path:
-            with open(self.parameters.resolve_path(self.parameters.parameters_path)) as file:
-                self.generic_module_parameters = yaml.safe_load(file)
-
     def build_jobs(self):
         Step.add_index_in_step_name(self.parameters.steps)
 
         for step in self.parameters.steps:
-            parameters = Workflow.build_module_parameters(
-                self.generic_module_parameters, self.parameters.resolve_path(step.parameters_path)
-            )
+            parameters = self.build_module_parameters(self.parameters.resolve_path(step.parameters_path))
             if "output" not in parameters:
                 parameters["output"] = {}
             parameters["output"]["output_dir"] = self.parameters.resolve_path(self.parameters.output_dir) / step.name
             workflow_job = WorkflowJob(step.name, step.module.value, parameters)
             self.add_job(workflow_job)
-
-    @staticmethod
-    def build_module_parameters(parameters: dict[str, Any], parameters_path: Path) -> dict[str, Any]:
-        parameters = copy.deepcopy(parameters)
-        with open(parameters_path) as file:
-            custom_parameters = yaml.safe_load(file)
-        parameters.update(custom_parameters)
-        return parameters
 
     @property
     def jobs(self) -> Iterator[WorkflowJob]:
