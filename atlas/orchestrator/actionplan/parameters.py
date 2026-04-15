@@ -13,7 +13,6 @@ from typing import Any
 from pendulum import DateTime, Duration
 from pydantic import BaseModel, field_validator, model_validator
 
-from atlas import Workflow
 from atlas.abstract_class.orchestrator_parameters import AbstractOrchestratorParameters
 from atlas.orchestrator.hook.hook import Hook
 from atlas.orchestrator.module_registry import ModuleRegistry
@@ -39,7 +38,7 @@ class Task(BaseModel):
     :param module: Module to be executed (if any) in this task.
     :type module: AbstractModule | None
     :param parameters_path: Parameters of the module or the workflow associated with this task.
-    :type parameters_path: str | None
+    :type parameters_path: str
     :param workflow: Workflow to be executed (if any) in this task.
     :type workflow: string | None
     :param priority: Priority of the action plan task.
@@ -54,19 +53,12 @@ class Task(BaseModel):
 
     name: str | None = None
     module: ModuleRegistry | None = None
-    workflow: Workflow | None = None
-    parameters_path: Path | None = None
+    workflow: str | None = None
+    parameters_path: Path
     priority: int
     from_: DateTime  # FIXME change name, "from" isn't available in python
     until: DateTime
     frequency: Duration
-
-    @field_validator("workflow", mode="before")
-    @classmethod
-    def coerce_workflow(cls, v: Any) -> Workflow | None:
-        if v is not None and isinstance(v, str):
-            return Workflow.from_file(v)
-        return v
 
     @field_validator("module", mode="before")
     @classmethod

@@ -57,7 +57,7 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
 
         :return: The list of WorkflowJob instances.
         """
-        return self._jobs.__iter__()
+        return iter(self._jobs)
 
     @property
     def jobs_count(self) -> int:
