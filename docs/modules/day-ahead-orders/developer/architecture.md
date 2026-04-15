@@ -28,7 +28,7 @@ atlas/modules/day_ahead_orders/
 │   ├── storage.py
 │   ├── thermal.py
 │   └── wind.py
-├── optim_models/                        # Specific optim model classes based on OptimisationModel
+├── optim/                        # Specific optim model classes based on OptimisationModel
 │   ├── battery_model.py
 │   ├── electric_vehicle_model.py
 │   └── storage_model.py

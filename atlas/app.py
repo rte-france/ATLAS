@@ -7,12 +7,12 @@ import typer
 from rich import print as rprint
 
 import atlas
-from atlas.abstract_class.abstract_parameters import AbstractModuleParameters
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.config import logger
 from atlas.io_utils.prometheus_transformer import PrometheusToAtlasDataParser, find_hdf5_files
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
-from atlas.orchestrator.step import ModuleRegistry
+from atlas.orchestrator.module_registry import ModuleRegistry
 from atlas.orchestrator.workflow.workflow import Workflow
 from atlas.timing import timer
 

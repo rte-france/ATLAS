@@ -5,17 +5,19 @@ This file is part of the ATLAS project.
 """
 
 import atlas.config as cfg
-from atlas import ForecastingMatrix, LazyForecastingMatrix, LazyTimeseries, Timeseries
-from atlas.abstract_class.abstract_dataset import AbstractModuleOutput
+from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.enums import Product
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.models.market.critical_branch import CriticalBranch
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.market_border import MarketBorder
-from atlas.models.market.order import Order
-from atlas.models.portfolio import Portfolio
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.math.lazy_timeseries import LazyTimeseries
+from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_dataset import MarketClearingInputDataset
 from atlas.modules.market_clearing.parameters import ExchangeConstraintsType, MarketClearingParameters
+from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_border import MarketBorder
+from atlas.objects.market.order import Order
+from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.orchestrator.change_set import UpdateObject
 from atlas.timing import generate_datetimes
 

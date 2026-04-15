@@ -8,7 +8,7 @@ This file is part of the ATLAS project.
 from collections.abc import Iterable, Iterator
 from typing import Generic, TypeVar
 
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 
 T = TypeVar("T", bound=BusinessModel)
 

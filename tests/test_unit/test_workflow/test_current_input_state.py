@@ -15,8 +15,9 @@ Unit tests for CurrentInputState features:
 import pytest
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.order import Order
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.order import Order
+from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.orchestrator.change_set import AddObject, UpdateObject
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
@@ -29,8 +30,9 @@ def cis():
     cis = CurrentInputState(dataset)
 
     # Add some test objects
-    ma1 = MarketArea(name="ma1")
-    ma2 = MarketArea(name="ma2")
+    cb = ControlBlock(name="cb1")
+    ma1 = MarketArea(name="ma1", control_block=cb)
+    ma2 = MarketArea(name="ma2", control_block=cb)
     cis.data.market_area.add(ma1)
     cis.data.market_area.add(ma2)
 
@@ -75,7 +77,8 @@ class TestStateHistoryAndVersioning:
         initial_order_count = len(cis.data.order)
 
         # Make changes
-        order3 = Order(name="order_3", price=30.0)
+        ma = cis.data.market_area.get("ma1")
+        order3 = Order(name="order_3", price=30.0, market_area=ma)
         cis.data.order.add(order3)
 
         assert len(cis.data.order) == initial_order_count + 1
@@ -97,7 +100,8 @@ class TestStateHistoryAndVersioning:
         cis.create_snapshot("test_snapshot")
 
         # Modify current state
-        order3 = Order(name="order_3", price=30.0)
+        ma = cis.data.market_area.get("ma1")
+        order3 = Order(name="order_3", price=30.0, market_area=ma)
         cis.data.order.add(order3)
 
         # Get snapshot (should not have order_3)
@@ -143,7 +147,8 @@ class TestStateHistoryAndVersioning:
         cis.create_snapshot("snapshot_1")
 
         # Modify data
-        order3 = Order(name="order_3", price=30.0)
+        ma = cis.data.market_area.get("ma1")
+        order3 = Order(name="order_3", price=30.0, market_area=ma)
         cis.data.order.add(order3)
         cis.create_snapshot("snapshot_2")
 
@@ -195,7 +200,8 @@ class TestDiffComparison:
     def test_diff_detects_added_objects(self, cis):
         """Test that diff detects newly added objects."""
         cis_modified = cis.clone()
-        order3 = Order(name="order_3", price=30.0)
+        ma = cis_modified.data.market_area.get("ma1")
+        order3 = Order(name="order_3", price=30.0, market_area=ma)
         cis_modified.data.order.add(order3)
 
         diff = cis_modified.diff(cis)
@@ -235,7 +241,8 @@ class TestDiffComparison:
         cis_modified = cis.clone()
 
         # Add
-        order3 = Order(name="order_3", price=30.0)
+        ma = cis.data.market_area.get("ma1")
+        order3 = Order(name="order_3", price=30.0, market_area=ma)
         cis_modified.data.order.add(order3)
 
         # Remove
@@ -257,7 +264,8 @@ class TestDiffComparison:
         cis.create_snapshot("before_changes")
 
         # Make changes
-        order3 = Order(name="order_3", price=30.0)
+        ma = cis.data.market_area.get("ma1")
+        order3 = Order(name="order_3", price=30.0, market_area=ma)
         cis.data.order.add(order3)
 
         diff = cis.diff(label="before_changes")
@@ -270,7 +278,8 @@ class TestDiffComparison:
         dataset_copy = cis.clone().data
 
         # Modify cis
-        order3 = Order(name="order_3", price=30.0)
+        ma = cis.data.market_area.get("ma1")
+        order3 = Order(name="order_3", price=30.0, market_area=ma)
         cis.data.order.add(order3)
 
         diff = cis.diff(dataset_copy)
@@ -322,7 +331,8 @@ class TestTransactionContextManager:
         initial_count = len(cis.data.order)
 
         with cis.transaction():
-            order3 = Order(name="order_3", price=30.0)
+            ma = cis.data.market_area.get("ma1")
+            order3 = Order(name="order_3", price=30.0, market_area=ma)
             cis.data.order.add(order3)
 
         # Changes should be committed
@@ -337,7 +347,8 @@ class TestTransactionContextManager:
         with pytest.raises(ValueError):
             with cis.transaction():
                 # Make some changes
-                order3 = Order(name="order_3", price=30.0)
+                ma = cis.data.market_area.get("ma1")
+                order3 = Order(name="order_3", price=30.0, market_area=ma)
                 cis.data.order.add(order3)
                 cis.data.order.get("order_1").price = 999.0
 
@@ -353,9 +364,10 @@ class TestTransactionContextManager:
         """Test transaction works with CISHandler operations."""
         initial_count = len(cis.data.order)
 
+        ma = cis.data.market_area.get("ma1")
         change_sets = [
-            AddObject({"name": "order_3", "price": 30.0}, model_type=Order),
-            AddObject({"name": "order_4", "price": 40.0}, model_type=Order),
+            AddObject({"name": "order_3", "price": 30.0, "market_area": ma.name}, model_type=Order),
+            AddObject({"name": "order_4", "price": 40.0, "market_area": ma.name}, model_type=Order),
         ]
 
         with cis.transaction():
@@ -371,8 +383,9 @@ class TestTransactionContextManager:
         initial_count = len(cis.data.order)
 
         # This will fail because order_999 doesn't exist
+        ma = cis.data.market_area.get("ma1")
         change_sets = [
-            AddObject({"name": "order_3", "price": 30.0}, model_type=Order),
+            AddObject({"name": "order_3", "price": 30.0, "market_area": ma.name}, model_type=Order),
             UpdateObject({"name": "order_999", "price": 999.0}, model_type=Order),
         ]
 
@@ -413,7 +426,8 @@ class TestIntegrationScenarios:
         cis.create_snapshot("before_step_1")
 
         # Step 1: Add new order
-        change_sets_1 = [AddObject({"name": "order_3", "price": 30.0}, model_type=Order)]
+        ma = cis.data.market_area.get("ma1")
+        change_sets_1 = [AddObject({"name": "order_3", "price": 30.0, "market_area": ma.name}, model_type=Order)]
         CISHandler.apply(change_sets_1, cis)
         cis.create_snapshot("after_step_1")
 
@@ -443,7 +457,8 @@ class TestIntegrationScenarios:
         try:
             with experimental_cis.transaction():
                 # Make experimental changes
-                order3 = Order(name="order_3", price=30.0)
+                ma = experimental_cis.data.market_area.get("ma1")
+                order3 = Order(name="order_3", price=30.0, market_area=ma)
                 experimental_cis.data.order.add(order3)
 
                 # Simulate: check if results are acceptable

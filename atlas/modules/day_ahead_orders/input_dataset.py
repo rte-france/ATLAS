@@ -7,17 +7,19 @@ This file is part of the ATLAS project.
 
 from typing import TypeVar
 
-from atlas import AtlasDataset, ControlBlock, MarketArea
-from atlas.abstract_class.abstract_dataset import AbstractDataset
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.modules.day_ahead_orders.models.hydro import HydroDAO
-from atlas.modules.day_ahead_orders.models.load import LoadDAO
-from atlas.modules.day_ahead_orders.models.portfolio import PortfolioDAO
-from atlas.modules.day_ahead_orders.models.solar import SolarDAO
-from atlas.modules.day_ahead_orders.models.storage import StorageDAO
-from atlas.modules.day_ahead_orders.models.thermal import ThermalDAO
-from atlas.modules.day_ahead_orders.models.wind import WindDAO
+from atlas.abstract_class.dataset import AbstractDataset
+from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas.modules.day_ahead_orders.input_objects.hydro import HydroDAO
+from atlas.modules.day_ahead_orders.input_objects.load import LoadDAO
+from atlas.modules.day_ahead_orders.input_objects.portfolio import PortfolioDAO
+from atlas.modules.day_ahead_orders.input_objects.solar import SolarDAO
+from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
+from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
+from atlas.modules.day_ahead_orders.input_objects.wind import WindDAO
 from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.network_operator.control_block import ControlBlock
 
 T = TypeVar("T")
 

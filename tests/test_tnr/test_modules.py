@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from atlas import AtlasDataset, DayAheadOrdersModule, MarketClearingModule, PortfolioOptimisationModule
-from atlas.abstract_class.abstract_module import AbstractModule
+from atlas.abstract_class.module import AbstractModule
 from atlas.orchestrator.current_input_state import CurrentInputState
 from atlas.orchestrator.handler.cis_handler import CISHandler
 from atlas.timing import timer
