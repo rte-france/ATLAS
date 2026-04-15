@@ -31,5 +31,5 @@ jobs:
         run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings -m "not integration"
 
       - name: Test with pytest and coverage (with integration tests)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
         run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings -m ""

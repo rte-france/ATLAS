@@ -15,5 +15,5 @@ use_forecast: false
 small_imbalance_penalty: 0.05
 battery_smoothing_factor: 0.1
 small_imbalance_size: 0.15
-excluded_technologies:
-  - 'thermal'
+excluded_thermal_strategy:
+  - 'Base'
