@@ -37,34 +37,31 @@ class TaskIterator:
 
 class TaskListIterator:
     def __init__(self, tasks: list[Task]) -> None:
-        self.priority_queue: list[TaskIterator] = []  # Internal list to store heap elements
+        self.priority_queue: list[TaskIterator] = []
         for task in tasks:
-            heapq.heappush(self.priority_queue, TaskIterator(task))
+            self._push(TaskIterator(task))
+
+    def _pop(self) -> TaskIterator:
+        return heapq.heappop(self.priority_queue)
+
+    def _push(self, task: TaskIterator) -> None:
+        heapq.heappush(self.priority_queue, task)
 
     def __iter__(self):
         return self
 
     def __next__(self) -> tuple[Task, DateTime]:
         """
-        Return the next Task with the associated DateTime to execute it.
+        Return the next Task with the associated execution date.
         """
-        if len(self) == 0:
-            raise StopIteration
+        while len(self) > 0:
+            priority_task_itr = self._pop()
+            task, date_time = next(priority_task_itr, (None, None))
+            if (task, date_time) != (None, None):
+                self._push(priority_task_itr)
+                return cast(tuple[Task, DateTime], (task, date_time))
 
-        priority_task_itr = heapq.heappop(self.priority_queue)
-        (task, date_time) = next(priority_task_itr, (None, None))
-
-        # TODO - refactor this loop
-        if (task, date_time) == (None, None):
-            while len(self) > 0:
-                task, date_time = next(priority_task_itr, (None, None))
-                if (task, date_time) != (None, None):
-                    return cast(tuple[Task, DateTime], (task, date_time))
-            raise StopIteration
-
-        heapq.heappush(self.priority_queue, priority_task_itr)
-
-        return cast(tuple[Task, DateTime], (task, date_time))
+        raise StopIteration
 
     def __len__(self):
         """Return the number of items in the queue."""
