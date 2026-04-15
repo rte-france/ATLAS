@@ -15,8 +15,8 @@ from typing import Any
 import yaml
 
 from atlas.abstract_class.orchestrator import AbstractOrchestrator
-from atlas.orchestrator.workflow.job import Step, WorkflowJob
-from atlas.orchestrator.workflow.parameters import WorkflowParameters
+from atlas.orchestrator.workflow.job import WorkflowJob
+from atlas.orchestrator.workflow.parameters import Step, WorkflowParameters
 
 
 class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
