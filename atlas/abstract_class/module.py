@@ -90,6 +90,7 @@ class AbstractModule(ABC, Generic[P, ID, OD]):
             raise AssertionError("Input Data/Parameters validation has not passed")
 
         output_dataset = self.execute(params, input_dataset)
+        output_dataset.change_sets = []
         output_dataset.build_change_sets()
 
         validates_results_ok = self.validates_results(params, input_dataset, output_dataset)
@@ -100,8 +101,10 @@ class AbstractModule(ABC, Generic[P, ID, OD]):
 
     @staticmethod
     def get_business_model_class_used() -> Iterable[BusinessModelName]:
+        """Returns the business model names used by this module."""
         return cfg.MODEL_MAPPING_NAME.keys()
 
     @staticmethod
     def get_filters():
+        """Returns filters to apply on the dataset. Override to restrict data scope."""
         return None

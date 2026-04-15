@@ -11,6 +11,7 @@ from typing import Any, TypeVar
 
 from atlas.abstract_class.dataset import AbstractModuleOutput
 from atlas.abstract_class.module import AbstractModule
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.io_utils.atlas_dataset import AtlasDataset
 
 
@@ -20,7 +21,7 @@ class AbstractJob:
     and producing an output dataset from an input dataset.
     """
 
-    def __init__(self, name: str, module: type[AbstractModule], parameters: dict[str, Any]):
+    def __init__(self, name: str, module: type[AbstractModule], parameters: AbstractModuleParameters | dict[str, Any]):
         """
         Initialize an AbstractJob.
 
@@ -28,12 +29,15 @@ class AbstractJob:
         :type name: str
         :param module: Module to be executed in this job.
         :type module: AbstractModule
-        :param parameters: Parameter for the module.
-        :type parameters: AbstractModuleParameters
+        :param parameters: Typed parameters or raw dict validated via the module's parameters class.
+        :type parameters: AbstractModuleParameters or dict
         """
         self.name: str = name
         self.module = module()
-        self.parameters = self.module.get_parameters_class().model_validate(parameters)
+        if isinstance(parameters, AbstractModuleParameters):
+            self.parameters = parameters
+        else:
+            self.parameters = self.module.get_parameters_class().model_validate(parameters)
         self._output_dataset: AbstractModuleOutput | None = None
 
     @property

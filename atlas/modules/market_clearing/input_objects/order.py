@@ -11,13 +11,12 @@ from pydantic_extra_types.pendulum_dt import DateTime
 from atlas.enums import OrderType, Product
 from atlas.log import logger
 from atlas.modules.market_clearing.parameters import MarketClearingParameters
-from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market.order import Order
 
 
 class OrderMC(Order):
     # Override of parent class  attributes that were None
-    market_area: MarketArea
+
     execution_date: DateTime
     start_date: DateTime
     end_date: DateTime

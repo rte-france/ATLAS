@@ -7,12 +7,10 @@ This file is part of the ATLAS project.
 
 from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.modules.day_ahead_orders.input_objects.portfolio import PortfolioDAO
 from atlas.objects.equipment.hydro import Hydro
 
 
 class HydroDAO(Hydro):
-    portfolio: PortfolioDAO
     maximum_energy: AbstractTimeseries
     minimum_energy: AbstractTimeseries
     initial_level: AbstractTimeseries
