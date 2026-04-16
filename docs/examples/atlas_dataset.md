@@ -5,7 +5,7 @@ The `AtlasDataset` is the main data container in Atlas that stores and provides 
 ## Loading a Dataset
 
 ```python
-from atlas.io_utils.atlas_dataset import AtlasDataset
+from atlas import AtlasDataset
 
 # Load dataset from directory
 dataset = AtlasDataset.from_directory("data/atlas-dataset/portfolio-optimisation")
@@ -48,8 +48,8 @@ dataset = AtlasDataset.from_pickle("output/dataset.pkl")
 ## Creating a Custom Dataset
 
 ```python
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas import Node
+from atlas import Portfolio
 
 # Create objects
 node1 = Node(name="node_1")
