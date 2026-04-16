@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pendulum
@@ -18,8 +19,8 @@ from atlas.math.lazy_matrix import LazyScenarioMatrix
 from atlas.math.lazy_timeseries import LazyTimeseries
 from atlas.math.matrix import ScenarioMatrix
 from atlas.math.timeseries import Timeseries
-from atlas.models.business_model import BusinessModel
-from atlas.models.equipment.equipment import Equipment
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.equipment.equipment import Equipment
 
 
 @pytest.fixture
@@ -53,6 +54,9 @@ class DummyReferenced(BusinessModel):
 class DummyEquipment(Equipment):
     name: str
     type: str = "dummy"
+    # Override required fields from Equipment to make them optional for testing
+    node: Any = None  # type: ignore[assignment]
+    portfolio: Any = None  # type: ignore[assignment]
 
     def __eq__(self, other):
         return isinstance(other, DummyEquipment) and self.name == other.name

@@ -14,6 +14,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal, cast, get_origin
 
+import pendulum
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 import atlas.config as cfg
@@ -22,25 +23,29 @@ from atlas.io_utils.container import Container
 from atlas.io_utils.input_loader import load_from_directory
 from atlas.io_utils.output_writer import save_to_directory
 from atlas.io_utils.utils import diff_business_model
-from atlas.models.business_model import BusinessModel
-from atlas.models.control_block import ControlBlock
-from atlas.models.equipment.equipment import Equipment
-from atlas.models.equipment.hydro import Hydro
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
-from atlas.models.equipment.solar import Solar
-from atlas.models.equipment.storage import Storage
-from atlas.models.equipment.thermal import Thermal
-from atlas.models.equipment.wind import Wind
-from atlas.models.market.critical_branch import CriticalBranch
-from atlas.models.market.market_area import MarketArea
-from atlas.models.market.market_area_ptdf import MarketAreaPtdf
-from atlas.models.market.market_border import MarketBorder
-from atlas.models.market.node_ptdf import NodePtdf
-from atlas.models.market.order import Order
-from atlas.models.market.order_coupling import OrderCoupling
-from atlas.models.node import Node
-from atlas.models.portfolio import Portfolio
+from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
+from atlas.math.abstract_timeseries import AbstractTimeseries
+from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
+from atlas.objects.business_model import BusinessModel
+from atlas.objects.equipment.equipment import Equipment
+from atlas.objects.equipment.hydro import Hydro
+from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
+from atlas.objects.equipment.solar import Solar
+from atlas.objects.equipment.storage import Storage
+from atlas.objects.equipment.thermal import Thermal
+from atlas.objects.equipment.wind import Wind
+from atlas.objects.market.critical_branch import CriticalBranch
+from atlas.objects.market.market_area import MarketArea
+from atlas.objects.market.market_area_ptdf import MarketAreaPtdf
+from atlas.objects.market.market_border import MarketBorder
+from atlas.objects.market.node_ptdf import NodePtdf
+from atlas.objects.market.order import Order
+from atlas.objects.market.order_coupling import OrderCoupling
+from atlas.objects.market_operator.portfolio import Portfolio
+from atlas.objects.network.node import Node
+from atlas.objects.network_operator.control_block import ControlBlock
+from atlas.timing import get_duration
 
 
 class AtlasDataset(BaseModel):
@@ -563,35 +568,22 @@ class AtlasDataset(BaseModel):
 
         return result
 
-    def filter_dataset(
-        self,
-        included_types: Iterable[str | BusinessModelName] = (),
-        filters: dict[str | BusinessModelName, Any] | None = None,
-    ) -> AtlasDataset:
-        filtered_data: dict[str, list[BusinessModel]] = {}
-        for object_type in included_types:
-            object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
-            if not filters or object_type_str not in filters:
-                try:
-                    container: Container[BusinessModel] = self.get_container_by_type(object_type_str)
-                    filtered_data[object_type_str] = [copy.deepcopy(obj) for obj in container]
-                except ValueError:
-                    continue
-
-        if filters:
-            for object_type, filter_fn in filters.items():
-                object_type_str = object_type.value if isinstance(object_type, BusinessModelName) else object_type
-                try:
-                    filtered_container: Container[BusinessModel] = self.get_container_by_type(object_type_str)
-                    filtered_data[object_type_str] = [
-                        copy.deepcopy(obj) for obj in filtered_container if filter_fn(obj)
-                    ]
-                except ValueError:
-                    continue
-
-        return AtlasDataset.from_dict(filtered_data)
-
     def filter_equipments(self, equipment_names: list[str] | None) -> AtlasDataset:
+        """
+        Filter the dataset to include only specified equipment by name.
+
+        :param equipment_names: List of equipment names to include. If None or empty, returns a copy of the full dataset.
+        :type equipment_names: list[str] | None
+
+        :return: A new AtlasDataset containing only the specified equipment (deep copy)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> dataset = AtlasDataset(thermal=[plant1, plant2, plant3])
+            >>> filtered = dataset.filter_equipments(["plant1", "plant3"])
+            >>> len(filtered.thermal)
+            2
+        """
         copy_dataset = copy.deepcopy(self)
         if not equipment_names:
             return copy_dataset
@@ -602,85 +594,195 @@ class AtlasDataset(BaseModel):
                     equipments.remove(equipment.name)
         return copy_dataset
 
-    def filter_zones(self, control_block_names: list[str], equipment_names: list[str] | None = None) -> AtlasDataset:
+    def filter_zones(self, control_block_names: list[str], include_external_borders: bool = False) -> AtlasDataset:
+        """
+        Filter the dataset to include only objects associated with specified control blocks (zones).
+
+        For market borders and critical branches:
+        - If include_external_borders is False (default), only includes borders/branches where both endpoints
+          are in the filtered zones, creating an isolated network
+        - If include_external_borders is True, includes borders/branches where at least one endpoint is in
+          the filtered zones, allowing connections to external zones
+
+        :param control_block_names: List of control block names to include in the filtered dataset
+        :type control_block_names: list[str]
+        :param include_external_borders: Whether to include borders/branches with at least one endpoint in filtered zones
+        :type include_external_borders: bool
+
+        :return: A new AtlasDataset containing only the filtered objects (deep copy)
+        :rtype: AtlasDataset
+
+        :raises ValueError: If any control block name in control_block_names does not exist in the dataset
+        """
+
+        # Validate that all control blocks exist
+        existing_cb_names = {cb.name for cb in self.control_block}
+        invalid_zones = set(control_block_names) - existing_cb_names
+        if invalid_zones:
+            msg = f"Control blocks not found in dataset: {sorted(invalid_zones)}"
+            raise ValueError(msg)
+
+        # Convert to set for O(1) lookups
+        zone_set = set(control_block_names)
+
         dataset = AtlasDataset()
 
         for cb in self.control_block:
-            if cb.name in control_block_names:
+            if cb.name in zone_set:
                 dataset.control_block.add(cb)
+
+        # Filter market areas
         for ma in self.market_area:
-            if ma.control_block is not None and ma.control_block.name in control_block_names:
+            if ma.control_block.name in zone_set:
                 dataset.market_area.add(ma)
+
+        # Filter nodes
         for node in self.node:
-            if node.control_block is not None and node.control_block.name in control_block_names:
+            if node.control_block.name in zone_set:
                 dataset.node.add(node)
+
+        # Filter market borders (with configurable logic)
         for border in self.market_border:
-            if (
-                border.downhill_control_block is not None
-                and border.downhill_control_block.name in control_block_names
-                and border.uphill_control_block is not None
-                and border.uphill_control_block.name in control_block_names
-            ):
+            downhill_in_zone = border.downhill_control_block.name in zone_set
+            uphill_in_zone = border.uphill_control_block.name in zone_set
+
+            if downhill_in_zone and uphill_in_zone:
                 dataset.market_border.add(border)
+            elif include_external_borders:
+                # Include if ANY endpoint is in filtered zones
+                if downhill_in_zone or uphill_in_zone:
+                    dataset.market_border.add(border)
+
         for ma_ptdf in self.market_area_ptdf:
-            if (
-                ma_ptdf.market_area is not None
-                and ma_ptdf.market_area.control_block is not None
-                and ma_ptdf.market_area.control_block.name in control_block_names
-            ):
+            if ma_ptdf.market_area.control_block.name in zone_set:
                 dataset.market_area_ptdf.add(ma_ptdf)
+
+        # Filter node PTDFs
         for node_ptdf in self.node_ptdf:
-            if (
-                node_ptdf.node is not None
-                and node_ptdf.node.control_block is not None
-                and node_ptdf.node.control_block.name in control_block_names
-            ):
+            if node_ptdf.node.control_block.name in zone_set:
                 dataset.node_ptdf.add(node_ptdf)
+
+        # Filter critical branches (with configurable logic)
         for critical_branch in self.critical_branch:
-            if (
-                critical_branch.uphill_node is not None
-                and critical_branch.uphill_node.control_block is not None
-                and critical_branch.uphill_node.control_block.name in control_block_names
-                and critical_branch.downhill_node is not None
-                and critical_branch.downhill_node.control_block is not None
-                and critical_branch.downhill_node.control_block.name in control_block_names
-            ):
+            uphill_in_zone = critical_branch.uphill_node.control_block.name in zone_set
+            downhill_in_zone = critical_branch.downhill_node.control_block.name in zone_set
+
+            if downhill_in_zone and uphill_in_zone:
                 dataset.critical_branch.add(critical_branch)
+            elif include_external_borders:
+                # Include if ANY endpoint is in filtered zones
+                if downhill_in_zone or uphill_in_zone:
+                    dataset.critical_branch.add(critical_branch)
+
+        # Filter orders
         for order in self.order:
-            if (
-                order.market_area is not None
-                and order.market_area.control_block is not None
-                and order.market_area.control_block.name in control_block_names
-            ):
+            if order.market_area.control_block.name in zone_set:
                 dataset.order.add(order)
-        # Hypothesis that every Order in OrderCoupling has the same MarketArea
+
+        # Filter order couplings
+        # Note: Includes coupling if ANY order in the coupling belongs to filtered zones
         for order_coupling in self.order_coupling:
-            keep_coupling = False
             if order_coupling.orders is None:
                 continue
-            for coupled_order in order_coupling.orders:
-                if (
-                    coupled_order.market_area is not None
-                    and coupled_order.market_area.control_block is not None
-                    and coupled_order.market_area.control_block.name in control_block_names
-                ):
-                    keep_coupling = True
-                    break
-            if keep_coupling:
+
+            if any(
+                coupled_order.market_area is not None
+                and coupled_order.market_area.control_block is not None
+                and coupled_order.market_area.control_block.name in zone_set
+                for coupled_order in order_coupling.orders
+            ):
                 dataset.order_coupling.add(order_coupling)
+
+        # Filter portfolios
         for portfolio in self.portfolio:
-            if portfolio.control_block is not None and portfolio.control_block.name in control_block_names:
+            if portfolio.control_block.name in zone_set:
                 dataset.portfolio.add(portfolio)
 
+        # Filter equipment (all types)
         for equipment_type in cfg.EQUIPMENT_MODELS:
             equipments = dataset.get_container_by_type(equipment_type)
             for equipment in self.get_items_by_type(equipment_type):
-                equipment_node: Node | None = cast(Equipment, equipment).node
-                if (
-                    equipment_node is not None
-                    and equipment_node.control_block is not None
-                    and equipment_node.control_block.name in control_block_names
-                ):
-                    if equipment_names is None or equipment.name in equipments:
-                        equipments.add(equipment)
+                equipment_node = cast(Equipment, equipment).node
+                if equipment_node.control_block.name in zone_set:
+                    equipments.add(equipment)
+
         return copy.deepcopy(dataset)
+
+    def set_frequency_all(
+        self,
+        frequency: str | pendulum.Duration,
+        inplace: bool = True,
+        object_types: Iterable[str | BusinessModelName] | None = None,
+    ) -> AtlasDataset:
+        """
+        Set the frequency of all timeseries and matrices in the dataset to a target frequency.
+
+        This method recursively inspects all business objects in the dataset and applies
+        the `set_frequency()` method to any timeseries or matrix attributes found.
+
+        :param frequency: Target frequency for all timeseries/matrices (e.g., "1h", Duration(hours=1))
+        :type frequency: str | pendulum.Duration
+        :param inplace: If True, modifies objects in place. If False, returns a deep copy with modified frequencies.
+        :type inplace: bool
+        :param object_types: Optional list of object types to process. If None, processes all types.
+        :type object_types: Iterable[str | BusinessModelName] | None
+        :return: The dataset with modified frequencies (self if inplace=True, copy otherwise)
+        :rtype: AtlasDataset
+
+        Example:
+            >>> # Set all timeseries to 1 hour frequency
+            >>> dataset.set_frequency_all(Duration(hours=1))
+            >>>
+            >>> # Create a new dataset with 15-minute frequency for specific types
+            >>> new_dataset = dataset.set_frequency_all("15m", inplace=False, object_types=["hydro", "wind"])
+        """
+        target_frequency = get_duration(frequency)
+
+        # Determine which object types to process
+        types_to_process = (
+            [obj_type.value if isinstance(obj_type, BusinessModelName) else obj_type for obj_type in object_types]
+            if object_types
+            else list(cfg.MODEL_ORDER_INSTANTIATION)
+        )
+
+        dataset = self if inplace else copy.deepcopy(self)
+
+        for object_type in types_to_process:
+            if object_type not in cfg.MODEL_MAPPING_NAME:
+                cfg.logger.warning(f"Skipping unknown object type: {object_type}")
+                continue
+
+            container: Container = dataset.get_container_by_type(object_type)
+
+            for business_object in container:
+                dataset._set_frequency_on_object(business_object, target_frequency)
+
+        return dataset
+
+    def _set_frequency_on_object(self, obj: BusinessModel, target_frequency: pendulum.Duration) -> None:
+        """
+        Set frequency on all timeseries/matrix attributes of a single business object.
+
+        :param obj: Business object to process
+        :type obj: BusinessModel
+        :param target_frequency: Target frequency to apply
+        :type target_frequency: pendulum.Duration
+        """
+        # Iterate over all pydantic model fields
+        for field_name in obj.__class__.model_fields.keys():
+            attr_value = getattr(obj, field_name, None)
+
+            if attr_value is None:
+                continue
+
+            # Check if the attribute is a timeseries or matrix type
+            if isinstance(
+                attr_value,
+                AbstractTimeseries | AbstractScenarioMatrix | ForecastingMatrix | LazyForecastingMatrix,
+            ):
+                try:
+                    # Apply set_frequency and update the attribute
+                    updated_value = attr_value.set_frequency(target_frequency, inplace=True)
+                    setattr(obj, field_name, updated_value)
+                except Exception as e:
+                    cfg.logger.warning(f"Failed to set frequency on {obj.name}.{field_name}: {e!s}")

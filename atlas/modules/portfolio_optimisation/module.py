@@ -5,25 +5,28 @@ SPDX-License-Identifier: MPL-2.0
 This file is part of the ATLAS project.
 """
 
+from __future__ import annotations
+
 from collections.abc import Iterable
 
 from loguru import logger
-from pendulum import Duration
+from pendulum import DateTime
 
-from atlas.abstract_class.abstract_module import AbstractModule
+import atlas.config as cfg
+from atlas.abstract_class.module import AbstractModule
 from atlas.enums import BusinessModelName
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.math.abstract_scenario_matrix import AbstractScenarioMatrix
-from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.math.forecasting_matrix import ForecastingMatrix, LazyForecastingMatrix
-from atlas.math.lazy_matrix import LazyScenarioMatrix
-from atlas.math.lazy_timeseries import LazyTimeseries
-from atlas.math.timeseries import Timeseries
 from atlas.modules.portfolio_optimisation.input_dataset import PortfolioOptimisationInputDataset
+from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments import PortfolioEquipments
 from atlas.modules.portfolio_optimisation.output_dataset import PortfolioOptimisationOutputDataset
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
-from atlas.modules.portfolio_optimisation.portfolio_orchestrator import PortfolioOptimisationOrchestrator
-from atlas.timing import infer_frequency
+from atlas.modules.portfolio_optimisation.utils.orchestration import (
+    PortfolioOptimisationResult,
+    optimise_portfolio_manual_activated,
+    run_parallel,
+    run_sequential,
+)
 
 
 class PortfolioOptimisationModule(
@@ -44,20 +47,22 @@ class PortfolioOptimisationModule(
 
     def import_data(
         self,
-        raw_data: AtlasDataset,
+        input_data: AtlasDataset,
         parameters: PortfolioOptimisationParameters,
     ) -> PortfolioOptimisationInputDataset:
         """
         Imports data using business objects and parameters.
 
-        :param raw_data: Dictionary of business model objects
-        :type raw_data: dict[str, list[BusinessModel]]
+        :param input_data: Dictionary of business model objects
+        :type input_data: dict[str, list[BusinessModel]]
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
         :return: Input dataset for portfolio optimization
         :rtype: PortfolioOptimisationInputDataset
         """
-        return PortfolioOptimisationInputDataset(raw_data, parameters)
+        return PortfolioOptimisationInputDataset(
+            input_data.set_frequency_all(parameters.temporal.timestep, inplace=True), parameters
+        )
 
     def validate_data(
         self,
@@ -74,15 +79,7 @@ class PortfolioOptimisationModule(
         :return: True if validation passes, False otherwise
         :rtype: bool
         """
-        logger.debug("Validating timeseries timestep consistency for portfolio optimization")
-
-        try:
-            self._validate_timeseries_timestep_consistency(parameters, input_dataset)
-            logger.debug("Timestep validation passed successfully")
-            return True
-        except ValueError as e:
-            logger.error(f"Timestep validation failed: {e}")
-            return False
+        return True
 
     def validates_results(
         self,
@@ -137,212 +134,94 @@ class PortfolioOptimisationModule(
         :return: Output dataset containing optimization results
         :rtype: PortfolioOptimisationOutputDataset
         """
-        model = PortfolioOptimisationOrchestrator(parameters)
-        optimisation_results = model.run(dataset)
+
+        cfg.logger.info(
+            "Starting Portfolio Optimisation\n"
+            f"  Start Date:          {parameters.temporal.start_date}\n"
+            f"  End Date:            {parameters.temporal.end_date}\n"
+            f"  Execution Date:      {parameters.temporal.execution_date}\n"
+            f"  Portfolios:          {len(dataset.portfolios)}\n"
+            f"  Manual Activation:   {len(dataset.portfolios_manual_activation)}\n"
+            f"  Mode:                {'Portfolio Bidding' if parameters.is_portfolio_bidding else 'Individual Equipment'}\n"
+        )
+        optimisation_results: dict[str, PortfolioOptimisationResult] = {}
+
+        if parameters.is_portfolio_bidding:
+            portfolios_with_time_windows = [
+                (portfolio, dataset.time_windows[portfolio.name]) for portfolio in dataset.portfolios
+            ]
+        else:
+            portfolios_with_time_windows = self._prepare_equipment_portfolios(dataset, parameters)
+
+        if parameters.multiprocessing.enable:
+            optimisation_results = run_parallel(portfolios_with_time_windows, parameters)
+        else:
+            optimisation_results = run_sequential(portfolios_with_time_windows, parameters)
+
+        if parameters.is_portfolio_bidding:
+            for portfolio in dataset.portfolios_manual_activation:
+                optimisation_results[portfolio.name] = optimise_portfolio_manual_activated(
+                    portfolio=portfolio, parameters=parameters
+                )
+        else:
+            for portfolio_manual in dataset.portfolios_manual_activation:
+                for equipment_type, list_equipment in portfolio_manual.equipments.iter_by_type():
+                    for equipment in list_equipment:
+                        # Create a single-equipment portfolio
+                        single_equipment = PortfolioEquipments()
+                        single_equipment.add(equipment_type, equipment)
+
+                        equipment_portfolio = PortfolioPO(
+                            name=equipment.name,
+                            equipments=single_equipment,
+                            control_block=portfolio_manual.control_block,
+                            market_area=portfolio_manual.market_area,
+                        )
+
+                        optimisation_results[equipment_portfolio.name] = optimise_portfolio_manual_activated(
+                            portfolio=equipment_portfolio, parameters=parameters
+                        )
+
         output_dataset = PortfolioOptimisationOutputDataset(
             parameters=parameters, optimisation_results=optimisation_results, input_dataset=dataset
         )
 
         return output_dataset
 
-    def _validate_timeseries_timestep_consistency(
-        self,
-        parameters: PortfolioOptimisationParameters,
-        input_dataset: PortfolioOptimisationInputDataset,
-    ) -> None:
+    def _prepare_equipment_portfolios(
+        self, input_dataset: PortfolioOptimisationInputDataset, parameters: PortfolioOptimisationParameters
+    ) -> list[tuple[PortfolioPO, list[DateTime]]]:
         """
-        Validate that all timeseries data have timesteps consistent with the optimization parameters.
+        Prepare individual equipment portfolios from the input portfolios.
 
+        :param input_dataset: Input dataset containing portfolios
+        :type input_dataset: PortfolioOptimisationInputDataset
         :param parameters: Optimization parameters
         :type parameters: PortfolioOptimisationParameters
-        :param input_dataset: Input dataset to validate
-        :type input_dataset: PortfolioOptimisationInputDataset
-        :raises ValueError: If timestep validation fails
+        :return: List of tuples containing equipment portfolios and their time windows
+        :rtype: list[tuple[PortfolioPO, list[DateTime]]]
         """
-        expected_timestep = parameters.temporal.timestep
-        logger.debug(f"Expected timestep: {expected_timestep}")
+        equipment_portfolios: list[tuple[PortfolioPO, list[DateTime]]] = []
 
-        validation_errors = []
+        for portfolio in input_dataset.portfolios:
+            cfg.logger.debug(f"Processing portfolio {portfolio.name} for individual equipment optimisation")
+            for equipment_type, list_equipment in portfolio.equipments.iter_by_type():
+                for equipment in list_equipment:
+                    single_equipment = PortfolioEquipments()
+                    setattr(single_equipment, equipment_type, [equipment])
 
-        for equipment_type, equipment_list in input_dataset.equipments.iter_by_type():
-            for equipment in equipment_list:
-                equipment_errors = self._validate_equipment_timeseries(equipment, expected_timestep, equipment_type)
-                validation_errors.extend(equipment_errors)
-
-        for portfolio in input_dataset.portfolios + input_dataset.portfolios_manual_activation:
-            portfolio_errors = self._validate_portfolio_timeseries(portfolio, expected_timestep)
-            validation_errors.extend(portfolio_errors)
-
-        if validation_errors:
-            error_message = "Timestep validation failed:\n" + "\n".join(validation_errors)
-            raise ValueError(error_message)
-
-    def _validate_equipment_timeseries(self, equipment, expected_timestep: Duration, equipment_type: str) -> list[str]:
-        """
-        Validate timeseries timestep consistency for a single equipment using dynamic attribute discovery.
-
-        :param equipment: Equipment object to validate
-        :type equipment: Any
-        :param expected_timestep: Expected timestep duration
-        :type expected_timestep: Duration
-        :param equipment_type: Type of equipment
-        :type equipment_type: str
-        :return: List of validation error messages
-        :rtype: list[str]
-        """
-        errors = []
-        equipment_name = getattr(equipment, "name", f"unknown_{equipment_type}")
-
-        # Dynamically discover all attributes that are timeseries types
-        for attr_name in dir(equipment):
-            if attr_name.startswith("_"):  # Skip private attributes
-                continue
-
-            attr_value = getattr(equipment, attr_name, None)
-            if attr_value is not None and self._is_timeseries_type(attr_value):
-                validation_result = self._validate_and_fix_timeseries(
-                    attr_value, expected_timestep, context=f"{equipment_name}.{attr_name}"
-                )
-                if validation_result["error"]:
-                    errors.append(validation_result["error"])
-                elif validation_result["fixed"]:
-                    # Update the equipment attribute with the corrected timeseries
-                    setattr(equipment, attr_name, validation_result["timeseries"])
-                    logger.debug(f"Auto-corrected timestep for {equipment_name}.{attr_name}")
-
-        return errors
-
-    def _validate_portfolio_timeseries(self, portfolio, expected_timestep: Duration) -> list[str]:
-        """
-        Validate timeseries timestep consistency for a portfolio using dynamic attribute discovery.
-
-        :param portfolio: Portfolio object to validate
-        :type portfolio: Any
-        :param expected_timestep: Expected timestep duration
-        :type expected_timestep: Duration
-        :return: List of validation error messages
-        :rtype: list[str]
-        """
-        errors = []
-        portfolio_name = getattr(portfolio, "name", "unknown_portfolio")
-
-        # Check portfolio direct attributes
-        for attr_name in dir(portfolio):
-            if attr_name.startswith("_"):
-                continue
-
-            attr_value = getattr(portfolio, attr_name, None)
-            if attr_value is not None and self._is_timeseries_type(attr_value):
-                validation_result = self._validate_and_fix_timeseries(
-                    attr_value, expected_timestep, f"{portfolio_name}.{attr_name}"
-                )
-                if validation_result["error"]:
-                    errors.append(validation_result["error"])
-                elif validation_result["fixed"]:
-                    setattr(portfolio, attr_name, validation_result["timeseries"])
-                    logger.debug(f"Auto-corrected timestep for {portfolio_name}.{attr_name}")
-
-        # Check market area attributes
-        if hasattr(portfolio, "market_area") and portfolio.market_area:
-            market_area = portfolio.market_area
-            for attr_name in dir(market_area):
-                if attr_name.startswith("_"):
-                    continue
-
-                attr_value = getattr(market_area, attr_name, None)
-                if attr_value is not None and self._is_timeseries_type(attr_value):
-                    validation_result = self._validate_and_fix_timeseries(
-                        attr_value, expected_timestep, f"{portfolio_name}.market_area.{attr_name}"
+                    equipment_portfolio = PortfolioPO(
+                        name=equipment.name,
+                        equipments=single_equipment,
+                        control_block=portfolio.control_block,
+                        market_area=portfolio.market_area,
                     )
-                    if validation_result["error"]:
-                        errors.append(validation_result["error"])
-                    elif validation_result["fixed"]:
-                        setattr(market_area, attr_name, validation_result["timeseries"])
-                        logger.debug(f"Auto-corrected timestep for {portfolio_name}.market_area.{attr_name}")
 
-        return errors
+                    equipment_portfolio.market_area.set_market_context(parameters.market, parameters.use_forecast)
 
-    def _is_timeseries_type(self, obj) -> bool:
-        """
-        Check if an object is a timeseries-like type that can have frequency adjusted.
+                    equipment_portfolios.append((equipment_portfolio, input_dataset.time_windows[portfolio.name]))
 
-        :param obj: Object to check
-        :type obj: Any
-        :return: True if object is a timeseries type
-        :rtype: bool
-        """
-        return isinstance(
-            obj,
-            AbstractTimeseries | AbstractScenarioMatrix | ForecastingMatrix | LazyForecastingMatrix,
-        )
-
-    def _validate_and_fix_timeseries(
-        self,
-        timeseries_obj: AbstractTimeseries | AbstractScenarioMatrix | ForecastingMatrix | LazyForecastingMatrix,
-        expected_timestep: Duration,
-        context: str,
-    ) -> dict:
-        """
-        Validate and potentially fix a timeseries object's timestep.
-
-        :param timeseries_obj: Timeseries object to validate and fix
-        :type timeseries_obj: Any
-        :param expected_timestep: Expected timestep duration
-        :type expected_timestep: Duration
-        :param context: Context string for error messages
-        :type context: str
-        :return: Dictionary with keys 'error', 'fixed', 'timeseries'
-        :rtype: dict
-        """
-        result = {"error": None, "fixed": False, "timeseries": timeseries_obj}
-
-        actual_timestep = self._get_timeseries_timestep(timeseries_obj)
-        if actual_timestep is None:
-            return result  # Skip validation for empty/small timeseries
-
-        if actual_timestep != expected_timestep:
-            logger.debug(
-                f"{context}: Timestep mismatch - expected {expected_timestep}, found {actual_timestep}. Attempting to fix..."
-            )
-
-            fixed_ts = timeseries_obj.set_frequency(expected_timestep, inplace=False)
-            result["timeseries"] = fixed_ts
-            result["fixed"] = True
-            logger.debug(f"{context}: Successfully adjusted timestep to {expected_timestep}")
-
-        return result
-
-    def _get_timeseries_timestep(
-        self, timeseries_obj: AbstractTimeseries | AbstractScenarioMatrix | ForecastingMatrix | LazyForecastingMatrix
-    ) -> Duration | None:
-        """
-        Extract the timestep from a timeseries object.
-
-        :param timeseries_obj: Timeseries object
-        :type timeseries_obj: Any
-        :return: Timestep duration or None if cannot be determined
-        :rtype: Duration | None
-        """
-        if isinstance(timeseries_obj, LazyTimeseries):
-            collected_ts = timeseries_obj.collect()
-            if len(collected_ts.dataframe) < 2:
-                return None
-            return infer_frequency(collected_ts.dataframe)
-        elif isinstance(timeseries_obj, Timeseries):
-            if len(timeseries_obj.dataframe) < 2:
-                return None
-            return infer_frequency(timeseries_obj.dataframe)
-        elif isinstance(timeseries_obj, AbstractScenarioMatrix | LazyForecastingMatrix | ForecastingMatrix):
-            # For ScenarioMatrix and LazyScenarioMatrix, get frequency from matrix
-            if isinstance(timeseries_obj, LazyScenarioMatrix | LazyForecastingMatrix):
-                matrix_df = timeseries_obj.dataframe.collect()
-            else:
-                matrix_df = timeseries_obj.dataframe  # type: ignore [assignment]
-            if len(matrix_df) < 2:
-                return None
-            return infer_frequency(matrix_df)
-
-        return None
+        return equipment_portfolios
 
     @staticmethod
     def get_business_model_class_used() -> Iterable[BusinessModelName]:

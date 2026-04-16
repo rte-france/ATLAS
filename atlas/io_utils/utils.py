@@ -13,7 +13,7 @@ import pandas as pd
 import pendulum
 import polars as pl
 
-from atlas.models.business_model import BusinessModel
+from atlas.objects.business_model import BusinessModel
 
 
 def read_data_file(

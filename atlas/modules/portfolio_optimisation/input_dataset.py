@@ -9,25 +9,25 @@ from itertools import groupby
 
 from pendulum import DateTime
 
-from atlas import Portfolio
-from atlas.abstract_class.abstract_dataset import AbstractDataset
+from atlas.abstract_class.dataset import AbstractDataset
 from atlas.enums import LoadType
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.modules.portfolio_optimisation.models.hydro import HydroPO
-from atlas.modules.portfolio_optimisation.models.load import LoadPO
-from atlas.modules.portfolio_optimisation.models.market_area import MarketAreaPO
-from atlas.modules.portfolio_optimisation.models.other_non_dispatchable import OtherNonDispatchablePO
-from atlas.modules.portfolio_optimisation.models.portfolio import PortfolioPO
-from atlas.modules.portfolio_optimisation.models.portfolio_equipments import PortfolioEquipments
-from atlas.modules.portfolio_optimisation.models.solar import SolarPO
-from atlas.modules.portfolio_optimisation.models.storage import StoragePO
-from atlas.modules.portfolio_optimisation.models.thermal.thermal import ThermalPO
-from atlas.modules.portfolio_optimisation.models.wind import WindPO
+from atlas.modules.portfolio_optimisation.input_objects.hydro import HydroPO
+from atlas.modules.portfolio_optimisation.input_objects.load import LoadPO
+from atlas.modules.portfolio_optimisation.input_objects.market_area import MarketAreaPO
+from atlas.modules.portfolio_optimisation.input_objects.other_non_dispatchable import OtherNonDispatchablePO
+from atlas.modules.portfolio_optimisation.input_objects.portfolio import PortfolioPO
+from atlas.modules.portfolio_optimisation.input_objects.portfolio_equipments import PortfolioEquipments
+from atlas.modules.portfolio_optimisation.input_objects.solar import SolarPO
+from atlas.modules.portfolio_optimisation.input_objects.storage import StoragePO
+from atlas.modules.portfolio_optimisation.input_objects.thermal.thermal import ThermalPO
+from atlas.modules.portfolio_optimisation.input_objects.wind import WindPO
 from atlas.modules.portfolio_optimisation.parameters import PortfolioOptimisationParameters
 from atlas.modules.portfolio_optimisation.utils.manual_activation import (
     is_excluded_market_area,
     should_manually_activate,
 )
+from atlas.objects.market_operator.portfolio import Portfolio
 
 
 class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationParameters]):
@@ -63,8 +63,9 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
     def _set_optimisation_time_window(self) -> None:
         """Get the longest optimisation time periods across all portfolios."""
-        self.time_windows = {
-            p.name: max(
+        self.time_windows = {}
+        for p in self.portfolios + self.portfolios_manual_activation:
+            tw = max(
                 (
                     e.get_optimisation_time_window(
                         start_date=self.parameters.temporal.start_date,
@@ -75,8 +76,8 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                 ),
                 key=lambda tw: tw[-1],
             )
-            for p in self.portfolios + self.portfolios_manual_activation
-        }
+            if p.name not in self.time_windows or tw[-1] > self.time_windows[p.name][-1]:
+                self.time_windows[p.name] = tw
 
     def _create_portfolios(self):
         """Collect and classify all equipment into PortfolioPO objects with manual activation handling"""

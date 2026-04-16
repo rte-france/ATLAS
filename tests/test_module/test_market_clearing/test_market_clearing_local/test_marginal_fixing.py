@@ -35,9 +35,9 @@ def test_if_marginal_fixing_generated_lp_matches_reference(dataset_name):
             parameters = mc_module.import_parameters(parameters_path)
             parameters.output.output_dir = Path(tmpdir)
             input_dataset = mc_module.import_data(raw_data, parameters)
-            with open(clearing_accepted_powers_path, "r") as f:
+            with open(clearing_accepted_powers_path) as f:
                 accepted_powers = {(ma, t): val for ma, t, val in json.load(f)}
-            with open(market_prices_path, "r") as f:
+            with open(market_prices_path) as f:
                 market_prices = {(ma, t): val for ma, t, val in json.load(f)}
 
             marginal_fixing = MarginalFixing(input_dataset, parameters)
@@ -45,7 +45,7 @@ def test_if_marginal_fixing_generated_lp_matches_reference(dataset_name):
         except Exception as e:
             pytest.fail(f"Clearing failed for {dataset_name}: {e}")
 
-    with open(marginal_fixing_accepted_powers_path, "r") as f:
+    with open(marginal_fixing_accepted_powers_path) as f:
         marginal_fixing_accepted_powers = {(ma, t): val for ma, t, val in json.load(f)}
 
     for (market_area_name, order_name), expected_value in marginal_fixing_accepted_powers.items():

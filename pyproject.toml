@@ -104,4 +104,7 @@ module = ["dictdiffer.*"]
 follow_untyped_imports = true
 
 [tool.pytest.ini_options]
-addopts = "-m 'not tnr'"
+addopts = "-m 'not integration'"
+markers = [
+    "integration: marks tests as integration tests (run only on pull requests)",
+]

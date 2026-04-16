@@ -198,8 +198,6 @@ class TestSolverOptionsParameterPassing:
         """Test that SCIP parameters are formatted correctly."""
         from unittest.mock import patch
 
-        from atlas.solver.solver_interface import SCIPParameterBuilder
-
         options = SolverOptions(presolve=False, duality_gap=0.0001)
         model = OptimisationModel(solver_name=SolverEnum.SCIP, options=options)
 
