@@ -47,7 +47,7 @@ class Step(BaseModel):
         return self
 
     @staticmethod
-    def add_index_in_step_name(steps: list) -> None:
+    def add_index_in_step_name(steps: list[Step]) -> None:
         """Append a numeric index suffix to duplicate step names, in-place.
 
         Steps whose name is unique are left unchanged. Steps sharing a name are
@@ -58,10 +58,10 @@ class Step(BaseModel):
         """
         name_counts: dict[str, int] = {}
         for step in steps:
-            name_counts[step.name] = name_counts.get(step.name, 0) + 1
+            name_counts[step.name] = name_counts.get(step.name, 0) + 1  # type: ignore[index, arg-type]
 
         name_index: dict[str, int] = {}
         for step in steps:
-            if name_counts[step.name] > 1:
-                name_index[step.name] = name_index.get(step.name, 0) + 1
-                step.name = f"{step.name}_{name_index[step.name]}"
+            if name_counts[step.name] > 1:  # type: ignore[index]
+                name_index[step.name] = name_index.get(step.name, 0) + 1  # type: ignore[index, arg-type]
+                step.name = f"{step.name}_{name_index[step.name]}"  # type: ignore[index]

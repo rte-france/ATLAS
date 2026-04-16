@@ -33,7 +33,6 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         self.priority_queue: list[TaskIterator] = []
 
         self.build_priority_queue()
-        self.build_generic_module_parameters()
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> ActionPlan:
@@ -46,7 +45,9 @@ class ActionPlan(AbstractOrchestrator[ActionPlanParameters, ActionPlanJob]):
         root_output_dir = self.parameters.resolve_path(self.parameters.output_dir) / task.name
 
         if task.module is not None:
-            module_parameters = self.build_module_parameters(self.parameters.resolve_path(task.parameters_path))
+            module_parameters = (
+                task.module.value().get_parameters_class().from_file(self.parameters.resolve_path(task.parameters_path))
+            )
             self._push_iterator(ModuleTaskIterator(task, module_parameters, root_output_dir))
 
         if task.workflow is not None:

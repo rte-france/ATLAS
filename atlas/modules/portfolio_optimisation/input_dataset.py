@@ -63,8 +63,9 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
 
     def _set_optimisation_time_window(self) -> None:
         """Get the longest optimisation time periods across all portfolios."""
-        self.time_windows = {
-            p.name: max(
+        self.time_windows = {}
+        for p in self.portfolios + self.portfolios_manual_activation:
+            tw = max(
                 (
                     e.get_optimisation_time_window(
                         start_date=self.parameters.temporal.start_date,
@@ -75,8 +76,8 @@ class PortfolioOptimisationInputDataset(AbstractDataset[PortfolioOptimisationPar
                 ),
                 key=lambda tw: tw[-1],
             )
-            for p in self.portfolios + self.portfolios_manual_activation
-        }
+            if p.name not in self.time_windows or tw[-1] > self.time_windows[p.name][-1]:
+                self.time_windows[p.name] = tw
 
     def _create_portfolios(self):
         """Collect and classify all equipment into PortfolioPO objects with manual activation handling"""

@@ -378,7 +378,10 @@ class OptimisationModel:
         }
 
         mapped_status = status_map.get(status, SolverStatus.NOT_SOLVED)
-        logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        if not self.name:
+            logger.info(f"Optimisation finished in {solve_time} with status: {mapped_status.name}")
+        else:
+            logger.info(f"{self.name} optimisation finished in {solve_time} with status: {mapped_status.name}")
 
         objective_value = None
 
@@ -486,6 +489,18 @@ class OptimisationModel:
         self._objective = None
         self._objective_direction = None
         self._initialize_solver(self.solver_name)
+
+    def deactivate_constraint(self, constraint_name: str) -> None:
+        """
+        Deactivate a constraint by setting its bounds to (-inf, +inf)
+
+        :param constraint_name: Name of the constraint to deactivate
+        :type constraint_name: str
+        :raises ValueError: If constraint doesn't exist
+        """
+        logger.debug(f"Deactivating constraint '{constraint_name}'")
+        constraint = self.get_constraint(constraint_name)
+        constraint.SetBounds(float("-inf"), float("inf"))
 
     def __repr__(self) -> str:
         """String representation of the model."""

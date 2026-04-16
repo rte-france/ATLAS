@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import copy
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from pathlib import Path
-from typing import Any, Generic
-
-import yaml
+from typing import Generic
 
 from atlas.abstract_class.dataset import AbstractDataset
 from atlas.abstract_class.job import AbstractJob, J
@@ -22,7 +18,6 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
 
     parameters: PO
     final_dataset: AbstractDataset | None = None
-    generic_module_parameters: dict[str, Any]
 
     @property
     @abstractmethod
@@ -37,38 +32,6 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         """
         Return the number of jobs to execute.
         """
-
-    def build_generic_module_parameters(self):
-        """
-        Build the generic module parameters used by this orchestrator.
-        """
-        if self.parameters.parameters_path:
-            with open(self.parameters.resolve_path(self.parameters.parameters_path)) as file:
-                self.generic_module_parameters = yaml.safe_load(file)
-        else:
-            self.generic_module_parameters = {}
-
-    def build_module_parameters(self, parameters_path: Path) -> dict[str, Any]:
-        """
-        Build the module parameters using the generic module parameters from this orchestrator
-        and the parameters in the file from the given path.
-        """
-        # FIXME the function called has to be removed, the static function code should replace the call we do here
-        return AbstractOrchestrator.static_build_module_parameters(self.generic_module_parameters, parameters_path)
-
-    # FIXME this static function is temporary as it would break some unit tests
-    # These unit tests must be adapter to test the "non-static" version of this function from Orchestrator
-    @staticmethod
-    def static_build_module_parameters(parameters: dict[str, Any], parameters_path: Path) -> dict[str, Any]:
-        """
-        Build the module parameters using the generic module parameters from this orchestrator
-        and the parameters in the file from the given path.
-        """
-        parameters = copy.deepcopy(parameters)
-        with open(parameters_path) as file:
-            custom_parameters = yaml.safe_load(file)
-        parameters.update(custom_parameters)
-        return parameters
 
     def get_output_dataset(self) -> AbstractDataset | None:
         """
@@ -146,7 +109,7 @@ class AbstractOrchestrator(ABC, Generic[PO, J]):
         :param cis: The current input state
         :type cis: CurrentInputState
         """
-        input_dataset = cis.filter_dataset(job.module.get_business_model_class_used(), job.module.get_filters())
+        input_dataset = cis.get_data(copy=True)
 
         with timer() as t:
             job.run(input_dataset)

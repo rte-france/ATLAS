@@ -12,7 +12,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from atlas.abstract_class.orchestrator import AbstractOrchestrator
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.orchestrator.workflow.job import WorkflowJob
 from atlas.orchestrator.workflow.parameters import WorkflowParameters
@@ -50,7 +49,7 @@ class TestWorkflowAddStep:
         params = _make_workflow_parameters(tmp_path)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
-        wf.generic_module_parameters = {}
+
         wf._jobs = []
 
         step = _make_workflow_step("s1")
@@ -63,7 +62,7 @@ class TestWorkflowAddStep:
         params = _make_workflow_parameters(tmp_path)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
-        wf.generic_module_parameters = {}
+
         wf._jobs = []
 
         steps = [_make_workflow_step(f"s{i}") for i in range(3)]
@@ -77,7 +76,7 @@ class TestWorkflowAddStep:
         params = _make_workflow_parameters(tmp_path)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
-        wf.generic_module_parameters = {}
+        pass  # no generic_module_parameters anymore
         wf._jobs = []
 
         with pytest.raises(TypeError):
@@ -87,7 +86,7 @@ class TestWorkflowAddStep:
         params = _make_workflow_parameters(tmp_path)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
-        wf.generic_module_parameters = {}
+        pass  # no generic_module_parameters anymore
         wf._jobs = []
 
         valid_step = _make_workflow_step("s1")
@@ -98,7 +97,7 @@ class TestWorkflowAddStep:
         params = _make_workflow_parameters(tmp_path)
         wf = Workflow.__new__(Workflow)
         wf.parameters = params
-        wf.generic_module_parameters = {}
+        pass  # no generic_module_parameters anymore
         wf._jobs = []
 
         s1 = _make_workflow_step("first")
@@ -109,42 +108,6 @@ class TestWorkflowAddStep:
         jobs = wf.jobs
         assert next(jobs) is s1
         assert next(jobs) is s2
-
-
-# FIXME This class should test AbstractOrchestrator function instead
-class TestWorkflowBuildModuleParameters:
-    def test_merges_generic_and_custom_parameters(self, tmp_path):
-        custom_file = tmp_path / "custom.yaml"
-        custom_file.write_text("solver: GLOP\ntimeout: 60\n")
-
-        generic = {"timeout": 30, "log_level": "INFO"}
-        result = AbstractOrchestrator.static_build_module_parameters(generic, custom_file)
-
-        # custom overrides generic
-        assert result["timeout"] == 60
-        assert result["solver"] == "GLOP"
-        # generic key not overridden is preserved
-        assert result["log_level"] == "INFO"
-
-    def test_does_not_mutate_generic_parameters(self, tmp_path):
-        custom_file = tmp_path / "custom.yaml"
-        custom_file.write_text("key: new_value\n")
-
-        generic = {"key": "original"}
-        AbstractOrchestrator.static_build_module_parameters(generic, custom_file)
-
-        assert generic["key"] == "original"
-
-    def test_empty_custom_returns_copy_of_generic(self, tmp_path):
-        custom_file = tmp_path / "custom.yaml"
-        custom_file.write_text("{}\n")
-
-        generic = {"a": 1, "b": 2}
-        result = AbstractOrchestrator.static_build_module_parameters(generic, custom_file)
-
-        assert result == generic
-        assert result is not generic
-
 
 class TestWorkflowExecute:
     def _make_mock_output(self):
@@ -424,25 +387,3 @@ class TestWorkflowPathFromWorkflow:
         step = next(workflow.jobs)
 
         assert step.parameters.output.output_dir == tmp_path / "results" / "MarketClearing"
-
-    def test_generic_parameters_loaded_relative_to_workflow(self, tmp_path):
-        dataset_dir = tmp_path / "dataset"
-        dataset_dir.mkdir()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
-        generic_params = tmp_path / "generic.yaml"
-        generic_params.write_text("solver_name: XPRESS\n")
-
-        config = tmp_path / "workflow.yaml"
-        config.write_text(
-            f"name: test_workflow\n"
-            f"dataset_path: {dataset_dir}\n"
-            f"output_dataset_path: {output_dir}\n"
-            f"path_from_workflow: true\n"
-            f"parameters_path: generic.yaml\n"
-            f"steps: []\n"
-        )
-
-        workflow = Workflow.from_file(config)
-
-        assert workflow.generic_module_parameters.get("solver_name") == "XPRESS"

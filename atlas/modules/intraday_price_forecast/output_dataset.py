@@ -7,8 +7,6 @@ from atlas.orchestrator.change_set import UpdateObject
 
 class IntradayPriceForecastOutputDataset(AbstractModuleOutput[IntradayPriceForecastParameters]):
     def __init__(self, parameters: IntradayPriceForecastParameters, input_dataset: IntradayPriceForecastInputDataset):
-        super().__init__()
-
         self.market_area: list[MarketAreaIDPF] = input_dataset.market_area
 
     def build_change_sets(self) -> None:

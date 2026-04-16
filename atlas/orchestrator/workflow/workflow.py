@@ -29,7 +29,6 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         self.parameters = parameters
         self._jobs: list[WorkflowJob] = []
 
-        self.build_generic_module_parameters()  # FIXME we have to run this function in any __init__() that inherit the class AbstractOrchestrator, any way to ensure that is done? super().__init()__ seems impossible
         self.build_jobs()
 
     @classmethod
@@ -43,10 +42,10 @@ class Workflow(AbstractOrchestrator[WorkflowParameters, WorkflowJob]):
         Step.add_index_in_step_name(self.parameters.steps)
 
         for step in self.parameters.steps:
-            parameters = self.build_module_parameters(self.parameters.resolve_path(step.parameters_path))
-            if "output" not in parameters:
-                parameters["output"] = {}
-            parameters["output"]["output_dir"] = self.parameters.resolve_path(self.parameters.output_dir) / step.name
+            parameters = (
+                step.module.value().get_parameters_class().from_file(self.parameters.resolve_path(step.parameters_path))
+            )
+            parameters.output.output_dir = self.parameters.resolve_path(self.parameters.output_dir) / step.name
             workflow_job = WorkflowJob(step.name, step.module.value, parameters)
             self.add_job(workflow_job)
 

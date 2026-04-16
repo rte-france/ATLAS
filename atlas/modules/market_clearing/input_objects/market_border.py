@@ -10,7 +10,6 @@ from pendulum import Duration
 from atlas.config import logger
 from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
-from atlas.objects.market.market_area import MarketArea
 from atlas.objects.market.market_border import MarketBorder
 
 # Static definition of default bounds on exchanges (can be changed at will):
@@ -19,9 +18,6 @@ DEFAULT_MIN_FLOW = -10000.0
 
 
 class MarketBorderMC(MarketBorder):
-    uphill_market_area: MarketArea
-    downhill_market_area: MarketArea
-
     # Attributes from market clearing parameter
     timestep: Duration
     times: list[pendulum.DateTime]

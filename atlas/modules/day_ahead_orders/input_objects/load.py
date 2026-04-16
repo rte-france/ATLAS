@@ -6,10 +6,8 @@ This file is part of the ATLAS project.
 """
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.modules.day_ahead_orders.input_objects.portfolio import PortfolioDAO
 from atlas.objects.equipment.load import Load
 
 
 class LoadDAO(Load):
-    portfolio: PortfolioDAO
     variable_cost: AbstractTimeseries
