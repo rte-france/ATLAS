@@ -14,9 +14,8 @@ atlas/modules/portfolio_optimisation/
 ├── parameters.py                        # PortfolioOptimisationParameters
 ├── input_dataset.py                     # PortfolioOptimisationInputDataset
 ├── output_dataset.py                    # PortfolioOptimisationOutputDataset
-├── portfolio_orchestrator.py            # Orchestrates portfolio optimization
-├── portfolio_optimisation_model.py      # OptimisationModel for single portfolio
-├── models/                              # Equipment-specific models
+├── optim.py                             # OptimisationModel for single portfolio
+├── input_objects/                       # Equipment-specific models
 │   ├── portfolio.py                     # PortfolioPO
 │   ├── portfolio_equipments.py          # Equipment container
 │   ├── thermal/                         # Thermal models

@@ -6,14 +6,7 @@ The Market Clearing module is configured through `MarketClearingParameters`. Par
 This document describes all configuration parameters available for the **Market Clearing** module. The structure, level of detail, and wording are aligned with the parameter documentation of the **Market Clearing** module to ensure consistency across the project.
 
 
-## Common Parameters
-
-The common section are :
-```yaml
-temporal:       # Time configuration (required)
-output:         # Output configuration (optional, has defaults)
-solver:         # Solver configuration (optional, has defaults)
-```
+For common parameters (`temporal`, `solver`, `output`), see [Common Parameters](../../common-parameters.md).
 
 ---
 
