@@ -171,6 +171,7 @@ nav:
       - Logging: api/logging.md
   - Development:
     - Contributing: contributing.md
+    - Implementing a Module: implementing-a-module.md
     - Release Process: release_process.md
 
 extra:
