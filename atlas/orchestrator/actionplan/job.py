@@ -11,11 +11,12 @@ import copy
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from pendulum import DateTime
+from pydantic_extra_types.pendulum_dt import DateTime
 
 from atlas import WorkflowParameters
 from atlas.abstract_class.job import AbstractJob
 from atlas.abstract_class.module import AbstractModule
+from atlas.abstract_class.parameters import AbstractModuleParameters
 from atlas.orchestrator.actionplan.parameters import Task
 from atlas.orchestrator.workflow.workflow import Workflow
 
@@ -67,9 +68,9 @@ class TaskIterator(ABC):
 
 class ModuleTaskIterator(TaskIterator):
     module: type[AbstractModule]
-    parameters: dict[str, Any]
+    parameters: AbstractModuleParameters
 
-    def __init__(self, task: Task, parameters: dict[str, Any], root_output_dir: Path):
+    def __init__(self, task: Task, parameters: AbstractModuleParameters, root_output_dir: Path):
         if task.module is None:
             raise AttributeError("Task must have a module.")
 
@@ -81,10 +82,12 @@ class ModuleTaskIterator(TaskIterator):
     def build_jobs(self) -> list[AbstractJob]:
         return [ActionPlanJob("insert_name", self.module, self.build_current_parameters())]
 
-    def build_current_parameters(self) -> dict[str, Any]:
+    def build_current_parameters(self) -> AbstractModuleParameters:
         parameters = copy.deepcopy(self.parameters)
-        parameters["temporal"]["execution_date"] = self.next_date
-        parameters["output"]["output_dir"] = self.root_output_dir / self.next_date
+        parameters.output.output_dir = self.root_output_dir / self.next_date
+        # FIXME parameters.temporal.start_date = MISSING_DATA
+        # FIXME parameters.temporal.end_date = MISSING_DATA
+        parameters.temporal.execution_date = self.next_date
         return parameters
 
 
@@ -98,9 +101,13 @@ class WorkflowTaskIterator(TaskIterator):
 
     def build_current_parameters(self) -> WorkflowParameters:
         parameters = copy.deepcopy(self.parameters)
-        # FIXME adding a static_module_parameters would solve following issues
-        # FIXME update all module parameters["temporal"]["execution_date"] = self.next_date
+        # FIXME We should be able to build a Workflow with static parameters that override the associated parameters in module
+        #  - DateParameters
+        #  - OutputParameters
         # FIXME update all module parameters["output"]["output_dir"] = self.root_output_dir / self.next_date
+        # FIXME update all module parameters["temporal"]["start_date"] = MISSING_DATA
+        # FIXME update all module parameters["temporal"]["end_date"] = MISSING_DATA
+        # FIXME update all module parameters["temporal"]["execution_date"] = self.next_date
         return parameters
 
     def build_jobs(self) -> list[AbstractJob]:
