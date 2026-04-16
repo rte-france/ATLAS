@@ -9,8 +9,8 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.solar import Solar
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.equipment.solar import Solar
 
 
 def convert_solar_units(

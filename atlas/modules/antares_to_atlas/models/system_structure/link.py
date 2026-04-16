@@ -8,8 +8,8 @@ from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.models.market.market_border import MarketBorder
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.market.market_border import MarketBorder
 
 
 def convert_links(study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:

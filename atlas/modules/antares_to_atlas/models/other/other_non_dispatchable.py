@@ -8,8 +8,8 @@ from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.forecasting_matrix import ForecastingMatrix
-from atlas.models.equipment.other_non_dispatchable import OtherNonDispatchable
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.equipment.other_non_dispatchable import OtherNonDispatchable
 
 
 def convert_other_non_dispatchable_units(

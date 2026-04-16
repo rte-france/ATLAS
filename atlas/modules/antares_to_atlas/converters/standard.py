@@ -6,7 +6,6 @@ This file is part of the ATLAS project.
 from antares.craft.model.study import Study
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.models.business_model import BusinessModel
 from atlas.modules.antares_to_atlas.converters.base import Converter
 from atlas.modules.antares_to_atlas.models.hydro.hydraulic import convert_hydro_units
 from atlas.modules.antares_to_atlas.models.load.load import convert_load_units
@@ -17,6 +16,7 @@ from atlas.modules.antares_to_atlas.models.system_structure.link import convert_
 from atlas.modules.antares_to_atlas.models.system_structure.node import convert_system_structure
 from atlas.modules.antares_to_atlas.models.thermal.thermal import convert_thermal_units
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.business_model import BusinessModel
 
 
 class HydroConverter(Converter):

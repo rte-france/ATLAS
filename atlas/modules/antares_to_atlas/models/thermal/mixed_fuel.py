@@ -11,8 +11,6 @@ from pendulum import duration
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
 from atlas.math.timeseries import Timeseries
-from atlas.models.equipment.load import Load
-from atlas.models.equipment.thermal import Thermal
 from atlas.modules.antares_to_atlas.models.thermal.thermal import (
     _apply_thermic_config_properties,
     _get_duration_average,
@@ -20,6 +18,8 @@ from atlas.modules.antares_to_atlas.models.thermal.thermal import (
     _get_variable_cost,
 )
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.equipment.load import Load
+from atlas.objects.equipment.thermal import Thermal
 
 # Technology keywords used to classify Mixed_fuel clusters
 _MIXED_FUEL_TECH_KEYWORDS = ["Coal", "coal", "Lignite", "CCGT", "OCGT", "Oil", "oil"]

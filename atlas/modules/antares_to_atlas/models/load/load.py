@@ -7,8 +7,8 @@ from antares.craft.model.study import Study
 from loguru import logger
 
 from atlas.io_utils.atlas_dataset import AtlasDataset
-from atlas.models.equipment.load import Load
 from atlas.modules.antares_to_atlas.parameters import AntaresToAtlasParameters
+from atlas.objects.equipment.load import Load
 
 
 def convert_load_units(study: Study, parameters: AntaresToAtlasParameters, atlas_dataset: AtlasDataset) -> AtlasDataset:
