@@ -8,62 +8,45 @@ This file is part of the ATLAS project.
 import math
 
 import pendulum
-from pendulum import DateTime
 
 import atlas.config as cfg
 from atlas.enums import ComplementDirection, CouplingType, OrderType, Product
 from atlas.math.timeseries import Timeseries
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.output_dataset import DayAheadOrdersOutput
-from atlas.modules.day_ahead_orders.parameters import DayAheadOrdersParameters
+from atlas.modules.day_ahead_orders.steps.abstract_step import AbstractOrderStep, StepResult
 from atlas.timing import generate_datetimes
 
 
-class HydraulicStep:
-    @staticmethod
-    def formulate_hydraulic_orders(
-        dataset: DayAheadOrdersOutput, orders_time: list[DateTime], parameters: DayAheadOrdersParameters
-    ) -> None:
-        """
-        This function formulates the hydraulic reservoir orders.
+class HydraulicStep(AbstractOrderStep):
+    def formulate(self) -> StepResult:
+        result = StepResult()
 
-        :param dataset: the dataset
-        :type dataset: DayAheadOrdersOutput
-        :param orders_time: a list of dates over which orders will be formulated.
-        :type orders_time: list[DateTime]
-        :param parameters: the parameters
-        :type parameters: DayAheadOrdersParameters
-        :return: None
-        """
-        # Keep only hydraulic reservoirs with water values (in storage_marginal_value)
-        hydraulic_units = [unit for unit in dataset.hydro if len(unit.storage_marginal_value.index) > 0]
+        hydraulic_units = [unit for unit in self.dataset.hydro if len(unit.storage_marginal_value.index) > 0]
 
-        hydraulic_empty = [unit for unit in dataset.hydro if len(unit.storage_marginal_value.index) == 0]
+        hydraulic_empty = [unit for unit in self.dataset.hydro if len(unit.storage_marginal_value.index) == 0]
         for equipment in hydraulic_empty:
-            msg = f"There are no water values for instance {equipment.name}. This instance will be ignored in the calculation."
-            cfg.logger.warning(msg)
+            cfg.logger.warning(
+                f"There are no water values for instance {equipment.name}. This instance will be ignored in the calculation."
+            )
 
-        # Loop each retained hydraulic unit
         for equipment in hydraulic_units:
-            # Retrieve volumes and prices of fragments
             delta_wu: dict[float, tuple[float, float]] = {}
             for category in range(len(equipment.fragment_volumes)):
                 delta_wu[category] = (equipment.fragment_volumes[category], equipment.fragment_prices[category])
 
-            # Avoid equipments that have a MaximumEnergy of 0 (meaning that they are offline)
-            end_date = parameters.penultimate_date
+            end_date = self.parameters.penultimate_date
             local_index = generate_datetimes(
-                parameters.temporal.start_date,
+                self.parameters.temporal.start_date,
                 end_date,
-                parameters.temporal.timestep,
+                self.parameters.temporal.timestep,
             )
             submitted_volumes = Timeseries.from_index(
-                parameters.temporal.start_date, parameters.temporal.timestep, end_date, 0
+                self.parameters.temporal.start_date, self.parameters.temporal.timestep, end_date, 0
             )
 
             local_max_energy = (
-                equipment.maximum_energy.set_frequency(parameters.temporal.timestep, False)
+                equipment.maximum_energy.set_frequency(self.parameters.temporal.timestep, False)
                 .filter(item=local_index, inplace=False)
                 .max()
             )
@@ -71,21 +54,20 @@ class HydraulicStep:
                 cfg.logger.debug(f"Equipment {str(equipment.name)} avoided, as its maximum_energy is 0")
                 continue
 
-            # Assumption for the identification of the "initial" level, see the storage formulation for more details
             if equipment.stored_energy is not None:
                 energy_forecast = equipment.stored_energy.get_forecast(
-                    parameters.temporal.execution_date,
-                    parameters.temporal.start_date.subtract(days=1),
-                    parameters.temporal.start_date - parameters.temporal.timestep,
+                    self.parameters.temporal.execution_date,
+                    self.parameters.temporal.start_date.subtract(days=1),
+                    self.parameters.temporal.start_date - self.parameters.temporal.timestep,
                 )
                 if len(energy_forecast) > 0:
                     energy_level = energy_forecast.get_value(
-                        parameters.temporal.start_date - parameters.temporal.timestep
+                        self.parameters.temporal.start_date - self.parameters.temporal.timestep
                     )
                 else:
-                    energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
+                    energy_level = equipment.initial_level.get_value(self.parameters.temporal.start_date)
             else:
-                energy_level = equipment.initial_level.get_value(parameters.temporal.start_date)
+                energy_level = equipment.initial_level.get_value(self.parameters.temporal.start_date)
 
             xmin = filter(lambda x: int(x) <= energy_level, equipment.storage_marginal_value.index)
             xmax = filter(lambda x: int(x) > energy_level, equipment.storage_marginal_value.index)
@@ -107,7 +89,7 @@ class HydraulicStep:
             if (
                 len(
                     equipment.minimum_energy.slice(
-                        parameters.temporal.start_date, parameters.temporal.end_date, "both", False
+                        self.parameters.temporal.start_date, self.parameters.temporal.end_date, "both", False
                     )
                 )
                 > 0
@@ -115,58 +97,45 @@ class HydraulicStep:
                 complement_energy = -(
                     energy_level
                     - equipment.minimum_energy.slice(
-                        parameters.temporal.start_date, parameters.temporal.end_date, "both", False
+                        self.parameters.temporal.start_date, self.parameters.temporal.end_date, "both", False
                     ).min()
                 )
             else:
-                complement_energy = -(energy_level - equipment.minimum_energy.get_value(parameters.temporal.start_date))
+                complement_energy = -(
+                    energy_level - equipment.minimum_energy.get_value(self.parameters.temporal.start_date)
+                )
 
-            # Now we loop over the time stamps for which we want an offer to be made.
-            # We formulate as many offers as there are time stamps in orders_time.
             coupling_orders = []
-            for t in orders_time:
-                # Compute the actual volumes of fragments, according to MaximumPower
-                # If the unit would be able to empty its entire reservoir within one day,
-                # the sum of fragments volume is limited to avoid this situation.
-
+            for t in self.orders_time:
                 capacity = equipment.maximum_power.get_value(t)
                 volumes = {key: capacity * v[0] for key, v in delta_wu.items()}
 
                 normal_volumes = {
-                    key: v for key, v in volumes.items() if v >= parameters.hydraulic_minimal_fragment_size
+                    key: v for key, v in volumes.items() if v >= self.parameters.hydraulic_minimal_fragment_size
                 }
-                minor_volumes = {key: v for key, v in volumes.items() if v < parameters.hydraulic_minimal_fragment_size}
+                minor_volumes = {key: v for key, v in volumes.items() if v < self.parameters.hydraulic_minimal_fragment_size}
                 if sum(minor_volumes.values()) > 0:
                     reduced_capacity = sum(normal_volumes.values())
                     if reduced_capacity != 0:
                         volumes = {key: capacity * v / reduced_capacity for (key, v) in normal_volumes.items()}
-                    # Specific case occuring when the total capacity is small
-                    # If no previous fragments is greater than vuThreshold, formulate a single order,
-                    # associated with the price spread of the middle fragment
                     else:
                         volumes = {math.ceil(len(equipment.fragment_prices) / 2): capacity}
 
-                # create an offer for each element in volumes
                 for k, v in volumes.items():
-                    # Do not formulate empty orders
                     if v != 0:
-                        # Assign a unique name.
-                        bid_name = f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}"
-                        bid_qmax = v
-
                         bid_output = OrderDAO(
-                            name=bid_name,
+                            name=f"hydraulic_order_fragment_{str(k)}_at_{t}_for_unit_{equipment.name}",
                             market_area=equipment.portfolio.market_area,
                             portfolio=equipment.portfolio,
                             equipment=equipment,
-                            qmax=bid_qmax,
+                            qmax=v,
                             qmin=0,
                             product=Product.DayAhead,
                             order_type=OrderType.Sell,
                             is_agent_tso=False,
-                            execution_date=parameters.temporal.execution_date,
+                            execution_date=self.parameters.temporal.execution_date,
                             start_date=t,
-                            end_date=t + parameters.temporal.timestep,
+                            end_date=t + self.parameters.temporal.timestep,
                         )
                         if not xmin:
                             bid_output.price = level_sup.get_value(t) + delta_wu[k][1]
@@ -176,18 +145,18 @@ class HydraulicStep:
                             pmin = level_inf.get_value(t)
                             pmax = level_sup.get_value(t)
                             bid_output.price = weight_inf * pmin + weight_sup * pmax + delta_wu[k][1]
-                        dataset.order.append(bid_output)
+
+                        result.orders.append(bid_output)
                         coupling_orders.append(bid_output)
 
                         if t in submitted_volumes:
-                            submitted_volumes.set_value(t, bid_qmax)
+                            submitted_volumes.set_value(t, v)
                         else:
-                            submitted_volumes.add_index(t, bid_qmax)
+                            submitted_volumes.add_index(t, v)
 
-            # Create a COMPLEMENT coupling between all orders of the current day to comply with MinimumEnergy constraints
-            dataset.order_coupling.append(
+            result.order_couplings.append(
                 OrderCouplingDAO(
-                    name=f"COMPLEMENT_{str(equipment.name)}_{parameters.temporal.execution_date}",
+                    name=f"COMPLEMENT_{str(equipment.name)}_{self.parameters.temporal.execution_date}",
                     coupling_type=CouplingType.COMPLEMENT,
                     complement_direction=ComplementDirection.GreaterThan,
                     complement_energy=complement_energy,
@@ -198,3 +167,5 @@ class HydraulicStep:
                 equipment.da_sell_submitted_volume = submitted_volumes
             else:
                 equipment.da_sell_submitted_volume += submitted_volumes
+
+        return result
