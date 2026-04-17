@@ -8,12 +8,10 @@ This file is part of the ATLAS project.
 from pendulum import Duration
 
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.modules.day_ahead_orders.input_objects.portfolio import PortfolioDAO
 from atlas.objects.equipment.thermal import Thermal
 
 
 class ThermalDAO(Thermal):
-    portfolio: PortfolioDAO
     variable_cost: AbstractTimeseries
     startup_cost: AbstractTimeseries
     minimum_time_on: Duration

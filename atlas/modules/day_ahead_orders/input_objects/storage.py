@@ -12,12 +12,10 @@ from pydantic_extra_types.pendulum_dt import Duration
 
 from atlas.enums import StorageType
 from atlas.math.abstract_timeseries import AbstractTimeseries
-from atlas.modules.day_ahead_orders.input_objects.portfolio import PortfolioDAO
 from atlas.objects.equipment.storage import Storage
 
 
 class StorageDAO(Storage):
-    portfolio: PortfolioDAO
     maximum_energy: AbstractTimeseries
     minimum_power: AbstractTimeseries
     maximum_power: AbstractTimeseries

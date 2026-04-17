@@ -500,24 +500,23 @@ class ThermalUnitOrders:
                     flexible_bid = next((bid for bid in self.dataset.order if bid.name == flexible_bid_name), None)
                     if flexible_bid is not None:
                         # Add parent-children link between the flexible and inflexible parts
-                        link_flexible_inflexible = OrderCouplingDAO(
-                            name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
-                            coupling_type=CouplingType.PARENT_CHILDREN,
+                        self.dataset.order_coupling.append(
+                            OrderCouplingDAO(
+                                name=f"PARENT_CHILDREN_inflexible_flexible_orders_at_{t}_for_unit_{unit.name}_with_scenario_{case}",
+                                coupling_type=CouplingType.PARENT_CHILDREN,
+                                orders=[bid_output, flexible_bid],
+                            )
                         )
-                        # add the two orders
-                        link_flexible_inflexible.orders.append(bid_output)
-                        link_flexible_inflexible.orders.append(flexible_bid)
-                        self.dataset.order_coupling.append(link_flexible_inflexible)
 
             # Part 4: configure the identical_ratio link between all inflexible orders
             date = inflexible_time_frame[0]
-            coupling = OrderCouplingDAO(
-                name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{pendulum.DateTime.instance(date)}_with_scenario_{case}",
-                coupling_type=CouplingType.IDENTICAL_RATIO,
+            self.dataset.order_coupling.append(
+                OrderCouplingDAO(
+                    name=f"IDENTICAL_RATIO_inflexible_orders_for_unit_{unit.name}_starting_at_{pendulum.DateTime.instance(date)}_with_scenario_{case}",
+                    coupling_type=CouplingType.IDENTICAL_RATIO,
+                    orders=inflexible_orders,  # type: ignore [arg-type]
+                )
             )
-            for order in inflexible_orders:
-                coupling.orders.append(order)
-            self.dataset.order_coupling.append(coupling)
 
             # Part 5 : if startup, amortise startup cost on all inflexible layer
             amortized_cost = round(unit.startup_cost.get_value(t) / Q, 2)

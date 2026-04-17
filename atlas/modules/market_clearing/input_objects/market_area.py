@@ -11,15 +11,12 @@ from atlas.math.abstract_timeseries import AbstractTimeseries
 from atlas.math.timeseries import Timeseries
 from atlas.modules.market_clearing.input_objects.order import OrderMC
 from atlas.objects.market.market_area import MarketArea
-from atlas.objects.network_operator.control_block import ControlBlock
 
 INITIAL_MAX_PRICE = 1.0e8
 INITIAL_MIN_PRICE = -1.0e8
 
 
 class MarketAreaMC(MarketArea):
-    control_block: ControlBlock
-
     mc_orders: dict[str, OrderMC]
 
     # Attributes from market clearing parameter

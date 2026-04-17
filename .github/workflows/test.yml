@@ -26,9 +26,10 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Test with pytest and coverage
-        run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings -m "not tnr"
+      - name: Test with pytest and coverage (without integration tests)
+        if: github.event_name == 'push'
+        run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings -m "not integration"
 
-      - name: TNR with pytest and coverage
+      - name: Test with pytest and coverage (with integration tests)
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
-        run: uv run pytest -v -s --cov=atlas --cov-report=xml --disable-warnings -m "tnr"
+        run: uv run pytest -v --cov=atlas --cov-report=xml --disable-warnings -m ""

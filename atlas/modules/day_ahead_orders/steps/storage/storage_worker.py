@@ -337,70 +337,54 @@ def _create_orders_with_couplings(
 
     daily_buy_volume = sum(buy_volume * parameters.temporal.timestep.total_hours() for buy_volume in Qa.values())
 
+    coupling_orders: list[OrderDAO] = []
+
+    for t in [i for i, e in Qa.items()]:
+        order = _create_spot_order(OrderType.Buy, storage, t, Qa[t], Ppurchase, parameters)
+        orders.append(order)
+        coupling_orders.append(order)
+        if t in buy_submitted_volumes:
+            buy_submitted_volumes.set_value(t, Qa[t])
+        else:
+            buy_submitted_volumes.add_index(t, Qa[t])
+
+    for t in [i for i, e in Qv.items()]:
+        order = _create_spot_order(OrderType.Sell, storage, t, Qv[t], Psale, parameters)
+        orders.append(order)
+        coupling_orders.append(order)
+        if t in sell_submitted_volumes:
+            sell_submitted_volumes.set_value(t, Qv[t])
+        else:
+            sell_submitted_volumes.add_index(t, Qv[t])
+
     if storage.storage_type == StorageType.ELECTRIC_VEHICLE and daily_buy_volume > 0:
         assert storage.displacement_energy is not None, "displacement_energy must be set for electric vehicles"
-        coupling_instance = OrderCouplingDAO(
-            name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date}",
-            coupling_type=CouplingType.COMPLEMENT,
-            complement_direction=ComplementDirection.EqualTo,
-        )
 
         energy_requirement = storage.displacement_energy.get_value(
             parameters.penultimate_date
         ) - storage.displacement_energy.get_value(parameters.temporal.start_date - parameters.temporal.timestep)
 
-        if energy_requirement > daily_buy_volume:
-            coupling_instance.complement_energy = daily_buy_volume
-        else:
-            coupling_instance.complement_energy = energy_requirement
+        complement_energy = daily_buy_volume if energy_requirement > daily_buy_volume else energy_requirement
 
-        for t in [i for i, e in Qa.items()]:
-            order = _create_spot_order(OrderType.Buy, storage, t, Qa[t], Ppurchase, parameters)
-            orders.append(order)
-            coupling_instance.orders.append(order)
-            if t in buy_submitted_volumes:
-                buy_submitted_volumes.set_value(t, Qa[t])
-            else:
-                buy_submitted_volumes.add_index(t, Qa[t])
-
-        for t in [i for i, e in Qv.items()]:
-            order = _create_spot_order(OrderType.Sell, storage, t, Qv[t], Psale, parameters)
-            orders.append(order)
-            coupling_instance.orders.append(order)
-            if t in sell_submitted_volumes:
-                sell_submitted_volumes.set_value(t, Qv[t])
-            else:
-                sell_submitted_volumes.add_index(t, Qv[t])
-
-        order_couplings.append(coupling_instance)
-    else:
-        coupling_instance = OrderCouplingDAO(
-            name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date}",
-            coupling_type=CouplingType.COMPLEMENT,
+        order_couplings.append(
+            OrderCouplingDAO(
+                name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date}",
+                coupling_type=CouplingType.COMPLEMENT,
+                complement_direction=ComplementDirection.EqualTo,
+                complement_energy=complement_energy,
+                orders=coupling_orders,  # type: ignore [arg-type]
+            )
         )
-
-        for t in [i for i, e in Qa.items()]:
-            order = _create_spot_order(OrderType.Buy, storage, t, Qa[t], Ppurchase, parameters)
-            orders.append(order)
-            coupling_instance.orders.append(order)
-            if t in buy_submitted_volumes:
-                buy_submitted_volumes.set_value(t, Qa[t])
-            else:
-                buy_submitted_volumes.add_index(t, Qa[t])
-
-        for t in [i for i, e in Qv.items()]:
-            order = _create_spot_order(OrderType.Sell, storage, t, Qv[t], Psale, parameters)
-            orders.append(order)
-            coupling_instance.orders.append(order)
-            if t in sell_submitted_volumes:
-                sell_submitted_volumes.set_value(t, Qv[t])
-            else:
-                sell_submitted_volumes.add_index(t, Qv[t])
-
-        coupling_instance.coupling_type = CouplingType.COMPLEMENT
-        coupling_instance.complement_direction = ComplementDirection.EqualTo
-        coupling_instance.complement_energy = buy_submitted_volumes.sum() - sell_submitted_volumes.sum()
-        order_couplings.append(coupling_instance)
+    else:
+        order_couplings.append(
+            OrderCouplingDAO(
+                name=f"COMPLEMENT_DA_{storage.name}_{parameters.temporal.execution_date}",
+                coupling_type=CouplingType.COMPLEMENT,
+                complement_direction=ComplementDirection.EqualTo,
+                complement_energy=buy_submitted_volumes.sum() - sell_submitted_volumes.sum(),
+                orders=coupling_orders,  # type: ignore [arg-type]
+            )
+        )
 
     return orders, order_couplings
 

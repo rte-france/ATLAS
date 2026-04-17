@@ -10,12 +10,12 @@ from atlas.math.timeseries import Timeseries
 from atlas.modules.intraday_price_forecast.input_dataset import IntradayPriceForecastInputDataset
 from atlas.modules.intraday_price_forecast.input_objects.load import LoadIDPF
 from atlas.modules.intraday_price_forecast.input_objects.market_area import MarketAreaIDPF
-from atlas.modules.intraday_price_forecast.input_objects.portfolio import PortfolioIDPF
 from atlas.modules.intraday_price_forecast.input_objects.solar import SolarIDPF
 from atlas.modules.intraday_price_forecast.input_objects.wind import WindIDPF
 from atlas.modules.intraday_price_forecast.module import IntradayPriceForecastModule
 from atlas.modules.intraday_price_forecast.output_dataset import IntradayPriceForecastOutputDataset
 from atlas.modules.intraday_price_forecast.parameters import IntradayPriceForecastParameters
+from atlas.objects.market_operator.portfolio import Portfolio
 from atlas.objects.network.node import Node
 from atlas.timing import generate_datetimes
 
@@ -91,7 +91,7 @@ def test_load(test_market_area, test_node, test_parameters):
     exec_date_da = test_parameters.execution_date_day_ahead
     exec_date_id = test_parameters.temporal.execution_date
 
-    portfolio = PortfolioIDPF(
+    portfolio = Portfolio(
         name="test_portfolio", control_block=test_market_area.control_block, market_area=test_market_area
     )
 
@@ -131,7 +131,7 @@ def test_solar(test_market_area, test_node, test_parameters):
     exec_date_da = test_parameters.execution_date_day_ahead
     exec_date_id = test_parameters.temporal.execution_date
 
-    portfolio = PortfolioIDPF(
+    portfolio = Portfolio(
         name="test_portfolio_solar", control_block=test_market_area.control_block, market_area=test_market_area
     )
 
@@ -155,7 +155,7 @@ def test_wind(test_market_area, test_node, test_parameters):
     exec_date_da = test_parameters.execution_date_day_ahead
     exec_date_id = test_parameters.temporal.execution_date
 
-    portfolio = PortfolioIDPF(
+    portfolio = Portfolio(
         name="test_portfolio_wind", control_block=test_market_area.control_block, market_area=test_market_area
     )
 

@@ -104,13 +104,6 @@ class HydraulicStep:
                 weight_inf = (int(xpmax) - energy_level) / (int(xpmax) - int(xpmin))
                 weight_sup = (energy_level - int(xpmin)) / (int(xpmax) - int(xpmin))
 
-            # Create a COMPLEMENT coupling between all orders of the current day to comply with MinimumEnergy constraints
-            coupling_instance = OrderCouplingDAO(
-                name=f"COMPLEMENT_{str(equipment.name)}_{parameters.temporal.execution_date}",
-                coupling_type=CouplingType.COMPLEMENT,
-                complement_direction=ComplementDirection.GreaterThan,
-            )
-
             if (
                 len(
                     equipment.minimum_energy.slice(
@@ -119,19 +112,18 @@ class HydraulicStep:
                 )
                 > 0
             ):
-                coupling_instance.complement_energy = -(
+                complement_energy = -(
                     energy_level
                     - equipment.minimum_energy.slice(
                         parameters.temporal.start_date, parameters.temporal.end_date, "both", False
                     ).min()
                 )
             else:
-                coupling_instance.complement_energy = -(
-                    energy_level - equipment.minimum_energy.get_value(parameters.temporal.start_date)
-                )
+                complement_energy = -(energy_level - equipment.minimum_energy.get_value(parameters.temporal.start_date))
 
             # Now we loop over the time stamps for which we want an offer to be made.
             # We formulate as many offers as there are time stamps in orders_time.
+            coupling_orders = []
             for t in orders_time:
                 # Compute the actual volumes of fragments, according to MaximumPower
                 # If the unit would be able to empty its entire reservoir within one day,
@@ -185,14 +177,23 @@ class HydraulicStep:
                             pmax = level_sup.get_value(t)
                             bid_output.price = weight_inf * pmin + weight_sup * pmax + delta_wu[k][1]
                         dataset.order.append(bid_output)
-                        coupling_instance.orders.append(bid_output)
+                        coupling_orders.append(bid_output)
 
                         if t in submitted_volumes:
                             submitted_volumes.set_value(t, bid_qmax)
                         else:
                             submitted_volumes.add_index(t, bid_qmax)
 
-            dataset.order_coupling.append(coupling_instance)
+            # Create a COMPLEMENT coupling between all orders of the current day to comply with MinimumEnergy constraints
+            dataset.order_coupling.append(
+                OrderCouplingDAO(
+                    name=f"COMPLEMENT_{str(equipment.name)}_{parameters.temporal.execution_date}",
+                    coupling_type=CouplingType.COMPLEMENT,
+                    complement_direction=ComplementDirection.GreaterThan,
+                    complement_energy=complement_energy,
+                    orders=coupling_orders,  # type: ignore [arg-type]
+                )
+            )
             if equipment.da_sell_submitted_volume is None:
                 equipment.da_sell_submitted_volume = submitted_volumes
             else:

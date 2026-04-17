@@ -12,7 +12,6 @@ from atlas.modules.day_ahead_orders.input_objects.hydro import HydroDAO
 from atlas.modules.day_ahead_orders.input_objects.load import LoadDAO
 from atlas.modules.day_ahead_orders.input_objects.order import OrderDAO
 from atlas.modules.day_ahead_orders.input_objects.order_coupling import OrderCouplingDAO
-from atlas.modules.day_ahead_orders.input_objects.portfolio import PortfolioDAO
 from atlas.modules.day_ahead_orders.input_objects.solar import SolarDAO
 from atlas.modules.day_ahead_orders.input_objects.storage import StorageDAO
 from atlas.modules.day_ahead_orders.input_objects.thermal import ThermalDAO
@@ -25,17 +24,13 @@ from atlas.objects.equipment.solar import Solar
 from atlas.objects.equipment.storage import Storage
 from atlas.objects.equipment.thermal import Thermal
 from atlas.objects.equipment.wind import Wind
-from atlas.objects.market.market_area import MarketArea
-from atlas.objects.network_operator.control_block import ControlBlock
 from atlas.orchestrator.change_set import AddObject, UpdateObject
 
 
 class DayAheadOrdersOutput(AbstractModuleOutput[DayAheadOrdersParameters]):
     def __init__(self, input_dataset: DayAheadOrdersInputDataset):
         self.parameters: DayAheadOrdersParameters = input_dataset.parameters
-        self.control_block: list[ControlBlock] = input_dataset.control_block
-        self.market_area: list[MarketArea] = input_dataset.market_area
-        self.portfolio: list[PortfolioDAO] = input_dataset.portfolio
+
         self.other_non_dispatchable: list[OtherNonDispatchable] = input_dataset.other_non_dispatchable
 
         self.load: list[LoadDAO] = input_dataset.load
